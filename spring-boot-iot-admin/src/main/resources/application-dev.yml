@@ -9,12 +9,18 @@ spring:
           username: root
           password: mI8%pB1*gD
           driver-class-name: com.mysql.cj.jdbc.Driver
+        slave_1:
+          url: jdbc:TAOS-RS://8.130.107.120:6041/iot
+          username: root
+          password: Fc11QetNg4RX
+#          com.taosdata.jdbc.TSDBDriver
+          driver-class-name: com.taosdata.jdbc.rs.RestfulDriver
 
   data:
     redis:
       host: 8.130.107.120
       port: 6379
-      password:
+      password: 1QAZ2wsx___
       database: 8
       timeout: 10s
 
