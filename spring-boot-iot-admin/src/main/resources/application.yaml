@@ -1,0 +1,141 @@
+server:
+  port: 9999
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: spring-boot-iot
+  profiles:
+    active: dev
+
+  main:
+    allow-circular-references: false
+    allow-bean-definition-overriding: true
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.ghlzm.iot.**.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+logging:
+  level:
+    root: info
+    com.ghlzm.iot: debug
+  file:
+    name: logs/spring-boot-iot.log
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+iot:
+  security:
+    jwt-secret: your-jwt-secret-key-change-me
+    token-expire-seconds: 7200
+    token-header: Authorization
+    token-prefix: Bearer
+
+  tenant:
+    enabled: true
+    default-tenant-id: 1
+
+#  id:
+#    worker-id: 1
+#    datacenter-id: 1
+
+#  mqtt:
+#    enabled: true
+#    broker-url: tcp://127.0.0.1:1883
+#    client-id: spring-boot-iot-server
+#    username: admin
+#    password: public
+#    qos: 1
+#    clean-session: false
+#    connection-timeout: 10
+#    keep-alive-interval: 30
+#    default-subscribe-topics:
+#      - /sys/+/+/thing/property/post
+#      - /sys/+/+/thing/event/post
+#      - /sys/+/+/thing/property/reply
+#      - /sys/+/+/thing/event/reply
+
+  tcp:
+    enabled: false
+    port: 18830
+    boss-threads: 1
+    worker-threads: 8
+    so-keepalive: true
+    so-backlog: 1024
+
+  protocol:
+    default-code: mqtt-json
+    timeout-millis: 5000
+    retry-times: 3
+
+#  telemetry:
+#    storage-type: mysql
+#    latest-cache-prefix: iot:telemetry:latest:
+#    ts-prefix: iot:telemetry:ts:
+
+  device:
+    online-timeout-seconds: 120
+    activate-default: true
+
+  message:
+    transport: direct
+    up-topic: iot.message.up
+    down-topic: iot.message.down
+    event-topic: iot.message.event
+
+  rule:
+    enabled: false
+    expression-engine: spel
+
+  alarm:
+    enabled: true
+    notify:
+      email-enabled: false
+      webhook-enabled: false
+
+  ota:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers
+  endpoint:
+    health:
+      show-details: always

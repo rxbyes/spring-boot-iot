@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: jdbc:mysql://8.130.107.120:3306/rm_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+          username: root
+          password: mI8%pB1*gD
+          driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: 8.130.107.120
+      port: 6379
+      password:
+      database: 8
+      timeout: 10s
+
+logging:
+  level:
+    root: info
+    com.ghlzm.iot: debug
+
+iot:
+  mqtt:
+    broker-url: tcp://mqtt.ghlqf.com:1883
+    username: emqx
+    password: 1qaz2wsx
+
+  telemetry:
+    storage-type: mysql
+
+  rule:
+    enabled: false
+
+  ota:
+    enabled: false

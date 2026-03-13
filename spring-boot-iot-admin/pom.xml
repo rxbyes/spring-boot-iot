@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.ghlzm.iot</groupId>
+        <artifactId>spring-boot-iot</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>spring-boot-iot-admin</artifactId>
+    <name>spring-boot-iot-admin</name>
+    <description>spring-boot-iot-admin</description>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-common</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-framework</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-auth</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-system</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-device</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-gateway</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-protocol</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-message</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-rule</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-telemetry</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-alarm</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-ota</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-job</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+
+        <!-- 如果你准备用 PostgreSQL，就保留；只用 MySQL 可删掉 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.ghlzm.iot.IotAdminApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
