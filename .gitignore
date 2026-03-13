@@ -2,3 +2,6 @@
 /*/target/
 /.idea/
 /*/logs/
+/spring-boot-iot-admin/logs/
+
+/spring-boot-iot-common/*.swp
