@@ -18,6 +18,12 @@
             <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-common</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-framework</artifactId>
