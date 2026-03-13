@@ -2,11 +2,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.ghlzm.iot</groupId>
         <artifactId>spring-boot-iot</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
+
     <artifactId>spring-boot-iot-admin</artifactId>
     <name>spring-boot-iot-admin</name>
     <description>spring-boot-iot-admin</description>
@@ -75,16 +77,10 @@
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
-        <!-- 如果你准备用 PostgreSQL，就保留；只用 MySQL 可删掉 -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-actuator</artifactId>-->
+<!--        </dependency>-->
     </dependencies>
 
     <build>
