@@ -19,22 +19,27 @@
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-common</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-framework</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-auth</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-system</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-device</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-gateway</artifactId>
@@ -43,30 +48,37 @@
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-protocol</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-message</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-rule</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-telemetry</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-alarm</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-ota</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-job</artifactId>
         </dependency>
+
         <dependency>
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-api</artifactId>
@@ -77,10 +89,10 @@
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-actuator</artifactId>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -89,7 +101,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.ghlzm.iot.IotAdminApplication</mainClass>
+                    <mainClass>com.ghlzm.iot.admin.IotAdminApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>
