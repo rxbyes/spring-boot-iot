@@ -34,6 +34,11 @@ public class RawDeviceMessage {
     private String deviceCode;
 
     /**
+     * 接入层已判定出的统一消息类型，例如 property / event / reply / status。
+     */
+    private String messageType;
+
+    /**
      * 原始topic，HTTP可为空
      */
     private String topic;

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 上行消息分发器。
@@ -44,8 +46,10 @@ public class UpMessageDispatcher {
         context.setTenantCode(rawMessage.getTenantId());
         context.setProductKey(rawMessage.getProductKey());
         context.setDeviceCode(rawMessage.getDeviceCode());
+        context.setMessageType(rawMessage.getMessageType());
         context.setTopic(rawMessage.getTopic());
         context.setClientId(rawMessage.getClientId());
+        context.setMetadata(buildMetadata(rawMessage));
 
         DeviceUpMessage upMessage = adapter.decode(rawMessage.getPayload(), context);
         if (upMessage == null) {
@@ -62,6 +66,9 @@ public class UpMessageDispatcher {
         if (upMessage.getDeviceCode() == null || upMessage.getDeviceCode().isBlank()) {
             upMessage.setDeviceCode(rawMessage.getDeviceCode());
         }
+        if (upMessage.getMessageType() == null || upMessage.getMessageType().isBlank()) {
+            upMessage.setMessageType(rawMessage.getMessageType());
+        }
         if (upMessage.getRawPayload() == null || upMessage.getRawPayload().isBlank()) {
             upMessage.setRawPayload(new String(rawMessage.getPayload(), StandardCharsets.UTF_8));
         }
@@ -73,5 +80,13 @@ public class UpMessageDispatcher {
 
         // 分发完成后交给 device 模块处理落库、属性更新和在线状态刷新。
         deviceMessageService.handleUpMessage(upMessage);
+    }
+
+    private Map<String, Object> buildMetadata(RawDeviceMessage rawMessage) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("messageType", rawMessage.getMessageType());
+        metadata.put("topic", rawMessage.getTopic());
+        metadata.put("clientId", rawMessage.getClientId());
+        return metadata;
     }
 }

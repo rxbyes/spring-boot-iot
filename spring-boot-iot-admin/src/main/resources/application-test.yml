@@ -25,7 +25,9 @@ logging:
 
 iot:
   mqtt:
+    enabled: ${IOT_MQTT_ENABLED:false}
     broker-url: ${IOT_MQTT_BROKER_URL:tcp://127.0.0.1:1883}
+    client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:public}
 

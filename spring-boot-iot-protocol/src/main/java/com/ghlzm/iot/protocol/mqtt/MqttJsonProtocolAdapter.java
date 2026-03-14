@@ -46,7 +46,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             message.setTenantId(context.getTenantCode());
             message.setProductKey(context.getProductKey());
             message.setDeviceCode(context.getDeviceCode());
-            message.setMessageType(String.valueOf(map.getOrDefault("messageType", "property")));
+            // MQTT 场景优先使用 topic 解析出的 messageType，payload 中的 messageType 作为回退信息。
+            String payloadMessageType = stringValue(map.get("messageType"));
+            message.setMessageType(resolveMessageType(context, payloadMessageType));
             message.setTopic(context.getTopic());
 
             Object props = map.get("properties");
@@ -74,5 +76,19 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         } catch (Exception e) {
             throw new BizException("MQTT JSON 协议编码失败");
         }
+    }
+
+    private String resolveMessageType(ProtocolContext context, String payloadMessageType) {
+        if (context.getMessageType() != null && !context.getMessageType().isBlank()) {
+            return context.getMessageType();
+        }
+        if (payloadMessageType != null && !payloadMessageType.isBlank()) {
+            return payloadMessageType;
+        }
+        return "property";
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }

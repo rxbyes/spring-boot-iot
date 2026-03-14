@@ -22,6 +22,7 @@ public class ProtocolContext {
 
     private String productKey;
     private String deviceCode;
+    private String messageType;
     private String topic;
     private String clientId;
 
