@@ -2,6 +2,8 @@ import { request } from './http';
 import type {
   Device,
   DeviceAddPayload,
+  DeviceFileSnapshot,
+  DeviceFirmwareAggregate,
   DeviceMessageLog,
   DeviceProperty,
   HttpReportPayload,
@@ -48,4 +50,12 @@ export function getDeviceProperties(deviceCode: string) {
 
 export function getDeviceMessageLogs(deviceCode: string) {
   return request<DeviceMessageLog[]>(`/device/${deviceCode}/message-logs`);
+}
+
+export function getDeviceFileSnapshots(deviceCode: string) {
+  return request<DeviceFileSnapshot[]>(`/device/${deviceCode}/file-snapshots`);
+}
+
+export function getDeviceFirmwareAggregates(deviceCode: string) {
+  return request<DeviceFirmwareAggregate[]>(`/device/${deviceCode}/firmware-aggregates`);
 }

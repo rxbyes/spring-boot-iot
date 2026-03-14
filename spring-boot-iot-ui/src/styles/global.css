@@ -200,6 +200,12 @@ textarea {
   display: block;
 }
 
+.info-chip strong,
+th,
+td {
+  font-variant-numeric: tabular-nums;
+}
+
 .info-chip span {
   color: var(--text-tertiary);
   font-size: 0.8rem;
@@ -292,6 +298,7 @@ tbody tr:hover {
   margin: 0;
   max-width: 48rem;
   line-height: 1.8;
+  text-wrap: pretty;
 }
 
 .hero-panel {

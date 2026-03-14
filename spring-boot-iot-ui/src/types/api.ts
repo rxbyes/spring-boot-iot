@@ -62,6 +62,45 @@ export interface DeviceMessageLog {
   createTime?: string | null;
 }
 
+export interface DeviceFileSnapshot {
+  transferId: string;
+  deviceCode: string;
+  productId?: number | null;
+  messageType?: string | null;
+  dataSetId?: string | null;
+  fileType?: string | null;
+  description?: string | null;
+  timestamp?: string | null;
+  binaryLength?: number | null;
+  binaryBase64?: string | null;
+  descriptor?: Record<string, unknown> | null;
+  completed?: boolean | null;
+  updatedTime?: string | null;
+}
+
+export interface DeviceFirmwareAggregate {
+  transferId: string;
+  deviceCode: string;
+  productId?: number | null;
+  messageType?: string | null;
+  dataSetId?: string | null;
+  fileType?: string | null;
+  description?: string | null;
+  timestamp?: string | null;
+  binaryLength?: number | null;
+  totalPackets?: number | null;
+  receivedPacketCount?: number | null;
+  receivedPacketIndexes?: number[] | null;
+  firmwareMd5?: string | null;
+  calculatedMd5?: string | null;
+  md5Matched?: boolean | null;
+  completed?: boolean | null;
+  assembledBase64?: string | null;
+  assembledLength?: number | null;
+  descriptor?: Record<string, unknown> | null;
+  updatedTime?: string | null;
+}
+
 export interface ProductAddPayload {
   productKey: string;
   productName: string;

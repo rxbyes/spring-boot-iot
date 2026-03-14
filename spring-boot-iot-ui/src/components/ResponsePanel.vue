@@ -1,9 +1,9 @@
 <template>
   <PanelCard :eyebrow="eyebrow" :title="title" :description="description">
     <template #actions>
-      <button class="ghost-button" type="button" @click="copyToClipboard">
+      <el-button text type="primary" @click="copyToClipboard">
         复制 JSON
-      </button>
+      </el-button>
     </template>
     <pre class="response-panel" aria-live="polite">{{ formatted }}</pre>
   </PanelCard>
@@ -32,14 +32,6 @@ async function copyToClipboard() {
 </script>
 
 <style scoped>
-.ghost-button {
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--panel-border-strong);
-  border-radius: 999px;
-  background: rgba(8, 13, 26, 0.9);
-  color: var(--text-secondary);
-}
-
 .response-panel {
   margin: 0;
   padding: 1rem;

@@ -13,7 +13,15 @@
 - 设备工作台
 - HTTP 上报实验台
 - 设备洞察
+- 文件调试台
 - 未来实验室
+
+## 已完成增强
+- 增加类似 `vue-element-admin` 的最近访问标签视图
+- 已接入 `Element Plus` 作为真实组件体系，核心表单、表格、描述面板和消息提示已切换
+- 设备洞察页支持基于 `ECharts` 的数值属性趋势图
+- 关键异步响应区域增加 `aria-live` 提示
+- 设备洞察页的 `deviceCode` 会同步到 URL 查询参数
 
 ## 启动
 1. 安装依赖：`npm install`
@@ -29,5 +37,5 @@
 - [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
 
 ## 环境说明
-- 当前 `package.json` 采用 Vue 3 + Vite 新版本组合
-- 若本机 Node 版本过低，需要先升级 Node 再安装依赖
+- 当前 `package.json` 已包含 Vue 3、Element Plus、ECharts 和 Vite 新版本组合
+- 若本机 Node 版本过低，需要先升级到 Node 20.19+ 再安装依赖

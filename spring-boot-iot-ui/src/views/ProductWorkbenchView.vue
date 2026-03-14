@@ -9,42 +9,60 @@
         <form class="form-grid" @submit.prevent="handleCreateProduct">
           <div class="field-group">
             <label for="product-key">产品 Key</label>
-            <input id="product-key" v-model="productForm.productKey" autocomplete="off" required />
+            <el-input
+              id="product-key"
+              v-model="productForm.productKey"
+              name="product_key"
+              placeholder="例如 demo-product..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="product-name">产品名称</label>
-            <input id="product-name" v-model="productForm.productName" autocomplete="off" required />
+            <el-input
+              id="product-name"
+              v-model="productForm.productName"
+              name="product_name"
+              placeholder="例如 演示产品..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="protocol-code">协议编码</label>
-            <input id="protocol-code" v-model="productForm.protocolCode" autocomplete="off" required />
+            <el-input
+              id="protocol-code"
+              v-model="productForm.protocolCode"
+              name="protocol_code"
+              placeholder="例如 mqtt-json..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="node-type">节点类型</label>
-            <select id="node-type" v-model.number="productForm.nodeType">
-              <option :value="1">1 - 直连设备</option>
-              <option :value="2">2 - 网关设备</option>
-            </select>
+            <el-select id="node-type" v-model="productForm.nodeType">
+              <el-option :value="1" label="1 - 直连设备" />
+              <el-option :value="2" label="2 - 网关设备" />
+            </el-select>
           </div>
           <div class="field-group">
             <label for="data-format">数据格式</label>
-            <input id="data-format" v-model="productForm.dataFormat" autocomplete="off" />
+            <el-input id="data-format" v-model="productForm.dataFormat" name="data_format" placeholder="例如 JSON..." clearable />
           </div>
           <div class="field-group">
             <label for="manufacturer">厂商</label>
-            <input id="manufacturer" v-model="productForm.manufacturer" autocomplete="off" />
+            <el-input id="manufacturer" v-model="productForm.manufacturer" name="manufacturer" placeholder="例如 Codex..." clearable />
           </div>
           <div class="field-group" style="grid-column: 1 / -1;">
             <label for="description">说明</label>
-            <textarea id="description" v-model="productForm.description" />
+            <el-input id="description" v-model="productForm.description" type="textarea" :rows="5" />
           </div>
           <div class="button-row" style="grid-column: 1 / -1;">
-            <button class="primary-button" type="submit" :disabled="isCreating">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
               {{ isCreating ? '创建中...' : '提交产品' }}
-            </button>
-            <button class="secondary-button" type="button" @click="resetForm">
+            </el-button>
+            <el-button class="secondary-button" @click="resetForm">
               恢复演示数据
-            </button>
+            </el-button>
           </div>
         </form>
       </PanelCard>
@@ -58,13 +76,13 @@
           <div class="form-grid">
             <div class="field-group">
               <label for="query-product-id">产品 ID</label>
-              <input id="query-product-id" v-model="queryId" inputmode="numeric" />
+              <el-input id="query-product-id" v-model="queryId" name="query_product_id" inputmode="numeric" placeholder="例如 2001..." clearable />
             </div>
           </div>
           <div class="button-row" style="margin-top: 1rem;">
-            <button class="primary-button" type="submit" :disabled="isQuerying">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isQuerying">
               {{ isQuerying ? '查询中...' : '查询产品' }}
-            </button>
+            </el-button>
           </div>
         </form>
 
@@ -89,7 +107,7 @@
       </PanelCard>
     </section>
 
-    <div v-if="errorMessage" class="empty-state">{{ errorMessage }}</div>
+    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
 
     <section class="two-column-grid">
       <ResponsePanel
@@ -110,6 +128,7 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
+import { ElMessage } from 'element-plus';
 
 import { addProduct, getProductById } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
@@ -153,6 +172,7 @@ async function handleCreateProduct() {
     if (response.data?.id) {
       queryId.value = String(response.data.id);
     }
+    ElMessage.success(`产品 ${response.data.productKey} 创建成功`);
     recordActivity({
       module: '产品工作台',
       action: '新增产品',
@@ -164,6 +184,7 @@ async function handleCreateProduct() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '产品工作台',
       action: '新增产品',
@@ -186,6 +207,7 @@ async function handleQueryProduct() {
     const response = await getProductById(queryId.value);
     queryProduct.value = response.data;
     lastResponse.value = response;
+    ElMessage.success(`已查询到产品 ${response.data.productKey}`);
     recordActivity({
       module: '产品工作台',
       action: '查询产品',
@@ -197,6 +219,7 @@ async function handleQueryProduct() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '产品工作台',
       action: '查询产品',

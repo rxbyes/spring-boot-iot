@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.service.DeviceFilePayloadListener;
 import com.ghlzm.iot.device.service.DeviceFileService;
+import com.ghlzm.iot.device.vo.DeviceFileSnapshotVO;
+import com.ghlzm.iot.device.vo.DeviceFirmwareAggregateVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
 import com.ghlzm.iot.protocol.core.model.DeviceFirmwarePacket;
@@ -25,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 设备文件消息服务最小实现。
@@ -65,8 +68,54 @@ public class DeviceFileServiceImpl implements DeviceFileService {
         notifyListeners(device, upMessage);
     }
 
+    @Override
+    public List<DeviceFileSnapshotVO> listFileSnapshots(String deviceCode) {
+        if (!hasText(deviceCode)) {
+            return List.of();
+        }
+        return listByPattern(FILE_KEY_PREFIX + deviceCode + ":*", DeviceFileSnapshotVO.class);
+    }
+
+    @Override
+    public List<DeviceFirmwareAggregateVO> listFirmwareAggregates(String deviceCode) {
+        if (!hasText(deviceCode)) {
+            return List.of();
+        }
+        List<FirmwareAggregateRecord> records = listByPattern(FIRMWARE_KEY_PREFIX + deviceCode + ":*", FirmwareAggregateRecord.class);
+        List<DeviceFirmwareAggregateVO> aggregates = new ArrayList<>(records.size());
+        for (FirmwareAggregateRecord record : records) {
+            DeviceFirmwareAggregateVO aggregate = new DeviceFirmwareAggregateVO();
+            aggregate.setTransferId(record.getTransferId());
+            aggregate.setDeviceCode(record.getDeviceCode());
+            aggregate.setProductId(record.getProductId());
+            aggregate.setMessageType(record.getMessageType());
+            aggregate.setDataSetId(record.getDataSetId());
+            aggregate.setFileType(record.getFileType());
+            aggregate.setDescription(record.getDescription());
+            aggregate.setTimestamp(record.getTimestamp());
+            aggregate.setBinaryLength(record.getBinaryLength());
+            aggregate.setTotalPackets(record.getTotalPackets());
+            aggregate.setReceivedPacketCount(record.getReceivedPacketCount());
+            aggregate.setFirmwareMd5(record.getFirmwareMd5());
+            aggregate.setCalculatedMd5(record.getCalculatedMd5());
+            aggregate.setMd5Matched(record.getMd5Matched());
+            aggregate.setCompleted(record.getCompleted());
+            aggregate.setAssembledBase64(record.getAssembledBase64());
+            aggregate.setAssembledLength(record.getAssembledLength());
+            aggregate.setDescriptor(record.getDescriptor());
+            aggregate.setUpdatedTime(record.getUpdatedTime());
+
+            List<Integer> indexes = new ArrayList<>(record.getPackets().keySet());
+            indexes.sort(Comparator.naturalOrder());
+            aggregate.setReceivedPacketIndexes(indexes);
+            aggregates.add(aggregate);
+        }
+        return aggregates;
+    }
+
     private void saveGenericFileSnapshot(Device device, DeviceUpMessage upMessage, DeviceFilePayload filePayload) {
-        FilePayloadSnapshot snapshot = new FilePayloadSnapshot();
+        DeviceFileSnapshotVO snapshot = new DeviceFileSnapshotVO();
+        snapshot.setTransferId(resolveTransferId(filePayload));
         snapshot.setDeviceCode(device.getDeviceCode());
         snapshot.setProductId(device.getProductId());
         snapshot.setMessageType(upMessage.getMessageType());
@@ -85,9 +134,10 @@ public class DeviceFileServiceImpl implements DeviceFileService {
 
     private void saveFirmwarePacket(Device device, DeviceUpMessage upMessage, DeviceFilePayload filePayload) {
         String redisKey = buildFirmwareKey(device.getDeviceCode(), filePayload);
-        FirmwareAggregate aggregate = readJson(redisKey, FirmwareAggregate.class);
+        FirmwareAggregateRecord aggregate = readJson(redisKey, FirmwareAggregateRecord.class);
         if (aggregate == null) {
-            aggregate = new FirmwareAggregate();
+            aggregate = new FirmwareAggregateRecord();
+            aggregate.setTransferId(resolveTransferId(filePayload));
             aggregate.setDeviceCode(device.getDeviceCode());
             aggregate.setProductId(device.getProductId());
             aggregate.setDataSetId(filePayload.getDataSetId());
@@ -116,6 +166,7 @@ public class DeviceFileServiceImpl implements DeviceFileService {
         List<Integer> indexes = new ArrayList<>(aggregate.getPackets().keySet());
         indexes.sort(Comparator.naturalOrder());
         aggregate.setReceivedPacketCount(indexes.size());
+        aggregate.setReceivedPacketIndexes(indexes);
         aggregate.setCompleted(aggregate.getTotalPackets() != null && indexes.size() >= aggregate.getTotalPackets());
 
         if (Boolean.TRUE.equals(aggregate.getCompleted())) {
@@ -231,6 +282,51 @@ public class DeviceFileServiceImpl implements DeviceFileService {
         }
     }
 
+    private <T> List<T> listByPattern(String pattern, Class<T> type) {
+        Set<String> keys;
+        try {
+            keys = stringRedisTemplate.keys(pattern);
+        } catch (Exception ex) {
+            return List.of();
+        }
+        if (keys == null || keys.isEmpty()) {
+            return List.of();
+        }
+
+        List<T> result = new ArrayList<>();
+        for (String key : keys) {
+            T current = readJson(key, type);
+            if (current != null) {
+                result.add(current);
+            }
+        }
+        result.sort((left, right) -> {
+            LocalDateTime leftTime = extractUpdatedTime(left);
+            LocalDateTime rightTime = extractUpdatedTime(right);
+            if (leftTime == null && rightTime == null) {
+                return 0;
+            }
+            if (leftTime == null) {
+                return 1;
+            }
+            if (rightTime == null) {
+                return -1;
+            }
+            return rightTime.compareTo(leftTime);
+        });
+        return result;
+    }
+
+    private LocalDateTime extractUpdatedTime(Object value) {
+        if (value instanceof DeviceFileSnapshotVO snapshot) {
+            return snapshot.getUpdatedTime();
+        }
+        if (value instanceof DeviceFirmwareAggregateVO aggregate) {
+            return aggregate.getUpdatedTime();
+        }
+        return null;
+    }
+
     private String encode(byte[] bytes) {
         return bytes == null ? null : Base64.getEncoder().encodeToString(bytes);
     }
@@ -244,41 +340,7 @@ public class DeviceFileServiceImpl implements DeviceFileService {
     }
 
     @Data
-    public static class FilePayloadSnapshot {
-        private String deviceCode;
-        private Long productId;
-        private String messageType;
-        private String dataSetId;
-        private String fileType;
-        private String description;
-        private LocalDateTime timestamp;
-        private Integer binaryLength;
-        private String binaryBase64;
-        private Map<String, Object> descriptor;
-        private Boolean completed;
-        private LocalDateTime updatedTime;
-    }
-
-    @Data
-    public static class FirmwareAggregate {
-        private String deviceCode;
-        private Long productId;
-        private String messageType;
-        private String dataSetId;
-        private String fileType;
-        private String description;
-        private LocalDateTime timestamp;
-        private Integer binaryLength;
-        private Integer totalPackets;
-        private Integer receivedPacketCount;
-        private String firmwareMd5;
-        private String calculatedMd5;
-        private Boolean md5Matched;
-        private Boolean completed;
-        private String assembledBase64;
-        private Integer assembledLength;
-        private Map<String, Object> descriptor;
-        private Map<Integer, String> packets;
-        private LocalDateTime updatedTime;
+    public static class FirmwareAggregateRecord extends com.ghlzm.iot.device.vo.DeviceFirmwareAggregateVO {
+        private Map<Integer, String> packets = new LinkedHashMap<>();
     }
 }

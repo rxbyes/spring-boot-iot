@@ -1,5 +1,5 @@
 <template>
-  <section class="panel-card">
+  <el-card shadow="never" class="panel-card">
     <header class="panel-card__header">
       <div>
         <p v-if="eyebrow" class="panel-card__eyebrow">{{ eyebrow }}</p>
@@ -11,7 +11,7 @@
     <div class="panel-card__content">
       <slot />
     </div>
-  </section>
+  </el-card>
 </template>
 
 <script setup lang="ts">
@@ -24,13 +24,14 @@ defineProps<{
 
 <style scoped>
 .panel-card {
-  padding: 1.2rem;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
   background:
     linear-gradient(180deg, rgba(10, 16, 34, 0.92), rgba(6, 10, 22, 0.88)),
     radial-gradient(circle at top left, rgba(42, 185, 255, 0.12), transparent 40%);
-  box-shadow: var(--shadow-panel);
+}
+
+.panel-card :deep(.el-card__body) {
+  padding: 1.2rem;
 }
 
 .panel-card__header {

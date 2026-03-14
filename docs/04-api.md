@@ -150,6 +150,41 @@
 }
 ```
 
+## 文件调试接口
+
+### 查询设备文件快照
+`GET /device/{deviceCode}/file-snapshots`
+
+说明：
+- 用于查看表 C.3 文件类消息在 Redis 中的最小持久化结果
+- 当前返回文件描述、文件长度、Base64 文件流和更新时间
+
+### 查询设备固件聚合结果
+`GET /device/{deviceCode}/firmware-aggregates`
+
+说明：
+- 用于查看表 C.4 固件分包在 Redis 中的聚合状态
+- 当前返回分包数量、已接收分包索引、重组结果、MD5 校验结果
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "transferId": "0-2-1024",
+      "deviceCode": "demo-device-01",
+      "dataSetId": "ota-firmware",
+      "fileType": "bin",
+      "receivedPacketCount": 2,
+      "totalPackets": 2,
+      "md5Matched": true
+    }
+  ]
+}
+```
+
 ## 典型错误返回
 
 ### 非法协议编码

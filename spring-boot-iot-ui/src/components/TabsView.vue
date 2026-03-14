@@ -1,23 +1,24 @@
 <template>
   <div class="tabs-view" aria-label="最近访问标签">
-    <RouterLink
+    <div
       v-for="tab in tabs"
       :key="tab.path"
-      :to="tab.path"
       class="tabs-view__item"
-      :class="{ 'tabs-view__item--active': route.fullPath === tab.path }"
+      :class="{ 'tabs-view__item--active': route.path === tab.path }"
     >
-      <span class="tabs-view__title">{{ tab.title }}</span>
+      <RouterLink :to="tab.path" class="tabs-view__link">
+        <span class="tabs-view__title">{{ tab.title }}</span>
+      </RouterLink>
       <button
         v-if="tabs.length > 1"
         class="tabs-view__close"
         type="button"
         :aria-label="`关闭 ${tab.title}`"
-        @click.prevent="handleClose(tab.path)"
+        @click="handleClose(tab.path)"
       >
         ×
       </button>
-    </RouterLink>
+    </div>
   </div>
 </template>
 
@@ -31,7 +32,7 @@ const router = useRouter();
 const tabs = visitedTabs;
 
 function handleClose(path: string) {
-  const isActive = route.fullPath === path;
+  const isActive = route.path === path;
   closeVisitedTab(path);
 
   if (isActive && tabs.value.length) {
@@ -51,20 +52,30 @@ function handleClose(path: string) {
 .tabs-view__item {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.35rem;
   min-height: 2.6rem;
-  padding: 0.25rem 0.35rem 0.25rem 0.9rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.4rem;
   border-radius: 999px;
   border: 1px solid var(--panel-border);
   background: rgba(8, 13, 26, 0.82);
-  color: var(--text-secondary);
-  text-decoration: none;
 }
 
 .tabs-view__item--active {
   border-color: var(--panel-border-strong);
-  color: var(--text-primary);
   background: rgba(12, 22, 42, 0.95);
+}
+
+.tabs-view__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tabs-view__item--active .tabs-view__link {
+  color: var(--text-primary);
 }
 
 .tabs-view__title {
@@ -80,12 +91,13 @@ function handleClose(path: string) {
   border-radius: 50%;
   border: 1px solid transparent;
   background: transparent;
-  color: inherit;
+  color: var(--text-secondary);
 }
 
 .tabs-view__close:hover,
 .tabs-view__close:focus-visible {
   border-color: var(--panel-border-strong);
   background: rgba(57, 241, 255, 0.1);
+  color: var(--text-primary);
 }
 </style>

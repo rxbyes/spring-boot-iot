@@ -125,6 +125,7 @@ spring-boot-iot
 - 设备工作台
 - HTTP 上报实验台
 - 设备洞察
+- 文件调试台
 - 未来实验室
 
 启动方式：
@@ -135,7 +136,9 @@ spring-boot-iot
 说明：
 - 默认通过 Vite 代理访问 `http://localhost:9999`
 - 可通过 `spring-boot-iot-ui/.env.example` 中的 `VITE_API_BASE_URL` 和 `VITE_PROXY_TARGET` 调整联调方式
+- 当前前端已经接入 `Element Plus` 和 `ECharts`
 - 当前页面已为图表、数字孪生、拓扑等二期功能预留入口
+- 若本机仍是 Node 12，需要先升级到 Node 20.19+ 再安装依赖和构建
 
 ## 已知说明
 - `DeviceHttpReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行

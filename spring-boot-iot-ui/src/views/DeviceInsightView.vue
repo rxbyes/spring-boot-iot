@@ -10,42 +10,34 @@
           <div class="form-grid">
             <div class="field-group">
               <label for="insight-device-code">设备编码</label>
-              <input id="insight-device-code" v-model="deviceCode" autocomplete="off" required />
+              <el-input
+                id="insight-device-code"
+                v-model="deviceCode"
+                name="insight_device_code"
+                placeholder="例如 demo-device-01..."
+                clearable
+              />
             </div>
           </div>
           <div class="button-row" style="margin-top: 1rem;">
-            <button class="primary-button" type="submit" :disabled="isLoading">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
               {{ isLoading ? '加载中...' : '刷新设备洞察' }}
-            </button>
+            </el-button>
           </div>
         </form>
 
-        <div v-if="device" class="info-grid" style="margin-top: 1rem;">
-          <div class="info-chip">
-            <span>设备名称</span>
-            <strong>{{ device.deviceName }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>在线状态</span>
-            <strong>{{ statusLabel(device.onlineStatus) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近在线时间</span>
-            <strong>{{ formatDateTime(device.lastOnlineTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近上报时间</span>
-            <strong>{{ formatDateTime(device.lastReportTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>固件版本</span>
-            <strong>{{ device.firmwareVersion || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>部署位置</span>
-            <strong>{{ device.address || '--' }}</strong>
-          </div>
-        </div>
+        <el-descriptions v-if="device" :column="2" border style="margin-top: 1rem;">
+          <el-descriptions-item label="设备名称">{{ device.deviceName }}</el-descriptions-item>
+          <el-descriptions-item label="在线状态">
+            <el-tag :type="device.onlineStatus === 1 ? 'success' : 'info'">
+              {{ statusLabel(device.onlineStatus) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="最近在线时间">{{ formatDateTime(device.lastOnlineTime) }}</el-descriptions-item>
+          <el-descriptions-item label="最近上报时间">{{ formatDateTime(device.lastReportTime) }}</el-descriptions-item>
+          <el-descriptions-item label="固件版本">{{ device.firmwareVersion || '--' }}</el-descriptions-item>
+          <el-descriptions-item label="部署位置">{{ device.address || '--' }}</el-descriptions-item>
+        </el-descriptions>
       </PanelCard>
 
       <PanelCard
@@ -74,7 +66,9 @@
       </PanelCard>
     </section>
 
-    <div v-if="errorMessage" class="empty-state">{{ errorMessage }}</div>
+    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
+
+    <PropertyTrendPanel :logs="logs" />
 
     <section class="two-column-grid">
       <PanelCard
@@ -82,29 +76,22 @@
         title="设备属性快照"
         description="来自 `GET /device/{deviceCode}/properties`，是图表与设备卡片最直接的渲染数据源。"
       >
-        <div v-if="properties.length" class="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>标识符</th>
-                <th>属性名</th>
-                <th>值</th>
-                <th>类型</th>
-                <th>更新时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in properties" :key="item.id">
-                <td>{{ item.identifier }}</td>
-                <td>{{ item.propertyName || '--' }}</td>
-                <td>{{ item.propertyValue || '--' }}</td>
-                <td>{{ item.valueType || '--' }}</td>
-                <td>{{ formatDateTime(item.updateTime || item.reportTime) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else class="empty-state">还没有属性数据。先去“HTTP 上报实验台”发送一条属性报文。</div>
+        <el-table v-if="properties.length" :data="properties" stripe>
+          <el-table-column prop="identifier" label="标识符" min-width="140" />
+          <el-table-column prop="propertyName" label="属性名" min-width="140">
+            <template #default="{ row }">{{ row.propertyName || '--' }}</template>
+          </el-table-column>
+          <el-table-column prop="propertyValue" label="值" min-width="120">
+            <template #default="{ row }">{{ row.propertyValue || '--' }}</template>
+          </el-table-column>
+          <el-table-column prop="valueType" label="类型" min-width="100">
+            <template #default="{ row }">{{ row.valueType || '--' }}</template>
+          </el-table-column>
+          <el-table-column label="更新时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.updateTime || row.reportTime) }}</template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-else description="还没有属性数据。先去“HTTP 上报实验台”发送一条属性报文。" />
       </PanelCard>
 
       <PanelCard
@@ -120,28 +107,55 @@
             <p>{{ formatDateTime(item.reportTime || item.createTime) }}</p>
           </article>
         </div>
-        <div v-else class="empty-state">还没有日志数据。发送报文后再回来刷新即可。</div>
+        <el-empty v-else description="还没有日志数据。发送报文后再回来刷新即可。" />
       </PanelCard>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 
 import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
+import PropertyTrendPanel from '../components/PropertyTrendPanel.vue';
 import { recordActivity } from '../stores/activity';
 import type { Device, DeviceMessageLog, DeviceProperty } from '../types/api';
 import { formatDateTime, statusLabel, truncateText } from '../utils/format';
 
-const deviceCode = ref('demo-device-01');
+const route = useRoute();
+const router = useRouter();
+const deviceCode = ref(typeof route.query.deviceCode === 'string' ? route.query.deviceCode : 'demo-device-01');
 const isLoading = ref(false);
 const errorMessage = ref('');
 const lastFetchTime = ref<string | null>(null);
 const device = ref<Device | null>(null);
 const properties = ref<DeviceProperty[]>([]);
 const logs = ref<DeviceMessageLog[]>([]);
+
+watch(deviceCode, (value) => {
+  router.replace({
+    query: {
+      ...route.query,
+      deviceCode: value
+    }
+  });
+});
+
+watch(
+  () => route.query.deviceCode,
+  (value) => {
+    if (typeof value === 'string' && value !== deviceCode.value) {
+      deviceCode.value = value;
+    }
+  }
+);
+
+onMounted(() => {
+  refreshAll();
+});
 
 async function refreshAll() {
   isLoading.value = true;
@@ -158,6 +172,7 @@ async function refreshAll() {
     properties.value = propertyResponse.data;
     logs.value = logResponse.data;
     lastFetchTime.value = new Date().toISOString();
+    ElMessage.success(`设备 ${deviceCode.value} 洞察刷新成功`);
 
     recordActivity({
       module: '设备洞察',
@@ -173,6 +188,7 @@ async function refreshAll() {
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '设备洞察',
       action: '刷新洞察',

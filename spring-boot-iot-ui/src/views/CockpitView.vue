@@ -9,12 +9,15 @@
           的后台工作台结构，视觉上则强化工业感、协议感和实时联调氛围。
         </p>
         <div class="button-row" style="margin-top: 1.25rem;">
-          <button class="primary-button" type="button" @click="router.push('/reporting')">
+          <el-button class="primary-button" type="primary" @click="router.push('/reporting')">
             进入上报实验台
-          </button>
-          <button class="secondary-button" type="button" @click="router.push('/insight')">
+          </el-button>
+          <el-button class="secondary-button" @click="router.push('/insight')">
             查看设备洞察
-          </button>
+          </el-button>
+          <el-button class="ghost-button" @click="router.push('/file-debug')">
+            查看文件调试台
+          </el-button>
         </div>
       </div>
 
@@ -117,8 +120,8 @@ const northStar = [
 const metrics = [
   {
     label: '已接入接口',
-    value: '8',
-    hint: '对齐 docs/04-api.md 中 Phase 1 已验证接口。',
+    value: '10',
+    hint: '在原有 8 个接口基础上，新增文件快照与固件聚合调试接口。',
     badge: { label: 'Phase 1', tone: 'success' as const }
   },
   {
@@ -135,8 +138,8 @@ const metrics = [
   },
   {
     label: '前瞻入口',
-    value: '6',
-    hint: '图表、孪生、拓扑、规则、告警、OTA 已预留入口。',
+    value: '7',
+    hint: '图表、孪生、拓扑、规则、告警、OTA 与文件调试入口已预留。',
     badge: { label: 'Future', tone: 'brand' as const }
   }
 ];
@@ -148,6 +151,8 @@ const messageFlow = [
   { index: '04', title: 'MqttJsonProtocolAdapter', description: '执行 mqtt-json 解码和标准化。' },
   { index: '05', title: 'DeviceMessageServiceImpl', description: '写消息日志、最新属性和在线状态。' },
   { index: '06', title: 'Query APIs', description: '再由属性与日志查询接口回看结果。' }
+  ,
+  { index: '07', title: 'File Debug APIs', description: '通过 Redis 文件快照与固件聚合接口回看 C.3 / C.4 消费结果。' }
 ];
 
 const futureFeatures = [

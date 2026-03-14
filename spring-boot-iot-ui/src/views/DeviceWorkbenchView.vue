@@ -9,55 +9,55 @@
         <form class="form-grid" @submit.prevent="handleCreateDevice">
           <div class="field-group">
             <label for="device-product-key">产品 Key</label>
-            <input id="device-product-key" v-model="deviceForm.productKey" autocomplete="off" required />
+            <el-input id="device-product-key" v-model="deviceForm.productKey" name="device_product_key" autocomplete="off" spellcheck="false" placeholder="例如 demo-product..." clearable />
           </div>
           <div class="field-group">
             <label for="device-name">设备名称</label>
-            <input id="device-name" v-model="deviceForm.deviceName" autocomplete="off" required />
+            <el-input id="device-name" v-model="deviceForm.deviceName" name="device_name" placeholder="例如 演示设备-01..." clearable />
           </div>
           <div class="field-group">
             <label for="device-code">设备编码</label>
-            <input id="device-code" v-model="deviceForm.deviceCode" autocomplete="off" required />
+            <el-input id="device-code" v-model="deviceForm.deviceCode" name="device_code" autocomplete="off" spellcheck="false" placeholder="例如 demo-device-01..." clearable />
           </div>
           <div class="field-group">
             <label for="device-secret">设备密钥</label>
-            <input id="device-secret" v-model="deviceForm.deviceSecret" type="password" autocomplete="off" />
+            <el-input id="device-secret" v-model="deviceForm.deviceSecret" type="password" show-password autocomplete="off" />
           </div>
           <div class="field-group">
             <label for="client-id">客户端 ID</label>
-            <input id="client-id" v-model="deviceForm.clientId" autocomplete="off" />
+            <el-input id="client-id" v-model="deviceForm.clientId" name="client_id" autocomplete="off" spellcheck="false" clearable />
           </div>
           <div class="field-group">
             <label for="username">用户名</label>
-            <input id="username" v-model="deviceForm.username" autocomplete="off" />
+            <el-input id="username" v-model="deviceForm.username" name="username" autocomplete="username" spellcheck="false" clearable />
           </div>
           <div class="field-group">
             <label for="password">密码</label>
-            <input id="password" v-model="deviceForm.password" type="password" autocomplete="off" />
+            <el-input id="password" v-model="deviceForm.password" type="password" show-password autocomplete="off" />
           </div>
           <div class="field-group">
             <label for="firmware">固件版本</label>
-            <input id="firmware" v-model="deviceForm.firmwareVersion" autocomplete="off" />
+            <el-input id="firmware" v-model="deviceForm.firmwareVersion" name="firmware_version" autocomplete="off" spellcheck="false" placeholder="例如 1.0.0..." clearable />
           </div>
           <div class="field-group">
             <label for="ip-address">IP 地址</label>
-            <input id="ip-address" v-model="deviceForm.ipAddress" autocomplete="off" />
+            <el-input id="ip-address" v-model="deviceForm.ipAddress" name="ip_address" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如 127.0.0.1..." clearable />
           </div>
           <div class="field-group">
             <label for="address">部署位置</label>
-            <input id="address" v-model="deviceForm.address" autocomplete="off" />
+            <el-input id="address" v-model="deviceForm.address" name="device_address" placeholder="例如 lab-a..." clearable />
           </div>
           <div class="field-group" style="grid-column: 1 / -1;">
             <label for="metadata">扩展元数据</label>
-            <textarea id="metadata" v-model="deviceForm.metadataJson" />
+            <el-input id="metadata" v-model="deviceForm.metadataJson" name="metadata_json" type="textarea" :rows="5" spellcheck="false" />
           </div>
           <div class="button-row" style="grid-column: 1 / -1;">
-            <button class="primary-button" type="submit" :disabled="isCreating">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
               {{ isCreating ? '创建设备中...' : '提交设备' }}
-            </button>
-            <button class="secondary-button" type="button" @click="resetForm">
+            </el-button>
+            <el-button class="secondary-button" @click="resetForm">
               恢复演示数据
-            </button>
+            </el-button>
           </div>
         </form>
       </PanelCard>
@@ -70,20 +70,20 @@
         <div class="form-grid">
           <div class="field-group">
             <label for="query-device-id">设备 ID</label>
-            <input id="query-device-id" v-model="queryId" inputmode="numeric" />
+            <el-input id="query-device-id" v-model="queryId" name="query_device_id" inputmode="numeric" placeholder="例如 2001..." clearable />
           </div>
           <div class="field-group">
             <label for="query-device-code">设备编码</label>
-            <input id="query-device-code" v-model="queryCode" autocomplete="off" />
+            <el-input id="query-device-code" v-model="queryCode" name="query_device_code" autocomplete="off" spellcheck="false" placeholder="例如 demo-device-01..." clearable />
           </div>
         </div>
         <div class="button-row" style="margin-top: 1rem;">
-          <button class="primary-button" type="button" :disabled="isQueryingId" @click="handleQueryById">
+          <el-button class="primary-button" type="primary" :loading="isQueryingId" @click="handleQueryById">
             {{ isQueryingId ? '查询中...' : '按 ID 查询' }}
-          </button>
-          <button class="secondary-button" type="button" :disabled="isQueryingCode" @click="handleQueryByCode">
+          </el-button>
+          <el-button class="secondary-button" :loading="isQueryingCode" @click="handleQueryByCode">
             {{ isQueryingCode ? '查询中...' : '按编码查询' }}
-          </button>
+          </el-button>
         </div>
 
         <div v-if="currentDevice" class="info-grid" style="margin-top: 1rem;">
@@ -115,7 +115,7 @@
       </PanelCard>
     </section>
 
-    <div v-if="errorMessage" class="empty-state">{{ errorMessage }}</div>
+    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
 
     <section class="two-column-grid">
       <ResponsePanel
@@ -136,6 +136,7 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
+import { ElMessage } from 'element-plus';
 
 import { addDevice, getDeviceByCode, getDeviceById } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
@@ -185,6 +186,7 @@ async function handleCreateDevice() {
     lastResponse.value = response;
     queryId.value = response.data?.id ? String(response.data.id) : queryId.value;
     queryCode.value = response.data.deviceCode;
+    ElMessage.success(`设备 ${response.data.deviceCode} 创建成功`);
     recordActivity({
       module: '设备工作台',
       action: '新增设备',
@@ -196,6 +198,7 @@ async function handleCreateDevice() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '设备工作台',
       action: '新增设备',
@@ -219,6 +222,7 @@ async function handleQueryById() {
     currentDevice.value = response.data;
     lastResponse.value = response;
     queryCode.value = response.data.deviceCode;
+    ElMessage.success(`已查询到设备 ${response.data.deviceCode}`);
     recordActivity({
       module: '设备工作台',
       action: '按 ID 查询设备',
@@ -230,6 +234,7 @@ async function handleQueryById() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '设备工作台',
       action: '按 ID 查询设备',
@@ -253,6 +258,7 @@ async function handleQueryByCode() {
     currentDevice.value = response.data;
     lastResponse.value = response;
     queryId.value = response.data?.id ? String(response.data.id) : queryId.value;
+    ElMessage.success(`已查询到设备 ${response.data.deviceCode}`);
     recordActivity({
       module: '设备工作台',
       action: '按编码查询设备',
@@ -264,6 +270,7 @@ async function handleQueryByCode() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: '设备工作台',
       action: '按编码查询设备',

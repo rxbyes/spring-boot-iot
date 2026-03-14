@@ -7,53 +7,71 @@
         description="这里直接对应 `POST /message/http/report`，是当前 Phase 1 最关键的联调入口。"
       >
         <div class="button-row" style="margin-bottom: 1rem;">
-          <button
+          <el-button
             v-for="template in templates"
             :key="template.name"
             class="secondary-button"
-            type="button"
+            text
             @click="applyTemplate(template)"
           >
             {{ template.name }}
-          </button>
+          </el-button>
         </div>
 
         <form class="form-grid" @submit.prevent="handleSendReport">
           <div class="field-group">
             <label for="report-protocol">协议编码</label>
-            <input id="report-protocol" v-model="reportForm.protocolCode" autocomplete="off" required />
+            <el-input
+              id="report-protocol"
+              v-model="reportForm.protocolCode"
+              name="report_protocol_code"
+              placeholder="例如 mqtt-json..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="report-product-key">产品 Key</label>
-            <input id="report-product-key" v-model="reportForm.productKey" autocomplete="off" required />
+            <el-input
+              id="report-product-key"
+              v-model="reportForm.productKey"
+              name="report_product_key"
+              placeholder="例如 demo-product..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="report-device-code">设备编码</label>
-            <input id="report-device-code" v-model="reportForm.deviceCode" autocomplete="off" required />
+            <el-input
+              id="report-device-code"
+              v-model="reportForm.deviceCode"
+              name="report_device_code"
+              placeholder="例如 demo-device-01..."
+              clearable
+            />
           </div>
           <div class="field-group">
             <label for="report-client-id">客户端 ID</label>
-            <input id="report-client-id" v-model="reportForm.clientId" autocomplete="off" />
+            <el-input id="report-client-id" v-model="reportForm.clientId" name="report_client_id" autocomplete="off" spellcheck="false" clearable />
           </div>
           <div class="field-group">
             <label for="report-tenant">租户 ID</label>
-            <input id="report-tenant" v-model="reportForm.tenantId" autocomplete="off" />
+            <el-input id="report-tenant" v-model="reportForm.tenantId" name="report_tenant_id" inputmode="numeric" placeholder="例如 1..." clearable />
           </div>
           <div class="field-group">
             <label for="report-topic">Topic</label>
-            <input id="report-topic" v-model="reportForm.topic" autocomplete="off" />
+            <el-input id="report-topic" v-model="reportForm.topic" name="report_topic" autocomplete="off" spellcheck="false" placeholder="例如 /sys/demo-product/demo-device-01/thing/property/post..." clearable />
           </div>
           <div class="field-group" style="grid-column: 1 / -1;">
             <label for="payload">Payload</label>
-            <textarea id="payload" v-model="reportForm.payload" />
+            <el-input id="payload" v-model="reportForm.payload" name="report_payload" type="textarea" :rows="9" spellcheck="false" />
           </div>
           <div class="button-row" style="grid-column: 1 / -1;">
-            <button class="primary-button" type="submit" :disabled="isSending">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending">
               {{ isSending ? '发送中...' : '发送上报' }}
-            </button>
-            <button class="secondary-button" type="button" @click="syncTopic">
+            </el-button>
+            <el-button class="secondary-button" @click="syncTopic">
               用推荐 Topic 覆盖
-            </button>
+            </el-button>
           </div>
         </form>
       </PanelCard>
@@ -88,7 +106,7 @@
       </PanelCard>
     </section>
 
-    <div v-if="errorMessage" class="empty-state">{{ errorMessage }}</div>
+    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
 
     <section class="two-column-grid">
       <ResponsePanel
@@ -125,6 +143,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
+import { ElMessage } from 'element-plus';
 
 import { reportByHttp } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
@@ -249,6 +268,7 @@ async function handleSendReport() {
   try {
     const response = await reportByHttp(requestPayload);
     lastResponse.value = response;
+    ElMessage.success(`设备 ${reportForm.deviceCode} 模拟上报成功`);
     recordActivity({
       module: 'HTTP 上报实验台',
       action: '发送模拟上报',
@@ -260,6 +280,7 @@ async function handleSendReport() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
+    ElMessage.error(errorMessage.value);
     recordActivity({
       module: 'HTTP 上报实验台',
       action: '发送模拟上报',

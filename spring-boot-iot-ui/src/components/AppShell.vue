@@ -49,16 +49,17 @@
         <div class="topbar__controls">
           <label class="field">
             <span>API Base URL</span>
-            <input
+            <el-input
               v-model="baseUrlDraft"
-              type="text"
-              placeholder="留空则走 Vite 代理"
-              autocomplete="off"
+              name="api_base_url"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="例如 http://localhost:9999..."
             />
           </label>
-          <button class="primary-button" type="button" @click="saveApiBaseUrl">
+          <el-button class="primary-button" type="primary" @click="saveApiBaseUrl">
             保存地址
-          </button>
+          </el-button>
           <SignalBadge :label="connectionLabel" :tone="connectionTone" />
         </div>
       </header>
@@ -66,6 +67,8 @@
       <section class="capability-strip" aria-label="当前支持能力">
         <span v-for="tag in capabilityTags" :key="tag">{{ tag }}</span>
       </section>
+
+      <TabsView />
 
       <main id="main-content" class="content-frame">
         <RouterView />
@@ -80,6 +83,7 @@ import { RouterLink, RouterView, useRoute } from 'vue-router';
 
 import { isProxyMode, runtimeState, setApiBaseUrl } from '../stores/runtime';
 import SignalBadge from './SignalBadge.vue';
+import TabsView from './TabsView.vue';
 
 const route = useRoute();
 
@@ -89,7 +93,8 @@ const navigation = [
   { to: '/devices', label: '设备工作台', caption: '新增设备 / 检查状态', icon: '03' },
   { to: '/reporting', label: 'HTTP 上报实验台', caption: '构造 payload / 回放报文', icon: '04' },
   { to: '/insight', label: '设备洞察', caption: '属性 + 日志 + 在线状态', icon: '05' },
-  { to: '/future-lab', label: '未来实验室', caption: '图表 / 数字孪生 / 拓扑', icon: '06' }
+  { to: '/file-debug', label: '文件调试台', caption: 'C.3 / C.4 / Redis 聚合', icon: '06' },
+  { to: '/future-lab', label: '未来实验室', caption: '图表 / 数字孪生 / 拓扑', icon: '07' }
 ];
 
 const capabilityTags = [
@@ -98,7 +103,10 @@ const capabilityTags = [
   'HTTP Simulated Report',
   'mqtt-json Decode',
   'Property Snapshot',
-  'Message Log Trace'
+  'Message Log Trace',
+  'File Payload Debug',
+  'Element Plus UI',
+  'ECharts Trend'
 ];
 
 const baseUrlDraft = ref(runtimeState.apiBaseUrl);
