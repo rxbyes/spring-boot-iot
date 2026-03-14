@@ -16,7 +16,7 @@ import java.util.List;
 public class MqttTopicRouter {
 
     private static final List<String> DEFAULT_TOPICS = List.of(
-            "$dp",
+//            "$dp",
             "/sys/+/+/thing/property/post",
             "/sys/+/+/thing/event/post",
             "/sys/+/+/thing/property/reply",

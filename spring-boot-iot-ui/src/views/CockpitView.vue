@@ -1,39 +1,52 @@
 <template>
   <div class="page-stack">
     <section class="hero-grid">
-      <div class="hero-panel">
-        <p class="eyebrow">Phase 1 Debug Mission</p>
-        <h1 class="headline">把后端主链路变成一块可视化的物联网调试台</h1>
+      <div class="hero-panel overview-shell">
+        <p class="eyebrow">Commercial Product Vision</p>
+        <h1 class="headline">把调试平台升级为智能风险监测与处置驾驶舱</h1>
         <p class="lead">
-          当前前端以产品、设备、HTTP 模拟上报、属性快照与消息日志为核心，布局借鉴 `vue-element-admin`
-          的后台工作台结构，视觉上则强化工业感、协议感和实时联调氛围。
+          平台面向一线监测人员、运维维护人员和开发人员协同工作：从传感器数据接入，到风险研判、
+          报告输出、远程处置与链路审计，形成一套可落地、可演进、可交付的商业产品。
         </p>
         <div class="button-row" style="margin-top: 1.25rem;">
-          <el-button class="primary-button" type="primary" @click="router.push('/reporting')">
-            进入上报实验台
+          <el-button class="primary-button" type="primary" @click="router.push('/insight')">
+            进入风险点工作台
           </el-button>
-          <el-button class="secondary-button" @click="router.push('/insight')">
-            查看设备洞察
+          <el-button class="secondary-button" @click="router.push('/devices')">
+            打开设备运维中心
           </el-button>
-          <el-button class="ghost-button" @click="router.push('/file-debug')">
-            查看文件调试台
+          <el-button class="ghost-button" @click="router.push('/reporting')">
+            查看接入回放台
           </el-button>
+        </div>
+
+        <div class="risk-spectrum">
+          <article
+            v-for="level in riskLevels"
+            :key="level.label"
+            class="risk-spectrum__card"
+            :class="`risk-spectrum__card--${level.tone}`"
+          >
+            <p>{{ level.label }}</p>
+            <strong>{{ level.description }}</strong>
+            <span>{{ level.action }}</span>
+          </article>
         </div>
       </div>
 
       <PanelCard
-        eyebrow="Design Direction"
-        title="Retro-Future Admin"
-        description="保留后台系统的导航效率，同时把协议链路、设备状态和未来扩展面板组织进同一块驾驶舱。"
+        eyebrow="Command Focus"
+        title="今日重点工作"
+        description="商业产品首页应该先告诉用户今天最重要的风险、动作和入口，而不是先让用户找接口。"
       >
-        <div class="flow-rail">
-          <div v-for="item in northStar" :key="item.title" class="flow-rail__item">
-            <span class="flow-rail__index">{{ item.index }}</span>
+        <div class="priority-list">
+          <article v-for="item in dailyPriorities" :key="item.title" class="priority-list__item">
+            <span class="priority-list__badge">{{ item.badge }}</span>
             <div>
               <strong>{{ item.title }}</strong>
-              <span>{{ item.description }}</span>
+              <p>{{ item.description }}</p>
             </div>
-          </div>
+          </article>
         </div>
       </PanelCard>
     </section>
@@ -51,12 +64,33 @@
 
     <section class="two-column-grid">
       <PanelCard
-        eyebrow="Verified Flow"
-        title="主链路分层"
-        description="来源于项目文档，便于在联调时快速定位“接入层 / 协议层 / 业务层”的责任边界。"
+        eyebrow="Role Workspace"
+        title="角色化工作入口"
+        description="同一套平台为三类核心用户服务，但每类人进入平台后看到的第一动作和最关心的信息并不相同。"
+      >
+        <div class="workspace-grid">
+          <article v-for="role in roleWorkspaces" :key="role.title" class="workspace-card">
+            <header class="workspace-card__header">
+              <span class="workspace-card__icon">{{ role.icon }}</span>
+              <div>
+                <h3>{{ role.title }}</h3>
+                <p>{{ role.subtitle }}</p>
+              </div>
+            </header>
+            <ul class="workspace-card__list">
+              <li v-for="item in role.items" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+        </div>
+      </PanelCard>
+
+      <PanelCard
+        eyebrow="Risk Workflow"
+        title="风险处置闭环"
+        description="商业产品的核心不是设备接入，而是把风险发现、研判、上报、处置和复盘真正串成流程。"
       >
         <div class="flow-rail">
-          <div v-for="step in messageFlow" :key="step.title" class="flow-rail__item">
+          <div v-for="step in riskWorkflow" :key="step.index" class="flow-rail__item">
             <span class="flow-rail__index">{{ step.index }}</span>
             <div>
               <strong>{{ step.title }}</strong>
@@ -65,11 +99,29 @@
           </div>
         </div>
       </PanelCard>
+    </section>
+
+    <section class="two-column-grid">
+      <PanelCard
+        eyebrow="Current Runtime"
+        title="现有平台能力映射"
+        description="把已经完成的 Phase 1 / Phase 2 能力重新组织成更接近商业产品的业务语言。"
+      >
+        <div class="capability-board">
+          <article v-for="domain in capabilityDomains" :key="domain.title" class="capability-board__item">
+            <h3>{{ domain.title }}</h3>
+            <p>{{ domain.description }}</p>
+            <ul class="phase-ideas">
+              <li v-for="item in domain.items" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+        </div>
+      </PanelCard>
 
       <PanelCard
         eyebrow="Recent Activity"
-        title="最近调试记录"
-        description="这里显示当前前端会话里最近触发的接口调用，便于回看联调顺序和返回结果。"
+        title="最近调试与运行轨迹"
+        description="这里保留研发和实施团队需要的轨迹视图，便于在产品化界面下继续完成联调、定位与验证。"
       >
         <div v-if="activities.length" class="timeline">
           <article v-for="entry in activities" :key="entry.id" class="timeline-item">
@@ -79,16 +131,16 @@
           </article>
         </div>
         <div v-else class="empty-state">
-          还没有产生调试记录。先去“产品工作台”或“HTTP 上报实验台”触发一次调用，这里会自动出现轨迹。
+          还没有产生调试记录。先去“设备运维中心”或“接入回放台”触发一次调用，这里会自动出现轨迹。
         </div>
       </PanelCard>
     </section>
 
     <section class="tri-grid">
       <PanelCard
-        v-for="feature in futureFeatures"
+        v-for="feature in evolutionRoadmap"
         :key="feature.title"
-        eyebrow="Future Slot"
+        eyebrow="Roadmap"
         :title="feature.title"
         :description="feature.description"
       >
@@ -111,65 +163,109 @@ import { formatDateTime } from '../utils/format';
 
 const router = useRouter();
 
-const northStar = [
-  { index: 'A1', title: '后台骨架', description: '借鉴 vue-element-admin 的导航效率与工作台节奏。' },
-  { index: 'A2', title: 'IoT 科技感', description: '深海色域、流体高亮、协议感网格与数字面板。' },
-  { index: 'A3', title: '面向扩展', description: '为图表、拓扑、数字孪生和规则链提前留钩子。' }
+const riskLevels = [
+  { label: '红色风险', description: '立即上报', action: '启动应急响应与专题分析报告', tone: 'red' },
+  { label: '橙色风险', description: '重点跟踪', action: '安排复测与专项巡检', tone: 'orange' },
+  { label: '黄色风险', description: '持续观察', action: '提高监测频次并校验阈值', tone: 'yellow' },
+  { label: '蓝色风险', description: '常规管理', action: '维持日常巡检与数据留痕', tone: 'blue' }
+];
+
+const dailyPriorities = [
+  { badge: 'P1', title: '高风险点优先处置', description: '优先查看红橙等级风险点，判断是否需要立即上报领导与生成风险报告。' },
+  { badge: 'P2', title: '设备在线健康巡检', description: '关注离线设备、弱信号设备和最近无上报设备，避免风险点监测盲区。' },
+  { badge: 'P3', title: '接入链路抽样验证', description: '研发与实施人员通过 HTTP / MQTT 调试台验证主链路是否完整可用。' }
 ];
 
 const metrics = [
   {
-    label: '已接入接口',
+    label: '四色风险模型',
+    value: '4',
+    hint: '围绕红橙黄蓝形成统一的风险分级和业务处置语言。',
+    badge: { label: 'Core', tone: 'danger' as const }
+  },
+  {
+    label: '核心角色工作台',
+    value: '3',
+    hint: '一线人员、运维人员、开发人员都能在同一平台找到主入口。',
+    badge: { label: 'Users', tone: 'brand' as const }
+  },
+  {
+    label: '现有联调接口',
     value: '10',
-    hint: '在原有 8 个接口基础上，新增文件快照与固件聚合调试接口。',
-    badge: { label: 'Phase 1', tone: 'success' as const }
+    hint: '现有接口已经覆盖产品、设备、上报、属性、日志与文件调试能力。',
+    badge: { label: 'Ready', tone: 'success' as const }
   },
   {
-    label: '活跃模块',
-    value: '8',
-    hint: '与父 POM 当前激活 reactor 模块保持一致。',
-    badge: { label: 'Modular', tone: 'brand' as const }
-  },
-  {
-    label: '主链路节点',
+    label: '业务闭环阶段',
     value: '6',
-    hint: '从 HTTP 入口到属性和在线状态刷新形成闭环。',
-    badge: { label: 'Traceable', tone: 'warning' as const }
-  },
-  {
-    label: '前瞻入口',
-    value: '7',
-    hint: '图表、孪生、拓扑、规则、告警、OTA 与文件调试入口已预留。',
-    badge: { label: 'Future', tone: 'brand' as const }
+    hint: '发现、研判、上报、处置、运维、审计构成产品主线。',
+    badge: { label: 'Workflow', tone: 'warning' as const }
   }
 ];
 
-const messageFlow = [
-  { index: '01', title: 'DeviceHttpController', description: 'HTTP 模拟设备上报入口。' },
-  { index: '02', title: 'UpMessageDispatcher', description: '把统一原始消息分发到协议层。' },
-  { index: '03', title: 'ProtocolAdapterRegistry', description: '按 protocolCode 选择协议适配器。' },
-  { index: '04', title: 'MqttJsonProtocolAdapter', description: '执行 mqtt-json 解码和标准化。' },
-  { index: '05', title: 'DeviceMessageServiceImpl', description: '写消息日志、最新属性和在线状态。' },
-  { index: '06', title: 'Query APIs', description: '再由属性与日志查询接口回看结果。' }
-  ,
-  { index: '07', title: 'File Debug APIs', description: '通过 Redis 文件快照与固件聚合接口回看 C.3 / C.4 消费结果。' }
+const roleWorkspaces = [
+  {
+    icon: 'F1',
+    title: '一线工作人员',
+    subtitle: '快速发现风险、判级、上报、出报告',
+    items: ['风险点工作台', '趋势曲线与异常点查看', 'AI 研判与风险建议', '一键生成风险分析报告']
+  },
+  {
+    icon: 'O2',
+    title: '运维维护人员',
+    subtitle: '远程控制设备、维护阈值、巡检健康状态',
+    items: ['设备运维中心', '设备在线 / 离线状态', '参数阈值与远程控制入口', '固件与文件调试入口']
+  },
+  {
+    icon: 'D3',
+    title: '开发与实施人员',
+    subtitle: '调协议、看链路、验完整性、快速定位问题',
+    items: ['接入回放台', 'MQTT / HTTP 链路验证', '文件与固件调试', '日志审计与报文回看']
+  }
 ];
 
-const futureFeatures = [
+const riskWorkflow = [
+  { index: '01', title: '数据接入', description: '传感器通过 HTTP / MQTT 上报数据，进入统一主链路。' },
+  { index: '02', title: '协议标准化', description: '明文、加密、C.1-C.4 数据格式统一解码与校验。' },
+  { index: '03', title: '风险判定', description: '属性更新后结合规则与 AI 能力形成风险等级建议。' },
+  { index: '04', title: '人工上报', description: '一线人员确认风险并上报领导，同时形成报告留痕。' },
+  { index: '05', title: '运维处置', description: '运维人员远程控制设备、调整阈值、排查现场问题。' },
+  { index: '06', title: '审计复盘', description: '研发与管理层基于日志、操作、趋势完成复盘和优化。' }
+];
+
+const capabilityDomains = [
   {
-    title: '点位图表中心',
-    description: '未来把 `iot_device_property` 和时序库结果汇聚成点位趋势、健康分值和告警热力图。',
-    items: ['折线趋势图', '多点位对比', '属性异常标记']
+    title: '风险业务层',
+    description: '把数据查看能力转换成风险识别、趋势分析和报告产出能力。',
+    items: ['风险点工作台', '属性与消息日志聚合', '趋势与预测入口预留']
   },
   {
-    title: '数字孪生场景',
-    description: '把设备坐标、状态、属性和消息流映射到 2D / 3D 场景，形成资产态势感知。',
-    items: ['设备位姿绑定', '实时状态光效', '场景告警联动']
+    title: '运维执行层',
+    description: '把设备管理、阈值设置和远程控制汇聚成运维中心。',
+    items: ['产品模板中心', '设备运维中心', '设备在线与会话状态']
   },
   {
-    title: '协议与网关拓扑',
-    description: '围绕后续 MQTT / TCP / Gateway 能力，展示边缘接入、子设备拓扑和协议适配情况。',
-    items: ['网关树结构', '协议适配视图', '上下行链路追踪']
+    title: '研发调试层',
+    description: '保留当前联调和协议验证能力，为实施和开发提供快速闭环。',
+    items: ['HTTP / MQTT 接入回放', 'C.3 / C.4 文件调试', '协议安全与日志审计']
+  }
+];
+
+const evolutionRoadmap = [
+  {
+    title: '风险地图与区域态势',
+    description: '把风险点、设备位置、处置状态和等级分布整合成领导可看的态势视图。',
+    items: ['区域风险热力', '点位分布与筛选', '重大风险专题图层']
+  },
+  {
+    title: 'AI 分析与报告中心',
+    description: '基于多传感器数据自动输出风险分析、处置建议和报告草稿。',
+    items: ['AI 风险研判', '自动报告生成', '未来走势预测']
+  },
+  {
+    title: '远程运维与闭环运营',
+    description: '从设备控制、阈值策略到事件闭环和审计中心，逐步形成企业级能力。',
+    items: ['远程控制', '阈值策略中心', '告警与工单闭环']
   }
 ];
 

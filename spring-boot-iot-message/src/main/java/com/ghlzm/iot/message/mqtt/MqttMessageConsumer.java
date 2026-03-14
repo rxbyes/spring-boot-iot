@@ -132,11 +132,15 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     @Override
     public void messageArrived(String topic, MqttMessage message) {
         try {
+            mqttConnectionListener.onMessageReceived(topic, message == null || message.getPayload() == null
+                    ? 0
+                    : message.getPayload().length);
             RawDeviceMessage rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
             DeviceUpMessage upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
             String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
                     ? upMessage.getDeviceCode()
                     : rawDeviceMessage.getDeviceCode();
+            mqttConnectionListener.onMessageDispatched(topic, resolvedDeviceCode, upMessage.getMessageType());
             String resolvedClientId = hasText(rawDeviceMessage.getClientId())
                     ? rawDeviceMessage.getClientId()
                     : resolvedDeviceCode;
@@ -150,6 +154,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                     resolvedClientId,
                     topic
             );
+            mqttConnectionListener.onDeviceSessionRefreshed(resolvedDeviceCode, resolvedClientId, topic);
         } catch (Exception ex) {
             mqttConnectionListener.onMessageDispatchFailed(topic, ex);
         }

@@ -37,6 +37,13 @@ When continuing development after Phase 1:
 - do not regress the existing Phase 1 APIs and E2E path
 - update docs when behavior, verification steps, or configuration expectations change
 
+## Documentation maintenance rule
+- Any frontend or backend change that affects behavior, APIs, workflows, page structure, startup steps, validation flow, configuration expectations, or product positioning must update the existing documentation in place.
+- Always update the corresponding file under `docs/`.
+- Always review whether `README.md` and `AGENTS.md` also need to be updated.
+- Do not create duplicate replacement docs such as `README-v2.md`, `api-new.md`, `new-frontend-doc.md`, or similar files.
+- This rule applies to all coding agents and coding models, including Codex, Qwen Code, and others.
+
 ## Always read before coding
 - README.md
 - docs/00-overview.md
@@ -47,6 +54,7 @@ When continuing development after Phase 1:
 - docs/05-protocol.md
 - docs/07-message-flow.md
 - docs/11-codex-tasking.md
+- docs/15-frontend-optimization-plan.md
 - docs/codex-roadmap.md
 - docs/codex-workflow.md
 - docs/test-scenarios.md
@@ -96,7 +104,8 @@ When continuing development after Phase 1:
 2. explain what changed
 3. explain how to run or test
 4. list incomplete parts
-5. update docs if behavior changed
+5. update the existing docs in place if behavior changed
+6. mention which docs were updated, including any updates to `README.md` and `AGENTS.md`
 
 ## Preferred commands
 - build: mvn clean package -DskipTests

@@ -3,6 +3,21 @@
 ## 项目简介
 spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台项目模板，面向设备接入、协议适配、遥测数据处理、设备管理和平台能力扩展场景。
 
+## 文档维护约定
+后续无论是前端还是后端发生更新、新增内容、页面改版、接口变化、启动方式变化、测试流程变化，都必须同步维护现有文档，而不是新增一份重复说明文件。
+
+必须优先检查并按需更新：
+- `docs/` 目录下对应的源文档
+- [README.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/README.md)
+- [AGENTS.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/AGENTS.md)
+
+禁止通过新增平行文件规避更新，例如：
+- `README-v2.md`
+- `api-new.md`
+- `new-frontend-doc.md`
+
+这条约定适用于所有 coding agent / coding model，包括 Codex、Qwen Code 等。
+
 ## Phase 1 已完成能力
 当前仓库已经完成一期最小可运行平台，已落地并验证这些能力：
 - 产品管理
@@ -17,7 +32,7 @@ spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台
 - 已完成 `docs/codex-roadmap.md` 中 Phase 1 的 Task 1 ~ Task 6
 - 已验证链路：产品/设备创建、HTTP 上报、消息日志写入、最新属性更新、设备在线状态更新
 - 已通过端到端验证：`DeviceHttpReportE2EIntegrationTest`
-- 当前主链路可作为后续 MQTT 真接入、规则、告警、OTA 等阶段的基础
+- 当前主链路已继续完成 Phase 2 Task 5：MQTT 上行接入验证，业务主链路保持不变
 
 ## 技术栈
 - Java 17
@@ -30,8 +45,9 @@ spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台
 - HTTP / MQTT / TCP
 
 说明：
-- Phase 1 当前只打通 HTTP 模拟设备上报
-- MQTT 和 TCP 真接入仍属于后续阶段能力
+- Phase 1 已完成 HTTP 模拟设备上报
+- 当前已验证 MQTT 上行接入可以进入统一业务主链路
+- TCP 真接入仍属于后续阶段能力
 
 ## 当前模块
 ```text
@@ -90,6 +106,11 @@ spring-boot-iot
 - `IOT_REDIS_HOST` / `IOT_REDIS_PORT` / `IOT_REDIS_PASSWORD` / `IOT_REDIS_DATABASE`
 - `IOT_MQTT_BROKER_URL` / `IOT_MQTT_USERNAME` / `IOT_MQTT_PASSWORD`
 
+当前推荐联调方式：
+- 后端使用 `application-dev.yml` 中提供的共享 MySQL、Redis、MQTT
+- MQTT 客户端使用 MQTTX 向指定 topic 发送消息
+- 无需额外安装本地 Broker 或 `mosquitto_pub`
+
 如果要切回本地环境，可以把这些环境变量覆盖为本地连接信息，并使用 `sql/init.sql` 与 `sql/init-data.sql` 初始化本地库。
 
 配置文件位置：
@@ -101,12 +122,13 @@ spring-boot-iot
 - 运行：`mvn -pl spring-boot-iot-admin spring-boot:run`
 - 全量测试：`mvn test -DskipTests=false`
 - 一期 E2E：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceHttpReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
+- MQTT E2E：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceMqttReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 ## 联调验证
-推荐按以下顺序验证一期主链路：
+推荐按以下顺序验证当前主链路：
 1. 新增产品
 2. 新增设备
-3. 调用 `POST /message/http/report`
+3. 选择 HTTP 或 MQTT 发送上报
 4. 查询 `GET /device/{deviceCode}/properties`
 5. 查询 `GET /device/{deviceCode}/message-logs`
 6. 校验 `iot_device` 的在线状态和最近上报时间
@@ -114,19 +136,20 @@ spring-boot-iot
 完整步骤见：
 - [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md)
 - [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)
+- [docs/14-mqttx-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqttx-live-runbook.md)
 - [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
 
 ## 前端调试台
 前端目录：`spring-boot-iot-ui`
 
 当前页面：
-- 调试驾驶舱
-- 产品工作台
-- 设备工作台
-- HTTP 上报实验台
-- 设备洞察
-- 文件调试台
-- 未来实验室
+- 风险监测驾驶舱
+- 产品模板中心
+- 设备运维中心
+- 接入回放台
+- 风险点工作台
+- 文件与固件调试
+- 未来演进蓝图
 
 启动方式：
 1. 进入 `spring-boot-iot-ui`
@@ -137,11 +160,14 @@ spring-boot-iot
 - 默认通过 Vite 代理访问 `http://localhost:9999`
 - 可通过 `spring-boot-iot-ui/.env.example` 中的 `VITE_API_BASE_URL` 和 `VITE_PROXY_TARGET` 调整联调方式
 - 当前前端已经接入 `Element Plus` 和 `ECharts`
-- 当前页面已为图表、数字孪生、拓扑等二期功能预留入口
-- 若本机仍是 Node 12，需要先升级到 Node 20.19+ 再安装依赖和构建
+- 当前前端已开始从“调试台”向“商业化风险监测平台”演进
+- 当前页面已为图表、数字孪生、拓扑、AI 风险分析、远程运维等后续能力预留入口
+- 当前前端基线已切换到 Node 24，建议优先使用 `spring-boot-iot-ui/.nvmrc`
+- 若终端里仍命中旧版 Node，请先切换到 Node 24 再执行 `npm install` / `npm run dev` / `npm run build`
 
 ## 已知说明
 - `DeviceHttpReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行
+- `DeviceMqttReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行，并验证 MQTT 上行进入统一业务主链路
 - `DeviceMessageServiceImplTest` 在部分 JDK 17 环境下可能因为 Mockito inline mock maker 无法自附加 agent 而失败，这属于测试环境限制，不是当前主链路编译阻塞
 
 ## 文档导航
@@ -154,7 +180,9 @@ spring-boot-iot
 - [docs/07-message-flow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/07-message-flow.md)
 - [docs/11-codex-tasking.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/11-codex-tasking.md)
 - [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
+- [docs/14-mqttx-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqttx-live-runbook.md)
 - [docs/12-change-log.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/12-change-log.md)
+- [docs/15-frontend-optimization-plan.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/15-frontend-optimization-plan.md)
 - [docs/codex-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-roadmap.md)
 - [docs/codex-workflow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-workflow.md)
 - [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)

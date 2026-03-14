@@ -16,10 +16,12 @@
 -> 设备
 
 ## 当前一期实现
-- 入口为 HTTP 模拟上报
-- 通过 UpMessageDispatcher 分发
-- 由 MqttJsonProtocolAdapter 做 decode
-- DeviceMessageServiceImpl 负责落库与状态更新
+- HTTP 入口：
+  - `DeviceHttpController -> UpMessageDispatcher -> MqttJsonProtocolAdapter -> DeviceMessageServiceImpl`
+- MQTT 入口：
+  - `MqttMessageConsumer -> MqttTopicRouter -> RawDeviceMessage -> UpMessageDispatcher -> MqttJsonProtocolAdapter -> DeviceMessageServiceImpl`
+- `DeviceMessageServiceImpl` 负责消息日志落库、最新属性更新、设备在线状态更新
+- `DeviceSessionService` 负责 MQTT 会话在线态和最近活跃时间维护
 
 ## 关键原则
 - 原始报文必须保留

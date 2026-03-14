@@ -142,22 +142,78 @@ curl http://localhost:9999/device/demo-device-01/message-logs
 - `iot_device.online_status = 1`
 - `iot_device.last_online_time` 与 `last_report_time` 已更新
 
+## MQTT 标准 Topic 手工联调步骤
+
+### 步骤 1：启动应用
+- 使用 `application-dev.yml` 中提供的共享联调环境
+- 启动时开启 MQTT，并激活 `dev` 配置：
+```bash
+IOT_MQTT_ENABLED=true \
+mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+共享环境关键连接信息：
+- MySQL：`8.130.107.120:3306/rm_iot`
+- Redis：`8.130.107.120:6379`，database `8`
+- MQTT Broker：`mqtt.ghlqf.com:1883`
+- MQTT 用户名：`emqx`
+
+### 步骤 2：创建产品和设备
+- 先按前文 HTTP 联调步骤创建产品和设备
+- 确保产品协议为 `mqtt-json`
+
+### 步骤 3：使用 MQTTX 发布标准 Topic 上报
+- 在 MQTTX 中新建连接：
+  - Host：`mqtt.ghlqf.com`
+  - Port：`1883`
+  - Username：`emqx`
+  - Password：使用 `application-dev.yml` 中的 `iot.mqtt.password`
+- 发布 Topic：`/sys/demo-product/demo-device-01/thing/property/post`
+- 发布 Payload：
+```json
+{"messageType":"property","properties":{"temperature":26.5,"humidity":68}}
+```
+
+### 步骤 4：查询验证结果
+```bash
+curl http://localhost:9999/device/demo-device-01/properties
+```
+
+```bash
+curl http://localhost:9999/device/demo-device-01/message-logs
+```
+
+```bash
+curl http://localhost:9999/device/code/demo-device-01
+```
+
+### 步骤 5：校验通过标准
+- `iot_device_message_log` 至少新增 1 条 topic 为 `/sys/demo-product/demo-device-01/thing/property/post` 的记录
+- `iot_device_property` 中应包含 `temperature=26.5` 和 `humidity=68`
+- `iot_device.online_status = 1`
+- `iot_device.last_online_time`、`last_report_time` 已刷新
+- 若 Redis 可用，`iot:device:session:demo-device-01` 中应存在 `connected=true`、`lastSeenTime` 已更新
+
 ## MQTT 历史 `$dp` 主题兼容验证
 
 前置条件：
-- 启动应用时开启 MQTT：`IOT_MQTT_ENABLED=true`
-- Broker 已订阅 `$dp`
+- 启动应用时开启 MQTT，并使用 `dev` 配置
+- 使用 MQTTX 连接 `mqtt.ghlqf.com:1883`
 - 数据库中已存在对应 `deviceCode` 的设备，协议为 `mqtt-json`
 - 若验证加密报文，需确保 `spring.cloud.aes.merchants.{appId}` 已配置对应密钥
 
 示例 1：倾角仪 / 加速度明文数据
-```bash
-mosquitto_pub -h mqtt.ghlqf.com -p 1883 -u emqx -P '1qaz2wsx' -t '$dp' -m '{"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97,"angle":-6.03,"trend":236.18,"AZI":236.18}},"L1_JS_1":{"2026-03-14T07:04:03.000Z":{"gX":-0.04,"gY":0.18,"gZ":-0.04}}}}'
+- Topic：`$dp`
+- Payload：
+```json
+{"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97,"angle":-6.03,"trend":236.18,"AZI":236.18}},"L1_JS_1":{"2026-03-14T07:04:03.000Z":{"gX":-0.04,"gY":0.18,"gZ":-0.04}}}}
 ```
 
 示例 2：设备状态数据
-```bash
-mosquitto_pub -h mqtt.ghlqf.com -p 1883 -u emqx -P '1qaz2wsx' -t '$dp' -m $'\x10{"100054920":{"S1_ZT_1":{"ext_power_volt":3.540,"solar_volt":6.185,"battery_dump_energy":1,"temp":0.0,"humidity":0,"lon":103.482170,"lat":36.180176,"signal_4g":-51,"sw_version":"V1.0.3(Jul 19 2023 16:48:13)-15522832","sensor_state":{"L1_JS_1":0,"L1_QJ_1":0,"L1_LF_1":3}}}}'
+- Topic：`$dp`
+- Payload 以 MQTTX 原始字符串发送，内容如下：
+```text
+\u0010{"100054920":{"S1_ZT_1":{"ext_power_volt":3.540,"solar_volt":6.185,"battery_dump_energy":1,"temp":0.0,"humidity":0,"lon":103.482170,"lat":36.180176,"signal_4g":-51,"sw_version":"V1.0.3(Jul 19 2023 16:48:13)-15522832","sensor_state":{"L1_JS_1":0,"L1_QJ_1":0,"L1_LF_1":3}}}}
 ```
 
 示例 3：加密包裹数据
@@ -253,3 +309,4 @@ mosquitto_pub -h mqtt.ghlqf.com -p 1883 -u emqx -P '1qaz2wsx' -t '$dp' -m $'\x10
 - `MqttPayloadDecryptorRegistryTest` 当前已通过，可作为 DES / 3DES 解密回归入口
 - 当前文件快照 / 固件聚合逻辑已接入运行时代码，建议继续通过 `mvn -pl spring-boot-iot-admin -am package -DskipTests` 保持主链路可编译
 - `DeviceMessageServiceImplTest` 在当前 JDK 17 环境下仍受 Mockito inline mock maker 自附加 agent 限制影响，不作为本轮收口阻塞项
+- 若共享 MQTT 环境暂时不可达，可先运行 `DeviceMqttReportE2EIntegrationTest` 完成最小规避验证

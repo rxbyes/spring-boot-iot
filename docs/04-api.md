@@ -1,6 +1,6 @@
 # API 文档
 
-本文档只记录当前 Phase 1 已实现并已联调验证的接口，不包含后续规则、告警、OTA、MQTT 真接入等能力。
+本文档记录当前已实现并已验证的 HTTP 调试接口，同时补充 MQTT 上行接入的最小联调约定。
 
 ## 统一返回格式
 ```json
@@ -92,7 +92,7 @@
 ```
 
 说明：
-- 当前 Phase 1 只打通 HTTP 模拟上报入口。
+- HTTP 入口主要用于本地调试和回归。
 - `protocolCode` 目前联调验证通过的是 `mqtt-json`。
 - `payload` 当前以字符串形式承载原始 JSON。
 
@@ -104,6 +104,40 @@
   "data": null
 }
 ```
+
+### MQTT 上行接入
+
+MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
+
+- 标准 topic：`/sys/{productKey}/{deviceCode}/thing/property/post`
+- 历史兼容 topic：`$dp`
+
+标准 topic payload 示例：
+```json
+{
+  "messageType": "property",
+  "properties": {
+    "temperature": 26.5,
+    "humidity": 68
+  }
+}
+```
+
+`$dp` payload 示例：
+```json
+{
+  "deviceCode": "demo-device-01",
+  "temperature": 25.1,
+  "humidity": 61
+}
+```
+
+说明：
+- MQTT 消息进入后仍走统一主链路：`RawDeviceMessage -> UpMessageDispatcher -> ProtocolAdapter -> DeviceMessageService`
+- 查询验证仍复用已有 HTTP 接口：
+  - `GET /device/code/{deviceCode}`
+  - `GET /device/{deviceCode}/properties`
+  - `GET /device/{deviceCode}/message-logs`
 
 ## 设备属性与消息日志接口
 

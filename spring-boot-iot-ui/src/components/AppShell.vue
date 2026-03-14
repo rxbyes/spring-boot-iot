@@ -3,38 +3,49 @@
     <a class="skip-link" href="#main-content">跳到主内容</a>
     <aside class="app-shell__sidebar">
       <div class="brand-block">
-        <p class="brand-block__eyebrow">IoT Debug Surface</p>
+        <p class="brand-block__eyebrow">Risk Monitoring OS</p>
         <h1>Spring Boot IoT</h1>
         <p class="brand-block__summary">
-          以 `vue-element-admin` 的后台结构为参考，重构成更适合物联网调试的 Vue 3 驾驶舱。
+          面向一线监测、运维维护和研发调试的风险监测与处置平台，当前以 Phase 1 / Phase 2
+          已打通能力为底座，逐步演进为可交付的商业产品。
         </p>
       </div>
 
-      <nav aria-label="主导航" class="nav-list">
-        <RouterLink
-          v-for="item in navigation"
-          :key="item.to"
-          :to="item.to"
-          class="nav-list__item"
-          :class="{ 'nav-list__item--active': route.path === item.to }"
+      <nav aria-label="主导航" class="nav-sections">
+        <section
+          v-for="section in navigationSections"
+          :key="section.title"
+          class="nav-section"
         >
-          <span class="nav-list__icon">{{ item.icon }}</span>
-          <span>
-            <strong>{{ item.label }}</strong>
-            <small>{{ item.caption }}</small>
-          </span>
-        </RouterLink>
+          <p class="nav-section__eyebrow">{{ section.eyebrow }}</p>
+          <h2 class="nav-section__title">{{ section.title }}</h2>
+          <div class="nav-list">
+            <RouterLink
+              v-for="item in section.items"
+              :key="item.to"
+              :to="item.to"
+              class="nav-list__item"
+              :class="{ 'nav-list__item--active': route.path === item.to }"
+            >
+              <span class="nav-list__icon">{{ item.icon }}</span>
+              <span>
+                <strong>{{ item.label }}</strong>
+                <small>{{ item.caption }}</small>
+              </span>
+            </RouterLink>
+          </div>
+        </section>
       </nav>
 
       <div class="sidebar-foot">
-        <p class="sidebar-foot__label">Phase 1 主链路</p>
+        <p class="sidebar-foot__label">商业化演进主轴</p>
         <ol class="phase-rail">
-          <li>产品建模</li>
-          <li>设备建档</li>
-          <li>HTTP 上报</li>
-          <li>协议解码</li>
-          <li>属性落库</li>
-          <li>在线更新</li>
+          <li>风险发现与四色分级</li>
+          <li>多传感器趋势研判</li>
+          <li>上报与分析报告生成</li>
+          <li>远程运维与阈值管理</li>
+          <li>协议调试与日志审计</li>
+          <li>告警闭环与未来预测</li>
         </ol>
       </div>
     </aside>
@@ -42,7 +53,7 @@
     <div class="app-shell__main">
       <header class="topbar">
         <div>
-          <p class="topbar__eyebrow">Current View</p>
+          <p class="topbar__eyebrow">Commercial Preview</p>
           <h2 class="topbar__title">{{ activeTitle }}</h2>
           <p class="topbar__description">{{ activeDescription }}</p>
         </div>
@@ -87,26 +98,50 @@ import TabsView from './TabsView.vue';
 
 const route = useRoute();
 
-const navigation = [
-  { to: '/', label: '调试驾驶舱', caption: '总览主链路与最近操作', icon: '01' },
-  { to: '/products', label: '产品工作台', caption: '新增产品 / 查询产品', icon: '02' },
-  { to: '/devices', label: '设备工作台', caption: '新增设备 / 检查状态', icon: '03' },
-  { to: '/reporting', label: 'HTTP 上报实验台', caption: '构造 payload / 回放报文', icon: '04' },
-  { to: '/insight', label: '设备洞察', caption: '属性 + 日志 + 在线状态', icon: '05' },
-  { to: '/file-debug', label: '文件调试台', caption: 'C.3 / C.4 / Redis 聚合', icon: '06' },
-  { to: '/future-lab', label: '未来实验室', caption: '图表 / 数字孪生 / 拓扑', icon: '07' }
+const navigationSections = [
+  {
+    title: '驾驶舱',
+    eyebrow: 'Monitor',
+    items: [
+      { to: '/', label: '风险监测驾驶舱', caption: '总览风险态势、角色入口与处置闭环', icon: '01' }
+    ]
+  },
+  {
+    title: '风险业务',
+    eyebrow: 'Risk Ops',
+    items: [
+      { to: '/insight', label: '风险点工作台', caption: '查看属性、日志、在线与趋势入口', icon: '02' }
+    ]
+  },
+  {
+    title: '运维中心',
+    eyebrow: 'Ops',
+    items: [
+      { to: '/devices', label: '设备运维中心', caption: '设备建档、状态检索、在线核查', icon: '03' },
+      { to: '/products', label: '产品模板中心', caption: '协议模板、产品建模、设备归属', icon: '04' }
+    ]
+  },
+  {
+    title: '研发与调试',
+    eyebrow: 'Engineering',
+    items: [
+      { to: '/reporting', label: '接入回放台', caption: 'HTTP 上报模拟、payload 回放、topic 推演', icon: '05' },
+      { to: '/file-debug', label: '文件与固件调试', caption: 'C.3 / C.4 / Redis 聚合 / MD5 校验', icon: '06' },
+      { to: '/future-lab', label: '未来演进蓝图', caption: '图表、孪生、规则、告警、OTA 预留', icon: '07' }
+    ]
+  }
 ];
 
 const capabilityTags = [
-  'Product CRUD Seed',
-  'Device Provisioning',
-  'HTTP Simulated Report',
+  'Risk Dashboard',
+  'Field Workflow',
+  'Remote O&M Ready',
+  'HTTP / MQTT Access',
   'mqtt-json Decode',
-  'Property Snapshot',
-  'Message Log Trace',
-  'File Payload Debug',
-  'Element Plus UI',
-  'ECharts Trend'
+  'C.3 / C.4 File Debug',
+  'Protocol Security',
+  'Audit Friendly',
+  'AI Ready'
 ];
 
 const baseUrlDraft = ref(runtimeState.apiBaseUrl);
@@ -118,7 +153,7 @@ watch(
   }
 );
 
-const activeTitle = computed(() => String(route.meta.title || '调试台'));
+const activeTitle = computed(() => String(route.meta.title || '风险监测平台'));
 const activeDescription = computed(() => String(route.meta.description || ''));
 const connectionLabel = computed(() => (isProxyMode() ? '代理模式' : '直连模式'));
 const connectionTone = computed<'brand' | 'success'>(() => (isProxyMode() ? 'brand' : 'success'));
@@ -132,7 +167,7 @@ function saveApiBaseUrl() {
 .app-shell {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(280px, 320px) 1fr;
+  grid-template-columns: minmax(290px, 348px) 1fr;
 }
 
 .skip-link {
@@ -156,12 +191,13 @@ function saveApiBaseUrl() {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 1.6rem;
-  padding: 1.6rem;
+  gap: 1.4rem;
+  padding: 1.5rem;
   border-right: 1px solid var(--panel-border);
   background:
-    linear-gradient(180deg, rgba(7, 10, 20, 0.98), rgba(4, 8, 18, 0.9)),
+    linear-gradient(180deg, rgba(7, 10, 20, 0.98), rgba(4, 8, 18, 0.92)),
     radial-gradient(circle at top left, rgba(34, 212, 255, 0.18), transparent 35%);
+  overflow-y: auto;
 }
 
 .brand-block h1 {
@@ -172,7 +208,8 @@ function saveApiBaseUrl() {
 
 .brand-block__eyebrow,
 .topbar__eyebrow,
-.sidebar-foot__label {
+.sidebar-foot__label,
+.nav-section__eyebrow {
   margin: 0;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -184,6 +221,21 @@ function saveApiBaseUrl() {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
+}
+
+.nav-sections {
+  display: grid;
+  gap: 1rem;
+}
+
+.nav-section {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.nav-section__title {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .nav-list {
@@ -258,94 +310,93 @@ function saveApiBaseUrl() {
   justify-content: space-between;
   gap: 1.5rem;
   align-items: flex-start;
-  padding: 1.3rem 1.4rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 0.4rem);
+  padding: 1.2rem 1.3rem;
+  border-radius: calc(var(--radius-lg) + 0.2rem);
+  border: 1px solid rgba(83, 122, 185, 0.22);
   background:
-    linear-gradient(145deg, rgba(8, 13, 28, 0.96), rgba(7, 12, 25, 0.88)),
-    radial-gradient(circle at top right, rgba(251, 191, 36, 0.12), transparent 35%);
+    linear-gradient(135deg, rgba(7, 13, 28, 0.94), rgba(11, 19, 39, 0.9)),
+    radial-gradient(circle at top right, rgba(255, 161, 67, 0.12), transparent 32%);
+  box-shadow: 0 22px 70px rgba(3, 8, 18, 0.28);
 }
 
 .topbar__title {
-  margin: 0.4rem 0 0.5rem;
-  font-size: clamp(1.7rem, 2vw, 2.4rem);
+  margin: 0.35rem 0 0.3rem;
+  font-size: clamp(1.4rem, 1.9vw, 2.1rem);
 }
 
 .topbar__description {
   margin: 0;
-  max-width: 52rem;
+  max-width: 48rem;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
 .topbar__controls {
   display: flex;
-  gap: 0.9rem;
-  align-items: flex-end;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 0.8rem;
+  align-items: end;
 }
 
 .field {
   display: grid;
-  gap: 0.45rem;
-  min-width: min(22rem, 100%);
+  gap: 0.4rem;
+  min-width: min(24rem, 100%);
 }
 
 .field span {
   color: var(--text-tertiary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-
-.field input {
-  min-height: 3rem;
-}
-
-.primary-button {
-  min-height: 3rem;
-  padding: 0 1.1rem;
+  letter-spacing: 0.15em;
 }
 
 .capability-strip {
   display: flex;
-  gap: 0.75rem;
   flex-wrap: wrap;
-  margin: 1rem 0 0;
+  gap: 0.65rem;
+  margin: 1rem 0 0.85rem;
 }
 
 .capability-strip span {
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid var(--panel-border);
-  background: rgba(8, 14, 28, 0.78);
+  border: 1px solid rgba(77, 121, 190, 0.28);
+  background: rgba(10, 18, 35, 0.68);
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
 .content-frame {
-  margin-top: 1.2rem;
+  margin-top: 1rem;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1280px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
 
   .app-shell__sidebar {
-    position: static;
+    position: relative;
     height: auto;
-  }
-
-  .topbar {
-    flex-direction: column;
+    border-right: none;
+    border-bottom: 1px solid var(--panel-border);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nav-list__item {
-    transition: none;
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+  }
+
+  .topbar__controls {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .field {
+    min-width: 100%;
   }
 }
 </style>

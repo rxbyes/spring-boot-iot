@@ -35,3 +35,4 @@
 - 同步根目录 `config/application-dev.yml`、`application-test.yml`、`application-prod.yml` 与启动模块环境配置
 - 更新 API 文档，反映当前已实现接口与错误返回
 - 更新测试场景文档，补充 HTTP 上报主链路的自动化验证与手工联调步骤
+- 新增 MQTTX 共享环境现场联调手册，统一 `application-dev.yml + MQTTX` 的联调口径

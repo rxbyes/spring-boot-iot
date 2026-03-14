@@ -23,6 +23,15 @@ public class MqttConnectionListener {
         log.info("MQTT 客户端已订阅主题: {}", topics);
     }
 
+    public void onMessageReceived(String topic, int payloadSize) {
+        log.info("MQTT 收到上行消息, topic={}, payloadSize={}", topic, payloadSize);
+    }
+
+    public void onMessageDispatched(String topic, String deviceCode, String messageType) {
+        log.info("MQTT 上行消息进入主链路成功, topic={}, deviceCode={}, messageType={}",
+                topic, deviceCode, messageType);
+    }
+
     public void onConnectionLost(Throwable cause) {
         log.warn("MQTT 连接已断开: {}", cause == null ? "unknown" : cause.getMessage());
     }
@@ -33,5 +42,9 @@ public class MqttConnectionListener {
 
     public void onMessageDispatchFailed(String topic, Throwable throwable) {
         log.error("MQTT 消息分发失败, topic={}", topic, throwable);
+    }
+
+    public void onDeviceSessionRefreshed(String deviceCode, String clientId, String topic) {
+        log.debug("MQTT 设备会话已刷新, deviceCode={}, clientId={}, topic={}", deviceCode, clientId, topic);
     }
 }

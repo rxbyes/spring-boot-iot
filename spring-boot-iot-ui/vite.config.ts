@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:9999';
+  const proxyTarget = env.VITE_PROXY_TARGET || 'http://127.0.0.1:9999';
 
   return {
     plugins: [vue()],
@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (id.includes('node_modules/echarts')) {
               return 'echarts-vendor';
+            }
+            if (id.includes('node_modules/dayjs')) {
+              return 'time-vendor';
+            }
+            if (id.includes('node_modules/@element-plus/icons-vue')) {
+              return 'element-plus-icons';
             }
             if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
               return 'element-plus-vendor';
