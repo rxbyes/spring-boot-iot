@@ -25,6 +25,12 @@ public class MqttTopicParser {
             throw new BizException("MQTT topic 不能为空");
         }
 
+        // 兼容历史系统的 $dp 主题。该主题不包含标准设备上下文，需要后续结合 payload 补齐。
+        if ("$dp".equals(topic)) {
+            return new ParsedTopic(null, null, "legacy", "dp",
+                    mqttMessageTypeResolver.resolve("legacy", "dp"), topic);
+        }
+
         String[] segments = topic.split("/");
         if (segments.length < 7 || !"sys".equals(segments[1]) || !"thing".equals(segments[4])) {
             throw new BizException("不支持的 MQTT topic: " + topic);

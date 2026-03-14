@@ -85,6 +85,38 @@ curl http://localhost:9999/device/demo-device-01/message-logs
 - `iot_device.online_status = 1`
 - `iot_device.last_online_time` 与 `last_report_time` 已更新
 
+## MQTT 历史 `$dp` 主题兼容验证
+
+前置条件：
+- 启动应用时开启 MQTT：`IOT_MQTT_ENABLED=true`
+- Broker 已订阅 `$dp`
+- 数据库中已存在对应 `deviceCode` 的设备，协议为 `mqtt-json`
+
+示例 1：倾角仪 / 加速度明文数据
+```bash
+mosquitto_pub -h mqtt.ghlqf.com -p 1883 -u emqx -P '1qaz2wsx' -t '$dp' -m '{"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97,"angle":-6.03,"trend":236.18,"AZI":236.18}},"L1_JS_1":{"2026-03-14T07:04:03.000Z":{"gX":-0.04,"gY":0.18,"gZ":-0.04}}}}'
+```
+
+示例 2：设备状态数据
+```bash
+mosquitto_pub -h mqtt.ghlqf.com -p 1883 -u emqx -P '1qaz2wsx' -t '$dp' -m $'\x10{"100054920":{"S1_ZT_1":{"ext_power_volt":3.540,"solar_volt":6.185,"battery_dump_energy":1,"temp":0.0,"humidity":0,"lon":103.482170,"lat":36.180176,"signal_4g":-51,"sw_version":"V1.0.3(Jul 19 2023 16:48:13)-15522832","sensor_state":{"L1_JS_1":0,"L1_QJ_1":0,"L1_LF_1":3}}}}'
+```
+
+验证重点：
+- `iot_device_message_log` 新增 `$dp` 记录
+- `iot_device_property` 中出现拍平后的属性，例如：
+  - `L1_QJ_1.X`
+  - `L1_JS_1.gY`
+  - `S1_ZT_1.ext_power_volt`
+  - `S1_ZT_1.sensor_state.L1_LF_1`
+- `iot_device.online_status = 1`
+- `iot_device.last_online_time`、`last_report_time` 已刷新
+
+加密数据说明：
+- 当前代码已经能识别 `header.appId + bodies.body` 包装格式
+- 但未提供具体厂商解密算法与密钥时，不会伪造解密逻辑
+- 这类报文当前会返回“未配置 appId 对应的解密器”错误，等待后续按厂商接入真实解密实现
+
 ## 场景 1：产品新增
 - 创建 demo-product
 - 校验 product_key 唯一性

@@ -43,6 +43,8 @@
         <taos-jdbcdriver.version>3.5.3</taos-jdbcdriver.version>
         <mqtt.client.version>1.2.5</mqtt.client.version>
         <netty.version>4.1.112.Final</netty.version>
+
+         <ghlxk.version>2024.0.0</ghlxk.version>
     </properties>
 
     <dependencyManagement>
@@ -181,6 +183,12 @@
                 <groupId>com.ghlzm.iot</groupId>
                 <artifactId>spring-boot-iot-message</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.ghlxk.cloud</groupId>
+                <artifactId>ghlxk-spring-boot-starter-aes</artifactId>
+                <version>${ghlxk.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

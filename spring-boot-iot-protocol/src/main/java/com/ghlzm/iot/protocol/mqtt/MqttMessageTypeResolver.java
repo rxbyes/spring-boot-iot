@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 public class MqttMessageTypeResolver {
 
     public String resolve(String domain, String action) {
+        if ("legacy".equals(domain) && "dp".equals(action)) {
+            return "property";
+        }
         if ("property".equals(domain) && "post".equals(action)) {
             return "property";
         }

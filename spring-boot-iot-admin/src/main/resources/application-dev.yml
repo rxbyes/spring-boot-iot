@@ -22,7 +22,26 @@ spring:
       password: ${IOT_REDIS_PASSWORD:1QAZ2wsx___}
       database: ${IOT_REDIS_DATABASE:8}
       timeout: 10s
-
+  cloud:
+    aes:
+      merchants:
+        62000000:
+          key: Ng93rNxwBoIOM7L9Gm9ATO+lPh2MTmD9o9kuA3u/AaE=
+          key-derivation: false  # true 派生密钥模式，false：直接秘钥模式
+          mode: AES/CBC/PKCS5Padding
+        62000001: # 南方测绘
+          key: "FWx7ESWwrfx/F7T9bLKfjIOcRdyqnT1ayHqZkB6Q4Ak="
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+        62000002: # 先科
+          key: "q3FiNTM6CYaVX8RwKI+WVu85K27PKb43Rd6G/cH2+5w="
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+        62000003: # 华源交通（三立）
+          key: "mTPJ8e6o1WNpk6zaiZTb6dqtUk9+ZaUS742LjU+Ri1A="
+          #          key: Ng93rNxwBoIOM7L9Gm9ATO+lPh2MTmD9o9kuA3u/AaE=
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
 logging:
   level:
     root: info
@@ -35,6 +54,13 @@ iot:
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
     username: ${IOT_MQTT_USERNAME:emqx}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
+    default-subscribe-topics:
+      - $dp
+      - /sys/+/+/thing/property/post
+      - /sys/+/+/thing/event/post
+      - /sys/+/+/thing/property/reply
+      - /sys/+/+/thing/service/reply
+      - /sys/+/+/thing/status/post
 
   telemetry:
     storage-type: mysql
@@ -44,3 +70,4 @@ iot:
 
   ota:
     enabled: false
+

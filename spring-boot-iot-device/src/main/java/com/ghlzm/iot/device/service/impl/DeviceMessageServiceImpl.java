@@ -81,6 +81,10 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
 
         String productKey = fetchProductKey(device);
+        if (upMessage.getProductKey() == null || upMessage.getProductKey().isBlank()) {
+            // 历史 MQTT 主题（例如 $dp）不一定携带 productKey，这里按设备归属产品回填即可。
+            upMessage.setProductKey(productKey);
+        }
         if (productKey == null || upMessage.getProductKey() == null || !upMessage.getProductKey().equalsIgnoreCase(productKey)) {
             throw new BizException("设备所属产品不匹配: " + upMessage.getDeviceCode());
         }

@@ -135,7 +135,12 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
         if (!hasText(deviceCode)) {
             return null;
         }
-        String sessionJson = stringRedisTemplate.opsForValue().get(buildSessionKey(deviceCode));
+        String sessionJson;
+        try {
+            sessionJson = stringRedisTemplate.opsForValue().get(buildSessionKey(deviceCode));
+        } catch (Exception ex) {
+            return null;
+        }
         if (!hasText(sessionJson)) {
             return null;
         }
@@ -155,6 +160,8 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
             );
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("设备会话序列化失败", ex);
+        } catch (Exception ex) {
+            // 当前阶段 Redis 不可用时不阻断消息主链路，仍以数据库在线状态作为兜底结果。
         }
     }
 
