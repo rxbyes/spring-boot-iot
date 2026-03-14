@@ -22,6 +22,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/auth/login",
+                                "/device/**",
+                                "/message/**",
+                                "/actuator/**",
                                 "/error",
                                 "/doc.html",
                                 "/swagger-ui/**",
@@ -34,4 +37,3 @@ public class SecurityConfig {
         return http.build();
     }
 }
-

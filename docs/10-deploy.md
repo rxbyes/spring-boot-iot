@@ -4,6 +4,7 @@
 - Java 17
 - Maven 3.9+
 - MySQL 8.x
+- TDengine
 - Redis
 - 可选：EMQX / Mosquitto
 
@@ -13,11 +14,6 @@
 3. 修改 application-dev.yml 中数据库与 Redis 配置
 4. 启动 IotAdminApplication
 
-## 建议目录
-- sql/
-- docs/
-- docker/
-
-## 后续部署建议
+## 后续建议
 - 开发环境使用 Docker Compose
-- 生产环境建议拆分数据库、Redis、MQTT Broker
+- 生产环境拆分数据库、Redis、MQTT Broker

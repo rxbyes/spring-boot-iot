@@ -18,7 +18,7 @@ import java.util.Map;
 public class TelemetryController {
 
     @GetMapping("/api/telemetry/latest")
-    public R<?> latest(@RequestParam Long deviceId) {
+    public R<?> latest(@RequestParam("deviceId") Long deviceId) {
         Map<String, Object> result = new HashMap<>();
         result.put("deviceId", deviceId);
         result.put("temperature", 26.5);
@@ -26,4 +26,3 @@ public class TelemetryController {
         return R.ok(result);
     }
 }
-

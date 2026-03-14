@@ -16,6 +16,7 @@ public class DeviceUpMessage {
     private String tenantId;
     private String productKey;
     private String deviceCode;
+    private String protocolCode;
     private String messageType;
     private String topic;
     private Map<String, Object> properties;
@@ -23,4 +24,3 @@ public class DeviceUpMessage {
     private LocalDateTime timestamp;
     private String rawPayload;
 }
-

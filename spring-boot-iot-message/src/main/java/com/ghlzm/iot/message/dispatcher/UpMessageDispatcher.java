@@ -1,4 +1,5 @@
 package com.ghlzm.iot.message.dispatcher;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
@@ -26,7 +27,7 @@ public class UpMessageDispatcher {
     public void dispatch(RawDeviceMessage rawMessage) {
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
-            throw new IllegalArgumentException("未找到协议适配器: " + rawMessage.getProtocolCode());
+            throw new BizException("未找到协议适配器: " + rawMessage.getProtocolCode());
         }
 
         ProtocolContext context = new ProtocolContext();
@@ -37,9 +38,9 @@ public class UpMessageDispatcher {
         context.setClientId(rawMessage.getClientId());
 
         DeviceUpMessage upMessage = adapter.decode(rawMessage.getPayload(), context);
+        upMessage.setProtocolCode(rawMessage.getProtocolCode());
         upMessage.setTopic(rawMessage.getTopic());
 
         deviceMessageService.handleUpMessage(upMessage);
     }
 }
-

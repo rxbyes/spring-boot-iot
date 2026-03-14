@@ -36,6 +36,8 @@ public class Device extends BaseEntity {
     private LocalDateTime lastOnlineTime;
     private LocalDateTime lastOfflineTime;
     private LocalDateTime lastReportTime;
+    private java.math.BigDecimal longitude;
+    private java.math.BigDecimal latitude;
     private String address;
+    private String metadataJson;
 }
-
