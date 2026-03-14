@@ -1,4 +1,5 @@
 package com.ghlzm.iot.device.service.impl;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.Device;
@@ -38,7 +39,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void handleUpMessage(DeviceUpMessage upMessage) {
-        Device device = findDeviceByCode(upMessage.getDeviceCode());
+        Device device = findDeviceByCode(upMessage.getTenantId(), upMessage.getDeviceCode());
         if (device == null) {
             throw new BizException("设备不存在: " + upMessage.getDeviceCode());
         }
@@ -48,13 +49,30 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         updateDeviceOnlineStatus(device, upMessage);
     }
 
-    private Device findDeviceByCode(String deviceCode) {
-        return deviceMapper.selectOne(
-                new LambdaQueryWrapper<Device>()
-                        .eq(Device::getDeviceCode, deviceCode)
-                        .eq(Device::getDeleted, 0)
-                        .last("limit 1")
-        );
+    private Device findDeviceByCode(String tenantId, String deviceCode) {
+        LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<Device>()
+                .eq(Device::getDeviceCode, deviceCode)
+                .eq(Device::getDeleted, 0)
+                .last("limit 1");
+
+        Long tenantIdValue = parseTenantId(tenantId);
+        if (tenantIdValue != null) {
+            wrapper.eq(Device::getTenantId, tenantIdValue);
+        }
+
+        return deviceMapper.selectOne(wrapper);
+    }
+
+    private Long parseTenantId(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(tenantId);
+        } catch (NumberFormatException e) {
+            throw new BizException("tenantId 格式错误: " + tenantId);
+        }
     }
 
     private void saveMessageLog(Device device, DeviceUpMessage upMessage) {
@@ -63,7 +81,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         log.setDeviceId(device.getId());
         log.setProductId(device.getProductId());
         log.setMessageType(upMessage.getMessageType());
-        log.setTopic(null);
+        log.setTopic(upMessage.getTopic());
         log.setPayload(upMessage.getRawPayload());
         log.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
         log.setCreateTime(LocalDateTime.now());
@@ -94,14 +112,14 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                 property.setIdentifier(identifier);
                 property.setPropertyName(identifier);
                 property.setPropertyValue(value == null ? null : String.valueOf(value));
-                property.setValueType(value == null ? "string" : value.getClass().getSimpleName().toLowerCase());
+                property.setValueType(resolveValueType(value));
                 property.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
                 property.setCreateTime(LocalDateTime.now());
                 property.setUpdateTime(LocalDateTime.now());
                 devicePropertyMapper.insert(property);
             } else {
                 property.setPropertyValue(value == null ? null : String.valueOf(value));
-                property.setValueType(value == null ? "string" : value.getClass().getSimpleName().toLowerCase());
+                property.setValueType(resolveValueType(value));
                 property.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
                 property.setUpdateTime(LocalDateTime.now());
                 devicePropertyMapper.updateById(property);
@@ -109,13 +127,31 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
     }
 
+    private String resolveValueType(Object value) {
+        if (value == null) {
+            return "string";
+        }
+
+        if (value instanceof Integer || value instanceof Long) {
+            return "int";
+        }
+        if (value instanceof Float || value instanceof Double) {
+            return "double";
+        }
+        if (value instanceof Boolean) {
+            return "bool";
+        }
+        return "string";
+    }
+
     private void updateDeviceOnlineStatus(Device device, DeviceUpMessage upMessage) {
+        LocalDateTime reportTime = upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp();
+
         Device update = new Device();
         update.setId(device.getId());
         update.setOnlineStatus(1);
-        update.setLastOnlineTime(LocalDateTime.now());
-        update.setLastReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
+        update.setLastOnlineTime(reportTime);
+        update.setLastReportTime(reportTime);
         deviceMapper.updateById(update);
     }
 }
-

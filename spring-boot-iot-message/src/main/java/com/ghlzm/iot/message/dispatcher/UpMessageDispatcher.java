@@ -1,4 +1,6 @@
 package com.ghlzm.iot.message.dispatcher;
+
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
@@ -6,6 +8,7 @@ import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import org.springframework.stereotype.Component;
+
 /**
  * Author rxbyes
  * Since 2.0
@@ -26,7 +29,7 @@ public class UpMessageDispatcher {
     public void dispatch(RawDeviceMessage rawMessage) {
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
-            throw new IllegalArgumentException("未找到协议适配器: " + rawMessage.getProtocolCode());
+            throw new BizException("未找到协议适配器: " + rawMessage.getProtocolCode());
         }
 
         ProtocolContext context = new ProtocolContext();
@@ -37,9 +40,15 @@ public class UpMessageDispatcher {
         context.setClientId(rawMessage.getClientId());
 
         DeviceUpMessage upMessage = adapter.decode(rawMessage.getPayload(), context);
+        if (upMessage == null) {
+            throw new BizException("协议解析结果为空");
+        }
+
+        if (upMessage.getDeviceCode() == null || upMessage.getDeviceCode().isBlank()) {
+            upMessage.setDeviceCode(rawMessage.getDeviceCode());
+        }
         upMessage.setTopic(rawMessage.getTopic());
 
         deviceMessageService.handleUpMessage(upMessage);
     }
 }
-
