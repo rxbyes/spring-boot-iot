@@ -2,6 +2,7 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
@@ -20,7 +21,11 @@ import java.util.Map;
 @Component
 public class MqttJsonProtocolAdapter implements ProtocolAdapter {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public MqttJsonProtocolAdapter(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public String getProtocolCode() {
@@ -28,9 +33,11 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public DeviceUpMessage decode(byte[] payload, ProtocolContext context) {
         try {
-            Map<String, Object> map = objectMapper.readValue(payload, new TypeReference<>() {});
+            Map<String, Object> map = objectMapper.readValue(payload, new TypeReference<>() {
+            });
             DeviceUpMessage message = new DeviceUpMessage();
             message.setTenantId(context.getTenantCode());
             message.setProductKey(context.getProductKey());
@@ -39,20 +46,20 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             message.setTopic(context.getTopic());
 
             Object props = map.get("properties");
-            if (props instanceof Map<?, ?> p) {
-                message.setProperties((Map<String, Object>) p);
+            if (props instanceof Map<?, ?>) {
+                message.setProperties((Map<String, Object>) props);
             }
 
             Object events = map.get("events");
-            if (events instanceof Map<?, ?> e) {
-                message.setEvents((Map<String, Object>) e);
+            if (events instanceof Map<?, ?>) {
+                message.setEvents((Map<String, Object>) events);
             }
 
             message.setTimestamp(LocalDateTime.now());
             message.setRawPayload(new String(payload, StandardCharsets.UTF_8));
             return message;
         } catch (Exception e) {
-            throw new RuntimeException("MQTT JSON 协议解析失败", e);
+            throw new BizException("MQTT JSON 协议解析失败");
         }
     }
 
@@ -61,8 +68,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         try {
             return objectMapper.writeValueAsBytes(message);
         } catch (Exception e) {
-            throw new RuntimeException("MQTT JSON 协议编码失败", e);
+            throw new BizException("MQTT JSON 协议编码失败");
         }
     }
 }
-
