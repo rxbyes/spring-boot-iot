@@ -3,6 +3,7 @@ package com.ghlzm.iot.protocol.mqtt;
 import com.ghlzm.iot.common.exception.BizException;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -18,12 +19,16 @@ public class MqttPayloadDecryptorRegistry {
         this.decryptors = decryptors;
     }
 
-    public String decryptOrThrow(String appId, String encryptedBody) {
+    public byte[] decryptBytesOrThrow(String appId, String encryptedBody) {
         for (MqttPayloadDecryptor decryptor : decryptors) {
             if (decryptor.supports(appId)) {
-                return decryptor.decrypt(appId, encryptedBody);
+                return decryptor.decryptBytes(appId, encryptedBody);
             }
         }
         throw new BizException("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: " + appId);
+    }
+
+    public String decryptOrThrow(String appId, String encryptedBody) {
+        return new String(decryptBytesOrThrow(appId, encryptedBody), StandardCharsets.UTF_8);
     }
 }

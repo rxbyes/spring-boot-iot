@@ -34,7 +34,7 @@ public class UpMessageDispatcher {
         this.deviceMessageService = deviceMessageService;
     }
 
-    public void dispatch(RawDeviceMessage rawMessage) {
+    public DeviceUpMessage dispatch(RawDeviceMessage rawMessage) {
         // 先按协议编码选择适配器，message 模块只做接入与分发。
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
@@ -80,6 +80,7 @@ public class UpMessageDispatcher {
 
         // 分发完成后交给 device 模块处理落库、属性更新和在线状态刷新。
         deviceMessageService.handleUpMessage(upMessage);
+        return upMessage;
     }
 
     private Map<String, Object> buildMetadata(RawDeviceMessage rawMessage) {

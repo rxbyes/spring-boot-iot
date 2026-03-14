@@ -37,6 +37,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.ghlxk.cloud</groupId>
+            <artifactId>ghlxk-spring-boot-starter-aes</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>

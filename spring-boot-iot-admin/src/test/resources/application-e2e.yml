@@ -29,6 +29,14 @@ spring:
       database: 0
       timeout: 10s
 
+  cloud:
+    aes:
+      merchants:
+        62000001:
+          key: "FWx7ESWwrfx/F7T9bLKfjIOcRdyqnT1ayHqZkB6Q4Ak="
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+
 logging:
   level:
     root: info

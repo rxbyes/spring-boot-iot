@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
+import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
@@ -132,15 +133,21 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     public void messageArrived(String topic, MqttMessage message) {
         try {
             RawDeviceMessage rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
-            upMessageDispatcher.dispatch(rawDeviceMessage);
+            DeviceUpMessage upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
+            String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
+                    ? upMessage.getDeviceCode()
+                    : rawDeviceMessage.getDeviceCode();
+            String resolvedClientId = hasText(rawDeviceMessage.getClientId())
+                    ? rawDeviceMessage.getClientId()
+                    : resolvedDeviceCode;
             // 当前阶段以“成功进入主链路的上行消息”作为在线与活跃刷新触发点。
             deviceSessionService.online(
-                    rawDeviceMessage.getDeviceCode(),
-                    rawDeviceMessage.getClientId()
+                    resolvedDeviceCode,
+                    resolvedClientId
             );
             deviceSessionService.refreshLastSeen(
-                    rawDeviceMessage.getDeviceCode(),
-                    rawDeviceMessage.getClientId(),
+                    resolvedDeviceCode,
+                    resolvedClientId,
                     topic
             );
         } catch (Exception ex) {
@@ -209,5 +216,9 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             options.setPassword(iotProperties.getMqtt().getPassword().toCharArray());
         }
         return options;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

@@ -55,9 +55,12 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
      */
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry;
+    private final MqttPayloadFrameParser mqttPayloadFrameParser;
 
-    public MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry) {
+    public MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry,
+                                   MqttPayloadFrameParser mqttPayloadFrameParser) {
         this.mqttPayloadDecryptorRegistry = mqttPayloadDecryptorRegistry;
+        this.mqttPayloadFrameParser = mqttPayloadFrameParser;
     }
 
     @Override
@@ -322,14 +325,21 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     }
 
     private DecodedPayload decodePayload(byte[] payload) throws Exception {
-        String payloadText = sanitizePayload(new String(payload, StandardCharsets.UTF_8));
+        MqttPayloadFrameParser.ParsedFrame parsedFrame = mqttPayloadFrameParser.parse("mqtt-json", payload);
+        String payloadText = sanitizePayload(parsedFrame.jsonMessage());
         Map<String, Object> payloadMap = objectMapper.readValue(payloadText, new TypeReference<>() {
         });
 
         if (isEncryptedEnvelope(payloadMap)) {
             String appId = extractAppId(payloadMap);
             String encryptedBody = extractEncryptedBody(payloadMap);
-            String plaintext = sanitizePayload(mqttPayloadDecryptorRegistry.decryptOrThrow(appId, encryptedBody));
+            // 密文解开后，真实设备可能返回“类型字节 + 长度字节 + JSON”的二进制内容，
+            // 因此这里要再次经过帧解析，不能直接把明文当作纯 JSON 处理。
+            MqttPayloadFrameParser.ParsedFrame decryptedFrame = mqttPayloadFrameParser.parse(
+                    "mqtt-json-decrypted",
+                    mqttPayloadDecryptorRegistry.decryptBytesOrThrow(appId, encryptedBody)
+            );
+            String plaintext = sanitizePayload(decryptedFrame.jsonMessage());
             Map<String, Object> decryptedMap = objectMapper.readValue(plaintext, new TypeReference<>() {
             });
             // 原始日志仍保留接入时的密文报文，便于审计与排障。

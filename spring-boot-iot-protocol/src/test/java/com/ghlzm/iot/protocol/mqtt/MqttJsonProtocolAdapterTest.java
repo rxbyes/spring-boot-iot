@@ -14,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class MqttJsonProtocolAdapterTest {
 
     private final MqttJsonProtocolAdapter adapter = new MqttJsonProtocolAdapter(
-            new MqttPayloadDecryptorRegistry(List.of())
+            new MqttPayloadDecryptorRegistry(List.of()),
+            new MqttPayloadFrameParser()
     );
 
     @Test

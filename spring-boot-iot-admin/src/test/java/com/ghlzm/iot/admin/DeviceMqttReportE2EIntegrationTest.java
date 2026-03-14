@@ -10,10 +10,12 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.message.mqtt.MqttMessageConsumer;
+import com.ghlxk.cloud.aes.core.AesEncryptor;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -34,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
-@SpringBootTest
+@SpringBootTest(classes = IotAdminApplication.class)
 @ActiveProfiles("e2e")
 class DeviceMqttReportE2EIntegrationTest {
 
@@ -52,6 +54,10 @@ class DeviceMqttReportE2EIntegrationTest {
 
     @Autowired
     private MqttMessageConsumer mqttMessageConsumer;
+
+    @Autowired
+    @Qualifier("aesEncryptors")
+    private Map<String, AesEncryptor> aesEncryptors;
 
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -120,6 +126,27 @@ class DeviceMqttReportE2EIntegrationTest {
                 fixture.deviceCode().equals(resolveDeviceCodeFromPayload(item.getPayload()))
                         && "$dp".equals(item.getTopic())
                         && "status".equals(item.getMessageType())));
+    }
+
+    @Test
+    void shouldPersistEncryptedLegacyDpTopicReport() throws Exception {
+        DeviceFixture fixture = createProductAndDevice();
+        AesEncryptor aesEncryptor = aesEncryptors.get("62000001");
+        assertNotNull(aesEncryptor);
+
+        String plaintextJson = """
+                {"deviceCode":"%s","temperature":25.1,"humidity":61}
+                """.formatted(fixture.deviceCode()).trim();
+        byte[] innerPacket = buildPacket((byte) 1, plaintextJson);
+        String encryptedBody = aesEncryptor.encrypt(new String(innerPacket, StandardCharsets.ISO_8859_1));
+        String envelopeJson = """
+                {"header":{"appId":"62000001"},"bodies":{"body":"%s"}}
+                """.formatted(encryptedBody);
+        byte[] outerPacket = buildPacket((byte) 1, envelopeJson);
+
+        mqttMessageConsumer.messageArrived("$dp", new MqttMessage(outerPacket));
+
+        assertDeviceState(fixture.deviceCode(), "$dp", "temperature", "25.1", "humidity", "61");
     }
 
     private void assertDeviceState(String deviceCode,
@@ -226,6 +253,21 @@ class DeviceMqttReportE2EIntegrationTest {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    /**
+     * 构造“类型字节 + 长度字节 + JSON 正文”的历史数据帧，
+     * 用于模拟真实 $dp 主题下的明文/密文载荷格式。
+     */
+    private byte[] buildPacket(byte type, String json) {
+        byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
+        int length = jsonBytes.length;
+        byte[] packet = new byte[length + 3];
+        packet[0] = type;
+        packet[1] = (byte) ((length >> 8) & 0xFF);
+        packet[2] = (byte) (length & 0xFF);
+        System.arraycopy(jsonBytes, 0, packet, 3, length);
+        return packet;
     }
 
     private record DeviceFixture(String suffix, String productKey, String deviceCode, String standardTopic) {
