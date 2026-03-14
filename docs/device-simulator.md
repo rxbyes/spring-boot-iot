@@ -9,7 +9,7 @@ POST /message/http/report
   "protocolCode": "mqtt-json",
   "productKey": "demo-product",
   "deviceCode": "demo-device-01",
-  "payload": "{"messageType":"property","properties":{"temperature":26.5,"humidity":68}}",
+  "payload": "{\"messageType\":\"property\",\"properties\":{\"temperature\":26.5,\"humidity\":68}}",
   "topic": "/sys/demo-product/demo-device-01/thing/property/post",
   "clientId": "demo-device-01",
   "tenantId": "1"

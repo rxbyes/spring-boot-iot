@@ -1,6 +1,10 @@
 package com.ghlzm.iot.common.response;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.Collections;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
@@ -11,7 +15,11 @@ import java.util.List;
  * Date 2026/3/13 - 13:35
  */
 @Data
-public class PageResult<T> {
+@NoArgsConstructor
+public class PageResult<T> implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private Long total;
 
@@ -20,5 +28,19 @@ public class PageResult<T> {
     private Long pageSize;
 
     private List<T> records;
-}
 
+    public PageResult(Long total, Long pageNum, Long pageSize, List<T> records) {
+        this.total = total;
+        this.pageNum = pageNum;
+        this.pageSize = pageSize;
+        this.records = records;
+    }
+
+    public static <T> PageResult<T> of(Long total, Long pageNum, Long pageSize, List<T> records) {
+        return new PageResult<>(total, pageNum, pageSize, records);
+    }
+
+    public static <T> PageResult<T> empty(Long pageNum, Long pageSize) {
+        return new PageResult<>(0L, pageNum, pageSize, Collections.emptyList());
+    }
+}

@@ -17,15 +17,8 @@
         <module>spring-boot-iot-auth</module>
         <module>spring-boot-iot-system</module>
         <module>spring-boot-iot-device</module>
-        <module>spring-boot-iot-gateway</module>
         <module>spring-boot-iot-protocol</module>
         <module>spring-boot-iot-message</module>
-        <module>spring-boot-iot-rule</module>
-        <module>spring-boot-iot-telemetry</module>
-        <module>spring-boot-iot-alarm</module>
-        <module>spring-boot-iot-ota</module>
-        <module>spring-boot-iot-job</module>
-        <module>spring-boot-iot-api</module>
         <module>spring-boot-iot-admin</module>
     </modules>
 
@@ -35,11 +28,9 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
+        <skipTests>true</skipTests>
 
         <spring-boot.version>4.0.0</spring-boot.version>
-        <spring-cloud.version>2025.1.0</spring-cloud.version>
-        <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
-
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <hutool.version>5.8.32</hutool.version>
@@ -49,7 +40,6 @@
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok.version>1.18.34</lombok.version>
         <mysql.version>8.4.0</mysql.version>
-        <postgresql.version>42.7.3</postgresql.version>
         <taos-jdbcdriver.version>3.5.3</taos-jdbcdriver.version>
         <mqtt.client.version>1.2.5</mqtt.client.version>
         <netty.version>4.1.112.Final</netty.version>
@@ -62,24 +52,6 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Spring Cloud -->
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-dependencies</artifactId>
-                <version>${spring-cloud.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Spring Cloud Alibaba -->
-            <dependency>
-                <groupId>com.alibaba.cloud</groupId>
-                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
-                <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -154,12 +126,6 @@
                 <version>${taos-jdbcdriver.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.postgresql</groupId>
-                <artifactId>postgresql</artifactId>
-                <version>${postgresql.version}</version>
-            </dependency>
-
             <!-- MapStruct -->
             <dependency>
                 <groupId>org.mapstruct</groupId>
@@ -208,11 +174,6 @@
             </dependency>
             <dependency>
                 <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-gateway</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
                 <artifactId>spring-boot-iot-protocol</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -221,37 +182,6 @@
                 <artifactId>spring-boot-iot-message</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-rule</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-telemetry</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-alarm</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-ota</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-job</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.ghlzm.iot</groupId>
-                <artifactId>spring-boot-iot-api</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
@@ -291,7 +221,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.2.5</version>
                     <configuration>
-                        <skipTests>true</skipTests>
+                        <skipTests>${skipTests}</skipTests>
                     </configuration>
                 </plugin>
 

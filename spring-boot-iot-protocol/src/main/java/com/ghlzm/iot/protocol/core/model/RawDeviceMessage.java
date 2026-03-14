@@ -3,6 +3,9 @@ package com.ghlzm.iot.protocol.core.model;
 import lombok.Data;
 
 /**
+ * 统一原始设备消息模型。
+ * 所有接入方式在进入协议层前都先转换成该结构。
+ *
  * Author rxbyes
  * Since 2.0
  * Date 2026/3/13 - 14:29
@@ -45,4 +48,3 @@ public class RawDeviceMessage {
      */
     private String tenantId;
 }
-

@@ -5,17 +5,17 @@ spring:
       strict: false
       datasource:
         master:
-          url: jdbc:mysql://127.0.0.1:3306/spring_boot_iot_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
-          username: root
-          password: 123456
+          url: ${IOT_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/spring_boot_iot_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          username: ${IOT_MYSQL_USERNAME:root}
+          password: ${IOT_MYSQL_PASSWORD:root}
           driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
-      password:
-      database: 2
+      host: ${IOT_REDIS_HOST:127.0.0.1}
+      port: ${IOT_REDIS_PORT:6379}
+      password: ${IOT_REDIS_PASSWORD:}
+      database: ${IOT_REDIS_DATABASE:2}
       timeout: 10s
 
 logging:
@@ -25,9 +25,9 @@ logging:
 
 iot:
   mqtt:
-    broker-url: tcp://127.0.0.1:1883
-    username: admin
-    password: public
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://127.0.0.1:1883}
+    username: ${IOT_MQTT_USERNAME:admin}
+    password: ${IOT_MQTT_PASSWORD:public}
 
   telemetry:
     storage-type: mysql

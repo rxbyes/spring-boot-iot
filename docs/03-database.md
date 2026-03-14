@@ -1,7 +1,7 @@
 # 数据库设计
 
 ## 数据库名
-spring_boot_iot
+rm_iot
 
 ## 系统表
 - sys_user

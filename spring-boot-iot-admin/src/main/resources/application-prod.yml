@@ -5,17 +5,17 @@ spring:
       strict: true
       datasource:
         master:
-          url: jdbc:mysql://prod-db-host:3306/spring_boot_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
-          username: prod_user
-          password: prod_password
+          url: ${IOT_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/spring_boot_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          username: ${IOT_MYSQL_USERNAME:root}
+          password: ${IOT_MYSQL_PASSWORD:root}
           driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
-      host: prod-redis-host
-      port: 6379
-      password: prod_redis_password
-      database: 3
+      host: ${IOT_REDIS_HOST:127.0.0.1}
+      port: ${IOT_REDIS_PORT:6379}
+      password: ${IOT_REDIS_PASSWORD:}
+      database: ${IOT_REDIS_DATABASE:3}
       timeout: 10s
 
 logging:
@@ -27,12 +27,12 @@ logging:
 
 iot:
   security:
-    jwt-secret: change-to-prod-very-strong-secret
+    jwt-secret: ${IOT_JWT_SECRET:change-to-prod-very-strong-secret}
 
   mqtt:
-    broker-url: tcp://prod-mqtt-host:1883
-    username: prod_mqtt_user
-    password: prod_mqtt_password
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://127.0.0.1:1883}
+    username: ${IOT_MQTT_USERNAME:admin}
+    password: ${IOT_MQTT_PASSWORD:public}
 
   telemetry:
     storage-type: tdengine

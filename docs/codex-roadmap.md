@@ -1,7 +1,7 @@
 # Codex Roadmap
 
 ## Phase 1
-### Task 1
+### Task 1 [DONE]
 Create Maven multi-module structure:
 - spring-boot-iot-common
 - spring-boot-iot-framework
@@ -12,7 +12,7 @@ Create Maven multi-module structure:
 - spring-boot-iot-message
 - spring-boot-iot-admin
 
-### Task 2
+### Task 2 [DONE]
 Add base infrastructure:
 - R
 - PageResult
@@ -22,7 +22,7 @@ Add base infrastructure:
 - SecurityConfig
 - IotProperties
 
-### Task 3
+### Task 3 [DONE]
 Add entities and mappers:
 - Product
 - ProductModel
@@ -30,14 +30,14 @@ Add entities and mappers:
 - DeviceProperty
 - DeviceMessageLog
 
-### Task 4
+### Task 4 [DONE]
 Add services and controllers:
 - ProductService / Controller
 - DeviceService / Controller
 - DevicePropertyController
 - DeviceMessageLogController
 
-### Task 5
+### Task 5 [DONE]
 Implement HTTP reporting pipeline:
 - DeviceReportRequest
 - DeviceHttpController
@@ -47,13 +47,16 @@ Implement HTTP reporting pipeline:
 - MqttJsonProtocolAdapter
 - DeviceMessageServiceImpl
 
-### Task 6
+### Task 6 [DONE]
 Verify:
 - insert message log
 - update latest property
 - update online status
+- validate bad protocol and missing device errors
+- add unit tests for DeviceMessageServiceImpl
 
 ## Phase 2
+### Status: TODO
 - MQTT consumer
 - Device shadow
 - Gateway topology
@@ -61,6 +64,7 @@ Verify:
 - Telemetry query
 
 ## Phase 3
+### Status: TODO
 - Rule engine
 - Alarm center
 - OTA

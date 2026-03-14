@@ -1,42 +1,43 @@
-package com.ghlzm.iot.common.model;
+package com.ghlzm.iot.device.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
-import java.io.Serial;
-import java.io.Serializable;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 /**
- * Author rxbyes
- * Since 2.0
- * Date 2026/3/13 - 13:36
+ * 产品物模型定义，对应一期的属性/事件/服务元数据。
  */
 @Data
-public class BaseEntity implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
+@TableName("iot_product_model")
+public class ProductModel {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    @TableField(fill = FieldFill.INSERT)
     private Long tenantId;
 
-    private String remark;
-
-    @TableField(fill = FieldFill.INSERT)
-    private Long createBy;
+    private Long productId;
+    private String modelType;
+    private String identifier;
+    private String modelName;
+    private String dataType;
+    private String specsJson;
+    private String eventType;
+    private String serviceInputJson;
+    private String serviceOutputJson;
+    private Integer sortNo;
+    private Integer requiredFlag;
+    private String description;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private Long updateBy;
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;

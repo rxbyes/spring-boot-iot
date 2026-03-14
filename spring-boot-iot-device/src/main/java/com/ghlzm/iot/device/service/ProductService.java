@@ -1,13 +1,26 @@
 package com.ghlzm.iot.device.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 
 /**
- * Author rxbyes
- * Since 2.0
- * Date 2026/3/13 - 13:57
+ * 产品服务，负责一期产品最小管理能力。
  */
 public interface ProductService extends IService<Product> {
-}
 
+    /**
+     * 新增产品。
+     */
+    Product addProduct(ProductAddDTO dto);
+
+    /**
+     * 按主键查询产品，不存在时抛业务异常。
+     */
+    Product getRequiredById(Long id);
+
+    /**
+     * 按 productKey 查询产品，不存在时抛业务异常。
+     */
+    Product getRequiredByProductKey(String productKey);
+}

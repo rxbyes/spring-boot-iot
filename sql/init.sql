@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS spring_boot_iot DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-USE spring_boot_iot;
+CREATE DATABASE IF NOT EXISTS rm_iot DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE rm_iot;
 
 DROP TABLE IF EXISTS sys_tenant;
 CREATE TABLE sys_tenant (

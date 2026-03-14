@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
+ * MQTT JSON 协议适配器。
+ * 一期通过该适配器把 HTTP 模拟上报中的 JSON payload 转换成统一上行消息。
+ *
  * Author rxbyes
  * Since 2.0
  * Date 2026/3/13 - 14:06
@@ -21,11 +24,11 @@ import java.util.Map;
 @Component
 public class MqttJsonProtocolAdapter implements ProtocolAdapter {
 
-    private final ObjectMapper objectMapper;
-
-    public MqttJsonProtocolAdapter(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+    /**
+     * 当前阶段协议层只需要最小 JSON 解析能力，直接在适配器内部维护 ObjectMapper，
+     * 避免联调测试依赖额外的 Jackson Bean 注入条件。
+     */
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Override
     public String getProtocolCode() {
@@ -36,6 +39,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     @SuppressWarnings("unchecked")
     public DeviceUpMessage decode(byte[] payload, ProtocolContext context) {
         try {
+            // 当前阶段约定 payload 是标准 JSON 字符串，按 map 形式解析即可满足主链路。
             Map<String, Object> map = objectMapper.readValue(payload, new TypeReference<>() {
             });
             DeviceUpMessage message = new DeviceUpMessage();

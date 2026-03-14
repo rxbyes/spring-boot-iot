@@ -9,7 +9,13 @@ import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+
 /**
+ * 上行消息分发器。
+ * 该层只负责协议适配器路由和统一消息转换，不承担业务落库职责。
+ *
  * Author rxbyes
  * Since 2.0
  * Date 2026/3/13 - 14:34
@@ -27,11 +33,13 @@ public class UpMessageDispatcher {
     }
 
     public void dispatch(RawDeviceMessage rawMessage) {
+        // 先按协议编码选择适配器，message 模块只做接入与分发。
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
             throw new BizException("未找到协议适配器: " + rawMessage.getProtocolCode());
         }
 
+        // 构造协议上下文，把接入层已知的信息统一传给协议层。
         ProtocolContext context = new ProtocolContext();
         context.setTenantCode(rawMessage.getTenantId());
         context.setProductKey(rawMessage.getProductKey());
@@ -44,11 +52,26 @@ public class UpMessageDispatcher {
             throw new BizException("协议解析结果为空");
         }
 
+        // 一期主链路要求上下游字段完整，这里对适配器未显式回填的字段做最小兜底。
+        if (upMessage.getTenantId() == null || upMessage.getTenantId().isBlank()) {
+            upMessage.setTenantId(rawMessage.getTenantId());
+        }
+        if (upMessage.getProductKey() == null || upMessage.getProductKey().isBlank()) {
+            upMessage.setProductKey(rawMessage.getProductKey());
+        }
         if (upMessage.getDeviceCode() == null || upMessage.getDeviceCode().isBlank()) {
             upMessage.setDeviceCode(rawMessage.getDeviceCode());
         }
+        if (upMessage.getRawPayload() == null || upMessage.getRawPayload().isBlank()) {
+            upMessage.setRawPayload(new String(rawMessage.getPayload(), StandardCharsets.UTF_8));
+        }
+        if (upMessage.getTimestamp() == null) {
+            upMessage.setTimestamp(LocalDateTime.now());
+        }
+        upMessage.setProtocolCode(rawMessage.getProtocolCode());
         upMessage.setTopic(rawMessage.getTopic());
 
+        // 分发完成后交给 device 模块处理落库、属性更新和在线状态刷新。
         deviceMessageService.handleUpMessage(upMessage);
     }
 }

@@ -1,5 +1,9 @@
 package com.ghlzm.iot.device.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -14,15 +18,22 @@ import java.time.LocalDateTime;
 @TableName("iot_device_property")
 public class DeviceProperty {
 
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
+
+    @TableField(fill = FieldFill.INSERT)
     private Long tenantId;
+
     private Long deviceId;
     private String identifier;
     private String propertyName;
     private String propertyValue;
     private String valueType;
     private LocalDateTime reportTime;
+
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 }
-
