@@ -2,9 +2,10 @@
 
 ## P0
 - [ ] 完成 JWT 登录
-- [ ] 完成 Product / Device CRUD
+- [ ] 完成 Product CRUD
+- [ ] 完成 Device CRUD
+- [ ] 跑通 HTTP 模拟上报
 - [ ] 完成 DeviceMessageService 落库逻辑
-- [ ] 跑通 HTTP 上报主链路
 - [ ] 完成设备属性查询接口
 - [ ] 完成设备消息日志查询接口
 

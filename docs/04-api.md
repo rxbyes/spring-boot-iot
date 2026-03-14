@@ -9,10 +9,10 @@
 }
 ```
 
-## 1. 产品新增
+## 产品新增
 POST /device/product/add
 
-请求体示例：
+### 请求体
 ```json
 {
   "productKey": "demo-product",
@@ -23,14 +23,13 @@ POST /device/product/add
 }
 ```
 
-## 2. 查询产品
-
+## 查询产品
 GET /device/product/{id}
 
-## 3. HTTP 模拟设备上报
+## HTTP 模拟设备上报
 POST /message/http/report
 
-请求体示例：
+### 请求体
 ```json
 {
   "protocolCode": "mqtt-json",
@@ -43,8 +42,8 @@ POST /message/http/report
 }
 ```
 
-## 4. 查询设备最新属性
+## 查询设备最新属性
 GET /device/{deviceCode}/properties
 
-## 5. 查询设备消息日志
+## 查询设备消息日志
 GET /device/{deviceCode}/message-logs
