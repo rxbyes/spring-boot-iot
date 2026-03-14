@@ -6,6 +6,8 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
+import com.ghlzm.iot.protocol.core.model.DeviceFirmwarePacket;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,7 +38,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             "productKey", "product_code", "productCode", "product_key", "pk"
     );
     private static final List<String> DEVICE_CODE_ALIASES = List.of(
-            "deviceCode", "device_code", "deviceId", "device_id", "devId", "dev_id", "imei", "sn"
+            "deviceCode", "device_code", "deviceId", "device_id", "devId", "dev_id", "imei", "sn", "did"
     );
     private static final List<String> LEGACY_STATUS_FIELD_ALIASES = List.of(
             "ext_power_volt", "solar_volt", "battery_dump_energy", "signal_4g", "sensor_state", "lon", "lat"
@@ -46,7 +49,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private static final List<String> RESERVED_PROPERTY_KEYS = List.of(
             "messageType", "productKey", "product_code", "productCode", "product_key", "pk",
             "deviceCode", "device_code", "deviceId", "device_id", "devId", "dev_id", "imei", "sn",
-            "topic", "clientId", "client_id", "timestamp", "ts", "header", "headers", "body", "bodies"
+            "topic", "clientId", "client_id", "timestamp", "ts", "header", "headers", "body", "bodies",
+            "_dataFormatType", "_fileStreamLength", "_fileStreamBase64", "_firmwarePacket", "_binaryLength"
     );
 
     /**
@@ -56,11 +60,17 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry;
     private final MqttPayloadFrameParser mqttPayloadFrameParser;
+    private final MqttPayloadSecurityValidator mqttPayloadSecurityValidator;
+    private final MqttFirmwarePacketParser mqttFirmwarePacketParser;
 
     public MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry,
-                                   MqttPayloadFrameParser mqttPayloadFrameParser) {
+                                   MqttPayloadFrameParser mqttPayloadFrameParser,
+                                   MqttPayloadSecurityValidator mqttPayloadSecurityValidator,
+                                   MqttFirmwarePacketParser mqttFirmwarePacketParser) {
         this.mqttPayloadDecryptorRegistry = mqttPayloadDecryptorRegistry;
         this.mqttPayloadFrameParser = mqttPayloadFrameParser;
+        this.mqttPayloadSecurityValidator = mqttPayloadSecurityValidator;
+        this.mqttFirmwarePacketParser = mqttFirmwarePacketParser;
     }
 
     @Override
@@ -82,12 +92,19 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             message.setDeviceCode(resolvedDeviceCode);
             // MQTT 场景优先使用 topic 解析出的 messageType，payload 中的 messageType 作为回退信息。
             String payloadMessageType = stringValue(map.get("messageType"));
-            message.setMessageType(resolveMessageType(context, payloadMessageType, map, resolvedDeviceCode));
+            message.setMessageType(resolveMessageType(context, payloadMessageType, map, resolvedDeviceCode, decodedPayload.dataFormatType()));
             message.setTopic(context.getTopic());
 
-            Map<String, Object> properties = resolveProperties(map, resolvedDeviceCode);
-            if (!properties.isEmpty()) {
-                message.setProperties(properties);
+            if (decodedPayload.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3) {
+                // 表 C.3 / C.4 属于文件或升级分包类消息，当前先收口到事件元数据，
+                // 不进入一期最新属性表，避免把文件描述字段误写成设备属性。
+                message.setFilePayload(decodedPayload.filePayload());
+                message.setEvents(buildFileEvents(map));
+            } else {
+                Map<String, Object> properties = resolveProperties(map, resolvedDeviceCode);
+                if (!properties.isEmpty()) {
+                    message.setProperties(properties);
+                }
             }
 
             Object events = map.get("events");
@@ -117,7 +134,11 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private String resolveMessageType(ProtocolContext context,
                                       String payloadMessageType,
                                       Map<String, Object> payload,
-                                      String resolvedDeviceCode) {
+                                      String resolvedDeviceCode,
+                                      MqttDataFormatType dataFormatType) {
+        if (dataFormatType == MqttDataFormatType.STANDARD_TYPE_3) {
+            return inferFileMessageType(payload);
+        }
         if ("$dp".equals(context.getTopic())) {
             String inferredType = inferLegacyMessageType(payload, resolvedDeviceCode);
             if (inferredType != null && !inferredType.isBlank()) {
@@ -206,14 +227,22 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                 }
             }
             entries.sort(Comparator.comparing(Map.Entry::getKey));
-            if (!entries.isEmpty() && entries.get(entries.size() - 1).getValue() instanceof Map<?, ?> latestMap) {
-                flattenLegacyProperties(prefix, latestMap, target);
+            if (!entries.isEmpty()) {
+                Object latestValue = entries.get(entries.size() - 1).getValue();
+                if (latestValue instanceof Map<?, ?> latestMap) {
+                    flattenLegacyProperties(prefix, latestMap, target);
+                } else if (prefix != null && !prefix.isBlank()) {
+                    target.put(prefix, latestValue);
+                }
             }
             return;
         }
 
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
+                continue;
+            }
+            if ((prefix == null || prefix.isBlank()) && RESERVED_PROPERTY_KEYS.contains(key)) {
                 continue;
             }
             String field = prefix == null || prefix.isBlank() ? key : prefix + "." + key;
@@ -231,7 +260,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             return false;
         }
         for (Map.Entry<?, ?> entry : source.entrySet()) {
-            if (!(entry.getKey() instanceof String key) || !isTimestampKey(key) || !(entry.getValue() instanceof Map<?, ?>)) {
+            if (!(entry.getKey() instanceof String key) || !isTimestampKey(key)) {
                 return false;
             }
         }
@@ -262,6 +291,14 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                     timestamps.add(parsed);
                 }
             }
+            if (entry.getKey() instanceof String key
+                    && ("at".equalsIgnoreCase(key) || "timestamp".equalsIgnoreCase(key) || "ts".equalsIgnoreCase(key))
+                    && entry.getValue() != null) {
+                LocalDateTime parsed = parseTimestamp(String.valueOf(entry.getValue()));
+                if (parsed != null) {
+                    timestamps.add(parsed);
+                }
+            }
             collectTimestamps(entry.getValue(), timestamps);
         }
     }
@@ -271,10 +308,18 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     }
 
     private LocalDateTime parseTimestamp(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
         try {
             return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
         } catch (DateTimeParseException ignored) {
-            return null;
+            try {
+                long epochMillis = Long.parseLong(value);
+                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
+            } catch (NumberFormatException numberFormatException) {
+                return null;
+            }
         }
     }
 
@@ -324,6 +369,25 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return keys;
     }
 
+    private String inferFileMessageType(Map<String, Object> payload) {
+        Object fileType = payload.get("file_type");
+        if (fileType != null) {
+            String normalized = String.valueOf(fileType).trim().toLowerCase();
+            if ("bin".equals(normalized) || "firmware".equals(normalized) || "ota".equals(normalized)) {
+                return "firmware";
+            }
+        }
+        return "file";
+    }
+
+    private Map<String, Object> buildFileEvents(Map<String, Object> payload) {
+        Map<String, Object> events = new LinkedHashMap<>();
+        Map<String, Object> fileMetadata = new LinkedHashMap<>(payload);
+        fileMetadata.remove("_fileStreamBase64");
+        events.put("file", fileMetadata);
+        return events;
+    }
+
     private DecodedPayload decodePayload(byte[] payload) throws Exception {
         MqttPayloadFrameParser.ParsedFrame parsedFrame = mqttPayloadFrameParser.parse("mqtt-json", payload);
         String payloadText = sanitizePayload(parsedFrame.jsonMessage());
@@ -333,6 +397,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         if (isEncryptedEnvelope(payloadMap)) {
             String appId = extractAppId(payloadMap);
             String encryptedBody = extractEncryptedBody(payloadMap);
+            mqttPayloadSecurityValidator.validateEnvelope(appId, payloadMap, encryptedBody);
             // 密文解开后，真实设备可能返回“类型字节 + 长度字节 + JSON”的二进制内容，
             // 因此这里要再次经过帧解析，不能直接把明文当作纯 JSON 处理。
             MqttPayloadFrameParser.ParsedFrame decryptedFrame = mqttPayloadFrameParser.parse(
@@ -342,11 +407,126 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             String plaintext = sanitizePayload(decryptedFrame.jsonMessage());
             Map<String, Object> decryptedMap = objectMapper.readValue(plaintext, new TypeReference<>() {
             });
+            enrichByDataFormat(decryptedMap, decryptedFrame);
             // 原始日志仍保留接入时的密文报文，便于审计与排障。
-            return new DecodedPayload(decryptedMap, payloadText);
+            return new DecodedPayload(
+                    decryptedMap,
+                    payloadText,
+                    decryptedFrame.dataFormatType(),
+                    buildFilePayload(decryptedMap, decryptedFrame)
+            );
         }
 
-        return new DecodedPayload(payloadMap, payloadText);
+        enrichByDataFormat(payloadMap, parsedFrame);
+        return new DecodedPayload(
+                payloadMap,
+                buildRawPayloadForLog(parsedFrame, payloadText, payloadMap),
+                parsedFrame.dataFormatType(),
+                buildFilePayload(payloadMap, parsedFrame)
+        );
+    }
+
+    private void enrichByDataFormat(Map<String, Object> payloadMap, MqttPayloadFrameParser.ParsedFrame parsedFrame) {
+        if (payloadMap == null || parsedFrame == null) {
+            return;
+        }
+        payloadMap.put("_dataFormatType", parsedFrame.dataFormatType().name());
+        if (parsedFrame.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3 && parsedFrame.binaryPayload() != null) {
+            payloadMap.put("_binaryLength", parsedFrame.binaryLength());
+            payloadMap.put("_fileStreamLength", parsedFrame.binaryLength());
+            payloadMap.put("_fileStreamBase64", Base64.getEncoder().encodeToString(parsedFrame.binaryPayload()));
+            if (shouldParseFirmwarePacket(payloadMap)) {
+                MqttFirmwarePacketParser.ParsedFirmwarePacket packet =
+                        mqttFirmwarePacketParser.parse("mqtt-json-firmware", parsedFrame.binaryPayload());
+                Map<String, Object> firmwarePacket = new LinkedHashMap<>();
+                firmwarePacket.put("packetIndex", packet.packetIndex());
+                firmwarePacket.put("packetSize", packet.packetSize());
+                firmwarePacket.put("totalPackets", packet.totalPackets());
+                firmwarePacket.put("packetDataBase64", Base64.getEncoder().encodeToString(packet.packetData()));
+                firmwarePacket.put("md5Length", packet.md5Length());
+                firmwarePacket.put("firmwareMd5", packet.firmwareMd5());
+                payloadMap.put("_firmwarePacket", firmwarePacket);
+            }
+        }
+    }
+
+    private boolean shouldParseFirmwarePacket(Map<String, Object> payloadMap) {
+        String fileType = stringValue(payloadMap.get("file_type"));
+        if (fileType != null) {
+            String normalized = fileType.trim().toLowerCase();
+            if ("bin".equals(normalized) || "firmware".equals(normalized) || "ota".equals(normalized)) {
+                return true;
+            }
+        }
+        String dsId = stringValue(payloadMap.get("ds_id"));
+        return dsId != null && (dsId.toLowerCase().contains("firmware") || dsId.toLowerCase().contains("ota"));
+    }
+
+    private String buildRawPayloadForLog(MqttPayloadFrameParser.ParsedFrame parsedFrame,
+                                         String payloadText,
+                                         Map<String, Object> payloadMap) throws Exception {
+        if (parsedFrame != null
+                && parsedFrame.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3
+                && parsedFrame.binaryPayload() != null) {
+            Map<String, Object> rawPayload = new LinkedHashMap<>();
+            rawPayload.put("dataFormatType", parsedFrame.dataFormatType().name());
+            rawPayload.put("descriptor", payloadMap);
+            rawPayload.put("binaryLength", parsedFrame.binaryLength());
+            rawPayload.put("binaryBase64", Base64.getEncoder().encodeToString(parsedFrame.binaryPayload()));
+            return objectMapper.writeValueAsString(rawPayload);
+        }
+        return payloadText;
+    }
+
+    private DeviceFilePayload buildFilePayload(Map<String, Object> payloadMap,
+                                               MqttPayloadFrameParser.ParsedFrame parsedFrame) {
+        if (payloadMap == null || parsedFrame == null || parsedFrame.dataFormatType() != MqttDataFormatType.STANDARD_TYPE_3) {
+            return null;
+        }
+
+        DeviceFilePayload filePayload = new DeviceFilePayload();
+        filePayload.setDeviceId(stringValue(payloadMap.get("did")));
+        filePayload.setDataSetId(stringValue(payloadMap.get("ds_id")));
+        filePayload.setFileType(stringValue(payloadMap.get("file_type")));
+        filePayload.setDescription(stringValue(payloadMap.get("desc")));
+        filePayload.setTimestamp(parseTimestamp(stringValue(payloadMap.get("at"))));
+        filePayload.setBinaryLength(parsedFrame.binaryLength());
+        filePayload.setBinaryPayload(parsedFrame.safeBinaryPayload());
+        filePayload.setDescriptor(new LinkedHashMap<>(payloadMap));
+
+        Object firmwarePacket = payloadMap.get("_firmwarePacket");
+        if (firmwarePacket instanceof Map<?, ?> firmwareMap) {
+            filePayload.setFirmwarePacket(toFirmwarePacket(firmwareMap));
+        }
+        return filePayload;
+    }
+
+    private DeviceFirmwarePacket toFirmwarePacket(Map<?, ?> firmwareMap) {
+        DeviceFirmwarePacket firmwarePacket = new DeviceFirmwarePacket();
+        firmwarePacket.setPacketIndex(integerValue(firmwareMap.get("packetIndex")));
+        firmwarePacket.setPacketSize(integerValue(firmwareMap.get("packetSize")));
+        firmwarePacket.setTotalPackets(integerValue(firmwareMap.get("totalPackets")));
+        firmwarePacket.setMd5Length(integerValue(firmwareMap.get("md5Length")));
+        firmwarePacket.setFirmwareMd5(stringValue(firmwareMap.get("firmwareMd5")));
+        Object packetDataBase64 = firmwareMap.get("packetDataBase64");
+        if (packetDataBase64 != null) {
+            firmwarePacket.setPacketData(Base64.getDecoder().decode(String.valueOf(packetDataBase64)));
+        }
+        return firmwarePacket;
+    }
+
+    private Integer integerValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String sanitizePayload(String payloadText) {
@@ -391,6 +571,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         throw new BizException("加密 MQTT 报文缺少 bodies.body");
     }
 
-    private record DecodedPayload(Map<String, Object> payload, String rawPayload) {
+    private record DecodedPayload(Map<String, Object> payload,
+                                  String rawPayload,
+                                  MqttDataFormatType dataFormatType,
+                                  DeviceFilePayload filePayload) {
     }
 }

@@ -19,6 +19,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-framework</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
         </dependency>

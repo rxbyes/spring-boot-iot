@@ -1,0 +1,29 @@
+:root {
+  color-scheme: dark;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+
+  --ink-strong: #041019;
+  --bg: #040712;
+  --bg-elevated: #09101f;
+  --bg-panel: rgba(9, 14, 27, 0.9);
+  --brand: #13b5ff;
+  --brand-bright: #39f1ff;
+  --brand-deep: #0b6ef2;
+  --accent: #f5b440;
+  --success: #33e9a7;
+  --warning: #f9c74f;
+  --danger: #ff6f7d;
+
+  --text-primary: #eef5ff;
+  --text-secondary: #a8b9d9;
+  --text-tertiary: #7284a5;
+
+  --panel-border: rgba(73, 104, 153, 0.42);
+  --panel-border-strong: rgba(77, 225, 255, 0.44);
+  --radius-lg: 1.3rem;
+  --radius-md: 1rem;
+  --radius-sm: 0.7rem;
+  --shadow-panel: 0 22px 48px rgba(0, 0, 0, 0.28);
+}

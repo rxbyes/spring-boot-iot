@@ -2,9 +2,14 @@ package com.ghlzm.iot.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.protocol.mqtt.Md5MqttMessageSigner;
+import com.ghlzm.iot.protocol.mqtt.MqttMessageSignerRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadDecryptorRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadFrameParser;
+import com.ghlzm.iot.protocol.mqtt.MqttPayloadSecurityValidator;
+import com.ghlzm.iot.protocol.mqtt.SpringCloudAesMqttMessageSigner;
 import com.ghlzm.iot.protocol.mqtt.SpringCloudAesMqttPayloadDecryptor;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlxk.cloud.aes.config.AesAutoConfiguration;
 import com.ghlxk.cloud.aes.core.AesEncryptor;
 import com.ghlxk.cloud.aes.properties.AesProperties;
@@ -14,13 +19,16 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +58,12 @@ class MqttDeviceAesDataTests {
     @Autowired
     private MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry;
 
+    @Autowired
+    private MqttMessageSignerRegistry mqttMessageSignerRegistry;
+
+    @Autowired
+    private MqttPayloadSecurityValidator mqttPayloadSecurityValidator;
+
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Test
@@ -61,9 +75,14 @@ class MqttDeviceAesDataTests {
 
     @Test
     void shouldParseFrameAndDecryptEncryptedEnvelope() throws Exception {
-        String envelopeJson = """
-                {"header":{"appId":"62000001"},"bodies":{"body":"8hBxs1xQYrHovuxfNvaZZOasvPiDJB8RgbozUIeVo3hVk70q0/Oaf3GmrhodAd6J0DloTmrcYcq+ieg9I95nBaU+Nr0Yjz/R63it6gePmfBNslGmii28Hgwp5pcj3R5I9Mh7JGsB8sJsxMbUqNShRAeLDtlKU+J1LE4S4rvne9Ab55DinF2u+f+ghUlkXuLUkMJzMx04GxgOo6zX85ADcEd/Et5LHZwLCWqtPh7sNJUwbJO4cCB66L33bCPjVCIynZfzczCb6qhhVZHh0q0uWdohmcCNFYrZkZhwgUDun5HvvVCL2Z7Plgqux6NiaMPW5MlNGBiVZ7sMlK3sUmKWdaerXsTghZ+8HIE3jP6DALCcTA9iphAmyxn7hW3/BAGwfyovt/y4iMMaT2Tf99atnRHqGeq61GELuaTlk0W3AVWIco7Z5XTHnXkYViPIw6/8qJ13EM/1CsWX0pDW6DPNq9wSLnZmXICtzl9VItZTdg4MDYxLoloB8PBdzjQiDgCaPBY/69FfRipmFvj6QvZW7xaudM2rjDfwpGhTg2i7jWA="}}
+        String appId = "62000001";
+        String plaintextJson = """
+                {"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97}}}}
                 """;
+        String encryptedBody = aesEncryptors.get(appId).encrypt(plaintextJson);
+        String envelopeJson = """
+                {"header":{"appId":"%s"},"bodies":{"body":"%s"}}
+                """.formatted(appId, encryptedBody);
         byte[] packet = buildPacket((byte) 1, envelopeJson);
 
         MqttPayloadFrameParser.ParsedFrame parsedFrame = mqttPayloadFrameParser.parse("aes-test", packet);
@@ -72,8 +91,8 @@ class MqttDeviceAesDataTests {
         assertEquals(envelopeJson.getBytes(StandardCharsets.UTF_8).length, parsedFrame.jsonLength());
 
         JsonNode root = objectMapper.readTree(parsedFrame.jsonMessage());
-        String appId = root.path("header").path("appId").asText();
-        String encryptedBody = root.path("bodies").path("body").asText();
+        appId = root.path("header").path("appId").asText();
+        encryptedBody = root.path("bodies").path("body").asText();
         assertEquals("62000001", appId);
         assertTrue(aesEncryptors.containsKey(appId));
 
@@ -84,7 +103,30 @@ class MqttDeviceAesDataTests {
         assertTrue(decryptedFrame.framed() || decryptedFrame.jsonMessage().startsWith("{"));
         JsonNode plaintextNode = objectMapper.readTree(decryptedFrame.jsonMessage());
         assertTrue(plaintextNode.isObject());
-        assertTrue(plaintextNode.fieldNames().hasNext());
+        assertTrue(plaintextNode.has("100054920"));
+    }
+
+    @Test
+    void shouldValidateAesSignature() {
+        String appId = "62000001";
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+        String nonce = "aes-sign-nonce";
+        String body = "{\"temperature\":25.1}";
+        String signContent = mqttPayloadSecurityValidator.buildSignContent(appId, timestamp, nonce, body);
+        String signature = mqttMessageSignerRegistry.sign("AES", appId, signContent);
+
+        Map<String, Object> payload = Map.of(
+                "header", Map.of(
+                        "appId", appId,
+                        "timestamp", timestamp,
+                        "nonce", nonce,
+                        "signAlgorithm", "AES",
+                        "signature", signature
+                ),
+                "bodies", Map.of("body", body)
+        );
+
+        assertDoesNotThrow(() -> mqttPayloadSecurityValidator.validateEnvelope(appId, payload, body));
     }
 
     private byte[] buildPacket(byte type, String json) {
@@ -101,6 +143,7 @@ class MqttDeviceAesDataTests {
     }
 
     @SpringBootConfiguration
+    @EnableConfigurationProperties(IotProperties.class)
     @EnableAutoConfiguration(excludeName = {
             "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
             "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
@@ -112,8 +155,12 @@ class MqttDeviceAesDataTests {
     @Import({
             AesAutoConfiguration.class,
             MqttPayloadFrameParser.class,
+            SpringCloudAesMqttMessageSigner.class,
+            Md5MqttMessageSigner.class,
+            MqttMessageSignerRegistry.class,
             SpringCloudAesMqttPayloadDecryptor.class,
-            MqttPayloadDecryptorRegistry.class
+            MqttPayloadDecryptorRegistry.class,
+            MqttPayloadSecurityValidator.class
     })
     static class TestApplication {
     }

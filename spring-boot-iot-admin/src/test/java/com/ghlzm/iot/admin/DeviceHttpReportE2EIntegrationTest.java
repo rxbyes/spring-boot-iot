@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
-@SpringBootTest
+@SpringBootTest(classes = IotAdminApplication.class)
 @ActiveProfiles("e2e")
 class DeviceHttpReportE2EIntegrationTest {
 

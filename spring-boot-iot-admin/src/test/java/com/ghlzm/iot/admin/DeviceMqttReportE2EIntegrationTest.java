@@ -77,7 +77,8 @@ class DeviceMqttReportE2EIntegrationTest {
                         .getBytes(StandardCharsets.UTF_8))
         );
 
-        assertDeviceState(fixture.deviceCode(), fixture.standardTopic(), "temperature", "26.5", "humidity", "68");
+        assertDeviceState(fixture.deviceCode(), fixture.standardTopic(), "property",
+                null, "temperature", "26.5", "humidity", "68");
     }
 
     @Test
@@ -90,7 +91,8 @@ class DeviceMqttReportE2EIntegrationTest {
                         .getBytes(StandardCharsets.UTF_8))
         );
 
-        assertDeviceState(fixture.deviceCode(), "$dp", "temperature", "25.1", "humidity", "61");
+        assertDeviceState(fixture.deviceCode(), "$dp", "property",
+                null, "temperature", "25.1", "humidity", "61");
     }
 
     @Test
@@ -104,7 +106,16 @@ class DeviceMqttReportE2EIntegrationTest {
                         """.formatted(fixture.deviceCode())).getBytes(StandardCharsets.UTF_8))
         );
 
-        assertDeviceState(fixture.deviceCode(), "$dp", "L1_QJ_1.X", "3.15", "L1_JS_1.gY", "0.18");
+        assertDeviceState(
+                fixture.deviceCode(),
+                "$dp",
+                "property",
+                LocalDateTime.of(2026, 3, 14, 15, 4, 3),
+                "L1_QJ_1.X",
+                "3.15",
+                "L1_JS_1.gY",
+                "0.18"
+        );
     }
 
     @Test
@@ -118,7 +129,8 @@ class DeviceMqttReportE2EIntegrationTest {
                         """.formatted(fixture.deviceCode())).getBytes(StandardCharsets.UTF_8))
         );
 
-        assertDeviceState(fixture.deviceCode(), "$dp", "S1_ZT_1.ext_power_volt", "3.54", "S1_ZT_1.sensor_state.L1_LF_1", "3");
+        assertDeviceState(fixture.deviceCode(), "$dp", "status",
+                null, "S1_ZT_1.ext_power_volt", "3.54", "S1_ZT_1.sensor_state.L1_LF_1", "3");
 
         List<DeviceMessageLog> logs = deviceMessageLogMapper.selectList(new LambdaQueryWrapper<DeviceMessageLog>()
                 .orderByDesc(DeviceMessageLog::getReportTime));
@@ -146,11 +158,14 @@ class DeviceMqttReportE2EIntegrationTest {
 
         mqttMessageConsumer.messageArrived("$dp", new MqttMessage(outerPacket));
 
-        assertDeviceState(fixture.deviceCode(), "$dp", "temperature", "25.1", "humidity", "61");
+        assertDeviceState(fixture.deviceCode(), "$dp", "property",
+                null, "temperature", "25.1", "humidity", "61");
     }
 
     private void assertDeviceState(String deviceCode,
                                    String topic,
+                                   String expectedMessageType,
+                                   LocalDateTime expectedReportTime,
                                    String firstIdentifier,
                                    String firstValue,
                                    String secondIdentifier,
@@ -162,7 +177,11 @@ class DeviceMqttReportE2EIntegrationTest {
         assertNotNull(device);
         assertEquals(1, device.getOnlineStatus());
         assertNotNull(device.getLastReportTime());
-        assertTrue(device.getLastReportTime().isAfter(LocalDateTime.now().minusMinutes(2)));
+        if (expectedReportTime == null) {
+            assertTrue(device.getLastReportTime().isAfter(LocalDateTime.now().minusMinutes(2)));
+        } else {
+            assertEquals(expectedReportTime, device.getLastReportTime());
+        }
 
         List<DeviceProperty> properties = devicePropertyMapper.selectList(new LambdaQueryWrapper<DeviceProperty>()
                 .eq(DeviceProperty::getDeviceId, device.getId()));
@@ -175,7 +194,7 @@ class DeviceMqttReportE2EIntegrationTest {
                 .eq(DeviceMessageLog::getDeviceId, device.getId())
                 .orderByDesc(DeviceMessageLog::getReportTime));
         assertTrue(logs.stream().anyMatch(item ->
-                topic.equals(item.getTopic()) && "property".equals(item.getMessageType())));
+                topic.equals(item.getTopic()) && expectedMessageType.equals(item.getMessageType())));
     }
 
     private DeviceFixture createProductAndDevice() throws Exception {

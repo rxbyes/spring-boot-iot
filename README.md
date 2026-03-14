@@ -42,6 +42,7 @@ spring-boot-iot
 ├── sql
 ├── config
 ├── docker
+├── spring-boot-iot-ui
 ├── spring-boot-iot-common
 ├── spring-boot-iot-framework
 ├── spring-boot-iot-auth
@@ -61,6 +62,10 @@ spring-boot-iot
 - `spring-boot-iot-protocol`
 - `spring-boot-iot-message`
 - `spring-boot-iot-admin`
+
+说明：
+- `spring-boot-iot-ui` 是独立 Vue 3 调试前端工作区，不加入 Maven reactor。
+- 页面结构参考 `vue-element-admin` 的后台导航和工作台组织方式，但使用 Vue 3 重新实现，并强化 IoT 科技感与调试属性。
 
 ## 快速开始
 1. 执行 [sql/init.sql](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/sql/init.sql)
@@ -109,6 +114,28 @@ spring-boot-iot
 完整步骤见：
 - [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md)
 - [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)
+- [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
+
+## 前端调试台
+前端目录：`spring-boot-iot-ui`
+
+当前页面：
+- 调试驾驶舱
+- 产品工作台
+- 设备工作台
+- HTTP 上报实验台
+- 设备洞察
+- 未来实验室
+
+启动方式：
+1. 进入 `spring-boot-iot-ui`
+2. 安装依赖：`npm install`
+3. 启动开发环境：`npm run dev`
+
+说明：
+- 默认通过 Vite 代理访问 `http://localhost:9999`
+- 可通过 `spring-boot-iot-ui/.env.example` 中的 `VITE_API_BASE_URL` 和 `VITE_PROXY_TARGET` 调整联调方式
+- 当前页面已为图表、数字孪生、拓扑等二期功能预留入口
 
 ## 已知说明
 - `DeviceHttpReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行
@@ -123,6 +150,7 @@ spring-boot-iot
 - [docs/05-protocol.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/05-protocol.md)
 - [docs/07-message-flow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/07-message-flow.md)
 - [docs/11-codex-tasking.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/11-codex-tasking.md)
+- [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
 - [docs/12-change-log.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/12-change-log.md)
 - [docs/codex-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-roadmap.md)
 - [docs/codex-workflow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-workflow.md)

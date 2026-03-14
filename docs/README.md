@@ -75,3 +75,6 @@ spring-boot-iot
 - 导入 Maven 多模块骨架
 - 完成 Product / Device / Message 主链路代码
 - 接入 MQTT Broker
+
+## 新增文档
+- [13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)

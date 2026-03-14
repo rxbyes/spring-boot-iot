@@ -42,6 +42,13 @@ public class DeviceUpMessage {
      */
     private Map<String, Object> events;
 
+    /**
+     * 文件/固件类上报的统一协议模型。
+     * 当前协议层先把 C.3/C.4 收口到这里，后续 OTA 或文件业务可直接复用，
+     * 避免继续通过 events 中的临时字段做弱约定。
+     */
+    private DeviceFilePayload filePayload;
+
     private LocalDateTime timestamp;
 
     /**

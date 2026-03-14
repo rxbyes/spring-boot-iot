@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,8 @@ class DeviceMessageServiceImplTest {
     private ProductMapper productMapper;
     @Mock
     private ProductModelMapper productModelMapper;
+    @Mock
+    private DeviceFileService deviceFileService;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -61,6 +64,7 @@ class DeviceMessageServiceImplTest {
                 devicePropertyMapper,
                 productMapper,
                 productModelMapper,
+                deviceFileService,
                 iotProperties
         );
     }

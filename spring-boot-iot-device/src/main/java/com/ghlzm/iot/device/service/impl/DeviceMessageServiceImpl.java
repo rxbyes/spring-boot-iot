@@ -12,6 +12,7 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -37,6 +38,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final DevicePropertyMapper devicePropertyMapper;
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
+    private final DeviceFileService deviceFileService;
     private final IotProperties iotProperties;
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
@@ -44,12 +46,14 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     DevicePropertyMapper devicePropertyMapper,
                                     ProductMapper productMapper,
                                     ProductModelMapper productModelMapper,
+                                    DeviceFileService deviceFileService,
                                     IotProperties iotProperties) {
         this.deviceMapper = deviceMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
+        this.deviceFileService = deviceFileService;
         this.iotProperties = iotProperties;
     }
 
@@ -90,6 +94,8 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
 
         saveMessageLog(device, upMessage);
+        // 文件/固件类消息先进入最小文件服务，避免 C.3/C.4 数据被误当成普通属性处理。
+        deviceFileService.handleFilePayload(device, upMessage);
         updateLatestProperties(device, upMessage);
         updateDeviceOnlineStatus(device, upMessage);
     }
