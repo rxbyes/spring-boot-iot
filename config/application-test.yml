@@ -5,7 +5,7 @@ spring:
       strict: false
       datasource:
         master:
-          url: ${IOT_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/spring_boot_iot_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          url: ${IOT_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/rm_iot_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
           username: ${IOT_MYSQL_USERNAME:root}
           password: ${IOT_MYSQL_PASSWORD:root}
           driver-class-name: com.mysql.cj.jdbc.Driver

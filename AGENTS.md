@@ -18,6 +18,25 @@ Phase 1 must deliver a minimal runnable platform with:
 - latest property updates
 - device online status updates
 
+## Current status
+Phase 1 is complete.
+
+The current verified baseline includes:
+- 8 active Phase 1 modules in the parent reactor
+- `spring-boot-iot-admin` as the only startup module
+- product add/query
+- device add/query
+- HTTP simulated device reporting
+- protocol decode through `mqtt-json`
+- message log persistence
+- latest property update
+- device online status update
+
+When continuing development after Phase 1:
+- preserve the verified HTTP reporting main flow
+- do not regress the existing Phase 1 APIs and E2E path
+- update docs when behavior, verification steps, or configuration expectations change
+
 ## Always read before coding
 - README.md
 - docs/00-overview.md
@@ -83,6 +102,7 @@ Phase 1 must deliver a minimal runnable platform with:
 - build: mvn clean package -DskipTests
 - run app: mvn -pl spring-boot-iot-admin spring-boot:run
 - test: mvn test
+- phase 1 e2e: mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceHttpReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false
 
 ## Phase 1 execution order
 1. create Maven multi-module structure
@@ -92,3 +112,21 @@ Phase 1 must deliver a minimal runnable platform with:
 5. implement HTTP reporting pipeline
 6. verify property and message log persistence
 7. verify online status update
+
+## Phase 1 done definition
+Phase 1 should continue to satisfy all of the following:
+- `mvn -pl spring-boot-iot-admin -am clean package -DskipTests` passes
+- `DeviceHttpReportE2EIntegrationTest` passes
+- the following APIs remain available:
+  - `POST /device/product/add`
+  - `GET /device/product/{id}`
+  - `POST /device/add`
+  - `GET /device/{id}`
+  - `GET /device/code/{deviceCode}`
+  - `POST /message/http/report`
+  - `GET /device/{deviceCode}/properties`
+  - `GET /device/{deviceCode}/message-logs`
+
+## Known environment note
+- `DeviceMessageServiceImplTest` may still fail on some JDK 17 environments because Mockito inline mock maker cannot self-attach its ByteBuddy agent.
+- Treat that as a local test environment issue unless there is evidence of a real business regression.

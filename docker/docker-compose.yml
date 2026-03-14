@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: 123456
-      MYSQL_DATABASE: spring_boot_iot
+      MYSQL_DATABASE: rm_iot
       TZ: Asia/Shanghai
     ports:
       - "3306:3306"

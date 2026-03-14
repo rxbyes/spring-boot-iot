@@ -1,4 +1,4 @@
-USE spring_boot_iot;
+USE rm_iot;
 
 INSERT INTO sys_tenant (id, tenant_name, tenant_code, status, create_time, update_time, deleted)
 VALUES (1, '默认租户', 'default', 1, NOW(), NOW(), 0);
