@@ -7,3 +7,4 @@
 /spring-boot-iot-common/*.swp
 /spring-boot-iot-ui/dist/
 /spring-boot-iot-ui/node_modules/
+/.vscode/
