@@ -22,6 +22,9 @@ public class ProtocolContext {
 
     private String productKey;
     private String deviceCode;
+    private String gatewayDeviceCode;
+    private String subDeviceCode;
+    private String topicRouteType;
     private String messageType;
     private String topic;
     private String clientId;

@@ -32,6 +32,9 @@
 - 默认通过 Vite 代理访问 `http://localhost:9999`
 - 若需要直连其他环境，可设置 `VITE_API_BASE_URL`
 - 若需要调整本地代理目标，可设置 `VITE_PROXY_TARGET`
+- 开发环境下建议保持 `VITE_API_BASE_URL` 为空，这样页面会优先走相对路径和 Vite 代理，避免 `localhost:5173 -> 127.0.0.1:9999` 这类跨域问题
+- 顶部 `API Base URL` 输入框支持运行时切换直连地址；清空并保存后会恢复代理模式
+- 后端默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 的最小 CORS 开发来源，便于需要直连时做浏览器联调
 
 可参考：
 - [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)

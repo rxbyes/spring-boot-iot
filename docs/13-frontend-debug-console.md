@@ -93,6 +93,9 @@
 默认行为：
 - 若 `VITE_API_BASE_URL` 为空，则前端走 Vite 本地代理
 - 默认代理目标为 `http://localhost:9999`
+- 开发环境推荐保持 `VITE_API_BASE_URL` 为空，这样浏览器请求会走相对路径，避免 `http://localhost:5173` 直连 `http://127.0.0.1:9999` 时触发 CORS
+- 页面顶部 `API Base URL` 输入框支持运行时切换直连地址；当输入框清空并保存时，会恢复为代理模式
+- 后端当前已提供最小 CORS 支持，默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 作为浏览器开发来源
 
 可通过 `spring-boot-iot-ui/.env.example` 参考配置：
 - `VITE_API_BASE_URL`

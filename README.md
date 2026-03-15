@@ -159,6 +159,9 @@ spring-boot-iot
 说明：
 - 默认通过 Vite 代理访问 `http://localhost:9999`
 - 可通过 `spring-boot-iot-ui/.env.example` 中的 `VITE_API_BASE_URL` 和 `VITE_PROXY_TARGET` 调整联调方式
+- 开发环境建议将 `VITE_API_BASE_URL` 保持为空，让页面默认走相对路径和 Vite 代理，避免浏览器直连 `127.0.0.1:9999` 时出现 CORS 错误
+- 顶部 `API Base URL` 输入框支持运行时切换直连地址；清空并保存即可恢复代理模式
+- 后端当前已提供最小 CORS 支持，默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 直连开发联调
 - 当前前端已经接入 `Element Plus` 和 `ECharts`
 - 当前前端已开始从“调试台”向“商业化风险监测平台”演进
 - 当前页面已为图表、数字孪生、拓扑、AI 风险分析、远程运维等后续能力预留入口

@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -48,6 +49,8 @@ class DeviceMessageServiceImplTest {
     @Mock
     private ProductModelMapper productModelMapper;
     @Mock
+    private CommandRecordService commandRecordService;
+    @Mock
     private DeviceFileService deviceFileService;
 
     private DeviceMessageServiceImpl deviceMessageService;
@@ -64,6 +67,7 @@ class DeviceMessageServiceImplTest {
                 devicePropertyMapper,
                 productMapper,
                 productModelMapper,
+                commandRecordService,
                 deviceFileService,
                 iotProperties
         );
@@ -184,6 +188,40 @@ class DeviceMessageServiceImplTest {
         BizException ex = assertThrows(BizException.class, () -> deviceMessageService.handleUpMessage(upMessage));
         assertEquals("设备协议不匹配: demo-device-03", ex.getMessage());
         verifyNoInteractions(productMapper, productModelMapper, deviceMessageLogMapper, devicePropertyMapper);
+    }
+
+    @Test
+    void handleUpMessageShouldFillCommandStatusWhenReplyArrives() {
+        Device device = new Device();
+        device.setId(2004L);
+        device.setTenantId(1L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-04");
+        device.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(commandRecordService.markSuccessByCommandId(any(), any(), any())).thenReturn(true);
+
+        DeviceUpMessage upMessage = buildMessage(
+                "mqtt-json",
+                "demo-product",
+                "demo-device-04",
+                Map.of(),
+                "reply",
+                "/sys/demo-product/demo-device-04/thing/property/reply"
+        );
+        upMessage.setRawPayload("{\"messageId\":\"cmd-001\",\"success\":true}");
+
+        deviceMessageService.handleUpMessage(upMessage);
+
+        verify(commandRecordService).markSuccessByCommandId(any(), any(), any());
+        verify(devicePropertyMapper, never()).insert(any(DeviceProperty.class));
+        verify(devicePropertyMapper, never()).updateById(any(DeviceProperty.class));
     }
 
     private DeviceUpMessage buildMessage(String protocolCode,

@@ -65,7 +65,7 @@
               name="api_base_url"
               autocomplete="url"
               spellcheck="false"
-              placeholder="例如 http://localhost:9999..."
+              placeholder="留空走本地代理，或填写例如 http://localhost:9999"
             />
           </label>
           <el-button class="primary-button" type="primary" @click="saveApiBaseUrl">
@@ -92,7 +92,7 @@
 import { computed, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 
-import { isProxyMode, runtimeState, setApiBaseUrl } from '../stores/runtime';
+import { runtimeState, setApiBaseUrl } from '../stores/runtime';
 import SignalBadge from './SignalBadge.vue';
 import TabsView from './TabsView.vue';
 
@@ -155,8 +155,8 @@ watch(
 
 const activeTitle = computed(() => String(route.meta.title || '风险监测平台'));
 const activeDescription = computed(() => String(route.meta.description || ''));
-const connectionLabel = computed(() => (isProxyMode() ? '代理模式' : '直连模式'));
-const connectionTone = computed<'brand' | 'success'>(() => (isProxyMode() ? 'brand' : 'success'));
+const connectionLabel = computed(() => (runtimeState.isProxyMode ? '代理模式' : '直连模式'));
+const connectionTone = computed<'brand' | 'success'>(() => (runtimeState.isProxyMode ? 'brand' : 'success'));
 
 function saveApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);

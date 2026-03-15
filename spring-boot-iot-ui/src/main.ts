@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
 import {
   ElButton,
   ElCard,
@@ -16,6 +17,7 @@ import {
 
 import App from './App.vue';
 import router from './router';
+import { registerDefaultInterceptors } from './api/interceptors';
 import 'element-plus/es/components/button/style/css';
 import 'element-plus/es/components/card/style/css';
 import 'element-plus/es/components/config-provider/style/css';
@@ -32,6 +34,7 @@ import './styles/element-overrides.css';
 import './styles/global.css';
 
 const app = createApp(App);
+const pinia = createPinia();
 
 app.component('ElButton', ElButton);
 app.component('ElCard', ElCard);
@@ -46,4 +49,13 @@ app.component('ElTable', ElTable);
 app.component('ElTableColumn', ElTableColumn);
 app.component('ElTag', ElTag);
 
-app.use(router).mount('#app');
+// 注册默认拦截器
+registerDefaultInterceptors();
+
+// 使用 Pinia 状态管理
+app.use(pinia);
+
+// 使用路由
+app.use(router);
+
+app.mount('#app');

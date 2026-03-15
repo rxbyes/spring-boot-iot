@@ -35,7 +35,73 @@
 - /sys/{productKey}/{deviceCode}/thing/property/reply
 - /sys/{productKey}/{deviceCode}/thing/service/reply
 - /sys/{productKey}/{deviceCode}/thing/status/post
+- /sys/{productKey}/{deviceCode}/thing/property/set
+- /sys/{productKey}/{deviceCode}/thing/service/{serviceIdentifier}/invoke
+- /sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/post
+- /sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/event/post
+- /sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/status/post
+- /sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/set
+- /sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/service/{serviceIdentifier}/invoke
 - $dp（历史兼容主题）
+
+## Phase 2 Topic 矩阵
+
+### 上行
+- 直连设备属性上报：
+  - `/sys/{productKey}/{deviceCode}/thing/property/post`
+- 直连设备事件上报：
+  - `/sys/{productKey}/{deviceCode}/thing/event/post`
+- 直连设备状态上报：
+  - `/sys/{productKey}/{deviceCode}/thing/status/post`
+- 历史兼容：
+  - `$dp`
+- 子设备预留上报：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/post`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/event/post`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/status/post`
+
+### 下行
+- 直连设备属性下发：
+  - `/sys/{productKey}/{deviceCode}/thing/property/set`
+- 直连设备服务调用：
+  - `/sys/{productKey}/{deviceCode}/thing/service/{serviceIdentifier}/invoke`
+- 子设备预留下发：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/set`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/service/{serviceIdentifier}/invoke`
+
+## 网关代子设备 Topic 预留
+- 子设备上报推荐 topic：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/post`
+- 子设备下发推荐 topic：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/set`
+- 解析约定：
+  - `productKey` 仍表示网关产品 `gatewayProductKey`
+  - `gatewayDeviceCode` 表示网关设备编码
+  - `subDeviceCode` 表示逻辑子设备编码
+  - 当前 `deviceCode` 在子设备 topic 场景下按“有效设备编码”取 `subDeviceCode`
+- 当前仅建立 topic 规范和解析扩展点，不代表已经实现子设备认证、拓扑和落库
+
+## MQTT 下行编码说明
+- 当前 `mqtt-json` 下行继续复用 `ProtocolAdapter.encode(message, context)`
+- `DeviceDownMessage` 会被编码为 JSON 字节流后交给 MQTT 发布器
+- 最小下行消息模型字段：
+  - `messageId`
+  - `commandType`
+  - `serviceIdentifier`
+  - `params`
+- 属性下发示例：
+```json
+{
+  "messageId": "1773507184482",
+  "commandType": "property",
+  "serviceIdentifier": null,
+  "params": {
+    "switch": 1,
+    "targetTemperature": 23.0,
+    "requestId": "task6-verify-001"
+  }
+}
+```
 
 ## 历史 `$dp` 兼容说明
 - `$dp` 不包含标准 topic 里的 `productKey` / `deviceCode` / `messageType`
@@ -94,6 +160,33 @@
    - C.3 文件消息会写入 Redis 文件快照
    - C.4 固件分包会写入 Redis 聚合状态并尝试重组
    - OTA 模块通过 `DeviceFilePayloadListener` 预留扩展点接入
+
+## MQTT 下行主链路说明
+推荐下行消息当前运行时主链路为：
+
+1. `DeviceDownController`
+2. `DownMessageService`
+3. `MqttDownMessagePublisher`
+4. `ProtocolAdapter.encode`
+5. `MqttMessageConsumer.publish`
+6. MQTT Broker
+
+说明：
+- `message` 模块负责发布入口和最小编排
+- `protocol` 模块负责统一下行模型编码
+- 当前不实现 ACK、重试、指令状态流转
+
+## Topic 解析扩展点
+- `MqttTopicParser` 当前会输出：
+  - `routeType`
+  - `gatewayDeviceCode`
+  - `subDeviceCode`
+- `routeType` 当前可取：
+  - `direct`
+  - `sub-device`
+  - `legacy`
+- `RawDeviceMessage` 与 `ProtocolContext` 已同步预留上述字段
+- 默认订阅列表仍保持直连设备 topic，不主动开启子设备 topic 订阅，避免在未落地子设备业务前影响现有运行环境
 
 ## 模块归位建议
 - `spring-boot-iot-protocol`

@@ -29,6 +29,7 @@ public class IotProperties {
     private Telemetry telemetry = new Telemetry();
     private Device device = new Device();
     private Message message = new Message();
+    private Cors cors = new Cors();
     private Rule rule = new Rule();
     private Alarm alarm = new Alarm();
     private Ota ota = new Ota();
@@ -159,6 +160,27 @@ public class IotProperties {
         private String upTopic = "iot.message.up";
         private String downTopic = "iot.message.down";
         private String eventTopic = "iot.message.event";
+    }
+
+    @Data
+    public static class Cors {
+        /**
+         * 是否启用后端 CORS 支持。
+         * 主要用于前端开发时的浏览器直连场景。
+         */
+        private Boolean enabled = Boolean.TRUE;
+        /**
+         * 允许的来源模式。
+         * 使用 origin pattern 而不是 "*"，避免与 credentials 冲突。
+         */
+        private List<String> allowedOriginPatterns = List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        );
+        private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        private List<String> allowedHeaders = List.of("*");
+        private Boolean allowCredentials = Boolean.TRUE;
+        private Long maxAge = 3600L;
     }
 
     @Data

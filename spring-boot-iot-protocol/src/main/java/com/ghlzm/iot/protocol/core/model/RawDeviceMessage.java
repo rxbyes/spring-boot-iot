@@ -34,6 +34,21 @@ public class RawDeviceMessage {
     private String deviceCode;
 
     /**
+     * 若当前消息来自网关代子设备通信，这里保存网关 deviceCode。
+     */
+    private String gatewayDeviceCode;
+
+    /**
+     * 若当前消息来自网关代子设备通信，这里保存子设备 deviceCode。
+     */
+    private String subDeviceCode;
+
+    /**
+     * topic 路由类型，当前可取 direct / sub-device / legacy。
+     */
+    private String topicRouteType;
+
+    /**
      * 接入层已判定出的统一消息类型，例如 property / event / reply / status。
      */
     private String messageType;

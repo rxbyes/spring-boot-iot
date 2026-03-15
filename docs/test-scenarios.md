@@ -194,6 +194,30 @@ curl http://localhost:9999/device/code/demo-device-01
 - `iot_device.last_online_time`、`last_report_time` 已刷新
 - 若 Redis 可用，`iot:device:session:demo-device-01` 中应存在 `connected=true`、`lastSeenTime` 已更新
 
+### 已验证成功样例
+- 产品：`codex-mqtt-product-01`
+- 设备：`codex-mqtt-device-01`
+- Topic：`/sys/codex-mqtt-product-01/codex-mqtt-device-01/thing/property/post`
+- Payload：
+```json
+{"messageType":"property","properties":{"temperature":26.5,"humidity":68}}
+```
+- 验证结果：
+  - `GET /device/codex-mqtt-device-01/properties` 返回 `temperature=26.5`、`humidity=68`
+  - `GET /device/codex-mqtt-device-01/message-logs` 返回 `property` 日志
+  - `GET /device/code/codex-mqtt-device-01` 返回 `onlineStatus=1`
+
+### 共享环境启动注意项
+- 推荐启动命令：
+```bash
+IOT_MQTT_ENABLED=true \
+IOT_MQTT_CLIENT_ID=codex-mqtt-verify-001 \
+mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+```
+- 说明：
+  - `IOT_MQTT_ENABLED=true` 用于显式开启 MQTT 客户端
+  - `IOT_MQTT_CLIENT_ID` 建议使用唯一值，避免共享 Broker 上互踢
+
 ## MQTT 历史 `$dp` 主题兼容验证
 
 前置条件：
@@ -299,6 +323,92 @@ curl http://localhost:9999/device/code/demo-device-01
 ## 场景 6：不存在设备
 - deviceCode = missing-device
 - 预期返回业务异常
+
+## 场景 7：MQTT 下行发布
+- 创建产品 `codex-down-product-02`
+- 创建设备 `codex-down-device-02`
+- 调用 `POST /message/mqtt/down/publish`
+- 若未显式传入 `topic`，预期自动发布到 `/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
+- 预期发布接口返回：
+  - `code = 200`
+  - `protocolCode = mqtt-json`
+  - `qos = 1`
+- 使用 MQTTX 或其他 MQTT 客户端订阅 `/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
+- 预期收到 payload：
+```json
+{
+  "messageId": "1773507184482",
+  "commandType": "property",
+  "serviceIdentifier": null,
+  "params": {
+    "switch": 1,
+    "targetTemperature": 23.0,
+    "requestId": "task6-verify-001"
+  }
+}
+```
+- 当前下行验证标准是“Broker 收到推荐 topic 消息”，不要求设备 ACK
+
+### 已验证成功样例
+- 产品：`codex-down-product-02`
+- 设备：`codex-down-device-02`
+- Topic：`/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
+- 发布接口返回：
+  - `code = 200`
+  - `protocolCode = mqtt-json`
+  - `qos = 1`
+- 订阅端实际收到：
+```json
+{
+  "messageId": "1773507184482",
+  "commandType": "property",
+  "serviceIdentifier": null,
+  "params": {
+    "switch": 1,
+    "targetTemperature": 23.0,
+    "requestId": "task6-verify-001"
+  }
+}
+```
+
+## 场景 8：子设备 Topic 解析预留
+- 解析子设备上报 topic：
+  - `/sys/gw-product/gateway-01/sub/sub-device-01/thing/property/post`
+- 预期解析结果：
+  - `routeType = sub-device`
+  - `productKey = gw-product`
+  - `gatewayDeviceCode = gateway-01`
+  - `subDeviceCode = sub-device-01`
+  - `deviceCode = sub-device-01`
+  - `messageType = property`
+- 解析直连设备 topic：
+  - `/sys/demo-product/demo-device-01/thing/property/post`
+- 预期仍保持：
+  - `routeType = direct`
+  - `deviceCode = demo-device-01`
+- 当前只验证解析结构，不要求进入完整子设备业务链路
+
+- 可直接运行：
+```bash
+mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttTopicParserTest -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+## MQTT 下行发布手工命令
+```bash
+curl -X POST http://localhost:9999/message/mqtt/down/publish \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productKey":"codex-down-product-02",
+    "deviceCode":"codex-down-device-02",
+    "qos":1,
+    "commandType":"property",
+    "params":{
+      "switch":1,
+      "targetTemperature":23.0,
+      "requestId":"task6-verify-001"
+    }
+  }'
+```
 
 ## 环境说明
 - `DeviceHttpReportE2EIntegrationTest` 当前已通过，可作为主链路回归入口

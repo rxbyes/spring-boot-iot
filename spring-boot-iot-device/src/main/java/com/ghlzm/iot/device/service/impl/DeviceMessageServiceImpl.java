@@ -1,6 +1,8 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
@@ -12,10 +14,13 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,19 +38,26 @@ import java.util.stream.Collectors;
 @Service
 public class DeviceMessageServiceImpl implements DeviceMessageService {
 
+    private static final Logger log = LoggerFactory.getLogger(DeviceMessageServiceImpl.class);
+    private static final List<String> COMMAND_ID_ALIASES = List.of("commandId", "messageId");
+    private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
+
     private final DeviceMapper deviceMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final DevicePropertyMapper devicePropertyMapper;
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
+    private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final IotProperties iotProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
                                     DeviceMessageLogMapper deviceMessageLogMapper,
                                     DevicePropertyMapper devicePropertyMapper,
                                     ProductMapper productMapper,
                                     ProductModelMapper productModelMapper,
+                                    CommandRecordService commandRecordService,
                                     DeviceFileService deviceFileService,
                                     IotProperties iotProperties) {
         this.deviceMapper = deviceMapper;
@@ -53,6 +65,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.devicePropertyMapper = devicePropertyMapper;
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
+        this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
         this.iotProperties = iotProperties;
     }
@@ -94,6 +107,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
 
         saveMessageLog(device, upMessage);
+        if (isCommandReply(upMessage)) {
+            handleCommandReply(device, upMessage);
+            updateDeviceOnlineStatus(device, upMessage);
+            return;
+        }
         // 文件/固件类消息先进入最小文件服务，避免 C.3/C.4 数据被误当成普通属性处理。
         deviceFileService.handleFilePayload(device, upMessage);
         updateLatestProperties(device, upMessage);
@@ -121,6 +139,42 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         log.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
         log.setCreateTime(LocalDateTime.now());
         deviceMessageLogMapper.insert(log);
+    }
+
+    private boolean isCommandReply(DeviceUpMessage upMessage) {
+        return upMessage != null && "reply".equalsIgnoreCase(upMessage.getMessageType());
+    }
+
+    private void handleCommandReply(Device device, DeviceUpMessage upMessage) {
+        Map<String, Object> replyPayload = parseReplyPayload(upMessage.getRawPayload());
+        if (replyPayload.isEmpty()) {
+            log.warn("设备 ACK 回执无法解析为 JSON, deviceCode={}, topic={}", device.getDeviceCode(), upMessage.getTopic());
+            return;
+        }
+
+        String commandId = resolveCommandId(replyPayload);
+        if (!hasText(commandId)) {
+            log.warn("设备 ACK 回执缺少 commandId/messageId, deviceCode={}, topic={}", device.getDeviceCode(), upMessage.getTopic());
+            return;
+        }
+
+        LocalDateTime ackTime = upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp();
+        boolean updated;
+        if (isReplySuccess(replyPayload)) {
+            updated = commandRecordService.markSuccessByCommandId(commandId, upMessage.getRawPayload(), ackTime);
+        } else {
+            updated = commandRecordService.markFailedByCommandId(
+                    commandId,
+                    upMessage.getRawPayload(),
+                    resolveReplyErrorMessage(replyPayload),
+                    ackTime
+            );
+        }
+
+        if (!updated) {
+            log.warn("设备 ACK 回执未找到匹配命令记录, deviceCode={}, commandId={}, topic={}",
+                    device.getDeviceCode(), commandId, upMessage.getTopic());
+        }
     }
 
     private void updateLatestProperties(Device device, DeviceUpMessage upMessage) {
@@ -216,5 +270,83 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private String fetchProductKey(Device device) {
         Product product = productMapper.selectById(device.getProductId());
         return product == null ? null : product.getProductKey();
+    }
+
+    private Map<String, Object> parseReplyPayload(String rawPayload) {
+        if (!hasText(rawPayload)) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(rawPayload, new TypeReference<>() {
+            });
+        } catch (Exception ex) {
+            return Map.of();
+        }
+    }
+
+    private String resolveCommandId(Map<String, Object> replyPayload) {
+        for (String alias : COMMAND_ID_ALIASES) {
+            Object value = replyPayload.get(alias);
+            if (value != null && hasText(String.valueOf(value))) {
+                return String.valueOf(value);
+            }
+        }
+        return null;
+    }
+
+    private boolean isReplySuccess(Map<String, Object> replyPayload) {
+        Object success = replyPayload.get("success");
+        if (success != null) {
+            return parseBooleanLike(success);
+        }
+
+        Object code = replyPayload.get("code");
+        if (code != null) {
+            String normalized = String.valueOf(code).trim();
+            return "0".equals(normalized)
+                    || "200".equals(normalized)
+                    || "ok".equalsIgnoreCase(normalized)
+                    || "success".equalsIgnoreCase(normalized);
+        }
+
+        Object status = replyPayload.get("status");
+        if (status != null) {
+            String normalized = String.valueOf(status).trim();
+            if ("failed".equalsIgnoreCase(normalized) || "error".equalsIgnoreCase(normalized)) {
+                return false;
+            }
+            if ("success".equalsIgnoreCase(normalized) || "ok".equalsIgnoreCase(normalized)) {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    private boolean parseBooleanLike(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String normalized = String.valueOf(value).trim();
+        return "1".equals(normalized)
+                || "true".equalsIgnoreCase(normalized)
+                || "yes".equalsIgnoreCase(normalized)
+                || "ok".equalsIgnoreCase(normalized)
+                || "success".equalsIgnoreCase(normalized);
+    }
+
+    private String resolveReplyErrorMessage(Map<String, Object> replyPayload) {
+        for (String alias : ERROR_MESSAGE_ALIASES) {
+            Object value = replyPayload.get(alias);
+            if (value != null && hasText(String.valueOf(value))) {
+                return String.valueOf(value);
+            }
+        }
+        Object code = replyPayload.get("code");
+        return code == null ? "设备返回失败回执" : "设备返回失败回执, code=" + code;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

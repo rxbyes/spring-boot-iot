@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * MQTT 下行发布骨架。
- * Phase 2 Task 1 只建立最小发布入口，为后续下行任务预留组件位置。
+ * Phase 2 Task 6 只建立最小发布入口，为后续 ACK、重试和状态机预留组件位置。
  */
 @Component
 public class MqttDownMessagePublisher {
@@ -41,6 +41,26 @@ public class MqttDownMessagePublisher {
         }
         byte[] payload = adapter.encode(message, context);
         publishRaw(topic, payload, iotProperties.getMqtt().getQos(), false);
+    }
+
+    /**
+     * 按协议编码发布统一下行消息，允许显式指定 QoS 和 retained。
+     */
+    public void publish(String protocolCode,
+                        String topic,
+                        DeviceDownMessage message,
+                        ProtocolContext context,
+                        int qos,
+                        boolean retained) {
+        String actualProtocolCode = (protocolCode == null || protocolCode.isBlank())
+                ? iotProperties.getProtocol().getDefaultCode()
+                : protocolCode;
+        ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(actualProtocolCode);
+        if (adapter == null) {
+            throw new BizException("未找到协议适配器: " + actualProtocolCode);
+        }
+        byte[] payload = adapter.encode(message, context);
+        publishRaw(topic, payload, qos, retained);
     }
 
     /**

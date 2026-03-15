@@ -153,13 +153,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import { activityEntries } from '../stores/activity';
 import { formatDateTime } from '../utils/format';
+import { recordActivity } from '../stores/activity';
 
 const router = useRouter();
 
@@ -186,7 +187,7 @@ const metrics = [
   {
     label: '核心角色工作台',
     value: '3',
-    hint: '一线人员、运维人员、开发人员都能在同一平台找到主入口。',
+    hint: '一线人员、运维人员、开发人员、管理人员都能在同一平台找到主入口。',
     badge: { label: 'Users', tone: 'brand' as const }
   },
   {
@@ -270,6 +271,16 @@ const evolutionRoadmap = [
 ];
 
 const activities = computed(() => activityEntries.value.slice(0, 5));
+
+onMounted(() => {
+  recordActivity({
+    module: '驾驶舱',
+    action: '访问首页',
+    request: { path: '/' },
+    ok: true,
+    detail: '用户访问风险监测驾驶舱首页'
+  });
+});
 </script>
 
 <style scoped>

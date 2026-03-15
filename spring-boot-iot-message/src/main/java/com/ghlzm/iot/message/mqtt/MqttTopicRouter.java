@@ -33,14 +33,18 @@ public class MqttTopicRouter {
     }
 
     /**
-     * 解析标准 Topic。
-     * 当前只覆盖直连设备主题，网关子设备场景留待后续任务扩展。
+     * 解析 MQTT topic。
+     * 当前会区分直连设备 topic 与网关代子设备 topic，但默认订阅仍保持直连设备范围，
+     * 避免在未接入子设备业务前影响现有运行环境。
      */
     public RoutedTopic route(String topic) {
         MqttTopicParser.ParsedTopic parsedTopic = mqttTopicParser.parse(topic);
         return new RoutedTopic(
                 parsedTopic.productKey(),
                 parsedTopic.deviceCode(),
+                parsedTopic.gatewayDeviceCode(),
+                parsedTopic.subDeviceCode(),
+                parsedTopic.routeType(),
                 parsedTopic.domain(),
                 parsedTopic.action(),
                 parsedTopic.messageType(),
@@ -58,6 +62,9 @@ public class MqttTopicRouter {
         rawDeviceMessage.setProtocolCode(iotProperties.getProtocol().getDefaultCode());
         rawDeviceMessage.setProductKey(routedTopic.productKey());
         rawDeviceMessage.setDeviceCode(routedTopic.deviceCode());
+        rawDeviceMessage.setGatewayDeviceCode(routedTopic.gatewayDeviceCode());
+        rawDeviceMessage.setSubDeviceCode(routedTopic.subDeviceCode());
+        rawDeviceMessage.setTopicRouteType(routedTopic.routeType());
         rawDeviceMessage.setMessageType(routedTopic.messageType());
         rawDeviceMessage.setTopic(routedTopic.originalTopic());
         // 当前阶段先把 deviceCode 作为 MQTT 设备侧 clientId 的默认映射。
@@ -79,6 +86,9 @@ public class MqttTopicRouter {
      */
     public record RoutedTopic(String productKey,
                               String deviceCode,
+                              String gatewayDeviceCode,
+                              String subDeviceCode,
+                              String routeType,
                               String domain,
                               String action,
                               String messageType,

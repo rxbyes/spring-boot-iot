@@ -36,3 +36,28 @@
 - 更新 API 文档，反映当前已实现接口与错误返回
 - 更新测试场景文档，补充 HTTP 上报主链路的自动化验证与手工联调步骤
 - 新增 MQTTX 共享环境现场联调手册，统一 `application-dev.yml + MQTTX` 的联调口径
+
+## 2026-03-15
+### MQTT 真实联调收口
+- 完成 Phase 2 Task 5 的真实 MQTT 上行联调
+- 在共享 `dev` 环境中完成一次标准 topic 的真实发布与验证
+- 新增 `docs/14-mqtt-live-runbook.md`，沉淀真实联调运行手册
+- 在测试场景文档中补充一组真实成功样例，便于后续复用
+
+### Phase 2 Task 6 最小下行发布
+- 新增 `POST /message/mqtt/down/publish`，建立最小 MQTT 下行发布入口
+- 新增 `DownMessageService` 与 `MqttDownMessagePublisher` 编排，按设备和产品信息自动推导推荐下行 topic
+- 复用 `ProtocolAdapter.encode(...)` 编码 `DeviceDownMessage`
+- 支持最小 QoS 与 retained 参数透传
+- 在共享 `dev` 环境完成一次真实下行发布验证，独立订阅端已收到推荐 topic 消息
+
+### Phase 2 Task 7 网关子设备 Topic 预留
+- 为网关代子设备通信补充推荐 topic 规范，覆盖子设备上报和下发
+- 扩展 `MqttTopicParser`，可识别直连设备 topic、子设备 topic 和历史 `$dp`
+- 在 `RawDeviceMessage` 与 `ProtocolContext` 中预留 `routeType`、`gatewayDeviceCode`、`subDeviceCode`
+- 保持默认订阅范围不变，避免在未落地子设备业务前影响当前直连设备链路
+
+### Phase 2 文档收口
+- 统一整理 MQTT API、协议规范、消息流、测试场景和现场运行手册
+- 新增 `docs/15-phase2-summary.md`，汇总 Phase 2 已完成能力、未完成能力和交接口径
+- 将仓库文档口径收敛到“可交接、可演示、可继续扩展”

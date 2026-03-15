@@ -46,6 +46,9 @@ public class UpMessageDispatcher {
         context.setTenantCode(rawMessage.getTenantId());
         context.setProductKey(rawMessage.getProductKey());
         context.setDeviceCode(rawMessage.getDeviceCode());
+        context.setGatewayDeviceCode(rawMessage.getGatewayDeviceCode());
+        context.setSubDeviceCode(rawMessage.getSubDeviceCode());
+        context.setTopicRouteType(rawMessage.getTopicRouteType());
         context.setMessageType(rawMessage.getMessageType());
         context.setTopic(rawMessage.getTopic());
         context.setClientId(rawMessage.getClientId());
@@ -88,6 +91,9 @@ public class UpMessageDispatcher {
         metadata.put("messageType", rawMessage.getMessageType());
         metadata.put("topic", rawMessage.getTopic());
         metadata.put("clientId", rawMessage.getClientId());
+        metadata.put("topicRouteType", rawMessage.getTopicRouteType());
+        metadata.put("gatewayDeviceCode", rawMessage.getGatewayDeviceCode());
+        metadata.put("subDeviceCode", rawMessage.getSubDeviceCode());
         return metadata;
     }
 }

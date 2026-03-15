@@ -16,6 +16,9 @@ public class MqttMessageTypeResolver {
         if ("property".equals(domain) && "post".equals(action)) {
             return "property";
         }
+        if ("property".equals(domain) && "set".equals(action)) {
+            return "property";
+        }
         if ("event".equals(domain) && "post".equals(action)) {
             return "event";
         }
@@ -27,6 +30,9 @@ public class MqttMessageTypeResolver {
         }
         if ("service".equals(domain) && "reply".equals(action)) {
             return "reply";
+        }
+        if ("service".equals(domain) && "invoke".equals(action)) {
+            return "service";
         }
         return domain;
     }

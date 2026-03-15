@@ -182,3 +182,37 @@ CREATE TABLE iot_device_message_log (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备消息日志表';
+
+DROP TABLE IF EXISTS iot_command_record;
+CREATE TABLE iot_command_record (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    command_id VARCHAR(64) NOT NULL COMMENT '业务命令ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) NOT NULL COMMENT '产品Key',
+    gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',
+    sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
+    topic VARCHAR(255) NOT NULL COMMENT '下发Topic',
+    command_type VARCHAR(32) NOT NULL COMMENT '命令类型 property/service',
+    service_identifier VARCHAR(64) DEFAULT NULL COMMENT '服务标识',
+    request_payload LONGTEXT DEFAULT NULL COMMENT '下发请求报文',
+    reply_payload LONGTEXT DEFAULT NULL COMMENT '设备回执报文',
+    qos TINYINT NOT NULL DEFAULT 0 COMMENT 'MQTT QoS',
+    retained TINYINT NOT NULL DEFAULT 0 COMMENT '是否保留消息 1是 0否',
+    status VARCHAR(32) NOT NULL COMMENT '命令状态 CREATED/SENT/SUCCESS/FAILED/TIMEOUT',
+    send_time DATETIME DEFAULT NULL COMMENT '发送时间',
+    ack_time DATETIME DEFAULT NULL COMMENT '回执时间',
+    timeout_time DATETIME DEFAULT NULL COMMENT '超时时间',
+    error_message VARCHAR(500) DEFAULT NULL COMMENT '错误信息',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_command_id (command_id),
+    KEY idx_device_status (device_code, status),
+    KEY idx_status_timeout (status, timeout_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备命令记录表';

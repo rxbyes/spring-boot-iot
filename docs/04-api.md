@@ -1,6 +1,6 @@
 # API 文档
 
-本文档记录当前已实现并已验证的 HTTP 调试接口，同时补充 MQTT 上行接入的最小联调约定。
+本文档记录当前已实现并已验证的 HTTP 调试接口，同时补充 Phase 2 已交付的 MQTT 上下行能力。
 
 ## 统一返回格式
 ```json
@@ -109,8 +109,15 @@
 
 MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 
-- 标准 topic：`/sys/{productKey}/{deviceCode}/thing/property/post`
+- 直连设备标准 topic：
+  - `/sys/{productKey}/{deviceCode}/thing/property/post`
+  - `/sys/{productKey}/{deviceCode}/thing/event/post`
+  - `/sys/{productKey}/{deviceCode}/thing/status/post`
 - 历史兼容 topic：`$dp`
+- 子设备预留 topic：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/post`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/event/post`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/status/post`
 
 标准 topic payload 示例：
 ```json
@@ -134,10 +141,59 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 
 说明：
 - MQTT 消息进入后仍走统一主链路：`RawDeviceMessage -> UpMessageDispatcher -> ProtocolAdapter -> DeviceMessageService`
+- 当前已能识别直连设备 topic、历史 `$dp` 和子设备预留 topic
+- 子设备 topic 目前只完成解析结构预留，不进入完整子设备业务处理
 - 查询验证仍复用已有 HTTP 接口：
   - `GET /device/code/{deviceCode}`
   - `GET /device/{deviceCode}/properties`
   - `GET /device/{deviceCode}/message-logs`
+
+### MQTT 下行发布
+`POST /message/mqtt/down/publish`
+
+请求体：
+```json
+{
+  "productKey": "codex-down-product-02",
+  "deviceCode": "codex-down-device-02",
+  "qos": 1,
+  "commandType": "property",
+  "params": {
+    "switch": 1,
+    "targetTemperature": 23.0,
+    "requestId": "task6-verify-001"
+  }
+}
+```
+
+说明：
+- 当前由 `message` 模块负责下行发布，`protocol` 模块负责 `DeviceDownMessage` 编码。
+- 若未显式传入 `topic`，系统按推荐规范自动拼接：
+  - 属性下发：`/sys/{productKey}/{deviceCode}/thing/property/set`
+  - 服务调用：`/sys/{productKey}/{deviceCode}/thing/service/{serviceIdentifier}/invoke`
+- 子设备下行预留 topic：
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/property/set`
+  - `/sys/{gatewayProductKey}/{gatewayDeviceCode}/sub/{subDeviceCode}/thing/service/{serviceIdentifier}/invoke`
+- 若未显式传入 `protocolCode`，默认继承设备绑定协议。
+- 当前只建立最小发布能力，不实现 ACK、重试、状态机。
+- 当前下行发布入口只面向直连设备；子设备下行 topic 仅做规范预留。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "protocolCode": "mqtt-json",
+    "topic": "/sys/codex-down-product-02/codex-down-device-02/thing/property/set",
+    "qos": 1,
+    "retained": false,
+    "deviceCode": "codex-down-device-02",
+    "productKey": "codex-down-product-02",
+    "commandType": "property"
+  }
+}
+```
 
 ## 设备属性与消息日志接口
 
