@@ -19,6 +19,8 @@
         <module>spring-boot-iot-device</module>
         <module>spring-boot-iot-protocol</module>
         <module>spring-boot-iot-message</module>
+        <module>spring-boot-iot-alarm</module>
+        <module>spring-boot-iot-report</module>
         <module>spring-boot-iot-admin</module>
     </modules>
 
@@ -184,6 +186,16 @@
                 <artifactId>spring-boot-iot-message</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.ghlzm.iot</groupId>
+                <artifactId>spring-boot-iot-alarm</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.ghlzm.iot</groupId>
+                <artifactId>spring-boot-iot-report</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.ghlxk.cloud</groupId>
@@ -209,6 +221,7 @@
                     <version>3.13.0</version>
                     <configuration>
                         <release>${java.version}</release>
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

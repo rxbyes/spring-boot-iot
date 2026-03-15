@@ -5,7 +5,6 @@
       <strong class="metric-card__value">{{ value }}</strong>
       <SignalBadge v-if="badge" :label="badge.label" :tone="badge.tone" />
     </div>
-    <p class="metric-card__hint">{{ hint }}</p>
   </article>
 </template>
 
@@ -15,7 +14,6 @@ import SignalBadge from './SignalBadge.vue';
 defineProps<{
   label: string;
   value: string;
-  hint: string;
   badge?: {
     label: string;
     tone: 'success' | 'warning' | 'danger' | 'muted' | 'brand';
@@ -68,9 +66,4 @@ defineProps<{
   line-height: 1;
 }
 
-.metric-card__hint {
-  margin: 1.2rem 0 0;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
 </style>

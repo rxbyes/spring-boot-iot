@@ -9,7 +9,8 @@ com.ghlzm.iot
 ## Mission
 Build a modular IoT gateway platform with Spring Boot 4 + Java 17.
 
-Phase 1 must deliver a minimal runnable platform with:
+### Phase 1 (已完成)
+Build a minimal runnable platform with:
 - product management
 - device management
 - HTTP simulated device reporting
@@ -18,23 +19,91 @@ Phase 1 must deliver a minimal runnable platform with:
 - latest property updates
 - device online status updates
 
+### Phase 2 (已完成)
+Build MQTT access capability with:
+- MQTT接入骨架
+- MQTT topic解析
+- 设备认证基础版
+- 设备会话与在线状态基础版
+- MQTT上行真实联调
+- MQTT下行最小发布能力
+- 子设备topic规范与解析扩展点预留
+
+### Phase 3 (已完成)
+Build platform capability closure with:
+- 指令闭环能力（命令记录与状态模型、MQTT回执接入）
+- 网关/子设备业务闭环（静态拓扑、子设备上报/下发）
+- 规则引擎基础版（单条件单动作规则）
+
+### Phase 4 (进行中)
+Build IoT risk monitoring and early warning platform with:
+- 告警中心（告警列表、告警详情、告警确认、告警抑制、通知记录）
+- 事件处置（事件列表、事件详情、工单派发、现场反馈、事件复盘）
+- 风险点管理（风险点CRUD、风险点与设备绑定）
+- 阈值规则配置（规则CRUD、规则测试）
+- 联动规则与应急预案
+- 分析报表（风险趋势分析、告警统计、事件闭环分析、设备健康分析）
+- 系统管理（组织机构、用户管理、角色权限、区域管理、字典配置、通知渠道、审计日志）
+
 ## Current status
-Phase 1 is complete.
+Phase 3 is complete. Phase 4 is in progress.
+
+### Phase 4 Completed (2026-03-15)
+- 告警中心基础能力（后端已完成，前端页面已完成）
+- 事件处置基础能力（后端已完成，前端页面已完成）
+- 风险点管理（后端已完成，前端页面已完成）
+- 阈值规则配置（后端已完成，前端页面已完成）
+- 联动规则与应急预案（后端已完成，前端页面已完成）
+- 分析报表（后端已完成，前端页面已完成）
+- 组织机构管理（后端已完成，前端页面已完成）
+- 用户管理（后端已完成，前端页面已完成）
+- SQL脚本已创建
+- 后端代码编译通过
+- 前端开发服务器运行正常
 
 The current verified baseline includes:
-- 8 active Phase 1 modules in the parent reactor
+- 11 active Phase 1-4 modules in the parent reactor
 - `spring-boot-iot-admin` as the only startup module
 - product add/query
 - device add/query
 - HTTP simulated device reporting
+- MQTT real access
 - protocol decode through `mqtt-json`
 - message log persistence
 - latest property update
 - device online status update
+- command record and status tracking
+- gateway/sub-device topology
+- basic rule engine
+- alarm center (alarm list, alarm details, alarm confirmation, alarm suppression)
+- event disposal (event list, event details, work order dispatch, event closure)
+- risk point management (risk point CRUD, risk point binding)
+- threshold rule configuration (rule CRUD, rule testing)
+- linkage rules and emergency plans (rule CRUD, plan CRUD)
+- report analysis (risk trend, alarm statistics, event closure, device health)
+- organization management (tree structure, CRUD operations)
 
-When continuing development after Phase 1:
-- preserve the verified HTTP reporting main flow
-- do not regress the existing Phase 1 APIs and E2E path
+The current verified baseline includes:
+- 10 active Phase 1-3 modules in the parent reactor
+- `spring-boot-iot-admin` as the only startup module
+- product add/query
+- device add/query
+- HTTP simulated device reporting
+- MQTT real access
+- protocol decode through `mqtt-json`
+- message log persistence
+- latest property update
+- device online status update
+- command record and status tracking
+- gateway/sub-device topology
+- basic rule engine
+
+When continuing development after Phase 3:
+- preserve the verified HTTP/MQTT reporting main flow
+- preserve the verified command closure main flow
+- preserve the verified gateway/sub-device topology main flow
+- preserve the verified rule engine main flow
+- do not regress the existing Phase 1-3 APIs and E2E path
 - update docs when behavior, verification steps, or configuration expectations change
 
 ## Documentation maintenance rule
@@ -55,6 +124,8 @@ When continuing development after Phase 1:
 - docs/07-message-flow.md
 - docs/11-codex-tasking.md
 - docs/15-frontend-optimization-plan.md
+- docs/16-phase3-roadmap.md
+- docs/18-phase4-risk-platform-roadmap.md
 - docs/codex-roadmap.md
 - docs/codex-workflow.md
 - docs/test-scenarios.md
@@ -122,6 +193,29 @@ When continuing development after Phase 1:
 6. verify property and message log persistence
 7. verify online status update
 
+## Phase 2 execution order
+1. implement MQTT接入骨架
+2. implement MQTT topic解析
+3. implement 设备认证基础版
+4. implement 设备会话与在线状态基础版
+5. implement MQTT上行真实联调
+6. implement MQTT下行最小发布能力
+7. implement 子设备topic规范与解析扩展点预留
+
+## Phase 3 execution order
+1. implement 指令闭环能力
+2. implement 网关/子设备业务闭环
+3. implement 规则引擎基础版
+
+## Phase 4 execution order (planning)
+1. implement 告警中心基础能力
+2. implement 事件处置基础能力
+3. implement 风险点管理
+4. implement 阈值规则配置
+5. implement 联动规则与应急预案
+6. implement 分析报表
+7. implement 系统管理
+
 ## Phase 1 done definition
 Phase 1 should continue to satisfy all of the following:
 - `mvn -pl spring-boot-iot-admin -am clean package -DskipTests` passes
@@ -136,6 +230,78 @@ Phase 1 should continue to satisfy all of the following:
   - `GET /device/{deviceCode}/properties`
   - `GET /device/{deviceCode}/message-logs`
 
+## Phase 2 done definition
+Phase 2 should continue to satisfy all of the following:
+- `mvn -pl spring-boot-iot-admin -am clean package -DskipTests` passes
+- `DeviceMqttReportE2EIntegrationTest` passes
+- MQTT上行接入验证通过
+- MQTT下行发布验证通过
+
+## Phase 3 done definition
+Phase 3 should continue to satisfy all of the following:
+- `mvn -pl spring-boot-iot-admin -am clean package -DskipTests` passes
+- 指令闭环E2E测试通过
+- 网关/子设备E2E测试通过
+- 规则引擎E2E测试通过
+
+## Phase 4 done definition (planning)
+Phase 4 should satisfy the following:
+- `mvn -pl spring-boot-iot-admin -am clean package -DskipTests` passes
+- 告警中心E2E测试通过
+- 事件处置E2E测试通过
+- 风险配置E2E测试通过
+- 报表分析E2E测试通过
+- 组织机构管理E2E测试通过
+- 用户管理E2E测试通过
+
 ## Known environment note
 - `DeviceMessageServiceImplTest` may still fail on some JDK 17 environments because Mockito inline mock maker cannot self-attach its ByteBuddy agent.
 - Treat that as a local test environment issue unless there is evidence of a real business regression.
+
+## Phase 4 planning note
+- Phase 4 will add new modules: `spring-boot-iot-event`, `spring-boot-iot-risk`, `spring-boot-iot-report`
+- Phase 4 will extend existing modules: `spring-boot-iot-alarm`, `spring-boot-iot-system`
+- Phase 4 will add new database tables: `iot_alarm_record`, `iot_event_record`, `iot_event_work_order`, `risk_point`, `rule_definition`, `linkage_rule`, `emergency_plan`, `sys_organization`, `sys_region`, `sys_dict`, `sys_audit_log`, `iot_notification_record`
+- Phase 4 will add new frontend pages: AlarmCenterView, EventDisposalView, RiskConfigurationView, ReportAnalysisView, SystemManagementView, RealTimeMonitoringView
+
+### Phase 4 Completed (2026-03-15) - Updated
+- 告警中心基础能力（后端已完成，前端页面已完成）
+- 事件处置基础能力（后端已完成，前端页面已完成）
+- 风险点管理（后端已完成，前端页面已完成）
+- 阈值规则配置（后端已完成，前端页面已完成）
+- 联动规则与应急预案（后端已完成，前端页面已完成）
+- 分析报表（后端已完成，前端页面已完成）
+- 组织机构管理（后端已完成，前端页面已完成）
+- 用户管理（后端已完成，前端页面已完成）
+- 角色权限管理（后端已完成，前端页面已完成）
+- 区域管理（后端已完成，前端页面已完成）
+- 字典配置（后端已完成，前端页面已完成）
+- 通知渠道（后端已完成，前端页面已完成）
+- 审计日志（后端已完成，前端页面已完成）
+- SQL脚本已创建
+- 后端代码编译通过
+- 前端开发服务器运行正常
+
+The current verified baseline includes:
+- 11 active Phase 1-4 modules in the parent reactor
+- `spring-boot-iot-admin` as the only startup module
+- product add/query
+- device add/query
+- HTTP simulated device reporting
+- MQTT real access
+- protocol decode through `mqtt-json`
+- message log persistence
+- latest property update
+- device online status update
+- command record and status tracking
+- gateway/sub-device topology
+- basic rule engine
+- alarm center (alarm list, alarm details, alarm confirmation, alarm suppression)
+- event disposal (event list, event details, work order dispatch, event closure)
+- risk point management (risk point CRUD, risk point binding)
+- threshold rule configuration (rule CRUD, rule testing)
+- linkage rules and emergency plans (rule CRUD, plan CRUD)
+- report analysis (risk trend, alarm statistics, event closure, device health)
+- organization management (tree structure, CRUD operations)
+- user management (user CRUD, password reset)
+- role management (role CRUD, menu management)

@@ -1,49 +1,46 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import path from 'path';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://127.0.0.1:9999';
-
-  return {
-    plugins: [vue()],
-    build: {
-      chunkSizeWarningLimit: 850,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules/echarts')) {
-              return 'echarts-vendor';
-            }
-            if (id.includes('node_modules/dayjs')) {
-              return 'time-vendor';
-            }
-            if (id.includes('node_modules/@element-plus/icons-vue')) {
-              return 'element-plus-icons';
-            }
-            if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
-              return 'element-plus-vendor';
-            }
-            if (id.includes('node_modules/vue') || id.includes('node_modules/vue-router')) {
-              return 'vue-vendor';
-            }
-          }
-        }
-      }
-    },
-    server: {
-      host: '0.0.0.0',
-      port: 5173,
-      proxy: {
-        '/device': {
-          target: proxyTarget,
-          changeOrigin: true
-        },
-        '/message': {
-          target: proxyTarget,
-          changeOrigin: true
-        }
-      }
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src')
     }
-  };
-});
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/__tests__/setup.ts',
+    include: ['./src/__tests__/**/*.test.ts'],
+    reporters: ['verbose'],
+    outputDirectory: './coverage',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/__tests__/'
+      ]
+    }
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5174,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:9999',
+        changeOrigin: true
+      },
+      '/device': {
+        target: 'http://localhost:9999',
+        changeOrigin: true
+      },
+      '/message': {
+        target: 'http://localhost:9999',
+        changeOrigin: true
+      },
+    }
+  }
+} as any);

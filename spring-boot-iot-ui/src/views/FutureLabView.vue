@@ -2,10 +2,7 @@
   <div class="page-stack">
     <section class="hero-panel">
       <p class="eyebrow">Future Lab</p>
-      <h1 class="headline">把 Phase 1 数据资产延伸到图表、数字孪生与智能联动</h1>
-      <p class="lead">
-        当前前端已经把产品、设备、属性和消息日志串成稳定入口。下一步不需要重写页面骨架，只要在这些面板之上叠加时序查询、场景引擎和拓扑数据即可。
-      </p>
+      <h1 class="headline">未来能力实验室</h1>
     </section>
 
     <section class="tri-grid">
@@ -14,14 +11,12 @@
         :key="card.title"
         eyebrow="Planned Capability"
         :title="card.title"
-        :description="card.description"
       >
         <div class="flow-rail">
           <div v-for="point in card.contracts" :key="point.title" class="flow-rail__item">
             <span class="flow-rail__index">{{ point.index }}</span>
             <div>
               <strong>{{ point.title }}</strong>
-              <span>{{ point.description }}</span>
             </div>
           </div>
         </div>
@@ -32,7 +27,6 @@
       <PanelCard
         eyebrow="Integration Notes"
         title="当前页面已经预留的扩展点"
-        description="这些入口会让你后续对接 ECharts、WebGL、地图或三维孪生时更顺畅。"
       >
         <ul class="phase-ideas">
           <li>设备洞察页已聚合 `device + properties + messageLogs`，适合作为图表画布的数据源。</li>
@@ -45,28 +39,24 @@
       <PanelCard
         eyebrow="Roadmap Bridge"
         title="与项目文档的衔接"
-        description="前端结构已经按照当前文档和未来模块边界留好了对应位置。"
       >
         <div class="flow-rail">
           <div class="flow-rail__item">
             <span class="flow-rail__index">T1</span>
             <div>
               <strong>Telemetry</strong>
-              <span>把 `spring-boot-iot-telemetry` 的时序查询接入折线图和多点位对比。</span>
             </div>
           </div>
           <div class="flow-rail__item">
             <span class="flow-rail__index">T2</span>
             <div>
               <strong>Gateway</strong>
-              <span>把 `spring-boot-iot-gateway` 的拓扑关系映射到节点图和边缘网关视图。</span>
             </div>
           </div>
           <div class="flow-rail__item">
             <span class="flow-rail__index">T3</span>
             <div>
               <strong>Rule / Alarm / OTA</strong>
-              <span>把规则命中、告警升级、固件波次统一纳入操作面板和可视化时间线。</span>
             </div>
           </div>
         </div>

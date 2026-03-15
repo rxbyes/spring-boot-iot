@@ -3,10 +3,7 @@
     <section class="hero-grid">
       <div class="hero-panel operations-shell">
         <p class="eyebrow">Operations Center</p>
-        <h1 class="headline">把设备建档、状态核查和远程运维入口放到同一页</h1>
-        <p class="lead">
-          当前页面以 Phase 1 已实现的设备新增和设备查询能力为底座，优先服务运维维护人员，同时保留研发与实施所需的联调信息。
-        </p>
+        <h1 class="headline">设备运维中心</h1>
         <div class="button-row" style="margin-top: 1.25rem;">
           <el-button class="primary-button" type="primary" @click="handleQueryByCode">
             快速刷新设备状态
@@ -35,7 +32,6 @@
       <PanelCard
         eyebrow="Maintenance Focus"
         title="当前运维建议"
-        description="运维首页应优先告诉用户现在该做什么，而不是先让用户自己去解读所有字段。"
       >
         <div class="focus-list">
           <article v-for="item in maintenanceActions" :key="item" class="focus-list__item">
@@ -52,7 +48,6 @@
         :key="metric.label"
         :label="metric.label"
         :value="metric.value"
-        :hint="metric.hint"
         :badge="metric.badge"
       />
     </section>
@@ -61,7 +56,6 @@
       <PanelCard
         eyebrow="Provisioning"
         title="设备建档"
-        description="对应 `POST /device/add`，用于创建设备、绑定产品、填写认证字段和初始化运维基础信息。"
       >
         <form class="form-grid" @submit.prevent="handleCreateDevice">
           <div class="field-group">
@@ -122,7 +116,6 @@
       <PanelCard
         eyebrow="Lookup"
         title="按 ID / 编码查询设备"
-        description="用于快速检查设备是否已建档，以及在线状态、最近上报时间和运维字段是否符合预期。"
       >
         <div class="form-grid">
           <div class="field-group">
@@ -186,7 +179,6 @@
       <PanelCard
         eyebrow="Auth Baseline"
         title="设备认证基线"
-        description="帮助运维和实施确认 MQTT 基础认证方案是否与建档信息一致。"
       >
         <div class="baseline-list">
           <article class="baseline-list__item">
@@ -211,7 +203,6 @@
       <PanelCard
         eyebrow="Remote O&M"
         title="远程运维预留"
-        description="当前先以产品说明方式承接后续能力，避免页面一直停留在纯调试工具形态。"
       >
         <ul class="advice-list">
           <li>远程控制：重启设备、下发参数、校验配置回执。</li>
@@ -223,7 +214,6 @@
       <PanelCard
         eyebrow="Engineering Trace"
         title="研发排障提示"
-        description="给开发与实施团队保留最关键的联调路径。"
       >
         <ul class="advice-list">
           <li>设备查不到时，先核对产品 Key、设备编码和当前数据源环境。</li>
@@ -237,13 +227,11 @@
       <ResponsePanel
         eyebrow="Request"
         title="最后一次请求"
-        description="校验设备建档、查询和后续远程运维接口的请求结构。"
         :body="lastRequest"
       />
       <ResponsePanel
         eyebrow="Response"
         title="最后一次响应"
-        description="重点观察在线状态、最近上报时间、认证字段和运维相关基础信息。"
         :body="lastResponse"
       />
     </section>
@@ -389,44 +377,47 @@ const healthSummary = computed<HealthSummary>(() => {
   };
 });
 
-const overviewMetrics = computed(() => [
-  {
-    label: '设备运维状态',
-    value: healthSummary.value.label,
-    hint: healthSummary.value.description,
-    badge: {
-      label: healthSummary.value.shortLabel,
-      tone: healthSummary.value.tone === 'red'
-        ? 'danger'
-        : healthSummary.value.tone === 'orange'
-          ? 'warning'
-          : healthSummary.value.tone === 'yellow'
-            ? 'warning'
-            : 'success'
+const overviewMetrics = computed(() => {
+  const getBadgeTone = (tone: 'red' | 'orange' | 'yellow' | 'blue'): 'danger' | 'warning' | 'muted' | 'success' | 'brand' => {
+    if (tone === 'red') return 'danger';
+    if (tone === 'orange') return 'warning';
+    if (tone === 'yellow') return 'warning';
+    return 'muted';
+  };
+
+  return [
+    {
+      label: '设备运维状态',
+      value: healthSummary.value.label,
+      hint: healthSummary.value.description,
+      badge: {
+        label: healthSummary.value.shortLabel,
+        tone: getBadgeTone(healthSummary.value.tone)
+      }
+    },
+    {
+      label: '在线状态',
+      value: currentDevice.value ? statusLabel(currentDevice.value.onlineStatus) : '--',
+      hint: currentDevice.value?.onlineStatus === 1 ? '当前设备在线，可继续进行远程维护和链路验证。' : '当前设备离线，建议优先核查会话与网络。 ',
+      badge: {
+        label: currentDevice.value?.onlineStatus === 1 ? '在线' : '离线',
+        tone: currentDevice.value?.onlineStatus === 1 ? 'success' : 'muted'
+      }
+    },
+    {
+      label: '最近上报时效',
+      value: lastReportMinutes.value === null ? '--' : `${lastReportMinutes.value} min`,
+      hint: lastReportMinutes.value === null ? '当前没有最近上报时间。' : '用于判断设备链路是否长时间中断。',
+      badge: { label: 'Freshness', tone: 'brand' }
+    },
+    {
+      label: '认证准备度',
+      value: authReady.value ? '已就绪' : '待核查',
+      hint: authReady.value ? 'MQTT 基础认证字段看起来一致。' : '请重点核对 clientId、username、password、deviceSecret。',
+      badge: { label: 'MQTT', tone: authReady.value ? 'success' : 'warning' }
     }
-  },
-  {
-    label: '在线状态',
-    value: currentDevice.value ? statusLabel(currentDevice.value.onlineStatus) : '--',
-    hint: currentDevice.value?.onlineStatus === 1 ? '当前设备在线，可继续进行远程维护和链路验证。' : '当前设备离线，建议优先核查会话与网络。 ',
-    badge: {
-      label: currentDevice.value?.onlineStatus === 1 ? '在线' : '离线',
-      tone: currentDevice.value?.onlineStatus === 1 ? 'success' : 'muted'
-    }
-  },
-  {
-    label: '最近上报时效',
-    value: lastReportMinutes.value === null ? '--' : `${lastReportMinutes.value} min`,
-    hint: lastReportMinutes.value === null ? '当前没有最近上报时间。' : '用于判断设备链路是否长时间中断。',
-    badge: { label: 'Freshness', tone: 'brand' }
-  },
-  {
-    label: '认证准备度',
-    value: authReady.value ? '已就绪' : '待核查',
-    hint: authReady.value ? 'MQTT 基础认证字段看起来一致。' : '请重点核对 clientId、username、password、deviceSecret。',
-    badge: { label: 'MQTT', tone: authReady.value ? 'success' : 'warning' }
-  }
-]);
+  ] as const;
+});
 
 const maintenanceActions = computed(() => {
   const actions = ['先通过设备编码查询，确认当前在线状态和最近上报时间。'];

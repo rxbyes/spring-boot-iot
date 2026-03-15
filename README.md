@@ -18,8 +18,9 @@ spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台
 
 这条约定适用于所有 coding agent / coding model，包括 Codex、Qwen Code 等。
 
-## Phase 1 已完成能力
-当前仓库已经完成一期最小可运行平台，已落地并验证这些能力：
+## 已完成能力
+
+### Phase 1 (已完成)
 - 产品管理
 - 设备管理
 - HTTP 模拟设备上报
@@ -28,11 +29,37 @@ spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台
 - 最新属性更新
 - 设备在线状态维护
 
-## Phase 1 状态
-- 已完成 `docs/codex-roadmap.md` 中 Phase 1 的 Task 1 ~ Task 6
-- 已验证链路：产品/设备创建、HTTP 上报、消息日志写入、最新属性更新、设备在线状态更新
-- 已通过端到端验证：`DeviceHttpReportE2EIntegrationTest`
-- 当前主链路已继续完成 Phase 2 Task 5：MQTT 上行接入验证，业务主链路保持不变
+### Phase 2 (已完成)
+- MQTT 接入骨架
+- MQTT topic 解析
+- 设备认证基础版
+- 设备会话与在线状态基础版
+- MQTT 上行真实联调
+- MQTT 下行最小发布能力
+- 子设备 topic 规范与解析扩展点预留
+
+### Phase 3 (已完成)
+- 指令闭环能力（命令记录与状态模型、MQTT回执接入）
+- 网关/子设备业务闭环（静态拓扑、子设备上报/下发）
+- 规则引擎基础版（单条件单动作规则）
+
+### Phase 4 (进行中)
+- 告警中心（告警列表、告警详情、告警确认、告警抑制、通知记录）
+- 事件处置（事件列表、事件详情、工单派发、现场反馈、事件复盘）
+- 风险点管理（风险点CRUD、风险点与设备绑定）
+- 阈值规则配置（规则CRUD、规则测试）
+- 联动规则与应急预案
+- 分析报表（风险趋势分析、告警统计、事件闭环分析、设备健康分析）
+- 系统管理（组织机构、用户管理、角色权限、区域管理、字典配置、通知渠道、审计日志）
+
+## 当前状态
+Phase 3 已完成，Phase 4 正在规划中。
+
+已验证链路：产品/设备创建、HTTP/MQTT 上报、消息日志写入、最新属性更新、设备在线状态更新、命令记录与追踪、网关/子设备拓扑、规则引擎。
+
+已通过端到端验证：
+- `DeviceHttpReportE2EIntegrationTest`
+- `DeviceMqttReportE2EIntegrationTest`
 
 ## 技术栈
 - Java 17
@@ -64,19 +91,25 @@ spring-boot-iot
 ├── spring-boot-iot-auth
 ├── spring-boot-iot-system
 ├── spring-boot-iot-device
+├── spring-boot-iot-gateway
 ├── spring-boot-iot-protocol
 ├── spring-boot-iot-message
-└── spring-boot-iot-admin
+├── spring-boot-iot-rule
+├── spring-boot-iot-alarm
+├── spring-boot-iot-admin
 ```
 
-当前父 `pom.xml` 激活的 Phase 1 模块为：
+当前父 `pom.xml` 激活的 Phase 1-3 模块为：
 - `spring-boot-iot-common`
 - `spring-boot-iot-framework`
 - `spring-boot-iot-auth`
 - `spring-boot-iot-system`
 - `spring-boot-iot-device`
+- `spring-boot-iot-gateway`
 - `spring-boot-iot-protocol`
 - `spring-boot-iot-message`
+- `spring-boot-iot-rule`
+- `spring-boot-iot-alarm`
 - `spring-boot-iot-admin`
 
 说明：
@@ -90,15 +123,22 @@ spring-boot-iot
 4. 启动应用：`mvn -pl spring-boot-iot-admin spring-boot:run`
 5. 参考 [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md) 或 [docs/device-simulator.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/device-simulator.md) 进行联调
 
-## 已实现接口
-- `POST /device/product/add`
-- `GET /device/product/{id}`
-- `POST /device/add`
-- `GET /device/{id}`
-- `GET /device/code/{deviceCode}`
-- `POST /message/http/report`
-- `GET /device/{deviceCode}/properties`
-- `GET /device/{deviceCode}/message-logs`
+## 已实现接口（Phase 1-3）
+
+### 产品接口
+- `POST /device/product/add` - 新增产品
+- `GET /device/product/{id}` - 根据 ID 查询产品
+
+### 设备接口
+- `POST /device/add` - 新增设备
+- `GET /device/{id}` - 根据 ID 查询设备
+- `GET /device/code/{deviceCode}` - 根据 deviceCode 查询设备
+
+### 消息接入接口
+- `POST /message/http/report` - HTTP 模拟设备上报
+- `GET /device/{deviceCode}/properties` - 查询设备最新属性
+- `GET /device/{deviceCode}/message-logs` - 查询设备消息日志
+- `POST /message/mqtt/down/publish` - MQTT 下行发布
 
 ## 关键配置
 当前 `dev` 配置默认指向共享测试环境，也可以通过以下环境变量覆盖到你自己的环境：
@@ -143,13 +183,21 @@ spring-boot-iot
 前端目录：`spring-boot-iot-ui`
 
 当前页面：
-- 风险监测驾驶舱
-- 产品模板中心
-- 设备运维中心
-- 接入回放台
-- 风险点工作台
-- 文件与固件调试
-- 未来演进蓝图
+- 风险监测驾驶舱（CockpitView）
+- 产品模板中心（ProductWorkbenchView）
+- 设备运维中心（DeviceWorkbenchView）
+- 接入回放台（ReportWorkbenchView）
+- 风险点工作台（DeviceInsightView）
+- 文件与固件调试（FilePayloadDebugView）
+- 未来演进蓝图（FutureLabView）
+
+Phase 4 新增页面（规划中）：
+- 告警中心（AlarmCenterView）
+- 事件处置（EventDisposalView）
+- 风险配置（RiskConfigurationView）
+- 分析报表（ReportAnalysisView）
+- 系统管理（SystemManagementView）
+- 实时监测（RealTimeMonitoringView）
 
 启动方式：
 1. 进入 `spring-boot-iot-ui`
@@ -162,6 +210,7 @@ spring-boot-iot
 - 开发环境建议将 `VITE_API_BASE_URL` 保持为空，让页面默认走相对路径和 Vite 代理，避免浏览器直连 `127.0.0.1:9999` 时出现 CORS 错误
 - 顶部 `API Base URL` 输入框支持运行时切换直连地址；清空并保存即可恢复代理模式
 - 后端当前已提供最小 CORS 支持，默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 直连开发联调
+- 驾驶舱 `/` 当前作为公开首页，未登录也可访问；其他受保护页面在未登录时会回退到驾驶舱
 - 当前前端已经接入 `Element Plus` 和 `ECharts`
 - 当前前端已开始从“调试台”向“商业化风险监测平台”演进
 - 当前页面已为图表、数字孪生、拓扑、AI 风险分析、远程运维等后续能力预留入口
@@ -186,6 +235,8 @@ spring-boot-iot
 - [docs/14-mqttx-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqttx-live-runbook.md)
 - [docs/12-change-log.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/12-change-log.md)
 - [docs/15-frontend-optimization-plan.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/15-frontend-optimization-plan.md)
+- [docs/16-phase3-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/16-phase3-roadmap.md)
+- [docs/18-phase4-risk-platform-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/18-phase4-risk-platform-roadmap.md)
 - [docs/codex-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-roadmap.md)
 - [docs/codex-workflow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-workflow.md)
 - [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)

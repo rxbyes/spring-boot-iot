@@ -129,6 +129,32 @@ const navigationSections = [
       { to: '/file-debug', label: '文件与固件调试', caption: 'C.3 / C.4 / Redis 聚合 / MD5 校验', icon: '06' },
       { to: '/future-lab', label: '未来演进蓝图', caption: '图表、孪生、规则、告警、OTA 预留', icon: '07' }
     ]
+  },
+  {
+    title: '风险监测',
+    eyebrow: 'Risk Monitor',
+    items: [
+      { to: '/alarm-center', label: '告警中心', caption: '告警列表、告警确认、告警抑制、通知记录', icon: '08' },
+      { to: '/event-disposal', label: '事件处置', caption: '事件列表、工单派发、现场反馈、事件复盘', icon: '09' },
+      { to: '/risk-point', label: '风险点管理', caption: '风险点 CRUD、风险点绑定、风险等级配置', icon: '10' },
+      { to: '/rule-definition', label: '阈值规则配置', caption: '规则 CRUD、规则测试、测点阈值配置', icon: '11' },
+      { to: '/linkage-rule', label: '联动规则', caption: '联动规则 CRUD、触发条件配置、动作列表配置', icon: '12' },
+      { to: '/emergency-plan', label: '应急预案', caption: '应急预案 CRUD、响应步骤配置、联系人列表', icon: '13' },
+      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计、事件闭环、设备健康', icon: '14' }
+    ]
+  },
+  {
+    title: '系统管理',
+    eyebrow: 'System',
+    items: [
+      { to: '/organization', label: '组织机构', caption: '组织机构管理、部门树形结构、负责人配置', icon: '15' },
+      { to: '/user', label: '用户管理', caption: '用户管理、用户 CRUD、密码重置', icon: '16' },
+      { to: '/role', label: '角色权限', caption: '角色管理、角色 CRUD、权限配置', icon: '17' },
+      { to: '/region', label: '区域管理', caption: '区域管理、区域 CRUD、区域树形结构', icon: '18' },
+      { to: '/dict', label: '字典配置', caption: '字典配置管理、字典项管理、字典类型配置', icon: '19' },
+      { to: '/channel', label: '通知渠道', caption: '通知渠道管理、渠道类型配置、渠道 CRUD', icon: '20' },
+      { to: '/audit-log', label: '审计日志', caption: '审计日志管理、操作记录查询、操作详情查看', icon: '21' }
+    ]
   }
 ];
 
@@ -195,8 +221,8 @@ function saveApiBaseUrl() {
   padding: 1.5rem;
   border-right: 1px solid var(--panel-border);
   background:
-    linear-gradient(180deg, rgba(7, 10, 20, 0.98), rgba(4, 8, 18, 0.92)),
-    radial-gradient(circle at top left, rgba(34, 212, 255, 0.18), transparent 35%);
+    linear-gradient(180deg, rgba(20, 20, 20, 0.98), rgba(13, 13, 13, 0.92)),
+    radial-gradient(circle at top left, rgba(255, 106, 0, 0.12), transparent 35%);
   overflow-y: auto;
 }
 
@@ -252,7 +278,7 @@ function saveApiBaseUrl() {
   border: 1px solid transparent;
   color: inherit;
   text-decoration: none;
-  background: rgba(10, 15, 29, 0.64);
+  background: rgba(31, 31, 31, 0.64);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
@@ -261,7 +287,7 @@ function saveApiBaseUrl() {
 .nav-list__item--active {
   transform: translateX(4px);
   border-color: var(--panel-border-strong);
-  background: rgba(12, 20, 40, 0.94);
+  background: rgba(38, 38, 38, 0.94);
 }
 
 .nav-list__icon {
@@ -272,8 +298,8 @@ function saveApiBaseUrl() {
   justify-content: center;
   border-radius: 0.85rem;
   font-family: var(--font-mono);
-  background: rgba(43, 227, 255, 0.14);
-  color: var(--brand-bright);
+  background: var(--brand-light);
+  color: var(--brand);
 }
 
 .nav-list__item strong,
@@ -291,7 +317,7 @@ function saveApiBaseUrl() {
   padding: 1rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 24, 0.9);
+  background: rgba(31, 31, 31, 0.9);
 }
 
 .phase-rail {
@@ -312,11 +338,11 @@ function saveApiBaseUrl() {
   align-items: flex-start;
   padding: 1.2rem 1.3rem;
   border-radius: calc(var(--radius-lg) + 0.2rem);
-  border: 1px solid rgba(83, 122, 185, 0.22);
+  border: 1px solid var(--panel-border);
   background:
-    linear-gradient(135deg, rgba(7, 13, 28, 0.94), rgba(11, 19, 39, 0.9)),
-    radial-gradient(circle at top right, rgba(255, 161, 67, 0.12), transparent 32%);
-  box-shadow: 0 22px 70px rgba(3, 8, 18, 0.28);
+    linear-gradient(135deg, rgba(20, 20, 20, 0.94), rgba(31, 31, 31, 0.9)),
+    radial-gradient(circle at top right, rgba(255, 106, 0, 0.12), transparent 32%);
+  box-shadow: var(--shadow-md);
 }
 
 .topbar__title {
@@ -362,8 +388,8 @@ function saveApiBaseUrl() {
 .capability-strip span {
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid rgba(77, 121, 190, 0.28);
-  background: rgba(10, 18, 35, 0.68);
+  border: 1px solid var(--panel-border);
+  background: var(--bg-card);
   color: var(--text-secondary);
   font-size: 0.82rem;
 }

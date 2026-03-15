@@ -35,6 +35,7 @@
 - 开发环境下建议保持 `VITE_API_BASE_URL` 为空，这样页面会优先走相对路径和 Vite 代理，避免 `localhost:5173 -> 127.0.0.1:9999` 这类跨域问题
 - 顶部 `API Base URL` 输入框支持运行时切换直连地址；清空并保存后会恢复代理模式
 - 后端默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 的最小 CORS 开发来源，便于需要直连时做浏览器联调
+- 风险监测驾驶舱 `/` 当前为公开首页，未登录状态也可访问；其他受保护页面在未登录时会回退到驾驶舱
 
 可参考：
 - [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)

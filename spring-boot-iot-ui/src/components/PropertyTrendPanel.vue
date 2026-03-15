@@ -2,7 +2,6 @@
   <PanelCard
     eyebrow="Telemetry Preview"
     title="属性趋势预览"
-    description="现在已经切换为真实 ECharts 折线图，会把最近消息日志里的数值属性绘制成多序列趋势。"
   >
     <div v-if="seriesSummaries.length" class="trend-summary">
       <div v-for="item in seriesSummaries" :key="item.name" class="trend-summary__item">
@@ -13,9 +12,6 @@
     </div>
 
     <div v-if="seriesSummaries.length" ref="chartRef" class="trend-chart" aria-label="设备属性趋势图" />
-    <div v-else class="empty-state">
-      最近日志里还没有足够的数值属性样本。连续发送几条属性上报后，这里会出现真实趋势图。
-    </div>
   </PanelCard>
 </template>
 

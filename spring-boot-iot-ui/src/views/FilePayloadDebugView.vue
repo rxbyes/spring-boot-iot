@@ -3,8 +3,7 @@
     <section class="hero-grid">
       <PanelCard
         eyebrow="File Payload Debug"
-        title="联调 C.3 文件快照与 C.4 固件分包聚合"
-        description="这里直接查看 Redis 中的文件快照和固件聚合结果，确认 MQTT 文件类上报已经被 device 模块消费。"
+        title="文件与固件调试"
       >
         <form @submit.prevent="refreshAll">
           <div class="form-grid">
@@ -15,7 +14,7 @@
           </div>
           <div class="button-row" style="margin-top: 1rem;">
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
-              {{ isLoading ? '加载中...' : '刷新文件调试数据' }}
+              {{ isLoading ? '加载中...' : '刷新数据' }}
             </el-button>
           </div>
         </form>
@@ -24,7 +23,6 @@
       <PanelCard
         eyebrow="Debug Summary"
         title="文件消息消费概况"
-        description="用于快速确认当前设备是否已经产生 C.3 快照或 C.4 分包聚合。"
       >
         <div class="quad-grid">
           <div class="info-chip">
@@ -53,25 +51,19 @@
       <PanelCard
         eyebrow="Type C.3"
         title="文件快照"
-        description="调试接口 `GET /device/{deviceCode}/file-snapshots`，用于查看文件类上报的描述和文件流长度。"
       >
         <div v-if="fileSnapshots.length" class="timeline">
           <article v-for="item in fileSnapshots" :key="item.transferId" class="timeline-item">
             <h3>{{ item.dataSetId || item.transferId }}</h3>
             <p>类型：{{ item.fileType || '--' }} / 长度：{{ item.binaryLength ?? '--' }}</p>
-            <p>描述：{{ item.description || '--' }}</p>
             <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
           </article>
-        </div>
-        <div v-else class="empty-state">
-          还没有文件快照。先发送一条符合表 C.3 的文件类 MQTT 报文。
         </div>
       </PanelCard>
 
       <PanelCard
         eyebrow="Type C.4"
         title="固件聚合"
-        description="调试接口 `GET /device/{deviceCode}/firmware-aggregates`，用于查看分包接收、重组与 MD5 校验结果。"
       >
         <div v-if="firmwareAggregates.length" class="timeline">
           <article v-for="item in firmwareAggregates" :key="item.transferId" class="timeline-item">
@@ -85,9 +77,6 @@
             <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
           </article>
         </div>
-        <div v-else class="empty-state">
-          还没有固件聚合数据。先发送一组符合表 C.4 的固件分包 MQTT 报文。
-        </div>
       </PanelCard>
     </section>
 
@@ -95,13 +84,11 @@
       <ResponsePanel
         eyebrow="Snapshot JSON"
         title="文件快照原始响应"
-        description="这里保留后端调试接口的原始响应，方便核对 descriptor 和文件流长度。"
         :body="fileSnapshots"
       />
       <ResponsePanel
         eyebrow="Aggregate JSON"
         title="固件聚合原始响应"
-        description="这里保留固件聚合原始响应，便于核对 packet 索引、assembledBase64 和 MD5。"
         :body="firmwareAggregates"
       />
     </section>

@@ -2,6 +2,9 @@ package com.ghlzm.iot.framework.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -14,6 +17,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfig {
 
     @Bean
+    @Primary
     public CorsConfigurationSource corsConfigurationSource(IotProperties iotProperties) {
         IotProperties.Cors cors = iotProperties.getCors();
         CorsConfiguration configuration = new CorsConfiguration();
@@ -32,5 +36,25 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public WebMvcConfigurer webMvcConfigurer(IotProperties iotProperties) {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                IotProperties.Cors cors = iotProperties.getCors();
+                if (Boolean.FALSE.equals(cors.getEnabled())) {
+                    return;
+                }
+
+                registry.addMapping("/**")
+                        .allowedOriginPatterns(cors.getAllowedOriginPatterns().toArray(String[]::new))
+                        .allowedMethods(cors.getAllowedMethods().toArray(String[]::new))
+                        .allowedHeaders(cors.getAllowedHeaders().toArray(String[]::new))
+                        .allowCredentials(Boolean.TRUE.equals(cors.getAllowCredentials()))
+                        .maxAge(cors.getMaxAge());
+            }
+        };
     }
 }

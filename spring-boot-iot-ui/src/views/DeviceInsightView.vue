@@ -1,161 +1,120 @@
 <template>
-  <div class="page-stack">
-    <section class="hero-grid">
-      <div class="hero-panel risk-workbench">
-        <p class="eyebrow">Risk Workbench</p>
-        <h1 class="headline">围绕风险点完成监测、判级、上报与联调</h1>
-        <p class="lead">
-          当前工作台基于现有设备、属性和消息日志接口，先形成一线人员、运维人员和开发人员都能直接使用的
-          风险点视图。后续可继续接入 AI 分析、告警工单和报告导出。
-        </p>
-
-        <form @submit.prevent="refreshAll">
-          <div class="form-grid">
-            <div class="field-group">
-              <label for="insight-device-code">风险点设备编码</label>
-              <el-input
-                id="insight-device-code"
-                v-model="deviceCode"
-                name="insight_device_code"
-                placeholder="例如 demo-device-01..."
-                clearable
-              />
-            </div>
-          </div>
-          <div class="button-row" style="margin-top: 1rem;">
-            <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
-              {{ isLoading ? '刷新中...' : '刷新风险点工作台' }}
-            </el-button>
-            <el-button class="secondary-button" @click="jumpToReporting">
-              接入回放验证
-            </el-button>
-            <el-button class="ghost-button" @click="jumpToDevices">
-              查看设备运维
-            </el-button>
-          </div>
-        </form>
-
-        <div class="risk-banner" :class="`risk-banner--${riskSummary.tone}`">
-          <div>
-            <p>当前风险等级</p>
-            <strong>{{ riskSummary.label }}</strong>
-            <span>{{ riskSummary.description }}</span>
-          </div>
-          <div class="risk-banner__score">
-            <small>风险评分</small>
-            <strong>{{ riskSummary.score }}</strong>
-          </div>
-        </div>
+  <div class="risk-workbench-page">
+    <!-- 顶部导航栏 -->
+    <div class="workbench-header">
+      <div class="header-left">
+        <h1 class="page-title">风险点工作台</h1>
+        <span class="timestamp">{{ currentTime }}</span>
       </div>
+      <div class="header-right">
+        <el-radio-group v-model="currentRole" size="large">
+          <el-radio-button value="field">一线人员</el-radio-button>
+          <el-radio-button value="ops">运维人员</el-radio-button>
+          <el-radio-button value="manager">管理人员</el-radio-button>
+        </el-radio-group>
+      </div>
+    </div>
 
-      <PanelCard
-        eyebrow="Instant Focus"
-        title="当前建议动作"
-        description="优先把数据结果翻译成现场能执行的动作，帮助一线人员第一时间判断是否需要上报。"
-      >
-        <div class="focus-list">
-          <article v-for="item in riskSummary.actions" :key="item" class="focus-list__item">
-            <span class="focus-list__badge">{{ riskSummary.shortLabel }}</span>
-            <p>{{ item }}</p>
-          </article>
-        </div>
-      </PanelCard>
-    </section>
+    <!-- 风险等级横幅 -->
+    <div class="risk-banner" :class="`risk-banner--${riskSummary.tone}`">
+      <div class="banner-content">
+        <p class="banner-label">当前风险等级</p>
+        <strong class="banner-value">{{ riskSummary.label }}</strong>
+        <p class="banner-desc">{{ riskSummary.description }}</p>
+      </div>
+      <div class="banner-score">
+        <small>风险评分</small>
+        <strong>{{ riskSummary.score }}</strong>
+      </div>
+    </div>
 
-    <section class="quad-grid">
+    <!-- 关键指标卡片 -->
+    <div class="quad-grid">
       <MetricCard
-        v-for="metric in overviewMetrics"
+        v-for="metric in roleMetrics[currentRole]"
         :key="metric.label"
         :label="metric.label"
         :value="metric.value"
-        :hint="metric.hint"
         :badge="metric.badge"
       />
-    </section>
+    </div>
 
-    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
-
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Point Profile"
-        title="风险点基础档案"
-        description="把设备基础信息整理成风险点视图，方便一线、运维和研发在同一页交流。"
-      >
-        <el-descriptions v-if="device" :column="2" border class="descriptions-block">
-          <el-descriptions-item label="设备名称">{{ device.deviceName }}</el-descriptions-item>
-          <el-descriptions-item label="设备编码">{{ device.deviceCode }}</el-descriptions-item>
-          <el-descriptions-item label="在线状态">
-            <el-tag :type="device.onlineStatus === 1 ? 'success' : 'info'">
-              {{ statusLabel(device.onlineStatus) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="接入协议">{{ device.protocolCode || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="最近在线时间">{{ formatDateTime(device.lastOnlineTime) }}</el-descriptions-item>
-          <el-descriptions-item label="最近离线时间">{{ formatDateTime(device.lastOfflineTime) }}</el-descriptions-item>
-          <el-descriptions-item label="最近上报时间">{{ formatDateTime(device.lastReportTime) }}</el-descriptions-item>
-          <el-descriptions-item label="固件版本">{{ device.firmwareVersion || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="部署位置">{{ device.address || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="最近抓取时间">{{ formatDateTime(lastFetchTime) }}</el-descriptions-item>
-        </el-descriptions>
-        <div v-else class="empty-state">请输入设备编码并刷新，查看该风险点的设备档案。</div>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Risk Reasons"
-        title="风险研判依据"
-        description="先基于现有平台数据做轻量规则判定，后续可以平滑接入 AI 风险分析和趋势模型。"
-      >
-        <div class="reason-list">
-          <article v-for="reason in riskSummary.reasons" :key="reason.title" class="reason-list__item">
-            <header>
-              <strong>{{ reason.title }}</strong>
-              <span>{{ reason.tag }}</span>
-            </header>
-            <p>{{ reason.description }}</p>
-          </article>
+    <!-- 中央工作区域 -->
+    <div class="main-workarea">
+      <!-- 角色快捷入口 -->
+      <div class="role-quick-access">
+        <h3 class="section-title">角色快捷入口</h3>
+        <div class="access-grid">
+          <div
+            v-for="action in roleActions[currentRole]"
+            :key="action.title"
+            class="action-card"
+            @click="navigateTo(action.path)"
+          >
+            <div class="action-icon">{{ action.icon }}</div>
+            <div class="action-content">
+              <h4 class="action-title">{{ action.title }}</h4>
+            </div>
+            <el-icon class="action-arrow"><arrow-right /></el-icon>
+          </div>
         </div>
-      </PanelCard>
-    </section>
+      </div>
+    </div>
 
-    <PropertyTrendPanel :logs="logs" />
+    <!-- 属性趋势预览 -->
+    <div class="property-trend-section">
+      <PropertyTrendPanel :logs="logs" />
+    </div>
 
-    <section class="tri-grid">
-      <PanelCard
-        eyebrow="Field Action"
-        title="一线人员建议"
-        description="帮助现场人员快速决定是否上报、是否复测、是否形成书面报告。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in fieldActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
+    <!-- 底部信息 -->
+    <div class="workbench-footer">
+      <div class="footer-section">
+        <div class="action-list">
+          <div
+            v-for="item in riskSummary.actions"
+            :key="item"
+            class="action-item"
+          >
+            <span class="action-badge">{{ riskSummary.shortLabel }}</span>
+            <p class="action-text">{{ item }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer-section">
+        <div v-if="device" class="device-info-grid">
+          <div class="info-chip">
+            <span>设备名称</span>
+            <strong>{{ device.deviceName }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>设备编码</span>
+            <strong>{{ device.deviceCode }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>在线状态</span>
+            <strong>{{ statusLabel(device.onlineStatus) }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>接入协议</span>
+            <strong>{{ device.protocolCode || '--' }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>最近上报</span>
+            <strong>{{ formatDateTime(device.lastReportTime) }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>固件版本</span>
+            <strong>{{ device.firmwareVersion || '--' }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <PanelCard
-        eyebrow="O&M Action"
-        title="运维维护建议"
-        description="帮助运维人员判断设备、网络、阈值与远程控制的下一步动作。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in operationActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Dev Action"
-        title="研发调试建议"
-        description="帮助开发与实施人员快速回看协议、日志与设备接入链路。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in engineeringActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
-    </section>
-
-    <section class="two-column-grid">
+    <!-- 关键数据面板 -->
+    <div class="data-panels">
       <PanelCard
         eyebrow="Key Properties"
         title="关键监测指标"
-        description="优先展示最值得关注的最新属性，方便风险判断和现场汇报。"
       >
         <div v-if="propertyHighlights.length" class="highlight-grid">
           <article v-for="item in propertyHighlights" :key="item.identifier" class="highlight-card">
@@ -165,13 +124,11 @@
             <p>{{ formatDateTime(item.updateTime || item.reportTime) }}</p>
           </article>
         </div>
-        <el-empty v-else description="还没有属性数据。先通过 HTTP 或 MQTT 发送一条上报。" />
       </PanelCard>
 
       <PanelCard
         eyebrow="Report Draft"
         title="风险分析报告草稿"
-        description="先给出一份可复制的报告提纲，后续可以升级成 Word / PDF 正式报告。"
       >
         <div class="report-draft">
           <p><strong>风险点：</strong>{{ device?.deviceName || deviceCode || '--' }}</p>
@@ -181,36 +138,13 @@
           <p><strong>后续关注：</strong>{{ reportDraft.followUp }}</p>
         </div>
       </PanelCard>
-    </section>
+    </div>
 
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Latest Properties"
-        title="设备属性快照"
-        description="来自 `GET /device/{deviceCode}/properties`，既可服务业务判断，也可服务调试核查。"
-      >
-        <el-table v-if="properties.length" :data="properties" stripe>
-          <el-table-column prop="identifier" label="标识符" min-width="140" />
-          <el-table-column prop="propertyName" label="属性名" min-width="140">
-            <template #default="{ row }">{{ row.propertyName || '--' }}</template>
-          </el-table-column>
-          <el-table-column prop="propertyValue" label="值" min-width="120">
-            <template #default="{ row }">{{ row.propertyValue || '--' }}</template>
-          </el-table-column>
-          <el-table-column prop="valueType" label="类型" min-width="100">
-            <template #default="{ row }">{{ row.valueType || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="更新时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.updateTime || row.reportTime) }}</template>
-          </el-table-column>
-        </el-table>
-        <el-empty v-else description="还没有属性数据。先去“接入回放台”发送一条属性报文。" />
-      </PanelCard>
-
+    <!-- 消息日志面板 -->
+    <div class="message-logs-panel">
       <PanelCard
         eyebrow="Message Logs"
         title="消息日志与审计回看"
-        description="来自 `GET /device/{deviceCode}/message-logs`，可快速回看 topic、payload 与最近链路行为。"
       >
         <div v-if="logs.length" class="timeline">
           <article v-for="item in logs" :key="item.id" class="timeline-item">
@@ -220,16 +154,16 @@
             <p>{{ formatDateTime(item.reportTime || item.createTime) }}</p>
           </article>
         </div>
-        <el-empty v-else description="还没有日志数据。发送报文后再回来刷新即可。" />
       </PanelCard>
-    </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { ArrowRight } from '@element-plus/icons-vue';
 
 import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '../api/iot';
 import MetricCard from '../components/MetricCard.vue';
@@ -257,6 +191,27 @@ interface RiskSummary {
 
 const route = useRoute();
 const router = useRouter();
+
+// 角色切换
+const currentRole = ref<'field' | 'ops' | 'manager'>('field');
+
+// 时间戳
+const currentTime = ref('');
+const updateTime = () => {
+  const now = new Date();
+  currentTime.value = now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+setInterval(updateTime, 1000);
+updateTime();
+
+// 设备编码
 const deviceCode = ref(typeof route.query.deviceCode === 'string' ? route.query.deviceCode : 'demo-device-01');
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -287,6 +242,7 @@ onMounted(() => {
   refreshAll();
 });
 
+// 最新上报时间计算
 const latestReportDate = computed(() => {
   const value = device.value?.lastReportTime || logs.value[0]?.reportTime || logs.value[0]?.createTime;
   if (!value) {
@@ -303,6 +259,7 @@ const freshnessMinutes = computed(() => {
   return Math.max(0, Math.round((Date.now() - latestReportDate.value.getTime()) / 60000));
 });
 
+// 异常属性信号检测
 const suspiciousPropertySignals = computed(() => {
   const findings: Array<{ title: string; description: string }> = [];
 
@@ -345,6 +302,7 @@ const suspiciousPropertySignals = computed(() => {
   return findings.slice(0, 4);
 });
 
+// 风险摘要计算
 const riskSummary = computed<RiskSummary>(() => {
   let score = 0;
   const reasons: RiskReason[] = [];
@@ -458,11 +416,11 @@ const riskSummary = computed<RiskSummary>(() => {
   };
 });
 
-const overviewMetrics = computed(() => [
+// 角色指标
+const roleMetrics = computed(() => [
   {
     label: '当前风险等级',
     value: riskSummary.value.label,
-    hint: riskSummary.value.description,
     badge: {
       label: riskSummary.value.shortLabel,
       tone: riskSummary.value.tone === 'red'
@@ -477,7 +435,6 @@ const overviewMetrics = computed(() => [
   {
     label: '在线状态',
     value: device.value ? statusLabel(device.value.onlineStatus) : '--',
-    hint: device.value?.onlineStatus === 1 ? '当前设备在线，可持续获取实时数据。' : '当前设备离线，建议优先核查设备和网络状态。',
     badge: {
       label: device.value?.onlineStatus === 1 ? '在线' : '离线',
       tone: device.value?.onlineStatus === 1 ? 'success' : 'muted'
@@ -486,51 +443,41 @@ const overviewMetrics = computed(() => [
   {
     label: '属性快照数',
     value: String(properties.value.length),
-    hint: properties.value.length ? '当前已具备最新属性，可用于风险判定与展示。' : '当前没有属性快照，建议先验证上报链路。',
     badge: { label: 'Property', tone: 'brand' }
   },
   {
     label: '消息日志数',
     value: String(logs.value.length),
-    hint: logs.value.length ? '当前可回看最新 topic 与 payload。' : '当前没有可用日志，研发和实施侧审计信息不足。',
     badge: { label: 'Audit', tone: 'success' }
   }
 ]);
 
+// 属性高亮
 const propertyHighlights = computed(() => properties.value.slice(0, 6));
 
-const fieldActions = computed(() => {
-  const base = [...riskSummary.value.actions];
-  if (riskSummary.value.tone === 'red' || riskSummary.value.tone === 'orange') {
-    base.push('建议立即整理当前属性、趋势图与现场照片，形成专题风险报告。');
-  } else {
-    base.push('继续关注风险趋势，必要时提高巡检频率并补充人工巡检记录。');
-  }
-  return base;
-});
+// 角色快捷入口
+const roleActions = {
+  field: [
+    { icon: '⚠️', title: '风险点工作台', path: '/insight' },
+    { icon: '📈', title: '趋势曲线查看', path: '/insight' },
+    { icon: '📄', title: '一键生成报告', path: '/insight' },
+    { icon: '📊', title: '风险热力图', path: '/future-lab' }
+  ],
+  ops: [
+    { icon: '📡', title: '设备运维中心', path: '/devices' },
+    { icon: '⚙️', title: '阈值管理', path: '/devices' },
+    { icon: '🔋', title: '设备巡检', path: '/devices' },
+    { icon: '💾', title: '固件调试', path: '/file-debug' }
+  ],
+  manager: [
+    { icon: '🌍', title: '区域态势', path: '/future-lab' },
+    { icon: '📋', title: '专题报告', path: '/insight' },
+    { icon: '🔍', title: '历史回溯', path: '/reporting' },
+    { icon: '📈', title: '数据看板', path: '/future-lab' }
+  ]
+};
 
-const operationActions = computed(() => {
-  const actions = ['核查设备在线、供电、网络和最近上报时效。'];
-  if (suspiciousPropertySignals.value.length) {
-    actions.push('根据异常属性评估是否需要调整阈值或远程下发配置。');
-  }
-  if (device.value?.onlineStatus !== 1) {
-    actions.push('优先排查现场供电与链路问题，必要时安排设备重启或替换。');
-  } else {
-    actions.push('设备在线稳定，可继续观察文件、固件和会话状态。');
-  }
-  return actions;
-});
-
-const engineeringActions = computed(() => {
-  const actions = ['回看消息日志中的 topic 与 payload，确认协议解析是否符合预期。'];
-  if (!logs.value.length) {
-    actions.push('当前无日志，建议先通过接入回放台发送模拟报文验证主链路。');
-  }
-  actions.push('若涉及文件或固件数据，请继续进入文件与固件调试页查看 Redis 聚合结果。');
-  return actions;
-});
-
+// 报告草稿
 const reportDraft = computed(() => ({
   summary: riskSummary.value.description,
   actions: riskSummary.value.actions.join('；'),
@@ -539,6 +486,7 @@ const reportDraft = computed(() => ({
     : '建议维持日常观测，重点关注新的异常属性或上报时效变化。'
 }));
 
+// 构建动作
 function buildActions(tone: RiskSummary['tone']) {
   const actions = ['先核查最新属性、趋势图与消息日志，确认数据是否完整。'];
 
@@ -557,24 +505,12 @@ function buildActions(tone: RiskSummary['tone']) {
   return actions;
 }
 
-function jumpToReporting() {
-  router.push({
-    path: '/reporting',
-    query: {
-      deviceCode: deviceCode.value
-    }
-  });
-}
+// 导航
+const navigateTo = (path: string) => {
+  router.push(path);
+};
 
-function jumpToDevices() {
-  router.push({
-    path: '/devices',
-    query: {
-      deviceCode: deviceCode.value
-    }
-  });
-}
-
+// 刷新所有数据
 async function refreshAll() {
   isLoading.value = true;
   errorMessage.value = '';
@@ -619,101 +555,363 @@ async function refreshAll() {
     isLoading.value = false;
   }
 }
+
+// 生命周期
+onMounted(() => {
+  recordActivity({
+    module: '风险点工作台',
+    action: '访问工作台',
+    request: { path: '/insight' },
+    ok: true,
+    detail: '用户访问风险点工作台'
+  });
+});
 </script>
 
 <style scoped>
-.risk-workbench {
+.risk-workbench-page {
   display: grid;
-  gap: 1.35rem;
+  gap: 1rem;
+  padding: 1rem;
 }
 
+/* 顶部导航栏 */
+.workbench-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
+    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.timestamp {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--brand-bright);
+}
+
+/* 角色切换 */
+:deep(.el-radio-group) {
+  --el-radio-button-checked-text-color: var(--brand-bright);
+  --el-radio-button-checked-bg-color: rgba(57, 241, 255, 0.1);
+  --el-radio-button-checked-border-color: var(--brand-bright);
+}
+
+:deep(.el-radio-button__inner) {
+  background: rgba(8, 13, 26, 0.9);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  font-weight: 500;
+  transition: all 180ms ease;
+}
+
+:deep(.el-radio-button__inner:hover) {
+  border-color: var(--brand-bright);
+  transform: translateY(-1px);
+}
+
+:deep(.el-radio-button__orig-radio:checked + .el-radio-button__inner) {
+  background: rgba(57, 241, 255, 0.1);
+  border-color: var(--brand-bright);
+  box-shadow: 0 0 12px rgba(57, 241, 255, 0.3);
+}
+
+/* 风险等级横幅 */
 .risk-banner {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  padding: 1rem 1.1rem;
+  padding: 1.25rem 1.5rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(82, 174, 255, 0.24);
-  background: rgba(7, 12, 22, 0.82);
+  background:
+    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
+    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
 }
 
-.risk-banner p,
-.risk-banner strong,
-.risk-banner span,
-.risk-banner small {
-  display: block;
+.banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
 }
 
-.risk-banner p,
-.risk-banner small {
+.banner-label {
   margin: 0;
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
 }
 
-.risk-banner strong {
-  margin-top: 0.45rem;
-  font-size: 1.55rem;
+.banner-value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-.risk-banner span {
-  margin-top: 0.35rem;
+.banner-desc {
+  margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
-.risk-banner__score {
+.banner-score {
   text-align: right;
+  min-width: 120px;
 }
 
-.risk-banner__score strong {
-  font-size: 2.2rem;
+.banner-score small {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+}
+
+.banner-score strong {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .risk-banner--red {
   border-color: rgba(255, 109, 109, 0.28);
 }
 
+.risk-banner--red .banner-value {
+  color: #ff6d6d;
+}
+
 .risk-banner--orange {
   border-color: rgba(255, 179, 71, 0.28);
+}
+
+.risk-banner--orange .banner-value {
+  color: #ffb347;
 }
 
 .risk-banner--yellow {
   border-color: rgba(255, 214, 102, 0.28);
 }
 
+.risk-banner--yellow .banner-value {
+  color: #ffd666;
+}
+
 .risk-banner--blue {
-  border-color: rgba(82, 174, 255, 0.28);
+  border-color: rgba(82, 174, 255, 0.24);
 }
 
-.focus-list,
-.reason-list,
-.highlight-grid {
+.risk-banner--blue .banner-value {
+  color: #52aaff;
+}
+
+/* 四宫格指标 */
+.quad-grid {
   display: grid;
-  gap: 0.85rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.focus-list__item,
-.reason-list__item,
-.highlight-card,
-.report-draft {
+/* 中央工作区域 */
+.main-workarea {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+/* 风险研判区域 */
+.risk-analysis {
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
+    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
+}
+
+.section-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.reason-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.reason-card {
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: rgba(7, 12, 22, 0.88);
+}
+
+.reason-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.reason-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reason-tag {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(57, 241, 255, 0.08);
+  color: var(--brand-bright);
+}
+
+.reason-desc {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* 角色快捷入口 */
+.role-quick-access {
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
+    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+}
+
+.access-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: rgba(7, 12, 22, 0.88);
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.action-card:hover {
+  border-color: var(--brand-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(57, 241, 255, 0.15);
+}
+
+.action-icon {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: rgba(57, 241, 255, 0.12);
+  font-size: 1.5rem;
+}
+
+.action-content {
+  flex: 1;
+}
+
+.action-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.action-desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.action-arrow {
+  color: var(--brand-bright);
+  font-size: 1.2rem;
+}
+
+/* 属性趋势预览 */
+.property-trend-section {
+  padding: 1rem;
+}
+
+/* 底部信息 */
+.workbench-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
+    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+}
+
+.footer-section h4 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.action-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
   background: rgba(7, 12, 22, 0.88);
 }
 
-.focus-list__item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
-  align-items: start;
-}
-
-.focus-list__badge {
+.action-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -723,66 +921,89 @@ async function refreshAll() {
   background: rgba(43, 227, 255, 0.12);
   color: var(--brand-bright);
   font-family: var(--font-mono);
+  flex-shrink: 0;
 }
 
-.focus-list__item p {
+.action-text {
   margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 
-.descriptions-block {
-  margin-top: 0.2rem;
+.device-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-.reason-list__item header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
+.info-chip {
+  padding: 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: rgba(7, 12, 22, 0.88);
 }
 
-.reason-list__item header span {
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
+.info-chip span {
+  display: block;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  margin-bottom: 0.25rem;
 }
 
-.reason-list__item p {
-  margin: 0.55rem 0 0;
-  line-height: 1.7;
+.info-chip strong {
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
-.advice-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  line-height: 1.9;
+/* 关键数据面板 */
+.data-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
 .highlight-grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.highlight-card span,
-.highlight-card strong,
-.highlight-card small,
-.highlight-card p {
-  display: block;
+.highlight-card {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: rgba(7, 12, 22, 0.88);
 }
 
 .highlight-card span,
 .highlight-card small {
+  display: block;
   color: var(--text-tertiary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .highlight-card strong {
-  margin-top: 0.45rem;
+  margin: 0.45rem 0;
+  font-family: var(--font-display);
   font-size: 1.35rem;
+  color: var(--text-primary);
 }
 
 .highlight-card p {
-  margin: 0.55rem 0 0;
+  margin: 0;
+  font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+.report-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .report-draft p {
@@ -790,23 +1011,79 @@ async function refreshAll() {
   line-height: 1.8;
 }
 
-.report-draft p + p {
-  margin-top: 0.5rem;
+.report-draft p strong {
+  color: var(--brand-bright);
 }
 
-@media (max-width: 1200px) {
+/* 消息日志面板 */
+.message-logs-panel {
+  padding: 1rem;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.timeline-item {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: rgba(7, 12, 22, 0.88);
+}
+
+.timeline-item h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--brand-bright);
+}
+
+.timeline-item p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.timeline-item p:first-of-type {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* 响应式 */
+@media (max-width: 1400px) {
+  .main-workarea {
+    grid-template-columns: 1fr;
+  }
+
+  .workbench-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .data-panels {
+    grid-template-columns: 1fr;
+  }
+
   .highlight-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 720px) {
-  .risk-banner {
+@media (max-width: 768px) {
+  .workbench-header {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 1rem;
   }
 
-  .risk-banner__score {
+  .quad-grid,
+  .access-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-score {
     text-align: left;
   }
 

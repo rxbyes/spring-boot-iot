@@ -16,20 +16,24 @@
 
     <dependencies>
         <dependency>
-           <groupId>com.ghlzm.iot</groupId>
+            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
-           <groupId>com.ghlzm.iot</groupId>
+            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-framework</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
-           <groupId>com.ghlzm.iot</groupId>
+            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-rule</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
-           <groupId>com.ghlzm.iot</groupId>
+            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-device</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 
