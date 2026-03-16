@@ -1,9 +1,9 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 export interface User {
-  id?: number;
-  tenantId?: number;
+  id?: IdType;
+  tenantId?: IdType;
   username: string;
   realName: string;
   phone?: string;
@@ -34,7 +34,7 @@ export const listUsers = (params: {
   return request<User[]>(path, { method: 'GET' });
 };
 
-export const getUser = (id: number): Promise<ApiEnvelope<User>> => {
+export const getUser = (id: IdType): Promise<ApiEnvelope<User>> => {
   return request<User>(`/api/user/${id}`, { method: 'GET' });
 };
 
@@ -46,7 +46,7 @@ export const updateUser = (data: Partial<User>): Promise<ApiEnvelope<User>> => {
   return request<User>('/api/user/update', { method: 'PUT', body: data });
 };
 
-export const deleteUser = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteUser = (id: IdType): Promise<ApiEnvelope<void>> => {
   return request<void>(`/api/user/${id}`, { method: 'DELETE' });
 };
 
@@ -54,10 +54,10 @@ export const getUserByUsername = (username: string): Promise<ApiEnvelope<User>> 
   return request<User>(`/api/user/username/${username}`, { method: 'GET' });
 };
 
-export const changePassword = (data: { id: number; oldPassword: string; newPassword: string }): Promise<ApiEnvelope<void>> => {
+export const changePassword = (data: { id: IdType; oldPassword: string; newPassword: string }): Promise<ApiEnvelope<void>> => {
   return request<void>('/api/user/change-password', { method: 'POST', body: data });
 };
 
-export const resetPassword = (userId: number): Promise<ApiEnvelope<void>> => {
+export const resetPassword = (userId: IdType): Promise<ApiEnvelope<void>> => {
   return request<void>(`/api/user/reset-password/${userId}`, { method: 'POST' });
 };

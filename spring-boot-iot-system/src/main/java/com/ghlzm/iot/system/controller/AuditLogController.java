@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,11 +32,10 @@ public class AuditLogController {
        * 分页查询审计日志
        */
       @GetMapping("/page")
-      public R<List<AuditLog>> pageLogs(AuditLog log,
+      public R<PageResult<AuditLog>> pageLogs(AuditLog log,
                   @RequestParam(defaultValue = "1") Integer pageNum,
                   @RequestParam(defaultValue = "10") Integer pageSize) {
-            List<AuditLog> logs = auditLogService.pageLogs(log, pageNum, pageSize);
-            return R.ok(logs);
+            return R.ok(auditLogService.pageLogs(log, pageNum, pageSize));
       }
 
       /**

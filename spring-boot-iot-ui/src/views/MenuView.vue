@@ -97,15 +97,15 @@
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type">
-            <el-radio :value="0">目录</el-radio>
-            <el-radio :value="1">页面</el-radio>
-            <el-radio :value="2">按钮</el-radio>
+            <el-radio :label="0">目录</el-radio>
+            <el-radio :label="1">页面</el-radio>
+            <el-radio :label="2">按钮</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">停用</el-radio>
+            <el-radio :label="1">启用</el-radio>
+            <el-radio :label="0">停用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="排序">
@@ -300,4 +300,3 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 </style>
-

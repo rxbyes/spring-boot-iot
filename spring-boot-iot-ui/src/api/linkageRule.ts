@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 联动规则 API
@@ -8,13 +8,13 @@ import type { ApiEnvelope } from '../types/api';
 
 // 联动规则接口定义
 export interface LinkageRule {
-      id: number;
+      id: IdType;
       ruleName: string;
       description: string;
       triggerCondition: string;
       actionList: string;
       status: number;
-      tenantId: number;
+      tenantId: IdType;
       createTime: string;
       updateTime: string;
       createBy: number;
@@ -33,7 +33,7 @@ export const getRuleList = (params?: {
 };
 
 // 获取规则详情
-export const getRuleById = (id: number): Promise<ApiEnvelope<LinkageRule>> => {
+export const getRuleById = (id: IdType): Promise<ApiEnvelope<LinkageRule>> => {
       return request<LinkageRule>(`/api/linkage-rule/get/${id}`, { method: 'GET' });
 };
 
@@ -48,6 +48,6 @@ export const updateRule = (data: Partial<LinkageRule>): Promise<ApiEnvelope<Link
 };
 
 // 删除规则
-export const deleteRule = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteRule = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/linkage-rule/delete/${id}`, { method: 'POST' });
 };

@@ -1,5 +1,5 @@
 <template>
-  <div class="region-view">
+  <div class="region-view sys-mgmt-view">
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
@@ -50,8 +50,20 @@
         </el-row>
       </el-form>
 
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         border
@@ -59,7 +71,9 @@
         style="width: 100%"
         row-key="id"
         :tree-props="{ children: 'children' }"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="regionCode" label="区域编码" width="150" />
         <el-table-column prop="regionName" label="区域名称" width="200" />
         <el-table-column prop="regionType" label="区域类型" width="120">
@@ -105,6 +119,7 @@
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
+        class="sys-dialog"
         width="600px"
         @close="handleDialogClose"
       >
@@ -165,8 +180,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -177,6 +192,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { downloadRowsAsCsv } from '@/utils/csv'
 import {
   listRegionTree,
   getRegion,
@@ -204,6 +220,9 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<any[]>([])
+const sourceTreeData = ref<any[]>([])
+const tableRef = ref()
+const selectedRows = ref<any[]>([])
 
 // 加载状态
 const loading = ref(false)
@@ -240,7 +259,9 @@ const getRegionTree = async () => {
   try {
     const res = await listRegionTree()
     if (res.code === 200) {
-      tableData.value = res.data || []
+      sourceTreeData.value = res.data || []
+      tableData.value = sourceTreeData.value
+      pagination.total = countTreeNodes(tableData.value)
     }
   } catch (error) {
     console.error('获取区域树失败', error)
@@ -254,9 +275,44 @@ onMounted(() => {
   getRegionTree()
 })
 
+const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
+
+const nodeMatchesSearch = (node: any) => {
+  const regionNameKeyword = normalizeKeyword(searchForm.regionName)
+  const regionCodeKeyword = normalizeKeyword(searchForm.regionCode)
+  const typeMatched = searchForm.regionType === undefined || node.regionType === searchForm.regionType
+  const regionNameMatched = !regionNameKeyword || String(node.regionName || '').toLowerCase().includes(regionNameKeyword)
+  const regionCodeMatched = !regionCodeKeyword || String(node.regionCode || '').toLowerCase().includes(regionCodeKeyword)
+  return typeMatched && regionNameMatched && regionCodeMatched
+}
+
+const filterRegionTree = (nodes: any[]): any[] => {
+  return nodes
+    .map((node) => {
+      const filteredChildren = Array.isArray(node.children) ? filterRegionTree(node.children) : []
+      if (nodeMatchesSearch(node) || filteredChildren.length > 0) {
+        return {
+          ...node,
+          children: filteredChildren
+        }
+      }
+      return null
+    })
+    .filter(Boolean) as any[]
+}
+
+const countTreeNodes = (nodes: any[]): number => {
+  return nodes.reduce((count, node) => count + 1 + countTreeNodes(node.children || []), 0)
+}
+
+const applyRegionFilters = () => {
+  tableData.value = filterRegionTree(sourceTreeData.value)
+  pagination.total = countTreeNodes(tableData.value)
+}
+
 // 处理搜索
 const handleSearch = () => {
-  // TODO: 实现搜索逻辑
+  applyRegionFilters()
 }
 
 // 重置搜索
@@ -264,7 +320,26 @@ const handleReset = () => {
   searchForm.regionName = ''
   searchForm.regionCode = ''
   searchForm.regionType = undefined
+  tableData.value = sourceTreeData.value
+  pagination.total = countTreeNodes(tableData.value)
+}
+
+const handleSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows
+}
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+const handleRefresh = () => {
+  clearSelection()
   getRegionTree()
+}
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('区域管理-选中项.csv', selectedRows.value)
 }
 
 // 新增
@@ -402,7 +477,7 @@ const handlePageChange = (page: number) => {
 
 <style scoped>
 .region-view {
-  padding: 20px;
+  padding: 12px;
 }
 
 .card-header {
@@ -412,7 +487,7 @@ const handlePageChange = (page: number) => {
 }
 
 .search-form {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .text-right {
@@ -420,7 +495,7 @@ const handlePageChange = (page: number) => {
 }
 
 .pagination {
-  margin-top: 20px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }

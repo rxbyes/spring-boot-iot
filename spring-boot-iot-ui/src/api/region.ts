@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 区域管理 API
@@ -7,11 +7,11 @@ import type { ApiEnvelope } from '../types/api';
 
 // 区域管理接口定义
 export interface Region {
-      id: number;
-      tenantId: number;
+      id: IdType;
+      tenantId: IdType;
       regionName: string;
       regionCode: string;
-      parentId: number;
+      parentId: IdType;
       regionType: string; // province/city/district/street
       longitude: number;
       latitude: number;
@@ -39,7 +39,7 @@ export const listRegionTree = (): Promise<ApiEnvelope<Region[]>> => {
 };
 
 // 根据ID查询区域
-export const getRegion = (id: number): Promise<ApiEnvelope<Region>> => {
+export const getRegion = (id: IdType): Promise<ApiEnvelope<Region>> => {
       return request<Region>(`/api/region/${id}`, { method: 'GET' });
 };
 
@@ -54,6 +54,6 @@ export const updateRegion = (data: Partial<Region>): Promise<ApiEnvelope<Region>
 };
 
 // 删除区域
-export const deleteRegion = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteRegion = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/region/${id}`, { method: 'DELETE' });
 };

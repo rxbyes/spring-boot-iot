@@ -4,8 +4,10 @@ export interface ApiEnvelope<T> {
   data: T;
 }
 
+export type IdType = string | number;
+
 export interface Product {
-  id: number;
+  id: IdType;
   productKey: string;
   productName: string;
   protocolCode: string;
@@ -19,7 +21,7 @@ export interface Product {
 }
 
 export interface Device {
-  id: number;
+  id: IdType;
   productId?: number | null;
   deviceName: string;
   deviceCode: string;
@@ -44,7 +46,7 @@ export interface Device {
 }
 
 export interface DeviceOption {
-  id: number;
+  id: IdType;
   productId?: number | null;
   deviceCode: string;
   deviceName: string;
@@ -58,7 +60,7 @@ export interface DeviceMetricOption {
 }
 
 export interface DeviceProperty {
-  id: number;
+  id: IdType;
   identifier: string;
   propertyName?: string | null;
   propertyValue?: string | null;
@@ -68,7 +70,7 @@ export interface DeviceProperty {
 }
 
 export interface DeviceMessageLog {
-  id: number;
+  id: IdType;
   messageType?: string | null;
   topic?: string | null;
   payload?: string | null;

@@ -49,14 +49,28 @@
         </el-row>
       </el-form>
 
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         border
         stripe
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="operationType" label="操作类型" width="100">
           <template #default="{ row }">
             <el-tag :type="getOperationTypeTag(row.operationType)">
@@ -144,7 +158,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listLogs, getAuditLogById, deleteAuditLog } from '@/api/auditLog'
+import { pageLogs, getAuditLogById, deleteAuditLog } from '@/api/auditLog'
+import { downloadRowsAsCsv } from '@/utils/csv'
 
 // 搜索表单
 const searchForm = reactive({
@@ -162,6 +177,8 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<any[]>([])
+const tableRef = ref()
+const selectedRows = ref<any[]>([])
 
 // 加载状态
 const loading = ref(false)
@@ -174,7 +191,7 @@ const detailData = ref<any>({})
 const getAuditLogList = async () => {
   loading.value = true
   try {
-    const res = await listLogs({
+    const res = await pageLogs({
       userName: searchForm.userName,
       operationType: searchForm.operationType,
       operationModule: searchForm.operationModule,
@@ -182,8 +199,8 @@ const getAuditLogList = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200) {
-      tableData.value = res.data || []
-      pagination.total = res.data?.length || 0
+      tableData.value = res.data?.records || []
+      pagination.total = Number(res.data?.total || 0)
     }
   } catch (error) {
     console.error('获取审计日志列表失败', error)
@@ -209,6 +226,24 @@ const handleReset = () => {
   searchForm.operationType = undefined
   searchForm.operationModule = ''
   getAuditLogList()
+}
+
+const handleSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows
+}
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+const handleRefresh = () => {
+  clearSelection()
+  getAuditLogList()
+}
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('审计日志-选中项.csv', selectedRows.value)
 }
 
 // 分页大小变化
@@ -283,7 +318,7 @@ const formatDate = (date: string) => {
 
 <style scoped>
 .audit-log-view {
-  padding: 20px;
+  padding: 12px;
 }
 
 .card-header {
@@ -293,7 +328,7 @@ const formatDate = (date: string) => {
 }
 
 .search-form {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .text-right {
@@ -301,7 +336,7 @@ const formatDate = (date: string) => {
 }
 
 .pagination {
-  margin-top: 20px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }

@@ -259,6 +259,79 @@ tbody tr:hover {
   text-align: center;
 }
 
+/* 公共表格页模板：筛选条 + 操作条 + 列表 + 分页 */
+.box-card {
+  border-radius: 6px;
+  border: 1px solid #e6eaf0;
+  box-shadow: none;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2rem;
+}
+
+.card-header > span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.search-form {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #e6eaf0;
+  border-radius: 4px;
+  background: #fafbfd;
+}
+
+.search-form :is(.el-form-item) {
+  margin-bottom: 0.5rem;
+}
+
+.search-form .el-form-item__label {
+  color: #5f6b7a;
+  font-size: 0.8rem;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.pagination {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.table-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #e6eaf0;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.table-action-bar__left,
+.table-action-bar__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.table-action-bar__meta {
+  font-size: 0.78rem;
+  color: #5f6b7a;
+}
+
 .timeline {
   display: grid;
   gap: 0.85rem;
@@ -529,6 +602,105 @@ tbody tr:hover {
 .capability-board__item p {
   margin-top: 0.45rem;
   line-height: 1.7;
+}
+
+.sys-mgmt-view {
+  padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  border: 1px solid rgba(41, 60, 92, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+}
+
+.sys-mgmt-view .box-card {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95));
+  box-shadow: var(--shadow-sm);
+}
+
+.sys-mgmt-view .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sys-mgmt-view .card-header .el-button {
+  border-radius: 999px;
+  box-shadow: var(--shadow-brand);
+}
+
+.sys-mgmt-view .search-form {
+  margin-bottom: 16px;
+  padding: 12px 12px 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94));
+}
+
+.sys-mgmt-view .search-form .el-form-item__label {
+  color: var(--text-secondary);
+}
+
+.sys-mgmt-view .text-right .el-button:first-child {
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(130deg, #fff, #f6f9ff);
+  color: var(--text-secondary);
+}
+
+.sys-mgmt-view .text-right .el-button + .el-button {
+  border-radius: 999px;
+  box-shadow: var(--shadow-brand);
+}
+
+.sys-mgmt-view .el-table {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sys-mgmt-view .pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sys-dialog .el-dialog__header {
+  margin-right: 0;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.95));
+}
+
+.sys-dialog .el-dialog__title {
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.sys-dialog .el-dialog__body {
+  padding: 16px 20px;
+  background: #fff;
+}
+
+.sys-dialog .el-dialog__footer {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.9), rgba(245, 249, 255, 0.96));
+}
+
+.sys-dialog__btn {
+  border-radius: 999px;
+  padding-inline: 16px;
+}
+
+.sys-dialog__btn--ghost {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(130deg, #fff, #f6f9ff);
+  color: var(--text-secondary);
+}
+
+.sys-dialog__btn--primary {
+  box-shadow: var(--shadow-brand);
 }
 
 @media (max-width: 1200px) {

@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 组织机构 API
@@ -7,13 +7,13 @@ import type { ApiEnvelope } from '../types/api';
 
 // 组织机构接口定义
 export interface Organization {
-      id: number;
-      tenantId: number;
-      parentId: number;
+      id: IdType;
+      tenantId: IdType;
+      parentId: IdType;
       orgName: string;
       orgCode: string;
       orgType: string; // dept/position/team
-      leaderUserId: number;
+      leaderUserId: IdType;
       leaderName: string;
       phone: string;
       email: string;
@@ -41,7 +41,7 @@ export const listOrganizationTree = (): Promise<ApiEnvelope<Organization[]>> => 
 };
 
 // 根据ID查询组织机构
-export const getOrganization = (id: number): Promise<ApiEnvelope<Organization>> => {
+export const getOrganization = (id: IdType): Promise<ApiEnvelope<Organization>> => {
       return request<Organization>(`/api/organization/${id}`, { method: 'GET' });
 };
 
@@ -56,6 +56,6 @@ export const updateOrganization = (data: Partial<Organization>): Promise<ApiEnve
 };
 
 // 删除组织机构
-export const deleteOrganization = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteOrganization = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/organization/${id}`, { method: 'DELETE' });
 };

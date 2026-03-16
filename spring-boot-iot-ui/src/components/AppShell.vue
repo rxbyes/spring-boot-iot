@@ -32,31 +32,24 @@
         </label>
 
         <div class="header-status">
-          <nav class="header-links" aria-label="快捷功能">
-            <a href="#" @click.prevent>费用</a>
-            <a href="#" @click.prevent>备案</a>
-            <a href="#" @click.prevent>企业</a>
-            <a href="#" @click.prevent>支持</a>
-          </nav>
           <div class="header-tools" aria-label="系统工具">
-            <button type="button" class="tool-icon" aria-label="工作台" @click="goWorkbench">⌂</button>
             <button
               type="button"
-              class="tool-icon"
-              :class="{ 'tool-icon--active': showNoticePanel }"
-              aria-label="消息通知"
+              class="tool-text"
+              :class="{ 'tool-text--active': showNoticePanel }"
+              aria-label="打开消息通知"
               @click="toggleNoticePanel"
             >
-              🔔
+              消息通知
             </button>
             <button
               type="button"
-              class="tool-icon"
-              :class="{ 'tool-icon--active': showHelpPanel }"
-              aria-label="帮助中心"
+              class="tool-text"
+              :class="{ 'tool-text--active': showHelpPanel }"
+              aria-label="打开帮助中心"
               @click="toggleHelpPanel"
             >
-              ?
+              帮助中心
             </button>
           </div>
           <div class="account-chip" :title="headerIdentity">
@@ -148,17 +141,11 @@
         <section class="console-toolbar">
           <div class="console-toolbar__heading">
             <p class="toolbar-eyebrow">{{ activeGroup.label }}</p>
-            <h1>{{ activeTitle }}</h1>
+            <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
             <p>{{ activeDescription }}</p>
           </div>
 
           <div class="console-toolbar__summary">
-            <div class="toolbar-tags">
-              <span v-if="showGroupDescriptionTag" class="toolbar-tag">{{ activeGroup.description }}</span>
-              <span class="toolbar-tag">{{ environmentLabel }}</span>
-              <span class="toolbar-tag">{{ authStatusLabel }}</span>
-            </div>
-
             <div class="console-toolbar__actions">
               <button
                 type="button"
@@ -244,6 +231,7 @@ import { ElMessage } from '@/utils/message';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { runtimeState, setApiBaseUrl } from '../stores/runtime';
+import type { MenuTreeNode } from '../types/auth';
 import { formatDateTime } from '../utils/format';
 import TabsView from './TabsView.vue';
 
@@ -344,6 +332,52 @@ function cloneGroups(groups: NavGroup[]): NavGroup[] {
   }));
 }
 
+function buildShortLabel(label: string, fallback?: string): string {
+  const short = (fallback || '').trim();
+  if (short) {
+    return short;
+  }
+  const text = (label || '').trim();
+  return text ? text.slice(0, 1) : '-';
+}
+
+function appendNavItem(items: NavItem[], node: MenuTreeNode, pathSet: Set<string>): void {
+  if (node.type === 2) {
+    return;
+  }
+  const path = (node.path || '').trim();
+  if (path.startsWith('/') && !pathSet.has(path)) {
+    pathSet.add(path);
+    items.push({
+      to: path,
+      label: node.menuName || path,
+      caption: node.meta?.caption || node.meta?.description || `${node.menuName || path}功能`,
+      short: buildShortLabel(node.menuName || path, node.meta?.shortLabel)
+    });
+  }
+
+  (node.children || []).forEach((child) => appendNavItem(items, child, pathSet));
+}
+
+function buildDynamicGroups(menus: MenuTreeNode[]): NavGroup[] {
+  return menus
+    .filter((root) => root.type !== 2)
+    .map((root) => {
+      const items: NavItem[] = [];
+      const pathSet = new Set<string>();
+      appendNavItem(items, root, pathSet);
+      return {
+        key: root.menuCode || `menu-${root.id}`,
+        label: root.menuName || '未命名分组',
+        description: root.meta?.description || '权限分组',
+        menuTitle: root.meta?.menuTitle || root.menuName || '菜单分组',
+        menuHint: root.meta?.menuHint || root.meta?.description || '由后端菜单权限动态驱动。',
+        items
+      } as NavGroup;
+    })
+    .filter((group) => group.items.length > 0);
+}
+
 const searchKeyword = ref('');
 const baseUrlDraft = ref(runtimeState.apiBaseUrl);
 const showAccessPanel = ref(false);
@@ -359,6 +393,11 @@ const navigationGroups = computed<NavGroup[]>(() => {
   if (!permissionStore.isLoggedIn) {
     return [guestGroup];
   }
+  const dynamicGroups = buildDynamicGroups(permissionStore.menus || []);
+  if (dynamicGroups.length > 0) {
+    return dynamicGroups;
+  }
+  // 共享环境菜单未初始化时使用临时兜底，避免登录后无导航可用。
   return staticNavigationGroups;
 });
 
@@ -440,15 +479,7 @@ const helpItems = [
   { label: '演进蓝图', caption: '查看规划能力与后续路线', path: '/future-lab' },
   { label: '系统角色管理', caption: '维护角色与权限关系', path: '/role' }
 ];
-const environmentLabel = computed(() => (runtimeState.apiBaseUrl ? '外部网关接入' : '当前站点同源接入'));
 const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
-const showGroupDescriptionTag = computed(() => route.path !== '/');
-const authStatusLabel = computed(() => {
-  if (!permissionStore.isLoggedIn) {
-    return '未登录，仅开放首页预览';
-  }
-  return '已登录 · 超级管理员';
-});
 const loggedUserHint = computed(() => {
   const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
   return `当前角色：${roleText}，一级导航使用统一模板，按钮权限按数据库授权控制。`;
@@ -488,10 +519,6 @@ function handleSearch() {
 function saveApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);
   ElMessage.success('接入地址已更新');
-}
-
-function goWorkbench() {
-  router.push('/');
 }
 
 function toggleNoticePanel() {
@@ -698,48 +725,31 @@ onBeforeUnmount(() => {
   gap: 0.55rem;
 }
 
-.header-links {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.62rem;
-}
-
-.header-links a {
-  color: #4f5969;
-  text-decoration: none;
-  font-size: 0.76rem;
-  line-height: 1;
-}
-
-.header-links a:hover {
-  color: #1677ff;
-}
-
 .header-tools {
   display: inline-flex;
   align-items: center;
-  gap: 0.34rem;
+  gap: 0.42rem;
 }
 
-.tool-icon {
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 999px;
-  border: 1px solid #dcdfe6;
+.tool-text {
+  min-height: 1.76rem;
+  padding: 0 0.62rem;
+  border-radius: 2px;
+  border: 1px solid #d8dfeb;
   background: #fff;
-  color: #3e4e66;
+  color: #4b5565;
   font-size: 0.74rem;
+  font-weight: 500;
   line-height: 1;
-  padding: 0;
 }
 
-.tool-icon:hover {
-  border-color: #bcd1ef;
+.tool-text:hover {
+  border-color: #c9d7ef;
   color: #1677ff;
-  background: #f4f8ff;
+  background: #f7fbff;
 }
 
-.tool-icon--active {
+.tool-text--active {
   border-color: #a8c4ef;
   color: #1677ff;
   background: #eef5ff;
@@ -1108,24 +1118,6 @@ onBeforeUnmount(() => {
   justify-items: end;
 }
 
-.toolbar-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
-.toolbar-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.38rem 0.75rem;
-  border-radius: 2px;
-  border: 1px solid #e3e7ee;
-  background: #fafbfd;
-  color: #5f6c80;
-  font-size: 0.74rem;
-}
-
 .console-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
@@ -1323,10 +1315,6 @@ onBeforeUnmount(() => {
   .cloud-header__main {
     grid-template-columns: auto auto minmax(240px, 1fr) auto;
   }
-
-  .header-links {
-    display: none;
-  }
 }
 
 @media (max-width: 1200px) {
@@ -1366,7 +1354,6 @@ onBeforeUnmount(() => {
     justify-items: start;
   }
 
-  .toolbar-tags,
   .console-toolbar__actions {
     justify-content: flex-start;
   }

@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 字典配置 API
@@ -7,9 +7,9 @@ import type { ApiEnvelope } from '../types/api';
 
 // 字典项接口定义
 export interface DictItem {
-      id: number;
-      tenantId: number;
-      dictId: number;
+      id: IdType;
+      tenantId: IdType;
+      dictId: IdType;
       itemName: string;
       itemValue: string;
       itemType: string; // string/number/boolean
@@ -25,8 +25,8 @@ export interface DictItem {
 
 // 字典配置接口定义
 export interface Dict {
-      id: number;
-      tenantId: number;
+      id: IdType;
+      tenantId: IdType;
       dictName: string;
       dictCode: string;
       dictType: string; // text/number/boolean/date
@@ -52,7 +52,7 @@ export const listDictTree = (): Promise<ApiEnvelope<Dict[]>> => {
 };
 
 // 根据ID查询字典
-export const getDict = (id: number): Promise<ApiEnvelope<Dict>> => {
+export const getDict = (id: IdType): Promise<ApiEnvelope<Dict>> => {
       return request<Dict>(`/api/dict/${id}`, { method: 'GET' });
 };
 
@@ -72,12 +72,12 @@ export const updateDict = (data: Partial<Dict>): Promise<ApiEnvelope<Dict>> => {
 };
 
 // 删除字典
-export const deleteDict = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteDict = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/dict/${id}`, { method: 'DELETE' });
 };
 
 // 查询字典项列表
-export const listDictItems = (dictId: number): Promise<ApiEnvelope<DictItem[]>> => {
+export const listDictItems = (dictId: IdType): Promise<ApiEnvelope<DictItem[]>> => {
       return request<DictItem[]>(`/api/dict/${dictId}/items`, { method: 'GET' });
 };
 
@@ -92,6 +92,6 @@ export const updateDictItem = (data: Partial<DictItem>): Promise<ApiEnvelope<Dic
 };
 
 // 删除字典项
-export const deleteDictItem = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteDictItem = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/dict/items/${id}`, { method: 'DELETE' });
 };

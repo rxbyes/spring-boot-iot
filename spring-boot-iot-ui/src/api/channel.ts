@@ -1,5 +1,5 @@
 ﻿import { request } from './request'
-import type { ApiEnvelope } from '../types/api'
+import type { ApiEnvelope, IdType } from '../types/api'
 
 export const CHANNEL_TYPES = [
   { value: 'email', label: '邮件' },
@@ -10,7 +10,7 @@ export const CHANNEL_TYPES = [
 ]
 
 export interface ChannelRecord {
-  id: number
+  id: IdType
   channelCode: string
   channelName: string
   channelType: string
@@ -37,6 +37,6 @@ export function updateChannel(data: Partial<ChannelRecord>): Promise<ApiEnvelope
   return request<void>('/api/system/channel/update', { method: 'PUT', body: data })
 }
 
-export function deleteChannel(id: number): Promise<ApiEnvelope<void>> {
+export function deleteChannel(id: IdType): Promise<ApiEnvelope<void>> {
   return request<void>(`/api/system/channel/delete/${id}`, { method: 'DELETE' })
 }

@@ -49,7 +49,18 @@
     </div>
 
     <div class="event-list">
-      <el-table :data="eventList" v-loading="loading" border>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+      <el-table ref="tableRef" :data="eventList" v-loading="loading" border @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="eventCode" label="事件编号" width="180" />
         <el-table-column prop="eventTitle" label="事件标题" />
         <el-table-column prop="riskLevel" label="风险等级" width="100">
@@ -152,6 +163,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
+import { downloadRowsAsCsv } from '@/utils/csv';
 
 import { ElMessageBox } from '@/utils/messageBox';
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
@@ -163,6 +175,8 @@ const dispatchVisible = ref(false);
 const closeVisible = ref(false);
 const eventList = ref<EventRecord[]>([]);
 const detail = ref<EventRecord | null>(null);
+const tableRef = ref();
+const selectedRows = ref<EventRecord[]>([]);
 
 const stats = ref({
   pendingEvents: 0,
@@ -291,6 +305,24 @@ const handleReset = () => {
   void loadEventList();
 };
 
+const handleSelectionChange = (rows: EventRecord[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
+  clearSelection();
+  void loadEventList();
+};
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value);
+};
+
 const handleSizeChange = () => {
   void loadEventList();
 };
@@ -396,12 +428,12 @@ onMounted(() => {
 }
 
 .event-filters {
-  margin-bottom: 16px;
-  padding: 16px 16px 8px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  background: #fafbfd;
+  border-radius: 4px;
+  border: 1px solid #e6eaf0;
+  box-shadow: none;
 }
 
 .event-filter-form :deep(.el-form-item__label) {
@@ -414,24 +446,24 @@ onMounted(() => {
 }
 
 .event-btn {
-  border-radius: 999px;
-  padding-inline: 16px;
+  border-radius: 4px;
+  padding-inline: 12px;
 }
 
 .event-btn--primary {
-  box-shadow: var(--shadow-brand);
+  box-shadow: none;
 }
 
 .event-btn--ghost {
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(130deg, #fff, #f6f9ff);
-  color: var(--text-secondary);
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #4f5969;
 }
 
 .event-list {
-  margin-bottom: 16px;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+  border: 1px solid #e6eaf0;
+  border-radius: 4px;
   overflow: hidden;
   background: #fff;
 }
@@ -439,7 +471,7 @@ onMounted(() => {
 .event-pagination {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 0 2px;
+  padding: 4px 0 0;
 }
 
 .event-dialog :deep(.el-dialog__header) {

@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 
 import java.util.List;
@@ -23,7 +24,7 @@ public interface AuditLogService extends IService<AuditLog> {
       /**
        * 分页查询审计日志
        */
-      List<AuditLog> pageLogs(AuditLog log, Integer pageNum, Integer pageSize);
+      PageResult<AuditLog> pageLogs(AuditLog log, Integer pageNum, Integer pageSize);
 
       /**
        * 根据ID查询审计日志

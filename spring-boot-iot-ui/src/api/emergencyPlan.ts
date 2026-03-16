@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 应急预案 API
@@ -8,14 +8,14 @@ import type { ApiEnvelope } from '../types/api';
 
 // 应急预案接口定义
 export interface EmergencyPlan {
-      id: number;
+      id: IdType;
       planName: string;
       riskLevel: string;
       description: string;
       responseSteps: string;
       contactList: string;
       status: number;
-      tenantId: number;
+      tenantId: IdType;
       createTime: string;
       updateTime: string;
       createBy: number;
@@ -35,7 +35,7 @@ export const getPlanList = (params?: {
 };
 
 // 获取预案详情
-export const getPlanById = (id: number): Promise<ApiEnvelope<EmergencyPlan>> => {
+export const getPlanById = (id: IdType): Promise<ApiEnvelope<EmergencyPlan>> => {
       return request<EmergencyPlan>(`/api/emergency-plan/get/${id}`, { method: 'GET' });
 };
 
@@ -50,6 +50,6 @@ export const updatePlan = (data: Partial<EmergencyPlan>): Promise<ApiEnvelope<Em
 };
 
 // 删除预案
-export const deletePlan = (id: number): Promise<ApiEnvelope<void>> => {
+export const deletePlan = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/emergency-plan/delete/${id}`, { method: 'POST' });
 };

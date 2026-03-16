@@ -1,5 +1,5 @@
 <template>
-  <div class="role-view">
+  <div class="role-view sys-mgmt-view">
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
@@ -48,14 +48,28 @@
         </el-row>
       </el-form>
 
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         border
         stripe
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="roleName" label="角色名称" width="150" />
         <el-table-column prop="roleCode" label="角色编码" width="150" />
         <el-table-column prop="description" label="角色描述" width="200" />
@@ -92,6 +106,7 @@
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
+        class="sys-dialog"
         width="600px"
         @close="handleDialogClose"
       >
@@ -122,8 +137,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -134,6 +149,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { downloadRowsAsCsv } from '@/utils/csv'
 import { listRoles, getRole, addRole, updateRole, deleteRole } from '@/api/role'
 
 // 表单引用
@@ -155,6 +171,8 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<any[]>([])
+const tableRef = ref()
+const selectedRows = ref<any[]>([])
 
 // 加载状态
 const loading = ref(false)
@@ -215,6 +233,24 @@ const handleReset = () => {
   searchForm.roleCode = ''
   searchForm.status = undefined
   getRoles()
+}
+
+const handleSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows
+}
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+const handleRefresh = () => {
+  clearSelection()
+  getRoles()
+}
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('角色管理-选中项.csv', selectedRows.value)
 }
 
 // 新增
@@ -307,7 +343,7 @@ const handlePageChange = (page: number) => {
 
 <style scoped>
 .role-view {
-  padding: 20px;
+  padding: 12px;
 }
 
 .card-header {
@@ -317,7 +353,7 @@ const handlePageChange = (page: number) => {
 }
 
 .search-form {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .text-right {
@@ -325,7 +361,7 @@ const handlePageChange = (page: number) => {
 }
 
 .pagination {
-  margin-top: 20px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }

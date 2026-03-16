@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 import type { LoginResult, UserAuthContext } from '../types/auth';
 
 export interface LoginPayload {

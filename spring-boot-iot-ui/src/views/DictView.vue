@@ -1,5 +1,5 @@
 <template>
-  <div class="dict-view">
+  <div class="dict-view sys-mgmt-view">
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
@@ -50,14 +50,28 @@
         </el-row>
       </el-form>
 
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         border
         stripe
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="dictCode" label="字典编码" width="150" />
         <el-table-column prop="dictName" label="字典名称" width="200" />
         <el-table-column prop="dictType" label="字典类型" width="120">
@@ -101,6 +115,7 @@
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
+        class="sys-dialog"
         width="600px"
         @close="handleDialogClose"
       >
@@ -143,8 +158,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
         </template>
       </el-dialog>
 
@@ -152,16 +167,30 @@
       <el-dialog
         v-model="itemsDialogVisible"
         title="字典项管理"
+        class="sys-dialog"
         width="800px"
       >
+        <div class="table-action-bar">
+          <div class="table-action-bar__left">
+            <span class="table-action-bar__meta">已选 {{ selectedItemRows.length }} 项</span>
+          </div>
+          <div class="table-action-bar__right">
+            <el-button link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</el-button>
+            <el-button link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</el-button>
+            <el-button link @click="handleRefreshItems">刷新列表</el-button>
+          </div>
+        </div>
         <el-button type="primary" @click="handleAddItem" style="margin-bottom: 10px;">新增字典项</el-button>
         <el-table
+          ref="itemsTableRef"
           v-loading="itemsLoading"
           :data="itemsTableData"
           border
           stripe
           style="width: 100%"
+          @selection-change="handleItemSelectionChange"
         >
+          <el-table-column type="selection" width="48" />
           <el-table-column prop="itemName" label="项名称" width="150" />
           <el-table-column prop="itemValue" label="项值" width="150" />
           <el-table-column prop="itemType" label="项类型" width="120">
@@ -185,7 +214,7 @@
           </el-table-column>
         </el-table>
         <template #footer>
-          <el-button @click="itemsDialogVisible = false">关闭</el-button>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="itemsDialogVisible = false">关闭</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -196,6 +225,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { downloadRowsAsCsv } from '@/utils/csv'
 import {
   listDicts,
   getDict,
@@ -227,6 +257,9 @@ const pagination = reactive({
 
 // 表格数据
 const tableData = ref<any[]>([])
+const sourceTableData = ref<any[]>([])
+const tableRef = ref()
+const selectedRows = ref<any[]>([])
 
 // 加载状态
 const loading = ref(false)
@@ -259,6 +292,8 @@ const itemsDialogVisible = ref(false)
 const itemsTableData = ref<any[]>([])
 const itemsLoading = ref(false)
 const currentDictId = ref<number>()
+const itemsTableRef = ref()
+const selectedItemRows = ref<any[]>([])
 
 // 获取字典列表
 const getDictList = async () => {
@@ -266,7 +301,9 @@ const getDictList = async () => {
   try {
     const res = await listDicts()
     if (res.code === 200) {
-      tableData.value = res.data || []
+      sourceTableData.value = res.data || []
+      tableData.value = sourceTableData.value
+      pagination.total = tableData.value.length
     }
   } catch (error) {
     console.error('获取字典列表失败', error)
@@ -280,9 +317,24 @@ onMounted(() => {
   getDictList()
 })
 
+const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
+
+const applyDictFilters = () => {
+  const nameKeyword = normalizeKeyword(searchForm.dictName)
+  const codeKeyword = normalizeKeyword(searchForm.dictCode)
+
+  tableData.value = sourceTableData.value.filter((item: any) => {
+    const nameMatched = !nameKeyword || String(item.dictName || '').toLowerCase().includes(nameKeyword)
+    const codeMatched = !codeKeyword || String(item.dictCode || '').toLowerCase().includes(codeKeyword)
+    const typeMatched = !searchForm.dictType || item.dictType === searchForm.dictType
+    return nameMatched && codeMatched && typeMatched
+  })
+  pagination.total = tableData.value.length
+}
+
 // 处理搜索
 const handleSearch = () => {
-  // TODO: 实现搜索逻辑
+  applyDictFilters()
 }
 
 // 重置搜索
@@ -290,7 +342,26 @@ const handleReset = () => {
   searchForm.dictName = ''
   searchForm.dictCode = ''
   searchForm.dictType = undefined
+  tableData.value = sourceTableData.value
+  pagination.total = tableData.value.length
+}
+
+const handleSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows
+}
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+const handleRefresh = () => {
+  clearSelection()
   getDictList()
+}
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('字典配置-选中项.csv', selectedRows.value)
 }
 
 // 新增
@@ -352,6 +423,7 @@ const getDictItems = async (dictId: number) => {
     const res = await listDictItems(dictId)
     if (res.code === 200) {
       itemsTableData.value = res.data || []
+      selectedItemRows.value = []
     }
   } catch (error) {
     console.error('获取字典项失败', error)
@@ -360,14 +432,96 @@ const getDictItems = async (dictId: number) => {
   }
 }
 
+const handleItemSelectionChange = (rows: any[]) => {
+  selectedItemRows.value = rows
+}
+
+const clearItemSelection = () => {
+  itemsTableRef.value?.clearSelection()
+  selectedItemRows.value = []
+}
+
+const handleRefreshItems = () => {
+  clearItemSelection()
+  if (currentDictId.value) {
+    getDictItems(currentDictId.value)
+  }
+}
+
+const handleExportSelectedItems = () => {
+  downloadRowsAsCsv('字典项管理-选中项.csv', selectedItemRows.value)
+}
+
 // 新增字典项
-const handleAddItem = () => {
-  // TODO: 实现新增字典项逻辑
+const handleAddItem = async () => {
+  if (!currentDictId.value) {
+    ElMessage.warning('请先选择字典')
+    return
+  }
+  try {
+    const nameRes = await ElMessageBox.prompt('请输入字典项名称', '新增字典项', {
+      inputValue: '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '字典项名称不能为空'
+    })
+    const valueRes = await ElMessageBox.prompt('请输入字典项值', '新增字典项', {
+      inputValue: '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '字典项值不能为空'
+    })
+
+    const res = await addDictItem({
+      dictId: currentDictId.value,
+      itemName: nameRes.value.trim(),
+      itemValue: valueRes.value.trim(),
+      itemType: 'string',
+      status: 1,
+      sortNo: itemsTableData.value.length + 1
+    })
+    if (res.code === 200) {
+      ElMessage.success('新增字典项成功')
+      await getDictItems(currentDictId.value)
+    }
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      console.error('新增字典项失败', error)
+    }
+  }
 }
 
 // 编辑字典项
-const handleEditItem = (row: any) => {
-  // TODO: 实现编辑字典项逻辑
+const handleEditItem = async (row: any) => {
+  if (!currentDictId.value) {
+    ElMessage.warning('请先选择字典')
+    return
+  }
+  try {
+    const nameRes = await ElMessageBox.prompt('请输入字典项名称', '编辑字典项', {
+      inputValue: row.itemName || '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '字典项名称不能为空'
+    })
+    const valueRes = await ElMessageBox.prompt('请输入字典项值', '编辑字典项', {
+      inputValue: row.itemValue || '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '字典项值不能为空'
+    })
+
+    const res = await updateDictItem({
+      ...row,
+      dictId: currentDictId.value,
+      itemName: nameRes.value.trim(),
+      itemValue: valueRes.value.trim()
+    })
+    if (res.code === 200) {
+      ElMessage.success('更新字典项成功')
+      await getDictItems(currentDictId.value)
+    }
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      console.error('编辑字典项失败', error)
+    }
+  }
 }
 
 // 删除字典项
@@ -460,7 +614,7 @@ const handlePageChange = (page: number) => {
 
 <style scoped>
 .dict-view {
-  padding: 20px;
+  padding: 12px;
 }
 
 .card-header {
@@ -470,7 +624,7 @@ const handlePageChange = (page: number) => {
 }
 
 .search-form {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .text-right {
@@ -478,7 +632,7 @@ const handlePageChange = (page: number) => {
 }
 
 .pagination {
-  margin-top: 20px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }

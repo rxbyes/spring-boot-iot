@@ -12,7 +12,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
 import java.util.Date;
@@ -58,7 +60,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
         fillUserInfo(auditLog);
         auditLog.setOperationType(resolveOperationType(request.getMethod()));
         auditLog.setOperationModule(resolveOperationModule(request.getRequestURI()));
-        auditLog.setOperationMethod("");
+        auditLog.setOperationMethod(resolveOperationMethod(request));
         auditLog.setRequestUrl(request.getRequestURI());
         auditLog.setRequestMethod(request.getMethod());
         auditLog.setRequestParams(resolveRequestParams(request));
@@ -122,6 +124,14 @@ public class AuditLogFilter extends OncePerRequestFilter {
     private String resolveRequestParams(HttpServletRequest request) {
         String queryString = request.getQueryString();
         return StringUtils.hasText(queryString) ? queryString : "";
+    }
+
+    private String resolveOperationMethod(HttpServletRequest request) {
+        Object handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+        if (handler instanceof HandlerMethod handlerMethod) {
+            return handlerMethod.getBeanType().getSimpleName() + "#" + handlerMethod.getMethod().getName();
+        }
+        return request.getMethod() + ":" + request.getRequestURI();
     }
 
     private String resolveIp(HttpServletRequest request) {

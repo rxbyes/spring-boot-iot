@@ -48,7 +48,18 @@
     </div>
 
     <div class="alarm-list">
-      <el-table :data="alarmList" v-loading="loading" border>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+      <el-table ref="tableRef" :data="alarmList" v-loading="loading" border @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="alarmCode" label="告警编号" width="180" />
         <el-table-column prop="alarmTitle" label="告警标题" />
         <el-table-column prop="alarmLevel" label="告警等级" width="100">
@@ -119,6 +130,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import { downloadRowsAsCsv } from '@/utils/csv';
 
 import { closeAlarm, confirmAlarm, getAlarmDetail, getAlarmList, suppressAlarm } from '../api/alarm';
 import type { AlarmRecord } from '../api/alarm';
@@ -127,6 +139,8 @@ const loading = ref(false);
 const detailVisible = ref(false);
 const alarmList = ref<AlarmRecord[]>([]);
 const detail = ref<AlarmRecord | null>(null);
+const tableRef = ref();
+const selectedRows = ref<AlarmRecord[]>([]);
 
 const stats = ref({
   todayAlarms: 0,
@@ -241,6 +255,24 @@ const handleReset = () => {
   void loadAlarmList();
 };
 
+const handleSelectionChange = (rows: AlarmRecord[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
+  clearSelection();
+  void loadAlarmList();
+};
+
+const handleExportSelected = () => {
+  downloadRowsAsCsv('告警中心-选中项.csv', selectedRows.value);
+};
+
 const handleSizeChange = () => {
   void loadAlarmList();
 };
@@ -321,8 +353,8 @@ onMounted(() => {
 }
 
 .alarm-header h1 {
-  font-size: 24px;
-  margin-bottom: 16px;
+  font-size: 20px;
+  margin-bottom: 12px;
 }
 
 .alarm-stats {
@@ -341,12 +373,12 @@ onMounted(() => {
 }
 
 .alarm-filters {
-  margin-bottom: 16px;
-  padding: 16px 16px 8px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  background: #fafbfd;
+  border-radius: 4px;
+  border: 1px solid #e6eaf0;
+  box-shadow: none;
 }
 
 .alarm-filter-form :deep(.el-form-item__label) {
@@ -359,24 +391,24 @@ onMounted(() => {
 }
 
 .alarm-btn {
-  border-radius: 999px;
-  padding-inline: 16px;
+  border-radius: 4px;
+  padding-inline: 12px;
 }
 
 .alarm-btn--primary {
-  box-shadow: var(--shadow-brand);
+  box-shadow: none;
 }
 
 .alarm-btn--ghost {
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(130deg, #fff, #f6f9ff);
-  color: var(--text-secondary);
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #4f5969;
 }
 
 .alarm-list {
-  margin-bottom: 16px;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+  border: 1px solid #e6eaf0;
+  border-radius: 4px;
   overflow: hidden;
   background: #fff;
 }
@@ -384,7 +416,7 @@ onMounted(() => {
 .alarm-pagination {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 0 2px;
+  padding: 4px 0 0;
 }
 
 .alarm-dialog :deep(.el-dialog__header) {

@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 驾驶舱 API
@@ -37,7 +37,7 @@ export interface CockpitWarningStatus {
 }
 
 export interface CockpitActivity {
-      id: number;
+      id: IdType;
       time: string;
       desc: string;
 }

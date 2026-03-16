@@ -1,5 +1,5 @@
 ﻿import { runtimeState } from '../stores/runtime';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 export interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   body?: BodyInit | Record<string, unknown> | unknown | null;

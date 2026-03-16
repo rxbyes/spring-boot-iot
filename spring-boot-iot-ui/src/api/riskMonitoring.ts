@@ -1,9 +1,9 @@
 import { request } from './request';
-import type { ApiEnvelope, PageResult } from '../types/api';
+import type { ApiEnvelope, PageResult, IdType } from '../types/api';
 
 export interface RiskMonitoringListQuery {
-  regionId?: number;
-  riskPointId?: number;
+  regionId?: IdType;
+  riskPointId?: IdType;
   deviceCode?: string;
   riskLevel?: string;
   onlineStatus?: number;
@@ -12,13 +12,13 @@ export interface RiskMonitoringListQuery {
 }
 
 export interface RiskMonitoringListItem {
-  bindingId: number;
+  bindingId: IdType;
   regionId?: number | null;
   regionName?: string | null;
-  riskPointId?: number | null;
+  riskPointId?: IdType | null;
   riskPointName?: string | null;
   riskLevel?: string | null;
-  deviceId?: number | null;
+  deviceId?: IdType | null;
   deviceCode?: string | null;
   deviceName?: string | null;
   productName?: string | null;
@@ -39,7 +39,7 @@ export interface RiskMonitoringTrendPoint {
 }
 
 export interface RiskMonitoringAlarmSummary {
-  id: number;
+  id: IdType;
   alarmCode?: string | null;
   alarmTitle?: string | null;
   alarmLevel?: string | null;
@@ -50,7 +50,7 @@ export interface RiskMonitoringAlarmSummary {
 }
 
 export interface RiskMonitoringEventSummary {
-  id: number;
+  id: IdType;
   eventCode?: string | null;
   eventTitle?: string | null;
   riskLevel?: string | null;
@@ -60,14 +60,14 @@ export interface RiskMonitoringEventSummary {
 }
 
 export interface RiskMonitoringDetail {
-  bindingId: number;
+  bindingId: IdType;
   regionId?: number | null;
   regionName?: string | null;
-  riskPointId?: number | null;
+  riskPointId?: IdType | null;
   riskPointCode?: string | null;
   riskPointName?: string | null;
   riskLevel?: string | null;
-  deviceId?: number | null;
+  deviceId?: IdType | null;
   deviceCode?: string | null;
   deviceName?: string | null;
   productName?: string | null;
@@ -92,7 +92,7 @@ export interface RiskMonitoringDetail {
 export interface RiskMonitoringGisPoint {
   regionId?: number | null;
   regionName?: string | null;
-  riskPointId: number;
+  riskPointId: IdType;
   riskPointCode?: string | null;
   riskPointName?: string | null;
   riskLevel?: string | null;
@@ -118,7 +118,7 @@ export function getRiskMonitoringList(
   return request<PageResult<RiskMonitoringListItem>>(path, { method: 'GET' });
 }
 
-export function getRiskMonitoringDetail(bindingId: number): Promise<ApiEnvelope<RiskMonitoringDetail>> {
+export function getRiskMonitoringDetail(bindingId: IdType): Promise<ApiEnvelope<RiskMonitoringDetail>> {
   return request<RiskMonitoringDetail>(`/api/risk-monitoring/realtime/${bindingId}`, { method: 'GET' });
 }
 

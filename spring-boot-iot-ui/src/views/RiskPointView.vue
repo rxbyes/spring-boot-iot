@@ -1,19 +1,21 @@
 <template>
-  <div class="risk-point-view">
-    <div class="risk-point-header">
-      <h1>风险点管理</h1>
-      <el-button type="primary" @click="handleAdd">新增风险点</el-button>
-    </div>
+  <div class="risk-point-view sys-mgmt-view">
+    <el-card class="box-card">
+      <template #header>
+        <div class="card-header">
+          <span>风险点管理</span>
+          <el-button type="primary" @click="handleAdd">新增风险点</el-button>
+        </div>
+      </template>
 
-    <div class="risk-point-filters">
-      <el-form :model="filters" label-position="left">
+      <el-form :model="filters" label-width="96px" class="search-form">
         <el-row :gutter="20">
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="风险点编号">
-              <el-input v-model="filters.riskPointCode" placeholder="请输入风险点编号" clearable />
+              <el-input v-model="filters.riskPointCode" placeholder="请输入风险点编号" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="风险等级">
               <el-select v-model="filters.riskLevel" placeholder="请选择风险等级" clearable>
                 <el-option label="严重" value="critical" />
@@ -22,7 +24,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
@@ -30,20 +32,36 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
+        </el-row>
+        <el-row>
+          <el-col :span="24" class="text-right">
+            <el-button @click="handleReset">重置</el-button>
+            <el-button type="primary" @click="handleSearch">查询</el-button>
           </el-col>
         </el-row>
       </el-form>
-    </div>
 
-    <div class="risk-point-list">
-      <el-table :data="riskPointList" v-loading="loading" border>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
+      <el-table
+        ref="tableRef"
+        :data="riskPointList"
+        v-loading="loading"
+        border
+        stripe
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="riskPointCode" label="风险点编号" width="150" />
-        <el-table-column prop="riskPointName" label="风险点名称" />
+        <el-table-column prop="riskPointName" label="风险点名称" min-width="180" />
         <el-table-column prop="regionName" label="区域" width="120" />
         <el-table-column prop="riskLevel" label="风险等级" width="100">
           <template #default="{ row }">
@@ -57,7 +75,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="primary" link @click="handleBindDevice(row)">绑定设备</el-button>
@@ -65,22 +83,21 @@
           </template>
         </el-table-column>
       </el-table>
-    </div>
 
-    <div class="risk-point-pagination">
       <el-pagination
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.size"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
-    </div>
+    </el-card>
 
     <!-- 风险点表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" width="600px">
+    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="风险点编号" prop="riskPointCode">
           <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
@@ -112,13 +129,13 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
 
     <!-- 绑定设备对话框 -->
-    <el-dialog v-model="bindDeviceVisible" title="绑定设备" width="600px">
+    <el-dialog v-model="bindDeviceVisible" title="绑定设备" class="sys-dialog" width="600px">
       <el-form :model="bindForm" label-width="100px">
         <el-form-item label="风险点">
           <el-input v-model="bindForm.riskPointName" disabled />
@@ -139,17 +156,20 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="bindDeviceVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleBindSubmit" :loading="submitLoading">确定</el-button>
+        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="bindDeviceVisible = false">取消</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleBindSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, getBoundDevices } from '../api/riskPoint';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ElMessage } from '@/utils/message';
+import { ElMessageBox } from '@/utils/messageBox';
+import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
+import type { DeviceMetricOption, DeviceOption } from '@/types/api';
+import { getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
 
 // 状态
@@ -157,8 +177,8 @@ const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
-const deviceList = ref<any[]>([]);
-const metricList = ref<any[]>([]);
+const deviceList = ref<DeviceOption[]>([]);
+const metricList = ref<DeviceMetricOption[]>([]);
 
 // 查询条件
 const filters = reactive({
@@ -207,6 +227,30 @@ const bindForm = reactive({
   metricName: ''
 });
 const submitLoading = ref(false);
+
+const loadDeviceOptions = async () => {
+  try {
+    const res = await listDeviceOptions();
+    if (res.code === 200) {
+      deviceList.value = res.data || [];
+    }
+  } catch (error) {
+    console.error('加载设备选项失败', error);
+    ElMessage.error('加载设备列表失败');
+  }
+};
+
+const loadMetricOptions = async (deviceId: string | number) => {
+  try {
+    const res = await getDeviceMetricOptions(deviceId);
+    if (res.code === 200) {
+      metricList.value = res.data || [];
+    }
+  } catch (error) {
+    console.error('加载测点选项失败', error);
+    ElMessage.error('加载测点列表失败');
+  }
+};
 
 // 获取风险等级类型
 const getRiskLevelType = (level: string) => {
@@ -371,9 +415,16 @@ const handleSubmit = async () => {
 };
 
 // 绑定设备
-const handleBindDevice = (row: RiskPoint) => {
+const handleBindDevice = async (row: RiskPoint) => {
   bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
+  bindForm.deviceId = 0;
+  bindForm.deviceCode = '';
+  bindForm.deviceName = '';
+  bindForm.metricIdentifier = '';
+  bindForm.metricName = '';
+  metricList.value = [];
+  await loadDeviceOptions();
   bindDeviceVisible.value = true;
 };
 
@@ -385,11 +436,24 @@ const handleBindSubmit = async () => {
   }
   try {
     submitLoading.value = true;
-    const res = await getBoundDevices(bindForm.riskPointId);
+    const selectedDevice = deviceList.value.find(device => String(device.id) === String(bindForm.deviceId));
+    const selectedMetric = metricList.value.find(metric => metric.identifier === bindForm.metricIdentifier);
+    if (!selectedDevice || !selectedMetric) {
+      ElMessage.warning('请选择有效的设备和测点');
+      return;
+    }
+    const res = await bindDevice({
+      riskPointId: bindForm.riskPointId,
+      deviceId: bindForm.deviceId,
+      deviceCode: selectedDevice.deviceCode,
+      deviceName: selectedDevice.deviceName,
+      metricIdentifier: selectedMetric.identifier,
+      metricName: selectedMetric.name
+    });
     if (res.code === 200) {
-      // TODO: 绑定设备逻辑
       ElMessage.success('绑定成功');
       bindDeviceVisible.value = false;
+      loadRiskPointList();
     }
   } catch (error) {
     console.error('绑定设备失败', error);
@@ -397,6 +461,34 @@ const handleBindSubmit = async () => {
     submitLoading.value = false;
   }
 };
+
+watch(
+  () => bindForm.deviceId,
+  async deviceId => {
+    bindForm.deviceCode = '';
+    bindForm.deviceName = '';
+    bindForm.metricIdentifier = '';
+    bindForm.metricName = '';
+    metricList.value = [];
+    if (!deviceId) {
+      return;
+    }
+    const selectedDevice = deviceList.value.find(device => String(device.id) === String(deviceId));
+    if (selectedDevice) {
+      bindForm.deviceCode = selectedDevice.deviceCode;
+      bindForm.deviceName = selectedDevice.deviceName;
+    }
+    await loadMetricOptions(deviceId);
+  }
+);
+
+watch(
+  () => bindForm.metricIdentifier,
+  metricIdentifier => {
+    const selectedMetric = metricList.value.find(metric => metric.identifier === metricIdentifier);
+    bindForm.metricName = selectedMetric?.name || '';
+  }
+);
 
 // 初始化
 onMounted(() => {

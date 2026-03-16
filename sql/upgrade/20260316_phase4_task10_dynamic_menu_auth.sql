@@ -56,6 +56,7 @@ VALUES
     (93003005, 93000003, '字典配置', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置","shortLabel":"字"}', 35, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003006, 93000003, '通知渠道', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试","shortLabel":"通"}', 36, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003007, 93000003, '审计日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"关键操作记录审计与追踪","shortLabel":"审"}', 37, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003008, 93000003, '菜单管理', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护","shortLabel":"菜"}', 38, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003101, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限","shortLabel":"增"}', 3201, 2, 1, 1, NOW(), 1, NOW(), 0),
     (93003102, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限","shortLabel":"编"}', 3202, 2, 1, 1, NOW(), 1, NOW(), 0),
@@ -111,6 +112,7 @@ VALUES
     (94000029, 92000002, 93003104, 1, NOW(), 1, NOW(), 0),
     (94000030, 92000002, 93003201, 1, NOW(), 1, NOW(), 0),
     (94000031, 92000002, 93003202, 1, NOW(), 1, NOW(), 0),
+    (94000032, 92000002, 93003008, 1, NOW(), 1, NOW(), 0),
 
     (94000041, 92000003, 93000001, 1, NOW(), 1, NOW(), 0),
     (94000042, 92000003, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -169,7 +171,8 @@ VALUES
     (94000118, 92000005, 93003104, 1, NOW(), 1, NOW(), 0),
     (94000119, 92000005, 93003201, 1, NOW(), 1, NOW(), 0),
     (94000120, 92000005, 93003202, 1, NOW(), 1, NOW(), 0),
-    (94000121, 92000005, 93003203, 1, NOW(), 1, NOW(), 0);
+    (94000121, 92000005, 93003203, 1, NOW(), 1, NOW(), 0),
+    (94000122, 92000005, 93003008, 1, NOW(), 1, NOW(), 0);
 
 INSERT INTO sys_user_role (id, user_id, role_id, create_by, create_time, update_by, update_time, deleted)
 SELECT 95000001, u.id, 92000005, 1, NOW(), 1, NOW(), 0

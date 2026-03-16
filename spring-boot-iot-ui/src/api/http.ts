@@ -1,6 +1,6 @@
 import { request as coreRequest } from './request';
 import type { RequestOptions } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 const API_PREFIX_CANDIDATES = [
   '/device',

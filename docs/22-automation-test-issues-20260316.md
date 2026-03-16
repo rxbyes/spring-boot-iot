@@ -177,3 +177,71 @@
 1. 前后端重启成功，`/actuator/health` 为 `UP`，前端登录页可达。
 2. 风险监测与 GIS 基线在浏览器自动化下连续通过。
 3. 系统仍存在“鉴权异常 + 多模块接口 500 + 部分页面请求未命中”三类主问题，需在后续轮次持续跟踪。
+
+## 7. 浏览器自动化全流程复测（2026-03-17 00:35）
+
+测试方式：Google Chrome + Playwright 全流程自动化（`npm run acceptance:browser`）  
+执行环境：前端 `http://127.0.0.1:5174`，后端 `http://127.0.0.1:9999`（`application-dev.yml` 真实环境）
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260317003522.json`
+- `logs/acceptance/business-browser-results-20260317003522.json`
+- `logs/acceptance/business-browser-report-20260317003522.md`
+- `logs/acceptance/business-browser-screenshots-20260317003522/`
+
+### 7.1 本轮概览
+
+- 总场景：21
+- 通过：3
+- 失败：18
+- 交付范围：3 通过 / 16 失败
+- 基线范围（风险监测与 GIS）：0 通过 / 2 失败
+
+本轮通过场景：
+1. `login`
+2. `product-workbench`
+3. `event-disposal`
+
+### 7.2 环境阻塞与前置问题（已定位）
+
+问题 1：后端端口不一致导致整轮自动化假失败（已定位）  
+- 现象：00:24 一轮执行（`20260317002404`）中，后端指向 `19999`，但前端 Vite 代理默认转发 `9999`，导致登录链路异常，最终 0/21 通过。  
+- 证据：`business-browser-summary-20260317002404.json` 显示 0 通过；`business-browser-results-20260317002404.json` 登录场景报 `POST /api/auth/login` HTTP 500。  
+- 根因判断：自动化运行时后端端口与前端代理目标不一致，属于环境配置问题。  
+- 状态：已在 00:35 轮修正为后端 9999 后复测。
+
+### 7.3 本轮新增/确认失败问题（00:35）
+
+问题 2：设备工作台标题断言超时  
+- 场景：`device-workbench`  
+- 现象：等待 `设备运维中心` 标题 15s 超时。  
+- 影响：设备创建失败，后续 `report-workbench`、`device-insight` 前置数据缺失并级联失败。  
+- 状态：未修复。
+
+问题 3：告警中心弹窗关闭按钮被遮罩拦截，点击超时  
+- 场景：`alarm-center`  
+- 现象：`getByRole('button', { name: '关闭' })` 点击 30s 超时，日志显示 dialog overlay 持续拦截 pointer events。  
+- 影响：告警详情交互无法闭环，场景失败。  
+- 状态：未修复。
+
+问题 4：风险点新增接口返回 HTTP 500  
+- 场景：`risk-point`  
+- 现象：`POST /api/risk-point/add` 返回 HTTP 500（响应体为空）。  
+- 证据：`business-browser-results-20260317003522.json` 中 `risk-point.detail`。  
+- 影响：风险点场景失败，且后续规则/预案相关场景缺少有效数据联动。  
+- 状态：未修复。
+
+问题 5：多模块页面统一出现标题等待超时（路由进入后未到达预期可操作态）  
+- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`、`report-analysis`、`organization`、`role`、`user`、`region`、`dict`、`channel`、`audit-log`、`risk-monitoring`、`risk-monitoring-gis`。  
+- 现象：均为 `locator.waitFor` 15s 超时，等待各页面标题可见失败。  
+- 影响：系统管理、配置能力、风险监测基线均无法自动化验收。  
+- 状态：未修复。
+
+### 7.4 下一步修复建议（供后续开发）
+
+1. 统一前后端自动化端口配置，避免 `backendBaseUrl` 与 Vite `proxyTarget` 不一致。
+2. 为关键页面提供稳定测试锚点（如 `data-testid`），替代纯中文标题断言。
+3. 修复告警详情弹窗遮罩层点击穿透/关闭按钮层级问题。
+4. 排查 `POST /api/risk-point/add` 的 500（后端日志 + 参数校验 + 事务回滚信息）。
+5. 对级联场景增加前置失败快速终止与明确标记，降低噪声失败数量。

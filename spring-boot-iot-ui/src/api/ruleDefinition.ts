@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 /**
  * 阈值规则配置 API
@@ -8,7 +8,7 @@ import type { ApiEnvelope } from '../types/api';
 
 // 阈值规则接口定义
 export interface RuleDefinition {
-      id: number;
+      id: IdType;
       ruleName: string;
       metricIdentifier: string;
       metricName: string;
@@ -18,7 +18,7 @@ export interface RuleDefinition {
       notificationMethods: string;
       convertToEvent: number;
       status: number;
-      tenantId: number;
+      tenantId: IdType;
       remark: string;
       createBy: number;
       createTime: string;
@@ -40,7 +40,7 @@ export const getRuleList = (params?: {
 };
 
 // 获取规则详情
-export const getRuleById = (id: number): Promise<ApiEnvelope<RuleDefinition>> => {
+export const getRuleById = (id: IdType): Promise<ApiEnvelope<RuleDefinition>> => {
       return request<RuleDefinition>(`/api/rule-definition/get/${id}`, { method: 'GET' });
 };
 
@@ -55,6 +55,6 @@ export const updateRule = (data: Partial<RuleDefinition>): Promise<ApiEnvelope<R
 };
 
 // 删除规则
-export const deleteRule = (id: number): Promise<ApiEnvelope<void>> => {
+export const deleteRule = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/rule-definition/delete/${id}`, { method: 'POST' });
 };

@@ -1,9 +1,9 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 import type { MenuTreeNode } from '../types/auth';
 
 export interface Menu {
-  id: number;
+  id: IdType;
   parentId?: number | null;
   menuName: string;
   menuCode?: string;
@@ -39,7 +39,7 @@ export function listMenus(params?: {
   return request<Menu[]>(`/api/menu/list${suffix}`, { method: 'GET' });
 }
 
-export function getMenu(id: number): Promise<ApiEnvelope<Menu>> {
+export function getMenu(id: IdType): Promise<ApiEnvelope<Menu>> {
   return request<Menu>(`/api/menu/${id}`, { method: 'GET' });
 }
 
@@ -57,6 +57,6 @@ export function updateMenu(payload: Partial<Menu>): Promise<ApiEnvelope<void>> {
   });
 }
 
-export function deleteMenu(id: number): Promise<ApiEnvelope<void>> {
+export function deleteMenu(id: IdType): Promise<ApiEnvelope<void>> {
   return request<void>(`/api/menu/${id}`, { method: 'DELETE' });
 }

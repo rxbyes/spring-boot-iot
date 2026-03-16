@@ -1,15 +1,30 @@
-﻿import { request } from './request'
-import type { ApiEnvelope } from '../types/api'
+import { request } from './request'
+import type { ApiEnvelope, IdType } from '../types/api'
 
 export interface AuditLogRecord {
-  id: number
+  id: IdType
+  tenantId?: number
+  userId?: number
+  userName?: string
   operationModule?: string
   operationType?: string
-  operationUri?: string
-  status?: number
-  userId?: number
-  username?: string
+  operationMethod?: string
+  requestUrl?: string
+  requestMethod?: string
+  requestParams?: string
+  responseResult?: string
+  ipAddress?: string
+  operationResult?: number
+  resultMessage?: string
+  operationTime?: string
   createTime?: string
+}
+
+export interface PageResult<T> {
+  total: number
+  pageNum: number
+  pageSize: number
+  records: T[]
 }
 
 function toQueryString(params: Record<string, unknown>) {
@@ -28,13 +43,13 @@ export function listLogs(params: Record<string, unknown> = {}): Promise<ApiEnvel
   return request<AuditLogRecord[]>(path, { method: 'GET' })
 }
 
-export function pageLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<AuditLogRecord[]>> {
+export function pageLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<PageResult<AuditLogRecord>>> {
   const query = toQueryString(params)
   const path = `/api/system/audit-log/page${query ? `?${query}` : ''}`
-  return request<AuditLogRecord[]>(path, { method: 'GET' })
+  return request<PageResult<AuditLogRecord>>(path, { method: 'GET' })
 }
 
-export function getAuditLogById(id: number): Promise<ApiEnvelope<AuditLogRecord>> {
+export function getAuditLogById(id: IdType): Promise<ApiEnvelope<AuditLogRecord>> {
   return request<AuditLogRecord>(`/api/system/audit-log/get/${id}`, { method: 'GET' })
 }
 
@@ -42,6 +57,6 @@ export function addAuditLog(data: Partial<AuditLogRecord>): Promise<ApiEnvelope<
   return request<void>('/api/system/audit-log/add', { method: 'POST', body: data })
 }
 
-export function deleteAuditLog(id: number): Promise<ApiEnvelope<void>> {
+export function deleteAuditLog(id: IdType): Promise<ApiEnvelope<void>> {
   return request<void>(`/api/system/audit-log/delete/${id}`, { method: 'DELETE' })
 }

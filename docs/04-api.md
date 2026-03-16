@@ -11,6 +11,9 @@
 }
 ```
 
+说明：
+- 自 2026-03-17 起，对于后端 `Long` 类型主键（如 `id`），响应统一按字符串返回，避免前端 JavaScript 对超大整数（雪花 ID）出现精度丢失。
+
 ## 异常返回约定
 - 参数校验或参数绑定失败：返回 `code=400`，`msg` 为可读错误信息（如 `缺少必要参数: confirmUser`、`参数类型错误: status`、`请求体格式不正确`）。
 - 业务异常：返回业务定义错误码与业务消息。
@@ -556,6 +559,29 @@ Authorization: Bearer <jwt-token>
 - 返回完整启用菜单树，供角色管理页做菜单授权。
 - `type = 0/1` 为目录或页面，`type = 2` 为按钮权限。
 - `meta_json` 会解析为 `meta` 对象返回。
+
+### 菜单列表
+`GET /api/menu/list`
+
+说明：
+- 支持可选筛选参数：`menuName`、`menuCode`、`type`、`status`。
+- 按 `sort`、`id` 升序返回。
+
+### 菜单详情
+`GET /api/menu/{id}`
+
+### 新增菜单
+`POST /api/menu/add`
+
+### 更新菜单
+`PUT /api/menu/update`
+
+### 删除菜单
+`DELETE /api/menu/{id}`
+
+说明：
+- 存在子菜单时不允许删除。
+- 被角色授权引用的菜单不允许删除。
 
 ### 鉴权规则
 - 以下接口免登录：

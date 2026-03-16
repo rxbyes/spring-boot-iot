@@ -18,7 +18,9 @@ const detailPath = path.join(logsRoot, `business-browser-results-${runTimestamp}
 const reportPath = path.join(logsRoot, `business-browser-report-${runTimestamp}.md`);
 
 const frontendBaseUrl = normalizeBaseUrl(process.env.IOT_ACCEPTANCE_FRONTEND_URL || 'http://127.0.0.1:5174');
-const backendBaseUrl = normalizeBaseUrl(process.env.IOT_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:9999');
+const backendBaseUrl = normalizeBaseUrl(
+  process.env.IOT_ACCEPTANCE_BACKEND_URL || process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:9999'
+);
 const browserPath = process.env.IOT_ACCEPTANCE_BROWSER_PATH || detectBrowserPath();
 const headless = process.env.IOT_ACCEPTANCE_HEADLESS !== 'false';
 
@@ -124,6 +126,26 @@ async function preflight() {
   };
 }
 
+async function preflightFrontendProxy() {
+  const probeResponse = await fetch(buildUrl(frontendBaseUrl, '/api/auth/login'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      username: `probe-user-${runToken}`,
+      password: 'probe-password'
+    })
+  });
+
+  if (probeResponse.status >= 500) {
+    throw new AcceptanceError(`Frontend API preflight failed: ${probeResponse.status}`, {
+      url: buildUrl(frontendBaseUrl, '/api/auth/login'),
+      hint: 'Check Vite proxy target and backend port consistency.'
+    });
+  }
+}
+
 async function captureScreenshot(page, scenarioKey, suffix = 'pass') {
   const filePath = path.join(screenshotsDir, `${slugify(scenarioKey)}-${suffix}.png`);
   await page.screenshot({
@@ -133,10 +155,66 @@ async function captureScreenshot(page, scenarioKey, suffix = 'pass') {
   return filePath;
 }
 
-async function waitForToolbarHeading(page, title) {
-  await page.locator('.console-toolbar__heading h1', { hasText: title }).waitFor({
-    state: 'visible',
-    timeout: 15000
+function isLoginPath(url) {
+  return extractPathFromUrl(url) === '/login';
+}
+
+async function waitForToolbarHeading(page, title, expectedPath) {
+  const headingLocator = page.locator('[data-testid="console-page-title"]', { hasText: title });
+  const timeout = 15000;
+
+  if (!expectedPath || expectedPath === '/login') {
+    await headingLocator.waitFor({
+      state: 'visible',
+      timeout
+    });
+    return;
+  }
+
+  const loginLocator = page.locator('#login-submit');
+  await Promise.race([
+    headingLocator.waitFor({
+      state: 'visible',
+      timeout
+    }),
+    loginLocator
+      .waitFor({
+        state: 'visible',
+        timeout
+      })
+      .then(() => {
+        throw new AcceptanceError(`Route switched to login before ${expectedPath} became ready.`, {
+          expectedPath,
+          currentUrl: page.url()
+        });
+      })
+  ]);
+}
+
+function extractPathFromUrl(url) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return '';
+  }
+}
+
+async function ensureRoutePath(page, expectedPath) {
+  const currentPath = extractPathFromUrl(page.url());
+  if (currentPath === expectedPath) {
+    return;
+  }
+
+  await page.waitForTimeout(300);
+  const retriedPath = extractPathFromUrl(page.url());
+  if (retriedPath === expectedPath) {
+    return;
+  }
+
+  throw new AcceptanceError(`Route redirect detected. Expected ${expectedPath}, got ${retriedPath || 'unknown'}.`, {
+    expectedPath,
+    currentUrl: page.url(),
+    currentPath: retriedPath
   });
 }
 
@@ -151,7 +229,13 @@ function responseMatcher(matcher) {
 }
 
 async function readApiResponse(response) {
-  const text = await response.text();
+  let text = '';
+  let bodyReadError;
+  try {
+    text = await response.text();
+  } catch (error) {
+    bodyReadError = error instanceof Error ? error.message : String(error);
+  }
   let payload = null;
   try {
     payload = text ? JSON.parse(text) : null;
@@ -163,7 +247,8 @@ async function readApiResponse(response) {
     status: response.status(),
     method: response.request().method(),
     payload,
-    text
+    text,
+    bodyReadError
   };
 }
 
@@ -181,10 +266,16 @@ async function expectApiResponse(page, matcher, action, label) {
   const responsePromise = page.waitForResponse(responseMatcher(matcher), {
     timeout: 15000
   });
-  if (action) {
-    await action();
+  try {
+    if (action) {
+      await action();
+    }
+    return assertApiSuccess(await readApiResponse(await responsePromise), label);
+  } catch (error) {
+    // 避免 action 失败后遗留未处理的 waitForResponse rejection，导致脚本提前崩溃
+    await responsePromise.catch(() => {});
+    throw error;
   }
-  return assertApiSuccess(await readApiResponse(await responsePromise), label);
 }
 
 async function openRoute(page, config) {
@@ -201,10 +292,27 @@ async function openRoute(page, config) {
       }))
   );
 
-  await page.goto(buildUrl(frontendBaseUrl, config.path), {
-    waitUntil: 'domcontentloaded'
-  });
-  await waitForToolbarHeading(page, config.heading);
+  if (config.path === '/devices') {
+    await page.goto(buildUrl(frontendBaseUrl, '/products'), {
+      waitUntil: 'domcontentloaded'
+    });
+    await waitForToolbarHeading(page, '产品模板中心', '/products');
+    const deviceMenuLink = page.locator('.side-menu__item[href="/devices"]').first();
+    if ((await deviceMenuLink.count()) > 0) {
+      await deviceMenuLink.click();
+    } else {
+      await page.goto(buildUrl(frontendBaseUrl, config.path), {
+        waitUntil: 'domcontentloaded'
+      });
+    }
+  } else {
+    await page.goto(buildUrl(frontendBaseUrl, config.path), {
+      waitUntil: 'domcontentloaded'
+    });
+  }
+
+  await ensureRoutePath(page, config.path);
+  await waitForToolbarHeading(page, config.heading, config.path);
 
   if (waits.length === 0) {
     return [];
@@ -243,6 +351,19 @@ async function login(page) {
     username: loginResult.payload.data.username || 'admin',
     tokenPresent: true
   };
+}
+
+async function ensureScenarioLogin(page, scenarioKey) {
+  if (!isLoginPath(page.url())) {
+    return;
+  }
+  await login(page);
+  if (isLoginPath(page.url())) {
+    throw new AcceptanceError(`Unable to restore session before scenario ${scenarioKey}.`, {
+      scenarioKey,
+      currentUrl: page.url()
+    });
+  }
 }
 
 async function fillDialogFields(page, dialog, fields) {
@@ -387,9 +508,14 @@ async function openFirstDetailIfPresent(page, config) {
     `${config.key} detail`
   );
 
-  const closeButton = page.getByRole('button', { name: '关闭', exact: true }).first();
-  if ((await closeButton.count()) > 0) {
-    await closeButton.click();
+  const visibleDialog = page.getByRole('dialog').filter({ has: page.locator('.el-dialog') }).last();
+  if ((await visibleDialog.count()) > 0) {
+    const footerCloseButton = visibleDialog.locator('.el-dialog__footer button:has-text("关闭")').first();
+    if ((await footerCloseButton.count()) > 0) {
+      await footerCloseButton.click({ timeout: 5000 });
+    } else {
+      await page.keyboard.press('Escape');
+    }
   }
 
   return {
@@ -825,7 +951,7 @@ function createScenarios() {
           {
             key: 'organization',
             path: '/organization',
-            heading: '组织机构',
+            heading: '组织管理',
             listApi: '/api/organization/tree',
             openButton: '新增',
             dialogTitle: '新增组织机构',
@@ -880,17 +1006,13 @@ function createScenarios() {
       route: '/user',
       scope: 'delivery',
       run: async (page, state) => {
-        const [userListResult, roleListResult] = await openRoute(page, {
+        const [userListResult] = await openRoute(page, {
           path: '/user',
           heading: '用户管理',
           api: [
             {
               matcher: '/api/user/list',
               label: 'user list'
-            },
-            {
-              matcher: '/api/role/list',
-              label: 'user role options'
             }
           ]
         });
@@ -914,6 +1036,15 @@ function createScenarios() {
           { placeholder: '请输入密码', value: '123456' }
         ]);
 
+        const roleListResult = await expectApiResponse(
+          page,
+          '/api/role/list',
+          async () => {
+            await dialog.getByPlaceholder('请选择角色', { exact: true }).click();
+          },
+          'user role options'
+        );
+
         const roleOptions = roleListResult.payload?.data || [];
         const targetRoleName =
           roleOptions.find((item) => item.roleName === state.role?.name)?.roleName ||
@@ -924,7 +1055,6 @@ function createScenarios() {
           throw new AcceptanceError('No active role option is available for user creation.', roleListResult);
         }
 
-        await dialog.getByPlaceholder('请选择角色', { exact: true }).click();
         await page.locator('.el-select-dropdown__item', { hasText: targetRoleName }).first().click();
 
         const createResult = await expectApiResponse(
@@ -1031,7 +1161,9 @@ function createScenarios() {
           heading: '审计日志',
           api: [
             {
-              matcher: '/api/system/audit-log/list',
+              matcher: (response) =>
+                response.url().includes('/api/system/audit-log/list') ||
+                response.url().includes('/api/system/audit-log/page'),
               label: 'audit log list'
             }
           ]
@@ -1172,6 +1304,7 @@ async function writeOutputs(preflightResult, scenarioResults, summary) {
 
 async function runAcceptance() {
   await ensureLogs();
+  await preflightFrontendProxy();
   const preflightResult = await preflight();
 
   const browser = await chromium.launch({
@@ -1190,6 +1323,9 @@ async function runAcceptance() {
   for (const scenario of createScenarios()) {
     const startedAt = new Date().toISOString();
     try {
+      if (scenario.key !== 'login') {
+        await ensureScenarioLogin(page, scenario.key);
+      }
       const detail = await scenario.run(page, runtime);
       let screenshotPath;
       try {

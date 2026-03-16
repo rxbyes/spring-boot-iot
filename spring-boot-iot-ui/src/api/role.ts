@@ -1,9 +1,9 @@
 import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import type { ApiEnvelope, IdType } from '../types/api';
 
 export interface Role {
-  id?: number;
-  tenantId?: number;
+  id?: IdType;
+  tenantId?: IdType;
   roleName: string;
   roleCode: string;
   description?: string;
@@ -26,7 +26,7 @@ export function listRoles(params: {
   return request<Role[]>(path, { method: 'GET' });
 }
 
-export function getRole(id: number): Promise<ApiEnvelope<Role>> {
+export function getRole(id: IdType): Promise<ApiEnvelope<Role>> {
   return request<Role>(`/api/role/${id}`, { method: 'GET' });
 }
 
@@ -38,10 +38,10 @@ export function updateRole(data: Partial<Role>): Promise<ApiEnvelope<void>> {
   return request<void>('/api/role/update', { method: 'PUT', body: data });
 }
 
-export function deleteRole(id: number): Promise<ApiEnvelope<void>> {
+export function deleteRole(id: IdType): Promise<ApiEnvelope<void>> {
   return request<void>(`/api/role/${id}`, { method: 'DELETE' });
 }
 
-export function listUserRoles(userId: number): Promise<ApiEnvelope<Role[]>> {
+export function listUserRoles(userId: IdType): Promise<ApiEnvelope<Role[]>> {
   return request<Role[]>(`/api/role/user/${userId}`, { method: 'GET' });
 }
