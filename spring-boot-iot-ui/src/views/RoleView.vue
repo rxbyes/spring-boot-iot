@@ -65,7 +65,7 @@
       <el-table
         ref="tableRef"
         v-loading="loading"
-        :data="tableData"
+        :data="pagedTableData"
         border
         stripe
         style="width: 100%"
@@ -149,6 +149,8 @@
         title="角色管理导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
+        :preset-storage-key="exportColumnStorageKey"
+        :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
     </el-card>
@@ -156,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -200,6 +202,11 @@ const exportColumns: CsvColumn<any>[] = [
 ]
 const exportColumnStorageKey = 'role-view'
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  { label: '运维模板', keys: ['roleName', 'roleCode', 'status', 'updateTime'] },
+  { label: '管理模板', keys: ['roleName', 'roleCode', 'description', 'status', 'createTime'] }
+]
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,
@@ -210,6 +217,19 @@ const exportColumnDialogVisible = ref(false)
 
 // 加载状态
 const loading = ref(false)
+
+const pagedTableData = computed(() => {
+  const start = (pagination.pageNum - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return tableData.value.slice(start, end)
+})
+
+const normalizePageNum = () => {
+  const maxPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+  if (pagination.pageNum > maxPage) {
+    pagination.pageNum = maxPage
+  }
+}
 
 // 对话框
 const dialogVisible = ref(false)
@@ -243,6 +263,7 @@ const getRoles = async () => {
     if (res.code === 200) {
       tableData.value = res.data || []
       pagination.total = res.data?.length || 0
+      normalizePageNum()
     }
   } catch (error) {
     console.error('获取角色列表失败', error)
@@ -258,6 +279,7 @@ onMounted(() => {
 
 // 处理搜索
 const handleSearch = () => {
+  pagination.pageNum = 1
   getRoles()
 }
 
@@ -266,6 +288,7 @@ const handleReset = () => {
   searchForm.roleName = ''
   searchForm.roleCode = ''
   searchForm.status = undefined
+  pagination.pageNum = 1
   getRoles()
 }
 
@@ -299,7 +322,7 @@ const handleExportSelected = () => {
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('角色管理-当前结果.csv', tableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv('角色管理-当前结果.csv', pagedTableData.value, getResolvedExportColumns())
 }
 
 // 新增
@@ -380,13 +403,12 @@ const handleDialogClose = () => {
 // 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  getRoles()
+  normalizePageNum()
 }
 
 // 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
-  getRoles()
 }
 </script>
 

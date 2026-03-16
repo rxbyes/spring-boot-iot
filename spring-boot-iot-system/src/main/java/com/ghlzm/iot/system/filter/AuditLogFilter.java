@@ -14,10 +14,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 系统接口审计日志过滤器。
@@ -27,6 +33,13 @@ import java.util.Date;
 public class AuditLogFilter extends OncePerRequestFilter {
 
     private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final int MAX_CAPTURE_LENGTH = 4000;
+    private static final Pattern JSON_SENSITIVE_PATTERN = Pattern.compile(
+            "(?i)\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\"\\s*:\\s*\"[^\"]*\"");
+    private static final Pattern KV_SENSITIVE_PATTERN = Pattern.compile(
+            "(?i)(password|token|secret|authorization|accessToken|refreshToken|clientSecret)=([^&\\s]+)");
+    private static final Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile(
+            "(?i)(authorization\\s*:\\s*bearer\\s+)([^\\s,;]+)");
 
     private final AuditLogService auditLogService;
 
@@ -38,14 +51,21 @@ public class AuditLogFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        ContentCachingRequestWrapper requestWrapper = request instanceof ContentCachingRequestWrapper
+                ? (ContentCachingRequestWrapper) request
+                : new ContentCachingRequestWrapper(request, MAX_CAPTURE_LENGTH);
+        ContentCachingResponseWrapper responseWrapper = response instanceof ContentCachingResponseWrapper
+                ? (ContentCachingResponseWrapper) response
+                : new ContentCachingResponseWrapper(response);
         Exception chainException = null;
         try {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(requestWrapper, responseWrapper);
         } catch (Exception ex) {
             chainException = ex;
             throw ex;
         } finally {
-            recordAuditLog(request, response, chainException);
+            recordAuditLog(requestWrapper, responseWrapper, chainException);
+            responseWrapper.copyBodyToResponse();
         }
     }
 
@@ -64,11 +84,11 @@ public class AuditLogFilter extends OncePerRequestFilter {
         auditLog.setRequestUrl(request.getRequestURI());
         auditLog.setRequestMethod(request.getMethod());
         auditLog.setRequestParams(resolveRequestParams(request));
-        auditLog.setResponseResult("HTTP " + response.getStatus());
+        auditLog.setResponseResult(resolveResponseResult(response));
         auditLog.setIpAddress(resolveIp(request));
         auditLog.setLocation("");
         auditLog.setOperationResult(chainException == null && response.getStatus() < 400 ? 1 : 0);
-        auditLog.setResultMessage(chainException == null ? "OK" : chainException.getMessage());
+        auditLog.setResultMessage(resolveResultMessage(response, chainException));
         auditLog.setOperationTime(now);
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
@@ -123,7 +143,47 @@ public class AuditLogFilter extends OncePerRequestFilter {
 
     private String resolveRequestParams(HttpServletRequest request) {
         String queryString = request.getQueryString();
-        return StringUtils.hasText(queryString) ? queryString : "";
+        String queryPart = StringUtils.hasText(queryString) ? "query: " + sanitizeAndTruncate(queryString) : "";
+        String bodyPart = resolveRequestBody(request);
+        if (StringUtils.hasText(queryPart) && StringUtils.hasText(bodyPart)) {
+            return queryPart + "\nbody: " + bodyPart;
+        }
+        return StringUtils.hasText(bodyPart) ? "body: " + bodyPart : queryPart;
+    }
+
+    private String resolveRequestBody(HttpServletRequest request) {
+        if (!(request instanceof ContentCachingRequestWrapper wrapper)) {
+            return "";
+        }
+        byte[] content = wrapper.getContentAsByteArray();
+        if (content.length == 0) {
+            return "";
+        }
+        Charset charset = resolveCharset(wrapper.getCharacterEncoding());
+        return sanitizeAndTruncate(new String(content, charset));
+    }
+
+    private String resolveResponseResult(HttpServletResponse response) {
+        if (!(response instanceof ContentCachingResponseWrapper wrapper)) {
+            return "HTTP " + response.getStatus();
+        }
+        byte[] content = wrapper.getContentAsByteArray();
+        if (content.length == 0) {
+            return "HTTP " + response.getStatus();
+        }
+        Charset charset = resolveCharset(wrapper.getCharacterEncoding());
+        String responseBody = sanitizeAndTruncate(new String(content, charset));
+        if (!StringUtils.hasText(responseBody)) {
+            return "HTTP " + response.getStatus();
+        }
+        return "HTTP " + response.getStatus() + " body: " + responseBody;
+    }
+
+    private String resolveResultMessage(HttpServletResponse response, Exception chainException) {
+        if (chainException != null && StringUtils.hasText(chainException.getMessage())) {
+            return truncate(chainException.getMessage());
+        }
+        return response.getStatus() < 400 ? "OK" : "HTTP " + response.getStatus();
     }
 
     private String resolveOperationMethod(HttpServletRequest request) {
@@ -131,7 +191,49 @@ public class AuditLogFilter extends OncePerRequestFilter {
         if (handler instanceof HandlerMethod handlerMethod) {
             return handlerMethod.getBeanType().getSimpleName() + "#" + handlerMethod.getMethod().getName();
         }
+        Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        if (pattern != null) {
+            return request.getMethod() + ":" + pattern;
+        }
         return request.getMethod() + ":" + request.getRequestURI();
+    }
+
+    private Charset resolveCharset(String characterEncoding) {
+        if (!StringUtils.hasText(characterEncoding)) {
+            return StandardCharsets.UTF_8;
+        }
+        try {
+            return Charset.forName(characterEncoding);
+        } catch (Exception ex) {
+            return StandardCharsets.UTF_8;
+        }
+    }
+
+    private String sanitizeAndTruncate(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String sanitized = maskSensitive(text);
+        return truncate(sanitized);
+    }
+
+    private String maskSensitive(String text) {
+        String masked = replaceWithPattern(text, JSON_SENSITIVE_PATTERN, "\"$1\":\"***\"");
+        masked = replaceWithPattern(masked, KV_SENSITIVE_PATTERN, "$1=***");
+        masked = replaceWithPattern(masked, AUTHORIZATION_HEADER_PATTERN, "$1***");
+        return masked;
+    }
+
+    private String replaceWithPattern(String text, Pattern pattern, String replacement) {
+        Matcher matcher = pattern.matcher(text);
+        return matcher.replaceAll(replacement);
+    }
+
+    private String truncate(String text) {
+        if (!StringUtils.hasText(text) || text.length() <= MAX_CAPTURE_LENGTH) {
+            return text;
+        }
+        return text.substring(0, MAX_CAPTURE_LENGTH) + "...(truncated)";
     }
 
     private String resolveIp(HttpServletRequest request) {

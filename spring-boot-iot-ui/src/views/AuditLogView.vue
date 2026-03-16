@@ -137,11 +137,11 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="请求参数" :span="2">
-            <el-text v-if="detailData.requestParams" wrap>{{ detailData.requestParams }}</el-text>
+            <el-text v-if="detailData.requestParams" wrap class="detail-payload">{{ formatDetailPayload(detailData.requestParams) }}</el-text>
             <el-text v-else wrap>-</el-text>
           </el-descriptions-item>
           <el-descriptions-item label="响应结果" :span="2">
-            <el-text v-if="detailData.responseResult" wrap>{{ detailData.responseResult }}</el-text>
+            <el-text v-if="detailData.responseResult" wrap class="detail-payload">{{ formatDetailPayload(detailData.responseResult) }}</el-text>
             <el-text v-else wrap>-</el-text>
           </el-descriptions-item>
           <el-descriptions-item label="结果消息" :span="2">
@@ -159,6 +159,8 @@
         title="审计日志导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
+        :preset-storage-key="exportColumnStorageKey"
+        :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
     </el-card>
@@ -209,6 +211,14 @@ const exportColumns: CsvColumn<any>[] = [
 ]
 const exportColumnStorageKey = 'audit-log-view'
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  {
+    label: '运维模板',
+    keys: ['operationType', 'operationModule', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult']
+  },
+  { label: '管理模板', keys: ['operationType', 'operationModule', 'operationMethod', 'userName', 'operationTime', 'operationResult'] }
+]
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,
@@ -366,6 +376,20 @@ const formatDate = (date: string) => {
   if (!date) return '-'
   return new Date(date).toLocaleString('zh-CN')
 }
+
+const formatDetailPayload = (payload: string) => {
+  if (!payload) return '-'
+  const text = String(payload)
+  const trimmed = text.trim()
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2)
+    } catch {
+      return text
+    }
+  }
+  return text
+}
 </script>
 
 <style scoped>
@@ -391,5 +415,11 @@ const formatDate = (date: string) => {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+
+.detail-payload {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 </style>

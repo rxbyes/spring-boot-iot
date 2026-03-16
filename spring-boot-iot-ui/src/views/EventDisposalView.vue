@@ -165,6 +165,8 @@
       title="事件处置导出列设置"
       :options="exportColumnOptions"
       :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
   </div>
@@ -208,6 +210,14 @@ const exportColumns: CsvColumn<EventRecord>[] = [
 ];
 const exportColumnStorageKey = 'event-disposal-view';
 const exportColumnOptions = toCsvColumnOptions(exportColumns);
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  {
+    label: '运维模板',
+    keys: ['eventCode', 'eventTitle', 'riskLevel', 'deviceName', 'metricName', 'currentValue', 'status', 'triggerTime']
+  },
+  { label: '管理模板', keys: ['eventCode', 'eventTitle', 'riskLevel', 'regionName', 'riskPointName', 'status', 'triggerTime'] }
+];
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,

@@ -227,6 +227,8 @@
         title="字典配置导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
+        :preset-storage-key="exportColumnStorageKey"
+        :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
 
@@ -235,6 +237,8 @@
         title="字典项导出列设置"
         :options="itemExportColumnOptions"
         :selected-keys="selectedItemExportColumnKeys"
+        :preset-storage-key="itemExportColumnStorageKey"
+        :presets="itemExportPresets"
         @confirm="handleItemExportColumnConfirm"
       />
     </el-card>
@@ -297,6 +301,11 @@ const exportColumns: CsvColumn<any>[] = [
 ]
 const exportColumnStorageKey = 'dict-view'
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  { label: '运维模板', keys: ['dictCode', 'dictName', 'dictType', 'status'] },
+  { label: '管理模板', keys: ['dictCode', 'dictName', 'dictType', 'status', 'sortNo', 'remark'] }
+]
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,
@@ -347,6 +356,11 @@ const itemExportColumns: CsvColumn<any>[] = [
 ]
 const itemExportColumnStorageKey = 'dict-item-view'
 const itemExportColumnOptions = toCsvColumnOptions(itemExportColumns)
+const itemExportPresets = [
+  { label: '默认模板', keys: itemExportColumns.map((column) => String(column.key)) },
+  { label: '运维模板', keys: ['itemName', 'itemValue', 'itemType', 'status'] },
+  { label: '管理模板', keys: ['itemName', 'itemValue', 'itemType', 'status', 'sortNo'] }
+]
 const selectedItemExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     itemExportColumnStorageKey,

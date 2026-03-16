@@ -617,6 +617,23 @@ Authorization: Bearer <jwt-token>
 - 其余接口默认需要 `Authorization: Bearer <jwt-token>`
 - 前端未登录访问受保护页面时，会统一跳转到 `/login`
 - 前端登录后，顶部导航、左侧菜单、按钮权限均应以 `authContext` 为准，不再以页面硬编码角色配置为准
+
+## 审计日志采集说明（2026-03-17）
+
+适用范围：
+- 自动采集范围保持不变：`/api/**`（排除 `/api/system/audit-log/**` 与 `/api/auth/login`）。
+
+采集字段增强：
+- `requestParams`：优先记录 query + 请求体（JSON/Form 等），不再仅记录 query string。
+- `responseResult`：记录 `HTTP 状态码` + 响应体摘要（有内容时）。
+- `operationMethod`：优先记录 `Controller#method`，无法解析时回退到匹配路由模板。
+
+安全与容量控制：
+- 对 `password/token/secret/authorization/accessToken/refreshToken/clientSecret` 等敏感字段自动脱敏（`***`）。
+- 请求与响应内容按固定上限截断并追加 `...(truncated)`，避免超长日志影响查询与展示。
+
+审计详情接口：
+- `GET /api/system/audit-log/get/{id}`：返回增强后的 `requestParams`、`responseResult`、`resultMessage` 供前端详情页展示。
 ## Phase 4 风险监测 API
 
 ### 实时监测列表

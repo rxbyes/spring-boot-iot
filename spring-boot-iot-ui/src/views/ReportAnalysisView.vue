@@ -56,6 +56,10 @@
       <el-skeleton v-if="loading" :rows="8" />
       <div v-else-if="riskTrendData.length > 0" class="chart-container">
         <div ref="riskTrendChart" class="echart-container"></div>
+        <div v-if="!chartVisible.riskTrend" class="chart-lazy-placeholder" aria-live="polite">
+          <p>滚动到该区域后自动加载图表</p>
+          <button type="button" @click="loadChartNow('riskTrend')">立即加载</button>
+        </div>
       </div>
       <el-empty v-else description="暂无风险趋势数据" />
 
@@ -64,6 +68,10 @@
       <el-skeleton v-if="loading" :rows="8" />
       <div v-else-if="alarmStatistics" class="chart-container">
         <div ref="alarmLevelChart" class="echart-container"></div>
+        <div v-if="!chartVisible.alarmLevel" class="chart-lazy-placeholder" aria-live="polite">
+          <p>滚动到该区域后自动加载图表</p>
+          <button type="button" @click="loadChartNow('alarmLevel')">立即加载</button>
+        </div>
       </div>
       <el-empty v-else description="暂无告警等级数据" />
 
@@ -72,6 +80,10 @@
       <el-skeleton v-if="loading" :rows="8" />
       <div v-else-if="eventStatistics" class="chart-container">
         <div ref="eventClosureChart" class="echart-container"></div>
+        <div v-if="!chartVisible.eventClosure" class="chart-lazy-placeholder" aria-live="polite">
+          <p>滚动到该区域后自动加载图表</p>
+          <button type="button" @click="loadChartNow('eventClosure')">立即加载</button>
+        </div>
       </div>
       <el-empty v-else description="暂无事件闭环数据" />
 
@@ -80,6 +92,10 @@
       <el-skeleton v-if="loading" :rows="8" />
       <div v-else-if="deviceHealthStatistics" class="chart-container">
         <div ref="deviceHealthChart" class="echart-container"></div>
+        <div v-if="!chartVisible.deviceHealth" class="chart-lazy-placeholder" aria-live="polite">
+          <p>滚动到该区域后自动加载图表</p>
+          <button type="button" @click="loadChartNow('deviceHealth')">立即加载</button>
+        </div>
       </div>
       <el-empty v-else description="暂无设备健康数据" />
     </el-card>
@@ -386,6 +402,15 @@ const refreshVisibleCharts = () => {
   })
 }
 
+const loadChartNow = (key: keyof typeof chartVisible) => {
+  chartVisible[key] = true
+  const element = chartElements[key]
+  if (element && visibilityObserver) {
+    visibilityObserver.unobserve(element)
+  }
+  refreshVisibleCharts()
+}
+
 const observeChartVisibility = () => {
   chartElements.riskTrend = riskTrendChart.value
   chartElements.alarmLevel = alarmLevelChart.value
@@ -521,12 +546,48 @@ onBeforeUnmount(() => {
   }
 
   .chart-container {
+    position: relative;
     height: 400px;
     margin-bottom: 20px;
 
     .echart-container {
       width: 100%;
       height: 100%;
+    }
+
+    .chart-lazy-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      color: #6b7d95;
+      font-size: 14px;
+      border: 1px dashed #d8e4f5;
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(247, 251, 255, 0.72), rgba(241, 247, 255, 0.62));
+
+      p {
+        margin: 0;
+      }
+
+      button {
+        min-height: 32px;
+        padding: 0 14px;
+        border-radius: 6px;
+        border: 1px solid #bed1ef;
+        background: #fff;
+        color: #1668dc;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: #9dc0ef;
+        background: #f3f8ff;
+      }
     }
   }
 }

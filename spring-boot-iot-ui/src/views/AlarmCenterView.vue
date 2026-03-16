@@ -131,6 +131,8 @@
       title="告警中心导出列设置"
       :options="exportColumnOptions"
       :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
   </div>
@@ -173,6 +175,14 @@ const exportColumns: CsvColumn<AlarmRecord>[] = [
 ];
 const exportColumnStorageKey = 'alarm-center-view';
 const exportColumnOptions = toCsvColumnOptions(exportColumns);
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  {
+    label: '运维模板',
+    keys: ['alarmCode', 'alarmTitle', 'alarmLevel', 'deviceName', 'metricName', 'currentValue', 'thresholdValue', 'status', 'triggerTime']
+  },
+  { label: '管理模板', keys: ['alarmCode', 'alarmTitle', 'alarmLevel', 'regionName', 'riskPointName', 'status', 'triggerTime'] }
+];
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,

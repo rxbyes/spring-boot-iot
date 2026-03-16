@@ -5,7 +5,13 @@ export interface CsvColumnOption {
   label: string
 }
 
+export interface CsvColumnPreset {
+  label: string
+  keys: string[]
+}
+
 const STORAGE_PREFIX = 'iot.csv.columns.'
+const PRESET_STORAGE_PREFIX = 'iot.csv.presets.'
 
 export const loadCsvColumnSelection = (storageKey: string, defaultKeys: string[]): string[] => {
   try {
@@ -28,6 +34,36 @@ export const saveCsvColumnSelection = (storageKey: string, selectedKeys: string[
     localStorage.setItem(`${STORAGE_PREFIX}${storageKey}`, JSON.stringify(selectedKeys))
   } catch {
     // 忽略本地存储异常，避免阻断导出主流程
+  }
+}
+
+export const loadCsvPresetTemplates = (storageKey: string): CsvColumnPreset[] => {
+  try {
+    const raw = localStorage.getItem(`${PRESET_STORAGE_PREFIX}${storageKey}`)
+    if (!raw) {
+      return []
+    }
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed
+      .filter((item) => item && typeof item.label === 'string' && Array.isArray(item.keys))
+      .map((item) => ({
+        label: item.label.trim(),
+        keys: item.keys.filter((key: unknown) => typeof key === 'string')
+      }))
+      .filter((item) => item.label && item.keys.length)
+  } catch {
+    return []
+  }
+}
+
+export const saveCsvPresetTemplates = (storageKey: string, presets: CsvColumnPreset[]) => {
+  try {
+    localStorage.setItem(`${PRESET_STORAGE_PREFIX}${storageKey}`, JSON.stringify(presets))
+  } catch {
+    // 忽略本地存储异常，避免阻断主流程
   }
 }
 

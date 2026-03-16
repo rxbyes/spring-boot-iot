@@ -169,6 +169,8 @@
         title="通知渠道导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
+        :preset-storage-key="exportColumnStorageKey"
+        :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
     </el-card>
@@ -227,6 +229,11 @@ const exportColumns: CsvColumn<any>[] = [
 ]
 const exportColumnStorageKey = 'channel-view'
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
+  { label: '运维模板', keys: ['channelCode', 'channelName', 'channelType', 'status'] },
+  { label: '管理模板', keys: ['channelCode', 'channelName', 'channelType', 'status', 'sortNo', 'remark'] }
+]
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,

@@ -7,7 +7,9 @@ import com.ghlzm.iot.system.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 审计日志 Controller
@@ -32,10 +34,17 @@ public class AuditLogController {
        * 分页查询审计日志
        */
       @GetMapping("/page")
-      public R<PageResult<AuditLog>> pageLogs(AuditLog log,
+      public R<Map<String, Object>> pageLogs(AuditLog log,
                   @RequestParam(defaultValue = "1") Integer pageNum,
                   @RequestParam(defaultValue = "10") Integer pageSize) {
-            return R.ok(auditLogService.pageLogs(log, pageNum, pageSize));
+            PageResult<AuditLog> page = auditLogService.pageLogs(log, pageNum, pageSize);
+            // 显式返回标准分页结构，避免历史序列化差异导致前端拿到数组而非对象
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("total", page.getTotal());
+            payload.put("pageNum", page.getPageNum());
+            payload.put("pageSize", page.getPageSize());
+            payload.put("records", page.getRecords());
+            return R.ok(payload);
       }
 
       /**
