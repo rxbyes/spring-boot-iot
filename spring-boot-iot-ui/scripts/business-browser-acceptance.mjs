@@ -36,6 +36,11 @@ function normalizeBaseUrl(value) {
 
 function detectBrowserPath() {
   const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -190,6 +195,10 @@ async function openRoute(page, config) {
       })
       .then(readApiResponse)
       .then((result) => assertApiSuccess(result, entry.label))
+      .catch((error) => ({
+        __error: error instanceof Error ? error.message : String(error),
+        __label: entry.label
+      }))
   );
 
   await page.goto(buildUrl(frontendBaseUrl, config.path), {
@@ -197,7 +206,17 @@ async function openRoute(page, config) {
   });
   await waitForToolbarHeading(page, config.heading);
 
-  return waits.length > 0 ? Promise.all(waits) : [];
+  if (waits.length === 0) {
+    return [];
+  }
+
+  const settled = await Promise.all(waits);
+  for (const item of settled) {
+    if (item && item.__error) {
+      throw new AcceptanceError(`${item.__label} wait failed: ${item.__error}`);
+    }
+  }
+  return settled;
 }
 
 async function login(page) {
@@ -412,7 +431,7 @@ function createScenarios() {
             await page.locator('#product-name').fill(state.product.name);
             await page.locator('#protocol-code').fill('mqtt-json');
             await page.locator('#data-format').fill('JSON');
-            await page.getByRole('button', { name: '提交产品', exact: true }).click();
+            await page.locator('#data-format').press('Enter');
           },
           'product add'
         );
@@ -428,7 +447,7 @@ function createScenarios() {
           (response) => response.url().includes(`/device/product/${productId}`),
           async () => {
             await page.locator('#query-product-id').fill(String(productId));
-            await page.getByRole('button', { name: '查询产品', exact: true }).click();
+            await page.locator('#query-product-id').press('Enter');
           },
           'product query'
         );
@@ -1172,7 +1191,12 @@ async function runAcceptance() {
     const startedAt = new Date().toISOString();
     try {
       const detail = await scenario.run(page, runtime);
-      const screenshotPath = await captureScreenshot(page, scenario.key);
+      let screenshotPath;
+      try {
+        screenshotPath = await captureScreenshot(page, scenario.key);
+      } catch {
+        screenshotPath = undefined;
+      }
       scenarioResults.push(
         compact({
           key: scenario.key,
@@ -1187,7 +1211,12 @@ async function runAcceptance() {
         })
       );
     } catch (error) {
-      const screenshotPath = await captureScreenshot(page, scenario.key, 'fail');
+      let screenshotPath;
+      try {
+        screenshotPath = await captureScreenshot(page, scenario.key, 'fail');
+      } catch {
+        screenshotPath = undefined;
+      }
       scenarioResults.push(
         compact({
           key: scenario.key,
