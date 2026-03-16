@@ -52,12 +52,12 @@ describe('CacheManager', () => {
             expect(cacheManager.size()).toBe(2);
       });
 
-      it('should use default TTL', () => {
+      it('should use default TTL', async () => {
             cacheManager.setDefaultTTL(100); // 100ms TTL
             cacheManager.set('key', 'value');
             expect(cacheManager.get<string>('key')).toBe('value');
 
-            // Wait for TTL to expire
+            await new Promise(resolve => setTimeout(resolve, 150));
             expect(cacheManager.get<string>('key')).toBeNull();
       });
 });

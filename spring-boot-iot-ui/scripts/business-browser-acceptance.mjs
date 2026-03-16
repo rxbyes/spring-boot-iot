@@ -425,7 +425,7 @@ function createScenarios() {
 
         const createResult = await expectApiResponse(
           page,
-          '/device/product/add',
+          '/api/device/product/add',
           async () => {
             await page.locator('#product-key').fill(state.product.key);
             await page.locator('#product-name').fill(state.product.name);
@@ -444,7 +444,7 @@ function createScenarios() {
 
         const queryResult = await expectApiResponse(
           page,
-          (response) => response.url().includes(`/device/product/${productId}`),
+          (response) => response.url().includes(`/api/device/product/${productId}`),
           async () => {
             await page.locator('#query-product-id').fill(String(productId));
             await page.locator('#query-product-id').press('Enter');
@@ -481,7 +481,7 @@ function createScenarios() {
 
         const createResult = await expectApiResponse(
           page,
-          '/device/add',
+          '/api/device/add',
           async () => {
             await page.locator('#device-product-key').fill(state.product.key);
             await page.locator('#device-name').fill(state.device.name);
@@ -506,7 +506,7 @@ function createScenarios() {
 
         const queryByIdResult = await expectApiResponse(
           page,
-          (response) => response.url().includes(`/device/${deviceId}`),
+          (response) => response.url().includes(`/api/device/${deviceId}`),
           async () => {
             await page.locator('#query-device-id').fill(String(deviceId));
             await page.getByRole('button', { name: '按 ID 查询', exact: true }).click();
@@ -516,7 +516,7 @@ function createScenarios() {
 
         const queryByCodeResult = await expectApiResponse(
           page,
-          (response) => response.url().includes(`/device/code/${state.device.code}`),
+          (response) => response.url().includes(`/api/device/code/${state.device.code}`),
           async () => {
             await page.locator('#query-device-code').fill(state.device.code);
             await page.getByRole('button', { name: '按编码查询', exact: true }).click();
@@ -593,15 +593,15 @@ function createScenarios() {
           heading: '监测对象工作台',
           api: [
             {
-              matcher: (response) => response.url().includes(`/device/code/${state.device.code}`),
+              matcher: (response) => response.url().includes(`/api/device/code/${state.device.code}`),
               label: 'device detail for insight'
             },
             {
-              matcher: (response) => response.url().includes(`/device/${state.device.code}/properties`),
+              matcher: (response) => response.url().includes(`/api/device/${state.device.code}/properties`),
               label: 'device property snapshot'
             },
             {
-              matcher: (response) => response.url().includes(`/device/${state.device.code}/message-logs`),
+              matcher: (response) => response.url().includes(`/api/device/${state.device.code}/message-logs`),
               label: 'device message logs'
             }
           ]

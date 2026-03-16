@@ -11,7 +11,7 @@
     </div>
 
     <div class="event-filters">
-      <el-form :model="filters" label-position="left">
+      <el-form :model="filters" label-position="left" class="event-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="设备编码">
@@ -39,9 +39,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
+            <el-form-item label="" class="event-filter-actions">
+              <el-button type="primary" class="event-btn event-btn--primary" @click="handleSearch">查询</el-button>
+              <el-button class="event-btn event-btn--ghost" @click="handleReset">重置</el-button>
             </el-form-item>
           </el-col>
         </el-row>
@@ -90,7 +90,7 @@
       />
     </div>
 
-    <el-dialog v-model="detailVisible" title="事件详情" width="800px">
+    <el-dialog v-model="detailVisible" title="事件详情" width="800px" class="event-dialog">
       <el-descriptions v-if="detail" :column="2" border>
         <el-descriptions-item label="事件编号">{{ detail.eventCode || '-' }}</el-descriptions-item>
         <el-descriptions-item label="事件标题">{{ detail.eventTitle || '-' }}</el-descriptions-item>
@@ -106,11 +106,11 @@
       </el-descriptions>
       <el-empty v-else description="暂无数据" />
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button class="event-btn event-btn--ghost" @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="dispatchVisible" title="工单派发" width="500px">
+    <el-dialog v-model="dispatchVisible" title="工单派发" width="500px" class="event-dialog">
       <el-form :model="dispatchForm" label-position="left">
         <el-form-item label="派发人">
           <el-input v-model="dispatchForm.dispatchUserName" disabled />
@@ -130,20 +130,20 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dispatchVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleDispatchConfirm">确定</el-button>
+        <el-button class="event-btn event-btn--ghost" @click="dispatchVisible = false">取消</el-button>
+        <el-button type="primary" class="event-btn event-btn--primary" @click="handleDispatchConfirm">确定</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="closeVisible" title="事件关闭" width="500px">
+    <el-dialog v-model="closeVisible" title="事件关闭" width="500px" class="event-dialog">
       <el-form :model="closeForm" label-position="left">
         <el-form-item label="关闭原因">
           <el-input v-model="closeForm.closeReason" type="textarea" :rows="3" placeholder="请输入关闭原因" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="closeVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCloseConfirm">确定</el-button>
+        <el-button class="event-btn event-btn--ghost" @click="closeVisible = false">取消</el-button>
+        <el-button type="primary" class="event-btn event-btn--primary" @click="handleCloseConfirm">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -366,6 +366,9 @@ onMounted(() => {
 <style scoped>
 .event-disposal-view {
   padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 
 .event-header {
@@ -374,28 +377,92 @@ onMounted(() => {
 
 .event-header h1 {
   font-size: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .event-stats {
   display: flex;
-  gap: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.event-stats :deep(.el-statistic) {
+  min-width: 170px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94));
+  box-shadow: var(--shadow-sm);
 }
 
 .event-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  margin-bottom: 16px;
+  padding: 16px 16px 8px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.event-filter-form :deep(.el-form-item__label) {
+  color: var(--text-secondary);
+}
+
+.event-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.event-btn {
+  border-radius: 999px;
+  padding-inline: 16px;
+}
+
+.event-btn--primary {
+  box-shadow: var(--shadow-brand);
+}
+
+.event-btn--ghost {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(130deg, #fff, #f6f9ff);
+  color: var(--text-secondary);
 }
 
 .event-list {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
 }
 
 .event-pagination {
   display: flex;
   justify-content: flex-end;
+  padding: 8px 0 2px;
+}
+
+.event-dialog :deep(.el-dialog__header) {
+  margin-right: 0;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.95));
+}
+
+.event-dialog :deep(.el-dialog__title) {
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.event-dialog :deep(.el-dialog__body) {
+  padding: 16px 20px;
+  background: #fff;
+}
+
+.event-dialog :deep(.el-dialog__footer) {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.9), rgba(245, 249, 255, 0.96));
 }
 </style>

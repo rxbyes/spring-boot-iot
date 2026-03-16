@@ -1,4 +1,5 @@
 import { request } from './request';
+import { buildQueryString } from './query';
 import type { ApiEnvelope } from '../types/api';
 
 /**
@@ -28,27 +29,27 @@ export const getPlanList = (params?: {
       riskLevel?: string;
       status?: number;
 }): Promise<ApiEnvelope<EmergencyPlan[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
-      const path = queryString ? `/emergency-plan/list?${queryString}` : '/emergency-plan/list';
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/emergency-plan/list?${queryString}` : '/api/emergency-plan/list';
       return request<EmergencyPlan[]>(path, { method: 'GET' });
 };
 
 // 获取预案详情
 export const getPlanById = (id: number): Promise<ApiEnvelope<EmergencyPlan>> => {
-      return request<EmergencyPlan>(`/emergency-plan/get/${id}`, { method: 'GET' });
+      return request<EmergencyPlan>(`/api/emergency-plan/get/${id}`, { method: 'GET' });
 };
 
 // 新增预案
 export const addPlan = (data: Partial<EmergencyPlan>): Promise<ApiEnvelope<EmergencyPlan>> => {
-      return request<EmergencyPlan>('/emergency-plan/add', { method: 'POST', body: data });
+      return request<EmergencyPlan>('/api/emergency-plan/add', { method: 'POST', body: data });
 };
 
 // 更新预案
 export const updatePlan = (data: Partial<EmergencyPlan>): Promise<ApiEnvelope<EmergencyPlan>> => {
-      return request<EmergencyPlan>('/emergency-plan/update', { method: 'POST', body: data });
+      return request<EmergencyPlan>('/api/emergency-plan/update', { method: 'POST', body: data });
 };
 
 // 删除预案
 export const deletePlan = (id: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/emergency-plan/delete/${id}`, { method: 'POST' });
+      return request<void>(`/api/emergency-plan/delete/${id}`, { method: 'POST' });
 };

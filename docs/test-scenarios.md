@@ -70,7 +70,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 ## 4. HTTP 主链路真实环境验收
 ### 步骤 1：创建产品
 ```bash
-curl -X POST http://localhost:9999/device/product/add \
+curl -X POST http://localhost:9999/api/device/product/add \
   -H "Content-Type: application/json" \
   -d '{
     "productKey":"accept-http-product-01",
@@ -83,7 +83,7 @@ curl -X POST http://localhost:9999/device/product/add \
 
 ### 步骤 2：创建设备
 ```bash
-curl -X POST http://localhost:9999/device/add \
+curl -X POST http://localhost:9999/api/device/add \
   -H "Content-Type: application/json" \
   -d '{
     "productKey":"accept-http-product-01",
@@ -113,9 +113,9 @@ curl -X POST http://localhost:9999/message/http/report \
 
 ### 步骤 4：查询验证
 ```bash
-curl http://localhost:9999/device/accept-http-device-01/properties
-curl http://localhost:9999/device/accept-http-device-01/message-logs
-curl http://localhost:9999/device/code/accept-http-device-01
+curl http://localhost:9999/api/device/accept-http-device-01/properties
+curl http://localhost:9999/api/device/accept-http-device-01/message-logs
+curl http://localhost:9999/api/device/code/accept-http-device-01
 ```
 
 ### 通过标准
@@ -154,8 +154,8 @@ Payload：
 
 ### 通过标准
 - 应用日志可见 MQTT 收到消息并进入统一主链路
-- `GET /device/accept-http-device-01/properties` 可见最新值
-- `GET /device/accept-http-device-01/message-logs` 返回标准 topic 记录
+- `GET /api/device/accept-http-device-01/properties` 可见最新值
+- `GET /api/device/accept-http-device-01/message-logs` 返回标准 topic 记录
 - `iot_device.online_status = 1`
 - Redis 会话 `iot:device:session:accept-http-device-01` 刷新 `lastSeenTime`
 
@@ -318,8 +318,8 @@ curl http://localhost:9999/api/auth/me \
 
 ### 步骤 5：验证设备管理接口鉴权
 ```bash
-curl http://localhost:9999/device/code/accept-http-device-01
-curl http://localhost:9999/device/code/accept-http-device-01 \
+curl http://localhost:9999/api/device/code/accept-http-device-01
+curl http://localhost:9999/api/device/code/accept-http-device-01 \
   -H "Authorization: Bearer <token>"
 ```
 

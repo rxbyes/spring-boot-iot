@@ -22,7 +22,7 @@ export const messageApi = {
    * 查询设备消息日志
    */
   getDeviceMessageLogs(deviceCode: string) {
-    return request<DeviceMessageLog[]>(`/device/${deviceCode}/message-logs`);
+    return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`);
   },
 
   /**

@@ -1,4 +1,5 @@
 import { request } from './request';
+import { buildQueryString } from './query';
 import type { ApiEnvelope } from '../types/api';
 
 /**
@@ -26,27 +27,27 @@ export const getRuleList = (params?: {
       ruleName?: string;
       status?: number;
 }): Promise<ApiEnvelope<LinkageRule[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
-      const path = queryString ? `/linkage-rule/list?${queryString}` : '/linkage-rule/list';
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/linkage-rule/list?${queryString}` : '/api/linkage-rule/list';
       return request<LinkageRule[]>(path, { method: 'GET' });
 };
 
 // 获取规则详情
 export const getRuleById = (id: number): Promise<ApiEnvelope<LinkageRule>> => {
-      return request<LinkageRule>(`/linkage-rule/get/${id}`, { method: 'GET' });
+      return request<LinkageRule>(`/api/linkage-rule/get/${id}`, { method: 'GET' });
 };
 
 // 新增规则
 export const addRule = (data: Partial<LinkageRule>): Promise<ApiEnvelope<LinkageRule>> => {
-      return request<LinkageRule>('/linkage-rule/add', { method: 'POST', body: data });
+      return request<LinkageRule>('/api/linkage-rule/add', { method: 'POST', body: data });
 };
 
 // 更新规则
 export const updateRule = (data: Partial<LinkageRule>): Promise<ApiEnvelope<LinkageRule>> => {
-      return request<LinkageRule>('/linkage-rule/update', { method: 'POST', body: data });
+      return request<LinkageRule>('/api/linkage-rule/update', { method: 'POST', body: data });
 };
 
 // 删除规则
 export const deleteRule = (id: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/linkage-rule/delete/${id}`, { method: 'POST' });
+      return request<void>(`/api/linkage-rule/delete/${id}`, { method: 'POST' });
 };

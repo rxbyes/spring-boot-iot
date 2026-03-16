@@ -84,9 +84,9 @@
         </el-form-item>
         <el-form-item label="风险等级" prop="riskLevel">
           <el-radio-group v-model="form.riskLevel">
-            <el-radio label="critical">严重</el-radio>
-            <el-radio label="warning">警告</el-radio>
-            <el-radio label="info">提醒</el-radio>
+            <el-radio value="critical">严重</el-radio>
+            <el-radio value="warning">警告</el-radio>
+            <el-radio value="info">提醒</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="描述" prop="description">
@@ -100,8 +100,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="0">启用</el-radio>
-            <el-radio :label="1">停用</el-radio>
+            <el-radio :value="0">启用</el-radio>
+            <el-radio :value="1">停用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

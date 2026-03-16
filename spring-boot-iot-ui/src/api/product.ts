@@ -12,7 +12,7 @@ export const productApi = {
    * 新增产品
    */
   addProduct(payload: ProductAddPayload) {
-    return request<Product>('/device/product/add', {
+    return request<Product>('/api/device/product/add', {
       method: 'POST',
       body: payload
     });
@@ -22,21 +22,21 @@ export const productApi = {
    * 根据ID查询产品
    */
   getProductById(id: string | number) {
-    return request<Product>(`/device/product/${id}`);
+    return request<Product>(`/api/device/product/${id}`);
   },
 
   /**
    * 查询所有产品
    */
   getAllProducts() {
-    return request<Product[]>('/device/product/list');
+    return request<Product[]>('/api/device/product/list');
   },
 
   /**
    * 更新产品
    */
   updateProduct(id: string | number, payload: Partial<ProductAddPayload>) {
-    return request<Product>(`/device/product/${id}`, {
+    return request<Product>(`/api/device/product/${id}`, {
       method: 'PUT',
       body: payload
     });
@@ -46,7 +46,7 @@ export const productApi = {
    * 删除产品
    */
   deleteProduct(id: string | number) {
-    return request<null>(`/device/product/${id}`, {
+    return request<null>(`/api/device/product/${id}`, {
       method: 'DELETE'
     });
   }

@@ -1,4 +1,5 @@
 import { request } from './request';
+import { buildQueryString } from './query';
 import type { ApiEnvelope } from '../types/api';
 
 /**
@@ -112,7 +113,7 @@ export const getAlarmList = (params?: {
       status?: number;
       alarmLevel?: string;
 }): Promise<ApiEnvelope<AlarmRecord[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
+      const queryString = buildQueryString(params);
       const path = queryString ? `/api/alarm/list?${queryString}` : '/api/alarm/list';
       return request<AlarmRecord[]>(path, { method: 'GET' });
 };
@@ -124,17 +125,17 @@ export const getAlarmDetail = (id: number): Promise<ApiEnvelope<AlarmRecord>> =>
 
 // 确认告警
 export const confirmAlarm = (id: number, confirmUser: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/alarm/${id}/confirm`, { method: 'POST', body: { confirmUser } });
+      return request<void>(`/api/alarm/${id}/confirm?confirmUser=${confirmUser}`, { method: 'POST' });
 };
 
 // 抑制告警
 export const suppressAlarm = (id: number, suppressUser: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/alarm/${id}/suppress`, { method: 'POST', body: { suppressUser } });
+      return request<void>(`/api/alarm/${id}/suppress?suppressUser=${suppressUser}`, { method: 'POST' });
 };
 
 // 关闭告警
 export const closeAlarm = (id: number, closeUser: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/alarm/${id}/close`, { method: 'POST', body: { closeUser } });
+      return request<void>(`/api/alarm/${id}/close?closeUser=${closeUser}`, { method: 'POST' });
 };
 
 // 获取事件列表
@@ -143,7 +144,7 @@ export const getEventList = (params?: {
       status?: number;
       riskLevel?: string;
 }): Promise<ApiEnvelope<EventRecord[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
+      const queryString = buildQueryString(params);
       const path = queryString ? `/api/event/list?${queryString}` : '/api/event/list';
       return request<EventRecord[]>(path, { method: 'GET' });
 };
@@ -165,7 +166,7 @@ export const closeEvent = (id: number, closeUser: number, closeReason: string): 
 
 // 更新现场反馈
 export const updateFeedback = (eventId: number, feedback: string): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/event/${eventId}/feedback`, { method: 'POST', body: { feedback } });
+      return request<void>(`/api/event/${eventId}/feedback?feedback=${encodeURIComponent(feedback)}`, { method: 'POST' });
 };
 
 // 获取工单列表
@@ -173,22 +174,24 @@ export const getWorkOrderList = (params?: {
       receiveUser?: number;
       status?: number;
 }): Promise<ApiEnvelope<EventWorkOrder[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
+      const queryString = buildQueryString(params);
       const path = queryString ? `/api/event/work-orders?${queryString}` : '/api/event/work-orders';
       return request<EventWorkOrder[]>(path, { method: 'GET' });
 };
 
 // 接收工单
 export const receiveWorkOrder = (id: number, receiveUser: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/event/work-orders/${id}/receive`, { method: 'POST', body: { receiveUser } });
+      return request<void>(`/api/event/work-orders/${id}/receive?receiveUser=${receiveUser}`, { method: 'POST' });
 };
 
 // 开始处理
 export const startProcessing = (id: number, receiveUser: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/event/work-orders/${id}/start`, { method: 'POST', body: { receiveUser } });
+      return request<void>(`/api/event/work-orders/${id}/start?receiveUser=${receiveUser}`, { method: 'POST' });
 };
 
 // 完成处理
 export const completeProcessing = (id: number, feedback: string, photos?: string): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/event/work-orders/${id}/complete`, { method: 'POST', body: { feedback, photos } });
+      const queryString = buildQueryString({ feedback, photos });
+      const path = queryString ? `/api/event/work-orders/${id}/complete?${queryString}` : `/api/event/work-orders/${id}/complete`;
+      return request<void>(path, { method: 'POST' });
 };

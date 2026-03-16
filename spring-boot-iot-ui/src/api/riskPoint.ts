@@ -1,4 +1,5 @@
 import { request } from './request';
+import { buildQueryString } from './query';
 import type { ApiEnvelope } from '../types/api';
 
 /**
@@ -52,7 +53,7 @@ export const getRiskPointList = (params?: {
       riskLevel?: string;
       status?: number;
 }): Promise<ApiEnvelope<RiskPoint[]>> => {
-      const queryString = params ? new URLSearchParams(params as any).toString() : '';
+      const queryString = buildQueryString(params);
       const path = queryString ? `/api/risk-point/list?${queryString}` : '/api/risk-point/list';
       return request<RiskPoint[]>(path, { method: 'GET' });
 };

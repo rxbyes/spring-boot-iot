@@ -15,10 +15,7 @@ body {
   min-width: 320px;
   font-family: var(--font-body);
   color: var(--text-primary);
-  background:
-    radial-gradient(circle at top left, rgba(255, 106, 0, 0.09), transparent 28%),
-    radial-gradient(circle at top right, rgba(30, 128, 255, 0.08), transparent 26%),
-    linear-gradient(180deg, #f7f9fc, #eef3fa);
+  background: var(--bg);
 }
 
 body::before {
@@ -27,10 +24,10 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(55, 73, 102, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(55, 73, 102, 0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.2), transparent 92%);
+    linear-gradient(rgba(0, 0, 0, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.018) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.15), transparent 72%);
 }
 
 #app {
@@ -42,7 +39,7 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 p,
@@ -236,7 +233,7 @@ table {
 
 th,
 td {
-  padding: 0.85rem 0.9rem;
+  padding: 0.7rem 0.8rem;
   text-align: left;
   border-bottom: 1px solid var(--panel-border);
   vertical-align: top;
@@ -244,10 +241,10 @@ td {
 
 th {
   color: var(--text-tertiary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  background: var(--bg-elevated);
+  letter-spacing: 0.08em;
+  background: #f7f8fa;
 }
 
 tbody tr:hover {

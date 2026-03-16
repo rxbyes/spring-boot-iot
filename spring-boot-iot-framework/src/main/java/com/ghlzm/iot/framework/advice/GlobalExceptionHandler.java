@@ -4,10 +4,13 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.R;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Author rxbyes
@@ -17,6 +20,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final int BAD_REQUEST_CODE = 400;
 
     @ExceptionHandler(BizException.class)
     public R<?> handleBizException(BizException e) {
@@ -29,7 +34,7 @@ public class GlobalExceptionHandler {
         String message = e.getBindingResult().getFieldError() == null
                 ? "请求参数不合法"
                 : e.getBindingResult().getFieldError().getDefaultMessage();
-        return R.fail(message);
+        return R.fail(BAD_REQUEST_CODE, message);
     }
 
     @ExceptionHandler(BindException.class)
@@ -37,12 +42,29 @@ public class GlobalExceptionHandler {
         String message = e.getBindingResult().getFieldError() == null
                 ? "请求参数不合法"
                 : e.getBindingResult().getFieldError().getDefaultMessage();
-        return R.fail(message);
+        return R.fail(BAD_REQUEST_CODE, message);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public R<?> handleConstraintViolationException(ConstraintViolationException e) {
-        return R.fail(e.getMessage());
+        return R.fail(BAD_REQUEST_CODE, e.getMessage());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public R<?> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+        String message = String.format("缺少必要参数: %s", e.getParameterName());
+        return R.fail(BAD_REQUEST_CODE, message);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public R<?> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        String message = String.format("参数类型错误: %s", e.getName());
+        return R.fail(BAD_REQUEST_CODE, message);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public R<?> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        return R.fail(BAD_REQUEST_CODE, "请求体格式不正确");
     }
 
     @ExceptionHandler(Exception.class)

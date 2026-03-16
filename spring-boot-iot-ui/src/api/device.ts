@@ -17,7 +17,7 @@ export const deviceApi = {
    * 新增设备
    */
   addDevice(payload: DeviceAddPayload) {
-    return request<Device>('/device/add', {
+    return request<Device>('/api/device/add', {
       method: 'POST',
       body: payload
     });
@@ -27,28 +27,28 @@ export const deviceApi = {
    * 根据ID查询设备
    */
   getDeviceById(id: string | number) {
-    return request<Device>(`/device/${id}`);
+    return request<Device>(`/api/device/${id}`);
   },
 
   /**
    * 根据设备编码查询设备
    */
   getDeviceByCode(deviceCode: string) {
-    return request<Device>(`/device/code/${deviceCode}`);
+    return request<Device>(`/api/device/code/${deviceCode}`);
   },
 
   /**
    * 查询设备属性
    */
   getDeviceProperties(deviceCode: string) {
-    return request<DeviceProperty[]>(`/device/${deviceCode}/properties`);
+    return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`);
   },
 
   /**
    * 查询设备消息日志
    */
   getDeviceMessageLogs(deviceCode: string) {
-    return request<DeviceMessageLog[]>(`/device/${deviceCode}/message-logs`);
+    return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`);
   },
 
   /**
@@ -65,21 +65,21 @@ export const deviceApi = {
    * 查询设备文件快照
    */
   getDeviceFileSnapshots(deviceCode: string) {
-    return request<DeviceFileSnapshot[]>(`/device/${deviceCode}/file-snapshots`);
+    return request<DeviceFileSnapshot[]>(`/api/device/${deviceCode}/file-snapshots`);
   },
 
   /**
    * 查询设备固件聚合结果
    */
   getDeviceFirmwareAggregates(deviceCode: string) {
-    return request<DeviceFirmwareAggregate[]>(`/device/${deviceCode}/firmware-aggregates`);
+    return request<DeviceFirmwareAggregate[]>(`/api/device/${deviceCode}/firmware-aggregates`);
   },
 
   /**
    * 更新设备
    */
   updateDevice(id: string | number, payload: Partial<DeviceAddPayload>) {
-    return request<Device>(`/device/${id}`, {
+    return request<Device>(`/api/device/${id}`, {
       method: 'PUT',
       body: payload
     });
@@ -89,7 +89,7 @@ export const deviceApi = {
    * 删除设备
    */
   deleteDevice(id: string | number) {
-    return request<null>(`/device/${id}`, {
+    return request<null>(`/api/device/${id}`, {
       method: 'DELETE'
     });
   }

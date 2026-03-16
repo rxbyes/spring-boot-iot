@@ -11,7 +11,7 @@
       <div class="cockpit-hero__clock">
         <span>平台时间</span>
         <strong>{{ currentTime }}</strong>
-        <small>统计口径：当前版本为稳定演示口径，后续可切换为真实聚合接口。</small>
+        <small>{{ dataSourceHint }}</small>
       </div>
     </section>
 
@@ -138,6 +138,12 @@ import { useRouter } from 'vue-router';
 
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
+import {
+  getAlarmStatistics,
+  getDeviceHealthAnalysis,
+  getEventClosureAnalysis,
+  getRiskTrendAnalysis
+} from '../api/report';
 import { activityEntries, recordActivity } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 
@@ -199,6 +205,8 @@ const router = useRouter();
 const permissionStore = usePermissionStore();
 const activeRole = ref<RoleKey>('frontline');
 const currentTime = ref(formatNow());
+const dataSourceState = ref<'loading' | 'live' | 'fallback'>('loading');
+const dashboardUpdatedAt = ref('');
 let timer: number | null = null;
 
 const rolePresets: RolePreset[] = [
@@ -341,6 +349,16 @@ const latestActivity = computed(() => {
   };
 });
 
+const dataSourceHint = computed(() => {
+  if (dataSourceState.value === 'loading') {
+    return '数据源状态：正在加载真实统计数据...';
+  }
+  if (dataSourceState.value === 'live') {
+    return `数据源状态：真实报表聚合（最近同步 ${dashboardUpdatedAt.value || '--'}）`;
+  }
+  return '数据源状态：真实接口不可用，当前显示稳定兜底口径';
+});
+
 function inferRoleFromAuth(): RoleKey {
   const roleNames = permissionStore.roleNames;
   if (roleNames.some((role) => role.includes('开发'))) {
@@ -387,8 +405,144 @@ function pad(value: number) {
   return value < 10 ? `0${value}` : String(value);
 }
 
+function formatPercent(value?: number | null, digits = 1) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '--';
+  }
+  return `${value.toFixed(digits)}%`;
+}
+
+function formatInteger(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '--';
+  }
+  return String(Math.round(value));
+}
+
+function formatDateYmd(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getDateRangeOfLast7Days() {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  return {
+    startDate: formatDateYmd(start),
+    endDate: formatDateYmd(end)
+  };
+}
+
+function applyLiveMetrics(payload: {
+  riskTrend: any[];
+  alarmStats: any;
+  eventStats: any;
+  deviceHealth: any;
+}) {
+  const { riskTrend, alarmStats, eventStats, deviceHealth } = payload;
+
+  const alarmTotal = Number(alarmStats?.total ?? 0);
+  const alarmCritical = Number(alarmStats?.critical ?? 0);
+  const alarmHigh = Number(alarmStats?.high ?? 0);
+  const eventTotal = Number(eventStats?.total ?? 0);
+  const eventClosed = Number(eventStats?.closed ?? 0);
+  const eventUnclosed = Number(eventStats?.unclosed ?? 0);
+  const closureRate = eventTotal > 0 ? (eventClosed / eventTotal) * 100 : 0;
+  const onlineRate = Number(deviceHealth?.onlineRate ?? 0);
+
+  const latestTrend = riskTrend[riskTrend.length - 1] || {};
+  const previousTrend = riskTrend[riskTrend.length - 2] || {};
+  const alarmTrendDelta = Number(latestTrend.alarmCount ?? 0) - Number(previousTrend.alarmCount ?? 0);
+  const eventTrendDelta = Number(latestTrend.eventCount ?? 0) - Number(previousTrend.eventCount ?? 0);
+
+  const frontline = rolePresets.find((item) => item.key === 'frontline');
+  if (frontline) {
+    frontline.kpis[0].value = formatInteger(alarmCritical + alarmHigh);
+    frontline.kpis[1].value = formatInteger(eventUnclosed);
+    frontline.kpis[2].value = formatPercent(closureRate, 0);
+    frontline.kpis[3].value = `${formatPercent(onlineRate, 1)}`;
+    frontline.kpis[3].badge = { label: '设备在线率', tone: 'brand' };
+
+    frontline.queues[0].value = formatInteger(alarmTotal);
+    frontline.queues[1].value = formatInteger(eventUnclosed);
+    frontline.queues[2].value = formatInteger(Math.max(0, alarmTotal - eventClosed));
+  }
+
+  const ops = rolePresets.find((item) => item.key === 'ops');
+  if (ops) {
+    ops.kpis[0].value = formatPercent(onlineRate, 1);
+    ops.kpis[1].value = formatPercent(closureRate, 0);
+    ops.kpis[2].value = formatInteger(eventClosed);
+    ops.kpis[3].value = formatInteger(eventUnclosed);
+    ops.kpis[3].badge = { label: '待督办', tone: eventUnclosed > 0 ? 'danger' : 'success' };
+
+    ops.queues[0].value = formatInteger(Math.max(0, Math.round((Number(deviceHealth?.total ?? 0) * (100 - onlineRate)) / 100)));
+    ops.queues[1].value = formatInteger(alarmHigh + alarmCritical);
+    ops.queues[2].value = formatInteger(eventUnclosed);
+  }
+
+  const manager = rolePresets.find((item) => item.key === 'manager');
+  if (manager) {
+    manager.kpis[0].value = formatInteger(alarmTotal);
+    manager.kpis[0].badge = { label: `趋势 ${alarmTrendDelta >= 0 ? '+' : ''}${alarmTrendDelta}`, tone: alarmTrendDelta > 0 ? 'warning' : 'success' };
+    manager.kpis[1].value = formatInteger(eventClosed);
+    manager.kpis[1].badge = { label: `闭环率 ${formatPercent(closureRate, 0)}`, tone: closureRate >= 85 ? 'success' : 'warning' };
+    manager.kpis[2].value = formatPercent(onlineRate, 1);
+    manager.kpis[3].value = formatInteger(alarmCritical + alarmHigh + eventUnclosed);
+  }
+
+  const rd = rolePresets.find((item) => item.key === 'rd');
+  if (rd) {
+    const stabilityScore = Math.max(0, Math.min(100, Math.round((onlineRate * 0.5) + (closureRate * 0.5))));
+    rd.kpis[0].value = formatPercent(onlineRate, 1);
+    rd.kpis[0].badge = { label: '链路在线率', tone: 'success' };
+    rd.kpis[1].value = formatInteger(alarmCritical + alarmHigh);
+    rd.kpis[1].badge = { label: '高优告警', tone: 'warning' };
+    rd.kpis[2].value = formatInteger(Math.max(0, alarmTrendDelta + eventTrendDelta));
+    rd.kpis[2].badge = { label: '波动项', tone: 'danger' };
+    rd.kpis[3].value = formatInteger(stabilityScore);
+    rd.kpis[3].badge = { label: '稳定分', tone: stabilityScore >= 85 ? 'success' : 'warning' };
+
+    rd.queues[0].value = formatInteger(alarmCritical + alarmHigh);
+    rd.queues[1].value = formatInteger(Math.max(0, alarmTrendDelta + eventTrendDelta));
+    rd.queues[2].value = formatInteger(eventUnclosed);
+  }
+}
+
+async function loadDashboardMetrics() {
+  dataSourceState.value = 'loading';
+  try {
+    const { startDate, endDate } = getDateRangeOfLast7Days();
+    const [riskTrendRes, alarmRes, eventRes, deviceRes] = await Promise.all([
+      getRiskTrendAnalysis(startDate, endDate),
+      getAlarmStatistics(startDate, endDate),
+      getEventClosureAnalysis(startDate, endDate),
+      getDeviceHealthAnalysis()
+    ]);
+
+    const allSuccess = [riskTrendRes, alarmRes, eventRes, deviceRes].every((item: any) => item?.code === 200);
+    if (!allSuccess) {
+      dataSourceState.value = 'fallback';
+      return;
+    }
+
+    applyLiveMetrics({
+      riskTrend: Array.isArray(riskTrendRes.data) ? riskTrendRes.data : [],
+      alarmStats: alarmRes.data || {},
+      eventStats: eventRes.data || {},
+      deviceHealth: deviceRes.data || {}
+    });
+
+    dataSourceState.value = 'live';
+    dashboardUpdatedAt.value = formatNow();
+  } catch {
+    dataSourceState.value = 'fallback';
+  }
+}
+
 onMounted(() => {
   activeRole.value = inferRoleFromAuth();
+  loadDashboardMetrics();
   timer = window.setInterval(() => {
     currentTime.value = formatNow();
   }, 1000);

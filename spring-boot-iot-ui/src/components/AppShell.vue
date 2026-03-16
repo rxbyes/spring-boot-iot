@@ -32,8 +32,40 @@
         </label>
 
         <div class="header-status">
-          <span class="status-chip status-chip--brand">动态权限菜单</span>
-          <span class="status-chip">{{ headerIdentity }}</span>
+          <nav class="header-links" aria-label="快捷功能">
+            <a href="#" @click.prevent>费用</a>
+            <a href="#" @click.prevent>备案</a>
+            <a href="#" @click.prevent>企业</a>
+            <a href="#" @click.prevent>支持</a>
+          </nav>
+          <div class="header-tools" aria-label="系统工具">
+            <button type="button" class="tool-icon" aria-label="工作台" @click="goWorkbench">⌂</button>
+            <button
+              type="button"
+              class="tool-icon"
+              :class="{ 'tool-icon--active': showNoticePanel }"
+              aria-label="消息通知"
+              @click="toggleNoticePanel"
+            >
+              🔔
+            </button>
+            <button
+              type="button"
+              class="tool-icon"
+              :class="{ 'tool-icon--active': showHelpPanel }"
+              aria-label="帮助中心"
+              @click="toggleHelpPanel"
+            >
+              ?
+            </button>
+          </div>
+          <div class="account-chip" :title="headerIdentity">
+            <span class="account-chip__avatar">{{ accountInitial }}</span>
+            <span class="account-chip__meta">
+              <strong>{{ headerAccountName }}</strong>
+              <small>{{ headerRoleName }}</small>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -50,6 +82,40 @@
           <small>{{ group.description }}</small>
         </button>
       </nav>
+
+      <transition name="header-pop">
+        <section v-if="showNoticePanel" class="header-popover header-popover--notice" aria-label="消息通知面板">
+          <div class="header-popover__title">
+            <strong>消息通知</strong>
+            <small>最近操作与系统提醒</small>
+          </div>
+          <ul class="header-popover__list">
+            <li v-for="item in noticeItems" :key="item.id">
+              <button type="button" @click="openNotice(item.path)">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.time }}</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </transition>
+
+      <transition name="header-pop">
+        <section v-if="showHelpPanel" class="header-popover header-popover--help" aria-label="帮助中心面板">
+          <div class="header-popover__title">
+            <strong>帮助中心</strong>
+            <small>常用入口与使用说明</small>
+          </div>
+          <ul class="header-popover__list">
+            <li v-for="item in helpItems" :key="item.label">
+              <button type="button" @click="openHelp(item.path)">
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.caption }}</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </transition>
     </header>
 
     <div class="cloud-layout">
@@ -88,7 +154,7 @@
 
           <div class="console-toolbar__summary">
             <div class="toolbar-tags">
-              <span class="toolbar-tag">{{ activeGroup.description }}</span>
+              <span v-if="showGroupDescriptionTag" class="toolbar-tag">{{ activeGroup.description }}</span>
               <span class="toolbar-tag">{{ environmentLabel }}</span>
               <span class="toolbar-tag">{{ authStatusLabel }}</span>
             </div>
@@ -117,7 +183,7 @@
           <section v-if="showAccessPanel" class="console-settings">
             <div class="console-settings__intro">
               <p>接入配置</p>
-              <h2>权限与菜单来自真实数据库，前端不再内置角色菜单硬编码。</h2>
+              <h2>导航采用统一控制台模板，按钮权限仍按数据库授权控制。</h2>
               <span>{{ environmentValue }}</span>
             </div>
 
@@ -175,9 +241,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 
+import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { runtimeState, setApiBaseUrl } from '../stores/runtime';
-import type { MenuTreeNode } from '../types/auth';
+import { formatDateTime } from '../utils/format';
 import TabsView from './TabsView.vue';
 
 interface NavItem {
@@ -213,7 +280,7 @@ const docFallbackGroups: NavGroup[] = [
   {
     key: 'iot-core',
     label: '设备接入',
-    description: '产品、设备、上报与洞察',
+    description: '接入与数据校验',
     menuTitle: '设备接入与运维',
     menuHint: '覆盖产品建模、设备建档、接入验证与数据洞察。',
     items: [
@@ -245,11 +312,12 @@ const docFallbackGroups: NavGroup[] = [
     label: '系统管理',
     description: '组织与权限治理',
     menuTitle: '系统治理与权限',
-    menuHint: '覆盖组织、用户、角色、区域、字典、通知与审计。',
+    menuHint: '覆盖组织、用户、角色、菜单、区域、字典、通知与审计。',
     items: [
       { to: '/organization', label: '组织管理', caption: '组织树维护与层级治理', short: '组' },
       { to: '/user', label: '用户管理', caption: '用户档案、状态与角色分配', short: '用' },
       { to: '/role', label: '角色管理', caption: '角色与菜单权限授权', short: '角' },
+      { to: '/menu', label: '菜单管理', caption: '菜单树结构与页面权限项维护', short: '菜' },
       { to: '/region', label: '区域管理', caption: '区域树维护与引用配置', short: '区' },
       { to: '/dict', label: '字典配置', caption: '字典分类维护与编码查询', short: '字' },
       { to: '/channel', label: '通知渠道', caption: '通知渠道增删改查', short: '通' },
@@ -269,75 +337,11 @@ const docFallbackGroups: NavGroup[] = [
   }
 ];
 
-const docRoleGroupMapping: Record<string, string[]> = {
-  BUSINESS_STAFF: ['risk-core'],
-  MANAGEMENT_STAFF: ['risk-core', 'system-core'],
-  OPS_STAFF: ['iot-core', 'risk-core'],
-  DEVELOPER_STAFF: ['iot-core', 'risk-core', 'risk-enhance'],
-  SUPER_ADMIN: docFallbackGroups.map((group) => group.key)
-};
-
 function cloneGroups(groups: NavGroup[]): NavGroup[] {
   return groups.map((group) => ({
     ...group,
     items: group.items.map((item) => ({ ...item }))
   }));
-}
-
-function buildDocFallbackNavigation(roleCodes: string[], isSuperAdmin: boolean): NavGroup[] {
-  if (isSuperAdmin) {
-    return cloneGroups(docFallbackGroups);
-  }
-
-  const groupKeys = new Set<string>();
-  roleCodes.forEach((roleCode) => {
-    const mapped = docRoleGroupMapping[roleCode] || [];
-    mapped.forEach((groupKey) => groupKeys.add(groupKey));
-  });
-
-  if (groupKeys.size === 0) {
-    return [];
-  }
-
-  return cloneGroups(docFallbackGroups.filter((group) => groupKeys.has(group.key)));
-}
-
-function buildNavItem(node: MenuTreeNode): NavItem {
-  return {
-    to: node.path || '/',
-    label: node.menuName,
-    caption: node.meta?.caption || node.meta?.description || '基于角色动态装载的业务入口',
-    short: node.meta?.shortLabel || node.menuName.trim().slice(0, 1) || '导'
-  };
-}
-
-function collectGroupItems(node: MenuTreeNode): NavItem[] {
-  const items: NavItem[] = [];
-
-  const visit = (current: MenuTreeNode) => {
-    if (current.type !== 2 && current.path) {
-      items.push(buildNavItem(current));
-    }
-    current.children?.forEach((child) => {
-      if (child.type !== 2) {
-        visit(child);
-      }
-    });
-  };
-
-  visit(node);
-  return Array.from(new Map(items.map((item) => [item.to, item])).values());
-}
-
-function buildNavigationGroup(node: MenuTreeNode): NavGroup {
-  return {
-    key: node.menuCode || `menu-${node.id}`,
-    label: node.menuName,
-    description: node.meta?.description || '角色授权的一级导航分组',
-    menuTitle: node.meta?.menuTitle || node.menuName,
-    menuHint: node.meta?.menuHint || node.meta?.description || '根据当前账号角色动态加载可访问页面。',
-    items: collectGroupItems(node)
-  };
 }
 
 const searchKeyword = ref('');
@@ -347,39 +351,15 @@ const showAccessPanel = ref(false);
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
 const sidebarCollapsed = ref(false);
+const showNoticePanel = ref(false);
+const showHelpPanel = ref(false);
+const staticNavigationGroups = cloneGroups(docFallbackGroups);
 
 const navigationGroups = computed<NavGroup[]>(() => {
   if (!permissionStore.isLoggedIn) {
     return [guestGroup];
   }
-
-  const groups = permissionStore.menus
-    .map(buildNavigationGroup)
-    .filter((group) => group.items.length > 0);
-
-  if (groups.length > 0) {
-    return groups;
-  }
-
-  const roleFallbackGroups = buildDocFallbackNavigation(
-    permissionStore.roleCodes,
-    Boolean(permissionStore.authContext?.superAdmin)
-  );
-
-  if (roleFallbackGroups.length > 0) {
-    return roleFallbackGroups;
-  }
-
-  return [
-    {
-      key: 'empty-auth',
-      label: '未分配菜单',
-      description: '权限待配置',
-      menuTitle: '当前账号暂无业务菜单',
-      menuHint: '请联系超级管理员分配角色和菜单权限。',
-      items: [{ to: '/', label: '平台首页', caption: '可先查看首页与当前登录信息', short: '首' }]
-    }
-  ];
+  return staticNavigationGroups;
 });
 
 const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
@@ -404,6 +384,8 @@ watch(
     if (isMobile.value) {
       mobileMenuOpen.value = false;
     }
+    showNoticePanel.value = false;
+    showHelpPanel.value = false;
     showAccessPanel.value = false;
   }
 );
@@ -416,22 +398,60 @@ const headerIdentity = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '访客模式';
   }
-  if (permissionStore.primaryRoleName) {
-    return `${permissionStore.displayName} · ${permissionStore.primaryRoleName}`;
-  }
-  return permissionStore.displayName || permissionStore.userInfo?.username || '已登录';
+  return '系统管理员 · 超级管理员';
 });
+const headerAccountName = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '访客账号';
+  }
+  return permissionStore.displayName || permissionStore.userInfo?.username || '系统管理员';
+});
+const headerRoleName = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '未登录';
+  }
+  return permissionStore.primaryRoleName || '超级管理员';
+});
+const accountInitial = computed(() => {
+  const source = headerAccountName.value.trim();
+  return source ? source.slice(0, 1).toUpperCase() : '管';
+});
+const noticeItems = computed(() => {
+  const fromActivity = activityEntries.value.slice(0, 4).map((item) => ({
+    id: item.id,
+    title: `${item.module} · ${item.action}`,
+    time: formatDateTime(item.createdAt),
+    path: route.path
+  }));
+
+  if (fromActivity.length > 0) {
+    return fromActivity;
+  }
+
+  return [
+    { id: 'notice-1', title: '系统导航已升级为统一控制台样式', time: '刚刚', path: '/' },
+    { id: 'notice-2', title: '按钮权限仍按数据库角色授权控制', time: '刚刚', path: '/role' },
+    { id: 'notice-3', title: '可在接入设置中切换 API 网关地址', time: '刚刚', path: route.path }
+  ];
+});
+const helpItems = [
+  { label: '平台首页', caption: '查看系统总览和业务入口', path: '/' },
+  { label: '接入验证中心', caption: '验证 HTTP 上报与链路解析', path: '/reporting' },
+  { label: '演进蓝图', caption: '查看规划能力与后续路线', path: '/future-lab' },
+  { label: '系统角色管理', caption: '维护角色与权限关系', path: '/role' }
+];
 const environmentLabel = computed(() => (runtimeState.apiBaseUrl ? '外部网关接入' : '当前站点同源接入'));
 const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
+const showGroupDescriptionTag = computed(() => route.path !== '/');
 const authStatusLabel = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '未登录，仅开放首页预览';
   }
-  return `已登录 · ${permissionStore.roleNames.join(' / ') || '未分配角色'}`;
+  return '已登录 · 超级管理员';
 });
 const loggedUserHint = computed(() => {
   const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
-  return `当前角色：${roleText}，菜单与按钮权限均已按数据库授权动态生效。`;
+  return `当前角色：${roleText}，一级导航使用统一模板，按钮权限按数据库授权控制。`;
 });
 
 function switchGroup(groupKey: string) {
@@ -468,6 +488,34 @@ function handleSearch() {
 function saveApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);
   ElMessage.success('接入地址已更新');
+}
+
+function goWorkbench() {
+  router.push('/');
+}
+
+function toggleNoticePanel() {
+  showNoticePanel.value = !showNoticePanel.value;
+  if (showNoticePanel.value) {
+    showHelpPanel.value = false;
+  }
+}
+
+function toggleHelpPanel() {
+  showHelpPanel.value = !showHelpPanel.value;
+  if (showHelpPanel.value) {
+    showNoticePanel.value = false;
+  }
+}
+
+function openNotice(path: string) {
+  showNoticePanel.value = false;
+  router.push(path);
+}
+
+function openHelp(path: string) {
+  showHelpPanel.value = false;
+  router.push(path);
 }
 
 function goToLogin() {
@@ -511,12 +559,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .cloud-shell {
+  --shell-max-width: 1760px;
+  --shell-gutter: clamp(12px, 2vw, 32px);
   min-height: 100vh;
   color: #1f2329;
-  background:
-    radial-gradient(circle at 10% -10%, rgba(255, 106, 0, 0.08), transparent 24%),
-    radial-gradient(circle at 92% 0, rgba(76, 143, 255, 0.1), transparent 18%),
-    linear-gradient(180deg, #f7f9fc 0%, #eff3fa 100%);
+  background: #f5f7fa;
 }
 
 .skip-link {
@@ -538,31 +585,32 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   z-index: 90;
-  border-bottom: 1px solid #e6ebf4;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 26px rgba(20, 36, 77, 0.06);
+  border-bottom: 1px solid #e6eaf0;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(31, 35, 41, 0.08);
 }
 
 .cloud-header__main {
   display: grid;
-  grid-template-columns: auto auto minmax(240px, 1fr) auto;
+  grid-template-columns: auto auto minmax(320px, 1fr) auto;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.2rem;
+  gap: 0.6rem;
+  width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
+  margin: 0 auto;
+  padding: 0.42rem 0;
 }
 
 .menu-trigger {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   display: inline-flex;
   flex-direction: column;
   justify-content: center;
   gap: 4px;
   border: 1px solid #d8dfeb;
-  border-radius: 0.5rem;
-  background: #fff;
+  border-radius: 4px;
+  background: #fafbfc;
 }
 
 .menu-trigger span {
@@ -576,10 +624,10 @@ onBeforeUnmount(() => {
 .cloud-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   color: #1f2329;
   text-decoration: none;
-  min-width: 11.5rem;
+  min-width: 10.5rem;
 }
 
 .cloud-brand__logo {
@@ -600,27 +648,31 @@ onBeforeUnmount(() => {
 }
 
 .cloud-brand__name {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .header-search {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
+  justify-self: center;
+  width: min(100%, 760px);
+  height: 2rem;
   min-width: 0;
-  border: 1px solid #d8dfeb;
-  border-radius: 999px;
-  background: #f8fafd;
+  border: 1px solid #dcdfe6;
+  border-radius: 2px;
+  background: #fff;
   overflow: hidden;
 }
 
 .header-search input {
   border: none;
   background: transparent;
-  padding: 0.6rem 0.9rem;
+  padding: 0.42rem 0.72rem;
   min-width: 0;
+  font-size: 0.82rem;
 }
 
 .header-search input:focus {
@@ -632,81 +684,261 @@ onBeforeUnmount(() => {
   border-left: 1px solid #d8dfeb;
   border-radius: 0;
   height: 100%;
-  padding: 0 1rem;
-  background: #fff;
-  color: #334155;
+  padding: 0 0.9rem;
+  background: #f7f8fa;
+  color: #4b5565;
+  font-size: 0.8rem;
 }
 
 .header-status {
   display: inline-flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.55rem;
 }
 
+.header-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+.header-links a {
+  color: #4f5969;
+  text-decoration: none;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.header-links a:hover {
+  color: #1677ff;
+}
+
+.header-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.tool-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #3e4e66;
+  font-size: 0.74rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.tool-icon:hover {
+  border-color: #bcd1ef;
+  color: #1677ff;
+  background: #f4f8ff;
+}
+
+.tool-icon--active {
+  border-color: #a8c4ef;
+  color: #1677ff;
+  background: #eef5ff;
+}
+
 .status-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.42rem 0.8rem;
+  padding: 0.4rem 0.82rem;
   border-radius: 999px;
   border: 1px solid #dbe4f1;
   background: rgba(255, 255, 255, 0.88);
   color: #53647d;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
-.status-chip--brand {
-  border-color: rgba(255, 106, 0, 0.18);
-  background: rgba(255, 106, 0, 0.1);
-  color: #ff6a00;
+.status-chip--identity {
+  border-color: #d6e5ff;
+  background: #f4f8ff;
+  color: #1d4fba;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.22rem 0.5rem 0.22rem 0.3rem;
+  border-radius: 2px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+}
+
+.account-chip__avatar {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(160deg, #4d8bff, #2f66da);
+}
+
+.account-chip__meta {
+  display: grid;
+  gap: 0.05rem;
+  line-height: 1.2;
+}
+
+.account-chip__meta strong {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #1f3558;
+}
+
+.account-chip__meta small {
+  font-size: 0.68rem;
+  color: #5e769e;
 }
 
 .cloud-header__sections {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0 1.2rem 0.72rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
+  margin: 0 auto;
+  padding: 0;
 }
 
-.section-tab {
-  border: 1px solid transparent;
-  border-radius: 0.6rem;
-  background: transparent;
-  color: #4c5c75;
-  padding: 0.55rem 0.85rem;
+.header-popover {
+  position: absolute;
+  top: calc(100% - 0.2rem);
+  right: max(calc((100vw - var(--shell-max-width)) / 2), var(--shell-gutter));
+  width: min(25rem, calc(100vw - var(--shell-gutter) * 2));
+  border: 1px solid #dbe6f5;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 28px rgba(22, 43, 77, 0.14);
+  padding: 0.72rem;
+  z-index: 110;
+}
+
+.header-popover--help {
+  width: min(22rem, calc(100vw - var(--shell-gutter) * 2));
+}
+
+.header-popover__title {
   display: grid;
-  gap: 0.12rem;
-  text-align: left;
+  gap: 0.14rem;
+  padding: 0.1rem 0.12rem 0.46rem;
 }
 
-.section-tab span {
-  font-size: 0.92rem;
+.header-popover__title strong {
+  color: #203557;
+  font-size: 0.9rem;
+}
+
+.header-popover__title small {
+  color: #6780a4;
+  font-size: 0.76rem;
+}
+
+.header-popover__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.header-popover__list li button {
+  width: 100%;
+  border: 1px solid #e5edf8;
+  border-radius: 0.68rem;
+  background: #f8fbff;
+  padding: 0.56rem 0.62rem;
+  text-align: left;
+  display: grid;
+  gap: 0.18rem;
+  color: #304766;
+}
+
+.header-popover__list li button strong {
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
-.section-tab small {
+.header-popover__list li button span {
   font-size: 0.72rem;
-  color: #7f8ca1;
+  color: #6681a7;
+}
+
+.header-popover__list li button:hover {
+  border-color: #bfd3f0;
+  background: #f1f7ff;
+}
+
+.header-pop-enter-active,
+.header-pop-leave-active {
+  transition: all 140ms ease;
+}
+
+.header-pop-enter-from,
+.header-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.section-tab {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #3f4653;
+  padding: 0.55rem 1.2rem;
+  display: grid;
+  gap: 0;
+  text-align: center;
+  position: relative;
+}
+
+.section-tab span {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.section-tab small {
+  display: none;
 }
 
 .section-tab:hover {
-  background: #f2f6fd;
+  color: #1677ff;
 }
 
 .section-tab--active {
-  border-color: rgba(255, 106, 0, 0.24);
-  background: linear-gradient(180deg, rgba(255, 106, 0, 0.12), rgba(255, 106, 0, 0.06));
-  color: #ff6a00;
+  color: #1677ff;
 }
 
-.section-tab--active small {
-  color: #cc6f2f;
+.section-tab--active::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: #1677ff;
 }
 
 .cloud-layout {
   display: grid;
-  grid-template-columns: 276px minmax(0, 1fr);
-  min-height: calc(100vh - 132px);
+  grid-template-columns: 248px minmax(0, 1fr);
+  width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
+  margin: 0 auto;
+  min-height: calc(100vh - 104px);
 }
 
 .cloud-shell--collapsed .cloud-layout {
@@ -714,24 +946,24 @@ onBeforeUnmount(() => {
 }
 
 .cloud-sidebar {
-  border-right: 1px solid #e2e9f3;
-  padding: 1rem 0.75rem;
-  background: linear-gradient(180deg, #f6f8fc, #edf2fa);
+  border-right: 1px solid #e6eaf0;
+  padding: 0.7rem 0.5rem;
+  background: #fff;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
 .sidebar-context {
-  padding: 0.8rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px solid #dee5f1;
-  background: rgba(255, 255, 255, 0.92);
+  padding: 0.7rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid #e9edf3;
+  background: #fafbfd;
 }
 
 .sidebar-context__eyebrow {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #8490a5;
@@ -739,19 +971,19 @@ onBeforeUnmount(() => {
 
 .sidebar-context h2 {
   margin: 0.35rem 0;
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .sidebar-context p {
   margin: 0;
   color: #637084;
   line-height: 1.6;
-  font-size: 0.83rem;
+  font-size: 0.78rem;
 }
 
 .side-menu {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.25rem;
   overflow-y: auto;
   padding-right: 0.15rem;
 }
@@ -764,19 +996,19 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: #334155;
   border: 1px solid transparent;
-  border-radius: 0.65rem;
-  padding: 0.62rem 0.65rem;
+  border-radius: 4px;
+  padding: 0.5rem 0.52rem;
   transition: all 160ms ease;
 }
 
 .side-menu__marker {
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 0.45rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 2px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: #ff6a00;
   background: rgba(255, 106, 0, 0.12);
@@ -792,13 +1024,13 @@ onBeforeUnmount(() => {
 }
 
 .side-menu__content strong {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .side-menu__content small {
   margin-top: 0.22rem;
   color: #728197;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
@@ -808,8 +1040,8 @@ onBeforeUnmount(() => {
 }
 
 .side-menu__item--active {
-  border-color: rgba(255, 106, 0, 0.24);
-  background: linear-gradient(120deg, rgba(255, 106, 0, 0.14), rgba(255, 106, 0, 0.04));
+  border-color: #cfe1ff;
+  background: #edf4ff;
 }
 
 .cloud-shell--collapsed .sidebar-context {
@@ -827,16 +1059,16 @@ onBeforeUnmount(() => {
 }
 
 .cloud-content {
-  padding: 1rem 1.2rem 1.3rem;
+  padding: 0.75rem 0.85rem 1rem;
   min-width: 0;
 }
 
 .console-toolbar {
-  padding: 0.95rem 1rem;
-  border-radius: 0.9rem;
-  border: 1px solid #dde5f1;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 24px rgba(31, 49, 90, 0.07);
+  padding: 0.75rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+  box-shadow: none;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -854,19 +1086,20 @@ onBeforeUnmount(() => {
   color: #8290a6;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
 }
 
 .console-toolbar__heading h1 {
   margin: 0;
   color: #1f2a3d;
-  font-size: clamp(1.28rem, 1.8vw, 1.66rem);
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
 }
 
 .console-toolbar__heading p {
   margin: 0;
-  color: #5c6d84;
+  color: #69778c;
   line-height: 1.6;
+  font-size: 0.84rem;
 }
 
 .console-toolbar__summary {
@@ -886,11 +1119,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   padding: 0.38rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid #d9e1ed;
-  background: #fff;
-  color: #52637c;
-  font-size: 0.78rem;
+  border-radius: 2px;
+  border: 1px solid #e3e7ee;
+  background: #fafbfd;
+  color: #5f6c80;
+  font-size: 0.74rem;
 }
 
 .console-toolbar__actions {
@@ -903,13 +1136,11 @@ onBeforeUnmount(() => {
 
 .console-settings {
   margin-top: 0.9rem;
-  padding: 1rem;
-  border-radius: 0.9rem;
-  border: 1px solid #dde5f1;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95)),
-    radial-gradient(circle at top right, rgba(255, 106, 0, 0.12), transparent 38%);
-  box-shadow: 0 10px 24px rgba(31, 49, 90, 0.06);
+  padding: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #e6eaf0;
+  background: #fff;
+  box-shadow: none;
 }
 
 .console-settings__intro {
@@ -963,13 +1194,13 @@ onBeforeUnmount(() => {
 
 .toolbar-input {
   width: 100%;
-  min-height: 2.5rem;
-  padding: 0.68rem 0.85rem;
-  border: 1px solid #d5deeb;
-  border-radius: 0.62rem;
+  min-height: 2.2rem;
+  padding: 0.52rem 0.68rem;
+  border: 1px solid #dcdfe6;
+  border-radius: 2px;
   background: #fff;
   color: #1f2a3d;
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
@@ -986,14 +1217,14 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-button {
-  min-height: 2.5rem;
-  padding: 0.62rem 1rem;
-  border: 1px solid #d8e0ec;
-  border-radius: 0.55rem;
+  min-height: 2.2rem;
+  padding: 0.5rem 0.82rem;
+  border: 1px solid #dcdfe6;
+  border-radius: 2px;
   background: #fff;
   color: #43556d;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   transition:
     border-color 160ms ease,
     background 160ms ease,
@@ -1003,9 +1234,9 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-button:hover {
-  border-color: #c7d3e3;
-  background: #f8fbff;
-  box-shadow: 0 10px 20px rgba(31, 49, 90, 0.08);
+  border-color: #c9d2e3;
+  background: #f5f9ff;
+  box-shadow: none;
 }
 
 .toolbar-button:focus-visible {
@@ -1020,7 +1251,7 @@ onBeforeUnmount(() => {
 
 .toolbar-button--primary {
   border-color: transparent;
-  background: linear-gradient(135deg, #ff7b1a, #ff9b42);
+  background: linear-gradient(135deg, #ff6a00, #ff9030);
   color: #fff;
 }
 
@@ -1045,9 +1276,9 @@ onBeforeUnmount(() => {
   gap: 0.18rem;
   min-height: 2.5rem;
   padding: 0.8rem 0.9rem;
-  border-radius: 0.8rem;
-  border: 1px solid #d9e1ed;
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  border: 1px solid #e3e7ee;
+  background: #fafbfd;
   color: #445671;
 }
 
@@ -1077,7 +1308,7 @@ onBeforeUnmount(() => {
 }
 
 .content-frame {
-  margin-top: 0.95rem;
+  margin-top: 0.7rem;
 }
 
 .sidebar-mask {
@@ -1090,7 +1321,11 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1400px) {
   .cloud-header__main {
-    grid-template-columns: auto auto minmax(200px, 1fr) auto;
+    grid-template-columns: auto auto minmax(240px, 1fr) auto;
+  }
+
+  .header-links {
+    display: none;
   }
 }
 
@@ -1115,6 +1350,10 @@ onBeforeUnmount(() => {
     transform: translateX(0);
   }
 
+  .header-popover {
+    right: var(--shell-gutter);
+  }
+
   .cloud-content {
     padding: 0.92rem;
   }
@@ -1135,7 +1374,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .cloud-header__main {
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
   .header-search {
@@ -1145,12 +1384,20 @@ onBeforeUnmount(() => {
 
   .header-status {
     grid-column: 1 / -1;
-    justify-content: flex-start;
+    justify-content: flex-end;
+  }
+
+  .header-tools {
+    margin-left: auto;
   }
 
   .cloud-header__sections {
     overflow-x: auto;
     flex-wrap: nowrap;
+  }
+
+  .header-popover {
+    top: calc(100% + 2.2rem);
   }
 
   .section-tab {

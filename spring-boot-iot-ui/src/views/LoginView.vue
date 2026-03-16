@@ -8,13 +8,12 @@
         <span class="login-brand__logo" aria-hidden="true" />
         <span class="login-brand__name">监测预警平台</span>
       </RouterLink>
-      <span class="login-page__region">中国站</span>
     </header>
 
     <main class="login-stage">
       <section class="login-hero">
         <h1>风险监测预警处置平台</h1>
-        <p>面向园区与工业场景的风险监测、预警协同与事件处置统一入口。</p>
+        <p>预判风险、协同处置、提升服务品质</p>
       </section>
 
       <section class="auth-panel">

@@ -208,6 +208,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/menu',
+    name: 'menu',
+    component: () => import('../views/MenuView.vue'),
+    meta: {
+      title: '菜单管理',
+      description: '菜单树维护与页面/按钮权限项管理。',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/region',
     name: 'region',
     component: () => import('../views/RegionView.vue'),

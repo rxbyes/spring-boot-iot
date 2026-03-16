@@ -73,7 +73,7 @@ const futureCards = [
     title: '点位图表中枢',
     description: '为温湿度、能耗、震动、状态点位构建同屏趋势、阈值和对比曲线。',
     contracts: [
-      { index: '01', title: '属性快照', description: '复用当前 `GET /device/{deviceCode}/properties` 做首屏摘要。' },
+      { index: '01', title: '属性快照', description: '复用当前 `GET /api/device/{deviceCode}/properties` 做首屏摘要。' },
       { index: '02', title: '时序查询', description: '后续接 telemetry 模块，补足历史趋势和时间范围检索。' },
       { index: '03', title: '异常着色', description: '按 valueType、阈值和告警等级统一上色。' }
     ]

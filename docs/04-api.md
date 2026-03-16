@@ -11,10 +11,15 @@
 }
 ```
 
+## 异常返回约定
+- 参数校验或参数绑定失败：返回 `code=400`，`msg` 为可读错误信息（如 `缺少必要参数: confirmUser`、`参数类型错误: status`、`请求体格式不正确`）。
+- 业务异常：返回业务定义错误码与业务消息。
+- 未知系统异常：返回 `code=500`，`msg=系统繁忙，请稍后再试`。
+
 ## 产品接口
 
 ### 新增产品
-`POST /device/product/add`
+`POST /api/device/product/add`
 
 请求体：
 ```json
@@ -44,12 +49,12 @@
 ```
 
 ### 根据 ID 查询产品
-`GET /device/product/{id}`
+`GET /api/device/product/{id}`
 
 ## 设备接口
 
 ### 新增设备
-`POST /device/add`
+`POST /api/device/add`
 
 请求体：
 ```json
@@ -68,10 +73,10 @@
 ```
 
 ### 根据 ID 查询设备
-`GET /device/{id}`
+`GET /api/device/{id}`
 
 ### 根据 deviceCode 查询设备
-`GET /device/code/{deviceCode}`
+`GET /api/device/code/{deviceCode}`
 
 ### 查询设备选项列表
 `GET /api/device/list`
@@ -195,9 +200,9 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 - 当前已能识别直连设备 topic、历史 `$dp` 和子设备预留 topic
 - 子设备 topic 目前只完成解析结构预留，不进入完整子设备业务处理
 - 查询验证仍复用已有 HTTP 接口：
-  - `GET /device/code/{deviceCode}`
-  - `GET /device/{deviceCode}/properties`
-  - `GET /device/{deviceCode}/message-logs`
+  - `GET /api/device/code/{deviceCode}`
+  - `GET /api/device/{deviceCode}/properties`
+  - `GET /api/device/{deviceCode}/message-logs`
 
 ### MQTT 下行发布
 `POST /message/mqtt/down/publish`
@@ -249,7 +254,7 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 ## 设备属性与消息日志接口
 
 ### 查询设备最新属性
-`GET /device/{deviceCode}/properties`
+`GET /api/device/{deviceCode}/properties`
 
 成功响应示例：
 ```json
@@ -274,7 +279,7 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 ```
 
 ### 查询设备消息日志
-`GET /device/{deviceCode}/message-logs`
+`GET /api/device/{deviceCode}/message-logs`
 
 成功响应示例：
 ```json
@@ -294,14 +299,14 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 ## 文件调试接口
 
 ### 查询设备文件快照
-`GET /device/{deviceCode}/file-snapshots`
+`GET /api/device/{deviceCode}/file-snapshots`
 
 说明：
 - 用于查看表 C.3 文件类消息在 Redis 中的最小持久化结果
 - 当前返回文件描述、文件长度、Base64 文件流和更新时间
 
 ### 查询设备固件聚合结果
-`GET /device/{deviceCode}/firmware-aggregates`
+`GET /api/device/{deviceCode}/firmware-aggregates`
 
 说明：
 - 用于查看表 C.4 固件分包在 Redis 中的聚合状态
@@ -586,4 +591,3 @@ Authorization: Bearer <jwt-token>
 - 响应按统一 `ApiEnvelope<RiskMonitoringGisPoint[]>` 结构返回。
 - 支持可选区域参数 `regionId`。
 - 当前仅用于 ECharts 点位态势图，不代表完整 GIS SDK / 地图底图集成。
-

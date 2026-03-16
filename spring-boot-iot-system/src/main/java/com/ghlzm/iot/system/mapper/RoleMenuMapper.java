@@ -50,4 +50,11 @@ public interface RoleMenuMapper {
             </script>
             """)
     int batchInsert(@Param("bindings") List<RoleMenuBindingDTO> bindings);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM sys_role_menu
+            WHERE menu_id = #{menuId}
+            """)
+    int countByMenuId(@Param("menuId") Long menuId);
 }

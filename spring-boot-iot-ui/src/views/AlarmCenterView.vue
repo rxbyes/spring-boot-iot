@@ -11,7 +11,7 @@
     </div>
 
     <div class="alarm-filters">
-      <el-form :model="filters" label-position="left">
+      <el-form :model="filters" label-position="left" class="alarm-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="设备编码">
@@ -38,9 +38,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
+            <el-form-item label="" class="alarm-filter-actions">
+              <el-button type="primary" class="alarm-btn alarm-btn--primary" @click="handleSearch">查询</el-button>
+              <el-button class="alarm-btn alarm-btn--ghost" @click="handleReset">重置</el-button>
             </el-form-item>
           </el-col>
         </el-row>
@@ -91,7 +91,7 @@
       />
     </div>
 
-    <el-dialog v-model="detailVisible" title="告警详情" width="800px">
+    <el-dialog v-model="detailVisible" title="告警详情" width="800px" class="alarm-dialog">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="告警编号">{{ detail?.alarmCode }}</el-descriptions-item>
         <el-descriptions-item label="告警标题">{{ detail?.alarmTitle }}</el-descriptions-item>
@@ -109,7 +109,7 @@
         <el-descriptions-item label="状态">{{ getStatusText(detail?.status ?? -1) }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button class="alarm-btn alarm-btn--ghost" @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -138,7 +138,7 @@ const stats = ref({
 const filters = reactive({
   deviceCode: '',
   alarmLevel: '',
-  status: ''
+  status: '' as '' | number
 });
 
 const pagination = reactive({
@@ -205,10 +205,12 @@ const getStatusText = (status: number) => {
 const loadAlarmList = async () => {
   loading.value = true;
   try {
+    const statusValue = filters.status === '' ? undefined : Number(filters.status);
+    const normalizedStatus = typeof statusValue === 'number' && Number.isFinite(statusValue) ? statusValue : undefined;
     const res = await getAlarmList({
       deviceCode: filters.deviceCode || undefined,
       alarmLevel: filters.alarmLevel || undefined,
-      status: filters.status ? parseInt(filters.status, 10) : undefined
+      status: normalizedStatus
     });
 
     if (res.code === 200) {
@@ -309,6 +311,9 @@ onMounted(() => {
 <style scoped>
 .alarm-center-view {
   padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 
 .alarm-header {
@@ -317,28 +322,92 @@ onMounted(() => {
 
 .alarm-header h1 {
   font-size: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .alarm-stats {
   display: flex;
-  gap: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.alarm-stats :deep(.el-statistic) {
+  min-width: 170px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94));
+  box-shadow: var(--shadow-sm);
 }
 
 .alarm-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  margin-bottom: 16px;
+  padding: 16px 16px 8px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.alarm-filter-form :deep(.el-form-item__label) {
+  color: var(--text-secondary);
+}
+
+.alarm-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alarm-btn {
+  border-radius: 999px;
+  padding-inline: 16px;
+}
+
+.alarm-btn--primary {
+  box-shadow: var(--shadow-brand);
+}
+
+.alarm-btn--ghost {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(130deg, #fff, #f6f9ff);
+  color: var(--text-secondary);
 }
 
 .alarm-list {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
 }
 
 .alarm-pagination {
   display: flex;
   justify-content: flex-end;
+  padding: 8px 0 2px;
+}
+
+.alarm-dialog :deep(.el-dialog__header) {
+  margin-right: 0;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.95));
+}
+
+.alarm-dialog :deep(.el-dialog__title) {
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.alarm-dialog :deep(.el-dialog__body) {
+  padding: 16px 20px;
+  background: #fff;
+}
+
+.alarm-dialog :deep(.el-dialog__footer) {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.9), rgba(245, 249, 255, 0.96));
 }
 </style>
