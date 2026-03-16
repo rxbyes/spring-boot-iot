@@ -1,7 +1,7 @@
 <template>
   <div class="rule-definition-view">
     <div class="rule-definition-header">
-      <h1>阈值规则配?/h1>
+      <h1>阈值规则配置</h1>
       <el-button type="primary" @click="handleAdd">新增规则</el-button>
     </div>
 
@@ -10,11 +10,11 @@
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="规则名称">
-              <el-input v-model="filters.ruleName" placeholder="请输入规则名? clearable />
+              <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="测点标识?>
+            <el-form-item label="测点标识符">
               <el-input v-model="filters.metricIdentifier" placeholder="请输入测点标识符" clearable />
             </el-form-item>
           </el-col>
@@ -28,8 +28,8 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状?>
-              <el-select v-model="filters.status" placeholder="请选择状? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
@@ -48,23 +48,23 @@
     <div class="rule-definition-list">
       <el-table :data="ruleList" v-loading="loading" border>
         <el-table-column prop="ruleName" label="规则名称" />
-        <el-table-column prop="metricIdentifier" label="测点标识? width="150" />
+        <el-table-column prop="metricIdentifier" label="测点标识符" width="150" />
         <el-table-column prop="metricName" label="测点名称" width="120" />
-        <el-table-column prop="expression" label="表达? width="200" />
-        <el-table-column prop="duration" label="持续时间(?" width="120" />
+        <el-table-column prop="expression" label="表达式" width="200" />
+        <el-table-column prop="duration" label="持续时间(秒)" width="120" />
         <el-table-column prop="alarmLevel" label="告警等级" width="100">
           <template #default="{ row }">
             <el-tag :type="getAlarmLevelType(row.alarmLevel)">{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="convertToEvent" label="转事? width="100">
+        <el-table-column prop="convertToEvent" label="转事件" width="100">
           <template #default="{ row }">
             <el-tag :type="row.convertToEvent === 1 ? 'success' : 'info'">
-              {{ row.convertToEvent === 1 ? '? : '? }}
+              {{ row.convertToEvent === 1 ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状? width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
@@ -91,23 +91,23 @@
       />
     </div>
 
-    <!-- 规则表单对话?-->
+    <!-- 规则表单对话框 -->
     <el-dialog v-model="formVisible" :title="formTitle" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
         <el-form-item label="规则名称" prop="ruleName">
-          <el-input v-model="form.ruleName" placeholder="请输入规则名? />
+          <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
         </el-form-item>
-        <el-form-item label="测点标识? prop="metricIdentifier">
+        <el-form-item label="测点标识符" prop="metricIdentifier">
           <el-input v-model="form.metricIdentifier" placeholder="请输入测点标识符" />
         </el-form-item>
         <el-form-item label="测点名称" prop="metricName">
-          <el-input v-model="form.metricName" placeholder="请输入测点名? />
+          <el-input v-model="form.metricName" placeholder="请输入测点名称" />
         </el-form-item>
-        <el-form-item label="表达? prop="expression">
+        <el-form-item label="表达式" prop="expression">
           <el-input v-model="form.expression" placeholder="例如：value > 100" />
         </el-form-item>
-        <el-form-item label="持续时间(?" prop="duration">
-          <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时? />
+        <el-form-item label="持续时间(秒)" prop="duration">
+          <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时间" />
         </el-form-item>
         <el-form-item label="告警等级" prop="alarmLevel">
           <el-select v-model="form.alarmLevel" placeholder="请选择告警等级" style="width: 100%">
@@ -123,20 +123,20 @@
             <el-checkbox label="wechat">微信</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="转事?>
+        <el-form-item label="转事件">
           <el-radio-group v-model="form.convertToEvent">
-            <el-radio :label="0">?/el-radio>
-            <el-radio :label="1">?/el-radio>
+            <el-radio :label="0">否</el-radio>
+            <el-radio :label="1">是</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="状? prop="status">
+        <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="0">启用</el-radio>
             <el-radio :label="1">停用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="描述" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入描? />
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入描述" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -149,12 +149,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { getRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
 import type { RuleDefinition } from '../api/ruleDefinition';
 
-// 状?
+// 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
@@ -192,7 +191,7 @@ const form = reactive({
 });
 
 const rules = {
-  ruleName: [{ required: true, message: '请输入规则名?, trigger: 'blur' }],
+  ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
   metricIdentifier: [{ required: true, message: '请输入测点标识符', trigger: 'blur' }],
   expression: [{ required: true, message: '请输入表达式', trigger: 'blur' }],
   alarmLevel: [{ required: true, message: '请选择告警等级', trigger: 'change' }]
@@ -228,7 +227,7 @@ const getAlarmLevelText = (level: string) => {
   }
 };
 
-// 获取状态类?
+// 获取状态类型
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -240,7 +239,7 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文?
+// 获取状态文本
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -370,7 +369,7 @@ const handleSubmit = async () => {
   }
 };
 
-// 初始?
+// 初始化
 onMounted(() => {
   loadRuleList();
 });
@@ -410,4 +409,3 @@ onMounted(() => {
   justify-content: flex-end;
 }
 </style>
-

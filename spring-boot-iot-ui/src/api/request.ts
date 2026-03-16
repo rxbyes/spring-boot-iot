@@ -94,18 +94,28 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   try {
     const response = await fetch(url, finalOptions as RequestInit);
     const rawText = await response.text();
-    const payload = rawText ? (JSON.parse(rawText) as ApiEnvelope<T>) : null;
+    const bodyText = rawText.trim();
+    let payload: ApiEnvelope<T> | null = null;
+
+    if (bodyText) {
+      try {
+        payload = JSON.parse(bodyText) as ApiEnvelope<T>;
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (!response.ok) {
+      const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
+      const message = payload?.msg || bodyText || `请求失败: ${statusMessage}`;
+      throw new Error(message);
+    }
 
     if (!payload) {
-      throw new Error('服务端没有返回有效内容');
+      throw new Error('服务端返回格式无效，请检查后端日志');
     }
 
     const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
-
-    if (!response.ok) {
-      throw new Error(processedPayload.msg || `请求失败: ${response.status}`);
-    }
-
     return processedPayload;
   } catch (error) {
     if (error instanceof Error) {

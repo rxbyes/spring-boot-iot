@@ -1,15 +1,15 @@
 <template>
   <div class="risk-point-view">
     <div class="risk-point-header">
-      <h1>风险点管?/h1>
-      <el-button type="primary" @click="handleAdd">新增风险?/el-button>
+      <h1>风险点管理</h1>
+      <el-button type="primary" @click="handleAdd">新增风险点</el-button>
     </div>
 
     <div class="risk-point-filters">
       <el-form :model="filters" label-position="left">
         <el-row :gutter="20">
           <el-col :span="6">
-            <el-form-item label="风险点编?>
+            <el-form-item label="风险点编号">
               <el-input v-model="filters.riskPointCode" placeholder="请输入风险点编号" clearable />
             </el-form-item>
           </el-col>
@@ -23,8 +23,8 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状?>
-              <el-select v-model="filters.status" placeholder="请选择状? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
@@ -42,16 +42,16 @@
 
     <div class="risk-point-list">
       <el-table :data="riskPointList" v-loading="loading" border>
-        <el-table-column prop="riskPointCode" label="风险点编? width="150" />
-        <el-table-column prop="riskPointName" label="风险点名? />
+        <el-table-column prop="riskPointCode" label="风险点编号" width="150" />
+        <el-table-column prop="riskPointName" label="风险点名称" />
         <el-table-column prop="regionName" label="区域" width="120" />
         <el-table-column prop="riskLevel" label="风险等级" width="100">
           <template #default="{ row }">
             <el-tag :type="getRiskLevelType(row.riskLevel)">{{ getRiskLevelText(row.riskLevel) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="responsiblePhone" label="负责人电? width="120" />
-        <el-table-column prop="status" label="状? width="100">
+        <el-table-column prop="responsiblePhone" label="负责人电话" width="120" />
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
@@ -82,14 +82,14 @@
     <!-- 风险点表单对话框 -->
     <el-dialog v-model="formVisible" :title="formTitle" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="风险点编? prop="riskPointCode">
+        <el-form-item label="风险点编号" prop="riskPointCode">
           <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
         </el-form-item>
-        <el-form-item label="风险点名? prop="riskPointName">
+        <el-form-item label="风险点名称" prop="riskPointName">
           <el-input v-model="form.riskPointName" placeholder="请输入风险点名称" />
         </el-form-item>
         <el-form-item label="区域" prop="regionName">
-          <el-input v-model="form.regionName" placeholder="请输入区域名? />
+          <el-input v-model="form.regionName" placeholder="请输入区域名称" />
         </el-form-item>
         <el-form-item label="风险等级" prop="riskLevel">
           <el-select v-model="form.riskLevel" placeholder="请选择风险等级" style="width: 100%">
@@ -98,17 +98,17 @@
             <el-option label="提醒" value="info" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人电? prop="responsiblePhone">
+        <el-form-item label="负责人电话" prop="responsiblePhone">
           <el-input v-model="form.responsiblePhone" placeholder="请输入负责人电话" />
         </el-form-item>
-        <el-form-item label="状? prop="status">
+        <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="0">启用</el-radio>
             <el-radio :label="1">停用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描? />
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -117,28 +117,21 @@
       </template>
     </el-dialog>
 
-    <!-- 绑定设备对话?-->
+    <!-- 绑定设备对话框 -->
     <el-dialog v-model="bindDeviceVisible" title="绑定设备" width="600px">
-      <el-form :model="bindForm" label-width="100px" v-loading="bindDialogLoading">
-        <el-form-item label="风险?>
+      <el-form :model="bindForm" label-width="100px">
+        <el-form-item label="风险点">
           <el-input v-model="bindForm.riskPointName" disabled />
         </el-form-item>
         <el-form-item label="设备">
-          <el-select
-            v-model="bindForm.deviceId"
-            placeholder="请选择设备"
-            style="width: 100%"
-            filterable
-            clearable
-            @change="handleDeviceChange"
-          >
+          <el-select v-model="bindForm.deviceId" placeholder="请选择设备" style="width: 100%">
             <el-option v-for="device in deviceList" :key="device.id" :label="device.deviceName" :value="device.id">
               {{ device.deviceCode }} - {{ device.deviceName }}
             </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="测点">
-          <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点" style="width: 100%" clearable>
+          <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点" style="width: 100%">
             <el-option v-for="metric in metricList" :key="metric.identifier" :label="metric.name" :value="metric.identifier">
               {{ metric.name }}
             </el-option>
@@ -155,21 +148,17 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
-import { bindDevice as bindRiskPointDevice, getBoundDevices, getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint } from '../api/riskPoint';
-import type { RiskPoint, RiskPointDevice } from '../api/riskPoint';
-import { getDeviceMetricOptions, listDeviceOptions } from '../api/iot';
-import type { DeviceMetricOption, DeviceOption } from '../types/api';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, getBoundDevices } from '../api/riskPoint';
+import type { RiskPoint } from '../api/riskPoint';
 
-// 状?
+// 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
-const deviceList = ref<DeviceOption[]>([]);
-const metricList = ref<DeviceMetricOption[]>([]);
-const bindDialogLoading = ref(false);
+const deviceList = ref<any[]>([]);
+const metricList = ref<any[]>([]);
 
 // 查询条件
 const filters = reactive({
@@ -187,7 +176,7 @@ const pagination = reactive({
 
 // 表单
 const formRef = ref();
-const formTitle = computed(() => form.id ? '编辑风险? : '新增风险?);
+const formTitle = computed(() => form.id ? '编辑风险点' : '新增风险点');
 const form = reactive({
   id: undefined as number | undefined,
   riskPointCode: '',
@@ -247,7 +236,7 @@ const getRiskLevelText = (level: string) => {
   }
 };
 
-// 获取状态类?
+// 获取状态类型
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -259,7 +248,7 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文?
+// 获取状态文本
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -271,7 +260,7 @@ const getStatusText = (status: number) => {
   }
 };
 
-// 获取风险点列?
+// 获取风险点列表
 const loadRiskPointList = async () => {
   loading.value = true;
   try {
@@ -285,7 +274,7 @@ const loadRiskPointList = async () => {
       pagination.total = res.data?.length || 0;
     }
   } catch (error) {
-    console.error('查询风险点列表失?, error);
+    console.error('查询风险点列表失败', error);
   } finally {
     loading.value = false;
   }
@@ -316,7 +305,7 @@ const handlePageChange = () => {
   loadRiskPointList();
 };
 
-// 新增风险?
+// 新增风险点
 const handleAdd = () => {
   form.id = undefined;
   form.riskPointCode = '';
@@ -331,7 +320,7 @@ const handleAdd = () => {
   formVisible.value = true;
 };
 
-// 编辑风险?
+// 编辑风险点
 const handleEdit = (row: RiskPoint) => {
   form.id = row.id;
   form.riskPointCode = row.riskPointCode;
@@ -346,10 +335,10 @@ const handleEdit = (row: RiskPoint) => {
   formVisible.value = true;
 };
 
-// 删除风险?
+// 删除风险点
 const handleDelete = async (row: RiskPoint) => {
   try {
-    await ElMessageBox.confirm('确定要删除该风险点吗?, '删除风险?, {
+    await ElMessageBox.confirm('确定要删除该风险点吗？', '删除风险点', {
       type: 'warning'
     });
     const res = await deleteRiskPoint(row.id);
@@ -358,7 +347,7 @@ const handleDelete = async (row: RiskPoint) => {
       loadRiskPointList();
     }
   } catch (error) {
-    console.error('删除风险点失?, error);
+    console.error('删除风险点失败', error);
   }
 };
 
@@ -383,36 +372,24 @@ const handleSubmit = async () => {
 
 // 绑定设备
 const handleBindDevice = (row: RiskPoint) => {
-  resetBindForm();
   bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
   bindDeviceVisible.value = true;
-  void loadBindableDevices(row.id);
 };
 
 // 提交绑定
 const handleBindSubmit = async () => {
   if (!bindForm.deviceId || !bindForm.metricIdentifier) {
-    ElMessage.warning('请选择设备和测?);
+    ElMessage.warning('请选择设备和测点');
     return;
   }
   try {
     submitLoading.value = true;
-    const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
-    bindForm.metricName = selectedMetric?.name || bindForm.metricIdentifier;
-    const res = await bindRiskPointDevice({
-      riskPointId: bindForm.riskPointId,
-      deviceId: bindForm.deviceId,
-      deviceCode: bindForm.deviceCode,
-      deviceName: bindForm.deviceName,
-      metricIdentifier: bindForm.metricIdentifier,
-      metricName: bindForm.metricName
-    });
+    const res = await getBoundDevices(bindForm.riskPointId);
     if (res.code === 200) {
+      // TODO: 绑定设备逻辑
       ElMessage.success('绑定成功');
       bindDeviceVisible.value = false;
-      resetBindForm();
-      loadRiskPointList();
     }
   } catch (error) {
     console.error('绑定设备失败', error);
@@ -421,63 +398,7 @@ const handleBindSubmit = async () => {
   }
 };
 
-const loadBindableDevices = async (riskPointId: number) => {
-  bindDialogLoading.value = true;
-  try {
-    const [deviceRes, boundRes] = await Promise.all([listDeviceOptions(), getBoundDevices(riskPointId)]);
-    const boundDeviceIds = new Set((boundRes.data || []).map((item: RiskPointDevice) => item.deviceId));
-    deviceList.value = (deviceRes.data || []).filter((device) => !boundDeviceIds.has(device.id));
-    metricList.value = [];
-    if (deviceList.value.length === 0) {
-      ElMessage.info('当前没有可绑定的设备');
-    }
-  } catch (error) {
-    deviceList.value = [];
-    metricList.value = [];
-    ElMessage.error(error instanceof Error ? error.message : '加载绑定设备选项失败');
-  } finally {
-    bindDialogLoading.value = false;
-  }
-};
-
-const handleDeviceChange = async (deviceId?: number) => {
-  bindForm.metricIdentifier = '';
-  bindForm.metricName = '';
-  metricList.value = [];
-  const selectedDevice = deviceList.value.find((device) => device.id === deviceId);
-  bindForm.deviceCode = selectedDevice?.deviceCode || '';
-  bindForm.deviceName = selectedDevice?.deviceName || '';
-  if (!deviceId) {
-    return;
-  }
-  bindDialogLoading.value = true;
-  try {
-    const res = await getDeviceMetricOptions(deviceId);
-    metricList.value = res.data || [];
-    if (metricList.value.length === 0) {
-      ElMessage.warning('当前设备没有可绑定的测点，请先完善物模型或产生属性数?);
-    }
-  } catch (error) {
-    metricList.value = [];
-    ElMessage.error(error instanceof Error ? error.message : '加载设备测点失败');
-  } finally {
-    bindDialogLoading.value = false;
-  }
-};
-
-const resetBindForm = () => {
-  bindForm.riskPointId = 0;
-  bindForm.riskPointName = '';
-  bindForm.deviceId = 0;
-  bindForm.deviceCode = '';
-  bindForm.deviceName = '';
-  bindForm.metricIdentifier = '';
-  bindForm.metricName = '';
-  deviceList.value = [];
-  metricList.value = [];
-};
-
-// 初始?
+// 初始化
 onMounted(() => {
   loadRiskPointList();
 });
@@ -517,4 +438,3 @@ onMounted(() => {
   justify-content: flex-end;
 }
 </style>
-

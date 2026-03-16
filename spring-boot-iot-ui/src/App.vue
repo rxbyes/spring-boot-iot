@@ -1,12 +1,12 @@
 <template>
-  <el-config-provider :locale="zhCn" :theme="themeConfig">
+  <el-config-provider :locale="zhCn">
     <RouterView v-if="route.meta.layout === 'blank'" />
     <AppShell v-else />
   </el-config-provider>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
+import { onMounted, watch } from 'vue';
 import { RouterView, useRoute } from 'vue-router';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 
@@ -15,17 +15,6 @@ import AppShell from './components/AppShell.vue';
 
 const themeStore = useThemeStore();
 const route = useRoute();
-
-// 应用主题
-const themeConfig = computed(() => ({
-  mode: themeStore.mode,
-  colors: {
-    primary: themeStore.primaryColor,
-    secondary: themeStore.secondaryColor,
-    background: themeStore.backgroundColor,
-    text: themeStore.textColor
-  }
-}));
 
 // 监听主题变化
 watch(() => themeStore.mode, () => {

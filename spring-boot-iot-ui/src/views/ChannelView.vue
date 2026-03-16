@@ -15,7 +15,7 @@
             <el-form-item label="渠道名称">
               <el-input
                 v-model="searchForm.channelName"
-                placeholder="请输入渠道名?
+                placeholder="请输入渠道名称"
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -25,7 +25,7 @@
             <el-form-item label="渠道编码">
               <el-input
                 v-model="searchForm.channelCode"
-                placeholder="请输入渠道编?
+                placeholder="请输入渠道编码"
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -66,7 +66,7 @@
             <el-tag>{{ getChannelTypeName(row.channelType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状? width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
@@ -95,7 +95,7 @@
         class="pagination"
       />
 
-      <!-- 表单对话?-->
+      <!-- 表单对话框 -->
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
@@ -109,10 +109,10 @@
           label-width="100px"
         >
           <el-form-item label="渠道名称" prop="channelName">
-            <el-input v-model="formData.channelName" placeholder="请输入渠道名? />
+            <el-input v-model="formData.channelName" placeholder="请输入渠道名称" />
           </el-form-item>
           <el-form-item label="渠道编码" prop="channelCode">
-            <el-input v-model="formData.channelCode" placeholder="请输入渠道编? />
+            <el-input v-model="formData.channelCode" placeholder="请输入渠道编码" />
           </el-form-item>
           <el-form-item label="渠道类型" prop="channelType">
             <el-select v-model="formData.channelType" placeholder="请选择渠道类型">
@@ -123,7 +123,7 @@
               <el-option label="钉钉" value="dingtalk" />
             </el-select>
           </el-form-item>
-          <el-form-item label="状? prop="status">
+          <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -137,7 +137,7 @@
               v-model="formData.remark"
               type="textarea"
               :rows="3"
-              placeholder="请输入备?
+              placeholder="请输入备注"
             />
           </el-form-item>
         </el-form>
@@ -152,8 +152,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from '@/utils/message'
-import { ElMessageBox } from '@/utils/messageBox'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import {
   listChannels,
@@ -183,10 +182,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状?
+// 加载状态
 const loading = ref(false)
 
-// 对话?
+// 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增通知渠道')
 const formData = ref({
@@ -201,12 +200,12 @@ const formData = ref({
 
 // 表单验证规则
 const formRules = {
-  channelName: [{ required: true, message: '请输入渠道名?, trigger: 'blur' }],
-  channelCode: [{ required: true, message: '请输入渠道编?, trigger: 'blur' }],
+  channelName: [{ required: true, message: '请输入渠道名称', trigger: 'blur' }],
+  channelCode: [{ required: true, message: '请输入渠道编码', trigger: 'blur' }],
   channelType: [{ required: true, message: '请选择渠道类型', trigger: 'change' }]
 }
 
-// 提交状?
+// 提交状态
 const submitLoading = ref(false)
 
 // 获取通知渠道列表
@@ -224,7 +223,7 @@ const getChannelList = async () => {
   }
 }
 
-// 初始?
+// 初始化
 onMounted(() => {
   getChannelList()
 })
@@ -314,7 +313,7 @@ const handleSubmit = async () => {
   }
 }
 
-// 关闭对话?
+// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
@@ -337,7 +336,7 @@ const handleSizeChange = (size: number) => {
   getChannelList()
 }
 
-// 当前页变?
+// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getChannelList()
@@ -369,4 +368,3 @@ const handlePageChange = (page: number) => {
   justify-content: flex-end;
 }
 </style>
-

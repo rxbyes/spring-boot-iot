@@ -15,7 +15,7 @@
             <el-form-item label="组织名称">
               <el-input
                 v-model="searchForm.orgName"
-                placeholder="请输入组织名?
+                placeholder="请输入组织名称"
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -25,15 +25,15 @@
             <el-form-item label="组织编码">
               <el-input
                 v-model="searchForm.orgCode"
-                placeholder="请输入组织编?
+                placeholder="请输入组织编码"
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="状?>
-              <el-select v-model="searchForm.status" placeholder="请选择状? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="1" />
                 <el-option label="禁用" :value="0" />
               </el-select>
@@ -67,10 +67,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="leaderName" label="负责? width="120" />
+        <el-table-column prop="leaderName" label="负责人" width="120" />
         <el-table-column prop="phone" label="联系电话" width="150" />
         <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column prop="status" label="状? width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
@@ -100,7 +100,7 @@
         class="pagination"
       />
 
-      <!-- 表单对话?-->
+      <!-- 表单对话框 -->
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
@@ -114,10 +114,10 @@
           label-width="100px"
         >
           <el-form-item label="组织名称" prop="orgName">
-            <el-input v-model="formData.orgName" placeholder="请输入组织名? />
+            <el-input v-model="formData.orgName" placeholder="请输入组织名称" />
           </el-form-item>
           <el-form-item label="组织编码" prop="orgCode">
-            <el-input v-model="formData.orgCode" placeholder="请输入组织编? />
+            <el-input v-model="formData.orgCode" placeholder="请输入组织编码" />
           </el-form-item>
           <el-form-item label="组织类型" prop="orgType">
             <el-select v-model="formData.orgType" placeholder="请选择组织类型">
@@ -126,16 +126,16 @@
               <el-option label="团队" value="team" />
             </el-select>
           </el-form-item>
-          <el-form-item label="负责? prop="leaderName">
+          <el-form-item label="负责人" prop="leaderName">
             <el-input v-model="formData.leaderName" placeholder="请输入负责人姓名" />
           </el-form-item>
           <el-form-item label="联系电话" prop="phone">
-            <el-input v-model="formData.phone" placeholder="请输入联系电? />
+            <el-input v-model="formData.phone" placeholder="请输入联系电话" />
           </el-form-item>
           <el-form-item label="邮箱" prop="email">
-            <el-input v-model="formData.email" placeholder="请输入邮? />
+            <el-input v-model="formData.email" placeholder="请输入邮箱" />
           </el-form-item>
-          <el-form-item label="状? prop="status">
+          <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -149,7 +149,7 @@
               v-model="formData.remark"
               type="textarea"
               :rows="3"
-              placeholder="请输入备?
+              placeholder="请输入备注"
             />
           </el-form-item>
         </el-form>
@@ -164,8 +164,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from '@/utils/message'
-import { ElMessageBox } from '@/utils/messageBox'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import {
   listOrganizationTree,
@@ -195,10 +194,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状?
+// 加载状态
 const loading = ref(false)
 
-// 对话?
+// 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增组织机构')
 const formData = ref({
@@ -217,16 +216,16 @@ const formData = ref({
 
 // 表单验证规则
 const formRules = {
-  orgName: [{ required: true, message: '请输入组织名?, trigger: 'blur' }],
-  orgCode: [{ required: true, message: '请输入组织编?, trigger: 'blur' }],
+  orgName: [{ required: true, message: '请输入组织名称', trigger: 'blur' }],
+  orgCode: [{ required: true, message: '请输入组织编码', trigger: 'blur' }],
   orgType: [{ required: true, message: '请选择组织类型', trigger: 'change' }],
   leaderName: [{ required: true, message: '请输入负责人姓名', trigger: 'blur' }]
 }
 
-// 提交状?
+// 提交状态
 const submitLoading = ref(false)
 
-// 获取组织机构?
+// 获取组织机构树
 const getOrganizationTree = async () => {
   loading.value = true
   try {
@@ -235,13 +234,13 @@ const getOrganizationTree = async () => {
       tableData.value = res.data || []
     }
   } catch (error) {
-    console.error('获取组织机构树失?, error)
+    console.error('获取组织机构树失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始?
+// 初始化
 onMounted(() => {
   getOrganizationTree()
 })
@@ -354,7 +353,7 @@ const handleSubmit = async () => {
   }
 }
 
-// 关闭对话?
+// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
@@ -385,7 +384,7 @@ const handleSizeChange = (size: number) => {
   getOrganizationTree()
 }
 
-// 当前页变?
+// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getOrganizationTree()
@@ -417,4 +416,3 @@ const handlePageChange = (page: number) => {
   justify-content: flex-end;
 }
 </style>
-

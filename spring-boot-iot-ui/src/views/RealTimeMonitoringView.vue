@@ -3,51 +3,41 @@
     <PanelCard
       eyebrow="Real-Time Monitoring"
       title="实时监测"
-      description="按区域、风险点、设备和风险等级筛选当前监测项，并通过统一详情抽屉查看趋势、告警和事件摘要?
+      description="按区域、风险点、设备和风险等级筛选当前监测项，并通过统一详情抽屉查看详情。"
     >
       <el-form :model="filters" label-position="top">
         <el-row :gutter="16">
           <el-col :span="6">
             <el-form-item label="区域">
               <el-select v-model="filters.regionId" clearable placeholder="全部区域">
-                <el-option
-                  v-for="region in regionOptions"
-                  :key="region.value"
-                  :label="region.label"
-                  :value="region.value"
-                />
+                <el-option v-for="region in regionOptions" :key="region.value" :label="region.label" :value="region.value" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="风险?>
-              <el-select v-model="filters.riskPointId" clearable placeholder="全部风险?>
-                <el-option
-                  v-for="riskPoint in riskPointOptions"
-                  :key="riskPoint.value"
-                  :label="riskPoint.label"
-                  :value="riskPoint.value"
-                />
+            <el-form-item label="风险点">
+              <el-select v-model="filters.riskPointId" clearable placeholder="全部风险点">
+                <el-option v-for="riskPoint in riskPointOptions" :key="riskPoint.value" :label="riskPoint.label" :value="riskPoint.value" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="4">
             <el-form-item label="设备编码">
-              <el-input v-model="filters.deviceCode" clearable placeholder="请输入设备编? />
+              <el-input v-model="filters.deviceCode" clearable placeholder="请输入设备编码" />
             </el-form-item>
           </el-col>
           <el-col :span="4">
             <el-form-item label="风险等级">
               <el-select v-model="filters.riskLevel" clearable placeholder="全部等级">
                 <el-option label="严重" value="CRITICAL" />
-                <el-option label="? value="WARNING" />
-                <el-option label="? value="INFO" />
+                <el-option label="警告" value="WARNING" />
+                <el-option label="提醒" value="INFO" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="4">
-            <el-form-item label="在线状?>
-              <el-select v-model="filters.onlineStatus" clearable placeholder="全部状?>
+            <el-form-item label="在线状态">
+              <el-select v-model="filters.onlineStatus" clearable placeholder="全部状态">
                 <el-option label="在线" :value="1" />
                 <el-option label="离线" :value="0" />
               </el-select>
@@ -64,37 +54,33 @@
     <PanelCard
       eyebrow="Live List"
       title="监测列表"
-      :description="`当前?${pagination.total} 条监测记录，首屏按后端分页结果直接消费。`"
+      :description="`当前 ${pagination.total} 条监测记录，按后端分页展示。`"
     >
       <div v-if="loading" class="table-state">正在加载实时监测数据...</div>
-      <div v-else-if="rows.length === 0" class="table-state">暂无符合条件的监测记?/div>
+      <div v-else-if="rows.length === 0" class="table-state">暂无符合条件的监测记录</div>
       <template v-else>
         <el-table :data="rows" border>
           <el-table-column prop="deviceCode" label="设备编码" min-width="140" />
           <el-table-column prop="deviceName" label="设备名称" min-width="150" />
           <el-table-column prop="productName" label="产品名称" min-width="150" />
-          <el-table-column prop="riskPointName" label="风险? min-width="140" />
+          <el-table-column prop="riskPointName" label="风险点" min-width="140" />
           <el-table-column label="测点" min-width="150">
             <template #default="{ row }">
               {{ row.metricName || row.metricIdentifier || '--' }}
             </template>
           </el-table-column>
-          <el-table-column label="当前? min-width="120">
+          <el-table-column label="当前值" min-width="120">
             <template #default="{ row }">
               {{ formatCurrentValue(row.currentValue, row.unit) }}
             </template>
           </el-table-column>
-          <el-table-column label="状? width="110">
+          <el-table-column label="状态" width="110">
             <template #default="{ row }">
-              <el-tag :type="monitorStatusTagType(row.monitorStatus)">
-                {{ monitorStatusText(row.monitorStatus) }}
-              </el-tag>
+              <el-tag :type="monitorStatusTagType(row.monitorStatus)">{{ monitorStatusText(row.monitorStatus) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最新上报时? min-width="180">
-            <template #default="{ row }">
-              {{ formatDateTime(row.latestReportTime) }}
-            </template>
+          <el-table-column label="最新上报时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.latestReportTime) }}</template>
           </el-table-column>
           <el-table-column label="风险等级" width="100">
             <template #default="{ row }">
@@ -104,7 +90,7 @@
           <el-table-column label="告警标记" width="100">
             <template #default="{ row }">
               <el-tag :type="row.alarmFlag ? 'danger' : 'info'">
-                {{ row.alarmFlag ? '有告? : '无告? }}
+                {{ row.alarmFlag ? '有告警' : '无告警' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -129,10 +115,7 @@
       </template>
     </PanelCard>
 
-    <RiskMonitoringDetailDrawer
-      v-model="detailVisible"
-      :binding-id="activeBindingId"
-    />
+    <RiskMonitoringDetailDrawer v-model="detailVisible" :binding-id="activeBindingId" />
   </div>
 </template>
 
@@ -233,7 +216,7 @@ async function loadList() {
 
 function handleSearch() {
   pagination.pageNum = 1;
-  loadList();
+  void loadList();
 }
 
 function handleReset() {
@@ -244,16 +227,16 @@ function handleReset() {
   filters.onlineStatus = undefined;
   pagination.pageNum = 1;
   pagination.pageSize = 10;
-  loadList();
+  void loadList();
 }
 
 function handlePageChange() {
-  loadList();
+  void loadList();
 }
 
 function handlePageSizeChange() {
   pagination.pageNum = 1;
-  loadList();
+  void loadList();
 }
 
 function openDetail(bindingId: number) {
@@ -267,12 +250,12 @@ function riskLevelText(value?: string | null) {
       return '严重';
     case 'WARNING':
     case 'MEDIUM':
-      return '?;
+      return '警告';
     case 'INFO':
     case 'LOW':
-      return '?;
+      return '提醒';
     default:
-      return value || '未标?;
+      return value || '未标注';
   }
 }
 
@@ -294,15 +277,15 @@ function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'succes
 function monitorStatusText(value?: string | null) {
   switch ((value || '').toUpperCase()) {
     case 'ALARM':
-      return '告警?;
+      return '告警中';
     case 'OFFLINE':
       return '离线';
     case 'NO_DATA':
-      return '无数?;
+      return '无数据';
     case 'NORMAL':
       return '正常';
     default:
-      return value || '未识?;
+      return value || '未识别';
   }
 }
 
@@ -321,9 +304,7 @@ function monitorStatusTagType(value?: string | null): 'danger' | 'warning' | 'su
 }
 
 function formatCurrentValue(value?: string | null, unit?: string | null) {
-  if (!value) {
-    return '--';
-  }
+  if (!value) return '--';
   return unit ? `${value} ${unit}` : value;
 }
 </script>
@@ -336,28 +317,17 @@ function formatCurrentValue(value?: string | null, unit?: string | null) {
 
 .filter-actions {
   display: flex;
-  gap: 0.75rem;
   justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .table-state {
-  padding: 2rem 1rem;
-  text-align: center;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--panel-border);
-  color: var(--text-secondary);
+  color: #6b7a92;
 }
 
 .pagination-wrap {
+  margin-top: 1rem;
   display: flex;
   justify-content: flex-end;
-  margin-top: 1rem;
-}
-
-@media (max-width: 960px) {
-  .filter-actions {
-    justify-content: flex-start;
-  }
 }
 </style>
-

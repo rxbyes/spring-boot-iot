@@ -1,10 +1,15 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  // 默认使用 127.0.0.1，避免部分环境 localhost 解析到 IPv6 导致代理 500。
+  const proxyTarget = (env.VITE_PROXY_TARGET || 'http://127.0.0.1:9999').trim();
+
+  return {
   plugins: [
     vue(),
     Components({
@@ -142,22 +147,23 @@ export default defineConfig({
       ]
     }
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5174,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
-      '/device': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
-      '/message': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
+    server: {
+      host: '0.0.0.0',
+      port: 5174,
+      proxy: {
+        '/api': {
+          target: proxyTarget,
+          changeOrigin: true
+        },
+        '/device': {
+          target: proxyTarget,
+          changeOrigin: true
+        },
+        '/message': {
+          target: proxyTarget,
+          changeOrigin: true
+        }
+      }
     }
-  }
-} as any);
+  } as any;
+});

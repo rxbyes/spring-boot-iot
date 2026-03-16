@@ -38,7 +38,7 @@
 3. 构建：`npm run build`
 
 ## 联调说明
-- 默认通过 Vite 代理访问 `http://localhost:9999`
+- 默认通过 Vite 代理访问 `http://127.0.0.1:9999`（可通过 `VITE_PROXY_TARGET` 覆盖）
 - 若需要直连其他环境，可设置 `VITE_API_BASE_URL`
 - 若需要调整本地代理目标，可设置 `VITE_PROXY_TARGET`
 - 开发环境下建议保持 `VITE_API_BASE_URL` 为空，这样页面会优先走相对路径和 Vite 代理，避免 `localhost:5173 -> 127.0.0.1:9999` 这类跨域问题

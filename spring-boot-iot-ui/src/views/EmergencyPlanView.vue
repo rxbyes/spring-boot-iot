@@ -1,7 +1,7 @@
 <template>
   <div class="emergency-plan-view">
     <div class="emergency-plan-header">
-      <h1>应急预?/h1>
+      <h1>应急预案</h1>
       <el-button type="primary" @click="handleAdd">新增预案</el-button>
     </div>
 
@@ -10,7 +10,7 @@
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="预案名称">
-              <el-input v-model="filters.planName" placeholder="请输入预案名? clearable />
+              <el-input v-model="filters.planName" placeholder="请输入预案名称" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="6">
@@ -23,8 +23,8 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状?>
-              <el-select v-model="filters.status" placeholder="请选择状? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
@@ -49,7 +49,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" />
-        <el-table-column prop="status" label="状? width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
@@ -76,11 +76,11 @@
       />
     </div>
 
-    <!-- 预案表单对话?-->
+    <!-- 预案表单对话框 -->
     <el-dialog v-model="formVisible" :title="formTitle" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="预案名称" prop="planName">
-          <el-input v-model="form.planName" placeholder="请输入预案名? />
+          <el-input v-model="form.planName" placeholder="请输入预案名称" />
         </el-form-item>
         <el-form-item label="风险等级" prop="riskLevel">
           <el-radio-group v-model="form.riskLevel">
@@ -90,15 +90,15 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描? />
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
         </el-form-item>
         <el-form-item label="响应步骤" prop="responseSteps">
-          <el-input v-model="form.responseSteps" type="textarea" :rows="5" placeholder="请输入响应步骤（JSON格式? />
+          <el-input v-model="form.responseSteps" type="textarea" :rows="5" placeholder="请输入响应步骤（JSON格式）" />
         </el-form-item>
-        <el-form-item label="联系人列? prop="contactList">
-          <el-input v-model="form.contactList" type="textarea" :rows="3" placeholder="请输入联系人列表（JSON格式? />
+        <el-form-item label="联系人列表" prop="contactList">
+          <el-input v-model="form.contactList" type="textarea" :rows="3" placeholder="请输入联系人列表（JSON格式）" />
         </el-form-item>
-        <el-form-item label="状? prop="status">
+        <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="0">启用</el-radio>
             <el-radio :label="1">停用</el-radio>
@@ -115,12 +115,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { getPlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
-// 状?
+// 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
@@ -153,9 +152,9 @@ const form = reactive({
 });
 
 const rules = {
-  planName: [{ required: true, message: '请输入预案名?, trigger: 'blur' }],
+  planName: [{ required: true, message: '请输入预案名称', trigger: 'blur' }],
   riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }],
-  responseSteps: [{ required: true, message: '请输入响应步?, trigger: 'blur' }]
+  responseSteps: [{ required: true, message: '请输入响应步骤', trigger: 'blur' }]
 };
 
 const submitLoading = ref(false);
@@ -188,7 +187,7 @@ const getRiskLevelText = (riskLevel: string) => {
   }
 };
 
-// 获取状态类?
+// 获取状态类型
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -200,7 +199,7 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文?
+// 获取状态文本
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -316,7 +315,7 @@ const handleSubmit = async () => {
   }
 };
 
-// 初始?
+// 初始化
 onMounted(() => {
   loadPlanList();
 });
@@ -356,4 +355,3 @@ onMounted(() => {
   justify-content: flex-end;
 }
 </style>
-

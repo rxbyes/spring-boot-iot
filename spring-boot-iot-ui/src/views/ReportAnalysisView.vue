@@ -7,9 +7,8 @@
           <el-date-picker
             v-model="dateRange"
             type="daterange"
-            value-format="YYYY-MM-DD"
-            range-separator="?
-            start-placeholder="开始日?
+            range-separator="至"
+            start-placeholder="开始日期"
             end-placeholder="结束日期"
             @change="handleDateChange"
           />
@@ -38,7 +37,7 @@
           <el-card shadow="never" class="kpi-card">
             <div class="kpi-content">
               <div class="kpi-value">{{ eventStatistics?.closed || 0 }}</div>
-              <div class="kpi-label">已关闭事?/div>
+              <div class="kpi-label">已关闭事件</div>
             </div>
           </el-card>
         </el-col>
@@ -46,7 +45,7 @@
           <el-card shadow="never" class="kpi-card">
             <div class="kpi-content">
               <div class="kpi-value">{{ deviceHealthStatistics?.onlineRate || 0 }}%</div>
-              <div class="kpi-label">设备在线?/div>
+              <div class="kpi-label">设备在线率</div>
             </div>
           </el-card>
         </el-col>
@@ -88,17 +87,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
-import * as echarts from 'echarts/core'
-import { LineChart, BarChart, PieChart } from 'echarts/charts'
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent
-} from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import { ElMessage } from '@/utils/message'
+import { ref, reactive, onMounted } from 'vue'
+import * as echarts from 'echarts'
+import { ElMessage } from 'element-plus'
 import {
   getRiskTrendAnalysis,
   getAlarmStatistics,
@@ -106,18 +97,7 @@ import {
   getDeviceHealthAnalysis
 } from '@/api/report'
 
-echarts.use([
-  LineChart,
-  BarChart,
-  PieChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  CanvasRenderer
-])
-
-// 状?
+// 状态
 const loading = ref(false)
 const dateRange = ref<string[]>([])
 const riskTrendData = ref<any[]>([])
@@ -175,7 +155,7 @@ const handleDateChange = () => {
   fetchData()
 }
 
-// 初始化风险趋势图?
+// 初始化风险趋势图表
 const initRiskTrendChart = () => {
   if (!riskTrendChart.value) return
   const chart = echarts.init(riskTrendChart.value)
@@ -223,7 +203,7 @@ const initRiskTrendChart = () => {
   chart.setOption(option)
 }
 
-// 初始化告警等级分布图?
+// 初始化告警等级分布图表
 const initAlarmLevelChart = () => {
   if (!alarmLevelChart.value) return
   const chart = echarts.init(alarmLevelChart.value)
@@ -262,7 +242,7 @@ const initAlarmLevelChart = () => {
         data: [
           { value: alarmStatistics.value.critical || 0, name: '严重' },
           { value: alarmStatistics.value.high || 0, name: '重要' },
-          { value: alarmStatistics.value.medium || 0, name: '一? },
+          { value: alarmStatistics.value.medium || 0, name: '一般' },
           { value: alarmStatistics.value.low || 0, name: '轻微' }
         ]
       }
@@ -271,7 +251,7 @@ const initAlarmLevelChart = () => {
   chart.setOption(option)
 }
 
-// 初始化事件闭环分析图?
+// 初始化事件闭环分析图表
 const initEventClosureChart = () => {
   if (!eventClosureChart.value) return
   const chart = echarts.init(eventClosureChart.value)
@@ -284,7 +264,7 @@ const initEventClosureChart = () => {
       trigger: 'axis'
     },
     legend: {
-      data: ['已关?, '未关?],
+      data: ['已关闭', '未关闭'],
       bottom: 0
     },
     grid: {
@@ -302,12 +282,12 @@ const initEventClosureChart = () => {
     },
     series: [
       {
-        name: '已关?,
+        name: '已关闭',
         type: 'bar',
         data: [eventStatistics.value.closed || 0]
       },
       {
-        name: '未关?,
+        name: '未关闭',
         type: 'bar',
         data: [eventStatistics.value.unclosed || 0]
       }
@@ -316,7 +296,7 @@ const initEventClosureChart = () => {
   chart.setOption(option)
 }
 
-// 初始化设备健康分析图?
+// 初始化设备健康分析图表
 const initDeviceHealthChart = () => {
   if (!deviceHealthChart.value) return
   const chart = echarts.init(deviceHealthChart.value)
@@ -335,7 +315,7 @@ const initDeviceHealthChart = () => {
     },
     series: [
       {
-        name: '设备健康?,
+        name: '设备健康度',
         type: 'pie',
         radius: ['40%', '70%'],
         data: [
@@ -350,6 +330,7 @@ const initDeviceHealthChart = () => {
 }
 
 // 监听数据变化更新图表
+import { watch } from 'vue'
 watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics], () => {
   if (riskTrendChart.value && alarmLevelChart.value && eventClosureChart.value && deviceHealthChart.value) {
     nextTick(() => {
@@ -362,6 +343,7 @@ watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics],
 })
 
 // 组件挂载
+import { nextTick } from 'vue'
 onMounted(() => {
   fetchData()
   nextTick(() => {
@@ -432,4 +414,3 @@ onMounted(() => {
   }
 }
 </style>
-

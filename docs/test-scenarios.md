@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
-- 前端代理默认指向 `http://localhost:9999`
+- 前端代理默认指向 `http://127.0.0.1:9999`（可通过 `VITE_PROXY_TARGET` 覆盖）
 
 ## 4. HTTP 主链路真实环境验收
 ### 步骤 1：创建产品
