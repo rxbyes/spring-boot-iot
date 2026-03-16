@@ -19,6 +19,30 @@
 - 业务异常：返回业务定义错误码与业务消息。
 - 未知系统异常：返回 `code=500`，`msg=系统繁忙，请稍后再试`。
 
+## 风险处置分页接口补充（2026-03-17）
+
+为保证风险处置与配置模块在大数据量下保持一致体验，后端新增以下分页接口（同时保留原 `list` 接口兼容旧调用）：
+
+- `GET /api/risk-point/page`
+- `GET /api/rule-definition/page`
+- `GET /api/linkage-rule/page`
+- `GET /api/emergency-plan/page`
+
+统一分页参数：
+- `pageNum`：页码（默认 `1`）
+- `pageSize`：每页条数（默认 `10`）
+- 其他筛选参数与对应 `list` 接口保持一致
+
+统一分页返回 `data` 结构：
+```json
+{
+  "total": 125,
+  "pageNum": 1,
+  "pageSize": 10,
+  "records": []
+}
+```
+
 ## 产品接口
 
 ### 新增产品

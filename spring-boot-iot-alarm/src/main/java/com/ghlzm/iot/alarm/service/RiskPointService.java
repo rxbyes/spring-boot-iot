@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.common.response.PageResult;
 
 import java.util.List;
 
@@ -35,6 +36,11 @@ public interface RiskPointService extends IService<RiskPoint> {
        * 查询风险点列表
        */
       List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status);
+
+      /**
+       * 分页查询风险点列表
+       */
+      PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize);
 
       /**
        * 绑定风险点与设备

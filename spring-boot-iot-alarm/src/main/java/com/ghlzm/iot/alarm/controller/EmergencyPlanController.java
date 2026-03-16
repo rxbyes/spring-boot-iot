@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.EmergencyPlan;
 import com.ghlzm.iot.alarm.service.EmergencyPlanService;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,20 @@ public class EmergencyPlanController {
                   @RequestParam(required = false) Integer status) {
             List<EmergencyPlan> list = emergencyPlanService.getPlanList(planName, riskLevel, status);
             return R.ok(list);
+      }
+
+      /**
+       * 分页获取预案列表
+       */
+      @GetMapping("/page")
+      public R<PageResult<EmergencyPlan>> pagePlanList(
+                  @RequestParam(required = false) String planName,
+                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) Integer status,
+                  @RequestParam(defaultValue = "1") Long pageNum,
+                  @RequestParam(defaultValue = "10") Long pageSize) {
+            PageResult<EmergencyPlan> page = emergencyPlanService.pagePlanList(planName, riskLevel, status, pageNum, pageSize);
+            return R.ok(page);
       }
 
       /**

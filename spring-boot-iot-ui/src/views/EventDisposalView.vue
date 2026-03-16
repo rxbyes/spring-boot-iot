@@ -54,7 +54,9 @@
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
         </div>
         <div class="table-action-bar__right">
+          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
@@ -157,13 +159,28 @@
         <el-button type="primary" class="event-btn event-btn--primary" @click="handleCloseConfirm">确定</el-button>
       </template>
     </el-dialog>
+
+    <CsvColumnSettingDialog
+      v-model="exportColumnDialogVisible"
+      title="事件处置导出列设置"
+      :options="exportColumnOptions"
+      :selected-keys="selectedExportColumnKeys"
+      @confirm="handleExportColumnConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { downloadRowsAsCsv } from '@/utils/csv';
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns';
 
 import { ElMessageBox } from '@/utils/messageBox';
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
@@ -177,6 +194,27 @@ const eventList = ref<EventRecord[]>([]);
 const detail = ref<EventRecord | null>(null);
 const tableRef = ref();
 const selectedRows = ref<EventRecord[]>([]);
+const exportColumns: CsvColumn<EventRecord>[] = [
+  { key: 'eventCode', label: '事件编号' },
+  { key: 'eventTitle', label: '事件标题' },
+  { key: 'riskLevel', label: '风险等级', formatter: (value) => getRiskLevelText(String(value || '')) },
+  { key: 'regionName', label: '区域' },
+  { key: 'riskPointName', label: '风险点' },
+  { key: 'deviceName', label: '设备名称' },
+  { key: 'metricName', label: '测点名称' },
+  { key: 'currentValue', label: '当前值' },
+  { key: 'status', label: '状态', formatter: (value) => getStatusText(Number(value)) },
+  { key: 'triggerTime', label: '触发时间' }
+];
+const exportColumnStorageKey = 'event-disposal-view';
+const exportColumnOptions = toCsvColumnOptions(exportColumns);
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+);
+const exportColumnDialogVisible = ref(false);
 
 const stats = ref({
   pendingEvents: 0,
@@ -319,19 +357,23 @@ const handleRefresh = () => {
   void loadEventList();
 };
 
+const openExportColumnSetting = () => {
+  exportColumnDialogVisible.value = true;
+};
+
+const handleExportColumnConfirm = (selectedKeys: string[]) => {
+  selectedExportColumnKeys.value = selectedKeys;
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys);
+};
+
+const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value);
+
 const handleExportSelected = () => {
-  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value, [
-    { key: 'eventCode', label: '事件编号' },
-    { key: 'eventTitle', label: '事件标题' },
-    { key: 'riskLevel', label: '风险等级', formatter: (value) => getRiskLevelText(String(value || '')) },
-    { key: 'regionName', label: '区域' },
-    { key: 'riskPointName', label: '风险点' },
-    { key: 'deviceName', label: '设备名称' },
-    { key: 'metricName', label: '测点名称' },
-    { key: 'currentValue', label: '当前值' },
-    { key: 'status', label: '状态', formatter: (value) => getStatusText(Number(value)) },
-    { key: 'triggerTime', label: '触发时间' }
-  ]);
+  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value, getResolvedExportColumns());
+};
+
+const handleExportCurrent = () => {
+  downloadRowsAsCsv('事件处置-当前结果.csv', eventList.value, getResolvedExportColumns());
 };
 
 const handleSizeChange = () => {

@@ -1,19 +1,21 @@
 <template>
-  <div class="emergency-plan-view">
-    <div class="emergency-plan-header">
-      <h1>应急预案</h1>
-      <el-button type="primary" @click="handleAdd">新增预案</el-button>
-    </div>
+  <div class="emergency-plan-view sys-mgmt-view">
+    <el-card class="box-card">
+      <template #header>
+        <div class="card-header">
+          <span>应急预案</span>
+          <el-button type="primary" @click="handleAdd">新增预案</el-button>
+        </div>
+      </template>
 
-    <div class="emergency-plan-filters">
-      <el-form :model="filters" label-position="left">
+      <el-form :model="filters" label-width="96px" class="search-form">
         <el-row :gutter="20">
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="预案名称">
-              <el-input v-model="filters.planName" placeholder="请输入预案名称" clearable />
+              <el-input v-model="filters.planName" placeholder="请输入预案名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="风险等级">
               <el-select v-model="filters.riskLevel" placeholder="请选择风险等级" clearable>
                 <el-option label="严重" value="critical" />
@@ -22,7 +24,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
@@ -30,18 +32,34 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
+        </el-row>
+        <el-row>
+          <el-col :span="24" class="text-right">
+            <el-button @click="handleReset">重置</el-button>
+            <el-button type="primary" @click="handleSearch">查询</el-button>
           </el-col>
         </el-row>
       </el-form>
-    </div>
 
-    <div class="emergency-plan-list">
-      <el-table :data="planList" v-loading="loading" border>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
+      <el-table
+        ref="tableRef"
+        :data="planList"
+        v-loading="loading"
+        border
+        stripe
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="planName" label="预案名称" />
         <el-table-column prop="riskLevel" label="风险等级" width="100">
           <template #default="{ row }">
@@ -62,22 +80,21 @@
           </template>
         </el-table-column>
       </el-table>
-    </div>
 
-    <div class="emergency-plan-pagination">
       <el-pagination
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.size"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
-    </div>
+    </el-card>
 
     <!-- 预案表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" width="600px">
+    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="预案名称" prop="planName">
           <el-input v-model="form.planName" placeholder="请输入预案名称" />
@@ -106,8 +123,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -115,20 +132,23 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { getPlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
+import { ElMessage } from '@/utils/message';
+import { ElMessageBox } from '@/utils/messageBox';
+import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
 // 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
+const tableRef = ref();
+const selectedRows = ref<EmergencyPlan[]>([]);
 
 // 查询条件
 const filters = reactive({
   planName: '',
   riskLevel: '',
-  status: ''
+  status: '' as '' | number
 });
 
 // 分页
@@ -215,14 +235,16 @@ const getStatusText = (status: number) => {
 const loadPlanList = async () => {
   loading.value = true;
   try {
-    const res = await getPlanList({
+    const res = await pagePlanList({
       planName: filters.planName || undefined,
       riskLevel: filters.riskLevel || undefined,
-      status: filters.status ? parseInt(filters.status) : undefined
+      status: filters.status === '' ? undefined : Number(filters.status),
+      pageNum: pagination.page,
+      pageSize: pagination.size
     });
     if (res.code === 200) {
-      planList.value = res.data || [];
-      pagination.total = res.data?.length || 0;
+      planList.value = res.data?.records || [];
+      pagination.total = res.data?.total || 0;
     }
   } catch (error) {
     console.error('查询预案列表失败', error);
@@ -253,6 +275,19 @@ const handleSizeChange = () => {
 
 // 处理页码变化
 const handlePageChange = () => {
+  loadPlanList();
+};
+
+const handleSelectionChange = (rows: EmergencyPlan[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection?.();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
   loadPlanList();
 };
 
@@ -320,38 +355,3 @@ onMounted(() => {
   loadPlanList();
 });
 </script>
-
-<style scoped>
-.emergency-plan-view {
-  padding: 20px;
-}
-
-.emergency-plan-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.emergency-plan-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.emergency-plan-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.emergency-plan-list {
-  margin-bottom: 20px;
-}
-
-.emergency-plan-pagination {
-  display: flex;
-  justify-content: flex-end;
-}
-</style>

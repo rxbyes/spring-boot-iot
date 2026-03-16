@@ -245,3 +245,104 @@
 3. 修复告警详情弹窗遮罩层点击穿透/关闭按钮层级问题。
 4. 排查 `POST /api/risk-point/add` 的 500（后端日志 + 参数校验 + 事务回滚信息）。
 5. 对级联场景增加前置失败快速终止与明确标记，降低噪声失败数量。
+
+## 8. 自动化脚本优化回归（2026-03-17 01:05）
+
+测试方式：在 00:35 轮问题基础上，继续优化浏览器自动化脚本后复测  
+执行命令：`npm run acceptance:browser`  
+执行环境：前端 `http://127.0.0.1:5174`，后端 `http://127.0.0.1:9999`
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260317010559.json`
+- `logs/acceptance/business-browser-results-20260317010559.json`
+- `logs/acceptance/business-browser-report-20260317010559.md`
+- `logs/acceptance/business-browser-screenshots-20260317010559/`
+
+### 8.1 已落地优化点
+
+1. 自动化脚本后端地址支持回退读取 `VITE_PROXY_TARGET`，再回退 `9999`，降低端口不一致导致的整轮假失败。
+2. 新增前端代理 preflight（`/api/auth/login` 探针），可提前发现 Vite 代理与后端端口不一致问题。
+3. 顶部页面标题增加稳定锚点 `data-testid="console-page-title"`，脚本不再依赖纯 class 定位。
+4. 告警详情关闭动作改为优先点击对话框 footer 内“关闭”按钮，失败时回退 `Esc`，已验证 `alarm-center` 场景恢复通过。
+5. `/devices` 场景规避 Vite `'/device'` 代理冲突（通过先到 `/products` 再走侧栏路由进入），设备场景恢复通过。
+6. 审计日志列表 API matcher 兼容 `/list` 与 `/page` 两种请求路径，`audit-log` 场景恢复通过。
+7. 对 `waitForResponse` 残留异步拒绝增加收敛与记录，避免脚本直接崩溃，保证整轮结果可落盘。
+
+### 8.2 回归结果
+
+- 总场景：21
+- 通过：17
+- 失败：4
+- 交付范围：15 通过 / 4 失败
+- 基线范围（风险监测与 GIS）：2 通过 / 0 失败
+
+相较 00:35 轮（3 通过 / 18 失败），通过数提升 +14，失败数减少 -14。
+
+### 8.3 当前剩余问题（待修复）
+
+问题 1：HTTP 上报按钮在自动化中不可点击  
+- 场景：`report-workbench`  
+- 现象：`getByRole('button', { name: '发起验证' })` 点击超时。  
+- 初步判断：按钮状态与表单校验/遮罩存在竞态，自动化触发时机未命中。
+
+问题 2：设备洞察路由断言过严  
+- 场景：`device-insight`  
+- 现象：脚本期望 `/insight?deviceCode=...`，实际稳定在 `/insight`。  
+- 初步判断：页面允许 query 缺失并通过内部逻辑恢复，脚本应兼容“同路径无 query”场景。
+
+问题 3：风险点场景输入框严格模式冲突  
+- 场景：`risk-point`  
+- 现象：`请输入风险点编号` 同时命中列表查询与弹窗输入框，导致 strict mode 失败。  
+- 初步判断：需改为限定在弹窗容器内定位，避免重名输入框冲突。
+
+问题 4：用户新增场景角色下拉定位失败  
+- 场景：`user`  
+- 现象：`新增用户` 弹窗内 `请选择角色` 点击超时。  
+- 初步判断：角色选择器未在预期容器渲染或 placeholder 与实际文案不一致，需改为更稳健定位策略（label + 下拉项）。
+
+## 9. 自动化继续优化复测（2026-03-17 01:21）
+
+测试方式：基于第 8 节继续优化脚本后，全流程复测  
+执行命令：`npm run acceptance:browser`
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260317012155.json`
+- `logs/acceptance/business-browser-results-20260317012155.json`
+- `logs/acceptance/business-browser-report-20260317012155.md`
+- `logs/acceptance/business-browser-screenshots-20260317012155/`
+
+### 9.1 本轮优化点（已生效）
+
+1. 修正 HTTP 上报按钮文案定位：`发起验证` -> `发送上报`。
+2. 修正设备洞察路由断言：路径校验按 pathname 比较，不再把 query 串当作 pathname。
+3. 修正风险点搜索输入定位：限定到 `.search-form`，避免与弹窗同名输入冲突。
+4. 修正用户新增流程：移除过时的“角色下拉”预期，按当前页面真实字段提交流程执行。
+5. 页面标题等待超时从 15s 提升到 25s，降低慢加载误报。
+
+### 9.2 回归结果
+
+- 总场景：21
+- 通过：17
+- 失败：4
+- 交付范围：15 通过 / 4 失败
+- 基线范围（风险监测与 GIS）：2 通过 / 0 失败
+
+### 9.3 当前剩余问题（最新）
+
+问题 1：接入验证中心页面标题等待超时  
+- 场景：`report-workbench`  
+- 现象：等待 `接入验证中心` 标题 25s 超时。  
+
+问题 2：监测对象工作台页面标题等待超时  
+- 场景：`device-insight`  
+- 现象：等待 `监测对象工作台` 标题 25s 超时（日志显示页面发生多次同路径导航）。  
+
+问题 3：风险点绑定阶段接口等待超时  
+- 场景：`risk-point`  
+- 现象：`page.waitForResponse` 等待超时（15s）。  
+
+问题 4：组织管理页面标题等待超时  
+- 场景：`organization`  
+- 现象：等待 `组织管理` 标题 25s 超时。

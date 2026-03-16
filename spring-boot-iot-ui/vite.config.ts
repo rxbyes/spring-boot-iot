@@ -31,27 +31,17 @@ export default defineConfig(({ mode }) => {
             return;
           }
 
-          if (id.includes('echarts/lib/chart/line')) {
-            return 'vendor-echarts-trend';
+          // Split ECharts into stable groups to reduce single large chunk size.
+          if (id.includes('zrender')) {
+            return 'vendor-zrender';
           }
 
-          if (
-            id.includes('echarts/lib/chart/bar') ||
-            id.includes('echarts/lib/chart/pie')
-          ) {
-            return 'vendor-echarts-stat';
-          }
-
-          if (id.includes('echarts/lib/component/legend')) {
-            return 'vendor-echarts-legend';
+          if (id.includes('echarts/core')) {
+            return 'vendor-echarts-core';
           }
 
           if (id.includes('echarts')) {
-            return 'vendor-echarts-runtime';
-          }
-
-          if (id.includes('zrender')) {
-            return 'vendor-zrender';
+            return 'vendor-echarts-core';
           }
 
           if (id.includes('@element-plus/icons-vue')) {

@@ -87,8 +87,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import { ref, reactive, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
+import * as echarts from 'echarts/core'
+import type { ECharts } from 'echarts/core'
+import { LineChart, BarChart, PieChart } from 'echarts/charts'
+import { CanvasRenderer } from 'echarts/renderers'
+import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
 import { ElMessage } from 'element-plus'
 import {
   getRiskTrendAnalysis,
@@ -96,6 +100,17 @@ import {
   getEventClosureAnalysis,
   getDeviceHealthAnalysis
 } from '@/api/report'
+
+echarts.use([
+  LineChart,
+  BarChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  CanvasRenderer
+])
 
 // 状态
 const loading = ref(false)
@@ -110,6 +125,31 @@ const riskTrendChart = ref<HTMLDivElement | null>(null)
 const alarmLevelChart = ref<HTMLDivElement | null>(null)
 const eventClosureChart = ref<HTMLDivElement | null>(null)
 const deviceHealthChart = ref<HTMLDivElement | null>(null)
+const riskTrendChartInstance = ref<ECharts | null>(null)
+const alarmLevelChartInstance = ref<ECharts | null>(null)
+const eventClosureChartInstance = ref<ECharts | null>(null)
+const deviceHealthChartInstance = ref<ECharts | null>(null)
+const chartVisible = reactive({
+  riskTrend: false,
+  alarmLevel: false,
+  eventClosure: false,
+  deviceHealth: false
+})
+const chartElements = reactive<Record<string, HTMLElement | null>>({
+  riskTrend: null,
+  alarmLevel: null,
+  eventClosure: null,
+  deviceHealth: null
+})
+let visibilityObserver: IntersectionObserver | null = null
+
+const ensureChart = (container: HTMLDivElement | null, chartRef: { value: ECharts | null }) => {
+  if (!container) return null
+  if (!chartRef.value) {
+    chartRef.value = echarts.init(container)
+  }
+  return chartRef.value
+}
 
 // 获取数据
 const fetchData = async () => {
@@ -157,8 +197,8 @@ const handleDateChange = () => {
 
 // 初始化风险趋势图表
 const initRiskTrendChart = () => {
-  if (!riskTrendChart.value) return
-  const chart = echarts.init(riskTrendChart.value)
+  const chart = ensureChart(riskTrendChart.value, riskTrendChartInstance)
+  if (!chart) return
   const option = {
     title: {
       text: '风险趋势',
@@ -205,8 +245,8 @@ const initRiskTrendChart = () => {
 
 // 初始化告警等级分布图表
 const initAlarmLevelChart = () => {
-  if (!alarmLevelChart.value) return
-  const chart = echarts.init(alarmLevelChart.value)
+  const chart = ensureChart(alarmLevelChart.value, alarmLevelChartInstance)
+  if (!chart) return
   const option = {
     title: {
       text: '告警等级分布',
@@ -253,8 +293,8 @@ const initAlarmLevelChart = () => {
 
 // 初始化事件闭环分析图表
 const initEventClosureChart = () => {
-  if (!eventClosureChart.value) return
-  const chart = echarts.init(eventClosureChart.value)
+  const chart = ensureChart(eventClosureChart.value, eventClosureChartInstance)
+  if (!chart) return
   const option = {
     title: {
       text: '事件闭环分析',
@@ -298,8 +338,8 @@ const initEventClosureChart = () => {
 
 // 初始化设备健康分析图表
 const initDeviceHealthChart = () => {
-  if (!deviceHealthChart.value) return
-  const chart = echarts.init(deviceHealthChart.value)
+  const chart = ensureChart(deviceHealthChart.value, deviceHealthChartInstance)
+  if (!chart) return
   const option = {
     title: {
       text: '设备健康分析',
@@ -329,29 +369,106 @@ const initDeviceHealthChart = () => {
   chart.setOption(option)
 }
 
-// 监听数据变化更新图表
-import { watch } from 'vue'
-watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics], () => {
-  if (riskTrendChart.value && alarmLevelChart.value && eventClosureChart.value && deviceHealthChart.value) {
-    nextTick(() => {
+const refreshVisibleCharts = () => {
+  nextTick(() => {
+    if (chartVisible.riskTrend && riskTrendChart.value) {
       initRiskTrendChart()
+    }
+    if (chartVisible.alarmLevel && alarmLevelChart.value) {
       initAlarmLevelChart()
+    }
+    if (chartVisible.eventClosure && eventClosureChart.value) {
       initEventClosureChart()
+    }
+    if (chartVisible.deviceHealth && deviceHealthChart.value) {
       initDeviceHealthChart()
-    })
+    }
+  })
+}
+
+const observeChartVisibility = () => {
+  chartElements.riskTrend = riskTrendChart.value
+  chartElements.alarmLevel = alarmLevelChart.value
+  chartElements.eventClosure = eventClosureChart.value
+  chartElements.deviceHealth = deviceHealthChart.value
+
+  if (typeof window === 'undefined' || typeof window.IntersectionObserver === 'undefined') {
+    chartVisible.riskTrend = true
+    chartVisible.alarmLevel = true
+    chartVisible.eventClosure = true
+    chartVisible.deviceHealth = true
+    refreshVisibleCharts()
+    return
   }
+
+  if (!visibilityObserver) {
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return
+          }
+          const target = entry.target as HTMLElement
+          const key = target.dataset.chartKey as keyof typeof chartVisible
+          if (!key) {
+            return
+          }
+          chartVisible[key] = true
+          visibilityObserver?.unobserve(target)
+          refreshVisibleCharts()
+        })
+      },
+      {
+        root: null,
+        threshold: 0.15,
+        rootMargin: '0px 0px 140px 0px'
+      }
+    )
+  }
+
+  ;([
+    ['riskTrend', chartElements.riskTrend],
+    ['alarmLevel', chartElements.alarmLevel],
+    ['eventClosure', chartElements.eventClosure],
+    ['deviceHealth', chartElements.deviceHealth]
+  ] as const).forEach(([key, element]) => {
+    if (!element) {
+      return
+    }
+    if (chartVisible[key]) {
+      return
+    }
+    element.dataset.chartKey = key
+    visibilityObserver?.observe(element)
+  })
+}
+
+watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics], () => {
+  refreshVisibleCharts()
 })
 
-// 组件挂载
-import { nextTick } from 'vue'
+watch([riskTrendChart, alarmLevelChart, eventClosureChart, deviceHealthChart], () => {
+  observeChartVisibility()
+})
+
 onMounted(() => {
   fetchData()
   nextTick(() => {
-    if (riskTrendChart.value) initRiskTrendChart()
-    if (alarmLevelChart.value) initAlarmLevelChart()
-    if (eventClosureChart.value) initEventClosureChart()
-    if (deviceHealthChart.value) initDeviceHealthChart()
+    observeChartVisibility()
   })
+})
+
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect()
+  visibilityObserver = null
+  riskTrendChartInstance.value?.dispose()
+  alarmLevelChartInstance.value?.dispose()
+  eventClosureChartInstance.value?.dispose()
+  deviceHealthChartInstance.value?.dispose()
+  riskTrendChartInstance.value = null
+  alarmLevelChartInstance.value = null
+  eventClosureChartInstance.value = null
+  deviceHealthChartInstance.value = null
 })
 </script>
 

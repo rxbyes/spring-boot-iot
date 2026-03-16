@@ -686,7 +686,7 @@ Phase 4 应该满足以下条件：
 **状态**：后端已完成，前端页面已完成
 
 **已完成**：
-- [x] 创建 `iot_alarm_record` 表（sql/upgrade/20260315_phase4_task1_alarm_record.sql）
+- [x] 创建 `iot_alarm_record` 表（已收敛至 `sql/init.sql`，历史库兼容见 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`）
 - [x] 创建 AlarmRecord 实体类
 - [x] 创建 AlarmRecordMapper
 - [x] 创建 AlarmRecordService
@@ -759,7 +759,7 @@ Phase 4 应该满足以下条件：
 **状态**：已完成
 
 **已完成**：
-- [x] 创建 `linkage_rule` 和 `emergency_plan` 表（sql/upgrade/20260315_phase4_task5_linkage_emergency.sql）
+- [x] 创建 `linkage_rule` 和 `emergency_plan` 表（已收敛至 `sql/init.sql`，历史库兼容见 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`）
 - [x] 创建 LinkageRule 和 EmergencyPlan 实体类
 - [x] 创建 LinkageRuleMapper 和 EmergencyPlanMapper
 - [x] 创建 LinkageRuleService 和 EmergencyPlanService

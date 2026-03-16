@@ -23,6 +23,13 @@ export interface EmergencyPlan {
       deleted: number;
 }
 
+export interface EmergencyPlanPageResult {
+      total: number;
+      pageNum: number;
+      pageSize: number;
+      records: EmergencyPlan[];
+}
+
 // 获取预案列表
 export const getPlanList = (params?: {
       planName?: string;
@@ -32,6 +39,19 @@ export const getPlanList = (params?: {
       const queryString = buildQueryString(params);
       const path = queryString ? `/api/emergency-plan/list?${queryString}` : '/api/emergency-plan/list';
       return request<EmergencyPlan[]>(path, { method: 'GET' });
+};
+
+// 分页获取预案列表
+export const pagePlanList = (params?: {
+      planName?: string;
+      riskLevel?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}): Promise<ApiEnvelope<EmergencyPlanPageResult>> => {
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/emergency-plan/page?${queryString}` : '/api/emergency-plan/page';
+      return request<EmergencyPlanPageResult>(path, { method: 'GET' });
 };
 
 // 获取预案详情

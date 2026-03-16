@@ -8,7 +8,7 @@
 当前消息日志采用“双命名”口径：
 - 物理表：`iot_device_message_log`
 - 主命名：`iot_message_log`
-- 兼容方式：通过 `sql/upgrade/20260316_iot_message_log_view.sql` 创建视图 `iot_message_log`
+- 兼容方式：`sql/init.sql` 直接创建视图 `iot_message_log`（历史库可继续使用 `sql/upgrade/20260316_iot_message_log_view.sql`）
 
 原因：
 - Phase 1-3 历史代码仍直接读写 `iot_device_message_log`
@@ -96,29 +96,23 @@
 ## 初始化与升级顺序
 ### 初始化
 1. 执行 [sql/init.sql](../sql/init.sql)
-2. 如需样例数据，再执行 `sql/init-data.sql`
+2. 如需样例数据，再执行 `sql/init-data.sql`（包含 IoT 主链路、风险平台、系统管理、动态菜单与超级管理员授权的真实联调基础数据）
+3. 新库场景到此即可，不必再执行 `sql/upgrade/`。
 
-### 升级到当前真实环境验收基线
-按顺序执行 `sql/upgrade/`：
-1. `20260315_phase3_task1_command_record.sql`
-2. `20260315_phase4_task1_alarm_record.sql`
-3. `20260315_phase4_task3_risk_point.sql`
-4. `20260316_phase4_task3_risk_monitoring_schema_sync.sql`
-5. `20260316_phase4_real_env_schema_alignment.sql`
-6. `20260315_phase4_task4_rule_definition.sql`
-7. `20260315_phase4_task5_linkage_emergency.sql`
-8. `20260315_phase4_task6_system_management.sql`
-9. `20260315_phase4_task7_user_management.sql`
-10. `20260315_phase4_task8_role_permission.sql`
-11. `20260315_phase4_task9_dict.sql`
-12. `20260316_phase4_task10_dynamic_menu_auth.sql`
-13. `20260316_iot_message_log_view.sql`
+### 历史库升级到当前真实环境验收基线
+仅对历史库（已在跑的旧库）执行；按顺序执行 `sql/upgrade/`：
+1. `20260316_phase4_task3_risk_monitoring_schema_sync.sql`
+2. `20260316_phase4_real_env_schema_alignment.sql`
+3. `20260316_phase4_task10_dynamic_menu_auth.sql`
+4. `20260316_iot_message_log_view.sql`
 
 说明：
+- `sql/init.sql` 已整合当前代码基线所需核心表结构，`sql/upgrade/` 的定位是历史库增量兼容，不是新库初始化必需步骤。
+- `20260315` 系列一次性建表脚本已从日常维护口径移除；对应能力已合并到 `sql/init.sql`，历史兼容由 `20260316_phase4_real_env_schema_alignment.sql` 负责。
 - `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 用于修复共享开发库的早期 Phase 4 半升级状态：补齐 `risk_point.create_by` / `update_by`，并补建 `risk_point_device`。
 - `20260316_phase4_real_env_schema_alignment.sql` 用于补齐真实库历史缺列/缺表与旧版强约束差异（含 `sys_notification_channel`、`sys_audit_log` 兼容字段，以及 `rule_code` / `plan_code` 允许 `NULL` 的兼容改造）。
-- `20260316_phase4_task10_dynamic_menu_auth.sql` 用于补齐 `sys_menu.meta_json`、动态菜单树、按钮权限码以及五类默认角色授权关系。
-- 第 13 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
+- `20260316_phase4_task10_dynamic_menu_auth.sql` 用于补齐 `sys_menu.meta_json`、动态菜单树、按钮权限码以及五类默认角色授权关系；脚本已内置 `sys_menu.type/menu_type` 双字段兼容处理，可避免历史库出现 `1364 - Field 'menu_type' doesn't have a default`。
+- 第 4 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
 - 若真实环境已存在部分 Phase 4 表，请先核对表结构再执行，避免重复建表失败；风险监测联调前至少确认 `risk_point`、`risk_point_device` 两张表与当前脚本一致。
 
 ## 一期最小闭环涉及表

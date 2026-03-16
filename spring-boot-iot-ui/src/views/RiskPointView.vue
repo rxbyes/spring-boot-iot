@@ -169,7 +169,7 @@ import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
-import { getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
+import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
 
 // 状态
@@ -186,7 +186,7 @@ const selectedRows = ref<RiskPoint[]>([]);
 const filters = reactive({
   riskPointCode: '',
   riskLevel: '',
-  status: ''
+  status: '' as '' | number
 });
 
 // 分页
@@ -310,14 +310,16 @@ const getStatusText = (status: number) => {
 const loadRiskPointList = async () => {
   loading.value = true;
   try {
-    const res = await getRiskPointList({
+    const res = await pageRiskPointList({
       riskPointCode: filters.riskPointCode || undefined,
       riskLevel: filters.riskLevel || undefined,
-      status: filters.status ? parseInt(filters.status) : undefined
+      status: filters.status === '' ? undefined : Number(filters.status),
+      pageNum: pagination.page,
+      pageSize: pagination.size
     });
     if (res.code === 200) {
-      riskPointList.value = res.data || [];
-      pagination.total = res.data?.length || 0;
+      riskPointList.value = res.data?.records || [];
+      pagination.total = res.data?.total || 0;
     }
   } catch (error) {
     console.error('查询风险点列表失败', error);

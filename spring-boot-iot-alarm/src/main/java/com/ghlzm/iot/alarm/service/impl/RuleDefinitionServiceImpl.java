@@ -1,10 +1,12 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,20 +19,15 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             implements RuleDefinitionService {
 
       @Override
+      public PageResult<RuleDefinition> pageRuleList(String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
+            Page<RuleDefinition> page = new Page<>(pageNum, pageSize);
+            Page<RuleDefinition> result = page(page, buildWrapper(metricIdentifier, alarmLevel, status));
+            return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
+      }
+
+      @Override
       public List<RuleDefinition> getRuleList(String metricIdentifier, String alarmLevel, Integer status) {
-            LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
-            if (metricIdentifier != null && !metricIdentifier.isEmpty()) {
-                  wrapper.eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
-            }
-            if (alarmLevel != null && !alarmLevel.isEmpty()) {
-                  wrapper.eq(RuleDefinition::getAlarmLevel, alarmLevel);
-            }
-            if (status != null) {
-                  wrapper.eq(RuleDefinition::getStatus, status);
-            }
-            wrapper.eq(RuleDefinition::getDeleted, 0);
-            wrapper.orderByDesc(RuleDefinition::getCreateTime);
-            return list(wrapper);
+            return list(buildWrapper(metricIdentifier, alarmLevel, status));
       }
 
       @Override
@@ -47,5 +44,21 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       @Override
       public void deleteRule(Long id) {
             removeById(id);
+      }
+
+      private LambdaQueryWrapper<RuleDefinition> buildWrapper(String metricIdentifier, String alarmLevel, Integer status) {
+            LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
+            if (metricIdentifier != null && !metricIdentifier.isEmpty()) {
+                  wrapper.eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
+            }
+            if (alarmLevel != null && !alarmLevel.isEmpty()) {
+                  wrapper.eq(RuleDefinition::getAlarmLevel, alarmLevel);
+            }
+            if (status != null) {
+                  wrapper.eq(RuleDefinition::getStatus, status);
+            }
+            wrapper.eq(RuleDefinition::getDeleted, 0);
+            wrapper.orderByDesc(RuleDefinition::getCreateTime);
+            return wrapper;
       }
 }

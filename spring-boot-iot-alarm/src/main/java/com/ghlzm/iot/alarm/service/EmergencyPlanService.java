@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.alarm.entity.EmergencyPlan;
+import com.ghlzm.iot.common.response.PageResult;
 
 import java.util.List;
 
@@ -13,6 +14,11 @@ public interface EmergencyPlanService extends IService<EmergencyPlan> {
        * 获取预案列表
        */
       List<EmergencyPlan> getPlanList(String planName, String riskLevel, Integer status);
+
+      /**
+       * 分页获取预案列表
+       */
+      PageResult<EmergencyPlan> pagePlanList(String planName, String riskLevel, Integer status, Long pageNum, Long pageSize);
 
       /**
        * 新增预案

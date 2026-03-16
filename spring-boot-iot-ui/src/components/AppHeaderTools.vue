@@ -11,6 +11,7 @@
         @click="$emit('toggle-notice')"
       >
         消息通知
+        <span v-if="unreadNoticeCount > 0" class="tool-text__badge">{{ unreadNoticeCount }}</span>
       </button>
       <button
         type="button"
@@ -44,6 +45,7 @@ defineProps<{
   headerAccountName: string;
   headerRoleName: string;
   accountInitial: string;
+  unreadNoticeCount: number;
 }>();
 
 defineEmits<{
@@ -70,25 +72,42 @@ defineEmits<{
 .tool-text {
   min-height: 1.76rem;
   padding: 0 0.62rem;
-  border-radius: 2px;
-  border: 1px solid #d8dfeb;
-  background: #fff;
-  color: #4b5565;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--panel-border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 500;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .tool-text:hover {
   border-color: #c9d7ef;
-  color: #1677ff;
-  background: #f7fbff;
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .tool-text--active {
   border-color: #a8c4ef;
-  color: #1677ff;
-  background: #eef5ff;
+  color: var(--accent);
+  background: var(--bg-active);
+}
+
+.tool-text__badge {
+  min-width: 1.04rem;
+  height: 1.04rem;
+  border-radius: 999px;
+  padding: 0 0.24rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
 }
 
 .account-chip {
@@ -97,9 +116,9 @@ defineEmits<{
   gap: 0.5rem;
   min-height: 2rem;
   padding: 0.22rem 0.5rem 0.22rem 0.3rem;
-  border-radius: 2px;
-  border: 1px solid #e6eaf0;
-  background: #fff;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--panel-border);
+  background: var(--bg-card);
 }
 
 .account-chip__avatar {
@@ -140,6 +159,21 @@ defineEmits<{
 
   .header-tools {
     margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .account-chip {
+    min-height: 1.76rem;
+    padding-right: 0.28rem;
+  }
+
+  .account-chip__meta {
+    display: none;
+  }
+
+  .tool-text {
+    padding: 0 0.5rem;
   }
 }
 </style>

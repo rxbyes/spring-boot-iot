@@ -22,6 +22,13 @@ export interface LinkageRule {
       deleted: number;
 }
 
+export interface LinkageRulePageResult {
+      total: number;
+      pageNum: number;
+      pageSize: number;
+      records: LinkageRule[];
+}
+
 // 获取规则列表
 export const getRuleList = (params?: {
       ruleName?: string;
@@ -30,6 +37,18 @@ export const getRuleList = (params?: {
       const queryString = buildQueryString(params);
       const path = queryString ? `/api/linkage-rule/list?${queryString}` : '/api/linkage-rule/list';
       return request<LinkageRule[]>(path, { method: 'GET' });
+};
+
+// 分页获取规则列表
+export const pageRuleList = (params?: {
+      ruleName?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}): Promise<ApiEnvelope<LinkageRulePageResult>> => {
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/linkage-rule/page?${queryString}` : '/api/linkage-rule/page';
+      return request<LinkageRulePageResult>(path, { method: 'GET' });
 };
 
 // 获取规则详情

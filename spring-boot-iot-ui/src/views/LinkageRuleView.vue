@@ -1,19 +1,21 @@
 <template>
-  <div class="linkage-rule-view">
-    <div class="linkage-rule-header">
-      <h1>联动规则</h1>
-      <el-button type="primary" @click="handleAdd">新增规则</el-button>
-    </div>
+  <div class="linkage-rule-view sys-mgmt-view">
+    <el-card class="box-card">
+      <template #header>
+        <div class="card-header">
+          <span>联动规则</span>
+          <el-button type="primary" @click="handleAdd">新增规则</el-button>
+        </div>
+      </template>
 
-    <div class="linkage-rule-filters">
-      <el-form :model="filters" label-position="left">
+      <el-form :model="filters" label-width="96px" class="search-form">
         <el-row :gutter="20">
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="规则名称">
-              <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable />
+              <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
@@ -21,18 +23,34 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
+        </el-row>
+        <el-row>
+          <el-col :span="24" class="text-right">
+            <el-button @click="handleReset">重置</el-button>
+            <el-button type="primary" @click="handleSearch">查询</el-button>
           </el-col>
         </el-row>
       </el-form>
-    </div>
 
-    <div class="linkage-rule-list">
-      <el-table :data="ruleList" v-loading="loading" border>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
+      <el-table
+        ref="tableRef"
+        :data="ruleList"
+        v-loading="loading"
+        border
+        stripe
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="ruleName" label="规则名称" />
         <el-table-column prop="description" label="描述" />
         <el-table-column prop="status" label="状态" width="100">
@@ -48,22 +66,21 @@
           </template>
         </el-table-column>
       </el-table>
-    </div>
 
-    <div class="linkage-rule-pagination">
       <el-pagination
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.size"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
-    </div>
+    </el-card>
 
     <!-- 规则表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" width="600px">
+    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="规则名称" prop="ruleName">
           <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
@@ -85,8 +102,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -94,19 +111,22 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { getRuleList, addRule, updateRule, deleteRule } from '../api/linkageRule';
+import { ElMessage } from '@/utils/message';
+import { ElMessageBox } from '@/utils/messageBox';
+import { pageRuleList, addRule, updateRule, deleteRule } from '../api/linkageRule';
 import type { LinkageRule } from '../api/linkageRule';
 
 // 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<LinkageRule[]>([]);
+const tableRef = ref();
+const selectedRows = ref<LinkageRule[]>([]);
 
 // 查询条件
 const filters = reactive({
   ruleName: '',
-  status: ''
+  status: '' as '' | number
 });
 
 // 分页
@@ -164,13 +184,15 @@ const getStatusText = (status: number) => {
 const loadRuleList = async () => {
   loading.value = true;
   try {
-    const res = await getRuleList({
+    const res = await pageRuleList({
       ruleName: filters.ruleName || undefined,
-      status: filters.status ? parseInt(filters.status) : undefined
+      status: filters.status === '' ? undefined : Number(filters.status),
+      pageNum: pagination.page,
+      pageSize: pagination.size
     });
     if (res.code === 200) {
-      ruleList.value = res.data || [];
-      pagination.total = res.data?.length || 0;
+      ruleList.value = res.data?.records || [];
+      pagination.total = res.data?.total || 0;
     }
   } catch (error) {
     console.error('查询规则列表失败', error);
@@ -200,6 +222,19 @@ const handleSizeChange = () => {
 
 // 处理页码变化
 const handlePageChange = () => {
+  loadRuleList();
+};
+
+const handleSelectionChange = (rows: LinkageRule[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection?.();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
   loadRuleList();
 };
 
@@ -265,38 +300,3 @@ onMounted(() => {
   loadRuleList();
 });
 </script>
-
-<style scoped>
-.linkage-rule-view {
-  padding: 20px;
-}
-
-.linkage-rule-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.linkage-rule-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.linkage-rule-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.linkage-rule-list {
-  margin-bottom: 20px;
-}
-
-.linkage-rule-pagination {
-  display: flex;
-  justify-content: flex-end;
-}
-</style>

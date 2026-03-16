@@ -27,6 +27,13 @@ export interface RiskPoint {
       deleted: number;
 }
 
+export interface RiskPointPageResult {
+      total: number;
+      pageNum: number;
+      pageSize: number;
+      records: RiskPoint[];
+}
+
 // 风险点与设备绑定接口定义
 export interface RiskPointDevice {
       id: IdType;
@@ -56,6 +63,19 @@ export const getRiskPointList = (params?: {
       const queryString = buildQueryString(params);
       const path = queryString ? `/api/risk-point/list?${queryString}` : '/api/risk-point/list';
       return request<RiskPoint[]>(path, { method: 'GET' });
+};
+
+// 分页获取风险点列表
+export const pageRiskPointList = (params?: {
+      riskPointCode?: string;
+      riskLevel?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}): Promise<ApiEnvelope<RiskPointPageResult>> => {
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/risk-point/page?${queryString}` : '/api/risk-point/page';
+      return request<RiskPointPageResult>(path, { method: 'GET' });
 };
 
 // 获取风险点详情

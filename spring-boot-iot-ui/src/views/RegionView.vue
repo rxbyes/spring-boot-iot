@@ -55,7 +55,9 @@
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
         </div>
         <div class="table-action-bar__right">
+          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
@@ -184,6 +186,14 @@
           <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
         </template>
       </el-dialog>
+
+      <CsvColumnSettingDialog
+        v-model="exportColumnDialogVisible"
+        title="区域管理导出列设置"
+        :options="exportColumnOptions"
+        :selected-keys="selectedExportColumnKeys"
+        @confirm="handleExportColumnConfirm"
+      />
     </el-card>
   </div>
 </template>
@@ -192,7 +202,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { downloadRowsAsCsv } from '@/utils/csv'
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns'
 import {
   listRegionTree,
   getRegion,
@@ -223,6 +240,25 @@ const tableData = ref<any[]>([])
 const sourceTreeData = ref<any[]>([])
 const tableRef = ref()
 const selectedRows = ref<any[]>([])
+const exportColumns: CsvColumn<any>[] = [
+  { key: 'regionCode', label: '区域编码' },
+  { key: 'regionName', label: '区域名称' },
+  { key: 'regionType', label: '区域类型', formatter: (value) => getRegionTypeName(String(value || '')) },
+  { key: 'longitude', label: '经度' },
+  { key: 'latitude', label: '纬度' },
+  { key: 'status', label: '状态', formatter: (value) => (Number(value) === 1 ? '启用' : '禁用') },
+  { key: 'sortNo', label: '排序' },
+  { key: 'remark', label: '备注' }
+]
+const exportColumnStorageKey = 'region-view'
+const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+)
+const exportColumnDialogVisible = ref(false)
 
 // 加载状态
 const loading = ref(false)
@@ -338,8 +374,29 @@ const handleRefresh = () => {
   getRegionTree()
 }
 
+const openExportColumnSetting = () => {
+  exportColumnDialogVisible.value = true
+}
+
+const handleExportColumnConfirm = (selectedKeys: string[]) => {
+  selectedExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys)
+}
+
+const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
+
 const handleExportSelected = () => {
-  downloadRowsAsCsv('区域管理-选中项.csv', selectedRows.value)
+  downloadRowsAsCsv('区域管理-选中项.csv', selectedRows.value, getResolvedExportColumns())
+}
+
+const flattenTreeRows = (rows: any[]): any[] =>
+  rows.flatMap((row) => {
+    const children = Array.isArray(row.children) ? flattenTreeRows(row.children) : []
+    return [row, ...children]
+  })
+
+const handleExportCurrent = () => {
+  downloadRowsAsCsv('区域管理-当前结果.csv', flattenTreeRows(tableData.value), getResolvedExportColumns())
 }
 
 // 新增

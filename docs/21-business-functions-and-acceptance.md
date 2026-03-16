@@ -148,32 +148,36 @@ Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 3. 删除风险点：`POST /api/risk-point/delete/{id}`
 4. 风险点详情：`GET /api/risk-point/get/{id}`
 5. 风险点列表：`GET /api/risk-point/list`
-6. 绑定设备：`POST /api/risk-point/bind-device`
-7. 解绑设备：`POST /api/risk-point/unbind-device`
-8. 已绑定设备列表：`GET /api/risk-point/bound-devices/{riskPointId}`
-9. 绑定弹窗设备选项：`GET /api/device/list`
-10. 绑定弹窗测点选项：`GET /api/device/{deviceId}/metrics`
+6. 风险点分页列表：`GET /api/risk-point/page`
+7. 绑定设备：`POST /api/risk-point/bind-device`
+8. 解绑设备：`POST /api/risk-point/unbind-device`
+9. 已绑定设备列表：`GET /api/risk-point/bound-devices/{riskPointId}`
+10. 绑定弹窗设备选项：`GET /api/device/list`
+11. 绑定弹窗测点选项：`GET /api/device/{deviceId}/metrics`
 
 阈值规则配置（后端接口前缀：`/api/rule-definition`，以代码为准）：
 1. 规则列表：`GET /api/rule-definition/list`
-2. 规则详情：`GET /api/rule-definition/get/{id}`
-3. 新增规则：`POST /api/rule-definition/add`
-4. 更新规则：`POST /api/rule-definition/update`
-5. 删除规则：`POST /api/rule-definition/delete/{id}`
+2. 规则分页列表：`GET /api/rule-definition/page`
+3. 规则详情：`GET /api/rule-definition/get/{id}`
+4. 新增规则：`POST /api/rule-definition/add`
+5. 更新规则：`POST /api/rule-definition/update`
+6. 删除规则：`POST /api/rule-definition/delete/{id}`
 
 联动规则（后端接口前缀：`/api/linkage-rule`，以代码为准）：
 1. 规则列表：`GET /api/linkage-rule/list`
-2. 规则详情：`GET /api/linkage-rule/get/{id}`
-3. 新增规则：`POST /api/linkage-rule/add`
-4. 更新规则：`POST /api/linkage-rule/update`
-5. 删除规则：`POST /api/linkage-rule/delete/{id}`
+2. 规则分页列表：`GET /api/linkage-rule/page`
+3. 规则详情：`GET /api/linkage-rule/get/{id}`
+4. 新增规则：`POST /api/linkage-rule/add`
+5. 更新规则：`POST /api/linkage-rule/update`
+6. 删除规则：`POST /api/linkage-rule/delete/{id}`
 
 应急预案（后端接口前缀：`/api/emergency-plan`，以代码为准）：
 1. 预案列表：`GET /api/emergency-plan/list`
-2. 预案详情：`GET /api/emergency-plan/get/{id}`
-3. 新增预案：`POST /api/emergency-plan/add`
-4. 更新预案：`POST /api/emergency-plan/update`
-5. 删除预案：`POST /api/emergency-plan/delete/{id}`
+2. 预案分页列表：`GET /api/emergency-plan/page`
+3. 预案详情：`GET /api/emergency-plan/get/{id}`
+4. 新增预案：`POST /api/emergency-plan/add`
+5. 更新预案：`POST /api/emergency-plan/update`
+6. 删除预案：`POST /api/emergency-plan/delete/{id}`
 
 分析报表（后端接口前缀：`/api/report`，以代码为准）：
 1. 风险趋势：`GET /api/report/risk-trend`
@@ -191,7 +195,8 @@ Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 7. 通知渠道：`/api/system/channel`
 8. 审计日志：`/api/system/audit-log`
 9. 前端列表交互基线：组织、用户、角色、区域、字典、通知渠道、审计日志，以及告警中心、事件处置均统一支持“已选项计数 / 清空选中 / 刷新列表”操作栏
-10. 前端列表导出基线：上述页面均支持“导出选中”CSV（本地导出，不依赖新增后端接口）
+10. 前端列表导出基线：上述页面均支持“导出选中”与“导出当前结果”CSV（本地导出，不依赖新增后端接口），并包含中文列头与关键状态文案映射
+11. 前端导出设置基线：支持“导出列设置”（列勾选 + 顺序调整），导出配置按页面本地持久化
 
 ## 3. 验收标准
 
@@ -602,10 +607,10 @@ WHERE deleted = 0;
 | 文件调试 | `/file-debug` / `FilePayloadDebugView.vue` | `spring-boot-iot-ui/src/api/iot.ts` | `GET /api/device/{deviceCode}/file-snapshots`；`GET /api/device/{deviceCode}/firmware-aggregates` | `Redis(iot:device:file:*)`、`Redis(iot:device:firmware:*)` | 已接真实后端；当前以前端“数据完整性校验”方式展示文件快照与固件聚合结果 |
 | 告警中心 | `/alarm-center` / `AlarmCenterView.vue` | `spring-boot-iot-ui/src/api/alarm.ts` | `/api/alarm/list`；`/api/alarm/{id}`；`/api/alarm/{id}/confirm`；`/api/alarm/{id}/suppress`；`/api/alarm/{id}/close` | `iot_alarm_record` | 已接真实后端；告警操作参数按后端 `@RequestParam` 使用 query 传参（`confirmUser`/`suppressUser`/`closeUser`） |
 | 事件处置 | `/event-disposal` / `EventDisposalView.vue` | `spring-boot-iot-ui/src/api/alarm.ts` | `/api/event/list`；`/api/event/{id}`；`/api/event/{id}/dispatch`；`/api/event/{id}/close`；`/api/event/{eventId}/feedback`；`/api/event/work-orders/*` | `iot_event_record`、`iot_event_work_order` | 已接真实后端；关闭事件、现场反馈、工单流转参数按 `@RequestParam` 使用 query 传参 |
-| 风险点管理 | `/risk-point` / `RiskPointView.vue` | `spring-boot-iot-ui/src/api/riskPoint.ts`；`spring-boot-iot-ui/src/api/iot.ts` | `/api/risk-point/list`；`/api/risk-point/get/{id}`；`/api/risk-point/add`；`/api/risk-point/update`；`/api/risk-point/delete/{id}`；`/api/risk-point/bind-device`；`/api/risk-point/unbind-device`；`/api/risk-point/bound-devices/{riskPointId}`；`/api/device/list`；`/api/device/{deviceId}/metrics` | `risk_point`、`risk_point_device`、`iot_device`、`iot_product_model`、`iot_device_property` | 已按后端真实路径对齐前端调用；绑定弹窗依赖设备选项与测点选项接口 |
-| 阈值规则 | `/rule-definition` / `RuleDefinitionView.vue` | `spring-boot-iot-ui/src/api/ruleDefinition.ts` | `/api/rule-definition/list`；`/api/rule-definition/get/{id}`；`/api/rule-definition/add`；`/api/rule-definition/update`；`/api/rule-definition/delete/{id}` | `rule_definition` | 已按后端真实路径对齐前端调用 |
-| 联动规则 | `/linkage-rule` / `LinkageRuleView.vue` | `spring-boot-iot-ui/src/api/linkageRule.ts` | `/api/linkage-rule/list`；`/api/linkage-rule/get/{id}`；`/api/linkage-rule/add`；`/api/linkage-rule/update`；`/api/linkage-rule/delete/{id}` | `linkage_rule` | 已按后端真实路径对齐前端调用 |
-| 应急预案 | `/emergency-plan` / `EmergencyPlanView.vue` | `spring-boot-iot-ui/src/api/emergencyPlan.ts` | `/api/emergency-plan/list`；`/api/emergency-plan/get/{id}`；`/api/emergency-plan/add`；`/api/emergency-plan/update`；`/api/emergency-plan/delete/{id}` | `emergency_plan` | 已按后端真实路径对齐前端调用 |
+| 风险点管理 | `/risk-point` / `RiskPointView.vue` | `spring-boot-iot-ui/src/api/riskPoint.ts`；`spring-boot-iot-ui/src/api/iot.ts` | `/api/risk-point/list`；`/api/risk-point/page`；`/api/risk-point/get/{id}`；`/api/risk-point/add`；`/api/risk-point/update`；`/api/risk-point/delete/{id}`；`/api/risk-point/bind-device`；`/api/risk-point/unbind-device`；`/api/risk-point/bound-devices/{riskPointId}`；`/api/device/list`；`/api/device/{deviceId}/metrics` | `risk_point`、`risk_point_device`、`iot_device`、`iot_product_model`、`iot_device_property` | 已按后端真实路径对齐前端调用；2026-03-17 起列表默认走 `/page` 服务端分页 |
+| 阈值规则 | `/rule-definition` / `RuleDefinitionView.vue` | `spring-boot-iot-ui/src/api/ruleDefinition.ts` | `/api/rule-definition/list`；`/api/rule-definition/page`；`/api/rule-definition/get/{id}`；`/api/rule-definition/add`；`/api/rule-definition/update`；`/api/rule-definition/delete/{id}` | `rule_definition` | 已按后端真实路径对齐前端调用；2026-03-17 起列表默认走 `/page` 服务端分页 |
+| 联动规则 | `/linkage-rule` / `LinkageRuleView.vue` | `spring-boot-iot-ui/src/api/linkageRule.ts` | `/api/linkage-rule/list`；`/api/linkage-rule/page`；`/api/linkage-rule/get/{id}`；`/api/linkage-rule/add`；`/api/linkage-rule/update`；`/api/linkage-rule/delete/{id}` | `linkage_rule` | 已按后端真实路径对齐前端调用；2026-03-17 起列表默认走 `/page` 服务端分页 |
+| 应急预案 | `/emergency-plan` / `EmergencyPlanView.vue` | `spring-boot-iot-ui/src/api/emergencyPlan.ts` | `/api/emergency-plan/list`；`/api/emergency-plan/page`；`/api/emergency-plan/get/{id}`；`/api/emergency-plan/add`；`/api/emergency-plan/update`；`/api/emergency-plan/delete/{id}` | `emergency_plan` | 已按后端真实路径对齐前端调用；2026-03-17 起列表默认走 `/page` 服务端分页 |
 | 组织管理 | `/organization` / `OrganizationView.vue` | `spring-boot-iot-ui/src/api/organization.ts` | `/api/organization`；`/api/organization/list`；`/api/organization/tree`；`/api/organization/{id}` | `sys_organization` | 已接真实后端；树形维护能力可用 |
 | 用户管理 | `/user` / `UserView.vue` | `spring-boot-iot-ui/src/api/user.ts` | `/api/user/list`；`/api/user/{id}`；`/api/user/add`；`/api/user/update`；`/api/user/reset-password/{userId}` | `sys_user`、`sys_user_role` | 已按真实后端对齐；新增/编辑已支持角色分配，列表展示角色名称 |
 | 角色管理 | `/role` / `RoleView.vue` | `spring-boot-iot-ui/src/api/role.ts`；`spring-boot-iot-ui/src/api/menu.ts` | `/api/role/add`；`/api/role/list`；`/api/role/{id}`；`/api/role/update`；`/api/role/user/{userId}`；`/api/menu/tree` | `sys_role`、`sys_user_role`、`sys_menu`、`sys_role_menu` | 已接真实后端；角色页已支持菜单树授权 |

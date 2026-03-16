@@ -1,7 +1,59 @@
 USE rm_iot;
 
-ALTER TABLE sys_menu
-    ADD COLUMN IF NOT EXISTS meta_json LONGTEXT NULL COMMENT 'ui meta json';
+SET @db_name = DATABASE();
+
+SET @sql = (
+    SELECT IF(
+        COUNT(*) = 0,
+        'ALTER TABLE sys_menu ADD COLUMN meta_json LONGTEXT NULL COMMENT ''ui meta json''',
+        'SELECT 1'
+    )
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = @db_name
+      AND TABLE_NAME = 'sys_menu'
+      AND COLUMN_NAME = 'meta_json'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+    SELECT IF(
+        COUNT(*) = 0,
+        'ALTER TABLE sys_menu ADD COLUMN type TINYINT DEFAULT NULL COMMENT ''menu type''',
+        'SELECT 1'
+    )
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = @db_name
+      AND TABLE_NAME = 'sys_menu'
+      AND COLUMN_NAME = 'type'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+    SELECT IF(
+        COUNT(*) = 0,
+        'ALTER TABLE sys_menu ADD COLUMN menu_type TINYINT NOT NULL DEFAULT 0 COMMENT ''legacy menu type''',
+        'SELECT 1'
+    )
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = @db_name
+      AND TABLE_NAME = 'sys_menu'
+      AND COLUMN_NAME = 'menu_type'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 兼容历史库：新旧字段互相补齐，避免 menu_type 无默认值导致插入失败
+UPDATE sys_menu
+SET type = menu_type
+WHERE type IS NULL;
+UPDATE sys_menu
+SET menu_type = type
+WHERE menu_type IS NULL;
 
 UPDATE sys_menu
 SET deleted = 1,
@@ -27,44 +79,44 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = VALUES(deleted);
 
-INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, status, create_by, create_time, update_by, update_time, deleted)
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type, status, create_by, create_time, update_by, update_time, deleted)
 VALUES
-    (93000001, 0, '设备接入', 'iot-access', '', 'Layout', 'connection', '{"description":"接入与运维","menuTitle":"设备接入与运维","menuHint":"管理产品模板、设备台账、上报回放与设备侧联调能力。"}', 10, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (93000002, 0, '预警处置', 'risk-ops', '', 'Layout', 'warning', '{"description":"闭环与复盘","menuTitle":"风险处置闭环","menuHint":"覆盖告警、事件、风险点、规则、预案与分析报表。"}', 20, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (93000003, 0, '系统治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织与审计","menuTitle":"组织治理与审计","menuHint":"维护组织、用户、权限、区域、字典、通知和审计日志。"}', 30, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93000001, 0, '设备接入', 'iot-access', '', 'Layout', 'connection', '{"description":"接入与运维","menuTitle":"设备接入与运维","menuHint":"管理产品模板、设备台账、上报回放与设备侧联调能力。"}', 10, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93000002, 0, '预警处置', 'risk-ops', '', 'Layout', 'warning', '{"description":"闭环与复盘","menuTitle":"风险处置闭环","menuHint":"覆盖告警、事件、风险点、规则、预案与分析报表。"}', 20, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93000003, 0, '系统治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织与审计","menuTitle":"组织治理与审计","menuHint":"维护组织、用户、权限、区域、字典、通知和审计日志。"}', 30, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001001, 93000001, '产品模板中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模板建模、协议绑定与设备归属","shortLabel":"产"}', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001002, 93000001, '设备运维中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态核查与基础运维","shortLabel":"设"}', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001003, 93000001, '接入回放台', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调","shortLabel":"报"}', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001004, 93000001, '风险点工作台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索","shortLabel":"洞"}', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001005, 93000001, '文件与固件校验', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验","shortLabel":"校"}', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 93000001, '产品模板中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模板建模、协议绑定与设备归属","shortLabel":"产"}', 11, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001002, 93000001, '设备运维中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态核查与基础运维","shortLabel":"设"}', 12, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001003, 93000001, '接入回放台', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调","shortLabel":"报"}', 13, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001004, 93000001, '风险点工作台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索","shortLabel":"洞"}', 14, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001005, 93000001, '文件与固件校验', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验","shortLabel":"校"}', 15, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93002001, 93000002, '告警中心', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭","shortLabel":"警"}', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002002, 93000002, '事件处置', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环","shortLabel":"事"}', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002003, 93000002, '风险点管理', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"风险点建档、设备绑定与等级治理","shortLabel":"点"}', 23, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002004, 93000002, '阈值规则配置', 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"阈值规则维护与触发条件治理","shortLabel":"阈"}', 24, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002005, 93000002, '联动规则', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"触发条件与联动动作编排","shortLabel":"联"}', 25, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002006, 93000002, '应急预案', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"预案维护、步骤编排与响应协同","shortLabel":"预"}', 26, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002007, 93000002, '分析报表', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"风险趋势、告警统计与设备健康复盘","shortLabel":"报"}', 27, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002008, 93000002, '实时监测', 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"风险监测列表、筛选与详情抽屉","shortLabel":"监"}', 28, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002009, 93000002, 'GIS 风险态势', 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"点位态势、未定位风险点与地图联动","shortLabel":"图"}', 29, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002001, 93000002, '告警中心', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭","shortLabel":"警"}', 21, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002002, 93000002, '事件处置', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环","shortLabel":"事"}', 22, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002003, 93000002, '风险点管理', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"风险点建档、设备绑定与等级治理","shortLabel":"点"}', 23, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002004, 93000002, '阈值规则配置', 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"阈值规则维护与触发条件治理","shortLabel":"阈"}', 24, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002005, 93000002, '联动规则', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"触发条件与联动动作编排","shortLabel":"联"}', 25, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002006, 93000002, '应急预案', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"预案维护、步骤编排与响应协同","shortLabel":"预"}', 26, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002007, 93000002, '分析报表', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"风险趋势、告警统计与设备健康复盘","shortLabel":"报"}', 27, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002008, 93000002, '实时监测', 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"风险监测列表、筛选与详情抽屉","shortLabel":"监"}', 28, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002009, 93000002, 'GIS 风险态势', 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"点位态势、未定位风险点与地图联动","shortLabel":"图"}', 29, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003001, 93000003, '组织机构', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"组织树维护与责任主体管理","shortLabel":"组"}', 31, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003002, 93000003, '用户管理', 'system:user', '/user', 'UserView', 'user', '{"caption":"用户维护、状态管理与密码重置","shortLabel":"用"}', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003003, 93000003, '角色管理', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"角色维护与菜单授权管理","shortLabel":"角"}', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003004, 93000003, '区域管理', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护","shortLabel":"区"}', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003005, 93000003, '字典配置', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置","shortLabel":"字"}', 35, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003006, 93000003, '通知渠道', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试","shortLabel":"通"}', 36, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 93000003, '审计日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"关键操作记录审计与追踪","shortLabel":"审"}', 37, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003008, 93000003, '菜单管理', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护","shortLabel":"菜"}', 38, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003001, 93000003, '组织机构', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"组织树维护与责任主体管理","shortLabel":"组"}', 31, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003002, 93000003, '用户管理', 'system:user', '/user', 'UserView', 'user', '{"caption":"用户维护、状态管理与密码重置","shortLabel":"用"}', 32, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003003, 93000003, '角色管理', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"角色维护与菜单授权管理","shortLabel":"角"}', 33, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003004, 93000003, '区域管理', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护","shortLabel":"区"}', 34, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003005, 93000003, '字典配置', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置","shortLabel":"字"}', 35, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003006, 93000003, '通知渠道', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试","shortLabel":"通"}', 36, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 93000003, '审计日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"关键操作记录审计与追踪","shortLabel":"审"}', 37, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003008, 93000003, '菜单管理', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护","shortLabel":"菜"}', 38, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003101, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限","shortLabel":"增"}', 3201, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003102, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限","shortLabel":"编"}', 3202, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003103, 93003002, '删除用户', 'system:user:delete', '', '', '', '{"caption":"删除用户按钮权限","shortLabel":"删"}', 3203, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003104, 93003002, '重置密码', 'system:user:reset-password', '', '', '', '{"caption":"重置密码按钮权限","shortLabel":"密"}', 3204, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003201, 93003003, '新增角色', 'system:role:add', '', '', '', '{"caption":"新增角色按钮权限","shortLabel":"增"}', 3301, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003202, 93003003, '编辑角色', 'system:role:update', '', '', '', '{"caption":"编辑角色按钮权限","shortLabel":"编"}', 3302, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93003203, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限","shortLabel":"删"}', 3303, 2, 1, 1, NOW(), 1, NOW(), 0)
+    (93003101, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限","shortLabel":"增"}', 3201, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003102, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限","shortLabel":"编"}', 3202, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003103, 93003002, '删除用户', 'system:user:delete', '', '', '', '{"caption":"删除用户按钮权限","shortLabel":"删"}', 3203, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003104, 93003002, '重置密码', 'system:user:reset-password', '', '', '', '{"caption":"重置密码按钮权限","shortLabel":"密"}', 3204, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003201, 93003003, '新增角色', 'system:role:add', '', '', '', '{"caption":"新增角色按钮权限","shortLabel":"增"}', 3301, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003202, 93003003, '编辑角色', 'system:role:update', '', '', '', '{"caption":"编辑角色按钮权限","shortLabel":"编"}', 3302, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93003203, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限","shortLabel":"删"}', 3303, 2, 2, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -75,6 +127,7 @@ ON DUPLICATE KEY UPDATE
     meta_json = VALUES(meta_json),
     sort = VALUES(sort),
     type = VALUES(type),
+    menu_type = VALUES(menu_type),
     status = VALUES(status),
     update_by = VALUES(update_by),
     update_time = VALUES(update_time),

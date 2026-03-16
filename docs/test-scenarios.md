@@ -60,7 +60,8 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - MQTT：`tcp://8.130.107.120:1883`
 
 验收前先确认：
-- 数据库已执行 `sql/init.sql` 与 `sql/upgrade/` 当前基线脚本
+- 新库：已执行 `sql/init.sql`（如需样例数据再执行 `sql/init-data.sql`）
+- 历史库：按需执行 `sql/upgrade/` 当前基线脚本
 - 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`

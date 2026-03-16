@@ -55,7 +55,9 @@
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
         </div>
         <div class="table-action-bar__right">
+          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
@@ -175,7 +177,9 @@
             <span class="table-action-bar__meta">已选 {{ selectedItemRows.length }} 项</span>
           </div>
           <div class="table-action-bar__right">
+            <el-button link @click="openItemExportColumnSetting">导出列设置</el-button>
             <el-button link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</el-button>
+            <el-button link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</el-button>
             <el-button link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</el-button>
             <el-button link @click="handleRefreshItems">刷新列表</el-button>
           </div>
@@ -217,6 +221,22 @@
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="itemsDialogVisible = false">关闭</el-button>
         </template>
       </el-dialog>
+
+      <CsvColumnSettingDialog
+        v-model="exportColumnDialogVisible"
+        title="字典配置导出列设置"
+        :options="exportColumnOptions"
+        :selected-keys="selectedExportColumnKeys"
+        @confirm="handleExportColumnConfirm"
+      />
+
+      <CsvColumnSettingDialog
+        v-model="itemExportColumnDialogVisible"
+        title="字典项导出列设置"
+        :options="itemExportColumnOptions"
+        :selected-keys="selectedItemExportColumnKeys"
+        @confirm="handleItemExportColumnConfirm"
+      />
     </el-card>
   </div>
 </template>
@@ -225,7 +245,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { downloadRowsAsCsv } from '@/utils/csv'
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns'
 import {
   listDicts,
   getDict,
@@ -260,6 +287,23 @@ const tableData = ref<any[]>([])
 const sourceTableData = ref<any[]>([])
 const tableRef = ref()
 const selectedRows = ref<any[]>([])
+const exportColumns: CsvColumn<any>[] = [
+  { key: 'dictCode', label: '字典编码' },
+  { key: 'dictName', label: '字典名称' },
+  { key: 'dictType', label: '字典类型', formatter: (value) => getDictTypeName(String(value || '')) },
+  { key: 'status', label: '状态', formatter: (value) => (Number(value) === 1 ? '启用' : '禁用') },
+  { key: 'sortNo', label: '排序' },
+  { key: 'remark', label: '备注' }
+]
+const exportColumnStorageKey = 'dict-view'
+const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+)
+const exportColumnDialogVisible = ref(false)
 
 // 加载状态
 const loading = ref(false)
@@ -294,6 +338,22 @@ const itemsLoading = ref(false)
 const currentDictId = ref<number>()
 const itemsTableRef = ref()
 const selectedItemRows = ref<any[]>([])
+const itemExportColumns: CsvColumn<any>[] = [
+  { key: 'itemName', label: '项名称' },
+  { key: 'itemValue', label: '项值' },
+  { key: 'itemType', label: '项类型' },
+  { key: 'status', label: '状态', formatter: (value) => (Number(value) === 1 ? '启用' : '禁用') },
+  { key: 'sortNo', label: '排序' }
+]
+const itemExportColumnStorageKey = 'dict-item-view'
+const itemExportColumnOptions = toCsvColumnOptions(itemExportColumns)
+const selectedItemExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    itemExportColumnStorageKey,
+    itemExportColumns.map((column) => String(column.key))
+  )
+)
+const itemExportColumnDialogVisible = ref(false)
 
 // 获取字典列表
 const getDictList = async () => {
@@ -360,8 +420,23 @@ const handleRefresh = () => {
   getDictList()
 }
 
+const openExportColumnSetting = () => {
+  exportColumnDialogVisible.value = true
+}
+
+const handleExportColumnConfirm = (selectedKeys: string[]) => {
+  selectedExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys)
+}
+
+const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
+
 const handleExportSelected = () => {
-  downloadRowsAsCsv('字典配置-选中项.csv', selectedRows.value)
+  downloadRowsAsCsv('字典配置-选中项.csv', selectedRows.value, getResolvedExportColumns())
+}
+
+const handleExportCurrent = () => {
+  downloadRowsAsCsv('字典配置-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
 // 新增
@@ -448,8 +523,24 @@ const handleRefreshItems = () => {
   }
 }
 
+const openItemExportColumnSetting = () => {
+  itemExportColumnDialogVisible.value = true
+}
+
+const handleItemExportColumnConfirm = (selectedKeys: string[]) => {
+  selectedItemExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(itemExportColumnStorageKey, selectedKeys)
+}
+
+const getResolvedItemExportColumns = () =>
+  resolveCsvColumns(itemExportColumns, selectedItemExportColumnKeys.value)
+
 const handleExportSelectedItems = () => {
-  downloadRowsAsCsv('字典项管理-选中项.csv', selectedItemRows.value)
+  downloadRowsAsCsv('字典项管理-选中项.csv', selectedItemRows.value, getResolvedItemExportColumns())
+}
+
+const handleExportCurrentItems = () => {
+  downloadRowsAsCsv('字典项管理-当前结果.csv', itemsTableData.value, getResolvedItemExportColumns())
 }
 
 // 新增字典项

@@ -54,7 +54,9 @@
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
         </div>
         <div class="table-action-bar__right">
+          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
@@ -151,6 +153,14 @@
           <el-button @click="detailVisible = false">关闭</el-button>
         </template>
       </el-dialog>
+
+      <CsvColumnSettingDialog
+        v-model="exportColumnDialogVisible"
+        title="审计日志导出列设置"
+        :options="exportColumnOptions"
+        :selected-keys="selectedExportColumnKeys"
+        @confirm="handleExportColumnConfirm"
+      />
     </el-card>
   </div>
 </template>
@@ -159,7 +169,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog } from '@/api/auditLog'
-import { downloadRowsAsCsv } from '@/utils/csv'
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns'
 
 // 搜索表单
 const searchForm = reactive({
@@ -179,6 +196,26 @@ const pagination = reactive({
 const tableData = ref<any[]>([])
 const tableRef = ref()
 const selectedRows = ref<any[]>([])
+const exportColumns: CsvColumn<any>[] = [
+  { key: 'operationType', label: '操作类型', formatter: (value) => getOperationTypeName(String(value || '')) },
+  { key: 'operationModule', label: '操作模块' },
+  { key: 'operationMethod', label: '操作方法' },
+  { key: 'requestUrl', label: '请求URL' },
+  { key: 'requestMethod', label: '请求方法' },
+  { key: 'userName', label: '操作用户' },
+  { key: 'ipAddress', label: '操作IP' },
+  { key: 'operationTime', label: '操作时间' },
+  { key: 'operationResult', label: '操作结果', formatter: (value) => (Number(value) === 1 ? '成功' : '失败') }
+]
+const exportColumnStorageKey = 'audit-log-view'
+const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+)
+const exportColumnDialogVisible = ref(false)
 
 // 加载状态
 const loading = ref(false)
@@ -242,8 +279,23 @@ const handleRefresh = () => {
   getAuditLogList()
 }
 
+const openExportColumnSetting = () => {
+  exportColumnDialogVisible.value = true
+}
+
+const handleExportColumnConfirm = (selectedKeys: string[]) => {
+  selectedExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys)
+}
+
+const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
+
 const handleExportSelected = () => {
-  downloadRowsAsCsv('审计日志-选中项.csv', selectedRows.value)
+  downloadRowsAsCsv('审计日志-选中项.csv', selectedRows.value, getResolvedExportColumns())
+}
+
+const handleExportCurrent = () => {
+  downloadRowsAsCsv('审计日志-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
 // 分页大小变化

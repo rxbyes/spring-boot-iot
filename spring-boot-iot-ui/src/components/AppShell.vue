@@ -2,7 +2,7 @@
   <div class="cloud-shell" :class="{ 'cloud-shell--collapsed': sidebarCollapsed, 'cloud-shell--mobile-open': mobileMenuOpen }">
     <a class="skip-link" href="#main-content">跳到主内容</a>
 
-    <header class="cloud-header">
+    <header ref="headerRef" class="cloud-header">
       <div class="cloud-header__main">
         <button
           class="menu-trigger"
@@ -31,35 +31,19 @@
           <button type="button" @click="handleSearch">搜索</button>
         </label>
 
-        <div class="header-status">
-          <div class="header-tools" aria-label="系统工具">
-            <button
-              type="button"
-              class="tool-text"
-              :class="{ 'tool-text--active': showNoticePanel }"
-              aria-label="打开消息通知"
-              @click="toggleNoticePanel"
-            >
-              消息通知
-            </button>
-            <button
-              type="button"
-              class="tool-text"
-              :class="{ 'tool-text--active': showHelpPanel }"
-              aria-label="打开帮助中心"
-              @click="toggleHelpPanel"
-            >
-              帮助中心
-            </button>
-          </div>
-          <div class="account-chip" :title="headerIdentity">
-            <span class="account-chip__avatar">{{ accountInitial }}</span>
-            <span class="account-chip__meta">
-              <strong>{{ headerAccountName }}</strong>
-              <small>{{ headerRoleName }}</small>
-            </span>
-          </div>
-        </div>
+        <AppHeaderTools
+          :show-notice-panel="showNoticePanel"
+          :show-help-panel="showHelpPanel"
+          :notice-panel-id="noticePanelId"
+          :help-panel-id="helpPanelId"
+          :header-identity="headerIdentity"
+          :header-account-name="headerAccountName"
+          :header-role-name="headerRoleName"
+          :account-initial="accountInitial"
+          :unread-notice-count="unreadNoticeCount"
+          @toggle-notice="toggleNoticePanel"
+          @toggle-help="toggleHelpPanel"
+        />
       </div>
 
       <nav class="cloud-header__sections" aria-label="一级导航">
@@ -77,37 +61,28 @@
       </nav>
 
       <transition name="header-pop">
-        <section v-if="showNoticePanel" class="header-popover header-popover--notice" aria-label="消息通知面板">
-          <div class="header-popover__title">
-            <strong>消息通知</strong>
-            <small>最近操作与系统提醒</small>
-          </div>
-          <ul class="header-popover__list">
-            <li v-for="item in noticeItems" :key="item.id">
-              <button type="button" @click="openNotice(item.path)">
-                <strong>{{ item.title }}</strong>
-                <span>{{ item.time }}</span>
-              </button>
-            </li>
-          </ul>
-        </section>
+        <HeaderPopoverPanel
+          v-if="showNoticePanel"
+          :panel-id="noticePanelId"
+          aria-label="消息通知面板"
+          title="消息通知"
+          subtitle="最近操作与系统提醒"
+          :items="noticePopoverItems"
+          @select="openNotice"
+        />
       </transition>
 
       <transition name="header-pop">
-        <section v-if="showHelpPanel" class="header-popover header-popover--help" aria-label="帮助中心面板">
-          <div class="header-popover__title">
-            <strong>帮助中心</strong>
-            <small>常用入口与使用说明</small>
-          </div>
-          <ul class="header-popover__list">
-            <li v-for="item in helpItems" :key="item.label">
-              <button type="button" @click="openHelp(item.path)">
-                <strong>{{ item.label }}</strong>
-                <span>{{ item.caption }}</span>
-              </button>
-            </li>
-          </ul>
-        </section>
+        <HeaderPopoverPanel
+          v-if="showHelpPanel"
+          :panel-id="helpPanelId"
+          panel-class="header-popover--help"
+          aria-label="帮助中心面板"
+          title="帮助中心"
+          subtitle="常用入口与使用说明"
+          :items="helpPopoverItems"
+          @select="openHelp"
+        />
       </transition>
     </header>
 
@@ -233,6 +208,8 @@ import { usePermissionStore } from '../stores/permission';
 import { runtimeState, setApiBaseUrl } from '../stores/runtime';
 import type { MenuTreeNode } from '../types/auth';
 import { formatDateTime } from '../utils/format';
+import AppHeaderTools from './AppHeaderTools.vue';
+import HeaderPopoverPanel from './HeaderPopoverPanel.vue';
 import TabsView from './TabsView.vue';
 
 interface NavItem {
@@ -254,6 +231,7 @@ interface NavGroup {
 const route = useRoute();
 const router = useRouter();
 const permissionStore = usePermissionStore();
+const headerRef = ref<HTMLElement | null>(null);
 
 const guestGroup: NavGroup = {
   key: 'guest-overview',
@@ -387,6 +365,9 @@ const mobileMenuOpen = ref(false);
 const sidebarCollapsed = ref(false);
 const showNoticePanel = ref(false);
 const showHelpPanel = ref(false);
+const readNoticeIds = ref<string[]>([]);
+const noticePanelId = 'header-notice-panel';
+const helpPanelId = 'header-help-panel';
 const staticNavigationGroups = cloneGroups(docFallbackGroups);
 
 const navigationGroups = computed<NavGroup[]>(() => {
@@ -473,17 +454,45 @@ const noticeItems = computed(() => {
     { id: 'notice-3', title: '可在接入设置中切换 API 网关地址', time: '刚刚', path: route.path }
   ];
 });
+const noticePopoverItems = computed(() =>
+  noticeItems.value.map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.time,
+    path: item.path
+  }))
+);
+const unreadNoticeCount = computed(() => {
+  return noticeItems.value.filter((item) => !readNoticeIds.value.includes(item.id)).length;
+});
 const helpItems = [
   { label: '平台首页', caption: '查看系统总览和业务入口', path: '/' },
   { label: '接入验证中心', caption: '验证 HTTP 上报与链路解析', path: '/reporting' },
   { label: '演进蓝图', caption: '查看规划能力与后续路线', path: '/future-lab' },
   { label: '系统角色管理', caption: '维护角色与权限关系', path: '/role' }
 ];
+const helpPopoverItems = computed(() =>
+  helpItems.map((item, index) => ({
+    id: `help-${index}`,
+    title: item.label,
+    description: item.caption,
+    path: item.path
+  }))
+);
 const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
 const loggedUserHint = computed(() => {
   const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
   return `当前角色：${roleText}，一级导航使用统一模板，按钮权限按数据库授权控制。`;
 });
+
+watch(
+  noticeItems,
+  (items) => {
+    const validIds = new Set(items.map((item) => item.id));
+    readNoticeIds.value = readNoticeIds.value.filter((id) => validIds.has(id));
+  },
+  { immediate: true }
+);
 
 function switchGroup(groupKey: string) {
   const group = navigationGroups.value.find((item) => item.key === groupKey);
@@ -522,8 +531,10 @@ function saveApiBaseUrl() {
 }
 
 function toggleNoticePanel() {
-  showNoticePanel.value = !showNoticePanel.value;
+  const willOpen = !showNoticePanel.value;
+  showNoticePanel.value = willOpen;
   if (showNoticePanel.value) {
+    readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...noticeItems.value.map((item) => item.id)]));
     showHelpPanel.value = false;
   }
 }
@@ -536,6 +547,7 @@ function toggleHelpPanel() {
 }
 
 function openNotice(path: string) {
+  readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...noticeItems.value.map((item) => item.id)]));
   showNoticePanel.value = false;
   router.push(path);
 }
@@ -543,6 +555,35 @@ function openNotice(path: string) {
 function openHelp(path: string) {
   showHelpPanel.value = false;
   router.push(path);
+}
+
+function closeHeaderPanels() {
+  showNoticePanel.value = false;
+  showHelpPanel.value = false;
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!showNoticePanel.value && !showHelpPanel.value) {
+    return;
+  }
+  const target = event.target as Node | null;
+  if (!target) {
+    return;
+  }
+  if (headerRef.value?.contains(target)) {
+    return;
+  }
+  closeHeaderPanels();
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') {
+    return;
+  }
+  if (!showNoticePanel.value && !showHelpPanel.value) {
+    return;
+  }
+  closeHeaderPanels();
 }
 
 function goToLogin() {
@@ -577,10 +618,14 @@ function handleLogout() {
 onMounted(() => {
   updateViewportState();
   window.addEventListener('resize', updateViewportState);
+  document.addEventListener('pointerdown', handleDocumentPointerDown);
+  document.addEventListener('keydown', handleDocumentKeydown);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportState);
+  document.removeEventListener('pointerdown', handleDocumentPointerDown);
+  document.removeEventListener('keydown', handleDocumentKeydown);
 });
 </script>
 
@@ -717,102 +762,6 @@ onBeforeUnmount(() => {
   font-size: 0.8rem;
 }
 
-.header-status {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.55rem;
-}
-
-.header-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-}
-
-.tool-text {
-  min-height: 1.76rem;
-  padding: 0 0.62rem;
-  border-radius: 2px;
-  border: 1px solid #d8dfeb;
-  background: #fff;
-  color: #4b5565;
-  font-size: 0.74rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.tool-text:hover {
-  border-color: #c9d7ef;
-  color: #1677ff;
-  background: #f7fbff;
-}
-
-.tool-text--active {
-  border-color: #a8c4ef;
-  color: #1677ff;
-  background: #eef5ff;
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.4rem 0.82rem;
-  border-radius: 999px;
-  border: 1px solid #dbe4f1;
-  background: rgba(255, 255, 255, 0.88);
-  color: #53647d;
-  font-size: 0.78rem;
-}
-
-.status-chip--identity {
-  border-color: #d6e5ff;
-  background: #f4f8ff;
-  color: #1d4fba;
-}
-
-.account-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2rem;
-  padding: 0.22rem 0.5rem 0.22rem 0.3rem;
-  border-radius: 2px;
-  border: 1px solid #e6eaf0;
-  background: #fff;
-}
-
-.account-chip__avatar {
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(160deg, #4d8bff, #2f66da);
-}
-
-.account-chip__meta {
-  display: grid;
-  gap: 0.05rem;
-  line-height: 1.2;
-}
-
-.account-chip__meta strong {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #1f3558;
-}
-
-.account-chip__meta small {
-  font-size: 0.68rem;
-  color: #5e769e;
-}
-
 .cloud-header__sections {
   display: flex;
   flex-wrap: nowrap;
@@ -822,74 +771,6 @@ onBeforeUnmount(() => {
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
   margin: 0 auto;
   padding: 0;
-}
-
-.header-popover {
-  position: absolute;
-  top: calc(100% - 0.2rem);
-  right: max(calc((100vw - var(--shell-max-width)) / 2), var(--shell-gutter));
-  width: min(25rem, calc(100vw - var(--shell-gutter) * 2));
-  border: 1px solid #dbe6f5;
-  border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 14px 28px rgba(22, 43, 77, 0.14);
-  padding: 0.72rem;
-  z-index: 110;
-}
-
-.header-popover--help {
-  width: min(22rem, calc(100vw - var(--shell-gutter) * 2));
-}
-
-.header-popover__title {
-  display: grid;
-  gap: 0.14rem;
-  padding: 0.1rem 0.12rem 0.46rem;
-}
-
-.header-popover__title strong {
-  color: #203557;
-  font-size: 0.9rem;
-}
-
-.header-popover__title small {
-  color: #6780a4;
-  font-size: 0.76rem;
-}
-
-.header-popover__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.header-popover__list li button {
-  width: 100%;
-  border: 1px solid #e5edf8;
-  border-radius: 0.68rem;
-  background: #f8fbff;
-  padding: 0.56rem 0.62rem;
-  text-align: left;
-  display: grid;
-  gap: 0.18rem;
-  color: #304766;
-}
-
-.header-popover__list li button strong {
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.header-popover__list li button span {
-  font-size: 0.72rem;
-  color: #6681a7;
-}
-
-.header-popover__list li button:hover {
-  border-color: #bfd3f0;
-  background: #f1f7ff;
 }
 
 .header-pop-enter-active,
@@ -1338,10 +1219,6 @@ onBeforeUnmount(() => {
     transform: translateX(0);
   }
 
-  .header-popover {
-    right: var(--shell-gutter);
-  }
-
   .cloud-content {
     padding: 0.92rem;
   }
@@ -1369,22 +1246,9 @@ onBeforeUnmount(() => {
     order: 5;
   }
 
-  .header-status {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-  }
-
-  .header-tools {
-    margin-left: auto;
-  }
-
   .cloud-header__sections {
     overflow-x: auto;
     flex-wrap: nowrap;
-  }
-
-  .header-popover {
-    top: calc(100% + 2.2rem);
   }
 
   .section-tab {

@@ -27,6 +27,13 @@ export interface RuleDefinition {
       deleted: number;
 }
 
+export interface RuleDefinitionPageResult {
+      total: number;
+      pageNum: number;
+      pageSize: number;
+      records: RuleDefinition[];
+}
+
 // 获取规则列表
 export const getRuleList = (params?: {
       ruleName?: string;
@@ -37,6 +44,20 @@ export const getRuleList = (params?: {
       const queryString = buildQueryString(params);
       const path = queryString ? `/api/rule-definition/list?${queryString}` : '/api/rule-definition/list';
       return request<RuleDefinition[]>(path, { method: 'GET' });
+};
+
+// 分页获取规则列表
+export const pageRuleList = (params?: {
+      ruleName?: string;
+      metricIdentifier?: string;
+      alarmLevel?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}): Promise<ApiEnvelope<RuleDefinitionPageResult>> => {
+      const queryString = buildQueryString(params);
+      const path = queryString ? `/api/rule-definition/page?${queryString}` : '/api/rule-definition/page';
+      return request<RuleDefinitionPageResult>(path, { method: 'GET' });
 };
 
 // 获取规则详情

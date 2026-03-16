@@ -6,6 +6,7 @@
     :class="panelClass"
     :aria-label="ariaLabel"
     role="dialog"
+    aria-modal="false"
     tabindex="-1"
   >
     <div class="header-popover__title">
@@ -63,10 +64,10 @@ onMounted(() => {
   top: calc(100% - 0.2rem);
   right: max(calc((100vw - var(--shell-max-width)) / 2), var(--shell-gutter));
   width: min(25rem, calc(100vw - var(--shell-gutter) * 2));
-  border: 1px solid #dbe6f5;
+  border: 1px solid var(--panel-border);
   border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 14px 28px rgba(22, 43, 77, 0.14);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg);
   padding: 0.72rem;
   z-index: 110;
 }
@@ -82,12 +83,12 @@ onMounted(() => {
 }
 
 .header-popover__title strong {
-  color: #203557;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
 .header-popover__title small {
-  color: #6780a4;
+  color: var(--text-tertiary);
   font-size: 0.76rem;
 }
 
@@ -101,14 +102,14 @@ onMounted(() => {
 
 .header-popover__list li button {
   width: 100%;
-  border: 1px solid #e5edf8;
+  border: 1px solid var(--panel-border);
   border-radius: 0.68rem;
-  background: #f8fbff;
+  background: var(--bg-hover);
   padding: 0.56rem 0.62rem;
   text-align: left;
   display: grid;
   gap: 0.18rem;
-  color: #304766;
+  color: var(--text-secondary);
 }
 
 .header-popover__list li button strong {
@@ -118,12 +119,12 @@ onMounted(() => {
 
 .header-popover__list li button span {
   font-size: 0.72rem;
-  color: #6681a7;
+  color: var(--text-tertiary);
 }
 
 .header-popover__list li button:hover {
   border-color: #bfd3f0;
-  background: #f1f7ff;
+  background: var(--bg-active);
 }
 
 @media (max-width: 1200px) {
