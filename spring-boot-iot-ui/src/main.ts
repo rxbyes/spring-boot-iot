@@ -5,8 +5,6 @@ import App from './App.vue';
 import router from './router';
 import { registerDefaultInterceptors } from './api/interceptors';
 import { permission } from './directives/permission';
-import 'element-plus/es/components/message/style/css';
-import 'element-plus/es/components/message-box/style/css';
 import './styles/tokens.css';
 import './styles/element-overrides.css';
 import './styles/global.css';
