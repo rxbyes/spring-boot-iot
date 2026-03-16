@@ -15,7 +15,7 @@
             <el-form-item label="字典名称">
               <el-input
                 v-model="searchForm.dictName"
-                placeholder="请输入字典名�?
+                placeholder="请输入字典名?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -25,7 +25,7 @@
             <el-form-item label="字典编码">
               <el-input
                 v-model="searchForm.dictCode"
-                placeholder="请输入字典编�?
+                placeholder="请输入字典编?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -67,7 +67,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状�? width="100">
+        <el-table-column prop="status" label="状? width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
@@ -79,7 +79,7 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleItems(row)">字典�?/el-button>
+            <el-button type="primary" link @click="handleItems(row)">字典?/el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -97,7 +97,7 @@
         class="pagination"
       />
 
-      <!-- 表单对话�?-->
+      <!-- 表单对话?-->
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
@@ -111,10 +111,10 @@
           label-width="100px"
         >
           <el-form-item label="字典名称" prop="dictName">
-            <el-input v-model="formData.dictName" placeholder="请输入字典名�? />
+            <el-input v-model="formData.dictName" placeholder="请输入字典名? />
           </el-form-item>
           <el-form-item label="字典编码" prop="dictCode">
-            <el-input v-model="formData.dictCode" placeholder="请输入字典编�? />
+            <el-input v-model="formData.dictCode" placeholder="请输入字典编? />
           </el-form-item>
           <el-form-item label="字典类型" prop="dictType">
             <el-select v-model="formData.dictType" placeholder="请选择字典类型">
@@ -124,7 +124,7 @@
               <el-option label="日期" value="date" />
             </el-select>
           </el-form-item>
-          <el-form-item label="状�? prop="status">
+          <el-form-item label="状? prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -138,7 +138,7 @@
               v-model="formData.remark"
               type="textarea"
               :rows="3"
-              placeholder="请输入备�?
+              placeholder="请输入备?
             />
           </el-form-item>
         </el-form>
@@ -151,10 +151,10 @@
       <!-- 字典项管理对话框 -->
       <el-dialog
         v-model="itemsDialogVisible"
-        title="字典项管�?
+        title="字典项管?
         width="800px"
       >
-        <el-button type="primary" @click="handleAddItem" style="margin-bottom: 10px;">新增字典�?/el-button>
+        <el-button type="primary" @click="handleAddItem" style="margin-bottom: 10px;">新增字典?/el-button>
         <el-table
           v-loading="itemsLoading"
           :data="itemsTableData"
@@ -162,14 +162,14 @@
           stripe
           style="width: 100%"
         >
-          <el-table-column prop="itemName" label="项名�? width="150" />
-          <el-table-column prop="itemValue" label="项�? width="150" />
-          <el-table-column prop="itemType" label="项类�? width="120">
+          <el-table-column prop="itemName" label="项名? width="150" />
+          <el-table-column prop="itemValue" label="项? width="150" />
+          <el-table-column prop="itemType" label="项类? width="120">
             <template #default="{ row }">
               <el-tag>{{ row.itemType || 'string' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状�? width="100">
+          <el-table-column prop="status" label="状? width="100">
             <template #default="{ row }">
               <el-tag :type="row.status === 1 ? 'success' : 'danger'">
                 {{ row.status === 1 ? '启用' : '禁用' }}
@@ -229,10 +229,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状�?
+// 加载状?
 const loading = ref(false)
 
-// 对话�?
+// 对话?
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增字典')
 const formData = ref({
@@ -247,12 +247,12 @@ const formData = ref({
 
 // 表单验证规则
 const formRules = {
-  dictName: [{ required: true, message: '请输入字典名�?, trigger: 'blur' }],
-  dictCode: [{ required: true, message: '请输入字典编�?, trigger: 'blur' }],
+  dictName: [{ required: true, message: '请输入字典名?, trigger: 'blur' }],
+  dictCode: [{ required: true, message: '请输入字典编?, trigger: 'blur' }],
   dictType: [{ required: true, message: '请选择字典类型', trigger: 'change' }]
 }
 
-// 提交状�?
+// 提交状?
 const submitLoading = ref(false)
 
 // 字典项管理对话框
@@ -276,7 +276,7 @@ const getDictList = async () => {
   }
 }
 
-// 初始�?
+// 初始?
 onMounted(() => {
   getDictList()
 })
@@ -339,14 +339,14 @@ const handleDelete = (row: any) => {
     .catch(() => {})
 }
 
-// 查看字典�?
+// 查看字典?
 const handleItems = (row: any) => {
   currentDictId.value = row.id
   itemsDialogVisible.value = true
   getDictItems(row.id)
 }
 
-// 获取字典�?
+// 获取字典?
 const getDictItems = async (dictId: number) => {
   itemsLoading.value = true
   try {
@@ -355,25 +355,25 @@ const getDictItems = async (dictId: number) => {
       itemsTableData.value = res.data || []
     }
   } catch (error) {
-    console.error('获取字典项失�?, error)
+    console.error('获取字典项失?, error)
   } finally {
     itemsLoading.value = false
   }
 }
 
-// 新增字典�?
+// 新增字典?
 const handleAddItem = () => {
   // TODO: 实现新增字典项逻辑
 }
 
-// 编辑字典�?
+// 编辑字典?
 const handleEditItem = (row: any) => {
   // TODO: 实现编辑字典项逻辑
 }
 
-// 删除字典�?
+// 删除字典?
 const handleDeleteItem = (row: any) => {
-  ElMessageBox.confirm('确定要删除该字典项吗�?, '警告', {
+  ElMessageBox.confirm('确定要删除该字典项吗?, '警告', {
     type: 'warning'
   })
     .then(async () => {
@@ -419,7 +419,7 @@ const handleSubmit = async () => {
   }
 }
 
-// 关闭对话�?
+// 关闭对话?
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
@@ -452,7 +452,7 @@ const handleSizeChange = (size: number) => {
   getDictList()
 }
 
-// 当前页变�?
+// 当前页变?
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getDictList()

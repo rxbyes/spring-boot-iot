@@ -14,7 +14,7 @@
             <el-form-item label="角色名称">
               <el-input
                 v-model="searchForm.roleName"
-                placeholder="请输入角色名�?
+                placeholder="请输入角色名?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -24,15 +24,15 @@
             <el-form-item label="角色编码">
               <el-input
                 v-model="searchForm.roleCode"
-                placeholder="请输入角色编�?
+                placeholder="请输入角色编?
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="状�?>
-              <el-select v-model="searchForm.status" placeholder="请选择状�? clearable>
+            <el-form-item label="状?>
+              <el-select v-model="searchForm.status" placeholder="请选择状? clearable>
                 <el-option label="启用" :value="1" />
                 <el-option label="禁用" :value="0" />
               </el-select>
@@ -57,7 +57,7 @@
         <el-table-column prop="roleName" label="角色名称" min-width="150" />
         <el-table-column prop="roleCode" label="角色编码" min-width="150" />
         <el-table-column prop="description" label="角色描述" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="status" label="状�? width="100">
+        <el-table-column prop="status" label="状? width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
@@ -98,19 +98,19 @@
           label-width="100px"
         >
           <el-form-item label="角色名称" prop="roleName">
-            <el-input v-model="formData.roleName" placeholder="请输入角色名�? />
+            <el-input v-model="formData.roleName" placeholder="请输入角色名? />
           </el-form-item>
           <el-form-item label="角色编码" prop="roleCode">
-            <el-input v-model="formData.roleCode" placeholder="请输入角色编�? />
+            <el-input v-model="formData.roleCode" placeholder="请输入角色编? />
           </el-form-item>
           <el-form-item label="角色描述" prop="description">
             <el-input
               v-model="formData.description"
               type="textarea"
-              placeholder="请输入角色描�?
+              placeholder="请输入角色描?
             />
           </el-form-item>
-          <el-form-item label="状�? prop="status">
+          <el-form-item label="状? prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -206,8 +206,8 @@ function createDefaultFormData(): RoleFormData {
 const formData = reactive<RoleFormData>(createDefaultFormData());
 
 const formRules: FormRules<RoleFormData> = {
-  roleName: [{ required: true, message: '请输入角色名�?, trigger: 'blur' }],
-  roleCode: [{ required: true, message: '请输入角色编�?, trigger: 'blur' }]
+  roleName: [{ required: true, message: '请输入角色名?, trigger: 'blur' }],
+  roleCode: [{ required: true, message: '请输入角色编?, trigger: 'blur' }]
 };
 
 async function getRoles() {

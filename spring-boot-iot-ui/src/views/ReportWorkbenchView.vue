@@ -1,33 +1,33 @@
 <template>
   <div class="report-workbench-page">
-    <!-- ¶¥²¿µ¼º½À¸ -->
+    <!--  -->
     <div class="workbench-header">
       <div class="header-left">
-        <h1 class="page-title">½ÓÈëÑéÖ¤ÖĞĞÄ</h1>
+        <h1 class="page-title">Ö¤</h1>
         <span class="timestamp">{{ currentTime }}</span>
       </div>
       <div class="header-right">
         <el-radio-group v-model="currentRole" size="large">
-          <el-radio-button value="field">ÊµÊ©ÑéÖ¤</el-radio-button>
-          <el-radio-button value="ops">ÔËÎ¬ºËÑé</el-radio-button>
+          <el-radio-button value="field">ÊµÊ©Ö¤</el-radio-button>
+          <el-radio-button value="ops">Î¬</el-radio-button>
         </el-radio-group>
       </div>
     </div>
 
-    <!-- ÉÏ±¨×´Ì¬ºá·ù -->
+    <!-- Ï±×´Ì¬ -->
     <div class="report-banner" :class="`report-banner--${reportSummary.tone}`">
       <div class="banner-content">
-        <p class="banner-label">µ±Ç°ÑéÖ¤×´Ì¬</p>
+        <p class="banner-label">Ç°Ö¤×´Ì¬</p>
         <strong class="banner-value">{{ reportSummary.label }}</strong>
         <p class="banner-desc">{{ reportSummary.description }}</p>
       </div>
       <div class="banner-score">
-        <small>ÑéÖ¤ÆÀ·Ö</small>
+        <small>Ö¤</small>
         <strong>{{ reportSummary.score }}</strong>
       </div>
     </div>
 
-    <!-- ¹Ø¼üÖ¸±ê¿¨Æ¬ -->
+    <!-- Ø¼Ö¸ê¿¨Æ¬ -->
     <div class="quad-grid">
       <MetricCard
         v-for="metric in roleMetrics[currentRole]"
@@ -38,15 +38,15 @@
       />
     </div>
 
-    <!-- ÖĞÑë¹¤×÷ÇøÓò -->
+    <!-- ë¹¤ -->
     <div class="main-workarea">
-      <!-- ÉÏ±¨ÅäÖÃÇøÓò -->
+      <!-- Ï± -->
       <div class="report-config">
-        <h3 class="section-title">½ÓÈëÑéÖ¤ÅäÖÃ</h3>
+        <h3 class="section-title">Ö¤</h3>
         <div class="config-grid">
           <div class="config-card">
             <div class="config-header">
-              <strong class="config-title">Ä£ÄâÉè±¸ÉÏ±¨</strong>
+              <strong class="config-title">Ä£è±¸Ï±</strong>
               <span class="config-tag">Access Verify</span>
             </div>
             
@@ -64,46 +64,46 @@
 
             <form class="form-grid" @submit.prevent="handleSendReport">
               <div class="field-group">
-                <label for="report-protocol">Ğ­Òé±àÂë</label>
+                <label for="report-protocol">Ğ­</label>
                 <el-input
                   id="report-protocol"
                   v-model="reportForm.protocolCode"
                   name="report_protocol_code"
-                  placeholder="ÀıÈç mqtt-json..."
+                  placeholder=" mqtt-json..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="report-product-key">²úÆ· Key</label>
+                <label for="report-product-key">Æ· Key</label>
                 <el-input
                   id="report-product-key"
                   v-model="reportForm.productKey"
                   name="report_product_key"
-                  placeholder="ÀıÈç demo-product..."
+                  placeholder=" demo-product..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="report-device-code">Éè±¸±àÂë</label>
+                <label for="report-device-code">è±¸</label>
                 <el-input
                   id="report-device-code"
                   v-model="reportForm.deviceCode"
                   name="report_device_code"
-                  placeholder="ÀıÈç demo-device-01..."
+                  placeholder=" demo-device-01..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="report-client-id">¿Í»§¶Ë ID</label>
+                <label for="report-client-id">Í» ID</label>
                 <el-input id="report-client-id" v-model="reportForm.clientId" name="report_client_id" autocomplete="off" spellcheck="false" clearable />
               </div>
               <div class="field-group">
-                <label for="report-tenant">×â»§ ID</label>
-                <el-input id="report-tenant" v-model="reportForm.tenantId" name="report_tenant_id" inputmode="numeric" placeholder="ÀıÈç 1..." clearable />
+                <label for="report-tenant">â»§ ID</label>
+                <el-input id="report-tenant" v-model="reportForm.tenantId" name="report_tenant_id" inputmode="numeric" placeholder=" 1..." clearable />
               </div>
               <div class="field-group">
                 <label for="report-topic">Topic</label>
-                <el-input id="report-topic" v-model="reportForm.topic" name="report_topic" autocomplete="off" spellcheck="false" placeholder="ÀıÈç /sys/demo-product/demo-device-01/thing/property/post..." clearable />
+                <el-input id="report-topic" v-model="reportForm.topic" name="report_topic" autocomplete="off" spellcheck="false" placeholder=" /sys/demo-product/demo-device-01/thing/property/post..." clearable />
               </div>
               <div class="field-group" style="grid-column: 1 / -1;">
                 <label for="payload">Payload</label>
@@ -111,10 +111,10 @@
               </div>
               <div class="button-row" style="grid-column: 1 / -1;">
                 <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending">
-                  {{ isSending ? '·¢ËÍÖĞ...' : '·¢ÆğÑéÖ¤' }}
+                  {{ isSending ? '...' : 'Ö¤' }}
                 </el-button>
                 <el-button class="secondary-button" @click="syncTopic">
-                  ÓÃÍÆ¼ö Topic ¸²¸Ç
+                  Æ¼ Topic 
                 </el-button>
               </div>
             </form>
@@ -122,13 +122,13 @@
 
           <div class="config-card">
             <div class="config-header">
-              <strong class="config-title">±¨ÎÄÔ¤Ñİ</strong>
+              <strong class="config-title">Ô¤</strong>
               <span class="config-tag">Preview</span>
             </div>
             
             <div class="info-grid">
               <div class="info-chip">
-                <span>ÍÆ¼ö Topic</span>
+                <span>Æ¼ Topic</span>
                 <strong>{{ recommendedTopic }}</strong>
               </div>
               <div class="info-chip">
@@ -137,24 +137,24 @@
               </div>
               <div class="info-chip">
                 <span>Payload ×´Ì¬</span>
-                <strong>{{ parsedPayload ? 'JSON ÓĞĞ§' : 'JSON ÎŞ·¨½âÎö' }}</strong>
+                <strong>{{ parsedPayload ? 'JSON Ğ§' : 'JSON Ş·' }}</strong>
               </div>
               <div class="info-chip">
-                <span>Ä£ÄâÈë¿Ú</span>
+                <span>Ä£</span>
                 <strong>POST /message/http/report</strong>
               </div>
             </div>
             <div class="curl-preview" style="margin-top: 1rem;">
-              <p class="curl-label">µ±Ç° curl Ô¤ÀÀ£º</p>
+              <p class="curl-label">Ç° curl Ô¤</p>
               <pre>{{ curlPreview }}</pre>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ¹ØÁªÈë¿Ú -->
+      <!--  -->
       <div class="role-quick-access">
-        <h3 class="section-title">¹ØÁªÈë¿Ú</h3>
+        <h3 class="section-title"></h3>
         <div class="access-grid">
           <div
             v-for="action in roleActions[currentRole]"
@@ -173,10 +173,10 @@
       </div>
     </div>
 
-    <!-- µ×²¿ĞÅÏ¢ -->
+    <!-- ×²Ï¢ -->
     <div class="workbench-footer">
       <div class="footer-section">
-        <h4>·¢ËÍºó½¨Òé¼ì²é</h4>
+        <h4>Íº</h4>
         <div class="flow-rail">
           <div v-for="step in followUpSteps" :key="step.title" class="flow-rail__item">
             <span class="flow-rail__index">{{ step.index }}</span>
@@ -188,39 +188,39 @@
         </div>
       </div>
       <div class="footer-section">
-        <h4>½ÓÈëµµ°¸</h4>
+        <h4>ëµµ</h4>
         <div class="info-grid">
           <div class="info-chip">
-            <span>Ğ­Òé±àÂë</span>
+            <span>Ğ­</span>
             <strong>{{ reportForm.protocolCode || '--' }}</strong>
           </div>
           <div class="info-chip">
-            <span>²úÆ· Key</span>
+            <span>Æ· Key</span>
             <strong>{{ reportForm.productKey || '--' }}</strong>
           </div>
           <div class="info-chip">
-            <span>Éè±¸±àÂë</span>
+            <span>è±¸</span>
             <strong>{{ reportForm.deviceCode || '--' }}</strong>
           </div>
           <div class="info-chip">
-            <span>ÑéÖ¤Èë¿Ú</span>
+            <span>Ö¤</span>
             <strong>POST /message/http/report</strong>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ¹Ø¼üÊı¾İÃæ°å -->
+    <!-- Ø¼ -->
     <div class="data-panels">
       <PanelCard
         eyebrow="Parsed Payload"
-        title="Payload ½âÎöÔ¤ÀÀ"
-        :body="parsedPayload || { warning: 'µ±Ç° payload ²»ÊÇÓĞĞ§ JSON¡£' }"
+        title="Payload Ô¤"
+        :body="parsedPayload || { warning: 'Ç° payload Ğ§ JSON' }"
       />
 
       <PanelCard
         eyebrow="Response"
-        title="×îºóÒ»´ÎÏìÓ¦"
+        title="Ò»Ó¦"
         :body="lastResponse"
       />
     </div>
@@ -255,10 +255,10 @@ interface ReportSummary {
 
 const router = useRouter();
 
-// ½ÇÉ«ÇĞ»»
+// É«Ğ»
 const currentRole = ref<'field' | 'ops'>('field');
 
-// Ê±¼ä´Á
+// Ê±
 const currentTime = ref('');
 const updateTime = () => {
   const now = new Date();
@@ -292,7 +292,7 @@ const createDemoReport = (): HttpReportPayload => ({
 
 const templates: TemplateOption[] = [
   {
-    name: 'ÎÂÊª¶ÈÊôĞÔ',
+    name: 'Êª',
     payload: {
       messageType: 'property',
       properties: {
@@ -302,7 +302,7 @@ const templates: TemplateOption[] = [
     }
   },
   {
-    name: 'Éè±¸×´Ì¬',
+    name: 'è±¸×´Ì¬',
     payload: {
       messageType: 'status',
       properties: {
@@ -313,7 +313,7 @@ const templates: TemplateOption[] = [
     }
   },
   {
-    name: 'ÊÂ¼şÕ¼Î»',
+    name: 'Â¼Õ¼Î»',
     payload: {
       messageType: 'event',
       eventCode: 'overheat',
@@ -325,16 +325,16 @@ const templates: TemplateOption[] = [
 ];
 
 const followUpSteps = [
-  { index: '01', title: '²éÑ¯Éè±¸ÏêÇé', description: 'È·ÈÏ onlineStatus¡¢lastReportTime ÊÇ·ñ±ä»¯¡£' },
-  { index: '02', title: '²éÑ¯ÊôĞÔ¿ìÕÕ', description: 'È·ÈÏ `temperature` / `humidity` µÈÊôĞÔÒÑĞ´Èë¡£' },
-  { index: '03', title: '²éÑ¯ÏûÏ¢ÈÕÖ¾', description: 'È·ÈÏ topic Óë payload ÒÑ±£Áô¡£' },
-  { index: '04', title: 'ÏÎ½ÓÎ´À´Í¼±í', description: 'ÕâĞ©ÊôĞÔ½«Ö±½Ó³ÉÎªºóĞøÍ¼±íÓëÊı×ÖÂÏÉúµÄÊı¾İÔ´¡£' }
+  { index: '01', title: 'Ñ¯è±¸', description: 'È· onlineStatuslastReportTime Ç·ä»¯' },
+  { index: '02', title: 'Ñ¯Ô¿', description: 'È· `temperature` / `humidity` Ğ´ë¡£' },
+  { index: '03', title: 'Ñ¯Ï¢Ö¾', description: 'È· topic  payload Ñ±' },
+  { index: '04', title: 'Î½Î´Í¼', description: 'Ğ©Ô½Ö±Ó³ÎªÍ¼Ô´' }
 ];
 
 const reportForm = reactive<HttpReportPayload>(createDemoReport());
 const isSending = ref(false);
 const errorMessage = ref('');
-const lastResponse = ref<unknown>({ tip: '·¢ÆğÑéÖ¤ºó£¬ÕâÀï»á³öÏÖÍ³Ò»ÏìÓ¦Ìå¡£' });
+const lastResponse = ref<unknown>({ tip: 'Ö¤Í³Ò»Ó¦å¡£' });
 
 const parsedPayload = computed(() => parseJsonSafely<Record<string, unknown>>(reportForm.payload));
 const inferredMessageType = computed(() => String(parsedPayload.value?.messageType || 'property'));
@@ -362,15 +362,15 @@ const curlPreview = computed(() => {
   return `curl -X POST http://localhost:9999/message/http/report \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
 });
 
-// ÉÏ±¨ÕªÒª¼ÆËã
+// Ï±ÕªÒª
 const reportSummary = computed<ReportSummary>(() => {
   if (!reportForm.deviceCode || !reportForm.productKey) {
     return {
       score: '--',
-      label: '´ıÅäÖÃ',
+      label: '',
       shortLabel: 'NA',
       tone: 'blue',
-      description: 'ÇëÏÈÅäÖÃÉè±¸±àÂëºÍ²úÆ· Key£¬×¼±¸·¢ÆğÑéÖ¤¡£'
+      description: 'è±¸Í²Æ· Key×¼Ö¤'
     };
   }
 
@@ -387,20 +387,20 @@ const reportSummary = computed<ReportSummary>(() => {
   score = Math.min(score, 100);
 
   let tone: ReportSummary['tone'] = 'blue';
-  let label = 'À¶É«ÑéÖ¤';
-  let shortLabel = 'À¶';
-  let description = 'µ±Ç°ÑéÖ¤ÅäÖÃÍêÕû£¬¿É½øĞĞÄ£Äâ½ÓÈëÑéÖ¤¡£';
+  let label = 'É«Ö¤';
+  let shortLabel = '';
+  let description = 'Ç°Ö¤É½Ä£Ö¤';
 
   if (score >= 40) {
     tone = 'yellow';
-    label = '»ÆÉ«ÑéÖ¤';
-    shortLabel = '»Æ';
-    description = 'µ±Ç°ÑéÖ¤ÅäÖÃ´æÔÚ²¿·ÖÈ±Ê§£¬½¨Òé²¹³ä¹Ø¼ü×Ö¶ÎºóÔÙ¼ÌĞøÑéÖ¤¡£';
+    label = 'É«Ö¤';
+    shortLabel = '';
+    description = 'Ç°Ö¤Ã´Ú²È±Ê§é²¹Ø¼Ö¶ÎºÙ¼Ö¤';
   } else if (score >= 15) {
     tone = 'orange';
-    label = '³ÈÉ«ÑéÖ¤';
-    shortLabel = '³È';
-    description = 'µ±Ç°ÑéÖ¤ÅäÖÃĞèÒªÖØµã¹Ø×¢£¬½¨Òé²¹³äĞ­ÒéºÍ¸ñÊ½ÅäÖÃ¡£';
+    label = 'É«Ö¤';
+    shortLabel = '';
+    description = 'Ç°Ö¤ÒªØµ×¢é²¹Ğ­Í¸Ê½Ã¡';
   }
 
   return {
@@ -412,10 +412,10 @@ const reportSummary = computed<ReportSummary>(() => {
   };
 });
 
-// ½ÇÉ«Ö¸±ê
+// É«Ö¸
 const roleMetrics = computed(() => [
   {
-    label: 'µ±Ç°ÑéÖ¤×´Ì¬',
+    label: 'Ç°Ö¤×´Ì¬',
     value: reportSummary.value.label,
     hint: reportSummary.value.description,
     badge: {
@@ -430,42 +430,42 @@ const roleMetrics = computed(() => [
     }
   },
   {
-    label: 'Éè±¸±àÂë',
+    label: 'è±¸',
     value: reportForm.deviceCode || '--',
-    hint: reportForm.deviceCode ? 'µ±Ç°Éè±¸Î¨Ò»±êÊ¶·û¡£' : 'µ±Ç°Ã»ÓĞÉè±¸±àÂë¡£',
+    hint: reportForm.deviceCode ? 'Ç°è±¸Î¨Ò»Ê¶' : 'Ç°Ã»è±¸ë¡£',
     badge: { label: 'Device', tone: 'brand' }
   },
   {
-    label: '²úÆ· Key',
+    label: 'Æ· Key',
     value: reportForm.productKey || '--',
-    hint: reportForm.productKey ? 'µ±Ç°²úÆ·Î¨Ò»±êÊ¶·û¡£' : 'µ±Ç°Ã»ÓĞ²úÆ· Key¡£',
+    hint: reportForm.productKey ? 'Ç°Æ·Î¨Ò»Ê¶' : 'Ç°Ã»Ğ²Æ· Key',
     badge: { label: 'Product', tone: 'brand' }
   },
   {
-    label: 'Ğ­Òé±àÂë',
+    label: 'Ğ­',
     value: reportForm.protocolCode || '--',
-    hint: reportForm.protocolCode ? 'µ±Ç°Ê¹ÓÃµÄĞ­Òé±àÂë¡£' : 'µ±Ç°Ã»ÓĞĞ­Òé±àÂë¡£',
+    hint: reportForm.protocolCode ? 'Ç°Ê¹ÃµĞ­ë¡£' : 'Ç°Ã»Ğ­ë¡£',
     badge: { label: 'Protocol', tone: reportForm.protocolCode ? 'success' : 'warning' }
   }
 ]);
 
-// ¹ØÁªÈë¿Ú
+// 
 const roleActions = {
   field: [
-    { icon: '??', title: 'Éè±¸ÔËÎ¬ÖĞĞÄ', desc: 'Éè±¸½¨µµÓëÔ¶³ÌÔËÎ¬', path: '/devices' },
-    { icon: '??', title: '¼à²â¶ÔÏó¹¤×÷Ì¨', desc: '²é¿´¼à²â¶ÔÏóµÄÊôĞÔÓëÈÕÖ¾ÏßË÷', path: '/insight' },
-    { icon: '??', title: 'ÊôĞÔÇ÷ÊÆ²é¿´', desc: '·ÖÎö¼à²â¶ÔÏóµÄÀúÊ·Ç÷ÊÆ', path: '/insight' },
-    { icon: '??', title: '·çÏÕ¸´ÅÌ²ÄÁÏ', desc: '²¹³ä´¦ÖÃÇ°ºóµÄ·ÖÎö¼ÇÂ¼', path: '/insight' }
+    { icon: '??', title: 'è±¸Î¬', desc: 'è±¸Ô¶Î¬', path: '/devices' },
+    { icon: '??', title: 'Ì¨', desc: 'é¿´Ö¾', path: '/insight' },
+    { icon: '??', title: 'Æ²é¿´', desc: 'Ê·', path: '/insight' },
+    { icon: '??', title: 'Õ¸Ì²', desc: 'ä´¦Ç°Ä·Â¼', path: '/insight' }
   ],
   ops: [
-    { icon: '??', title: 'ãĞÖµ¹ÜÀí', desc: '²ÎÊıÅäÖÃÓëÔ¶³Ìµ÷Õû', path: '/devices' },
-    { icon: '??', title: 'Éè±¸Ñ²¼ì', desc: 'ÀëÏßÓëÈõĞÅºÅÉè±¸', path: '/devices' },
-    { icon: '??', title: 'Êı¾İÍêÕûĞÔĞ£Ñé', desc: 'ÎÄ¼şÓë¹Ì¼ş¾ÛºÏ½á¹ûºËÑé', path: '/file-debug' },
-    { icon: '??', title: '½ÓÈëÑéÖ¤ÖĞĞÄ', desc: 'Ä£ÄâÉè±¸ÉÏ±¨ÓëÁ´Â·ÑéÖ¤', path: '/reporting' }
+    { icon: '??', title: 'Öµ', desc: 'Ô¶Ìµ', path: '/devices' },
+    { icon: '??', title: 'è±¸Ñ²', desc: 'Åºè±¸', path: '/devices' },
+    { icon: '??', title: 'Ğ£', desc: 'Ä¼Ì¼ÛºÏ½', path: '/file-debug' },
+    { icon: '??', title: 'Ö¤', desc: 'Ä£è±¸Ï±Â·Ö¤', path: '/reporting' }
   ]
 };
 
-// µ¼º½
+// 
 const navigateTo = (path: string) => {
   router.push(path);
 };
@@ -491,40 +491,40 @@ async function handleSendReport() {
   try {
     const response = await reportByHttp(requestPayload);
     lastResponse.value = response;
-    ElMessage.success(`Éè±¸ ${reportForm.deviceCode} ½ÓÈëÑéÖ¤³É¹¦`);
+    ElMessage.success(`è±¸ ${reportForm.deviceCode} Ö¤É¹`);
     recordActivity({
-      module: '½ÓÈëÑéÖ¤ÖĞĞÄ',
-      action: '·¢ËÍ½ÓÈëÑéÖ¤',
+      module: 'Ö¤',
+      action: 'Í½Ö¤',
       request: requestPayload,
       response,
       ok: true,
-      detail: `ÒÑÏòÉè±¸ ${reportForm.deviceCode} ·¢ËÍ ${inferredMessageType.value} ±¨ÎÄ`
+      detail: `è±¸ ${reportForm.deviceCode}  ${inferredMessageType.value} `
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: '½ÓÈëÑéÖ¤ÖĞĞÄ',
-      action: '·¢ËÍ½ÓÈëÑéÖ¤',
+      module: 'Ö¤',
+      action: 'Í½Ö¤',
       request: requestPayload,
       response: { message: errorMessage.value },
       ok: false,
-      detail: `·¢ËÍÊ§°Ü£º${errorMessage.value}`
+      detail: `Ê§Ü£${errorMessage.value}`
     });
   } finally {
     isSending.value = false;
   }
 }
 
-// ÉúÃüÖÜÆÚ
+// 
 onMounted(() => {
   recordActivity({
-    module: '½ÓÈëÑéÖ¤ÖĞĞÄ',
-    action: '·ÃÎÊÒ³Ãæ',
+    module: 'Ö¤',
+    action: 'Ò³',
     request: { path: '/reporting' },
     ok: true,
-    detail: 'ÓÃ»§·ÃÎÊ½ÓÈëÑéÖ¤ÖĞĞÄ'
+    detail: 'Ã»Ê½Ö¤'
   });
 });
 </script>
@@ -536,7 +536,7 @@ onMounted(() => {
   padding: 1rem;
 }
 
-/* ¶¥²¿µ¼º½À¸ */
+/*  */
 .workbench-header {
   display: flex;
   justify-content: space-between;
@@ -568,7 +568,7 @@ onMounted(() => {
   color: var(--brand-bright);
 }
 
-/* ½ÇÉ«ÇĞ»» */
+/* É«Ğ» */
 :deep(.el-radio-group) {
   --el-radio-button-checked-text-color: var(--brand-bright);
   --el-radio-button-checked-bg-color: rgba(255, 106, 0, 0.1);
@@ -595,7 +595,7 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
 }
 
-/* ÉÏ±¨×´Ì¬ºá·ù */
+/* Ï±×´Ì¬ */
 .report-banner {
   display: flex;
   justify-content: space-between;
@@ -690,21 +690,21 @@ onMounted(() => {
   color: #52aaff;
 }
 
-/* ËÄ¹¬¸ñÖ¸±ê */
+/* Ä¹Ö¸ */
 .quad-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
-/* ÖĞÑë¹¤×÷ÇøÓò */
+/* ë¹¤ */
 .main-workarea {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 1rem;
 }
 
-/* ÉÏ±¨ÅäÖÃÇøÓò */
+/* Ï± */
 .report-config {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
@@ -764,7 +764,7 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-/* ¹ØÁªÈë¿Ú */
+/*  */
 .role-quick-access {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
@@ -831,7 +831,7 @@ onMounted(() => {
   font-size: 1.2rem;
 }
 
-/* µ×²¿ĞÅÏ¢ */
+/* ×²Ï¢ */
 .workbench-footer {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -916,14 +916,14 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-/* ¹Ø¼üÊı¾İÃæ°å */
+/* Ø¼ */
 .data-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-/* ÏìÓ¦Ê½ */
+/* Ó¦Ê½ */
 @media (max-width: 1400px) {
   .main-workarea {
     grid-template-columns: 1fr;

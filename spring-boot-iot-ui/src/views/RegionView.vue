@@ -15,7 +15,7 @@
             <el-form-item label="区域名称">
               <el-input
                 v-model="searchForm.regionName"
-                placeholder="请输入区域名�?
+                placeholder="请输入区域名?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -25,7 +25,7 @@
             <el-form-item label="区域编码">
               <el-input
                 v-model="searchForm.regionCode"
-                placeholder="请输入区域编�?
+                placeholder="请输入区域编?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -71,7 +71,7 @@
         </el-table-column>
         <el-table-column prop="longitude" label="经度" width="120" />
         <el-table-column prop="latitude" label="纬度" width="120" />
-        <el-table-column prop="status" label="状�? width="100">
+        <el-table-column prop="status" label="状? width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
@@ -101,7 +101,7 @@
         class="pagination"
       />
 
-      <!-- 表单对话�?-->
+      <!-- 表单对话?-->
       <el-dialog
         v-model="dialogVisible"
         :title="dialogTitle"
@@ -115,10 +115,10 @@
           label-width="100px"
         >
           <el-form-item label="区域名称" prop="regionName">
-            <el-input v-model="formData.regionName" placeholder="请输入区域名�? />
+            <el-input v-model="formData.regionName" placeholder="请输入区域名? />
           </el-form-item>
           <el-form-item label="区域编码" prop="regionCode">
-            <el-input v-model="formData.regionCode" placeholder="请输入区域编�? />
+            <el-input v-model="formData.regionCode" placeholder="请输入区域编? />
           </el-form-item>
           <el-form-item label="区域类型" prop="regionType">
             <el-select v-model="formData.regionType" placeholder="请选择区域类型">
@@ -134,7 +134,7 @@
               :min="-180"
               :max="180"
               :step="0.000001"
-              placeholder="请输入经�?
+              placeholder="请输入经?
             />
           </el-form-item>
           <el-form-item label="纬度" prop="latitude">
@@ -143,10 +143,10 @@
               :min="-90"
               :max="90"
               :step="0.000001"
-              placeholder="请输入纬�?
+              placeholder="请输入纬?
             />
           </el-form-item>
-          <el-form-item label="状�? prop="status">
+          <el-form-item label="状? prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -160,7 +160,7 @@
               v-model="formData.remark"
               type="textarea"
               :rows="3"
-              placeholder="请输入备�?
+              placeholder="请输入备?
             />
           </el-form-item>
         </el-form>
@@ -206,10 +206,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状�?
+// 加载状?
 const loading = ref(false)
 
-// 对话�?
+// 对话?
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增区域')
 const formData = ref({
@@ -227,15 +227,15 @@ const formData = ref({
 
 // 表单验证规则
 const formRules = {
-  regionName: [{ required: true, message: '请输入区域名�?, trigger: 'blur' }],
-  regionCode: [{ required: true, message: '请输入区域编�?, trigger: 'blur' }],
+  regionName: [{ required: true, message: '请输入区域名?, trigger: 'blur' }],
+  regionCode: [{ required: true, message: '请输入区域编?, trigger: 'blur' }],
   regionType: [{ required: true, message: '请选择区域类型', trigger: 'change' }]
 }
 
-// 提交状�?
+// 提交状?
 const submitLoading = ref(false)
 
-// 获取区域�?
+// 获取区域?
 const getRegionTree = async () => {
   loading.value = true
   try {
@@ -244,13 +244,13 @@ const getRegionTree = async () => {
       tableData.value = res.data || []
     }
   } catch (error) {
-    console.error('获取区域树失�?, error)
+    console.error('获取区域树失?, error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始�?
+// 初始?
 onMounted(() => {
   getRegionTree()
 })
@@ -361,7 +361,7 @@ const handleSubmit = async () => {
   }
 }
 
-// 关闭对话�?
+// 关闭对话?
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
@@ -394,7 +394,7 @@ const handleSizeChange = (size: number) => {
   getRegionTree()
 }
 
-// 当前页变�?
+// 当前页变?
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getRegionTree()

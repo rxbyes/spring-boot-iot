@@ -14,7 +14,7 @@
             <el-form-item label="操作用户">
               <el-input
                 v-model="searchForm.userName"
-                placeholder="请输入操作用�?
+                placeholder="请输入操作用?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -34,7 +34,7 @@
             <el-form-item label="操作模块">
               <el-input
                 v-model="searchForm.operationModule"
-                placeholder="请输入操作模�?
+                placeholder="请输入操作模?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -98,7 +98,7 @@
         class="pagination"
       />
 
-      <!-- 详情对话�?-->
+      <!-- 详情对话?-->
       <el-dialog
         v-model="detailVisible"
         title="审计日志详情"
@@ -164,10 +164,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状�?
+// 加载状?
 const loading = ref(false)
 
-// 详情对话�?
+// 详情对话?
 const detailVisible = ref(false)
 const detailData = ref<any>({})
 
@@ -193,7 +193,7 @@ const getAuditLogList = async () => {
   }
 }
 
-// 初始�?
+// 初始?
 onMounted(() => {
   getAuditLogList()
 })
@@ -218,7 +218,7 @@ const handleSizeChange = (size: number) => {
   getAuditLogList()
 }
 
-// 当前页变�?
+// 当前页变?
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getAuditLogList()
@@ -275,7 +275,7 @@ const getOperationTypeTag = (type: string) => {
   return map[type] || 'info'
 }
 
-// 格式化日�?
+// 格式化日?
 const formatDate = (date: string) => {
   if (!date) return '-'
   return new Date(date).toLocaleString('zh-CN')

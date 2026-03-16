@@ -11,7 +11,7 @@
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="6">
-            <el-form-item label="用户�?>
+            <el-form-item label="用户?>
               <el-input
                 v-model="searchForm.username"
                 placeholder="请输入用户名"
@@ -21,7 +21,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="手机�?>
+            <el-form-item label="手机?>
               <el-input
                 v-model="searchForm.phone"
                 placeholder="请输入手机号"
@@ -34,15 +34,15 @@
             <el-form-item label="邮箱">
               <el-input
                 v-model="searchForm.email"
-                placeholder="请输入邮�?
+                placeholder="请输入邮?
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状�?>
-              <el-select v-model="searchForm.status" placeholder="请选择状�? clearable>
+            <el-form-item label="状?>
+              <el-select v-model="searchForm.status" placeholder="请选择状? clearable>
                 <el-option label="启用" :value="1" />
                 <el-option label="禁用" :value="0" />
               </el-select>
@@ -64,23 +64,23 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="username" label="用户�? min-width="140" />
+        <el-table-column prop="username" label="用户? min-width="140" />
         <el-table-column prop="realName" label="真实姓名" min-width="120" />
         <el-table-column label="角色" min-width="180">
           <template #default="{ row }">
             {{ (row.roleNames || []).join(' / ') || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="phone" label="手机�? min-width="150" />
+        <el-table-column prop="phone" label="手机? min-width="150" />
         <el-table-column prop="email" label="邮箱" min-width="200" />
-        <el-table-column prop="status" label="状�? width="100">
+        <el-table-column prop="status" label="状? width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
               {{ row.status === 1 ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastLoginTime" label="最后登录时�? min-width="180" />
+        <el-table-column prop="lastLoginTime" label="最后登录时? min-width="180" />
         <el-table-column prop="lastLoginIp" label="最后登录IP" min-width="150" />
         <el-table-column prop="createTime" label="创建时间" min-width="180" />
         <el-table-column label="操作" width="220" fixed="right">
@@ -115,17 +115,17 @@
           :rules="formRules"
           label-width="100px"
         >
-          <el-form-item label="用户�? prop="username">
+          <el-form-item label="用户? prop="username">
             <el-input v-model="formData.username" placeholder="请输入用户名" />
           </el-form-item>
           <el-form-item label="真实姓名" prop="realName">
-            <el-input v-model="formData.realName" placeholder="请输入真实姓�? />
+            <el-input v-model="formData.realName" placeholder="请输入真实姓? />
           </el-form-item>
-          <el-form-item label="手机�? prop="phone">
+          <el-form-item label="手机? prop="phone">
             <el-input v-model="formData.phone" placeholder="请输入手机号" />
           </el-form-item>
           <el-form-item label="邮箱" prop="email">
-            <el-input v-model="formData.email" placeholder="请输入邮�? />
+            <el-input v-model="formData.email" placeholder="请输入邮? />
           </el-form-item>
           <el-form-item label="角色" prop="roleIds">
             <el-select v-model="formData.roleIds" multiple clearable placeholder="请选择角色">
@@ -142,10 +142,10 @@
               v-model="formData.password"
               type="password"
               show-password
-              placeholder="请输入密�?
+              placeholder="请输入密?
             />
           </el-form-item>
-          <el-form-item label="状�? prop="status">
+          <el-form-item label="状? prop="status">
             <el-radio-group v-model="formData.status">
               <el-radio :label="1">启用</el-radio>
               <el-radio :label="0">禁用</el-radio>
@@ -236,10 +236,10 @@ const formData = reactive<UserFormData>(createDefaultFormData());
 
 const formRules: FormRules<UserFormData> = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  realName: [{ required: true, message: '请输入真实姓�?, trigger: 'blur' }],
+  realName: [{ required: true, message: '请输入真实姓?, trigger: 'blur' }],
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  roleIds: [{ required: true, message: '请至少选择一个角�?, trigger: 'change' }],
-  password: [{ required: true, message: '请输入密�?, trigger: 'blur' }]
+  roleIds: [{ required: true, message: '请至少选择一个角?, trigger: 'change' }],
+  password: [{ required: true, message: '请输入密?, trigger: 'blur' }]
 };
 
 async function getUsers() {
@@ -319,7 +319,7 @@ async function handleResetPassword(row: User) {
     return;
   }
   try {
-    await ElMessageBox.confirm(`确定要重置用�?"${row.username}" 的密码吗？`, '警告', {
+    await ElMessageBox.confirm(`确定要重置用?"${row.username}" 的密码吗？`, '警告', {
       type: 'warning'
     });
     await resetPassword(row.id);
