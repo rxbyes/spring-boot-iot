@@ -110,5 +110,6 @@ public class Organization implements Serializable {
       /**
        * 子组织列表（树形结构使用）
        */
+      @TableField(exist = false)
       private List<Organization> children;
 }
