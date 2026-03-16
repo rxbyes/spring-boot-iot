@@ -23,7 +23,10 @@
 - 驾驶舱与风险监测图表已统一浅色主题（tooltip、坐标轴、风险等级配色）
 - 增加类似 `vue-element-admin` 的最近访问标签视图
 - 已接入 `Element Plus` 作为真实组件体系，核心表单、表格、描述面板和消息提示已切换
-- 构建分包已优化为稳定策略：`Element Plus` 统一 vendor 分组，`ECharts` 与 `zrender` 独立分组，消除循环 chunk 告警
+- `Element Plus` 已切换为按需自动导入，入口文件不再做全局组件注册；组件与 `v-loading` 指令会跟随页面异步 chunk 自动拆分
+- 构建分包已进一步收敛为稳定共享策略：`vendor-element-core`、`vendor-element-form`、`vendor-element-table`、`vendor-element-panel` 负责承接高频 UI 依赖；图表依赖则拆为 `vendor-echarts-runtime`、`vendor-echarts-legend`、`vendor-echarts-trend`、`vendor-echarts-stat` 与 `vendor-zrender`，当前构建已消除循环 chunk 告警，`tooltip` 仍并入 `vendor-echarts-runtime` 以规避 ECharts 互引导致的循环分块
+- 表格工作页共用的 `table / table-column / pagination / checkbox` 已并入 `vendor-element-table`，首页壳层不预加载该块，列表类页面按路由异步命中共享依赖
+- 驾驶舱会按需加载 `trend + stat + legend + runtime`，设备洞察与详情趋势图主要加载 `trend + legend + runtime`，报表页则同时命中 `trend + stat + legend + runtime`
 - 设备洞察页支持基于 `ECharts` 的数值属性趋势图
 - 关键异步响应区域增加 `aria-live` 提示
 - 设备洞察页的 `deviceCode` 会同步到 URL 查询参数
@@ -46,6 +49,6 @@
 - [docs/13-frontend-debug-console.md](../docs/13-frontend-debug-console.md)
 
 ## 环境说明
-- 当前 `package.json` 已包含 Vue 3、Element Plus、ECharts 和 Vite 新版本组合
-- 若本机 Node 版本过低，需要先升级到 Node 20.19+ 再安装依赖
-- 当前构建配置将 `build.chunkSizeWarningLimit` 设为 `900`，用于匹配稳定分包后的 `Element Plus` 体积预期
+- 当前 `package.json` 已包含 Vue 3、Element Plus、ECharts、Vite 和 `unplugin-vue-components`
+- 若本机 Node 版本过低，需要先升级到 Node 24+ 再安装依赖
+- 当前构建配置将 `build.chunkSizeWarningLimit` 设为 `700`，用于约束稳定共享分组后的大块告警阈值

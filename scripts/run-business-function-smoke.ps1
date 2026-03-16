@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$BaseUrl = 'http://localhost:9999'
 )
 
@@ -9,16 +9,6 @@ $stamp = Get-Date -Format 'yyyyMMddHHmmss'
 $outDir = 'E:\idea\ghatg\spring-boot-iot\logs\acceptance'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 $script:authHeaders = @{}
-$script:publicPathPrefixes = @(
-    '/api/auth/login',
-    '/auth/login',
-    '/message/http/report',
-    '/api/cockpit/',
-    '/actuator/',
-    '/doc.html',
-    '/swagger-ui/',
-    '/v3/api-docs/'
-)
 
 $results = New-Object System.Collections.Generic.List[object]
 
@@ -65,15 +55,8 @@ function Invoke-Step {
     try {
         $headers = @{}
 
-        # 统一鉴权策略：除公共白名单外，所有接口默认带上 Bearer token。
-        $requiresAuth = $true
-        foreach ($prefix in $script:publicPathPrefixes) {
-            if ($Path -eq $prefix -or $Path.StartsWith($prefix)) {
-                $requiresAuth = $false
-                break
-            }
-        }
-        if ($requiresAuth -and $script:authHeaders.Count -gt 0) {
+        # Attach Authorization header for protected endpoints once login succeeds.
+        if ($script:authHeaders.Count -gt 0) {
             $headers = $script:authHeaders
         }
 
@@ -752,3 +735,4 @@ Write-Output "REPORT_SUMMARY=$summaryPath"
 Write-Output "REPORT_MD=$mdPath"
 Write-Output "TOTAL_CASES=$($results.Count)"
 Write-Output "TOTAL_FAILED=$($failed.Count)"
+

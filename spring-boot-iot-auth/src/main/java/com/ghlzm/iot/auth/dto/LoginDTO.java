@@ -1,6 +1,5 @@
 package com.ghlzm.iot.auth.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 /**
  * Author rxbyes
@@ -10,10 +9,15 @@ import lombok.Data;
 @Data
 public class LoginDTO {
 
-    @NotBlank
+    /**
+     * 登录方式：account / phone
+     */
+    private String loginType;
+
     private String username;
 
-    @NotBlank
+    private String phone;
+
     private String password;
 }
 

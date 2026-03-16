@@ -53,6 +53,21 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private static final List<Integer> ACTIVE_ALARM_STATUSES = List.of(0, 1, 2);
     private static final int DETAIL_LIMIT = 10;
     private static final int TREND_LIMIT = 200;
+    private static final List<String> REQUIRED_BINDING_COLUMNS = List.of(
+            "id",
+            "risk_point_id",
+            "device_id",
+            "device_code",
+            "device_name",
+            "metric_identifier",
+            "metric_name",
+            "default_threshold",
+            "threshold_unit",
+            "create_time",
+            "update_time",
+            "create_by",
+            "update_by",
+            "deleted");
     private static final String RISK_MONITORING_SCHEMA_HINT =
             "风险监测依赖表 risk_point_device 缺失，请先执行 sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql";
 
@@ -231,6 +246,18 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                 "risk_point_device");
         if (tableCount == null || tableCount < 1) {
             throw new BizException(RISK_MONITORING_SCHEMA_HINT);
+        }
+
+        List<String> existingColumns = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns "
+                        + "WHERE table_schema = DATABASE() AND table_name = ?",
+                String.class,
+                "risk_point_device");
+        List<String> missingColumns = REQUIRED_BINDING_COLUMNS.stream()
+                .filter(required -> existingColumns.stream().noneMatch(required::equalsIgnoreCase))
+                .toList();
+        if (!missingColumns.isEmpty()) {
+            throw new BizException(RISK_MONITORING_SCHEMA_HINT + "，缺少列: " + String.join(", ", missingColumns));
         }
     }
 

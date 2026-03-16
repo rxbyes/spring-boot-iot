@@ -2,7 +2,9 @@ import { request } from './request';
 import type { ApiEnvelope } from '../types/api';
 
 export interface LoginPayload {
-  username: string;
+  loginType?: 'account' | 'phone';
+  username?: string;
+  phone?: string;
   password: string;
 }
 
@@ -22,4 +24,3 @@ export function login(payload: LoginPayload): Promise<ApiEnvelope<LoginResult>> 
     body: payload
   });
 }
-

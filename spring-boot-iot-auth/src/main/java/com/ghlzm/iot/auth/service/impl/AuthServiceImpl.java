@@ -41,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Map<String, Object> login(LoginDTO dto, HttpServletRequest request) {
-        User user = userService.getByUsername(dto.getUsername());
+        User user = resolveLoginUser(dto);
         if (user == null || !isPasswordMatched(dto.getPassword(), user.getPassword())) {
             throw new BizException(401, "用户名或密码错误");
         }
@@ -66,6 +66,27 @@ public class AuthServiceImpl implements AuthService {
         result.put("username", user.getUsername());
         result.put("realName", user.getRealName());
         return result;
+    }
+
+    /**
+     * 统一解析账号/手机号登录入口，避免前端为不同模式引入多套接口。
+     */
+    private User resolveLoginUser(LoginDTO dto) {
+        if (!StringUtils.hasText(dto.getPassword())) {
+            throw new BizException(400, "密码不能为空");
+        }
+
+        if ("phone".equalsIgnoreCase(dto.getLoginType())) {
+            if (!StringUtils.hasText(dto.getPhone())) {
+                throw new BizException(400, "手机号不能为空");
+            }
+            return userService.getByPhone(dto.getPhone().trim());
+        }
+
+        if (!StringUtils.hasText(dto.getUsername())) {
+            throw new BizException(400, "用户名不能为空");
+        }
+        return userService.getByUsername(dto.getUsername().trim());
     }
 
     /**

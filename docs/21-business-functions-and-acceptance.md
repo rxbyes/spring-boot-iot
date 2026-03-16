@@ -564,7 +564,7 @@ WHERE deleted = 0;
 |---|---|---|---|---|---|
 | 驾驶舱 | `/` / `CockpitView.vue` | `spring-boot-iot-ui/src/api/cockpit.ts` | `/api/cockpit/data`；`/api/cockpit/trend`；`/api/cockpit/distribution`；`/api/cockpit/warnings`；`/api/cockpit/activities` | 无固定表；当前由 `CockpitServiceImpl` 静态组装 | 页面与接口已接通，但当前是演示数据，不是基于业务表的统计结果 |
 | 报表分析 | `/report-analysis` / `ReportAnalysisView.vue` | `spring-boot-iot-ui/src/api/report.ts` | `/api/report/risk-trend`；`/api/report/alarm-statistics`；`/api/report/event-closure`；`/api/report/device-health` | `iot_alarm_record`、`iot_event_record`、`iot_device` | 前端已对齐真实接口；后端已按业务表完成聚合，日期筛选参数固定为 `YYYY-MM-DD` |
-| ?????? | `/risk-monitoring` / `RealTimeMonitoringView.vue`?`/risk-monitoring-gis` / `RiskGisView.vue` | `spring-boot-iot-ui/src/api/riskMonitoring.ts` | `/api/risk-monitoring/realtime/list`?`/api/risk-monitoring/realtime/{bindingId}`?`/api/risk-monitoring/gis/points` | `risk_point`?`risk_point_device`?`iot_alarm_record`?`iot_event_record`?`iot_device`?`iot_device_property`?`iot_message_log`?`iot_product` | ???????????????????????2026-03-16 ???????????? `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql` ?????GIS ??? ECharts ????? |
+| 风险监测增强 | `/risk-monitoring` / `RealTimeMonitoringView.vue`；`/risk-monitoring-gis` / `RiskGisView.vue` | `spring-boot-iot-ui/src/api/riskMonitoring.ts` | `/api/risk-monitoring/realtime/list`；`/api/risk-monitoring/realtime/{bindingId}`；`/api/risk-monitoring/gis/points` | `risk_point`、`risk_point_device`、`iot_alarm_record`、`iot_event_record`、`iot_device`、`iot_device_property`、`iot_message_log`、`iot_product` | 代码已完成并接入真实 API；2026-03-16 已确认共享开发库需先执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql` 后再复验，GIS 当前仅交付 ECharts 点位态势图 |
 | 规划展示 | `/future-lab` / `FutureLabView.vue` | 无 | 无 | 无 | 纯规划展示页，不连接后端接口与数据表 |
 
 ## 6. 验收输出物建议
@@ -588,3 +588,53 @@ WHERE deleted = 0;
 - 携带 token 访问同一接口返回非 `401`
 - 前端登录后自动携带 `Authorization: Bearer <token>`
 - 前端收到 `401` 时自动清理本地登录态并要求重新登录
+
+## 6. 真实环境全链路打勾清单（2026-03-16）
+
+执行方式：
+1. 后端以 `dev` 配置启动（示例端口 `10099`）。
+2. 执行脚本：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-business-function-smoke.ps1 -BaseUrl http://127.0.0.1:10099`
+3. 本次报告：
+   - `logs/acceptance/business-function-report-20260316173045.md`
+   - `logs/acceptance/business-function-summary-20260316173045.json`
+
+### 6.1 四维实测对照（模块-页面-接口-数据表）
+
+| 勾选 | 模块 | 页面/路由 | 关键接口 | 关键数据表 | 实测结论 |
+|---|---|---|---|---|---|
+| [x] | 环境与鉴权 | 全局 | `POST /api/auth/login`、`GET /api/auth/me`、`GET /api/device/list` | `sys_user` | 登录、token 校验、受保护接口访问通过 |
+| [x] | 产品管理 | `/products` | `POST /api/device/product/add`、`GET /api/device/product/{id}` | `iot_product` | 通过 |
+| [x] | 设备管理 | `/devices` | `POST /api/device/add`、`GET /api/device/{id}`、`GET /api/device/code/{deviceCode}` | `iot_device` | 通过 |
+| [x] | 上报调试 | `/reporting` | `POST /message/http/report`、`GET /api/device/{deviceCode}/properties`、`GET /api/device/{deviceCode}/message-logs` | `iot_message_log`、`iot_device_property` | 通过 |
+| [ ] | MQTT 下发 | `/reporting` | `POST /message/mqtt/down/publish` | `iot_command_record` | 失败（500） |
+| [ ] | 告警中心 | `/alarm-center` | `/api/alarm/*` | `iot_alarm_record` | 失败（500） |
+| [ ] | 事件处置 | `/event-disposal` | `/api/event/*` | `iot_event_record`、`iot_event_work_order` | 失败（500） |
+| [ ] | 风险点管理 | `/risk-point` | `/api/risk-point/*` | `risk_point`、`risk_point_device` | 部分通过，绑定链路失败 |
+| [ ] | 阈值规则 | `/rule-definition` | `/api/rule-definition/*` | `rule_definition` | 失败（500） |
+| [ ] | 联动规则 | `/linkage-rule` | `/api/linkage-rule/*` | `linkage_rule` | 失败（500） |
+| [ ] | 应急预案 | `/emergency-plan` | `/api/emergency-plan/*` | `emergency_plan` | 失败（500） |
+| [ ] | 分析报表 | `/report-analysis` | `/api/report/*` | `iot_alarm_record`、`iot_event_record`、`iot_device` | 仅 1/4 通过 |
+| [ ] | 组织机构 | `/organization` | `/api/organization/*` | `sys_organization` | 失败（500） |
+| [x] | 用户管理 | `/user` | `/api/user/*` | `sys_user` | 通过 |
+| [ ] | 角色管理 | `/role` | `/api/role/*` | `sys_role`、`sys_user_role` | 失败（500） |
+| [x] | 区域管理 | `/region` | `/api/region/*` | `sys_region` | 通过 |
+| [ ] | 字典配置 | `/dict` | `/api/dict/*` | `sys_dict`、`sys_dict_item` | 部分通过 |
+| [ ] | 通知渠道 | `/channel` | `/api/system/channel/*` | `sys_notification_channel` | 失败（500） |
+| [ ] | 审计日志 | `/audit-log` | `/api/system/audit-log/*` | `sys_audit_log` | 失败（500） |
+
+### 6.2 本轮通过率
+
+- 功能点总数：`19`
+- 通过：`6`
+- 未通过：`13`
+- 通过功能点：`ENV`、`IOT-PRODUCT`、`IOT-DEVICE`、`INGEST-HTTP`、`SYS-USER`、`SYS-REGION`
+
+### 6.3 主要阻塞（来自后端异常日志）
+
+1. 缺列：`create_by`、`remark`、`org_type`、`metric_name`、`description`、`user_name`、`command_id`
+2. 缺表：`rm_iot.risk_point_device`、`rm_iot.sys_notification_channel`
+3. 约束问题：`Field 'dict_value' doesn't have a default value`
+
+结论：
+1. 鉴权链路已闭环，真实环境 token 可用于受保护接口访问。
+2. 当前主要阻塞来自真实库结构与当前代码模型不一致，需先完成数据库 schema 对齐后再进行第二轮全链路验收。

@@ -14,3 +14,4 @@
 /spring-boot-iot-ui/.npm-cache/
 /.m2-temp/
 /.mvn-temp-settings.xml
+/.codex-runtime/

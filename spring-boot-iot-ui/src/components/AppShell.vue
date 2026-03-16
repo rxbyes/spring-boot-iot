@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="cloud-shell" :class="{ 'cloud-shell--collapsed': sidebarCollapsed, 'cloud-shell--mobile-open': mobileMenuOpen }">
     <a class="skip-link" href="#main-content">跳到主内容</a>
 
@@ -17,7 +17,7 @@
 
         <RouterLink class="cloud-brand" to="/">
           <span class="cloud-brand__logo" aria-hidden="true"></span>
-          <span class="cloud-brand__name">Spring IoT 控制台</span>
+          <span class="cloud-brand__name">监测预警平台</span>
         </RouterLink>
 
         <label class="header-search" for="global-search">
@@ -25,17 +25,16 @@
             id="global-search"
             v-model="searchKeyword"
             type="search"
-            placeholder="搜索页面，例如：告警、设备、规则"
+            placeholder="搜索业务模块，如：告警中心、事件处置、风险点"
             @keydown.enter="handleSearch"
           />
           <button type="button" @click="handleSearch">搜索</button>
         </label>
 
-        <nav class="header-links" aria-label="快捷入口">
-          <RouterLink v-for="link in quickLinks" :key="link.to" :to="link.to">{{ link.label }}</RouterLink>
-        </nav>
-
-        <SignalBadge :label="connectionLabel" :tone="connectionTone" />
+        <div class="header-status">
+          <span class="status-chip status-chip--brand">商业化首页</span>
+          <span class="status-chip">{{ headerIdentity }}</span>
+        </div>
       </div>
 
       <nav class="cloud-header__sections" aria-label="一级导航">
@@ -77,63 +76,88 @@
             </span>
           </RouterLink>
         </nav>
-
-        <div class="sidebar-foot">
-          <p>常用入口</p>
-          <div class="sidebar-foot__links">
-            <RouterLink v-for="link in sidebarQuickLinks" :key="link.to" :to="link.to">{{ link.label }}</RouterLink>
-          </div>
-        </div>
       </aside>
 
       <section class="cloud-content">
         <section class="console-toolbar">
           <div class="console-toolbar__heading">
-            <p class="toolbar-eyebrow">当前工作区</p>
+            <p class="toolbar-eyebrow">{{ activeGroup.label }}</p>
             <h1>{{ activeTitle }}</h1>
             <p>{{ activeDescription }}</p>
           </div>
 
-          <div class="console-toolbar__actions">
-            <label class="toolbar-field toolbar-field--wide">
-              <span>API Base URL</span>
-              <el-input
-                v-model="baseUrlDraft"
-                name="api_base_url"
-                autocomplete="url"
-                spellcheck="false"
-                placeholder="留空走本地代理，或填写例如 http://localhost:9999"
-                @keyup.enter="saveApiBaseUrl"
-              />
-            </label>
+          <div class="console-toolbar__summary">
+            <div class="toolbar-tags">
+              <span class="toolbar-tag">{{ activeGroup.description }}</span>
+              <span class="toolbar-tag">{{ environmentLabel }}</span>
+              <span class="toolbar-tag">{{ authStatusLabel }}</span>
+            </div>
 
-            <el-button class="toolbar-button" type="primary" @click="saveApiBaseUrl">保存地址</el-button>
-
-            <template v-if="!permissionStore.isLoggedIn">
-              <label class="toolbar-field">
-                <span>账号</span>
-                <el-input v-model="loginForm.username" placeholder="admin" />
-              </label>
-              <label class="toolbar-field">
-                <span>密码</span>
-                <el-input
-                  v-model="loginForm.password"
-                  type="password"
-                  show-password
-                  placeholder="123456"
-                  @keyup.enter="handleLogin"
-                />
-              </label>
-              <el-button class="toolbar-button toolbar-button--success" type="success" :loading="loginLoading" @click="handleLogin">
-                登录
+            <div class="console-toolbar__actions">
+              <el-button class="toolbar-button toolbar-button--ghost" @click="showAccessPanel = !showAccessPanel">
+                {{ showAccessPanel ? '收起接入设置' : '接入设置' }}
               </el-button>
-            </template>
-            <template v-else>
-              <span class="logged-user">{{ permissionStore.userInfo?.nickname || permissionStore.userInfo?.username }}</span>
-              <el-button class="toolbar-button" @click="handleLogout">退出登录</el-button>
-            </template>
+              <el-button
+                v-if="permissionStore.isLoggedIn"
+                class="toolbar-button"
+                @click="handleLogout"
+              >
+                退出登录
+              </el-button>
+            </div>
           </div>
         </section>
+
+        <transition name="console-settings">
+          <section v-if="showAccessPanel" class="console-settings">
+            <div class="console-settings__intro">
+              <p>接入配置</p>
+              <h2>开发联调能力已收纳到次级面板，不再占据首页主视图。</h2>
+              <span>{{ environmentValue }}</span>
+            </div>
+
+            <div class="console-settings__content">
+              <label class="toolbar-field toolbar-field--wide">
+                <span>接入地址</span>
+                <el-input
+                  v-model="baseUrlDraft"
+                  name="api_base_url"
+                  autocomplete="url"
+                  spellcheck="false"
+                  placeholder="留空使用当前站点同源地址，或填写外部网关地址"
+                  @keyup.enter="saveApiBaseUrl"
+                />
+              </label>
+
+              <el-button class="toolbar-button" type="primary" @click="saveApiBaseUrl">应用地址</el-button>
+
+              <template v-if="!permissionStore.isLoggedIn">
+                <label class="toolbar-field">
+                  <span>账号</span>
+                  <el-input v-model="loginForm.username" placeholder="admin" />
+                </label>
+                <label class="toolbar-field">
+                  <span>密码</span>
+                  <el-input
+                    v-model="loginForm.password"
+                    type="password"
+                    show-password
+                    placeholder="123456"
+                    @keyup.enter="handleLogin"
+                  />
+                </label>
+                <el-button class="toolbar-button toolbar-button--success" type="success" :loading="loginLoading" @click="handleLogin">
+                  登录
+                </el-button>
+              </template>
+
+              <div v-else class="logged-user-card">
+                <strong>{{ permissionStore.userInfo?.nickname || permissionStore.userInfo?.username }}</strong>
+                <span>已完成账号接入，可进入受保护工作台查看业务详情。</span>
+              </div>
+            </div>
+          </section>
+        </transition>
 
         <TabsView />
 
@@ -161,7 +185,6 @@ import { ElMessage } from 'element-plus';
 import { login as loginApi } from '../api/auth';
 import { usePermissionStore } from '../stores/permission';
 import { runtimeState, setApiBaseUrl } from '../stores/runtime';
-import SignalBadge from './SignalBadge.vue';
 import TabsView from './TabsView.vue';
 
 interface NavItem {
@@ -187,66 +210,58 @@ const permissionStore = usePermissionStore();
 const navigationGroups: NavGroup[] = [
   {
     key: 'overview',
-    label: '概览',
-    description: '工作台总览',
-    menuTitle: '风险监测驾驶舱',
-    menuHint: '统一查看平台态势、角色入口和处置闭环。',
-    items: [{ to: '/', label: '驾驶舱首页', caption: '风险态势、待办提醒与角色入口', short: '驾' }]
+    label: '平台首页',
+    description: '态势总览',
+    menuTitle: '监测预警平台首页',
+    menuHint: '围绕业务态势、处置闭环和核心模块入口组织产品首页。',
+    items: [{ to: '/', label: '首页总览', caption: '平台定位、闭环路径与核心能力映射', short: '首' }]
   },
   {
     key: 'iot-base',
-    label: 'IoT 基础',
-    description: '设备与接入',
-    menuTitle: '设备接入与联调',
-    menuHint: '管理产品模板、设备台账和上报链路联调能力。',
+    label: '设备接入',
+    description: '接入与运维',
+    menuTitle: '设备接入与运维',
+    menuHint: '管理产品模板、设备台账、上报回放与设备侧联调能力。',
     items: [
-      { to: '/products', label: '产品模板中心', caption: '产品建模、协议绑定与设备归属', short: '产' },
-      { to: '/devices', label: '设备运维中心', caption: '设备建档、状态检索与在线核查', short: '设' },
-      { to: '/reporting', label: '接入回放台', caption: 'HTTP 上报模拟与 payload 回放', short: '报' },
-      { to: '/insight', label: '风险点工作台', caption: '设备详情、属性趋势、日志追踪', short: '洞' },
-      { to: '/file-debug', label: '文件与固件调试', caption: '文件快照与固件聚合校验', short: '文' },
-      { to: '/future-lab', label: '未来演进蓝图', caption: '规则、孪生、拓扑与 OTA 预留', short: '蓝' }
+      { to: '/products', label: '产品模板中心', caption: '产品模板建模、协议绑定与设备归属', short: '产' },
+      { to: '/devices', label: '设备运维中心', caption: '设备建档、在线状态核查与基础运维', short: '设' },
+      { to: '/reporting', label: '接入回放台', caption: 'HTTP 上报模拟、payload 回放与联调', short: '报' },
+      { to: '/insight', label: '风险点工作台', caption: '设备属性、消息日志与风险研判线索', short: '洞' },
+      { to: '/file-debug', label: '文件与固件校验', caption: '文件快照与固件聚合结果核验', short: '校' }
     ]
   },
   {
     key: 'risk-ops',
-    label: '风险处置',
-    description: '告警闭环',
-    menuTitle: '风险监测与处置',
-    menuHint: '覆盖告警中心、事件工单、规则配置与分析报表。',
+    label: '预警处置',
+    description: '闭环与复盘',
+    menuTitle: '风险处置闭环',
+    menuHint: '覆盖告警、事件、风险点、规则、预案与分析报表。',
     items: [
       { to: '/alarm-center', label: '告警中心', caption: '告警列表、确认、抑制与关闭', short: '警' },
-      { to: '/event-disposal', label: '事件处置', caption: '工单派发、流转反馈、事件闭环', short: '事' },
-      { to: '/risk-point', label: '风险点管理', caption: '风险点维护、设备绑定、等级管理', short: '点' },
-      { to: '/rule-definition', label: '阈值规则配置', caption: '规则 CRUD、阈值模型、触发条件', short: '阈' },
+      { to: '/event-disposal', label: '事件处置', caption: '工单派发、处置反馈与事件闭环', short: '事' },
+      { to: '/risk-point', label: '风险点管理', caption: '风险点建档、设备绑定与等级治理', short: '点' },
+      { to: '/rule-definition', label: '阈值规则配置', caption: '阈值规则维护与触发条件治理', short: '阈' },
       { to: '/linkage-rule', label: '联动规则', caption: '触发条件与联动动作编排', short: '联' },
-      { to: '/emergency-plan', label: '应急预案', caption: '响应步骤、联系人与执行预案', short: '预' },
-      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计、设备健康', short: '报' }
+      { to: '/emergency-plan', label: '应急预案', caption: '预案维护、步骤编排与响应协同', short: '预' },
+      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计与设备健康复盘', short: '报' }
     ]
   },
   {
     key: 'system',
-    label: '系统管理',
-    description: '组织与权限',
-    menuTitle: '平台系统治理',
-    menuHint: '维护组织、用户、权限、字典、通知与审计日志。',
+    label: '系统治理',
+    description: '组织与审计',
+    menuTitle: '组织治理与审计',
+    menuHint: '维护组织、用户、权限、区域、字典、通知和审计日志。',
     items: [
-      { to: '/organization', label: '组织机构', caption: '组织树维护与负责人管理', short: '组' },
-      { to: '/user', label: '用户管理', caption: '用户 CRUD 与密码重置', short: '用' },
-      { to: '/role', label: '角色管理', caption: '角色维护与用户角色查询', short: '角' },
-      { to: '/region', label: '区域管理', caption: '区域树维护与区域 CRUD', short: '区' },
-      { to: '/dict', label: '字典配置', caption: '主字典与字典项配置', short: '字' },
-      { to: '/channel', label: '通知渠道', caption: '通知渠道配置与状态管理', short: '通' },
-      { to: '/audit-log', label: '审计日志', caption: '关键操作日志审计与追踪', short: '审' }
+      { to: '/organization', label: '组织机构', caption: '组织树维护与责任主体管理', short: '组' },
+      { to: '/user', label: '用户管理', caption: '用户维护、状态管理与密码重置', short: '用' },
+      { to: '/role', label: '角色管理', caption: '角色维护与用户角色映射', short: '角' },
+      { to: '/region', label: '区域管理', caption: '区域树与业务区域归属维护', short: '区' },
+      { to: '/dict', label: '字典配置', caption: '字典类型与字典项配置', short: '字' },
+      { to: '/channel', label: '通知渠道', caption: '通知渠道配置、启停与测试', short: '通' },
+      { to: '/audit-log', label: '审计日志', caption: '关键操作记录审计与追踪', short: '审' }
     ]
   }
-];
-
-const quickLinks = [
-  { label: '费用与成本', to: '/report-analysis' },
-  { label: '工单处置', to: '/event-disposal' },
-  { label: '审计日志', to: '/audit-log' },
-  { label: '支持文档', to: '/future-lab' }
 ];
 
 const flattenedItems = navigationGroups.flatMap((group) => group.items);
@@ -256,8 +271,6 @@ const activeGroup = computed(() => {
   return group || navigationGroups[0];
 });
 
-const sidebarQuickLinks = computed(() => activeGroup.value.items.slice(0, 4));
-
 const searchKeyword = ref('');
 const baseUrlDraft = ref(runtimeState.apiBaseUrl);
 const loginForm = ref({
@@ -265,6 +278,7 @@ const loginForm = ref({
   password: '123456'
 });
 const loginLoading = ref(false);
+const showAccessPanel = ref(false);
 
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
@@ -283,13 +297,21 @@ watch(
     if (isMobile.value) {
       mobileMenuOpen.value = false;
     }
+    showAccessPanel.value = false;
   }
 );
 
-const activeTitle = computed(() => String(route.meta.title || '风险监测平台'));
-const activeDescription = computed(() => String(route.meta.description || '按业务域分区管理，保证高频功能就近访问。'));
-const connectionLabel = computed(() => (runtimeState.isProxyMode ? '代理模式' : '直连模式'));
-const connectionTone = computed<'brand' | 'success'>(() => (runtimeState.isProxyMode ? 'brand' : 'success'));
+const activeTitle = computed(() => String(route.meta.title || '平台首页'));
+const activeDescription = computed(() => String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。'));
+const headerIdentity = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '访客模式';
+  }
+  return permissionStore.userInfo?.nickname || permissionStore.userInfo?.username || '已登录';
+});
+const environmentLabel = computed(() => (runtimeState.apiBaseUrl ? '外部网关接入' : '当前站点同源接入'));
+const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
+const authStatusLabel = computed(() => (permissionStore.isLoggedIn ? '已完成账号接入' : '未登录，仅开放首页预览'));
 
 function switchGroup(groupKey: string) {
   const group = navigationGroups.find((item) => item.key === groupKey);
@@ -305,18 +327,17 @@ function switchGroup(groupKey: string) {
 function handleSearch() {
   const keyword = searchKeyword.value.trim();
   if (!keyword) {
-    ElMessage.info('请输入要跳转的页面关键字');
+    ElMessage.info('请输入要跳转的业务模块关键词');
     return;
   }
 
-  // 这里用前端静态导航做模糊匹配，避免引入额外请求。
   const lowerKeyword = keyword.toLowerCase();
   const target = flattenedItems.find((item) => {
     return item.label.toLowerCase().includes(lowerKeyword) || item.caption.toLowerCase().includes(lowerKeyword);
   });
 
   if (!target) {
-    ElMessage.warning('未找到匹配页面，请尝试更换关键字');
+    ElMessage.warning('未找到匹配模块，请尝试更换关键词');
     return;
   }
 
@@ -325,6 +346,7 @@ function handleSearch() {
 
 function saveApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);
+  ElMessage.success('接入地址已更新');
 }
 
 function updateViewportState() {
@@ -373,6 +395,7 @@ async function handleLogin() {
       },
       data.token
     );
+    showAccessPanel.value = false;
     ElMessage.success('登录成功');
   } finally {
     loginLoading.value = false;
@@ -381,6 +404,9 @@ async function handleLogin() {
 
 function handleLogout() {
   permissionStore.logout();
+  if (route.meta.requiresAuth !== false) {
+    router.push('/');
+  }
   ElMessage.success('已退出登录');
 }
 
@@ -431,7 +457,7 @@ onBeforeUnmount(() => {
 
 .cloud-header__main {
   display: grid;
-  grid-template-columns: auto auto minmax(220px, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(240px, 1fr) auto;
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1.2rem;
@@ -522,19 +548,27 @@ onBeforeUnmount(() => {
   color: #334155;
 }
 
-.header-links {
+.header-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.status-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.85rem;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #dbe4f1;
+  background: rgba(255, 255, 255, 0.88);
+  color: #53647d;
+  font-size: 0.8rem;
 }
 
-.header-links a {
-  color: #4a5a74;
-  text-decoration: none;
-  font-size: 0.88rem;
-}
-
-.header-links a:hover {
+.status-chip--brand {
+  border-color: rgba(255, 106, 0, 0.18);
+  background: rgba(255, 106, 0, 0.1);
   color: #ff6a00;
 }
 
@@ -689,45 +723,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(120deg, rgba(255, 106, 0, 0.14), rgba(255, 106, 0, 0.04));
 }
 
-.sidebar-foot {
-  margin-top: auto;
-  padding: 0.8rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px solid #dce4f0;
-  background: rgba(255, 255, 255, 0.88);
-}
-
-.sidebar-foot p {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #617187;
-}
-
-.sidebar-foot__links {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.sidebar-foot__links a {
-  padding: 0.3rem 0.58rem;
-  border-radius: 999px;
-  border: 1px solid #dbe3f0;
-  background: #fff;
-  color: #54647d;
-  text-decoration: none;
-  font-size: 0.75rem;
-}
-
-.sidebar-foot__links a:hover {
-  border-color: rgba(255, 106, 0, 0.35);
-  color: #ff6a00;
-}
-
-.cloud-shell--collapsed .sidebar-context,
-.cloud-shell--collapsed .sidebar-foot {
+.cloud-shell--collapsed .sidebar-context {
   display: none;
 }
 
@@ -760,7 +756,7 @@ onBeforeUnmount(() => {
 .console-toolbar__heading {
   display: grid;
   gap: 0.35rem;
-  max-width: 36rem;
+  max-width: 40rem;
 }
 
 .toolbar-eyebrow {
@@ -783,22 +779,89 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.console-toolbar__summary {
+  display: grid;
+  gap: 0.7rem;
+  justify-items: end;
+}
+
+.toolbar-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.toolbar-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #d9e1ed;
+  background: #fff;
+  color: #52637c;
+  font-size: 0.78rem;
+}
+
 .console-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
+  align-items: center;
+}
+
+.console-settings {
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid #dde5f1;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95)),
+    radial-gradient(circle at top right, rgba(255, 106, 0, 0.12), transparent 38%);
+  box-shadow: 0 10px 24px rgba(31, 49, 90, 0.06);
+}
+
+.console-settings__intro {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.console-settings__intro p {
+  margin: 0;
+  color: #8290a6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.console-settings__intro h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1f2a3d;
+}
+
+.console-settings__intro span {
+  color: #5f7088;
+  font-size: 0.85rem;
+}
+
+.console-settings__content {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   align-items: flex-end;
 }
 
 .toolbar-field {
   display: grid;
   gap: 0.32rem;
-  min-width: 9.6rem;
+  min-width: 10rem;
 }
 
 .toolbar-field--wide {
-  min-width: min(22rem, 100%);
+  min-width: min(24rem, 100%);
 }
 
 .toolbar-field span {
@@ -808,65 +871,74 @@ onBeforeUnmount(() => {
   color: #8490a5;
 }
 
-.logged-user {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0 0.72rem;
-  border-radius: 999px;
-  border: 1px solid #d9e0ec;
-  background: #fff;
-  color: #41526a;
-  font-size: 0.84rem;
+.logged-user-card {
+  display: grid;
+  gap: 0.18rem;
+  min-height: 2.5rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.8rem;
+  border: 1px solid #d9e1ed;
+  background: rgba(255, 255, 255, 0.9);
+  color: #445671;
 }
 
-.cloud-header :deep(.signal-badge) {
-  border-color: #d7e0ee;
-  background: #f6f8fc;
-  color: #5f6f86;
-  letter-spacing: 0.03em;
+.logged-user-card strong {
+  font-size: 0.92rem;
+  color: #1f2a3d;
 }
 
-.cloud-header :deep(.signal-badge__dot) {
-  box-shadow: none;
+.logged-user-card span {
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
-.cloud-header :deep(.signal-badge--brand) {
-  color: #ff6a00;
+.console-settings-enter-active,
+.console-settings-leave-active {
+  transition: all 180ms ease;
 }
 
-.cloud-header :deep(.signal-badge--success) {
-  color: #16a34a;
+.console-settings-enter-from,
+.console-settings-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
-.console-toolbar :deep(.el-input__wrapper) {
+.console-toolbar :deep(.el-input__wrapper),
+.console-settings :deep(.el-input__wrapper) {
   background: #fff;
   box-shadow: 0 0 0 1px #d5deeb inset;
 }
 
-.console-toolbar :deep(.el-input__wrapper.is-focus) {
+.console-toolbar :deep(.el-input__wrapper.is-focus),
+.console-settings :deep(.el-input__wrapper.is-focus) {
   box-shadow:
     0 0 0 1px rgba(255, 106, 0, 0.48) inset,
     0 0 0 3px rgba(255, 106, 0, 0.12);
 }
 
-.console-toolbar :deep(.el-button) {
+.console-toolbar :deep(.el-button),
+.console-settings :deep(.el-button) {
   border-radius: 0.55rem;
   border-color: #d8e0ec;
   color: #43556d;
   background: #fff;
 }
 
-.console-toolbar :deep(.el-button--primary) {
+.console-toolbar :deep(.el-button--primary),
+.console-settings :deep(.el-button--primary) {
   border-color: transparent;
   color: #fff;
   background: linear-gradient(135deg, #ff7b1a, #ff9b42);
 }
 
-.console-toolbar :deep(.el-button--success) {
+.console-settings :deep(.el-button--success) {
   border-color: transparent;
   color: #fff;
   background: linear-gradient(135deg, #1fa46d, #34c88d);
+}
+
+.toolbar-button--ghost {
+  border-style: dashed;
 }
 
 .content-frame {
@@ -883,11 +955,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1400px) {
   .cloud-header__main {
-    grid-template-columns: auto auto minmax(180px, 1fr) auto;
-  }
-
-  .header-links {
-    display: none;
+    grid-template-columns: auto auto minmax(200px, 1fr) auto;
   }
 }
 
@@ -920,14 +988,13 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
-  .console-toolbar__actions {
-    width: 100%;
-    justify-content: flex-start;
+  .console-toolbar__summary {
+    justify-items: start;
   }
 
-  .toolbar-field,
-  .toolbar-field--wide {
-    min-width: 100%;
+  .toolbar-tags,
+  .console-toolbar__actions {
+    justify-content: flex-start;
   }
 }
 
@@ -941,6 +1008,11 @@ onBeforeUnmount(() => {
     order: 5;
   }
 
+  .header-status {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .cloud-header__sections {
     overflow-x: auto;
     flex-wrap: nowrap;
@@ -948,6 +1020,16 @@ onBeforeUnmount(() => {
 
   .section-tab {
     min-width: 8.2rem;
+  }
+
+  .console-settings__content {
+    align-items: stretch;
+  }
+
+  .toolbar-field,
+  .toolbar-field--wide,
+  .logged-user-card {
+    min-width: 100%;
   }
 }
 </style>

@@ -120,6 +120,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       }
 
       @Override
+      public User getByPhone(String phone) {
+            return userMapper.selectOne(new LambdaQueryWrapper<User>()
+                        .eq(User::getPhone, phone)
+                        .eq(User::getDeleted, 0));
+      }
+
+      @Override
       @Transactional(rollbackFor = Exception.class)
       public void changePassword(Long userId, String oldPassword, String newPassword) {
             User user = userMapper.selectById(userId);

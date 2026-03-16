@@ -5,13 +5,25 @@ import { usePermissionStore } from '../stores/permission';
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/LoginView.vue'),
+    meta: {
+      title: '登录',
+      description: '平台统一登录入口。',
+      requiresAuth: false,
+      layout: 'blank',
+      trackTab: false
+    }
+  },
+  {
     path: '/',
     name: 'cockpit',
     component: () => import('../views/CockpitView.vue'),
     meta: {
       title: '监控总览',
       description: '平台实时运行总览与关键指标看板。',
-      requiresAuth: false
+      requiresAuth: true
     }
   },
   {
@@ -228,14 +240,23 @@ router.beforeEach((to, from, next) => {
   const permissionStore = usePermissionStore();
   const requiresAuth = to.meta.requiresAuth !== false;
 
-  if (requiresAuth && !permissionStore.isLoggedIn) {
-    if (from.path !== '/') {
-      pushVisitedTab({
-        path: '/',
-        title: '监控总览'
-      });
+  if (to.path === '/login') {
+    if (permissionStore.isLoggedIn) {
+      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/';
+      next(redirect);
+      return;
     }
-    next('/');
+    next();
+    return;
+  }
+
+  if (requiresAuth && !permissionStore.isLoggedIn) {
+    next({
+      path: '/login',
+      query: {
+        redirect: to.fullPath
+      }
+    });
     return;
   }
 
@@ -251,6 +272,9 @@ router.beforeEach((to, from, next) => {
 router.afterEach((to) => {
   const title = String(to.meta.title || '监控总览');
   document.title = `${title} | Spring Boot IoT`;
+  if (to.meta.trackTab === false) {
+    return;
+  }
   pushVisitedTab({
     path: to.path,
     title

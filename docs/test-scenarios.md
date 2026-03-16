@@ -289,3 +289,20 @@ curl http://localhost:9999/device/code/accept-http-device-01 \
 通过标准：
 - 不带 token 返回 `401`
 - 带 token 返回非 `401`（有数据时 `200`）
+
+## 12. 业务功能自动冒烟脚本（真实环境）
+
+执行命令：
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-business-function-smoke.ps1 -BaseUrl http://127.0.0.1:9999
+```
+
+输出产物：
+1. `logs/acceptance/business-function-smoke-<timestamp>.json`
+2. `logs/acceptance/business-function-summary-<timestamp>.json`
+3. `logs/acceptance/business-function-report-<timestamp>.md`
+
+说明：
+1. 脚本会先调用登录接口获取 token，再对业务接口进行自动验收。
+2. 脚本结果可直接回填到 `docs/21-business-functions-and-acceptance.md` 的打勾清单。
+3. 若大量接口返回 `500`，优先检查真实库 schema 是否与当前代码一致。
