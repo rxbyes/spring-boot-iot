@@ -119,7 +119,7 @@ Topic 规范（参考 `docs/05-protocol.md`、`docs/04-api.md`）：
 
 Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 1. 已完成可用：告警中心、事件处置、风险点管理、阈值规则配置、联动规则与应急预案、分析报表、系统管理
-2. 当前未计入已交付：风险监测实时监测与 GIS 地图已进入代码基线但待真实环境验收；首页已完成商业化重构，并加入角色视角 preset、待办中心与实施支撑能力分层，但当前仍采用静态能力编排与本地 activity 记录，不纳入真实环境验收；设备中心增强仍未交付
+2. 当前未计入已交付：风险监测实时监测与 GIS 地图已进入代码基线但待真实环境验收；首页已完成商业化重构并进一步升级为“数据看板驾驶舱 + 事务工作台入口”双层结构，支持一线/运维/管理/研发四类角色视角，但当前仍采用静态能力编排与本地 activity 记录，不纳入真实环境验收；设备中心增强仍未交付
 3. 待补齐：Phase 4 真实环境验收、文档一致性回写、消息日志表命名统一方案
 
 告警中心（后端接口前缀：`/api/alarm`，以代码为准）：
@@ -579,7 +579,7 @@ WHERE deleted = 0;
 
 | 模块 | 页面（路由 / 视图） | 前端 API 文件 | 后端接口（主路径） | 主要数据表 / 存储 | 当前状态 |
 |---|---|---|---|---|---|
-| 驾驶舱 | `/` / `CockpitView.vue` | 首页内部静态能力编排 + `spring-boot-iot-ui/src/stores/activity.ts` | 首页主视图无专用真实业务接口依赖；旧 `/api/cockpit/*` 演示接口仍保留 | 静态能力编排 + activity store 本地记录；旧 `CockpitServiceImpl` 演示数据 | 页面已完成商业化首页重构，加入角色视角 preset、待办中心和实施支撑能力分层，不再展示费用、代理模式和常用入口；当前不以真实业务表聚合统计作为验收项 |
+| 驾驶舱 | `/` / `CockpitView.vue` | 首页内部静态看板编排 + `spring-boot-iot-ui/src/stores/activity.ts` | 首页主视图无专用真实业务接口依赖；旧 `/api/cockpit/*` 演示接口仍保留 | 静态指标看板编排 + activity store 本地记录；旧 `CockpitServiceImpl` 演示数据 | 页面已升级为“数据看板驾驶舱 + 事务工作台入口”双层结构，支持一线/运维/管理/研发四类角色视角切换；当前不以真实业务表聚合统计作为验收项 |
 | 报表分析 | `/report-analysis` / `ReportAnalysisView.vue` | `spring-boot-iot-ui/src/api/report.ts` | `/api/report/risk-trend`；`/api/report/alarm-statistics`；`/api/report/event-closure`；`/api/report/device-health` | `iot_alarm_record`、`iot_event_record`、`iot_device` | 前端已对齐真实接口；后端已按业务表完成聚合，日期筛选参数固定为 `YYYY-MM-DD` |
 | 风险监测增强 | `/risk-monitoring` / `RealTimeMonitoringView.vue`；`/risk-monitoring-gis` / `RiskGisView.vue` | `spring-boot-iot-ui/src/api/riskMonitoring.ts` | `/api/risk-monitoring/realtime/list`；`/api/risk-monitoring/realtime/{bindingId}`；`/api/risk-monitoring/gis/points` | `risk_point`、`risk_point_device`、`iot_alarm_record`、`iot_event_record`、`iot_device`、`iot_device_property`、`iot_message_log`、`iot_product` | 代码已完成并接入真实 API；2026-03-16 已确认共享开发库需先执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql` 后再复验，GIS 当前仅交付 ECharts 点位态势图 |
 | 规划展示 | `/future-lab` / `FutureLabView.vue` | 无 | 无 | 无 | 纯规划展示页，不连接后端接口与数据表 |

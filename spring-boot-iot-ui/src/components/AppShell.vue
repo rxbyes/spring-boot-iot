@@ -209,6 +209,99 @@ const guestGroup: NavGroup = {
   items: [{ to: '/', label: '首页总览', caption: '平台定位、能力边界与登录入口说明', short: '首' }]
 };
 
+const docFallbackGroups: NavGroup[] = [
+  {
+    key: 'iot-core',
+    label: '设备接入',
+    description: '产品、设备、上报与洞察',
+    menuTitle: '设备接入与运维',
+    menuHint: '覆盖产品建模、设备建档、接入验证与数据洞察。',
+    items: [
+      { to: '/products', label: '产品模板中心', caption: '产品模板建模与协议绑定', short: '产' },
+      { to: '/devices', label: '设备运维中心', caption: '设备建档、在线状态与运维管理', short: '设' },
+      { to: '/reporting', label: '接入验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
+      { to: '/insight', label: '监测对象工作台', caption: '设备属性、日志与研判线索', short: '洞' },
+      { to: '/file-debug', label: '数据完整性校验', caption: '文件快照与固件聚合调试', short: '校' }
+    ]
+  },
+  {
+    key: 'risk-core',
+    label: '风险处置',
+    description: '告警、事件、规则与报表',
+    menuTitle: '风险预警与处置',
+    menuHint: '覆盖告警中心、事件闭环、风险配置与分析报表。',
+    items: [
+      { to: '/alarm-center', label: '告警中心', caption: '告警列表、详情、确认、抑制、关闭', short: '告' },
+      { to: '/event-disposal', label: '事件处置', caption: '事件派发、工单流转与闭环', short: '事' },
+      { to: '/risk-point', label: '风险点管理', caption: '风险点 CRUD 与设备绑定', short: '险' },
+      { to: '/rule-definition', label: '阈值规则', caption: '阈值规则定义与启停管理', short: '阈' },
+      { to: '/linkage-rule', label: '联动规则', caption: '联动触发条件与动作配置', short: '联' },
+      { to: '/emergency-plan', label: '应急预案', caption: '应急预案维护与执行准备', short: '预' },
+      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计与事件闭环', short: '报' }
+    ]
+  },
+  {
+    key: 'system-core',
+    label: '系统管理',
+    description: '组织与权限治理',
+    menuTitle: '系统治理与权限',
+    menuHint: '覆盖组织、用户、角色、区域、字典、通知与审计。',
+    items: [
+      { to: '/organization', label: '组织管理', caption: '组织树维护与层级治理', short: '组' },
+      { to: '/user', label: '用户管理', caption: '用户档案、状态与角色分配', short: '用' },
+      { to: '/role', label: '角色管理', caption: '角色与菜单权限授权', short: '角' },
+      { to: '/region', label: '区域管理', caption: '区域树维护与引用配置', short: '区' },
+      { to: '/dict', label: '字典配置', caption: '字典分类维护与编码查询', short: '字' },
+      { to: '/channel', label: '通知渠道', caption: '通知渠道增删改查', short: '通' },
+      { to: '/audit-log', label: '审计日志', caption: '关键操作审计查询', short: '审' }
+    ]
+  },
+  {
+    key: 'risk-enhance',
+    label: '风险增强',
+    description: '实时监测与 GIS',
+    menuTitle: '风险监测增强能力',
+    menuHint: '实时监测与 GIS 态势页面，按阶段逐步纳入验收。',
+    items: [
+      { to: '/risk-monitoring', label: '实时监测', caption: '监测列表与统一详情抽屉', short: '实' },
+      { to: '/risk-monitoring-gis', label: 'GIS 风险态势', caption: '风险点位态势与详情联动', short: '图' }
+    ]
+  }
+];
+
+const docRoleGroupMapping: Record<string, string[]> = {
+  BUSINESS_STAFF: ['risk-core'],
+  MANAGEMENT_STAFF: ['risk-core', 'system-core'],
+  OPS_STAFF: ['iot-core', 'risk-core'],
+  DEVELOPER_STAFF: ['iot-core', 'risk-core', 'risk-enhance'],
+  SUPER_ADMIN: docFallbackGroups.map((group) => group.key)
+};
+
+function cloneGroups(groups: NavGroup[]): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({ ...item }))
+  }));
+}
+
+function buildDocFallbackNavigation(roleCodes: string[], isSuperAdmin: boolean): NavGroup[] {
+  if (isSuperAdmin) {
+    return cloneGroups(docFallbackGroups);
+  }
+
+  const groupKeys = new Set<string>();
+  roleCodes.forEach((roleCode) => {
+    const mapped = docRoleGroupMapping[roleCode] || [];
+    mapped.forEach((groupKey) => groupKeys.add(groupKey));
+  });
+
+  if (groupKeys.size === 0) {
+    return [];
+  }
+
+  return cloneGroups(docFallbackGroups.filter((group) => groupKeys.has(group.key)));
+}
+
 function buildNavItem(node: MenuTreeNode): NavItem {
   return {
     to: node.path || '/',
@@ -266,6 +359,15 @@ const navigationGroups = computed<NavGroup[]>(() => {
 
   if (groups.length > 0) {
     return groups;
+  }
+
+  const roleFallbackGroups = buildDocFallbackNavigation(
+    permissionStore.roleCodes,
+    Boolean(permissionStore.authContext?.superAdmin)
+  );
+
+  if (roleFallbackGroups.length > 0) {
+    return roleFallbackGroups;
   }
 
   return [
