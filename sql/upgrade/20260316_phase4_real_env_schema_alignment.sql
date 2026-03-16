@@ -445,6 +445,27 @@ ALTER TABLE sys_role ADD COLUMN IF NOT EXISTS create_by BIGINT DEFAULT NULL COMM
 ALTER TABLE sys_role ADD COLUMN IF NOT EXISTS update_by BIGINT DEFAULT NULL COMMENT 'updater';
 ALTER TABLE sys_role ADD COLUMN IF NOT EXISTS deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted';
 
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS menu_code VARCHAR(100) DEFAULT NULL COMMENT 'menu code';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS path VARCHAR(255) DEFAULT NULL COMMENT 'route path';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS meta_json LONGTEXT DEFAULT NULL COMMENT 'meta json';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS sort INT DEFAULT 0 COMMENT 'sort';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS type TINYINT DEFAULT NULL COMMENT 'menu type';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS create_by BIGINT DEFAULT NULL COMMENT 'creator';
+ALTER TABLE sys_menu ADD COLUMN IF NOT EXISTS update_by BIGINT DEFAULT NULL COMMENT 'updater';
+UPDATE sys_menu SET menu_code = permission
+WHERE (menu_code IS NULL OR menu_code = '')
+  AND permission IS NOT NULL
+  AND permission <> '';
+UPDATE sys_menu SET menu_code = CONCAT('menu-', id)
+WHERE menu_code IS NULL OR menu_code = '';
+UPDATE sys_menu SET path = route_path
+WHERE (path IS NULL OR path = '')
+  AND route_path IS NOT NULL;
+UPDATE sys_menu SET sort = sort_no
+WHERE sort IS NULL;
+UPDATE sys_menu SET type = menu_type
+WHERE type IS NULL;
+
 ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id';
 ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_type VARCHAR(32) DEFAULT NULL COMMENT 'dict type';
 ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS status TINYINT NOT NULL DEFAULT 1 COMMENT 'status';

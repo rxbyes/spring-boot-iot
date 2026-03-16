@@ -824,38 +824,11 @@ function createScenarios() {
         )
     },
     {
-      key: 'user',
-      name: 'User create',
-      route: '/user',
-      scope: 'delivery',
-      run: async (page) =>
-        runCreateDialogScenario(
-          page,
-          {
-            key: 'user',
-            path: '/user',
-            heading: '用户管理',
-            listApi: '/api/user/list',
-            openButton: '新增',
-            dialogTitle: '新增用户',
-            createApi: '/api/user/add',
-            fields: () => [
-              { placeholder: '请输入用户名', value: `accept_ui_${runToken}` },
-              { placeholder: '请输入真实姓名', value: `UI User ${runToken}` },
-              { placeholder: '请输入手机号', value: `139${runToken.slice(-8)}` },
-              { placeholder: '请输入邮箱', value: `user-${runToken}@example.com` },
-              { placeholder: '请输入密码', value: '123456' }
-            ]
-          },
-          {}
-        )
-    },
-    {
       key: 'role',
       name: 'Role create',
       route: '/role',
       scope: 'delivery',
-      run: async (page) =>
+      run: async (page, state) =>
         runCreateDialogScenario(
           page,
           {
@@ -870,10 +843,88 @@ function createScenarios() {
               { placeholder: '请输入角色名称', value: `UI Role ${runToken}` },
               { placeholder: '请输入角色编码', value: `ACCEPT_ROLE_${runToken}` },
               { placeholder: '请输入角色描述', value: 'Browser acceptance role.' }
-            ]
+            ],
+            onCreated: () => {
+              state.role = {
+                name: `UI Role ${runToken}`,
+                code: `ACCEPT_ROLE_${runToken}`
+              };
+              return state.role;
+            }
           },
-          {}
+          state
         )
+    },
+    {
+      key: 'user',
+      name: 'User create',
+      route: '/user',
+      scope: 'delivery',
+      run: async (page, state) => {
+        const [userListResult, roleListResult] = await openRoute(page, {
+          path: '/user',
+          heading: '用户管理',
+          api: [
+            {
+              matcher: '/api/user/list',
+              label: 'user list'
+            },
+            {
+              matcher: '/api/role/list',
+              label: 'user role options'
+            }
+          ]
+        });
+
+        await page.getByRole('button', { name: '新增', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: '新增用户', exact: true });
+        await dialog.waitFor({ state: 'visible', timeout: 10000 });
+
+        const createdUser = {
+          username: `accept_ui_${runToken}`,
+          realName: `UI User ${runToken}`,
+          phone: `139${runToken.slice(-8)}`,
+          email: `user-${runToken}@example.com`
+        };
+
+        await fillDialogFields(page, dialog, [
+          { placeholder: '请输入用户名', value: createdUser.username },
+          { placeholder: '请输入真实姓名', value: createdUser.realName },
+          { placeholder: '请输入手机号', value: createdUser.phone },
+          { placeholder: '请输入邮箱', value: createdUser.email },
+          { placeholder: '请输入密码', value: '123456' }
+        ]);
+
+        const roleOptions = roleListResult.payload?.data || [];
+        const targetRoleName =
+          roleOptions.find((item) => item.roleName === state.role?.name)?.roleName ||
+          state.role?.name ||
+          roleOptions[0]?.roleName;
+
+        if (!targetRoleName) {
+          throw new AcceptanceError('No active role option is available for user creation.', roleListResult);
+        }
+
+        await dialog.getByPlaceholder('请选择角色', { exact: true }).click();
+        await page.locator('.el-select-dropdown__item', { hasText: targetRoleName }).first().click();
+
+        const createResult = await expectApiResponse(
+          page,
+          '/api/user/add',
+          async () => {
+            await dialog.getByRole('button', { name: '确定', exact: true }).click();
+          },
+          'user create'
+        )
+
+        return {
+          apiResults: [userListResult, roleListResult, createResult],
+          created: {
+            ...createdUser,
+            roleName: targetRoleName
+          }
+        };
+      }
     },
     {
       key: 'region',
