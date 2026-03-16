@@ -381,7 +381,7 @@ CREATE TABLE iot_ota_package (
                                  KEY idx_product_id (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='OTA升级包表';
 
--- 时序明细表 iot_device_message_log
+-- 设备消息日志表（对外文档统一称 iot_message_log；当前运行 DDL 保持历史兼容表名）
 DROP TABLE IF EXISTS iot_device_message_log;
 CREATE TABLE iot_device_message_log (
                                         id BIGINT NOT NULL COMMENT '主键',

@@ -134,7 +134,7 @@
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
-  - 当前已支持 `application-dev.yml` / `application-e2e.yml` 中配置的 `62000001`
+  - 当前已支持 `application-dev.yml` 中配置的 `62000001`
   - 若未配置对应解密器，会返回清晰业务异常
 
 ## `$dp` 主链路说明

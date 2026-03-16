@@ -30,6 +30,6 @@
 -> ProtocolAdapterRegistry
 -> MqttJsonProtocolAdapter
 -> DeviceMessageServiceImpl
--> iot_device_message_log
+-> iot_message_log
 -> iot_device_property
 -> iot_device 在线状态更新

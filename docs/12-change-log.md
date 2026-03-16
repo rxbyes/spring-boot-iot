@@ -26,9 +26,9 @@
 
 ### 测试与验证
 - 新增 `DeviceMessageServiceImplTest`，覆盖上报成功链路与关键异常场景
-- 新增 `DeviceHttpReportE2EIntegrationTest`，覆盖产品新增、设备新增、HTTP 上报、属性查询、消息日志查询、非法协议、不存在设备
-- 新增 `application-e2e.yml` 与 `schema-e2e.sql`，让 E2E 场景使用 H2 内存数据库独立运行
-- 将 E2E 测试改为 `MockMvc` 驱动，规避当前环境随机端口监听限制
+- 新增一期 HTTP 主链路验收测试类，覆盖产品新增、设备新增、HTTP 上报、属性查询、消息日志查询、非法协议、不存在设备
+- 新增旧版 H2 验收 profile 与 schema 脚本，用于当时的独立验收场景
+- 将旧版主链路验收测试改为 `MockMvc` 驱动，规避当时环境随机端口监听限制
 - 修复 Boot 4 下路径参数显式命名问题，确保查询接口在当前编译参数下可正常绑定
 
 ### 文档与配置同步

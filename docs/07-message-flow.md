@@ -5,7 +5,7 @@
 -> 接入层
 -> 协议适配器
 -> DeviceMessageService
--> iot_device_message_log
+-> iot_message_log
 -> iot_device_property
 -> iot_device 状态更新
 

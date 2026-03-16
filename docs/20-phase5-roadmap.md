@@ -148,43 +148,43 @@ Phase 5 将在 Phase 4 完成的风险监测预警处置平台基础上，进行
 
 ### 任务 4: 测试与验证 (预计 3 个工作日)
 
-#### 4.1 告警中心 E2E 测试
+#### 4.1 告警中心真实环境验收
 
-- 编写 Cypress 测试用例:
+- 在真实环境联调中验证:
   - 告警列表查询
   - 告警详情查看
   - 告警确认操作
   - 告警抑制操作
   - 通知记录查看
 
-#### 4.2 事件处置 E2E 测试
+#### 4.2 事件处置真实环境验收
 
-- 编写 Cypress 测试用例:
+- 在真实环境联调中验证:
   - 事件列表查询
   - 事件详情查看
   - 工单派发操作
   - 现场反馈操作
   - 事件关闭操作
 
-#### 4.3 风险配置 E2E 测试
+#### 4.3 风险配置真实环境验收
 
-- 编写 Cypress 测试用例:
+- 在真实环境联调中验证:
   - 风险点 CRUD
   - 阈值规则 CRUD
   - 联动规则 CRUD
   - 应急预案 CRUD
 
-#### 4.4 报表分析 E2E 测试
+#### 4.4 报表分析真实环境验收
 
-- 编写 Cypress 测试用例:
+- 在真实环境联调中验证:
   - 风险趋势分析
   - 告警统计分析
   - 事件闭环分析
   - 设备健康分析
 
-#### 4.5 系统管理 E2E 测试
+#### 4.5 系统管理真实环境验收
 
-- 编写 Cypress 测试用例:
+- 在真实环境联调中验证:
   - 组织机构 CRUD
   - 用户 CRUD
   - 角色权限 CRUD
@@ -267,12 +267,12 @@ Phase 5 将在 Phase 4 完成的风险监测预警处置平台基础上，进行
    - `spring-boot-iot-ui/src/api/monitoring.ts`
    - `spring-boot-iot-ui/src/api/productProperty.ts`
 
-3. **测试代码**
-   - `spring-boot-iot-ui/cypress/e2e/alarm-center.cy.ts`
-   - `spring-boot-iot-ui/cypress/e2e/event-disposal.cy.ts`
-   - `spring-boot-iot-ui/cypress/e2e/risk-configuration.cy.ts`
-   - `spring-boot-iot-ui/cypress/e2e/report-analysis.cy.ts`
-   - `spring-boot-iot-ui/cypress/e2e/system-management.cy.ts`
+3. **验收材料**
+   - `docs/test-scenarios.md`
+   - `docs/19-phase4-progress.md`
+   - `docs/21-business-functions-and-acceptance.md`
+   - `scripts/start-backend-acceptance.ps1`
+   - `scripts/start-frontend-acceptance.ps1`
 
 4. **SQL 脚本**
    - `sql/upgrade/20260316_phase5_cockpit.sql`
@@ -318,7 +318,7 @@ Phase 5 将在 Phase 4 完成的风险监测预警处置平台基础上，进行
 
 ### 质量验收
 
-1. 所有 E2E 测试通过
+1. 所有真实环境验收项通过
 2. 代码覆盖率 > 80%
 3. 无严重 Bug
 4. 无安全漏洞

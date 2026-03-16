@@ -209,7 +209,7 @@ RawDeviceMessage
     - MqttJsonProtocolAdapter
     - DeviceMessageServiceImpl
 3. 验证：
-    - iot_device_message_log 插入
+    - iot_message_log 插入
     - iot_device_property 更新
     - iot_device 在线状态更新
 

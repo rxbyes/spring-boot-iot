@@ -1,242 +1,140 @@
-# spring-boot-iot
+﻿# spring-boot-iot
 
 ## 项目简介
-spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的物联网网关平台项目模板，面向设备接入、协议适配、遥测数据处理、设备管理和平台能力扩展场景。
-
-## 文档维护约定
-后续无论是前端还是后端发生更新、新增内容、页面改版、接口变化、启动方式变化、测试流程变化，都必须同步维护现有文档，而不是新增一份重复说明文件。
-
-必须优先检查并按需更新：
-- `docs/` 目录下对应的源文档
-- [README.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/README.md)
-- [AGENTS.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/AGENTS.md)
-
-禁止通过新增平行文件规避更新，例如：
-- `README-v2.md`
-- `api-new.md`
-- `new-frontend-doc.md`
-
-这条约定适用于所有 coding agent / coding model，包括 Codex、Qwen Code 等。
-
-## 已完成能力
-
-### Phase 1 (已完成)
-- 产品管理
-- 设备管理
-- HTTP 模拟设备上报
-- `mqtt-json` 协议解析
-- 消息日志落库
-- 最新属性更新
-- 设备在线状态维护
-
-### Phase 2 (已完成)
-- MQTT 接入骨架
-- MQTT topic 解析
-- 设备认证基础版
-- 设备会话与在线状态基础版
-- MQTT 上行真实联调
-- MQTT 下行最小发布能力
-- 子设备 topic 规范与解析扩展点预留
-
-### Phase 3 (已完成)
-- 指令闭环能力（命令记录与状态模型、MQTT回执接入）
-- 网关/子设备业务闭环（静态拓扑、子设备上报/下发）
-- 规则引擎基础版（单条件单动作规则）
-
-### Phase 4 (进行中)
-- 告警中心（告警列表、告警详情、告警确认、告警抑制、通知记录）
-- 事件处置（事件列表、事件详情、工单派发、现场反馈、事件复盘）
-- 风险点管理（风险点CRUD、风险点与设备绑定）
-- 阈值规则配置（规则CRUD、规则测试）
-- 联动规则与应急预案
-- 分析报表（风险趋势分析、告警统计、事件闭环分析、设备健康分析）
-- 系统管理（组织机构、用户管理、角色权限、区域管理、字典配置、通知渠道、审计日志）
+spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的模块化单体 IoT 网关平台，覆盖设备接入、协议适配、消息处理、设备管理，以及 Phase 4 风险监测预警处置能力。
 
 ## 当前状态
-Phase 3 已完成，Phase 4 正在规划中。
+- Phase 1-3 主链路已形成稳定基线：产品管理、设备管理、HTTP 上报、MQTT 上下行、协议解析、消息日志、最新属性、在线状态。
+- Phase 4 当前已完成并进入真实环境验收基线的能力：告警中心、事件处置、风险点管理、阈值规则配置、联动规则、应急预案、分析报表、组织机构、用户、角色、区域、字典、通知渠道、审计日志。
+- 当前代码基线还包含 `/risk-monitoring`、`/risk-monitoring-gis` 相关页面与接口，但按 [docs/19-phase4-progress.md](docs/19-phase4-progress.md) 仍不计入本轮已交付范围。
+- `spring-boot-iot-admin` 是唯一启动模块。
+- 当前父 `pom.xml` 激活 10 个模块：
+  - `spring-boot-iot-common`
+  - `spring-boot-iot-framework`
+  - `spring-boot-iot-auth`
+  - `spring-boot-iot-system`
+  - `spring-boot-iot-device`
+  - `spring-boot-iot-protocol`
+  - `spring-boot-iot-message`
+  - `spring-boot-iot-alarm`
+  - `spring-boot-iot-report`
+  - `spring-boot-iot-admin`
 
-已验证链路：产品/设备创建、HTTP/MQTT 上报、消息日志写入、最新属性更新、设备在线状态更新、命令记录与追踪、网关/子设备拓扑、规则引擎。
+## 真实环境验收基线
+当前唯一验收环境基线是 [spring-boot-iot-admin/src/main/resources/application-dev.yml](spring-boot-iot-admin/src/main/resources/application-dev.yml)。
 
-已通过端到端验证：
-- `DeviceHttpReportE2EIntegrationTest`
-- `DeviceMqttReportE2EIntegrationTest`
+默认连接如下：
+- MySQL：`8.130.107.120:3306/rm_iot`
+- TDengine：`8.130.107.120:6041/iot`
+- Redis：`8.130.107.120:6379`，database `8`
+- MQTT Broker：`tcp://8.130.107.120:1883`
 
-## 技术栈
-- Java 17
-- Spring Boot 4
-- Maven 多模块
-- MyBatis Plus
-- MySQL 8
-- TDengine
-- Redis
-- HTTP / MQTT / TCP
+可通过环境变量覆盖：
+- `IOT_MYSQL_URL` / `IOT_MYSQL_USERNAME` / `IOT_MYSQL_PASSWORD`
+- `IOT_TDENGINE_URL` / `IOT_TDENGINE_USERNAME` / `IOT_TDENGINE_PASSWORD`
+- `IOT_REDIS_HOST` / `IOT_REDIS_PORT` / `IOT_REDIS_PASSWORD` / `IOT_REDIS_DATABASE`
+- `IOT_MQTT_BROKER_URL` / `IOT_MQTT_USERNAME` / `IOT_MQTT_PASSWORD` / `IOT_MQTT_CLIENT_ID`
 
-说明：
-- Phase 1 已完成 HTTP 模拟设备上报
-- 当前已验证 MQTT 上行接入可以进入统一业务主链路
-- TCP 真接入仍属于后续阶段能力
-
-## 当前模块
-```text
-spring-boot-iot
-├── AGENTS.md
-├── README.md
-├── docs
-├── sql
-├── config
-├── docker
-├── spring-boot-iot-ui
-├── spring-boot-iot-common
-├── spring-boot-iot-framework
-├── spring-boot-iot-auth
-├── spring-boot-iot-system
-├── spring-boot-iot-device
-├── spring-boot-iot-gateway
-├── spring-boot-iot-protocol
-├── spring-boot-iot-message
-├── spring-boot-iot-rule
-├── spring-boot-iot-alarm
-├── spring-boot-iot-admin
-```
-
-当前父 `pom.xml` 激活的 Phase 1-3 模块为：
-- `spring-boot-iot-common`
-- `spring-boot-iot-framework`
-- `spring-boot-iot-auth`
-- `spring-boot-iot-system`
-- `spring-boot-iot-device`
-- `spring-boot-iot-gateway`
-- `spring-boot-iot-protocol`
-- `spring-boot-iot-message`
-- `spring-boot-iot-rule`
-- `spring-boot-iot-alarm`
-- `spring-boot-iot-admin`
-
-说明：
-- `spring-boot-iot-ui` 是独立 Vue 3 调试前端工作区，不加入 Maven reactor。
-- 页面结构参考 `vue-element-admin` 的后台导航和工作台组织方式，但使用 Vue 3 重新实现，并强化 IoT 科技感与调试属性。
+当前基线已丢弃以下旧路径，不再作为验收或回归标准：
+- 旧 H2 验收 profile
+- 独立 H2 schema 验收脚本
+- H2 专用端到端验证链路
+- 旧前端自动化验收链路
 
 ## 快速开始
-1. 执行 [sql/init.sql](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/sql/init.sql)
+1. 初始化数据库：执行 [sql/init.sql](sql/init.sql)
 2. 如需示例数据，再执行 `sql/init-data.sql`
-3. 根据实际环境设置数据库、Redis、MQTT 配置
-4. 启动应用：`mvn -pl spring-boot-iot-admin spring-boot:run`
-5. 参考 [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md) 或 [docs/device-simulator.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/device-simulator.md) 进行联调
+3. 首次升级到当前验收基线时，按 [docs/03-database.md](docs/03-database.md) 依次执行 `sql/upgrade/` 下的升级脚本，至少包含 `20260316_iot_message_log_view.sql`
+4. 启动后端：
+   ```bash
+   mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+   ```
+5. 启动前端：
+   ```bash
+   cd spring-boot-iot-ui
+   npm install
+   npm run acceptance:dev
+   ```
+6. 按 [docs/test-scenarios.md](docs/test-scenarios.md) 和 [docs/21-business-functions-and-acceptance.md](docs/21-business-functions-and-acceptance.md) 进行真实环境验收
 
-## 已实现接口（Phase 1-3）
-
-### 产品接口
-- `POST /device/product/add` - 新增产品
-- `GET /device/product/{id}` - 根据 ID 查询产品
-
-### 设备接口
-- `POST /device/add` - 新增设备
-- `GET /device/{id}` - 根据 ID 查询设备
-- `GET /device/code/{deviceCode}` - 根据 deviceCode 查询设备
-
-### 消息接入接口
-- `POST /message/http/report` - HTTP 模拟设备上报
-- `GET /device/{deviceCode}/properties` - 查询设备最新属性
-- `GET /device/{deviceCode}/message-logs` - 查询设备消息日志
-- `POST /message/mqtt/down/publish` - MQTT 下行发布
-
-## 关键配置
-当前 `dev` 配置默认指向共享测试环境，也可以通过以下环境变量覆盖到你自己的环境：
-- `IOT_MYSQL_URL` / `IOT_MYSQL_USERNAME` / `IOT_MYSQL_PASSWORD`
-- `IOT_REDIS_HOST` / `IOT_REDIS_PORT` / `IOT_REDIS_PASSWORD` / `IOT_REDIS_DATABASE`
-- `IOT_MQTT_BROKER_URL` / `IOT_MQTT_USERNAME` / `IOT_MQTT_PASSWORD`
-
-当前推荐联调方式：
-- 后端使用 `application-dev.yml` 中提供的共享 MySQL、Redis、MQTT
-- MQTT 客户端使用 MQTTX 向指定 topic 发送消息
-- 无需额外安装本地 Broker 或 `mosquitto_pub`
-
-如果要切回本地环境，可以把这些环境变量覆盖为本地连接信息，并使用 `sql/init.sql` 与 `sql/init-data.sql` 初始化本地库。
-
-配置文件位置：
-- `spring-boot-iot-admin/src/main/resources/application-*.yml`
-- `config/application-*.yml`
-
-## 构建与测试
-- 构建：`mvn clean package -DskipTests`
-- 运行：`mvn -pl spring-boot-iot-admin spring-boot:run`
-- 全量测试：`mvn test -DskipTests=false`
-- 一期 E2E：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceHttpReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
-- MQTT E2E：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceMqttReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
-
-## 联调验证
-推荐按以下顺序验证当前主链路：
-1. 新增产品
-2. 新增设备
-3. 选择 HTTP 或 MQTT 发送上报
-4. 查询 `GET /device/{deviceCode}/properties`
-5. 查询 `GET /device/{deviceCode}/message-logs`
-6. 校验 `iot_device` 的在线状态和最近上报时间
-
-完整步骤见：
-- [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md)
-- [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)
-- [docs/14-mqttx-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqttx-live-runbook.md)
-- [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
-
-## 前端调试台
-前端目录：`spring-boot-iot-ui`
-
-当前页面：
-- 风险监测驾驶舱（CockpitView）
-- 产品模板中心（ProductWorkbenchView）
-- 设备运维中心（DeviceWorkbenchView）
-- 接入回放台（ReportWorkbenchView）
-- 风险点工作台（DeviceInsightView）
-- 文件与固件调试（FilePayloadDebugView）
-- 未来演进蓝图（FutureLabView）
-
-Phase 4 新增页面（规划中）：
-- 告警中心（AlarmCenterView）
-- 事件处置（EventDisposalView）
-- 风险配置（RiskConfigurationView）
-- 分析报表（ReportAnalysisView）
-- 系统管理（SystemManagementView）
-- 实时监测（RealTimeMonitoringView）
-
-启动方式：
-1. 进入 `spring-boot-iot-ui`
-2. 安装依赖：`npm install`
-3. 启动开发环境：`npm run dev`
+## 构建与验证
+- 构建：
+  ```bash
+  mvn clean package -DskipTests
+  ```
+- 后端启动：
+  ```bash
+  mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+  ```
+- 后端验收脚本：
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1
+  ```
+- 前端验收脚本：
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
+  ```
+- 自动化测试：
+  ```bash
+  mvn test
+  ```
 
 说明：
+- 自动化测试保留单元测试和协议回归测试，但不再使用旧 H2 端到端链路作为系统验收结论。
+- 真实环境不可用时，只能记录为环境阻塞，不回退到旧验收路径替代验收。
+
+## 当前核心接口
+### IoT 基础
+- `POST /device/product/add`
+- `GET /device/product/{id}`
+- `POST /device/add`
+- `GET /device/{id}`
+- `GET /device/code/{deviceCode}`
+- `POST /message/http/report`
+- `GET /device/{deviceCode}/properties`
+- `GET /device/{deviceCode}/message-logs`
+- `POST /message/mqtt/down/publish`
+
+### Phase 4 风险平台
+- `/api/alarm/*`
+- `/api/event/*`
+- `/api/risk-point/*`
+- `/api/rule-definition/*`
+- `/api/linkage-rule/*`
+- `/api/emergency-plan/*`
+- `/api/report/*`
+- `/api/organization/*`
+- `/api/user/*`
+- `/api/role/*`
+- `/api/region/*`
+- `/api/dict/*`
+- `/system/channel/*`
+- `/system/audit-log/*`
+
+完整清单见：
+- [docs/04-api.md](docs/04-api.md)
+- [docs/21-business-functions-and-acceptance.md](docs/21-business-functions-and-acceptance.md)
+
+## 前端说明
+前端目录：`spring-boot-iot-ui`
+
+当前要求：
+- Node `>=24.0.0`
+- 推荐优先使用 `spring-boot-iot-ui/.nvmrc`
 - 默认通过 Vite 代理访问 `http://localhost:9999`
-- 可通过 `spring-boot-iot-ui/.env.example` 中的 `VITE_API_BASE_URL` 和 `VITE_PROXY_TARGET` 调整联调方式
-- 开发环境建议将 `VITE_API_BASE_URL` 保持为空，让页面默认走相对路径和 Vite 代理，避免浏览器直连 `127.0.0.1:9999` 时出现 CORS 错误
-- 顶部 `API Base URL` 输入框支持运行时切换直连地址；清空并保存即可恢复代理模式
-- 后端当前已提供最小 CORS 支持，默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 直连开发联调
-- 驾驶舱 `/` 当前作为公开首页，未登录也可访问；其他受保护页面在未登录时会回退到驾驶舱
-- 当前前端已经接入 `Element Plus` 和 `ECharts`
-- 当前前端已开始从“调试台”向“商业化风险监测平台”演进
-- 当前页面已为图表、数字孪生、拓扑、AI 风险分析、远程运维等后续能力预留入口
-- 当前前端基线已切换到 Node 24，建议优先使用 `spring-boot-iot-ui/.nvmrc`
-- 若终端里仍命中旧版 Node，请先切换到 Node 24 再执行 `npm install` / `npm run dev` / `npm run build`
+- 当前不再保留旧前端自动化验收入口，仅保留 `vitest` 与真实环境页面验收
 
 ## 已知说明
-- `DeviceHttpReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行
-- `DeviceMqttReportE2EIntegrationTest` 当前使用 H2 内存数据库，可以在本地直接运行，并验证 MQTT 上行进入统一业务主链路
-- `DeviceMessageServiceImplTest` 在部分 JDK 17 环境下可能因为 Mockito inline mock maker 无法自附加 agent 而失败，这属于测试环境限制，不是当前主链路编译阻塞
+- `iot_device_message_log` 仍是当前物理表名；`iot_message_log` 作为兼容视图供文档和新功能统一命名使用，详见 [docs/03-database.md](docs/03-database.md)
+- `DeviceMessageServiceImplTest` 在部分 JDK 17 环境下可能因 Mockito inline mock maker 无法自附加 ByteBuddy agent 而失败，这属于本地测试环境限制，不直接视为业务回归
+- `ReportServiceImpl` 当前主要保证接口连通和页面可访问，统计准确性仍需在 Phase 5 补齐
 
 ## 文档导航
-- [docs/00-overview.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/00-overview.md)
-- [docs/01-architecture.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/01-architecture.md)
-- [docs/02-module-structure.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/02-module-structure.md)
-- [docs/03-database.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/03-database.md)
-- [docs/04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md)
-- [docs/05-protocol.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/05-protocol.md)
-- [docs/07-message-flow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/07-message-flow.md)
-- [docs/11-codex-tasking.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/11-codex-tasking.md)
-- [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
-- [docs/14-mqttx-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqttx-live-runbook.md)
-- [docs/12-change-log.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/12-change-log.md)
-- [docs/15-frontend-optimization-plan.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/15-frontend-optimization-plan.md)
-- [docs/16-phase3-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/16-phase3-roadmap.md)
-- [docs/18-phase4-risk-platform-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/18-phase4-risk-platform-roadmap.md)
-- [docs/codex-roadmap.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-roadmap.md)
-- [docs/codex-workflow.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/codex-workflow.md)
-- [docs/test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)
+- [docs/03-database.md](docs/03-database.md)
+- [docs/04-api.md](docs/04-api.md)
+- [docs/05-protocol.md](docs/05-protocol.md)
+- [docs/14-mqttx-live-runbook.md](docs/14-mqttx-live-runbook.md)
+- [docs/19-phase4-progress.md](docs/19-phase4-progress.md)
+- [docs/20-phase5-roadmap.md](docs/20-phase5-roadmap.md)
+- [docs/21-business-functions-and-acceptance.md](docs/21-business-functions-and-acceptance.md)
+- [docs/test-scenarios.md](docs/test-scenarios.md)

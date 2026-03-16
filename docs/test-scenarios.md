@@ -1,422 +1,245 @@
-# 测试场景
+# 真实环境测试与验收手册
 
-## 自动化测试
-- 单元测试命令：`mvn -pl spring-boot-iot-device test -DskipTests=false`
-- 覆盖类：`DeviceMessageServiceImplTest`
-- 覆盖点：上报成功链路、已有属性更新、设备不存在、协议不匹配
+更新时间：2026-03-16
 
-## 端到端集成测试
-- 测试类：`DeviceHttpReportE2EIntegrationTest`
-- 启动方式：`SpringBootTest + WebApplicationContext + MockMvc`
-- 测试数据源：H2 内存数据库，由 `application-e2e.yml` + `schema-e2e.sql` 自动初始化
-- Redis 相关自动配置在 E2E 场景中已关闭，不依赖外部 Redis
-- 独立用例：
-- `shouldPersistReportOnSuccessPath`
-- `shouldReturnBizErrorWhenProtocolIsInvalid`
-- `shouldReturnBizErrorWhenDeviceDoesNotExist`
-- 验证范围：产品新增、设备新增、HTTP 上报、设备查询、属性查询、消息日志查询、数据库落库结果、非法协议错误、不存在设备错误
-- 运行命令：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceHttpReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
+## 1. 当前测试策略
+当前项目统一采用“自动化回归 + 真实环境验收”双轨策略：
+- 自动化测试继续保留单元测试、协议测试、部分服务测试，用于发现代码级回归。
+- 系统功能是否通过验收，以 `spring-boot-iot-admin/src/main/resources/application-dev.yml` 对应的真实环境联调结果为准。
+- 不再使用旧 H2 验收 profile、旧 schema 脚本、H2 内存库或旧前端自动化链路作为系统验收基线。
 
-- 测试类：`DeviceMqttReportE2EIntegrationTest`
-- 启动方式：`SpringBootTest`
-- 测试数据源：H2 内存数据库，由 `application-e2e.yml` + `schema-e2e.sql` 自动初始化
-- AES 商户配置：`application-e2e.yml` 中已内置最小 `spring.cloud.aes.merchants.62000001`
-- 覆盖范围：
-  - 标准 `/sys/...` MQTT 上报
-  - `$dp` 简单明文上报
-  - `$dp` 嵌套遥测上报
-  - `$dp` 状态报文上报
-  - `$dp` 加密包裹 + 内层二进制帧上报
-- 运行命令：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=DeviceMqttReportE2EIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false`
+## 2. 保留的自动化测试
+可继续使用的自动化测试包括：
+- `mvn test`
+- `mvn -pl spring-boot-iot-device test -DskipTests=false`
+- `mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttPayloadSecurityValidatorTest -Dsurefire.failIfNoSpecifiedTests=false`
+- `mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttBinaryFormatParserTest -Dsurefire.failIfNoSpecifiedTests=false`
+- `mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttJsonProtocolAdapterTest -Dsurefire.failIfNoSpecifiedTests=false`
+- `mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttPayloadDecryptorRegistryTest -Dsurefire.failIfNoSpecifiedTests=false`
+- `mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=MqttDeviceAesDataTests -Dsurefire.failIfNoSpecifiedTests=false`
 
-- 测试类：`MqttDeviceAesDataTests`
-- 启动方式：`SpringBootTest(classes = TestApplication.class)`
-- 覆盖范围：
-  - `spring.cloud.aes` 配置绑定
-  - `aesEncryptors` 命名 Bean 注入
-  - 外层 MQTT 帧头解析
-  - `header.appId` / `bodies.body` 拆分
-  - 按 `appId` 选择解密器
-  - 解密后再次执行帧解析
-  - 明文 JSON 完整性校验
-  - AES 签名校验
-- 运行命令：`mvn -pl spring-boot-iot-admin -am test -DskipTests=false -Dtest=MqttDeviceAesDataTests -Dsurefire.failIfNoSpecifiedTests=false`
+说明：
+- 这些测试只作为代码回归信号，不替代真实环境验收结论。
+- `DeviceMessageServiceImplTest` 在部分 JDK 17 环境中可能受 Mockito inline agent 限制影响，应单独记录，不直接视为业务回归。
 
-- 测试类：`MqttPayloadSecurityValidatorTest`
-- 启动方式：协议层单元测试
-- 覆盖范围：
-  - 时间戳时间窗校验
-  - nonce 防重放校验
-  - MD5 带密钥摘要签名
-  - 字节流签名
-- 运行命令：`mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttPayloadSecurityValidatorTest -Dsurefire.failIfNoSpecifiedTests=false`
+## 3. 真实环境启动
+### 3.1 后端启动
+统一命令：
+```bash
+mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+```
 
-- 测试类：`MqttBinaryFormatParserTest`
-- 启动方式：协议层单元测试
-- 覆盖范围：
-  - 表 C.3 文件描述 + 文件流解析
-  - 表 C.4 固件升级分包解析
-- 运行命令：`mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttBinaryFormatParserTest -Dsurefire.failIfNoSpecifiedTests=false`
+可选脚本：
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1
+```
 
-- 测试类：`MqttJsonProtocolAdapterTest`
-- 启动方式：协议层单元测试
-- 覆盖范围：
-  - 历史嵌套明文属性解析
-  - 表 C.2 时间序列值解析
-  - 表 C.3 文件消息标准化到 `DeviceUpMessage.filePayload`
-  - 表 C.4 固件分包标准化到 `DeviceFilePayload.firmwarePacket`
-- 运行命令：`mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttJsonProtocolAdapterTest -Dsurefire.failIfNoSpecifiedTests=false`
+### 3.2 前端启动
+前置条件：
+- Node `>=24.0.0`
+- 推荐使用 `spring-boot-iot-ui/.nvmrc`
 
-- 测试类：`MqttPayloadDecryptorRegistryTest`
-- 启动方式：协议层单元测试
-- 覆盖范围：
-  - DES 解密
-  - 3DES 解密
-- 运行命令：`mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttPayloadDecryptorRegistryTest -Dsurefire.failIfNoSpecifiedTests=false`
+启动命令：
+```bash
+cd spring-boot-iot-ui
+npm install
+npm run acceptance:dev
+```
 
-## HTTP 上报主链路手工联调步骤
+可选脚本：
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
+```
 
-### 步骤 1：初始化数据库
-- 使用 [sql/init.sql](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/sql/init.sql) 初始化本地数据库
-- 确保当前应用连接的数据库中包含 `iot_product`、`iot_device`、`iot_device_property`、`iot_device_message_log` 等一期表
+### 3.3 环境核对
+`application-dev.yml` 当前默认连接：
+- MySQL：`8.130.107.120:3306/rm_iot`
+- TDengine：`8.130.107.120:6041/iot`
+- Redis：`8.130.107.120:6379/8`
+- MQTT：`tcp://8.130.107.120:1883`
 
-### 步骤 2：启动应用
-- 启动命令：`mvn -pl spring-boot-iot-admin spring-boot:run`
-- 如需切换环境，可通过 `--spring.profiles.active=dev|test|prod` 指定
+验收前先确认：
+- 数据库已执行 `sql/init.sql` 与 `sql/upgrade/` 当前基线脚本
+- MQTT 客户端日志无异常
+- 前端代理默认指向 `http://localhost:9999`
 
-### 步骤 3：创建产品
+## 4. HTTP 主链路真实环境验收
+### 步骤 1：创建产品
 ```bash
 curl -X POST http://localhost:9999/device/product/add \
   -H "Content-Type: application/json" \
   -d '{
-    "productKey":"demo-product",
-    "productName":"演示产品",
+    "productKey":"accept-http-product-01",
+    "productName":"验收产品-HTTP-01",
     "protocolCode":"mqtt-json",
     "nodeType":1,
     "dataFormat":"JSON"
   }'
 ```
 
-### 步骤 4：创建设备
+### 步骤 2：创建设备
 ```bash
 curl -X POST http://localhost:9999/device/add \
   -H "Content-Type: application/json" \
   -d '{
-    "productKey":"demo-product",
-    "deviceName":"演示设备-01",
-    "deviceCode":"demo-device-01",
+    "productKey":"accept-http-product-01",
+    "deviceName":"验收设备-HTTP-01",
+    "deviceCode":"accept-http-device-01",
     "deviceSecret":"123456",
-    "clientId":"demo-device-01",
-    "username":"demo-device-01",
+    "clientId":"accept-http-device-01",
+    "username":"accept-http-device-01",
     "password":"123456"
   }'
 ```
 
-### 步骤 5：发送 HTTP 上报
+### 步骤 3：发送 HTTP 上报
 ```bash
 curl -X POST http://localhost:9999/message/http/report \
   -H "Content-Type: application/json" \
   -d '{
     "protocolCode":"mqtt-json",
-    "productKey":"demo-product",
-    "deviceCode":"demo-device-01",
+    "productKey":"accept-http-product-01",
+    "deviceCode":"accept-http-device-01",
     "payload":"{\"messageType\":\"property\",\"properties\":{\"temperature\":26.5,\"humidity\":68}}",
-    "topic":"/sys/demo-product/demo-device-01/thing/property/post",
-    "clientId":"demo-device-01",
+    "topic":"/sys/accept-http-product-01/accept-http-device-01/thing/property/post",
+    "clientId":"accept-http-device-01",
     "tenantId":"1"
   }'
 ```
 
-### 步骤 6：查询属性与消息日志
+### 步骤 4：查询验证
 ```bash
-curl http://localhost:9999/device/demo-device-01/properties
+curl http://localhost:9999/device/accept-http-device-01/properties
+curl http://localhost:9999/device/accept-http-device-01/message-logs
+curl http://localhost:9999/device/code/accept-http-device-01
 ```
 
-```bash
-curl http://localhost:9999/device/demo-device-01/message-logs
-```
-
-### 步骤 7：校验数据库结果
-- `iot_device_message_log` 至少新增 1 条上报记录
-- `iot_device_property` 中应包含 `temperature` 和 `humidity`
+### 通过标准
+- 接口返回 `code = 200`
+- `properties` 返回最新属性值
+- `message-logs` 返回对应 topic 和 payload
+- `iot_message_log` 有新增记录
 - `iot_device.online_status = 1`
-- `iot_device.last_online_time` 与 `last_report_time` 已更新
+- `last_online_time` 与 `last_report_time` 已刷新
 
-## MQTT 标准 Topic 手工联调步骤
-
-### 步骤 1：启动应用
-- 使用 `application-dev.yml` 中提供的共享联调环境
-- 启动时开启 MQTT，并激活 `dev` 配置：
+## 5. MQTT 标准 Topic 真实环境验收
+### 步骤 1：启动后端并确保 MQTT 已连接
+建议附加唯一 `clientId`：
 ```bash
-IOT_MQTT_ENABLED=true \
+IOT_MQTT_CLIENT_ID=accept-mqtt-consumer-001 \
 mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-共享环境关键连接信息：
-- MySQL：`8.130.107.120:3306/rm_iot`
-- Redis：`8.130.107.120:6379`，database `8`
-- MQTT Broker：`mqtt.ghlqf.com:1883`
-- MQTT 用户名：`emqx`
+### 步骤 2：使用 MQTTX 建立连接
+- Host：`8.130.107.120`
+- Port：`1883`
+- Username：`emqx`
+- Password：读取 `application-dev.yml` 中 `iot.mqtt.password`
+- Client ID：如 `mqttx-accept-001`
 
-### 步骤 2：创建产品和设备
-- 先按前文 HTTP 联调步骤创建产品和设备
-- 确保产品协议为 `mqtt-json`
-
-### 步骤 3：使用 MQTTX 发布标准 Topic 上报
-- 在 MQTTX 中新建连接：
-  - Host：`mqtt.ghlqf.com`
-  - Port：`1883`
-  - Username：`emqx`
-  - Password：使用 `application-dev.yml` 中的 `iot.mqtt.password`
-- 发布 Topic：`/sys/demo-product/demo-device-01/thing/property/post`
-- 发布 Payload：
-```json
-{"messageType":"property","properties":{"temperature":26.5,"humidity":68}}
-```
-
-### 步骤 4：查询验证结果
-```bash
-curl http://localhost:9999/device/demo-device-01/properties
-```
-
-```bash
-curl http://localhost:9999/device/demo-device-01/message-logs
-```
-
-```bash
-curl http://localhost:9999/device/code/demo-device-01
-```
-
-### 步骤 5：校验通过标准
-- `iot_device_message_log` 至少新增 1 条 topic 为 `/sys/demo-product/demo-device-01/thing/property/post` 的记录
-- `iot_device_property` 中应包含 `temperature=26.5` 和 `humidity=68`
-- `iot_device.online_status = 1`
-- `iot_device.last_online_time`、`last_report_time` 已刷新
-- 若 Redis 可用，`iot:device:session:demo-device-01` 中应存在 `connected=true`、`lastSeenTime` 已更新
-
-### 已验证成功样例
-- 产品：`codex-mqtt-product-01`
-- 设备：`codex-mqtt-device-01`
-- Topic：`/sys/codex-mqtt-product-01/codex-mqtt-device-01/thing/property/post`
-- Payload：
-```json
-{"messageType":"property","properties":{"temperature":26.5,"humidity":68}}
-```
-- 验证结果：
-  - `GET /device/codex-mqtt-device-01/properties` 返回 `temperature=26.5`、`humidity=68`
-  - `GET /device/codex-mqtt-device-01/message-logs` 返回 `property` 日志
-  - `GET /device/code/codex-mqtt-device-01` 返回 `onlineStatus=1`
-
-### 共享环境启动注意项
-- 推荐启动命令：
-```bash
-IOT_MQTT_ENABLED=true \
-IOT_MQTT_CLIENT_ID=codex-mqtt-verify-001 \
-mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
-```
-- 说明：
-  - `IOT_MQTT_ENABLED=true` 用于显式开启 MQTT 客户端
-  - `IOT_MQTT_CLIENT_ID` 建议使用唯一值，避免共享 Broker 上互踢
-
-## MQTT 历史 `$dp` 主题兼容验证
-
-前置条件：
-- 启动应用时开启 MQTT，并使用 `dev` 配置
-- 使用 MQTTX 连接 `mqtt.ghlqf.com:1883`
-- 数据库中已存在对应 `deviceCode` 的设备，协议为 `mqtt-json`
-- 若验证加密报文，需确保 `spring.cloud.aes.merchants.{appId}` 已配置对应密钥
-
-示例 1：倾角仪 / 加速度明文数据
-- Topic：`$dp`
-- Payload：
-```json
-{"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97,"angle":-6.03,"trend":236.18,"AZI":236.18}},"L1_JS_1":{"2026-03-14T07:04:03.000Z":{"gX":-0.04,"gY":0.18,"gZ":-0.04}}}}
-```
-
-示例 2：设备状态数据
-- Topic：`$dp`
-- Payload 以 MQTTX 原始字符串发送，内容如下：
+### 步骤 3：发送标准 Topic 消息
+Topic：
 ```text
-\u0010{"100054920":{"S1_ZT_1":{"ext_power_volt":3.540,"solar_volt":6.185,"battery_dump_energy":1,"temp":0.0,"humidity":0,"lon":103.482170,"lat":36.180176,"signal_4g":-51,"sw_version":"V1.0.3(Jul 19 2023 16:48:13)-15522832","sensor_state":{"L1_JS_1":0,"L1_QJ_1":0,"L1_LF_1":3}}}}
+/sys/accept-http-product-01/accept-http-device-01/thing/property/post
 ```
 
-示例 3：加密包裹数据
+Payload：
 ```json
-{
-  "header": {
-    "appId": "62000001"
-  },
-  "bodies": {
-    "body": "PTOLy04o/stDufUYFo5s3trFmwXQj9R85OUt6LnCbQzJrvVKuDIkMkXxiauKs4AIPcpopHQuf4ZjJ8ScsF4zA6gtDisacA9yJjreDh2+KO+YHFnVE5CueOHigyX1LtOfutbpbF0KdQMXJRkt8EA7WnefdlHJx00J84FVq8NlEAE4TgRCqOtJqAcw3J0/qn0JCDX1roDvjNVXglW9DLklYmiVgLSPd+gDgiBFxFcVARpIv4aGyrFBBcOEqC4CgCMiHR40hrTDgqhle9CMjlbBtGt+4cL36tH1TxTgD7xTsqnICvcQ/uiAZaezk4xjOeul"
-  }
-}
+{"messageType":"property","properties":{"temperature":28.1,"humidity":59}}
 ```
 
-说明：
-- 外层 MQTT 负载允许是“类型字节 + 大端长度 + JSON 包裹”
-- 解密后的明文仍允许是“类型字节 + 大端长度 + JSON 正文”
-- 当前代码已经按上述流程处理，不需要在 message 层手工拆解
-
-验证通过标准：
-- `iot_device_message_log` 新增 `$dp` 记录
-- 明文和加密两类报文都能进入现有主链路
-- `iot_device_property` 中出现预期属性值
+### 通过标准
+- 应用日志可见 MQTT 收到消息并进入统一主链路
+- `GET /device/accept-http-device-01/properties` 可见最新值
+- `GET /device/accept-http-device-01/message-logs` 返回标准 topic 记录
 - `iot_device.online_status = 1`
-- `iot_device.last_online_time`、`last_report_time` 已刷新
+- Redis 会话 `iot:device:session:accept-http-device-01` 刷新 `lastSeenTime`
 
-验证重点：
-- `iot_device_message_log` 新增 `$dp` 记录
-- `iot_device_property` 中出现拍平后的属性，例如：
-  - `L1_QJ_1.X`
-  - `L1_JS_1.gY`
-  - `S1_ZT_1.ext_power_volt`
-  - `S1_ZT_1.sensor_state.L1_LF_1`
-- `iot_device.online_status = 1`
-- `iot_device.last_online_time`、`last_report_time` 已刷新
+## 6. MQTT 历史 `$dp` 真实环境验收
+### 6.1 明文 JSON
+Topic：`$dp`
 
-加密数据说明：
-- 当前代码已经能识别 `header.appId + bodies.body` 包装格式
-- 当前代码已经支持根据 `appId` 选择 `spring.cloud.aes.merchants` 中配置的 AES 密钥
-- 当前代码已经支持根据 `iot.protocol.crypto.merchants.{appId}` 扩展 DES / 3DES 等对称解密算法
-- 当前已验证 `62000001` 的最小 AES 测试链路
-- 若未配置对应 `appId` 的解密器，仍会返回清晰业务异常
-
-标准格式说明：
-- 表 C.2 报文会取最新时间点的值进入最新属性表
-- 表 C.3 报文当前会进入消息日志，并刷新在线状态；文件描述和文件流会标准化到 `DeviceUpMessage.filePayload`
-- 表 C.4 固件分包当前会标准化到 `DeviceFilePayload.firmwarePacket`，但仍不进入 OTA 业务流程
-- `device` 模块当前会把 C.3 文件快照和 C.4 固件聚合状态写入 Redis：
-  - 文件快照 Key：`iot:device:file:{deviceCode}:{transferId}`
-  - 固件聚合 Key：`iot:device:firmware:{deviceCode}:{transferId}`
-- 固件聚合完成后会额外保存：
-  - `assembledBase64`
-  - `assembledLength`
-  - `calculatedMd5`
-  - `md5Matched`
-
-## 场景 1：产品新增
-- 创建 demo-product
-- 校验 product_key 唯一性
-
-## 场景 2：设备新增
-- 创建设备 demo-device-01
-- 校验 device_code 唯一性
-- 校验 productKey 必须存在
-
-## 场景 3：HTTP 属性上报
-- 使用 docs/device-simulator.md 中请求体
-- 预期新增 message_log
-- 预期新增或更新 device_property
-- 预期 device.online_status = 1
-- 预期 topic 正确写入 message_log
-- 预期若存在 `iot_product_model` 定义，则属性 `property_name/value_type` 按模型写入
-
-## 场景 4：重复属性上报
-- 再次上报 temperature
-- 预期更新现有 property，不重复插入
-- 预期 `update_time` 变化，`id` 不变
-
-## 场景 5：非法协议编码
-- protocolCode = bad-protocol
-- 预期返回错误
-
-## 场景 6：不存在设备
-- deviceCode = missing-device
-- 预期返回业务异常
-
-## 场景 7：MQTT 下行发布
-- 创建产品 `codex-down-product-02`
-- 创建设备 `codex-down-device-02`
-- 调用 `POST /message/mqtt/down/publish`
-- 若未显式传入 `topic`，预期自动发布到 `/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
-- 预期发布接口返回：
-  - `code = 200`
-  - `protocolCode = mqtt-json`
-  - `qos = 1`
-- 使用 MQTTX 或其他 MQTT 客户端订阅 `/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
-- 预期收到 payload：
+Payload：
 ```json
-{
-  "messageId": "1773507184482",
-  "commandType": "property",
-  "serviceIdentifier": null,
-  "params": {
-    "switch": 1,
-    "targetTemperature": 23.0,
-    "requestId": "task6-verify-001"
-  }
-}
+{"accept-http-device-01":{"temperature":25.1,"humidity":61}}
 ```
-- 当前下行验证标准是“Broker 收到推荐 topic 消息”，不要求设备 ACK
 
-### 已验证成功样例
-- 产品：`codex-down-product-02`
-- 设备：`codex-down-device-02`
-- Topic：`/sys/codex-down-product-02/codex-down-device-02/thing/property/set`
-- 发布接口返回：
-  - `code = 200`
-  - `protocolCode = mqtt-json`
-  - `qos = 1`
-- 订阅端实际收到：
+### 6.2 嵌套遥测 JSON
 ```json
-{
-  "messageId": "1773507184482",
-  "commandType": "property",
-  "serviceIdentifier": null,
-  "params": {
-    "switch": 1,
-    "targetTemperature": 23.0,
-    "requestId": "task6-verify-001"
-  }
-}
+{"100054920":{"L1_QJ_1":{"2026-03-14T07:04:03.000Z":{"X":3.15,"Y":-5.14,"Z":83.97,"angle":-6.03}},"L1_JS_1":{"2026-03-14T07:04:03.000Z":{"gX":-0.04,"gY":0.18,"gZ":-0.04}}}}
 ```
 
-## 场景 8：子设备 Topic 解析预留
-- 解析子设备上报 topic：
-  - `/sys/gw-product/gateway-01/sub/sub-device-01/thing/property/post`
-- 预期解析结果：
-  - `routeType = sub-device`
-  - `productKey = gw-product`
-  - `gatewayDeviceCode = gateway-01`
-  - `subDeviceCode = sub-device-01`
-  - `deviceCode = sub-device-01`
-  - `messageType = property`
-- 解析直连设备 topic：
-  - `/sys/demo-product/demo-device-01/thing/property/post`
-- 预期仍保持：
-  - `routeType = direct`
-  - `deviceCode = demo-device-01`
-- 当前只验证解析结构，不要求进入完整子设备业务链路
+### 6.3 加密包裹 JSON
+按 [docs/05-protocol.md](05-protocol.md) 中 `header.appId + bodies.body` 格式发送，`appId` 使用 `62000001`。
 
-- 可直接运行：
-```bash
-mvn -pl spring-boot-iot-protocol test -DskipTests=false -Dtest=MqttTopicParserTest -Dsurefire.failIfNoSpecifiedTests=false
+### 通过标准
+- `$dp` 报文可进入主链路
+- `iot_message_log` 新增 `$dp` 记录
+- 拍平后的属性进入 `iot_device_property`
+- 设备在线状态刷新
+- AES / DES / 3DES 兼容问题优先通过协议测试和运行日志定位
+
+## 7. MQTT 下行最小发布验收
+### 步骤 1：订阅设备下行 Topic
+在 MQTTX 订阅：
+```text
+/sys/accept-http-product-01/accept-http-device-01/thing/property/set
 ```
 
-## MQTT 下行发布手工命令
+### 步骤 2：调用下行发布接口
 ```bash
 curl -X POST http://localhost:9999/message/mqtt/down/publish \
   -H "Content-Type: application/json" \
   -d '{
-    "productKey":"codex-down-product-02",
-    "deviceCode":"codex-down-device-02",
+    "productKey":"accept-http-product-01",
+    "deviceCode":"accept-http-device-01",
     "qos":1,
     "commandType":"property",
     "params":{
       "switch":1,
       "targetTemperature":23.0,
-      "requestId":"task6-verify-001"
+      "requestId":"accept-down-001"
     }
   }'
 ```
 
-## 环境说明
-- `DeviceHttpReportE2EIntegrationTest` 当前已通过，可作为主链路回归入口
-- `DeviceMqttReportE2EIntegrationTest` 当前已通过，可作为 MQTT 主链路回归入口
-- `MqttDeviceAesDataTests` 当前已通过，可作为 AES 拆包与解密回归入口
-- `MqttBinaryFormatParserTest` 当前已通过，可作为 C.3 / C.4 标准格式回归入口
-- `MqttJsonProtocolAdapterTest` 当前已通过，可作为 C.2 / C.3 / C.4 统一协议模型回归入口
-- `MqttPayloadDecryptorRegistryTest` 当前已通过，可作为 DES / 3DES 解密回归入口
-- 当前文件快照 / 固件聚合逻辑已接入运行时代码，建议继续通过 `mvn -pl spring-boot-iot-admin -am package -DskipTests` 保持主链路可编译
-- `DeviceMessageServiceImplTest` 在当前 JDK 17 环境下仍受 Mockito inline mock maker 自附加 agent 限制影响，不作为本轮收口阻塞项
-- 若共享 MQTT 环境暂时不可达，可先运行 `DeviceMqttReportE2EIntegrationTest` 完成最小规避验证
+### 通过标准
+- 发布接口返回 `code = 200`
+- 返回体包含自动生成的推荐 topic
+- MQTTX 订阅端能收到 JSON 下行消息
+- 当前不要求设备 ACK，但需确认消息已实际送达 Broker
+
+## 8. Phase 4 模块真实环境验收
+Phase 4 统一按页面、接口、数据表三层核对：
+- 页面/路由
+- 关键接口
+- 数据库落库结果
+
+详细矩阵与 SQL 模板见：
+- [docs/21-business-functions-and-acceptance.md](21-business-functions-and-acceptance.md)
+- [docs/19-phase4-progress.md](19-phase4-progress.md)
+
+本轮优先验收模块：
+- 告警中心
+- 事件处置
+- 风险点管理
+- 阈值规则配置
+- 联动规则
+- 应急预案
+- 分析报表（当前以接口连通和页面可访问为主）
+- 组织、用户、角色、区域、字典、通知渠道、审计日志
+
+## 9. 验收产物要求
+每次真实环境验收至少保留以下产物：
+- 启动命令或脚本记录
+- HTTP 请求与响应记录
+- MQTTX 发布 / 订阅截图
+- 页面操作截图
+- 关键 SQL 查询结果截图或导出
+- 验收结论表：通过 / 不通过 / 待确认
+
+## 10. 环境不可用时的处理原则
+- 先确认是网络、数据库、Redis、MQTT 哪一层阻塞
+- 记录具体报错、时间、影响范围
+- 可继续执行 `mvn clean package -DskipTests`、`mvn test` 作为代码回归检查
+- 不允许回退到旧 H2 验收配置、H2 内存库、旧前端自动化链路或历史验收用例来宣布“验收通过”
