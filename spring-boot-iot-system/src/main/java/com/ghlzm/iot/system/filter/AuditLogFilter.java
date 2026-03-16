@@ -36,6 +36,10 @@ public class AuditLogFilter extends OncePerRequestFilter {
     private static final int MAX_CAPTURE_LENGTH = 4000;
     private static final Pattern JSON_SENSITIVE_PATTERN = Pattern.compile(
             "(?i)\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\"\\s*:\\s*\"[^\"]*\"");
+    private static final Pattern ESCAPED_JSON_SENSITIVE_PATTERN = Pattern.compile(
+            "(?i)\\\\\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\"[^\\\\\"]*\\\\\"");
+    private static final Pattern ESCAPED_JSON_SENSITIVE_GROUP_PATTERN = Pattern.compile(
+            "(?i)(\\\\\"(?:password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\")[^\\\\\"]*(\\\\\")");
     private static final Pattern KV_SENSITIVE_PATTERN = Pattern.compile(
             "(?i)(password|token|secret|authorization|accessToken|refreshToken|clientSecret)=([^&\\s]+)");
     private static final Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile(
@@ -159,7 +163,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
         if (content.length == 0) {
             return "";
         }
-        Charset charset = resolveCharset(wrapper.getCharacterEncoding());
+        Charset charset = resolveCharset(wrapper.getCharacterEncoding(), wrapper.getContentType());
         return sanitizeAndTruncate(new String(content, charset));
     }
 
@@ -171,7 +175,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
         if (content.length == 0) {
             return "HTTP " + response.getStatus();
         }
-        Charset charset = resolveCharset(wrapper.getCharacterEncoding());
+        Charset charset = resolveCharset(wrapper.getCharacterEncoding(), wrapper.getContentType());
         String responseBody = sanitizeAndTruncate(new String(content, charset));
         if (!StringUtils.hasText(responseBody)) {
             return "HTTP " + response.getStatus();
@@ -198,15 +202,8 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return request.getMethod() + ":" + request.getRequestURI();
     }
 
-    private Charset resolveCharset(String characterEncoding) {
-        if (!StringUtils.hasText(characterEncoding)) {
-            return StandardCharsets.UTF_8;
-        }
-        try {
-            return Charset.forName(characterEncoding);
-        } catch (Exception ex) {
-            return StandardCharsets.UTF_8;
-        }
+    private Charset resolveCharset(String characterEncoding, String contentType) {
+        return StandardCharsets.UTF_8;
     }
 
     private String sanitizeAndTruncate(String text) {
@@ -219,6 +216,8 @@ public class AuditLogFilter extends OncePerRequestFilter {
 
     private String maskSensitive(String text) {
         String masked = replaceWithPattern(text, JSON_SENSITIVE_PATTERN, "\"$1\":\"***\"");
+        masked = replaceWithPattern(masked, ESCAPED_JSON_SENSITIVE_PATTERN, "\\\\\"$1\\\\\":\\\\\"***\\\\\"");
+        masked = replaceWithPattern(masked, ESCAPED_JSON_SENSITIVE_GROUP_PATTERN, "$1***$2");
         masked = replaceWithPattern(masked, KV_SENSITIVE_PATTERN, "$1=***");
         masked = replaceWithPattern(masked, AUTHORIZATION_HEADER_PATTERN, "$1***");
         return masked;
