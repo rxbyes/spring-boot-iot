@@ -10,6 +10,8 @@ export default defineConfig({
     }
   },
   build: {
+    // Element Plus 按稳定单组分包，避免手动拆分组件时出现循环 chunk 告警
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -29,20 +31,15 @@ export default defineConfig({
             return 'vendor-element-icons';
           }
 
-          if (id.includes('element-plus')) {
-            if (id.includes('element-plus/es/components')) {
-              if (id.includes('element-plus/es/components/table') || id.includes('element-plus/es/components/pagination') || id.includes('element-plus/es/components/descriptions') || id.includes('element-plus/es/components/statistic') || id.includes('element-plus/es/components/progress')) {
-                return 'vendor-element-data';
-              }
-
-              if (id.includes('element-plus/es/components/form') || id.includes('element-plus/es/components/input') || id.includes('element-plus/es/components/select') || id.includes('element-plus/es/components/option') || id.includes('element-plus/es/components/radio') || id.includes('element-plus/es/components/date-picker')) {
-                return 'vendor-element-form';
-              }
-
-              return 'vendor-element-basic';
-            }
-
-            return 'vendor-element-core';
+          if (
+            id.includes('element-plus') ||
+            id.includes('async-validator') ||
+            id.includes('@floating-ui') ||
+            id.includes('lodash-unified') ||
+            id.includes('normalize-wheel-es') ||
+            id.includes('@popperjs/core')
+          ) {
+            return 'vendor-element-plus';
           }
 
           if (id.includes('vue-router')) {
