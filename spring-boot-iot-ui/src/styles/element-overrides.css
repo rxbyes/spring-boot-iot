@@ -4,38 +4,38 @@
   --el-color-primary-light-5: color-mix(in srgb, var(--brand-deep) 56%, white);
   --el-color-primary-light-7: color-mix(in srgb, var(--brand-deep) 38%, white);
   --el-color-primary-dark-2: color-mix(in srgb, var(--brand-deep) 86%, black);
-  --el-bg-color: rgba(8, 13, 26, 0.94);
+  --el-bg-color: #ffffff;
   --el-bg-color-page: transparent;
-  --el-fill-color-blank: rgba(8, 13, 26, 0.94);
-  --el-fill-color-light: rgba(14, 22, 40, 0.94);
-  --el-fill-color-lighter: rgba(18, 29, 52, 0.9);
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f4f7fc;
+  --el-fill-color-lighter: #f8fafd;
   --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-secondary);
   --el-text-color-secondary: var(--text-tertiary);
   --el-border-color: var(--panel-border);
-  --el-border-color-light: rgba(73, 104, 153, 0.28);
-  --el-border-color-lighter: rgba(73, 104, 153, 0.18);
-  --el-mask-color: rgba(0, 0, 0, 0.6);
-  --el-box-shadow-light: 0 16px 36px rgba(0, 0, 0, 0.24);
-  --el-border-radius-base: 16px;
+  --el-border-color-light: rgba(56, 78, 112, 0.22);
+  --el-border-color-lighter: rgba(56, 78, 112, 0.14);
+  --el-mask-color: rgba(15, 24, 39, 0.45);
+  --el-box-shadow-light: 0 12px 28px rgba(29, 45, 77, 0.15);
+  --el-border-radius-base: 10px;
   --el-font-family: var(--font-body);
 }
 
 .el-card {
-  --el-card-bg-color: rgba(9, 14, 27, 0.9);
+  --el-card-bg-color: #ffffff;
   --el-card-border-color: var(--panel-border);
 }
 
 .el-card.is-always-shadow,
 .el-card.is-hover-shadow:focus,
 .el-card.is-hover-shadow:hover {
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-sm);
 }
 
 .el-input__wrapper,
 .el-textarea__inner,
 .el-select__wrapper {
-  background: rgba(8, 13, 26, 0.94);
+  background: #ffffff;
   box-shadow: 0 0 0 1px var(--panel-border) inset;
 }
 
@@ -44,25 +44,25 @@
 .el-select__wrapper.is-focused {
   box-shadow:
     0 0 0 1px var(--panel-border-strong) inset,
-    0 0 0 3px rgba(57, 241, 255, 0.18);
+    0 0 0 3px rgba(255, 106, 0, 0.14);
 }
 
 .el-button {
-  border-radius: 999px;
+  border-radius: 10px;
 }
 
 .el-button--primary {
-  --el-button-bg-color: linear-gradient(120deg, var(--brand-deep), var(--brand-bright));
+  --el-button-bg-color: var(--brand);
   --el-button-border-color: transparent;
   --el-button-text-color: var(--ink-strong);
   background: linear-gradient(120deg, var(--brand-deep), var(--brand-bright));
 }
 
 .el-table {
-  --el-table-bg-color: rgba(5, 10, 20, 0.88);
-  --el-table-tr-bg-color: rgba(5, 10, 20, 0.88);
-  --el-table-header-bg-color: rgba(8, 14, 25, 0.98);
-  --el-table-border-color: rgba(67, 98, 148, 0.3);
+  --el-table-bg-color: #ffffff;
+  --el-table-tr-bg-color: #ffffff;
+  --el-table-header-bg-color: #f7f9fd;
+  --el-table-border-color: rgba(54, 73, 102, 0.14);
   --el-table-text-color: var(--text-secondary);
   --el-table-header-text-color: var(--text-tertiary);
 }

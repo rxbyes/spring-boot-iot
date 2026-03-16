@@ -73,6 +73,57 @@
 ### 根据 deviceCode 查询设备
 `GET /device/code/{deviceCode}`
 
+### 查询设备选项列表
+`GET /api/device/list`
+
+说明：
+- 仅返回风险点绑定弹窗所需的最小设备字段。
+- 当前用于风险点管理页与风险监测筛选项的真实数据装载。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "id": 3001,
+      "productId": 2001,
+      "deviceCode": "accept-http-device-01",
+      "deviceName": "验收设备-HTTP-01",
+      "onlineStatus": 1
+    }
+  ]
+}
+```
+
+### 查询设备测点选项
+`GET /api/device/{deviceId}/metrics`
+
+说明：
+- 优先返回设备所属产品的 `property` 物模型。
+- 若物模型未维护，则回退到设备当前已产生的属性标识，保证风险点绑定可继续联调。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "identifier": "temperature",
+      "name": "温度",
+      "dataType": "double"
+    },
+    {
+      "identifier": "humidity",
+      "name": "湿度",
+      "dataType": "int"
+    }
+  ]
+}
+```
+
 ## 消息接入接口
 
 ### HTTP 模拟设备上报
@@ -275,6 +326,103 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 }
 ```
 
+## Phase 4 报表接口
+
+### 风险趋势分析
+`GET /api/report/risk-trend`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 未传日期区间时，后端按当前库内全部历史告警与事件记录聚合
+- 返回数组项字段固定为 `date`、`alarmCount`、`eventCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "date": "2026-03-15",
+      "alarmCount": 3,
+      "eventCount": 2
+    }
+  ]
+}
+```
+
+### 告警统计
+`GET /api/report/alarm-statistics`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 返回字段固定为 `total`、`critical`、`high`、`medium`、`low`
+- 兼容历史字段 `count`、`criticalCount`、`warningCount`、`infoCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 12,
+    "critical": 2,
+    "high": 5,
+    "medium": 4,
+    "low": 1
+  }
+}
+```
+
+### 事件闭环分析
+`GET /api/report/event-closure`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 返回字段固定为 `total`、`closed`、`unclosed`
+- 兼容历史字段 `count`、`pendingCount`、`processingCount`、`closedCount`、`avgProcessingTime`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 9,
+    "closed": 6,
+    "unclosed": 3,
+    "pendingCount": 2,
+    "processingCount": 1,
+    "closedCount": 6,
+    "avgProcessingTime": 5.5
+  }
+}
+```
+
+### 设备健康分析
+`GET /api/report/device-health`
+
+说明：
+- 当前基于 `iot_device.online_status` 与 `iot_device.last_report_time` 计算
+- 返回字段固定为 `total`、`online`、`offline`、`onlineRate`、`healthy`、`warning`、`critical`
+- 兼容历史字段 `totalCount`、`onlineCount`、`offlineCount`、`healthyCount`、`unhealthyCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 20,
+    "online": 16,
+    "offline": 4,
+    "onlineRate": 80.0,
+    "healthy": 11,
+    "warning": 5,
+    "critical": 4
+  }
+}
+```
 ## 典型错误返回
 
 ### 非法协议编码
@@ -292,3 +440,84 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
   "msg": "设备不存在: missing-device"
 }
 ```
+
+## 认证接口与鉴权规则（2026-03-16）
+
+### 登录
+`POST /api/auth/login`
+
+请求体：
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "token": "<jwt-token>",
+    "tokenType": "Bearer",
+    "expiresIn": 7200,
+    "tokenHeader": "Authorization",
+    "userId": 1,
+    "username": "admin",
+    "realName": "管理员"
+  }
+}
+```
+
+### 当前登录用户
+`GET /api/auth/me`
+
+请求头：
+```text
+Authorization: Bearer <jwt-token>
+```
+
+未携带或携带无效 token 时返回：
+```json
+{
+  "code": 401,
+  "msg": "未认证或登录已过期",
+  "data": null
+}
+```
+
+### 鉴权规则
+- 以下接口免登录：
+  - `/api/auth/login`
+  - `/message/http/report`
+  - `/api/cockpit/**`
+  - `/actuator/**`
+  - `/doc.html`、`/swagger-ui/**`、`/v3/api-docs/**`
+- 其余接口默认需要 `Authorization: Bearer <jwt-token>`
+## Phase 4 ???? API
+
+### ??????
+`GET /api/risk-monitoring/realtime/list`
+
+???
+- ???? `ApiEnvelope<PageResult<RiskMonitoringListItem>>` ???
+- ???????`regionId`?`riskPointId`?`deviceCode`?`riskLevel`?`onlineStatus`?`pageNum`?`pageSize`?
+- ????????????? `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`???????????? `risk_point_device` ?????
+
+### ??????
+`GET /api/risk-monitoring/realtime/{bindingId}`
+
+???
+- ??????????????? 24h ?????????????
+- `bindingId` ????????? `bindingId` ???
+
+### GIS ??????
+`GET /api/risk-monitoring/gis/points`
+
+???
+- ?????? `ApiEnvelope<RiskMonitoringGisPoint[]>`?
+- ???????? `regionId`?
+- ????? ECharts ????????????? GIS SDK / ????????
+

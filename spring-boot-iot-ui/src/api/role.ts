@@ -1,68 +1,46 @@
-import request from '@/utils/request'
+﻿import { request } from './request'
+import type { ApiEnvelope } from '../types/api'
 
-// 角色列表
 export interface Role {
-      id: number
-      tenantId: number
-      roleName: string
-      roleCode: string
-      description: string
-      status: number
-      createTime: string
-      updateTime: string
+  id: number
+  tenantId: number
+  roleName: string
+  roleCode: string
+  description: string
+  status: number
+  createTime: string
+  updateTime: string
 }
 
-// 查询角色列表
 export function listRoles(params: {
-      roleName?: string
-      roleCode?: string
-      status?: number
-}) {
-      return request({
-            url: '/api/role/list',
-            method: 'get',
-            params
-      })
+  roleName?: string
+  roleCode?: string
+  status?: number
+} = {}): Promise<ApiEnvelope<Role[]>> {
+  const query = new URLSearchParams()
+  if (params.roleName) query.append('roleName', params.roleName)
+  if (params.roleCode) query.append('roleCode', params.roleCode)
+  if (params.status !== undefined) query.append('status', String(params.status))
+  const path = `/api/role/list${query.toString() ? `?${query.toString()}` : ''}`
+  return request<Role[]>(path, { method: 'GET' })
 }
 
-// 根据ID查询角色
-export function getRole(id: number) {
-      return request({
-            url: `/api/role/${id}`,
-            method: 'get'
-      })
+export function getRole(id: number): Promise<ApiEnvelope<Role>> {
+  return request<Role>(`/api/role/${id}`, { method: 'GET' })
 }
 
-// 添加角色
-export function addRole(data: Role) {
-      return request({
-            url: '/api/role/add',
-            method: 'post',
-            data
-      })
+export function addRole(data: Role): Promise<ApiEnvelope<void>> {
+  return request<void>('/api/role/add', { method: 'POST', body: data })
 }
 
-// 更新角色
-export function updateRole(data: Role) {
-      return request({
-            url: '/api/role/update',
-            method: 'put',
-            data
-      })
+export function updateRole(data: Role): Promise<ApiEnvelope<void>> {
+  return request<void>('/api/role/update', { method: 'PUT', body: data })
 }
 
-// 删除角色
-export function deleteRole(id: number) {
-      return request({
-            url: `/api/role/${id}`,
-            method: 'delete'
-      })
+export function deleteRole(id: number): Promise<ApiEnvelope<void>> {
+  return request<void>(`/api/role/${id}`, { method: 'DELETE' })
 }
 
-// 查询用户角色列表
-export function listUserRoles(userId: number) {
-      return request({
-            url: `/api/role/user/${userId}`,
-            method: 'get'
-      })
+export function listUserRoles(userId: number): Promise<ApiEnvelope<Role[]>> {
+  return request<Role[]>(`/api/role/user/${userId}`, { method: 'GET' })
 }

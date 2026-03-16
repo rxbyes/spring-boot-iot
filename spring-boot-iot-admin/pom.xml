@@ -51,6 +51,16 @@
         </dependency>
 
         <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-alarm</artifactId>
+        </dependency>
+
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-report</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
@@ -86,6 +96,13 @@
                 <configuration>
                     <mainClass>com.ghlzm.iot.admin.IotAdminApplication</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

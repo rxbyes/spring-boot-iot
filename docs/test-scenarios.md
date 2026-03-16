@@ -26,13 +26,14 @@
 ### 3.1 后端启动
 统一命令：
 ```bash
-mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 可选脚本：
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1
 ```
+该脚本会先执行全量 `mvn -s .mvn/settings.xml clean package -DskipTests`，再用 `dev` profile 启动后端。
 
 ### 3.2 前端启动
 前置条件：
@@ -60,6 +61,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 
 验收前先确认：
 - 数据库已执行 `sql/init.sql` 与 `sql/upgrade/` 当前基线脚本
+- 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
 - MQTT 客户端日志无异常
 - 前端代理默认指向 `http://localhost:9999`
 
@@ -127,7 +129,7 @@ curl http://localhost:9999/device/code/accept-http-device-01
 建议附加唯一 `clientId`：
 ```bash
 IOT_MQTT_CLIENT_ID=accept-mqtt-consumer-001 \
-mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 ### 步骤 2：使用 MQTTX 建立连接
@@ -228,6 +230,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 - 应急预案
 - 分析报表（当前以接口连通和页面可访问为主）
 - 组织、用户、角色、区域、字典、通知渠道、审计日志
+- 风险监测实时监测、GIS 风险态势（代码已完成；2026-03-16 已确认共享开发库仍需先执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql`，完成后再进行真实环境复验）
 
 ## 9. 验收产物要求
 每次真实环境验收至少保留以下产物：
@@ -241,5 +244,48 @@ Phase 4 统一按页面、接口、数据表三层核对：
 ## 10. 环境不可用时的处理原则
 - 先确认是网络、数据库、Redis、MQTT 哪一层阻塞
 - 记录具体报错、时间、影响范围
-- 可继续执行 `mvn clean package -DskipTests`、`mvn test` 作为代码回归检查
+- 可继续执行 `mvn -s .mvn/settings.xml clean package -DskipTests`、`mvn -s .mvn/settings.xml test` 作为代码回归检查
 - 不允许回退到旧 H2 验收配置、H2 内存库、旧前端自动化链路或历史验收用例来宣布“验收通过”
+
+## 11. 登录与鉴权冒烟（真实环境）
+
+### 步骤 1：登录并获取 token
+```bash
+curl -X POST http://localhost:9999/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"123456"}'
+```
+
+通过标准：
+- HTTP 状态码为 `200`
+- 响应体 `code = 200`
+- `data.token` 非空
+
+### 步骤 2：无 token 访问受保护接口
+```bash
+curl http://localhost:9999/api/auth/me
+```
+
+通过标准：
+- HTTP 状态码为 `401`
+
+### 步骤 3：携带 token 访问受保护接口
+```bash
+curl http://localhost:9999/api/auth/me \
+  -H "Authorization: Bearer <token>"
+```
+
+通过标准：
+- HTTP 状态码为 `200`
+- 响应体 `code = 200`
+
+### 步骤 4：验证设备管理接口鉴权
+```bash
+curl http://localhost:9999/device/code/accept-http-device-01
+curl http://localhost:9999/device/code/accept-http-device-01 \
+  -H "Authorization: Bearer <token>"
+```
+
+通过标准：
+- 不带 token 返回 `401`
+- 带 token 返回非 `401`（有数据时 `200`）

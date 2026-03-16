@@ -1,44 +1,47 @@
-import request from '@/utils/request'
+﻿import { request } from './request'
+import type { ApiEnvelope } from '../types/api'
 
-// 查询审计日志列表
-export const listLogs = (params: any) => {
-      return request({
-            url: '/system/audit-log/list',
-            method: 'get',
-            params
-      })
+export interface AuditLogRecord {
+  id: number
+  operationModule?: string
+  operationType?: string
+  operationUri?: string
+  status?: number
+  userId?: number
+  username?: string
+  createTime?: string
 }
 
-// 分页查询审计日志
-export const pageLogs = (params: any) => {
-      return request({
-            url: '/system/audit-log/page',
-            method: 'get',
-            params
-      })
+function toQueryString(params: Record<string, unknown>) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      search.append(key, String(value))
+    }
+  })
+  return search.toString()
 }
 
-// 根据ID查询审计日志
-export const getAuditLogById = (id: number) => {
-      return request({
-            url: `/system/audit-log/get/${id}`,
-            method: 'get'
-      })
+export function listLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<AuditLogRecord[]>> {
+  const query = toQueryString(params)
+  const path = `/api/system/audit-log/list${query ? `?${query}` : ''}`
+  return request<AuditLogRecord[]>(path, { method: 'GET' })
 }
 
-// 添加审计日志
-export const addAuditLog = (data: any) => {
-      return request({
-            url: '/system/audit-log/add',
-            method: 'post',
-            data
-      })
+export function pageLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<AuditLogRecord[]>> {
+  const query = toQueryString(params)
+  const path = `/api/system/audit-log/page${query ? `?${query}` : ''}`
+  return request<AuditLogRecord[]>(path, { method: 'GET' })
 }
 
-// 删除审计日志
-export const deleteAuditLog = (id: number) => {
-      return request({
-            url: `/system/audit-log/delete/${id}`,
-            method: 'delete'
-      })
+export function getAuditLogById(id: number): Promise<ApiEnvelope<AuditLogRecord>> {
+  return request<AuditLogRecord>(`/api/system/audit-log/get/${id}`, { method: 'GET' })
+}
+
+export function addAuditLog(data: Partial<AuditLogRecord>): Promise<ApiEnvelope<void>> {
+  return request<void>('/api/system/audit-log/add', { method: 'POST', body: data })
+}
+
+export function deleteAuditLog(id: number): Promise<ApiEnvelope<void>> {
+  return request<void>(`/api/system/audit-log/delete/${id}`, { method: 'DELETE' })
 }

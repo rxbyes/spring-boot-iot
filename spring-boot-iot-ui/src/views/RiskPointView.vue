@@ -119,19 +119,26 @@
 
     <!-- 绑定设备对话框 -->
     <el-dialog v-model="bindDeviceVisible" title="绑定设备" width="600px">
-      <el-form :model="bindForm" label-width="100px">
+      <el-form :model="bindForm" label-width="100px" v-loading="bindDialogLoading">
         <el-form-item label="风险点">
           <el-input v-model="bindForm.riskPointName" disabled />
         </el-form-item>
         <el-form-item label="设备">
-          <el-select v-model="bindForm.deviceId" placeholder="请选择设备" style="width: 100%">
+          <el-select
+            v-model="bindForm.deviceId"
+            placeholder="请选择设备"
+            style="width: 100%"
+            filterable
+            clearable
+            @change="handleDeviceChange"
+          >
             <el-option v-for="device in deviceList" :key="device.id" :label="device.deviceName" :value="device.id">
               {{ device.deviceCode }} - {{ device.deviceName }}
             </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="测点">
-          <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点" style="width: 100%">
+          <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点" style="width: 100%" clearable>
             <el-option v-for="metric in metricList" :key="metric.identifier" :label="metric.name" :value="metric.identifier">
               {{ metric.name }}
             </el-option>
@@ -149,16 +156,19 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, getBoundDevices } from '../api/riskPoint';
-import type { RiskPoint } from '../api/riskPoint';
+import { bindDevice as bindRiskPointDevice, getBoundDevices, getRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint } from '../api/riskPoint';
+import type { RiskPoint, RiskPointDevice } from '../api/riskPoint';
+import { getDeviceMetricOptions, listDeviceOptions } from '../api/iot';
+import type { DeviceMetricOption, DeviceOption } from '../types/api';
 
 // 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
-const deviceList = ref<any[]>([]);
-const metricList = ref<any[]>([]);
+const deviceList = ref<DeviceOption[]>([]);
+const metricList = ref<DeviceMetricOption[]>([]);
+const bindDialogLoading = ref(false);
 
 // 查询条件
 const filters = reactive({
@@ -372,9 +382,11 @@ const handleSubmit = async () => {
 
 // 绑定设备
 const handleBindDevice = (row: RiskPoint) => {
+  resetBindForm();
   bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
   bindDeviceVisible.value = true;
+  void loadBindableDevices(row.id);
 };
 
 // 提交绑定
@@ -385,17 +397,83 @@ const handleBindSubmit = async () => {
   }
   try {
     submitLoading.value = true;
-    const res = await getBoundDevices(bindForm.riskPointId);
+    const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
+    bindForm.metricName = selectedMetric?.name || bindForm.metricIdentifier;
+    const res = await bindRiskPointDevice({
+      riskPointId: bindForm.riskPointId,
+      deviceId: bindForm.deviceId,
+      deviceCode: bindForm.deviceCode,
+      deviceName: bindForm.deviceName,
+      metricIdentifier: bindForm.metricIdentifier,
+      metricName: bindForm.metricName
+    });
     if (res.code === 200) {
-      // TODO: 绑定设备逻辑
       ElMessage.success('绑定成功');
       bindDeviceVisible.value = false;
+      resetBindForm();
+      loadRiskPointList();
     }
   } catch (error) {
     console.error('绑定设备失败', error);
   } finally {
     submitLoading.value = false;
   }
+};
+
+const loadBindableDevices = async (riskPointId: number) => {
+  bindDialogLoading.value = true;
+  try {
+    const [deviceRes, boundRes] = await Promise.all([listDeviceOptions(), getBoundDevices(riskPointId)]);
+    const boundDeviceIds = new Set((boundRes.data || []).map((item: RiskPointDevice) => item.deviceId));
+    deviceList.value = (deviceRes.data || []).filter((device) => !boundDeviceIds.has(device.id));
+    metricList.value = [];
+    if (deviceList.value.length === 0) {
+      ElMessage.info('当前没有可绑定的设备');
+    }
+  } catch (error) {
+    deviceList.value = [];
+    metricList.value = [];
+    ElMessage.error(error instanceof Error ? error.message : '加载绑定设备选项失败');
+  } finally {
+    bindDialogLoading.value = false;
+  }
+};
+
+const handleDeviceChange = async (deviceId?: number) => {
+  bindForm.metricIdentifier = '';
+  bindForm.metricName = '';
+  metricList.value = [];
+  const selectedDevice = deviceList.value.find((device) => device.id === deviceId);
+  bindForm.deviceCode = selectedDevice?.deviceCode || '';
+  bindForm.deviceName = selectedDevice?.deviceName || '';
+  if (!deviceId) {
+    return;
+  }
+  bindDialogLoading.value = true;
+  try {
+    const res = await getDeviceMetricOptions(deviceId);
+    metricList.value = res.data || [];
+    if (metricList.value.length === 0) {
+      ElMessage.warning('当前设备没有可绑定的测点，请先完善物模型或产生属性数据');
+    }
+  } catch (error) {
+    metricList.value = [];
+    ElMessage.error(error instanceof Error ? error.message : '加载设备测点失败');
+  } finally {
+    bindDialogLoading.value = false;
+  }
+};
+
+const resetBindForm = () => {
+  bindForm.riskPointId = 0;
+  bindForm.riskPointName = '';
+  bindForm.deviceId = 0;
+  bindForm.deviceCode = '';
+  bindForm.deviceName = '';
+  bindForm.metricIdentifier = '';
+  bindForm.metricName = '';
+  deviceList.value = [];
+  metricList.value = [];
 };
 
 // 初始化

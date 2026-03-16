@@ -7,6 +7,7 @@
           <el-date-picker
             v-model="dateRange"
             type="daterange"
+            value-format="YYYY-MM-DD"
             range-separator="至"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
@@ -87,8 +88,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import { ref, onMounted, watch, nextTick } from 'vue'
+import * as echarts from 'echarts/core'
+import { LineChart, BarChart, PieChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import { ElMessage } from 'element-plus'
 import {
   getRiskTrendAnalysis,
@@ -96,6 +105,17 @@ import {
   getEventClosureAnalysis,
   getDeviceHealthAnalysis
 } from '@/api/report'
+
+echarts.use([
+  LineChart,
+  BarChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  CanvasRenderer
+])
 
 // 状态
 const loading = ref(false)
@@ -330,7 +350,6 @@ const initDeviceHealthChart = () => {
 }
 
 // 监听数据变化更新图表
-import { watch } from 'vue'
 watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics], () => {
   if (riskTrendChart.value && alarmLevelChart.value && eventClosureChart.value && deviceHealthChart.value) {
     nextTick(() => {
@@ -343,7 +362,6 @@ watch([riskTrendData, alarmStatistics, eventStatistics, deviceHealthStatistics],
 })
 
 // 组件挂载
-import { nextTick } from 'vue'
 onMounted(() => {
   fetchData()
   nextTick(() => {

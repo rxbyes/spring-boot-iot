@@ -4,7 +4,7 @@
 
 ## 设计目标
 - 对接当前 Phase 1 已落地的产品、设备、HTTP 上报、属性和消息日志接口
-- 以 `vue-element-admin` 的后台信息架构为参考，重构为更适合物联网联调的工作台
+- 以“云控制台”信息架构为参考，构建顶部双层导航 + 左侧业务菜单的公共壳层
 - 为图表、数字孪生、拓扑、规则、告警、OTA 等后续能力预留前端入口
 
 ## 当前页面
@@ -17,6 +17,10 @@
 - 未来实验室
 
 ## 已完成增强
+- 公共布局已重构为阿里云风格控制台（顶部横向导航 + 左侧分组菜单 + 右侧工作区）
+- 全局主题 Token、Element Plus 覆盖样式和核心卡片组件已统一为浅色控制台风格
+- 风险监测增强页（实时监测、GIS）及统一详情抽屉已同步到浅色控制台视觉
+- 驾驶舱与风险监测图表已统一浅色主题（tooltip、坐标轴、风险等级配色）
 - 增加类似 `vue-element-admin` 的最近访问标签视图
 - 已接入 `Element Plus` 作为真实组件体系，核心表单、表格、描述面板和消息提示已切换
 - 设备洞察页支持基于 `ECharts` 的数值属性趋势图
@@ -38,7 +42,7 @@
 - 风险监测驾驶舱 `/` 当前为公开首页，未登录状态也可访问；其他受保护页面在未登录时会回退到驾驶舱
 
 可参考：
-- [docs/13-frontend-debug-console.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/13-frontend-debug-console.md)
+- [docs/13-frontend-debug-console.md](../docs/13-frontend-debug-console.md)
 
 ## 环境说明
 - 当前 `package.json` 已包含 Vue 3、Element Plus、ECharts 和 Vite 新版本组合

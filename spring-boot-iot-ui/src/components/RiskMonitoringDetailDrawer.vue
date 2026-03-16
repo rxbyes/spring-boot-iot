@@ -258,10 +258,10 @@ function renderTrendChart() {
     color: ['#ff8f1f'],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(7, 12, 24, 0.94)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
       borderColor: 'rgba(255, 143, 31, 0.24)',
       textStyle: {
-        color: '#eef5ff'
+        color: '#1f2a3d'
       }
     },
     grid: {
@@ -276,23 +276,23 @@ function renderTrendChart() {
       boundaryGap: false,
       data: trendPoints.value.map((point) => formatDateTime(point.reportTime)),
       axisLabel: {
-        color: '#7284a5',
+        color: '#6c7e97',
         hideOverlap: true
       },
       axisLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.35)'
+          color: 'rgba(67, 98, 148, 0.24)'
         }
       }
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: '#7284a5'
+        color: '#6c7e97'
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.2)'
+          color: 'rgba(67, 98, 148, 0.14)'
         }
       }
     },
@@ -453,7 +453,7 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
   text-align: center;
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
-  background: rgba(10, 16, 34, 0.9);
+  background: #f8fbff;
   color: var(--text-secondary);
 }
 
@@ -473,7 +473,7 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(5, 9, 18, 0.85);
+  background: #f8fbff;
 }
 
 .snapshot-item span {
@@ -506,7 +506,7 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(5, 9, 18, 0.85);
+  background: #f8fbff;
 }
 
 .summary-card__header {

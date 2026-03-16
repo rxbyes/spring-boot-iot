@@ -13,7 +13,7 @@ Build and maintain a modular IoT gateway platform with Spring Boot 4 + Java 17, 
 Phase 1-3 main flows are the long-term stability baseline. Phase 4 risk-platform capability is in progress but already has a usable real-environment baseline.
 
 ### Current reactor baseline
-The current parent `pom.xml` activates 10 modules:
+The current parent `pom.xml` activates 11 modules:
 - `spring-boot-iot-common`
 - `spring-boot-iot-framework`
 - `spring-boot-iot-auth`
@@ -21,11 +21,12 @@ The current parent `pom.xml` activates 10 modules:
 - `spring-boot-iot-device`
 - `spring-boot-iot-protocol`
 - `spring-boot-iot-message`
+- `spring-boot-iot-rule`
 - `spring-boot-iot-alarm`
 - `spring-boot-iot-report`
 - `spring-boot-iot-admin`
 
-The repository still contains additional module directories such as `spring-boot-iot-gateway`, `spring-boot-iot-rule`, `spring-boot-iot-telemetry`, and `spring-boot-iot-ota`, but the active reactor is defined by the current parent `pom.xml`.
+The repository still contains additional module directories such as `spring-boot-iot-gateway`, `spring-boot-iot-telemetry`, and `spring-boot-iot-ota`, but the active reactor is defined by the current parent `pom.xml`.
 
 ### Verified business baseline
 The current verified baseline includes:
@@ -150,11 +151,11 @@ When environment access is blocked, report the environment blocker explicitly. D
 6. mention which docs were updated, including any updates to `README.md` and `AGENTS.md`
 
 ## Preferred commands
-- build: `mvn clean package -DskipTests`
-- run app: `mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
+- build: `mvn -s .mvn/settings.xml clean package -DskipTests`
+- run app: `mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
 - backend acceptance: `powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1`
 - frontend acceptance: `powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1`
-- test: `mvn test`
+- test: `mvn -s .mvn/settings.xml test`
 
 ## Phase execution order
 ### Phase 1
@@ -228,3 +229,9 @@ When environment access is blocked, report the environment blocker explicitly. D
 ## Known environment note
 - `DeviceMessageServiceImplTest` may still fail on some JDK 17 environments because Mockito inline mock maker cannot self-attach its ByteBuddy agent.
 - Treat that as a local test environment issue unless there is evidence of a real business regression.
+
+## Auth baseline note (2026-03-16)
+- `/api/auth/login` is the default login entry for web clients.
+- `/message/http/report`, `/api/cockpit/**`, actuator and swagger/doc endpoints remain public.
+- Other APIs are protected by JWT Bearer authentication by default.
+- Frontend should attach `Authorization: Bearer <token>` after login and clear local auth state on `401`.

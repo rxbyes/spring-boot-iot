@@ -37,9 +37,9 @@ async function copyToClipboard() {
   padding: 1rem;
   overflow: auto;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(67, 98, 148, 0.4);
-  background: rgba(3, 8, 18, 0.92);
-  color: var(--text-primary);
+  border: 1px solid rgba(51, 72, 104, 0.2);
+  background: linear-gradient(180deg, #f9fbff, #f3f7fe);
+  color: #1f2a3d;
   font-size: 0.86rem;
   line-height: 1.65;
   font-family: var(--font-mono);

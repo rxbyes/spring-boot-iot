@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="cockpit-page">
     <!-- 顶部导航栏 -->
     <div class="cockpit-header">
@@ -103,13 +103,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import type { ECharts } from 'echarts/core';
+import { LineChart, PieChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import { ElMessage } from 'element-plus';
 import { ArrowRight } from '@element-plus/icons-vue';
 import MetricCard from '../components/MetricCard.vue';
 import { recordActivity } from '../stores/activity';
 import { getCockpitData, getRiskTrendData, getRiskDistributionData, getWarningStatusData, getRecentActivities } from '@/api/cockpit';
 import { usePermissionStore } from '../stores/permission';
+
+echarts.use([LineChart, PieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
 const router = useRouter();
 const permissionStore = usePermissionStore();
@@ -234,8 +240,8 @@ const recentActivities = [
 // 图表引用
 const trendChartRef = ref<HTMLElement | null>(null);
 const distributionChartRef = ref<HTMLElement | null>(null);
-let trendChart: echarts.ECharts | null = null;
-let distributionChart: echarts.ECharts | null = null;
+let trendChart: ECharts | null = null;
+let distributionChart: ECharts | null = null;
 
 // 初始化风险趋势图
 const initTrendChart = () => {
@@ -246,24 +252,24 @@ const initTrendChart = () => {
   const option = {
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(15, 23, 42, 0.95)',
-      borderColor: 'rgba(57, 241, 255, 0.3)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: 'rgba(55, 78, 112, 0.2)',
       borderWidth: 1,
-      textStyle: { color: '#e2e8f0' }
+      textStyle: { color: '#1f2a3d' }
     },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
-      axisLine: { lineStyle: { color: 'rgba(57, 241, 255, 0.2)' } },
-      axisLabel: { color: '#94a3b8' }
+      axisLine: { lineStyle: { color: 'rgba(67, 98, 148, 0.24)' } },
+      axisLabel: { color: '#6c7e97' }
     },
     yAxis: {
       type: 'value',
-      splitLine: { lineStyle: { color: 'rgba(57, 241, 255, 0.1)' } },
-      axisLine: { lineStyle: { color: 'rgba(57, 241, 255, 0.2)' } },
-      axisLabel: { color: '#94a3b8' }
+      splitLine: { lineStyle: { color: 'rgba(67, 98, 148, 0.14)' } },
+      axisLine: { lineStyle: { color: 'rgba(67, 98, 148, 0.24)' } },
+      axisLabel: { color: '#6c7e97' }
     },
     series: [
       {
@@ -313,10 +319,10 @@ const initDistributionChart = () => {
   const option = {
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(15, 23, 42, 0.95)',
-      borderColor: 'rgba(57, 241, 255, 0.3)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: 'rgba(55, 78, 112, 0.2)',
       borderWidth: 1,
-      textStyle: { color: '#e2e8f0' }
+      textStyle: { color: '#1f2a3d' }
     },
     legend: {
       orient: 'vertical',
@@ -324,7 +330,7 @@ const initDistributionChart = () => {
       itemGap: 12,
       itemWidth: 10,
       itemHeight: 10,
-      textStyle: { color: '#94a3b8', fontSize: 12 }
+      textStyle: { color: '#6c7e97', fontSize: 12 }
     },
     series: [
       {
@@ -335,16 +341,16 @@ const initDistributionChart = () => {
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 4,
-          borderColor: 'rgba(15, 23, 42, 0)',
+          borderColor: 'rgba(0, 0, 0, 0)',
           borderWidth: 2
         },
         label: { show: false },
-        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#e2e8f0' } },
+        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#1f2a3d' } },
         data: [
           { value: 35, name: '红色风险', itemStyle: { color: '#ff6d6d' } },
           { value: 28, name: '橙色风险', itemStyle: { color: '#ffb347' } },
           { value: 22, name: '黄色风险', itemStyle: { color: '#ffd666' } },
-          { value: 15, name: '蓝色风险', itemStyle: { color: '#52aaff' } }
+          { value: 15, name: '蓝色风险', itemStyle: { color: '#1e80ff' } }
         ]
       }
     ]
@@ -414,8 +420,8 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .header-left {
@@ -440,12 +446,12 @@ onUnmounted(() => {
 /* 角色切换 */
 :deep(.el-radio-group) {
   --el-radio-button-checked-text-color: var(--brand-bright);
-  --el-radio-button-checked-bg-color: rgba(57, 241, 255, 0.1);
+  --el-radio-button-checked-bg-color: rgba(255, 106, 0, 0.1);
   --el-radio-button-checked-border-color: var(--brand-bright);
 }
 
 :deep(.el-radio-button__inner) {
-  background: rgba(8, 13, 26, 0.9);
+  background: #ffffff;
   border: 1px solid var(--panel-border);
   border-radius: 0.75rem;
   padding: 0.6rem 1.2rem;
@@ -459,9 +465,9 @@ onUnmounted(() => {
 }
 
 :deep(.el-radio-button__orig-radio:checked + .el-radio-button__inner) {
-  background: rgba(57, 241, 255, 0.1);
+  background: rgba(255, 106, 0, 0.1);
   border-color: var(--brand-bright);
-  box-shadow: 0 0 12px rgba(57, 241, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
 }
 
 /* 四宫格指标 */
@@ -484,8 +490,8 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
-    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
+    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
 }
 
 .chart-title {
@@ -506,8 +512,8 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .section-title {
@@ -530,7 +536,7 @@ onUnmounted(() => {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
   cursor: pointer;
   transition: all 180ms ease;
 }
@@ -538,7 +544,7 @@ onUnmounted(() => {
 .action-card:hover {
   border-color: var(--brand-bright);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(57, 241, 255, 0.15);
+  box-shadow: 0 6px 16px rgba(255, 106, 0, 0.16);
 }
 
 .action-icon {
@@ -548,7 +554,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  background: rgba(57, 241, 255, 0.12);
+  background: rgba(255, 106, 0, 0.12);
   font-size: 1.5rem;
 }
 
@@ -580,8 +586,8 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
-    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
+    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
 }
 
 .ew-header {
@@ -601,7 +607,7 @@ onUnmounted(() => {
   padding: 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .ew-card__header {
@@ -638,8 +644,8 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .footer-section h4 {
@@ -660,7 +666,7 @@ onUnmounted(() => {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   border: 1px solid var(--panel-border);
-  background: rgba(57, 241, 255, 0.08);
+  background: rgba(255, 106, 0, 0.08);
   color: var(--brand-bright);
   font-size: 0.8rem;
 }
@@ -719,3 +725,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

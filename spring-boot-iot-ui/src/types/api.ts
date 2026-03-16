@@ -43,6 +43,20 @@ export interface Device {
   updateTime?: string | null;
 }
 
+export interface DeviceOption {
+  id: number;
+  productId?: number | null;
+  deviceCode: string;
+  deviceName: string;
+  onlineStatus?: number | null;
+}
+
+export interface DeviceMetricOption {
+  identifier: string;
+  name: string;
+  dataType?: string | null;
+}
+
 export interface DeviceProperty {
   id: number;
   identifier: string;

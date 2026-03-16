@@ -95,17 +95,19 @@
 1. `20260315_phase3_task1_command_record.sql`
 2. `20260315_phase4_task1_alarm_record.sql`
 3. `20260315_phase4_task3_risk_point.sql`
-4. `20260315_phase4_task4_rule_definition.sql`
-5. `20260315_phase4_task5_linkage_emergency.sql`
-6. `20260315_phase4_task6_system_management.sql`
-7. `20260315_phase4_task7_user_management.sql`
-8. `20260315_phase4_task8_role_permission.sql`
-9. `20260315_phase4_task9_dict.sql`
-10. `20260316_iot_message_log_view.sql`
+4. `20260316_phase4_task3_risk_monitoring_schema_sync.sql`
+5. `20260315_phase4_task4_rule_definition.sql`
+6. `20260315_phase4_task5_linkage_emergency.sql`
+7. `20260315_phase4_task6_system_management.sql`
+8. `20260315_phase4_task7_user_management.sql`
+9. `20260315_phase4_task8_role_permission.sql`
+10. `20260315_phase4_task9_dict.sql`
+11. `20260316_iot_message_log_view.sql`
 
 说明：
-- 第 10 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
-- 若真实环境已存在部分 Phase 4 表，请先核对表结构再执行，避免重复建表失败。
+- `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 用于修复共享开发库的早期 Phase 4 半升级状态：补齐 `risk_point.create_by` / `update_by`，并补建 `risk_point_device`。
+- 第 11 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
+- 若真实环境已存在部分 Phase 4 表，请先核对表结构再执行，避免重复建表失败；风险监测联调前至少确认 `risk_point`、`risk_point_device` 两张表与当前脚本一致。
 
 ## 一期最小闭环涉及表
 - `sys_user`

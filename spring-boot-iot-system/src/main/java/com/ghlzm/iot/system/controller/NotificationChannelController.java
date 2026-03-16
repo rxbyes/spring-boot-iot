@@ -12,7 +12,7 @@ import java.util.List;
  * 通知渠道 Controller
  */
 @RestController
-@RequestMapping("/system/channel")
+@RequestMapping("/api/system/channel")
 public class NotificationChannelController {
 
       @Autowired

@@ -25,9 +25,11 @@ defineProps<{
 <style scoped>
 .panel-card {
   border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
   background:
-    linear-gradient(180deg, rgba(10, 16, 34, 0.92), rgba(6, 10, 22, 0.88)),
-    radial-gradient(circle at top left, rgba(42, 185, 255, 0.12), transparent 40%);
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95)),
+    radial-gradient(circle at top left, rgba(255, 106, 0, 0.1), transparent 42%);
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-card :deep(.el-card__body) {

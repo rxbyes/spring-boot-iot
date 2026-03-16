@@ -21,8 +21,8 @@ public class DeviceMessageLogController {
         this.deviceMessageService = deviceMessageService;
     }
 
-    @GetMapping("/device/{deviceCode}/message-logs")
-    public R<List<DeviceMessageLog>> getLogs(@PathVariable("deviceCode") String deviceCode) {
+    @GetMapping("/api/device/{deviceCode}/message-logs")
+    public R<List<DeviceMessageLog>> getLogs(@PathVariable String deviceCode) {
         return R.ok(deviceMessageService.listMessageLogs(deviceCode));
     }
 }

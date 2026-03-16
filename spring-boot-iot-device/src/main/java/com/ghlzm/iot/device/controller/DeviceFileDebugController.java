@@ -22,13 +22,13 @@ public class DeviceFileDebugController {
         this.deviceFileService = deviceFileService;
     }
 
-    @GetMapping("/device/{deviceCode}/file-snapshots")
-    public R<List<DeviceFileSnapshotVO>> getFileSnapshots(@PathVariable("deviceCode") String deviceCode) {
+    @GetMapping("/api/device/{deviceCode}/file-snapshots")
+    public R<List<DeviceFileSnapshotVO>> getFileSnapshots(@PathVariable String deviceCode) {
         return R.ok(deviceFileService.listFileSnapshots(deviceCode));
     }
 
-    @GetMapping("/device/{deviceCode}/firmware-aggregates")
-    public R<List<DeviceFirmwareAggregateVO>> getFirmwareAggregates(@PathVariable("deviceCode") String deviceCode) {
+    @GetMapping("/api/device/{deviceCode}/firmware-aggregates")
+    public R<List<DeviceFirmwareAggregateVO>> getFirmwareAggregates(@PathVariable String deviceCode) {
         return R.ok(deviceFileService.listFirmwareAggregates(deviceCode));
     }
 }

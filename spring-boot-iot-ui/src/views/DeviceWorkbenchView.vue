@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-stack">
     <section class="hero-grid">
       <div class="hero-panel operations-shell">
@@ -591,7 +591,7 @@ async function handleQueryByCode() {
   padding: 1rem 1.1rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(82, 174, 255, 0.24);
-  background: rgba(7, 12, 22, 0.82);
+  background: #f8fbff;
 }
 
 .ops-status p,
@@ -656,7 +656,7 @@ async function handleQueryByCode() {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .focus-list__item {
@@ -673,7 +673,7 @@ async function handleQueryByCode() {
   min-width: 2.2rem;
   height: 2.2rem;
   border-radius: 0.9rem;
-  background: rgba(43, 227, 255, 0.12);
+  background: rgba(30, 128, 255, 0.12);
   color: var(--brand-bright);
   font-family: var(--font-mono);
 }
@@ -727,3 +727,4 @@ async function handleQueryByCode() {
   }
 }
 </style>
+

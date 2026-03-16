@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="risk-workbench-page">
     <!-- 顶部导航栏 -->
     <div class="workbench-header">
@@ -584,8 +584,8 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .header-left {
@@ -610,12 +610,12 @@ onMounted(() => {
 /* 角色切换 */
 :deep(.el-radio-group) {
   --el-radio-button-checked-text-color: var(--brand-bright);
-  --el-radio-button-checked-bg-color: rgba(57, 241, 255, 0.1);
+  --el-radio-button-checked-bg-color: rgba(255, 106, 0, 0.1);
   --el-radio-button-checked-border-color: var(--brand-bright);
 }
 
 :deep(.el-radio-button__inner) {
-  background: rgba(8, 13, 26, 0.9);
+  background: #ffffff;
   border: 1px solid var(--panel-border);
   border-radius: 0.75rem;
   padding: 0.6rem 1.2rem;
@@ -629,9 +629,9 @@ onMounted(() => {
 }
 
 :deep(.el-radio-button__orig-radio:checked + .el-radio-button__inner) {
-  background: rgba(57, 241, 255, 0.1);
+  background: rgba(255, 106, 0, 0.1);
   border-color: var(--brand-bright);
-  box-shadow: 0 0 12px rgba(57, 241, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
 }
 
 /* 风险等级横幅 */
@@ -644,8 +644,8 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid rgba(82, 174, 255, 0.24);
   background:
-    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
-    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
+    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
 }
 
 .banner-content {
@@ -749,8 +749,8 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(160deg, rgba(10, 18, 38, 0.94), rgba(7, 12, 25, 0.88)),
-    radial-gradient(circle at top right, rgba(44, 227, 255, 0.12), transparent 50%);
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
+    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
 }
 
 .section-title {
@@ -769,7 +769,7 @@ onMounted(() => {
   padding: 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .reason-header {
@@ -792,7 +792,7 @@ onMounted(() => {
   color: var(--text-tertiary);
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  background: rgba(57, 241, 255, 0.08);
+  background: rgba(255, 106, 0, 0.08);
   color: var(--brand-bright);
 }
 
@@ -808,8 +808,8 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .access-grid {
@@ -825,7 +825,7 @@ onMounted(() => {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
   cursor: pointer;
   transition: all 180ms ease;
 }
@@ -833,7 +833,7 @@ onMounted(() => {
 .action-card:hover {
   border-color: var(--brand-bright);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(57, 241, 255, 0.15);
+  box-shadow: 0 6px 16px rgba(255, 106, 0, 0.16);
 }
 
 .action-icon {
@@ -843,7 +843,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  background: rgba(57, 241, 255, 0.12);
+  background: rgba(255, 106, 0, 0.12);
   font-size: 1.5rem;
 }
 
@@ -883,8 +883,8 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(140deg, rgba(8, 13, 28, 0.95), rgba(5, 9, 18, 0.88)),
-    radial-gradient(circle at 85% 20%, rgba(57, 241, 255, 0.16), transparent 28%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
+    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
 }
 
 .footer-section h4 {
@@ -908,7 +908,7 @@ onMounted(() => {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .action-badge {
@@ -918,7 +918,7 @@ onMounted(() => {
   min-width: 2.2rem;
   height: 2.2rem;
   border-radius: 0.9rem;
-  background: rgba(43, 227, 255, 0.12);
+  background: rgba(30, 128, 255, 0.12);
   color: var(--brand-bright);
   font-family: var(--font-mono);
   flex-shrink: 0;
@@ -941,7 +941,7 @@ onMounted(() => {
   padding: 0.9rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .info-chip span {
@@ -975,7 +975,7 @@ onMounted(() => {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .highlight-card span,
@@ -1030,7 +1030,7 @@ onMounted(() => {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(7, 12, 22, 0.88);
+  background: #f8fbff;
 }
 
 .timeline-item h3 {
@@ -1092,3 +1092,4 @@ onMounted(() => {
   }
 }
 </style>
+

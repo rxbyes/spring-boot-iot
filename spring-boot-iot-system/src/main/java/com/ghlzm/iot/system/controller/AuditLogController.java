@@ -12,7 +12,7 @@ import java.util.List;
  * 审计日志 Controller
  */
 @RestController
-@RequestMapping("/system/audit-log")
+@RequestMapping("/api/system/audit-log")
 public class AuditLogController {
 
       @Autowired

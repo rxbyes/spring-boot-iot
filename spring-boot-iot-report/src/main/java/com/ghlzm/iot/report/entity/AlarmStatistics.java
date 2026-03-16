@@ -5,26 +5,22 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 告警统计实体
+ * Alarm statistics and trend point payload.
  */
 @Data
 public class AlarmStatistics implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 日期
-     */
     private String date;
-
-    /**
-     * 告警数量
-     */
     private Integer count;
-
-    /**
-     * 不同等级的告警数量
-     */
+    private Integer total;
+    private Integer alarmCount;
+    private Integer eventCount;
     private Integer criticalCount;
     private Integer warningCount;
     private Integer infoCount;
+    private Integer critical;
+    private Integer high;
+    private Integer medium;
+    private Integer low;
 }

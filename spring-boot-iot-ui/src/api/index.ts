@@ -1,4 +1,5 @@
-export { request, RequestOptions, interceptorManager } from './request';
+export { request, interceptorManager } from './request';
+export type { RequestOptions } from './request';
 export {
   // 拦截器
   authRequestInterceptor,

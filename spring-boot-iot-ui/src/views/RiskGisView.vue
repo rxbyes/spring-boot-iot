@@ -220,10 +220,10 @@ function renderChart() {
     },
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(7, 12, 24, 0.94)',
-      borderColor: 'rgba(77, 225, 255, 0.24)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: 'rgba(55, 78, 112, 0.2)',
       textStyle: {
-        color: '#eef5ff'
+        color: '#1f2a3d'
       },
       formatter: (params: { data: { name: string; value: number[]; riskLevel?: string; regionName?: string; deviceCount: number; onlineDeviceCount: number; activeAlarmCount: number } }) => {
         const point = params.data;
@@ -243,11 +243,11 @@ function renderChart() {
       type: 'value',
       name: '经度',
       axisLabel: {
-        color: '#7284a5'
+        color: '#6c7e97'
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.2)'
+          color: 'rgba(67, 98, 148, 0.14)'
         }
       }
     },
@@ -255,11 +255,11 @@ function renderChart() {
       type: 'value',
       name: '纬度',
       axisLabel: {
-        color: '#7284a5'
+        color: '#6c7e97'
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.2)'
+          color: 'rgba(67, 98, 148, 0.14)'
         }
       }
     },
@@ -270,8 +270,8 @@ function renderChart() {
         symbolSize: (value: number[], params: { data: { symbolSize: number } }) => params.data.symbolSize,
         itemStyle: {
           color: (params: { data: { riskLevel?: string } }) => riskLevelColor(params.data.riskLevel),
-          shadowBlur: 14,
-          shadowColor: 'rgba(0, 0, 0, 0.35)'
+          shadowBlur: 12,
+          shadowColor: 'rgba(255, 106, 0, 0.22)'
         }
       }
     ]
@@ -344,9 +344,9 @@ function riskLevelColor(value?: string | null) {
       return '#f5b440';
     case 'INFO':
     case 'LOW':
-      return '#33e9a7';
+      return '#13b38b';
     default:
-      return '#39f1ff';
+      return '#1e80ff';
   }
 }
 </script>
@@ -386,7 +386,7 @@ function riskLevelColor(value?: string | null) {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(5, 9, 18, 0.85);
+  background: #f8fbff;
 }
 
 .unlocated-card__header {
