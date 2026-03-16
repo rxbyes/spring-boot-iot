@@ -85,6 +85,14 @@
 ### `emergency_plan`
 应急预案表，记录风险级别、适用场景、处置步骤等。
 
+### `sys_menu` / `sys_role_menu` / `sys_user_role`
+系统菜单、角色菜单、用户角色关系表。
+
+说明：
+- `sys_menu.meta_json` 用于承载前端一级导航、二级导航、提示文案等 UI 元数据。
+- `sys_menu.type = 2` 代表按钮权限，`menu_code` 作为前端 `v-permission` 与后端授权判断的统一权限码。
+- `20260316_phase4_task10_dynamic_menu_auth.sql` 会初始化五类基础角色：`业务人员`、`管理人员`、`运维人员`、`开发人员`、`超级管理人员`。
+
 ## 初始化与升级顺序
 ### 初始化
 1. 执行 [sql/init.sql](../sql/init.sql)
@@ -96,17 +104,21 @@
 2. `20260315_phase4_task1_alarm_record.sql`
 3. `20260315_phase4_task3_risk_point.sql`
 4. `20260316_phase4_task3_risk_monitoring_schema_sync.sql`
-5. `20260315_phase4_task4_rule_definition.sql`
-6. `20260315_phase4_task5_linkage_emergency.sql`
-7. `20260315_phase4_task6_system_management.sql`
-8. `20260315_phase4_task7_user_management.sql`
-9. `20260315_phase4_task8_role_permission.sql`
-10. `20260315_phase4_task9_dict.sql`
-11. `20260316_iot_message_log_view.sql`
+5. `20260316_phase4_real_env_schema_alignment.sql`
+6. `20260315_phase4_task4_rule_definition.sql`
+7. `20260315_phase4_task5_linkage_emergency.sql`
+8. `20260315_phase4_task6_system_management.sql`
+9. `20260315_phase4_task7_user_management.sql`
+10. `20260315_phase4_task8_role_permission.sql`
+11. `20260315_phase4_task9_dict.sql`
+12. `20260316_phase4_task10_dynamic_menu_auth.sql`
+13. `20260316_iot_message_log_view.sql`
 
 说明：
 - `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 用于修复共享开发库的早期 Phase 4 半升级状态：补齐 `risk_point.create_by` / `update_by`，并补建 `risk_point_device`。
-- 第 11 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
+- `20260316_phase4_real_env_schema_alignment.sql` 用于补齐真实库历史缺列/缺表与旧版强约束差异（含 `sys_notification_channel`、`sys_audit_log` 兼容字段，以及 `rule_code` / `plan_code` 允许 `NULL` 的兼容改造）。
+- `20260316_phase4_task10_dynamic_menu_auth.sql` 用于补齐 `sys_menu.meta_json`、动态菜单树、按钮权限码以及五类默认角色授权关系。
+- 第 13 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
 - 若真实环境已存在部分 Phase 4 表，请先核对表结构再执行，避免重复建表失败；风险监测联调前至少确认 `risk_point`、`risk_point_device` 两张表与当前脚本一致。
 
 ## 一期最小闭环涉及表

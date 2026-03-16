@@ -1,5 +1,6 @@
 package com.ghlzm.iot.auth.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 /**
  * Author rxbyes
@@ -18,6 +19,7 @@ public class LoginDTO {
 
     private String phone;
 
+    @NotBlank
     private String password;
 }
 

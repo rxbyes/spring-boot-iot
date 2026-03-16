@@ -3,77 +3,61 @@ package com.ghlzm.iot.system.controller;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.Role;
 import com.ghlzm.iot.system.service.RoleService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 角色 Controller
- */
-@Slf4j
 @RestController
 @RequestMapping("/api/role")
 public class RoleController {
 
-      @Autowired
-      private RoleService roleService;
+      private final RoleService roleService;
 
-      /**
-       * 添加角色
-       */
+      public RoleController(RoleService roleService) {
+            this.roleService = roleService;
+      }
+
       @PostMapping("/add")
       public R<Void> addRole(@RequestBody Role role) {
             roleService.addRole(role);
             return R.ok();
       }
 
-      /**
-       * 查询角色列表
-       */
       @GetMapping("/list")
       public R<List<Role>> listRoles(
                   @RequestParam(required = false) String roleName,
                   @RequestParam(required = false) String roleCode,
                   @RequestParam(required = false) Integer status) {
-            List<Role> roles = roleService.listRoles(roleName, roleCode, status);
-            return R.ok(roles);
+            return R.ok(roleService.listRoles(roleName, roleCode, status));
       }
 
-      /**
-       * 根据ID查询角色
-       */
       @GetMapping("/{id}")
       public R<Role> getById(@PathVariable Long id) {
-            Role role = roleService.getById(id);
-            return R.ok(role);
+            return R.ok(roleService.getById(id));
       }
 
-      /**
-       * 更新角色
-       */
       @PutMapping("/update")
       public R<Void> updateRole(@RequestBody Role role) {
             roleService.updateRole(role);
             return R.ok();
       }
 
-      /**
-       * 删除角色
-       */
       @DeleteMapping("/{id}")
       public R<Void> deleteRole(@PathVariable Long id) {
             roleService.deleteRole(id);
             return R.ok();
       }
 
-      /**
-       * 查询用户角色列表
-       */
       @GetMapping("/user/{userId}")
       public R<List<Role>> listUserRoles(@PathVariable Long userId) {
-            List<Role> roles = roleService.listUserRoles(userId);
-            return R.ok(roles);
+            return R.ok(roleService.listUserRoles(userId));
       }
 }

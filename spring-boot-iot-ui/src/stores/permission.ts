@@ -1,19 +1,11 @@
-﻿import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
+import { defineStore } from 'pinia';
 
-// 用户角色类型
-export type UserRole = 'field' | 'ops' | 'manager';
-
-export interface PermissionConfig {
-  role: UserRole;
-  name: string;
-  description: string;
-  menus: string[];
-  actions: string[];
-}
+import { getCurrentUser } from '../api/auth';
+import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 
 const ACCESS_TOKEN_KEY = 'spring-boot-iot.access-token';
-const USER_INFO_KEY = 'spring-boot-iot.user-info';
+const AUTH_CONTEXT_KEY = 'spring-boot-iot.auth-context';
 
 function readStorage(key: string): string {
   if (typeof window === 'undefined') {
@@ -36,144 +28,202 @@ function removeStorage(key: string): void {
   window.localStorage.removeItem(key);
 }
 
+function normalizePath(path?: string | null): string {
+  const normalized = (path || '').trim().replace(/\/+$/, '');
+  return normalized || '/';
+}
+
+function parseStoredAuthContext(): UserAuthContext | null {
+  const raw = readStorage(AUTH_CONTEXT_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as UserAuthContext;
+  } catch {
+    removeStorage(AUTH_CONTEXT_KEY);
+    return null;
+  }
+}
+
+function collectMenuPaths(menus: MenuTreeNode[]): string[] {
+  const pathSet = new Set<string>();
+
+  const visit = (nodes: MenuTreeNode[]) => {
+    nodes.forEach((node) => {
+      if (node.type !== 2 && node.path) {
+        pathSet.add(normalizePath(node.path));
+      }
+      if (node.children?.length) {
+        visit(node.children);
+      }
+    });
+  };
+
+  visit(menus);
+  return Array.from(pathSet);
+}
+
 export function getStoredAccessToken(): string {
   return readStorage(ACCESS_TOKEN_KEY);
 }
 
 export function clearStoredAuth(): void {
   removeStorage(ACCESS_TOKEN_KEY);
-  removeStorage(USER_INFO_KEY);
+  removeStorage(AUTH_CONTEXT_KEY);
 }
-
-interface UserInfo {
-  id: number;
-  username: string;
-  nickname: string;
-  role: UserRole;
-  avatar?: string;
-  permissions?: string[];
-}
-
-function resolveInitialUserInfo(): UserInfo | null {
-  const raw = readStorage(USER_INFO_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as UserInfo;
-  } catch {
-    return null;
-  }
-}
-
-export const PERMISSION_CONFIGS: Record<UserRole, PermissionConfig> = {
-  field: {
-    role: 'field',
-    name: '一线人员',
-    description: '负责风险监测、研判和处置',
-    menus: ['dashboard', 'insight', 'reporting'],
-    actions: ['view', 'report', 'generate_report']
-  },
-  ops: {
-    role: 'ops',
-    name: '运维人员',
-    description: '负责设备运维、远程控制和参数配置',
-    menus: ['dashboard', 'devices', 'config', 'debug'],
-    actions: ['view', 'control', 'configure', 'debug']
-  },
-  manager: {
-    role: 'manager',
-    name: '管理人员',
-    description: '负责整体态势监控、报告生成和数据分析',
-    menus: ['dashboard', 'reporting', 'analytics', 'settings'],
-    actions: ['view', 'analyze', 'generate', 'configure']
-  }
-};
 
 export const usePermissionStore = defineStore('permission', () => {
   const token = ref<string>(getStoredAccessToken());
-  const currentRole = ref<UserRole>('manager');
-  const userInfo = ref<UserInfo | null>(resolveInitialUserInfo());
-
-  if (userInfo.value?.role) {
-    currentRole.value = userInfo.value.role;
-  }
+  const authContext = ref<UserAuthContext | null>(parseStoredAuthContext());
+  const initialized = ref<boolean>(!token.value);
+  let initPromise: Promise<UserAuthContext | null> | null = null;
 
   const isLoggedIn = computed(() => Boolean(token.value));
-
-  const currentRoleConfig = computed(() => {
-    return PERMISSION_CONFIGS[currentRole.value];
+  const menus = computed(() => authContext.value?.menus || []);
+  const permissions = computed(() => authContext.value?.permissions || []);
+  const roleCodes = computed(() => authContext.value?.roleCodes || []);
+  const roleNames = computed(() => authContext.value?.roles.map((item) => item.roleName) || []);
+  const displayName = computed(() => {
+    if (!authContext.value) {
+      return '';
+    }
+    return authContext.value.displayName || authContext.value.realName || authContext.value.username;
+  });
+  const primaryRoleName = computed(() => roleNames.value[0] || '');
+  const homePath = computed(() => normalizePath(authContext.value?.homePath));
+  const allowedPaths = computed(() => collectMenuPaths(menus.value));
+  const userInfo = computed(() => {
+    if (!authContext.value) {
+      return null;
+    }
+    return {
+      id: authContext.value.userId,
+      username: authContext.value.username,
+      realName: authContext.value.realName,
+      displayName: displayName.value,
+      roleNames: roleNames.value,
+      roleCodes: roleCodes.value
+    };
   });
 
-  const hasPermission = (action: string): boolean => {
-    if (!isLoggedIn.value) {
-      return false;
-    }
-    return currentRoleConfig.value.actions.includes(action);
-  };
-
-  const hasMenuPermission = (menu: string): boolean => {
-    if (!isLoggedIn.value) {
-      return false;
-    }
-    return currentRoleConfig.value.menus.includes(menu);
-  };
-
-  const switchRole = (role: UserRole): void => {
-    currentRole.value = role;
-  };
-
-  // 登录成功后统一更新 token 和用户信息，保证刷新后仍能恢复会话。
-  const login = (user: UserInfo, accessToken?: string): void => {
-    userInfo.value = user;
-    currentRole.value = user.role;
-
-    if (accessToken) {
-      token.value = accessToken;
-      writeStorage(ACCESS_TOKEN_KEY, accessToken);
-    }
-    writeStorage(USER_INFO_KEY, JSON.stringify(user));
-  };
-
-  const setAccessToken = (accessToken: string): void => {
+  function setAccessToken(accessToken: string): void {
     token.value = accessToken;
     if (accessToken) {
       writeStorage(ACCESS_TOKEN_KEY, accessToken);
+      initialized.value = false;
       return;
     }
     removeStorage(ACCESS_TOKEN_KEY);
-  };
+  }
 
-  const logout = (): void => {
-    token.value = '';
-    userInfo.value = null;
-    currentRole.value = 'manager';
-    clearStoredAuth();
-  };
+  function setAuthContext(context: UserAuthContext | null): void {
+    authContext.value = context;
+    initialized.value = true;
 
-  const updateUserInfo = (user: Partial<UserInfo>): void => {
-    if (!userInfo.value) {
+    if (context) {
+      writeStorage(AUTH_CONTEXT_KEY, JSON.stringify(context));
       return;
     }
-    userInfo.value = { ...userInfo.value, ...user };
-    if (userInfo.value.role) {
-      currentRole.value = userInfo.value.role;
+
+    removeStorage(AUTH_CONTEXT_KEY);
+  }
+
+  function login(result: LoginResult): void {
+    setAccessToken(result.token);
+    setAuthContext(result.authContext);
+  }
+
+  function logout(): void {
+    token.value = '';
+    authContext.value = null;
+    initialized.value = true;
+    clearStoredAuth();
+  }
+
+  async function fetchCurrentUser(): Promise<UserAuthContext | null> {
+    if (!token.value) {
+      setAuthContext(null);
+      return null;
     }
-    writeStorage(USER_INFO_KEY, JSON.stringify(userInfo.value));
-  };
+
+    const response = await getCurrentUser();
+    setAuthContext(response.data);
+    return response.data;
+  }
+
+  async function ensureInitialized(force = false): Promise<UserAuthContext | null> {
+    if (!token.value) {
+      initialized.value = true;
+      return null;
+    }
+
+    if (!force && initialized.value && authContext.value) {
+      return authContext.value;
+    }
+
+    if (!force && initPromise) {
+      return initPromise;
+    }
+
+    initPromise = fetchCurrentUser()
+      .catch((error) => {
+        logout();
+        throw error;
+      })
+      .finally(() => {
+        initPromise = null;
+      });
+
+    return initPromise;
+  }
+
+  function hasPermission(permissionCode?: string): boolean {
+    if (!permissionCode) {
+      return true;
+    }
+    if (!isLoggedIn.value || !authContext.value) {
+      return false;
+    }
+    return authContext.value.superAdmin || permissions.value.includes(permissionCode);
+  }
+
+  function hasRoutePermission(path: string): boolean {
+    const normalizedPath = normalizePath(path);
+    if (normalizedPath === '/') {
+      return true;
+    }
+    if (!isLoggedIn.value || !authContext.value) {
+      return false;
+    }
+    if (authContext.value.superAdmin) {
+      return true;
+    }
+    return allowedPaths.value.includes(normalizedPath);
+  }
 
   return {
     token,
-    currentRole,
-    currentRoleConfig,
+    authContext,
+    initialized,
     isLoggedIn,
+    menus,
+    permissions,
+    roleCodes,
+    roleNames,
+    displayName,
+    primaryRoleName,
+    homePath,
+    allowedPaths,
     userInfo,
-    hasPermission,
-    hasMenuPermission,
-    switchRole,
-    login,
     setAccessToken,
+    setAuthContext,
+    login,
     logout,
-    updateUserInfo
+    fetchCurrentUser,
+    ensureInitialized,
+    hasPermission,
+    hasRoutePermission
   };
 });

@@ -73,6 +73,7 @@ public class EventRecordServiceImpl extends ServiceImpl<EventRecordMapper, Event
         workOrder.setEventId(event.getId());
         workOrder.setEventCode(event.getEventCode());
         workOrder.setWorkOrderCode("WO-" + LocalDateTime.now().toString().replace("-", "").replace(":", "").replace("T", "") + (int)(Math.random() * 1000));
+        workOrder.setWorkOrderType("event-dispatch");
         workOrder.setAssignUser(dispatchUser);
         workOrder.setReceiveUser(receiveUser);
         workOrder.setStatus(0); // 0-待接收

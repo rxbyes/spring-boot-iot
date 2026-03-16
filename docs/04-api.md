@@ -454,6 +454,24 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 }
 ```
 
+账号密码模式说明：
+- `loginType` 缺省或传 `account` 时，按 `username + password` 校验。
+- 当前前端登录页路由为 `/login`，对应“账号密码登录”Tab。
+
+手机号模式请求体：
+```json
+{
+  "loginType": "phone",
+  "phone": "13800138000",
+  "password": "123456"
+}
+```
+
+手机号模式说明：
+- 当前共享环境使用“手机号 + 系统密码”统一登录，不引入短信验证码服务。
+- 后端会先按 `phone` 查询 `sys_user`，再复用同一套密码校验与 JWT 签发逻辑。
+- 登录页左侧已提供微信扫码视觉入口，但当前共享环境尚未接入微信开放平台回调与票据校验，因此该模式暂为接入占位，不计入真实环境验收通过项。
+
 成功响应示例：
 ```json
 {
@@ -466,10 +484,46 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
     "tokenHeader": "Authorization",
     "userId": 1,
     "username": "admin",
-    "realName": "管理员"
+    "realName": "管理员",
+    "authContext": {
+      "userId": 1,
+      "username": "admin",
+      "realName": "管理员",
+      "displayName": "管理员",
+      "superAdmin": true,
+      "homePath": "/products",
+      "roleCodes": ["SUPER_ADMIN"],
+      "permissions": ["system:user:add", "system:user:update", "system:role:add"],
+      "roles": [
+        {
+          "id": 92000005,
+          "roleCode": "SUPER_ADMIN",
+          "roleName": "超级管理人员"
+        }
+      ],
+      "menus": [
+        {
+          "id": 93000001,
+          "menuName": "设备接入",
+          "menuCode": "iot-access",
+          "type": 0,
+          "meta": {
+            "description": "接入与运维",
+            "menuTitle": "设备接入与运维",
+            "menuHint": "管理产品模板、设备台账、上报回放与设备侧联调能力。"
+          },
+          "children": []
+        }
+      ]
+    }
   }
 }
 ```
+
+补充说明：
+- 登录成功后，前端应直接持久化 `token` 与 `authContext`。
+- `authContext.menus` 为当前用户已授权的导航树；前端不再内置固定角色菜单。
+- `authContext.permissions` 为当前用户按钮级权限码，当前用于 `v-permission`。
 
 ### 当前登录用户
 `GET /api/auth/me`
@@ -488,6 +542,16 @@ Authorization: Bearer <jwt-token>
 }
 ```
 
+成功时返回与登录响应中的 `authContext` 同结构数据，用于刷新页面后重新恢复当前用户菜单、角色和按钮权限。
+
+### 菜单树
+`GET /api/menu/tree`
+
+说明：
+- 返回完整启用菜单树，供角色管理页做菜单授权。
+- `type = 0/1` 为目录或页面，`type = 2` 为按钮权限。
+- `meta_json` 会解析为 `meta` 对象返回。
+
 ### 鉴权规则
 - 以下接口免登录：
   - `/api/auth/login`
@@ -496,6 +560,8 @@ Authorization: Bearer <jwt-token>
   - `/actuator/**`
   - `/doc.html`、`/swagger-ui/**`、`/v3/api-docs/**`
 - 其余接口默认需要 `Authorization: Bearer <jwt-token>`
+- 前端未登录访问受保护页面时，会统一跳转到 `/login`
+- 前端登录后，顶部导航、左侧菜单、按钮权限均应以 `authContext` 为准，不再以页面硬编码角色配置为准
 ## Phase 4 风险监测 API
 
 ### 实时监测列表

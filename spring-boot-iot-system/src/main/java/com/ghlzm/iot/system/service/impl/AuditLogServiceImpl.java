@@ -63,7 +63,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
 
       @Override
       public AuditLog getById(Long id) {
-            return this.getById(id);
+            return super.getById(id);
       }
 
       @Override

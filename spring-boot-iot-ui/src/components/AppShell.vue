@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="cloud-shell" :class="{ 'cloud-shell--collapsed': sidebarCollapsed, 'cloud-shell--mobile-open': mobileMenuOpen }">
     <a class="skip-link" href="#main-content">跳到主内容</a>
 
@@ -32,7 +32,7 @@
         </label>
 
         <div class="header-status">
-          <span class="status-chip status-chip--brand">商业化首页</span>
+          <span class="status-chip status-chip--brand">动态权限菜单</span>
           <span class="status-chip">{{ headerIdentity }}</span>
         </div>
       </div>
@@ -94,16 +94,21 @@
             </div>
 
             <div class="console-toolbar__actions">
-              <el-button class="toolbar-button toolbar-button--ghost" @click="showAccessPanel = !showAccessPanel">
+              <button
+                type="button"
+                class="toolbar-button toolbar-button--ghost"
+                @click="showAccessPanel = !showAccessPanel"
+              >
                 {{ showAccessPanel ? '收起接入设置' : '接入设置' }}
-              </el-button>
-              <el-button
+              </button>
+              <button
                 v-if="permissionStore.isLoggedIn"
+                type="button"
                 class="toolbar-button"
                 @click="handleLogout"
               >
                 退出登录
-              </el-button>
+              </button>
             </div>
           </div>
         </section>
@@ -112,48 +117,36 @@
           <section v-if="showAccessPanel" class="console-settings">
             <div class="console-settings__intro">
               <p>接入配置</p>
-              <h2>开发联调能力已收纳到次级面板，不再占据首页主视图。</h2>
+              <h2>权限与菜单来自真实数据库，前端不再内置角色菜单硬编码。</h2>
               <span>{{ environmentValue }}</span>
             </div>
 
             <div class="console-settings__content">
               <label class="toolbar-field toolbar-field--wide">
                 <span>接入地址</span>
-                <el-input
+                <input
                   v-model="baseUrlDraft"
+                  class="toolbar-input"
                   name="api_base_url"
+                  type="url"
                   autocomplete="url"
                   spellcheck="false"
                   placeholder="留空使用当前站点同源地址，或填写外部网关地址"
-                  @keyup.enter="saveApiBaseUrl"
+                  @keydown.enter="saveApiBaseUrl"
                 />
               </label>
 
-              <el-button class="toolbar-button" type="primary" @click="saveApiBaseUrl">应用地址</el-button>
+              <button type="button" class="toolbar-button toolbar-button--primary" @click="saveApiBaseUrl">应用地址</button>
 
               <template v-if="!permissionStore.isLoggedIn">
-                <label class="toolbar-field">
-                  <span>账号</span>
-                  <el-input v-model="loginForm.username" placeholder="admin" />
-                </label>
-                <label class="toolbar-field">
-                  <span>密码</span>
-                  <el-input
-                    v-model="loginForm.password"
-                    type="password"
-                    show-password
-                    placeholder="123456"
-                    @keyup.enter="handleLogin"
-                  />
-                </label>
-                <el-button class="toolbar-button toolbar-button--success" type="success" :loading="loginLoading" @click="handleLogin">
-                  登录
-                </el-button>
+                <button type="button" class="toolbar-button toolbar-button--success" @click="goToLogin">
+                  前往登录
+                </button>
               </template>
 
               <div v-else class="logged-user-card">
-                <strong>{{ permissionStore.userInfo?.nickname || permissionStore.userInfo?.username }}</strong>
-                <span>已完成账号接入，可进入受保护工作台查看业务详情。</span>
+                <strong>{{ permissionStore.displayName || permissionStore.userInfo?.username }}</strong>
+                <span>{{ loggedUserHint }}</span>
               </div>
             </div>
           </section>
@@ -180,11 +173,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage } from '@/utils/message';
 
-import { login as loginApi } from '../api/auth';
 import { usePermissionStore } from '../stores/permission';
 import { runtimeState, setApiBaseUrl } from '../stores/runtime';
+import type { MenuTreeNode } from '../types/auth';
 import TabsView from './TabsView.vue';
 
 interface NavItem {
@@ -207,82 +200,94 @@ const route = useRoute();
 const router = useRouter();
 const permissionStore = usePermissionStore();
 
-const navigationGroups: NavGroup[] = [
-  {
-    key: 'overview',
-    label: '平台首页',
-    description: '态势总览',
-    menuTitle: '监测预警平台首页',
-    menuHint: '围绕业务态势、处置闭环和核心模块入口组织产品首页。',
-    items: [{ to: '/', label: '首页总览', caption: '平台定位、闭环路径与核心能力映射', short: '首' }]
-  },
-  {
-    key: 'iot-base',
-    label: '设备接入',
-    description: '接入与运维',
-    menuTitle: '设备接入与运维',
-    menuHint: '管理产品模板、设备台账、上报回放与设备侧联调能力。',
-    items: [
-      { to: '/products', label: '产品模板中心', caption: '产品模板建模、协议绑定与设备归属', short: '产' },
-      { to: '/devices', label: '设备运维中心', caption: '设备建档、在线状态核查与基础运维', short: '设' },
-      { to: '/reporting', label: '接入回放台', caption: 'HTTP 上报模拟、payload 回放与联调', short: '报' },
-      { to: '/insight', label: '风险点工作台', caption: '设备属性、消息日志与风险研判线索', short: '洞' },
-      { to: '/file-debug', label: '文件与固件校验', caption: '文件快照与固件聚合结果核验', short: '校' }
-    ]
-  },
-  {
-    key: 'risk-ops',
-    label: '预警处置',
-    description: '闭环与复盘',
-    menuTitle: '风险处置闭环',
-    menuHint: '覆盖告警、事件、风险点、规则、预案与分析报表。',
-    items: [
-      { to: '/alarm-center', label: '告警中心', caption: '告警列表、确认、抑制与关闭', short: '警' },
-      { to: '/event-disposal', label: '事件处置', caption: '工单派发、处置反馈与事件闭环', short: '事' },
-      { to: '/risk-point', label: '风险点管理', caption: '风险点建档、设备绑定与等级治理', short: '点' },
-      { to: '/rule-definition', label: '阈值规则配置', caption: '阈值规则维护与触发条件治理', short: '阈' },
-      { to: '/linkage-rule', label: '联动规则', caption: '触发条件与联动动作编排', short: '联' },
-      { to: '/emergency-plan', label: '应急预案', caption: '预案维护、步骤编排与响应协同', short: '预' },
-      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计与设备健康复盘', short: '报' }
-    ]
-  },
-  {
-    key: 'system',
-    label: '系统治理',
-    description: '组织与审计',
-    menuTitle: '组织治理与审计',
-    menuHint: '维护组织、用户、权限、区域、字典、通知和审计日志。',
-    items: [
-      { to: '/organization', label: '组织机构', caption: '组织树维护与责任主体管理', short: '组' },
-      { to: '/user', label: '用户管理', caption: '用户维护、状态管理与密码重置', short: '用' },
-      { to: '/role', label: '角色管理', caption: '角色维护与用户角色映射', short: '角' },
-      { to: '/region', label: '区域管理', caption: '区域树与业务区域归属维护', short: '区' },
-      { to: '/dict', label: '字典配置', caption: '字典类型与字典项配置', short: '字' },
-      { to: '/channel', label: '通知渠道', caption: '通知渠道配置、启停与测试', short: '通' },
-      { to: '/audit-log', label: '审计日志', caption: '关键操作记录审计与追踪', short: '审' }
-    ]
-  }
-];
+const guestGroup: NavGroup = {
+  key: 'guest-overview',
+  label: '平台首页',
+  description: '游客预览',
+  menuTitle: '监测预警平台首页',
+  menuHint: '未登录时仅开放首页预览与登录入口。',
+  items: [{ to: '/', label: '首页总览', caption: '平台定位、能力边界与登录入口说明', short: '首' }]
+};
 
-const flattenedItems = navigationGroups.flatMap((group) => group.items);
+function buildNavItem(node: MenuTreeNode): NavItem {
+  return {
+    to: node.path || '/',
+    label: node.menuName,
+    caption: node.meta?.caption || node.meta?.description || '基于角色动态装载的业务入口',
+    short: node.meta?.shortLabel || node.menuName.trim().slice(0, 1) || '导'
+  };
+}
 
-const activeGroup = computed(() => {
-  const group = navigationGroups.find((item) => item.items.some((navItem) => navItem.to === route.path));
-  return group || navigationGroups[0];
-});
+function collectGroupItems(node: MenuTreeNode): NavItem[] {
+  const items: NavItem[] = [];
+
+  const visit = (current: MenuTreeNode) => {
+    if (current.type !== 2 && current.path) {
+      items.push(buildNavItem(current));
+    }
+    current.children?.forEach((child) => {
+      if (child.type !== 2) {
+        visit(child);
+      }
+    });
+  };
+
+  visit(node);
+  return Array.from(new Map(items.map((item) => [item.to, item])).values());
+}
+
+function buildNavigationGroup(node: MenuTreeNode): NavGroup {
+  return {
+    key: node.menuCode || `menu-${node.id}`,
+    label: node.menuName,
+    description: node.meta?.description || '角色授权的一级导航分组',
+    menuTitle: node.meta?.menuTitle || node.menuName,
+    menuHint: node.meta?.menuHint || node.meta?.description || '根据当前账号角色动态加载可访问页面。',
+    items: collectGroupItems(node)
+  };
+}
 
 const searchKeyword = ref('');
 const baseUrlDraft = ref(runtimeState.apiBaseUrl);
-const loginForm = ref({
-  username: 'admin',
-  password: '123456'
-});
-const loginLoading = ref(false);
 const showAccessPanel = ref(false);
 
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
 const sidebarCollapsed = ref(false);
+
+const navigationGroups = computed<NavGroup[]>(() => {
+  if (!permissionStore.isLoggedIn) {
+    return [guestGroup];
+  }
+
+  const groups = permissionStore.menus
+    .map(buildNavigationGroup)
+    .filter((group) => group.items.length > 0);
+
+  if (groups.length > 0) {
+    return groups;
+  }
+
+  return [
+    {
+      key: 'empty-auth',
+      label: '未分配菜单',
+      description: '权限待配置',
+      menuTitle: '当前账号暂无业务菜单',
+      menuHint: '请联系超级管理员分配角色和菜单权限。',
+      items: [{ to: '/', label: '平台首页', caption: '可先查看首页与当前登录信息', short: '首' }]
+    }
+  ];
+});
+
+const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
+
+const activeGroup = computed(() => {
+  const matchedGroup = navigationGroups.value.find((group) => group.items.some((item) => item.to === route.path));
+  return matchedGroup || navigationGroups.value[0] || guestGroup;
+});
+
+const activeMenuItem = computed(() => flattenedItems.value.find((item) => item.to === route.path) || null);
 
 watch(
   () => runtimeState.apiBaseUrl,
@@ -301,20 +306,34 @@ watch(
   }
 );
 
-const activeTitle = computed(() => String(route.meta.title || '平台首页'));
-const activeDescription = computed(() => String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。'));
+const activeTitle = computed(() => activeMenuItem.value?.label || String(route.meta.title || '平台首页'));
+const activeDescription = computed(() => {
+  return activeMenuItem.value?.caption || String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。');
+});
 const headerIdentity = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '访客模式';
   }
-  return permissionStore.userInfo?.nickname || permissionStore.userInfo?.username || '已登录';
+  if (permissionStore.primaryRoleName) {
+    return `${permissionStore.displayName} · ${permissionStore.primaryRoleName}`;
+  }
+  return permissionStore.displayName || permissionStore.userInfo?.username || '已登录';
 });
 const environmentLabel = computed(() => (runtimeState.apiBaseUrl ? '外部网关接入' : '当前站点同源接入'));
 const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
-const authStatusLabel = computed(() => (permissionStore.isLoggedIn ? '已完成账号接入' : '未登录，仅开放首页预览'));
+const authStatusLabel = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '未登录，仅开放首页预览';
+  }
+  return `已登录 · ${permissionStore.roleNames.join(' / ') || '未分配角色'}`;
+});
+const loggedUserHint = computed(() => {
+  const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
+  return `当前角色：${roleText}，菜单与按钮权限均已按数据库授权动态生效。`;
+});
 
 function switchGroup(groupKey: string) {
-  const group = navigationGroups.find((item) => item.key === groupKey);
+  const group = navigationGroups.value.find((item) => item.key === groupKey);
   if (!group || group.items.length === 0) {
     return;
   }
@@ -332,7 +351,7 @@ function handleSearch() {
   }
 
   const lowerKeyword = keyword.toLowerCase();
-  const target = flattenedItems.find((item) => {
+  const target = flattenedItems.value.find((item) => {
     return item.label.toLowerCase().includes(lowerKeyword) || item.caption.toLowerCase().includes(lowerKeyword);
   });
 
@@ -347,6 +366,10 @@ function handleSearch() {
 function saveApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);
   ElMessage.success('接入地址已更新');
+}
+
+function goToLogin() {
+  router.push('/login');
 }
 
 function updateViewportState() {
@@ -368,45 +391,9 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value;
 }
 
-async function handleLogin() {
-  if (!loginForm.value.username || !loginForm.value.password) {
-    ElMessage.warning('请输入用户名和密码');
-    return;
-  }
-
-  loginLoading.value = true;
-  try {
-    const response = await loginApi({
-      username: loginForm.value.username,
-      password: loginForm.value.password
-    });
-    const data = response.data;
-    if (!data?.token) {
-      ElMessage.error('登录失败，未获取到 token');
-      return;
-    }
-
-    permissionStore.login(
-      {
-        id: Number(data.userId || 0),
-        username: data.username || loginForm.value.username,
-        nickname: data.realName || data.username || loginForm.value.username,
-        role: 'manager'
-      },
-      data.token
-    );
-    showAccessPanel.value = false;
-    ElMessage.success('登录成功');
-  } finally {
-    loginLoading.value = false;
-  }
-}
-
 function handleLogout() {
   permissionStore.logout();
-  if (route.meta.requiresAuth !== false) {
-    router.push('/');
-  }
+  router.push('/login');
   ElMessage.success('已退出登录');
 }
 
@@ -751,6 +738,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+  align-items: center;
 }
 
 .console-toolbar__heading {
@@ -871,6 +859,85 @@ onBeforeUnmount(() => {
   color: #8490a5;
 }
 
+.toolbar-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.68rem 0.85rem;
+  border: 1px solid #d5deeb;
+  border-radius: 0.62rem;
+  background: #fff;
+  color: #1f2a3d;
+  font-size: 0.92rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.toolbar-input::placeholder {
+  color: #8b97ab;
+}
+
+.toolbar-input:focus {
+  outline: none;
+  border-color: rgba(255, 106, 0, 0.48);
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
+}
+
+.toolbar-button {
+  min-height: 2.5rem;
+  padding: 0.62rem 1rem;
+  border: 1px solid #d8e0ec;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #43556d;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.toolbar-button:hover {
+  border-color: #c7d3e3;
+  background: #f8fbff;
+  box-shadow: 0 10px 20px rgba(31, 49, 90, 0.08);
+}
+
+.toolbar-button:focus-visible {
+  outline: none;
+  border-color: rgba(255, 106, 0, 0.48);
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.14);
+}
+
+.toolbar-button:active {
+  transform: translateY(1px);
+}
+
+.toolbar-button--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, #ff7b1a, #ff9b42);
+  color: #fff;
+}
+
+.toolbar-button--primary:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, #f47216, #ff9638);
+}
+
+.toolbar-button--success {
+  border-color: transparent;
+  background: linear-gradient(135deg, #1fa46d, #34c88d);
+  color: #fff;
+}
+
+.toolbar-button--success:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, #1c9a66, #2fbc84);
+}
+
 .logged-user-card {
   display: grid;
   gap: 0.18rem;
@@ -901,40 +968,6 @@ onBeforeUnmount(() => {
 .console-settings-leave-to {
   opacity: 0;
   transform: translateY(-8px);
-}
-
-.console-toolbar :deep(.el-input__wrapper),
-.console-settings :deep(.el-input__wrapper) {
-  background: #fff;
-  box-shadow: 0 0 0 1px #d5deeb inset;
-}
-
-.console-toolbar :deep(.el-input__wrapper.is-focus),
-.console-settings :deep(.el-input__wrapper.is-focus) {
-  box-shadow:
-    0 0 0 1px rgba(255, 106, 0, 0.48) inset,
-    0 0 0 3px rgba(255, 106, 0, 0.12);
-}
-
-.console-toolbar :deep(.el-button),
-.console-settings :deep(.el-button) {
-  border-radius: 0.55rem;
-  border-color: #d8e0ec;
-  color: #43556d;
-  background: #fff;
-}
-
-.console-toolbar :deep(.el-button--primary),
-.console-settings :deep(.el-button--primary) {
-  border-color: transparent;
-  color: #fff;
-  background: linear-gradient(135deg, #ff7b1a, #ff9b42);
-}
-
-.console-settings :deep(.el-button--success) {
-  border-color: transparent;
-  color: #fff;
-  background: linear-gradient(135deg, #1fa46d, #34c88d);
 }
 
 .toolbar-button--ghost {

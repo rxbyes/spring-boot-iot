@@ -3,10 +3,10 @@
     <div class="event-header">
       <h1>事件处置</h1>
       <div class="event-stats">
-        <el-statistic title="待派发事件" :value="stats.pendingEvents" />
-        <el-statistic title="已派发事件" :value="stats.dispatchedEvents" />
-        <el-statistic title="处理中事件" :value="stats.processingEvents" />
-        <el-statistic title="已关闭事件" :value="stats.closedEvents" />
+        <el-statistic title="待派发事�? :value="stats.pendingEvents" />
+        <el-statistic title="已派发事�? :value="stats.dispatchedEvents" />
+        <el-statistic title="处理中事�? :value="stats.processingEvents" />
+        <el-statistic title="已关闭事�? :value="stats.closedEvents" />
       </div>
     </div>
 
@@ -15,7 +15,7 @@
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="设备编码">
-              <el-input v-model="filters.deviceCode" placeholder="请输入设备编码" clearable />
+              <el-input v-model="filters.deviceCode" placeholder="请输入设备编�? clearable />
             </el-form-item>
           </el-col>
           <el-col :span="6">
@@ -28,13 +28,13 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
-                <el-option label="待派发" :value="0" />
-                <el-option label="已派发" :value="1" />
-                <el-option label="处理中" :value="2" />
-                <el-option label="待验收" :value="3" />
-                <el-option label="已关闭" :value="4" />
+            <el-form-item label="状�?>
+              <el-select v-model="filters.status" placeholder="请选择状�? clearable>
+                <el-option label="待派�? :value="0" />
+                <el-option label="已派�? :value="1" />
+                <el-option label="处理�? :value="2" />
+                <el-option label="待验�? :value="3" />
+                <el-option label="已关�? :value="4" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -58,11 +58,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="regionName" label="区域" width="120" />
-        <el-table-column prop="riskPointName" label="风险点" width="150" />
+        <el-table-column prop="riskPointName" label="风险�? width="150" />
         <el-table-column prop="deviceName" label="设备名称" width="150" />
         <el-table-column prop="metricName" label="测点名称" width="150" />
-        <el-table-column prop="currentValue" label="当前值" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="currentValue" label="当前�? width="120" />
+        <el-table-column prop="status" label="状�? width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
@@ -90,20 +90,20 @@
       />
     </div>
 
-    <!-- 事件详情对话框 -->
+    <!-- 事件详情对话�?-->
     <el-dialog v-model="detailVisible" title="事件详情" width="800px">
       <el-descriptions :column="2" border v-if="detail">
         <el-descriptions-item label="事件编号">{{ detail.eventCode || '-' }}</el-descriptions-item>
         <el-descriptions-item label="事件标题">{{ detail.eventTitle || '-' }}</el-descriptions-item>
         <el-descriptions-item label="风险等级">{{ getRiskLevelText(detail.riskLevel) || '-' }}</el-descriptions-item>
         <el-descriptions-item label="区域">{{ detail.regionName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="风险点">{{ detail.riskPointName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="风险�?>{{ detail.riskPointName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备编码">{{ detail.deviceCode || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备名称">{{ detail.deviceName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="测点名称">{{ detail.metricName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="当前值">{{ detail.currentValue || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="当前�?>{{ detail.currentValue || '-' }}</el-descriptions-item>
         <el-descriptions-item label="触发时间">{{ detail.triggerTime || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ getStatusText(detail.status) || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="状�?>{{ getStatusText(detail.status) || '-' }}</el-descriptions-item>
       </el-descriptions>
       <el-empty v-else description="暂无数据" />
       <template #footer>
@@ -111,14 +111,14 @@
       </template>
     </el-dialog>
 
-    <!-- 工单派发对话框 -->
+    <!-- 工单派发对话�?-->
     <el-dialog v-model="dispatchVisible" title="工单派发" width="500px">
       <el-form :model="dispatchForm" label-position="left">
-        <el-form-item label="派发人">
+        <el-form-item label="派发�?>
           <el-input v-model="dispatchForm.dispatchUserName" disabled />
         </el-form-item>
-        <el-form-item label="接收人">
-          <el-select v-model="dispatchForm.receiveUser" placeholder="请选择接收人" style="width: 100%">
+        <el-form-item label="接收�?>
+          <el-select v-model="dispatchForm.receiveUser" placeholder="请选择接收�? style="width: 100%">
             <el-option label="张三" :value="1" />
             <el-option label="李四" :value="2" />
             <el-option label="王五" :value="3" />
@@ -137,11 +137,11 @@
       </template>
     </el-dialog>
 
-    <!-- 事件关闭对话框 -->
+    <!-- 事件关闭对话�?-->
     <el-dialog v-model="closeVisible" title="事件关闭" width="500px">
       <el-form :model="closeForm" label-position="left">
         <el-form-item label="关闭原因">
-          <el-input v-model="closeForm.closeReason" type="textarea" :rows="3" placeholder="请输入关闭原因" />
+          <el-input v-model="closeForm.closeReason" type="textarea" :rows="3" placeholder="请输入关闭原�? />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -154,11 +154,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from '@/utils/message';
+import { ElMessageBox } from '@/utils/messageBox';
 import { getEventList, closeEvent, dispatchEvent, getEventDetail } from '../api/alarm';
 import type { EventRecord } from '../api/alarm';
 
-// 状态
+// 状�?
 const loading = ref(false);
 const detailVisible = ref(false);
 const dispatchVisible = ref(false);
@@ -190,7 +191,7 @@ const pagination = reactive({
 
 // 派发表单
 const dispatchForm = reactive({
-  dispatchUserName: '系统管理员',
+  dispatchUserName: '系统管理�?,
   receiveUser: 1,
   arrivalTimeLimit: 2,
   completionTimeLimit: 24
@@ -229,7 +230,7 @@ const getRiskLevelText = (level: string) => {
   }
 };
 
-// 获取状态类型
+// 获取状态类�?
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -247,19 +248,19 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文本
+// 获取状态文�?
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
-      return '待派发';
+      return '待派�?;
     case 1:
-      return '已派发';
+      return '已派�?;
     case 2:
-      return '处理中';
+      return '处理�?;
     case 3:
-      return '待验收';
+      return '待验�?;
     case 4:
-      return '已关闭';
+      return '已关�?;
     default:
       return status.toString();
   }
@@ -373,7 +374,7 @@ const handleCloseConfirm = async () => {
   }
 };
 
-// 初始化
+// 初始�?
 onMounted(() => {
   loadEventList();
 });
@@ -415,3 +416,4 @@ onMounted(() => {
   justify-content: flex-end;
 }
 </style>
+

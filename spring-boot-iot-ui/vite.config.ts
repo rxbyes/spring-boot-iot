@@ -41,14 +41,6 @@ export default defineConfig({
             return 'vendor-echarts-legend';
           }
 
-          if (id.includes('echarts/lib/component/title')) {
-            return 'vendor-echarts-title';
-          }
-
-          if (id.includes('echarts/lib/component/visualMap')) {
-            return 'vendor-echarts-visual';
-          }
-
           if (id.includes('echarts')) {
             return 'vendor-echarts-runtime';
           }
@@ -72,9 +64,9 @@ export default defineConfig({
             id.includes('element-plus/es/components/config-provider') ||
             id.includes('@floating-ui') ||
             id.includes('@popperjs/core') ||
-            id.includes('lodash-unified') ||
             id.includes('normalize-wheel-es') ||
             id.includes('async-validator') ||
+            id.includes('lodash-unified') ||
             id.includes('dayjs')
           ) {
             return 'vendor-element-core';

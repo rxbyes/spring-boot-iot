@@ -2,18 +2,19 @@ package com.ghlzm.iot.auth.service.impl;
 
 import com.ghlzm.iot.auth.dto.LoginDTO;
 import com.ghlzm.iot.auth.service.AuthService;
+import com.ghlzm.iot.auth.vo.LoginResultVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.security.JwtTokenService;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.vo.UserAuthContextVO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 认证服务实现。
@@ -30,20 +31,23 @@ public class AuthServiceImpl implements AuthService {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final PermissionService permissionService;
 
     public AuthServiceImpl(UserService userService,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenService jwtTokenService) {
+                           JwtTokenService jwtTokenService,
+                           PermissionService permissionService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.permissionService = permissionService;
     }
 
     @Override
-    public Map<String, Object> login(LoginDTO dto, HttpServletRequest request) {
+    public LoginResultVO login(LoginDTO dto, HttpServletRequest request) {
         User user = resolveLoginUser(dto);
         if (user == null || !isPasswordMatched(dto.getPassword(), user.getPassword())) {
-            throw new BizException(401, "用户名或密码错误");
+            throw new BizException(401, "账号或密码错误");
         }
 
         if (!Integer.valueOf(1).equals(user.getStatus())) {
@@ -57,15 +61,24 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtTokenService.createToken(user.getId(), user.getUsername());
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("token", token);
-        result.put("tokenType", jwtTokenService.getTokenPrefix());
-        result.put("expiresIn", jwtTokenService.getTokenExpireSeconds());
-        result.put("tokenHeader", jwtTokenService.getTokenHeader());
-        result.put("userId", user.getId());
-        result.put("username", user.getUsername());
-        result.put("realName", user.getRealName());
+        LoginResultVO result = new LoginResultVO();
+        result.setToken(token);
+        result.setTokenType(jwtTokenService.getTokenPrefix());
+        result.setExpiresIn(jwtTokenService.getTokenExpireSeconds());
+        result.setTokenHeader(jwtTokenService.getTokenHeader());
+        result.setUserId(user.getId());
+        result.setUsername(user.getUsername());
+        result.setRealName(user.getRealName());
+        result.setAuthContext(permissionService.getUserAuthContext(user.getId()));
         return result;
+    }
+
+    @Override
+    public UserAuthContextVO getCurrentUserAuthContext(Long userId) {
+        if (userId == null) {
+            throw new BizException(401, "未认证，请先登录");
+        }
+        return permissionService.getUserAuthContext(userId);
     }
 
     /**

@@ -69,7 +69,7 @@ public class JwtTokenService {
         }
     }
 
-    public int getTokenExpireSeconds() {
+    public long getTokenExpireSeconds() {
         return tokenExpireSeconds;
     }
 

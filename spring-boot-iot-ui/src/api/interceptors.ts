@@ -1,16 +1,18 @@
-﻿import { ElMessage } from 'element-plus';
+import { ElMessage } from '@/utils/message';
+
+import router from '../router';
+import { clearStoredAuth, getStoredAccessToken, usePermissionStore } from '../stores/permission';
 import { interceptorManager } from './request';
 import type { RequestInterceptor, ResponseInterceptor } from './request';
-import { clearStoredAuth, getStoredAccessToken } from '../stores/permission';
 
 const ERROR_CODE_MAP: Record<number, string> = {
   400: '请求参数错误',
-  401: '未授权，请重新登录',
+  401: '未授权，请重新登�?,
   403: '拒绝访问',
-  404: '请求资源不存在',
-  500: '服务器内部错误',
+  404: '请求资源不存�?,
+  500: '服务器内部错�?,
   502: '网关错误',
-  503: '服务不可用',
+  503: '服务不可�?,
   504: '网关超时'
 };
 
@@ -34,10 +36,19 @@ export const errorResponseInterceptor: ResponseInterceptor = {
   async onsuccess(data) {
     if (data.code !== 200) {
       if (data.code === 401) {
-        // 会话失效时清理本地登录状态，避免继续带着过期 token 请求。
+        // 会话失效后同时清理响应式状态并回到登录页，避免停留在受保护页面�?        const permissionStore = usePermissionStore();
+        permissionStore.logout();
         clearStoredAuth();
+        if (router.currentRoute.value.path !== '/login') {
+          await router.push({
+            path: '/login',
+            query: {
+              redirect: router.currentRoute.value.fullPath
+            }
+          });
+        }
       }
-      const message = ERROR_CODE_MAP[data.code] || data.msg || '请求失败';
+      const message = data.msg || ERROR_CODE_MAP[data.code] || '请求失败';
       ElMessage.error(message);
       throw new Error(message);
     }
@@ -80,3 +91,4 @@ export function registerDefaultInterceptors() {
     interceptorManager.addResponseInterceptor(interceptor);
   });
 }
+

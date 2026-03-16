@@ -21,9 +21,10 @@ const routes: RouteRecordRaw[] = [
     name: 'cockpit',
     component: () => import('../views/CockpitView.vue'),
     meta: {
-      title: '监控总览',
-      description: '平台实时运行总览与关键指标看板。',
-      requiresAuth: true
+      title: '平台首页',
+      description: '监测预警平台的产品首页与业务总览。',
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -31,8 +32,8 @@ const routes: RouteRecordRaw[] = [
     name: 'products',
     component: () => import('../views/ProductWorkbenchView.vue'),
     meta: {
-      title: '产品管理',
-      description: '产品档案、协议和数据模型管理。',
+      title: '产品模板中心',
+      description: '产品模板建模、协议绑定与设备归属管理。',
       requiresAuth: true
     }
   },
@@ -41,8 +42,8 @@ const routes: RouteRecordRaw[] = [
     name: 'devices',
     component: () => import('../views/DeviceWorkbenchView.vue'),
     meta: {
-      title: '设备管理',
-      description: '设备注册、凭证维护与在线状态查看。',
+      title: '设备运维中心',
+      description: '设备建档、在线状态核查与基础运维。',
       requiresAuth: true
     }
   },
@@ -51,8 +52,8 @@ const routes: RouteRecordRaw[] = [
     name: 'reporting',
     component: () => import('../views/ReportWorkbenchView.vue'),
     meta: {
-      title: '上报调试',
-      description: '模拟 HTTP 上报并检查消息解析结果。',
+      title: '接入验证中心',
+      description: '模拟 HTTP 上报并核验接入链路解析结果。',
       requiresAuth: true
     }
   },
@@ -61,8 +62,8 @@ const routes: RouteRecordRaw[] = [
     name: 'insight',
     component: () => import('../views/DeviceInsightView.vue'),
     meta: {
-      title: '设备洞察',
-      description: '设备属性、日志与运行态势分析。',
+      title: '监测对象工作台',
+      description: '聚合设备属性、日志与监测对象研判线索。',
       requiresAuth: true
     }
   },
@@ -71,8 +72,8 @@ const routes: RouteRecordRaw[] = [
     name: 'file-debug',
     component: () => import('../views/FilePayloadDebugView.vue'),
     meta: {
-      title: '文件调试',
-      description: '文件类报文与固件分包调试能力。',
+      title: '数据完整性校验',
+      description: '文件类报文与固件分包的完整性核验能力。',
       requiresAuth: true
     }
   },
@@ -81,8 +82,8 @@ const routes: RouteRecordRaw[] = [
     name: 'future-lab',
     component: () => import('../views/FutureLabView.vue'),
     meta: {
-      title: '未来实验室',
-      description: '预研能力展示与扩展能力验证入口。',
+      title: '演进蓝图',
+      description: '预研能力展示与未来扩展方向说明。',
       requiresAuth: true
     }
   },
@@ -153,6 +154,26 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '分析报表',
       description: '风险趋势、告警统计、闭环与健康分析。',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/risk-monitoring',
+    name: 'risk-monitoring',
+    component: () => import('../views/RealTimeMonitoringView.vue'),
+    meta: {
+      title: '实时监测',
+      description: '风险监测实时列表与统一详情抽屉。',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/risk-monitoring-gis',
+    name: 'risk-monitoring-gis',
+    component: () => import('../views/RiskGisView.vue'),
+    meta: {
+      title: 'GIS 风险态势',
+      description: '基于 ECharts 的风险点位分布与详情联动。',
       requiresAuth: true
     }
   },
@@ -236,42 +257,69 @@ const router = createRouter({
   }
 });
 
-router.beforeEach((to, from, next) => {
+function resolveRedirectTarget(permissionStore: ReturnType<typeof usePermissionStore>, redirect?: string) {
+  if (redirect && redirect.startsWith('/') && redirect !== '/login') {
+    if (redirect === '/' || permissionStore.hasRoutePermission(redirect)) {
+      return redirect;
+    }
+  }
+  return permissionStore.homePath || '/';
+}
+
+router.beforeEach(async (to) => {
   const permissionStore = usePermissionStore();
   const requiresAuth = to.meta.requiresAuth !== false;
 
+  if (permissionStore.isLoggedIn) {
+    try {
+      await permissionStore.ensureInitialized();
+    } catch {
+      if (to.path === '/login') {
+        return true;
+      }
+      return {
+        path: '/login',
+        query: {
+          redirect: to.fullPath
+        }
+      };
+    }
+  }
+
   if (to.path === '/login') {
     if (permissionStore.isLoggedIn) {
-      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/';
-      next(redirect);
-      return;
+      return resolveRedirectTarget(
+        permissionStore,
+        typeof to.query.redirect === 'string' ? to.query.redirect : undefined
+      );
     }
-    next();
-    return;
+    return true;
   }
 
   if (requiresAuth && !permissionStore.isLoggedIn) {
-    next({
+    return {
       path: '/login',
       query: {
         redirect: to.fullPath
       }
-    });
-    return;
+    };
+  }
+
+  if (requiresAuth && !permissionStore.hasRoutePermission(to.path)) {
+    return resolveRedirectTarget(permissionStore);
   }
 
   const requiredPermission = to.meta.permission as string | undefined;
   if (requiredPermission && !permissionStore.hasPermission(requiredPermission)) {
-    next('/');
-    return;
+    return resolveRedirectTarget(permissionStore);
   }
 
-  next();
+  return true;
 });
 
 router.afterEach((to) => {
-  const title = String(to.meta.title || '监控总览');
-  document.title = `${title} | Spring Boot IoT`;
+  const title = String(to.meta.title || '平台首页');
+  document.title = `${title} | 监测预警平台`;
   if (to.meta.trackTab === false) {
     return;
   }

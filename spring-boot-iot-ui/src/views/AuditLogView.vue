@@ -14,7 +14,7 @@
             <el-form-item label="操作用户">
               <el-input
                 v-model="searchForm.userName"
-                placeholder="请输入操作用户"
+                placeholder="请输入操作用�?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -34,7 +34,7 @@
             <el-form-item label="操作模块">
               <el-input
                 v-model="searchForm.operationModule"
-                placeholder="请输入操作模块"
+                placeholder="请输入操作模�?
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -98,7 +98,7 @@
         class="pagination"
       />
 
-      <!-- 详情对话框 -->
+      <!-- 详情对话�?-->
       <el-dialog
         v-model="detailVisible"
         title="审计日志详情"
@@ -143,7 +143,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from '@/utils/message'
+import { ElMessageBox } from '@/utils/messageBox'
 import { listLogs, getAuditLogById, deleteAuditLog } from '@/api/auditLog'
 
 // 搜索表单
@@ -163,10 +164,10 @@ const pagination = reactive({
 // 表格数据
 const tableData = ref<any[]>([])
 
-// 加载状态
+// 加载状�?
 const loading = ref(false)
 
-// 详情对话框
+// 详情对话�?
 const detailVisible = ref(false)
 const detailData = ref<any>({})
 
@@ -192,7 +193,7 @@ const getAuditLogList = async () => {
   }
 }
 
-// 初始化
+// 初始�?
 onMounted(() => {
   getAuditLogList()
 })
@@ -217,7 +218,7 @@ const handleSizeChange = (size: number) => {
   getAuditLogList()
 }
 
-// 当前页变化
+// 当前页变�?
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
   getAuditLogList()
@@ -274,7 +275,7 @@ const getOperationTypeTag = (type: string) => {
   return map[type] || 'info'
 }
 
-// 格式化日期
+// 格式化日�?
 const formatDate = (date: string) => {
   if (!date) return '-'
   return new Date(date).toLocaleString('zh-CN')
@@ -306,3 +307,4 @@ const formatDate = (date: string) => {
   justify-content: flex-end;
 }
 </style>
+

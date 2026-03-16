@@ -46,9 +46,6 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
 
       @Override
       public void deleteRule(Long id) {
-            RuleDefinition rule = new RuleDefinition();
-            rule.setId(id);
-            rule.setDeleted(1);
-            updateById(rule);
+            removeById(id);
       }
 }

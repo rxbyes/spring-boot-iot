@@ -77,7 +77,7 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
 
       @Override
       public Organization getById(Long id) {
-            return this.getById(id);
+            return super.getById(id);
       }
 
       @Override

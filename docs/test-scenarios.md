@@ -62,6 +62,8 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 验收前先确认：
 - 数据库已执行 `sql/init.sql` 与 `sql/upgrade/` 当前基线脚本
 - 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
+- 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
+- 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
 - 前端代理默认指向 `http://localhost:9999`
 
@@ -249,6 +251,12 @@ Phase 4 统一按页面、接口、数据表三层核对：
 
 ## 11. 登录与鉴权冒烟（真实环境）
 
+### 页面前置核对
+- 前端访问 `/login` 时，应显示独立登录页，而不是工作台内嵌登录表单。
+- 页面应提供：微信扫码区、账号密码登录、手机号登录。
+- 未登录可直接访问 `/` 首页；访问受保护页面时才跳转到 `/login`。
+- 当前共享环境下，微信扫码区只验视觉入口与提示文案，不验真实扫码回调。
+
 ### 步骤 1：登录并获取 token
 ```bash
 curl -X POST http://localhost:9999/api/auth/login \
@@ -260,8 +268,37 @@ curl -X POST http://localhost:9999/api/auth/login \
 - HTTP 状态码为 `200`
 - 响应体 `code = 200`
 - `data.token` 非空
+- `data.authContext` 非空，且包含 `roles`、`menus`、`permissions`
 
-### 步骤 2：无 token 访问受保护接口
+### 步骤 2：手机号登录并获取 token
+```bash
+curl -X POST http://localhost:9999/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"loginType":"phone","phone":"13800138000","password":"123456"}'
+```
+
+通过标准：
+- HTTP 状态码为 `200`
+- 响应体 `code = 200`
+- 响应体返回当前用户 `authContext`
+
+### 步骤 4.1：验证菜单树接口
+```bash
+curl http://localhost:9999/api/menu/tree \
+  -H "Authorization: Bearer <token>"
+```
+
+通过标准：
+- HTTP 状态码为 `200`
+- 响应体 `code = 200`
+- `data` 为非空树结构，且包含 `meta`、`type`、`children`
+- `data.token` 非空
+
+说明：
+- 手机号需与 `sys_user.phone` 一致。
+- 当前共享环境手机号登录复用系统密码，不校验短信验证码。
+
+### 步骤 3：无 token 访问受保护接口
 ```bash
 curl http://localhost:9999/api/auth/me
 ```
@@ -269,7 +306,7 @@ curl http://localhost:9999/api/auth/me
 通过标准：
 - HTTP 状态码为 `401`
 
-### 步骤 3：携带 token 访问受保护接口
+### 步骤 4：携带 token 访问受保护接口
 ```bash
 curl http://localhost:9999/api/auth/me \
   -H "Authorization: Bearer <token>"
@@ -279,7 +316,7 @@ curl http://localhost:9999/api/auth/me \
 - HTTP 状态码为 `200`
 - 响应体 `code = 200`
 
-### 步骤 4：验证设备管理接口鉴权
+### 步骤 5：验证设备管理接口鉴权
 ```bash
 curl http://localhost:9999/device/code/accept-http-device-01
 curl http://localhost:9999/device/code/accept-http-device-01 \
@@ -289,6 +326,7 @@ curl http://localhost:9999/device/code/accept-http-device-01 \
 通过标准：
 - 不带 token 返回 `401`
 - 带 token 返回非 `401`（有数据时 `200`）
+- 前端登录态失效时，应清理本地 token 并跳回 `/login`
 
 ## 12. 业务功能自动冒烟脚本（真实环境）
 
@@ -302,7 +340,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-business-functio
 2. `logs/acceptance/business-function-summary-<timestamp>.json`
 3. `logs/acceptance/business-function-report-<timestamp>.md`
 
+最新全链路通过基线（2026-03-16 19:11:12）：
+1. `logs/acceptance/business-function-smoke-20260316191059.json`
+2. `logs/acceptance/business-function-summary-20260316191059.json`
+3. `logs/acceptance/business-function-report-20260316191059.md`
+
 说明：
 1. 脚本会先调用登录接口获取 token，再对业务接口进行自动验收。
 2. 脚本结果可直接回填到 `docs/21-business-functions-and-acceptance.md` 的打勾清单。
-3. 若大量接口返回 `500`，优先检查真实库 schema 是否与当前代码一致。
+3. 若大量接口返回 `500`，优先检查真实库 schema 是否与当前代码一致；必要时先执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql` 或 `python scripts/run-real-env-schema-sync.py` 后再复测。

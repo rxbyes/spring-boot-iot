@@ -1,34 +1,34 @@
-ï»¿<template>
+<template>
   <div class="product-workbench-page">
-    <!-- é¡¶éƒ¨å¯¼èˆªæ  -->
+    <!-- ¶¥²¿µ¼º½À¸ -->
     <div class="workbench-header">
       <div class="header-left">
-        <h1 class="page-title">äº§å“æ¨¡æ¿ä¸­å¿ƒ</h1>
+        <h1 class="page-title">²úÆ·Ä£°åÖĞĞÄ</h1>
         <span class="timestamp">{{ currentTime }}</span>
       </div>
       <div class="header-right">
         <el-radio-group v-model="currentRole" size="large">
-          <el-radio-button value="field">ç ”å‘</el-radio-button>
-          <el-radio-button value="ops">è¿ç»´</el-radio-button>
-          <el-radio-button value="manager">ç®¡ç†</el-radio-button>
+          <el-radio-button value="field">ÑĞ·¢</el-radio-button>
+          <el-radio-button value="ops">ÔËÎ¬</el-radio-button>
+          <el-radio-button value="manager">¹ÜÀí</el-radio-button>
         </el-radio-group>
       </div>
     </div>
 
-    <!-- äº§å“çŠ¶æ€æ¨ªå¹… -->
+    <!-- ²úÆ·×´Ì¬ºá·ù -->
     <div class="product-banner" :class="`product-banner--${productSummary.tone}`">
       <div class="banner-content">
-        <p class="banner-label">å½“å‰äº§å“çŠ¶æ€</p>
+        <p class="banner-label">µ±Ç°²úÆ·×´Ì¬</p>
         <strong class="banner-value">{{ productSummary.label }}</strong>
         <p class="banner-desc">{{ productSummary.description }}</p>
       </div>
       <div class="banner-score">
-        <small>äº§å“è¯„åˆ†</small>
+        <small>²úÆ·ÆÀ·Ö</small>
         <strong>{{ productSummary.score }}</strong>
       </div>
     </div>
 
-    <!-- å…³é”®æŒ‡æ ‡å¡ç‰‡ -->
+    <!-- ¹Ø¼üÖ¸±ê¿¨Æ¬ -->
     <div class="quad-grid">
       <MetricCard
         v-for="metric in roleMetrics[currentRole]"
@@ -39,73 +39,73 @@
       />
     </div>
 
-    <!-- ä¸­å¤®å·¥ä½œåŒºåŸŸ -->
+    <!-- ÖĞÑë¹¤×÷ÇøÓò -->
     <div class="main-workarea">
-      <!-- äº§å“æ¨¡æ¿åŒºåŸŸ -->
+      <!-- ²úÆ·Ä£°åÇøÓò -->
       <div class="product-template">
-        <h3 class="section-title">äº§å“æ¨¡æ¿é…ç½®</h3>
+        <h3 class="section-title">²úÆ·Ä£°åÅäÖÃ</h3>
         <div class="template-grid">
           <div class="template-card">
             <div class="template-header">
-              <strong class="template-title">æ–°å¢äº§å“</strong>
+              <strong class="template-title">ĞÂÔö²úÆ·</strong>
               <span class="template-tag">Provisioning</span>
             </div>
             <form class="form-grid" @submit.prevent="handleCreateProduct">
               <div class="field-group">
-                <label for="product-key">äº§å“ Key</label>
+                <label for="product-key">²úÆ· Key</label>
                 <el-input
                   id="product-key"
                   v-model="productForm.productKey"
                   name="product_key"
-                  placeholder="ä¾‹å¦‚ demo-product..."
+                  placeholder="ÀıÈç demo-product..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="product-name">äº§å“åç§°</label>
+                <label for="product-name">²úÆ·Ãû³Æ</label>
                 <el-input
                   id="product-name"
                   v-model="productForm.productName"
                   name="product_name"
-                  placeholder="ä¾‹å¦‚ æ¼”ç¤ºäº§å“..."
+                  placeholder="ÀıÈç ÑİÊ¾²úÆ·..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="protocol-code">åè®®ç¼–ç </label>
+                <label for="protocol-code">Ğ­Òé±àÂë</label>
                 <el-input
                   id="protocol-code"
                   v-model="productForm.protocolCode"
                   name="protocol_code"
-                  placeholder="ä¾‹å¦‚ mqtt-json..."
+                  placeholder="ÀıÈç mqtt-json..."
                   clearable
                 />
               </div>
               <div class="field-group">
-                <label for="node-type">èŠ‚ç‚¹ç±»å‹</label>
+                <label for="node-type">½ÚµãÀàĞÍ</label>
                 <el-select id="node-type" v-model="productForm.nodeType">
-                  <el-option :value="1" label="1 - ç›´è¿è®¾å¤‡" />
-                  <el-option :value="2" label="2 - ç½‘å…³è®¾å¤‡" />
+                  <el-option :value="1" label="1 - Ö±Á¬Éè±¸" />
+                  <el-option :value="2" label="2 - Íø¹ØÉè±¸" />
                 </el-select>
               </div>
               <div class="field-group">
-                <label for="data-format">æ•°æ®æ ¼å¼</label>
-                <el-input id="data-format" v-model="productForm.dataFormat" name="data_format" placeholder="ä¾‹å¦‚ JSON..." clearable />
+                <label for="data-format">Êı¾İ¸ñÊ½</label>
+                <el-input id="data-format" v-model="productForm.dataFormat" name="data_format" placeholder="ÀıÈç JSON..." clearable />
               </div>
               <div class="field-group">
-                <label for="manufacturer">å‚å•†</label>
-                <el-input id="manufacturer" v-model="productForm.manufacturer" name="manufacturer" placeholder="ä¾‹å¦‚ spring-boot-iot..." clearable />
+                <label for="manufacturer">³§ÉÌ</label>
+                <el-input id="manufacturer" v-model="productForm.manufacturer" name="manufacturer" placeholder="ÀıÈç spring-boot-iot..." clearable />
               </div>
               <div class="field-group" style="grid-column: 1 / -1;">
-                <label for="description">è¯´æ˜</label>
+                <label for="description">ËµÃ÷</label>
                 <el-input id="description" v-model="productForm.description" type="textarea" :rows="3" />
               </div>
               <div class="button-row" style="grid-column: 1 / -1;">
                 <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
-                  {{ isCreating ? 'åˆ›å»ºä¸­...' : 'æäº¤äº§å“' }}
+                  {{ isCreating ? '´´½¨ÖĞ...' : 'Ìá½»²úÆ·' }}
                 </el-button>
                 <el-button class="secondary-button" @click="resetForm">
-                  æ¢å¤æ¼”ç¤ºæ•°æ®
+                  »Ö¸´ÑİÊ¾Êı¾İ
                 </el-button>
               </div>
             </form>
@@ -113,38 +113,38 @@
 
           <div class="template-card">
             <div class="template-header">
-              <strong class="template-title">æŒ‰ ID æŸ¥è¯¢äº§å“</strong>
+              <strong class="template-title">°´ ID ²éÑ¯²úÆ·</strong>
               <span class="template-tag">Lookup</span>
             </div>
             <form @submit.prevent="handleQueryProduct">
               <div class="form-grid">
                 <div class="field-group">
-                  <label for="query-product-id">äº§å“ ID</label>
-                  <el-input id="query-product-id" v-model="queryId" name="query_product_id" inputmode="numeric" placeholder="ä¾‹å¦‚ 2001..." clearable />
+                  <label for="query-product-id">²úÆ· ID</label>
+                  <el-input id="query-product-id" v-model="queryId" name="query_product_id" inputmode="numeric" placeholder="ÀıÈç 2001..." clearable />
                 </div>
               </div>
               <div class="button-row" style="margin-top: 1rem;">
                 <el-button class="primary-button" type="primary" native-type="submit" :loading="isQuerying">
-                  {{ isQuerying ? 'æŸ¥è¯¢ä¸­...' : 'æŸ¥è¯¢äº§å“' }}
+                  {{ isQuerying ? '²éÑ¯ÖĞ...' : '²éÑ¯²úÆ·' }}
                 </el-button>
               </div>
             </form>
 
             <div v-if="queryProduct" class="info-grid" style="margin-top: 1rem;">
               <div class="info-chip">
-                <span>äº§å“ Key</span>
+                <span>²úÆ· Key</span>
                 <strong>{{ queryProduct.productKey }}</strong>
               </div>
               <div class="info-chip">
-                <span>åè®®</span>
+                <span>Ğ­Òé</span>
                 <strong>{{ queryProduct.protocolCode }}</strong>
               </div>
               <div class="info-chip">
-                <span>èŠ‚ç‚¹ç±»å‹</span>
+                <span>½ÚµãÀàĞÍ</span>
                 <strong>{{ queryProduct.nodeType }}</strong>
               </div>
               <div class="info-chip">
-                <span>å‚å•†</span>
+                <span>³§ÉÌ</span>
                 <strong>{{ queryProduct.manufacturer || '--' }}</strong>
               </div>
             </div>
@@ -152,9 +152,9 @@
         </div>
       </div>
 
-      <!-- è§’è‰²å¿«æ·å…¥å£ -->
+      <!-- ½ÇÉ«¿ì½İÈë¿Ú -->
       <div class="role-quick-access">
-        <h3 class="section-title">è§’è‰²å¿«æ·å…¥å£</h3>
+        <h3 class="section-title">½ÇÉ«¿ì½İÈë¿Ú</h3>
         <div class="access-grid">
           <div
             v-for="action in roleActions[currentRole]"
@@ -173,10 +173,10 @@
       </div>
     </div>
 
-    <!-- åº•éƒ¨ä¿¡æ¯ -->
+    <!-- µ×²¿ĞÅÏ¢ -->
     <div class="workbench-footer">
       <div class="footer-section">
-        <h4>å½“å‰å»ºè®®åŠ¨ä½œ</h4>
+        <h4>µ±Ç°½¨Òé¶¯×÷</h4>
         <div class="action-list">
           <div
             v-for="item in productSummary.actions"
@@ -189,47 +189,47 @@
         </div>
       </div>
       <div class="footer-section">
-        <h4>äº§å“åŸºç¡€æ¡£æ¡ˆ</h4>
+        <h4>²úÆ·»ù´¡µµ°¸</h4>
         <div v-if="queryProduct" class="product-info-grid">
           <div class="info-chip">
-            <span>äº§å“ Key</span>
+            <span>²úÆ· Key</span>
             <strong>{{ queryProduct.productKey }}</strong>
           </div>
           <div class="info-chip">
-            <span>äº§å“åç§°</span>
+            <span>²úÆ·Ãû³Æ</span>
             <strong>{{ queryProduct.productName }}</strong>
           </div>
           <div class="info-chip">
-            <span>åè®®ç¼–ç </span>
+            <span>Ğ­Òé±àÂë</span>
             <strong>{{ queryProduct.protocolCode }}</strong>
           </div>
           <div class="info-chip">
-            <span>èŠ‚ç‚¹ç±»å‹</span>
-            <strong>{{ queryProduct.nodeType === 1 ? 'ç›´è¿è®¾å¤‡' : 'ç½‘å…³è®¾å¤‡' }}</strong>
+            <span>½ÚµãÀàĞÍ</span>
+            <strong>{{ queryProduct.nodeType === 1 ? 'Ö±Á¬Éè±¸' : 'Íø¹ØÉè±¸' }}</strong>
           </div>
           <div class="info-chip">
-            <span>æ•°æ®æ ¼å¼</span>
+            <span>Êı¾İ¸ñÊ½</span>
             <strong>{{ queryProduct.dataFormat || 'JSON' }}</strong>
           </div>
           <div class="info-chip">
-            <span>å‚å•†</span>
+            <span>³§ÉÌ</span>
             <strong>{{ queryProduct.manufacturer || '--' }}</strong>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- å…³é”®æ•°æ®é¢æ¿ -->
+    <!-- ¹Ø¼üÊı¾İÃæ°å -->
     <div class="data-panels">
       <PanelCard
         eyebrow="Request"
-        title="æœ€åä¸€æ¬¡è¯·æ±‚"
+        title="×îºóÒ»´ÎÇëÇó"
         :body="lastRequest"
       />
 
       <PanelCard
         eyebrow="Response"
-        title="æœ€åä¸€æ¬¡å“åº”"
+        title="×îºóÒ»´ÎÏìÓ¦"
         :body="lastResponse"
       />
     </div>
@@ -239,7 +239,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage } from '@/utils/message';
 import { ArrowRight } from '@element-plus/icons-vue';
 
 import { addProduct, getProductById } from '../api/iot';
@@ -259,10 +259,10 @@ interface ProductSummary {
 
 const router = useRouter();
 
-// è§’è‰²åˆ‡æ¢
+// ½ÇÉ«ÇĞ»»
 const currentRole = ref<'field' | 'ops' | 'manager'>('field');
 
-// æ—¶é—´æˆ³
+// Ê±¼ä´Á
 const currentTime = ref('');
 const updateTime = () => {
   const now = new Date();
@@ -278,15 +278,15 @@ const updateTime = () => {
 setInterval(updateTime, 1000);
 updateTime();
 
-// äº§å“è¡¨å•
+// ²úÆ·±íµ¥
 const createDemoProduct = (): ProductAddPayload => ({
   productKey: 'demo-product',
-  productName: 'æ¼”ç¤ºäº§å“',
+  productName: 'ÑİÊ¾²úÆ·',
   protocolCode: 'mqtt-json',
   nodeType: 1,
   dataFormat: 'JSON',
   manufacturer: 'spring-boot-iot',
-  description: 'ç”¨äºå‰ç«¯è°ƒè¯•å°è”è°ƒçš„é»˜è®¤äº§å“æ¨¡æ¿'
+  description: 'ÓÃÓÚÇ°¶Ëµ÷ÊÔÌ¨Áªµ÷µÄÄ¬ÈÏ²úÆ·Ä£°å'
 });
 
 const productForm = ref<ProductAddPayload>(createDemoProduct());
@@ -296,19 +296,19 @@ const isCreating = ref(false);
 const isQuerying = ref(false);
 const errorMessage = ref('');
 const queryProduct = ref<Product | null>(null);
-const lastRequest = ref<unknown>({ tip: 'æäº¤æˆ–æŸ¥è¯¢åä¼šæ˜¾ç¤ºè¯·æ±‚ä½“ã€‚' });
-const lastResponse = ref<unknown>({ tip: 'æ¥å£å“åº”ä¼šå‡ºç°åœ¨è¿™é‡Œã€‚' });
+const lastRequest = ref<unknown>({ tip: 'Ìá½»»ò²éÑ¯ºó»áÏÔÊ¾ÇëÇóÌå¡£' });
+const lastResponse = ref<unknown>({ tip: '½Ó¿ÚÏìÓ¦»á³öÏÖÔÚÕâÀï¡£' });
 
-// äº§å“æ‘˜è¦è®¡ç®—
+// ²úÆ·ÕªÒª¼ÆËã
 const productSummary = computed<ProductSummary>(() => {
   if (!queryProduct.value) {
     return {
       score: '--',
-      label: 'å¾…åŠ è½½',
+      label: '´ı¼ÓÔØ',
       shortLabel: 'NA',
       tone: 'blue',
-      description: 'è¯·è¾“å…¥äº§å“ ID å¹¶æŸ¥è¯¢ï¼ŒåŠ è½½è¯¥äº§å“çš„è¯¦ç»†ä¿¡æ¯ã€‚',
-      actions: ['è¾“å…¥äº§å“ ID å¹¶æŸ¥è¯¢äº§å“æ¨¡æ¿ä¸­å¿ƒã€‚']
+      description: 'ÇëÊäÈë²úÆ· ID ²¢²éÑ¯£¬¼ÓÔØ¸Ã²úÆ·µÄÏêÏ¸ĞÅÏ¢¡£',
+      actions: ['ÊäÈë²úÆ· ID ²¢²éÑ¯²úÆ·Ä£°åÖĞĞÄ¡£']
     };
   }
 
@@ -317,41 +317,41 @@ const productSummary = computed<ProductSummary>(() => {
 
   if (!queryProduct.value.protocolCode) {
     score += 25;
-    reasons.push('ç¼ºå°‘åè®®ç¼–ç ');
+    reasons.push('È±ÉÙĞ­Òé±àÂë');
   }
 
   if (!queryProduct.value.dataFormat) {
     score += 15;
-    reasons.push('ç¼ºå°‘æ•°æ®æ ¼å¼');
+    reasons.push('È±ÉÙÊı¾İ¸ñÊ½');
   }
 
   if (!queryProduct.value.manufacturer) {
     score += 10;
-    reasons.push('ç¼ºå°‘å‚å•†ä¿¡æ¯');
+    reasons.push('È±ÉÙ³§ÉÌĞÅÏ¢');
   }
 
   if (!queryProduct.value.description) {
     score += 8;
-    reasons.push('ç¼ºå°‘äº§å“è¯´æ˜');
+    reasons.push('È±ÉÙ²úÆ·ËµÃ÷');
   }
 
   score = Math.min(score, 100);
 
   let tone: ProductSummary['tone'] = 'blue';
-  let label = 'è“è‰²äº§å“';
-  let shortLabel = 'è“';
-  let description = 'å½“å‰äº§å“æ¨¡æ¿é…ç½®å®Œæ•´ï¼Œé€‚åˆä½œä¸ºå¼€å‘å’Œè”è°ƒçš„åŸºç¡€æ¨¡æ¿ã€‚';
+  let label = 'À¶É«²úÆ·';
+  let shortLabel = 'À¶';
+  let description = 'µ±Ç°²úÆ·Ä£°åÅäÖÃÍêÕû£¬ÊÊºÏ×÷Îª¿ª·¢ºÍÁªµ÷µÄ»ù´¡Ä£°å¡£';
 
   if (score >= 40) {
     tone = 'yellow';
-    label = 'é»„è‰²äº§å“';
-    shortLabel = 'é»„';
-    description = 'å½“å‰äº§å“æ¨¡æ¿å­˜åœ¨éƒ¨åˆ†ç¼ºå¤±ï¼Œå»ºè®®è¡¥å……å…³é”®å­—æ®µåå†è¿›è¡Œè”è°ƒã€‚';
+    label = '»ÆÉ«²úÆ·';
+    shortLabel = '»Æ';
+    description = 'µ±Ç°²úÆ·Ä£°å´æÔÚ²¿·ÖÈ±Ê§£¬½¨Òé²¹³ä¹Ø¼ü×Ö¶ÎºóÔÙ½øĞĞÁªµ÷¡£';
   } else if (score >= 10) {
     tone = 'orange';
-    label = 'æ©™è‰²äº§å“';
-    shortLabel = 'æ©™';
-    description = 'å½“å‰äº§å“æ¨¡æ¿éœ€è¦é‡ç‚¹å…³æ³¨ï¼Œå»ºè®®è¡¥å……åè®®å’Œæ ¼å¼é…ç½®ã€‚';
+    label = '³ÈÉ«²úÆ·';
+    shortLabel = '³È';
+    description = 'µ±Ç°²úÆ·Ä£°åĞèÒªÖØµã¹Ø×¢£¬½¨Òé²¹³äĞ­ÒéºÍ¸ñÊ½ÅäÖÃ¡£';
   }
 
   const actions = buildActions(tone);
@@ -366,10 +366,10 @@ const productSummary = computed<ProductSummary>(() => {
   };
 });
 
-// è§’è‰²æŒ‡æ ‡
+// ½ÇÉ«Ö¸±ê
 const roleMetrics = computed(() => [
   {
-    label: 'å½“å‰äº§å“çŠ¶æ€',
+    label: 'µ±Ç°²úÆ·×´Ì¬',
     value: productSummary.value.label,
     hint: productSummary.value.description,
     badge: {
@@ -384,74 +384,74 @@ const roleMetrics = computed(() => [
     }
   },
   {
-    label: 'äº§å“ Key',
+    label: '²úÆ· Key',
     value: queryProduct.value?.productKey || '--',
-    hint: queryProduct.value?.productKey ? 'å½“å‰äº§å“å”¯ä¸€æ ‡è¯†ç¬¦ã€‚' : 'å½“å‰æ²¡æœ‰äº§å“æ•°æ®ã€‚',
+    hint: queryProduct.value?.productKey ? 'µ±Ç°²úÆ·Î¨Ò»±êÊ¶·û¡£' : 'µ±Ç°Ã»ÓĞ²úÆ·Êı¾İ¡£',
     badge: { label: 'Key', tone: 'brand' }
   },
   {
-    label: 'åè®®ç¼–ç ',
+    label: 'Ğ­Òé±àÂë',
     value: queryProduct.value?.protocolCode || '--',
-    hint: queryProduct.value?.protocolCode ? 'å½“å‰äº§å“ä½¿ç”¨çš„åè®®ç¼–ç ã€‚' : 'å½“å‰æ²¡æœ‰åè®®ç¼–ç ã€‚',
+    hint: queryProduct.value?.protocolCode ? 'µ±Ç°²úÆ·Ê¹ÓÃµÄĞ­Òé±àÂë¡£' : 'µ±Ç°Ã»ÓĞĞ­Òé±àÂë¡£',
     badge: { label: 'Protocol', tone: queryProduct.value?.protocolCode ? 'success' : 'warning' }
   },
   {
-    label: 'èŠ‚ç‚¹ç±»å‹',
-    value: queryProduct.value?.nodeType === 1 ? 'ç›´è¿è®¾å¤‡' : queryProduct.value?.nodeType === 2 ? 'ç½‘å…³è®¾å¤‡' : '--',
-    hint: queryProduct.value?.nodeType === 1 ? 'å½“å‰äº§å“ä¸ºç›´è¿è®¾å¤‡ç±»å‹ã€‚' : 'å½“å‰äº§å“ä¸ºç½‘å…³è®¾å¤‡ç±»å‹ã€‚',
+    label: '½ÚµãÀàĞÍ',
+    value: queryProduct.value?.nodeType === 1 ? 'Ö±Á¬Éè±¸' : queryProduct.value?.nodeType === 2 ? 'Íø¹ØÉè±¸' : '--',
+    hint: queryProduct.value?.nodeType === 1 ? 'µ±Ç°²úÆ·ÎªÖ±Á¬Éè±¸ÀàĞÍ¡£' : 'µ±Ç°²úÆ·ÎªÍø¹ØÉè±¸ÀàĞÍ¡£',
     badge: { label: 'Type', tone: 'brand' }
   }
 ]);
 
-// è§’è‰²å¿«æ·å…¥å£
+// ½ÇÉ«¿ì½İÈë¿Ú
 const roleActions = {
   field: [
-    { icon: 'ğŸ”§', title: 'è®¾å¤‡è¿ç»´ä¸­å¿ƒ', desc: 'è®¾å¤‡å»ºæ¡£ä¸è¿œç¨‹è¿ç»´', path: '/devices' },
-    { icon: 'ğŸ“¡', title: 'HTTP ä¸ŠæŠ¥å®éªŒ', desc: 'æ¨¡æ‹Ÿè®¾å¤‡ä¸ŠæŠ¥æµ‹è¯•', path: '/reporting' },
-    { icon: 'ğŸ“Š', title: 'é£é™©ç‚¹å·¥ä½œå°', desc: 'é£é™©ç›‘æµ‹ä¸å¤„ç½®', path: '/insight' },
-    { icon: 'ğŸ“ˆ', title: 'è¶‹åŠ¿æ›²çº¿æŸ¥çœ‹', desc: 'åˆ†æå±æ€§ä¸å†å²è¶‹åŠ¿', path: '/insight' }
+    { icon: '??', title: 'Éè±¸ÔËÎ¬ÖĞĞÄ', desc: 'Éè±¸½¨µµÓëÔ¶³ÌÔËÎ¬', path: '/devices' },
+    { icon: '??', title: 'HTTP ÉÏ±¨ÊµÑé', desc: 'Ä£ÄâÉè±¸ÉÏ±¨²âÊÔ', path: '/reporting' },
+    { icon: '??', title: '·çÏÕµã¹¤×÷Ì¨', desc: '·çÏÕ¼à²âÓë´¦ÖÃ', path: '/insight' },
+    { icon: '??', title: 'Ç÷ÊÆÇúÏß²é¿´', desc: '·ÖÎöÊôĞÔÓëÀúÊ·Ç÷ÊÆ', path: '/insight' }
   ],
   ops: [
-    { icon: 'âš™ï¸', title: 'é˜ˆå€¼ç®¡ç†', desc: 'å‚æ•°é…ç½®ä¸è¿œç¨‹è°ƒæ•´', path: '/devices' },
-    { icon: 'ğŸ”‹', title: 'è®¾å¤‡å·¡æ£€', desc: 'ç¦»çº¿ä¸å¼±ä¿¡å·è®¾å¤‡', path: '/devices' },
-    { icon: 'ğŸ’¾', title: 'å›ºä»¶è°ƒè¯•', desc: 'æ–‡ä»¶ä¸å›ºä»¶å‡çº§', path: '/file-debug' },
-    { icon: 'ğŸ“‹', title: 'ä¸“é¢˜æŠ¥å‘Š', desc: 'é£é™©åˆ†æä¸å¤„ç½®æŠ¥å‘Š', path: '/insight' }
+    { icon: '??', title: 'ãĞÖµ¹ÜÀí', desc: '²ÎÊıÅäÖÃÓëÔ¶³Ìµ÷Õû', path: '/devices' },
+    { icon: '??', title: 'Éè±¸Ñ²¼ì', desc: 'ÀëÏßÓëÈõĞÅºÅÉè±¸', path: '/devices' },
+    { icon: '??', title: '¹Ì¼şµ÷ÊÔ', desc: 'ÎÄ¼şÓë¹Ì¼şÉı¼¶', path: '/file-debug' },
+    { icon: '??', title: '×¨Ìâ±¨¸æ', desc: '·çÏÕ·ÖÎöÓë´¦ÖÃ±¨¸æ', path: '/insight' }
   ],
   manager: [
-    { icon: 'ğŸŒ', title: 'åŒºåŸŸæ€åŠ¿', desc: 'ç‚¹ä½åˆ†å¸ƒä¸é£é™©çƒ­åŠ›', path: '/future-lab' },
-    { icon: 'ğŸ”', title: 'å†å²å›æº¯', desc: 'äº‹ä»¶é“¾è·¯ä¸å®¡è®¡', path: '/reporting' },
-    { icon: 'ğŸ“ˆ', title: 'æ•°æ®çœ‹æ¿', desc: 'å¤šç»´åº¦ç»Ÿè®¡åˆ†æ', path: '/future-lab' },
-    { icon: 'ğŸ“„', title: 'æŠ¥å‘Šç”Ÿæˆ', desc: 'AIè¾…åŠ©ç”Ÿæˆåˆ†ææŠ¥å‘Š', path: '/insight' }
+    { icon: '??', title: 'ÇøÓòÌ¬ÊÆ', desc: 'µãÎ»·Ö²¼Óë·çÏÕÈÈÁ¦', path: '/future-lab' },
+    { icon: '??', title: 'ÀúÊ·»ØËİ', desc: 'ÊÂ¼şÁ´Â·ÓëÉó¼Æ', path: '/reporting' },
+    { icon: '??', title: 'Êı¾İ¿´°å', desc: '¶àÎ¬¶ÈÍ³¼Æ·ÖÎö', path: '/future-lab' },
+    { icon: '??', title: '±¨¸æÉú³É', desc: 'AI¸¨ÖúÉú³É·ÖÎö±¨¸æ', path: '/insight' }
   ]
 };
 
-// æ„å»ºåŠ¨ä½œ
+// ¹¹½¨¶¯×÷
 function buildActions(tone: ProductSummary['tone']) {
-  const actions = ['å…ˆæ ¸æŸ¥äº§å“æ¨¡æ¿é…ç½®ï¼Œç¡®è®¤åè®®å’Œæ ¼å¼æ˜¯å¦å®Œæ•´ã€‚'];
+  const actions = ['ÏÈºË²é²úÆ·Ä£°åÅäÖÃ£¬È·ÈÏĞ­ÒéºÍ¸ñÊ½ÊÇ·ñÍêÕû¡£'];
 
   if (tone === 'yellow') {
-    actions.push('å»ºè®®è¡¥å……ç¼ºå¤±çš„å…³é”®å­—æ®µï¼Œå¦‚åè®®ç¼–ç ã€æ•°æ®æ ¼å¼ç­‰ã€‚');
+    actions.push('½¨Òé²¹³äÈ±Ê§µÄ¹Ø¼ü×Ö¶Î£¬ÈçĞ­Òé±àÂë¡¢Êı¾İ¸ñÊ½µÈ¡£');
   } else if (tone === 'orange') {
-    actions.push('å»ºè®®ä¼˜å…ˆè¡¥å……åè®®ç¼–ç å’Œæ•°æ®æ ¼å¼é…ç½®ã€‚');
-    actions.push('è¿ç»´ä¾§åŒæ­¥æ ¸æŸ¥è®¾å¤‡æ˜¯å¦èƒ½æ­£å¸¸æ¥å…¥ã€‚');
+    actions.push('½¨ÒéÓÅÏÈ²¹³äĞ­Òé±àÂëºÍÊı¾İ¸ñÊ½ÅäÖÃ¡£');
+    actions.push('ÔËÎ¬²àÍ¬²½ºË²éÉè±¸ÊÇ·ñÄÜÕı³£½ÓÈë¡£');
   } else {
-    actions.push('å½“å‰äº§å“æ¨¡æ¿é…ç½®å®Œæ•´ï¼Œå¯ç»§ç»­è¿›è¡Œè®¾å¤‡è”è°ƒã€‚');
+    actions.push('µ±Ç°²úÆ·Ä£°åÅäÖÃÍêÕû£¬¿É¼ÌĞø½øĞĞÉè±¸Áªµ÷¡£');
   }
 
   return actions;
 }
 
-// å¯¼èˆª
+// µ¼º½
 const navigateTo = (path: string) => {
   router.push(path);
 };
 
-// é‡ç½®è¡¨å•
+// ÖØÖÃ±íµ¥
 function resetForm() {
   Object.assign(productForm.value, createDemoProduct());
 }
 
-// åˆ›å»ºäº§å“
+// ´´½¨²úÆ·
 async function handleCreateProduct() {
   isCreating.value = true;
   errorMessage.value = '';
@@ -464,33 +464,33 @@ async function handleCreateProduct() {
     if (response.data?.id) {
       queryId.value = String(response.data.id);
     }
-    ElMessage.success(`äº§å“ ${response.data.productKey} åˆ›å»ºæˆåŠŸ`);
+    ElMessage.success(`²úÆ· ${response.data.productKey} ´´½¨³É¹¦`);
     recordActivity({
-      module: 'äº§å“æ¨¡æ¿ä¸­å¿ƒ',
-      action: 'æ–°å¢äº§å“',
+      module: '²úÆ·Ä£°åÖĞĞÄ',
+      action: 'ĞÂÔö²úÆ·',
       request: lastRequest.value,
       response,
       ok: true,
-      detail: `å·²åˆ›å»ºäº§å“ ${response.data.productKey}`
+      detail: `ÒÑ´´½¨²úÆ· ${response.data.productKey}`
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: 'äº§å“æ¨¡æ¿ä¸­å¿ƒ',
-      action: 'æ–°å¢äº§å“',
+      module: '²úÆ·Ä£°åÖĞĞÄ',
+      action: 'ĞÂÔö²úÆ·',
       request: lastRequest.value,
       response: { message: errorMessage.value },
       ok: false,
-      detail: `åˆ›å»ºå¤±è´¥ï¼š${errorMessage.value}`
+      detail: `´´½¨Ê§°Ü£º${errorMessage.value}`
     });
   } finally {
     isCreating.value = false;
   }
 }
 
-// æŸ¥è¯¢äº§å“
+// ²éÑ¯²úÆ·
 async function handleQueryProduct() {
   isQuerying.value = true;
   errorMessage.value = '';
@@ -500,40 +500,40 @@ async function handleQueryProduct() {
     const response = await getProductById(queryId.value);
     queryProduct.value = response.data;
     lastResponse.value = response;
-    ElMessage.success(`å·²æŸ¥è¯¢åˆ°äº§å“ ${response.data.productKey}`);
+    ElMessage.success(`ÒÑ²éÑ¯µ½²úÆ· ${response.data.productKey}`);
     recordActivity({
-      module: 'äº§å“æ¨¡æ¿ä¸­å¿ƒ',
-      action: 'æŸ¥è¯¢äº§å“',
+      module: '²úÆ·Ä£°åÖĞĞÄ',
+      action: '²éÑ¯²úÆ·',
       request: lastRequest.value,
       response,
       ok: true,
-      detail: `æŸ¥è¯¢åˆ°äº§å“ ${response.data.productKey}`
+      detail: `²éÑ¯µ½²úÆ· ${response.data.productKey}`
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: 'äº§å“æ¨¡æ¿ä¸­å¿ƒ',
-      action: 'æŸ¥è¯¢äº§å“',
+      module: '²úÆ·Ä£°åÖĞĞÄ',
+      action: '²éÑ¯²úÆ·',
       request: lastRequest.value,
       response: { message: errorMessage.value },
       ok: false,
-      detail: `æŸ¥è¯¢å¤±è´¥ï¼š${errorMessage.value}`
+      detail: `²éÑ¯Ê§°Ü£º${errorMessage.value}`
     });
   } finally {
     isQuerying.value = false;
   }
 }
 
-// ç”Ÿå‘½å‘¨æœŸ
+// ÉúÃüÖÜÆÚ
 onMounted(() => {
   recordActivity({
-    module: 'äº§å“æ¨¡æ¿ä¸­å¿ƒ',
-    action: 'è®¿é—®å·¥ä½œå°',
+    module: '²úÆ·Ä£°åÖĞĞÄ',
+    action: '·ÃÎÊ¹¤×÷Ì¨',
     request: { path: '/products' },
     ok: true,
-    detail: 'ç”¨æˆ·è®¿é—®äº§å“æ¨¡æ¿ä¸­å¿ƒ'
+    detail: 'ÓÃ»§·ÃÎÊ²úÆ·Ä£°åÖĞĞÄ'
   });
 });
 </script>
@@ -545,7 +545,7 @@ onMounted(() => {
   padding: 1rem;
 }
 
-/* é¡¶éƒ¨å¯¼èˆªæ  */
+/* ¶¥²¿µ¼º½À¸ */
 .workbench-header {
   display: flex;
   justify-content: space-between;
@@ -577,7 +577,7 @@ onMounted(() => {
   color: var(--brand-bright);
 }
 
-/* è§’è‰²åˆ‡æ¢ */
+/* ½ÇÉ«ÇĞ»» */
 :deep(.el-radio-group) {
   --el-radio-button-checked-text-color: var(--brand-bright);
   --el-radio-button-checked-bg-color: rgba(255, 106, 0, 0.1);
@@ -604,7 +604,7 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
 }
 
-/* äº§å“çŠ¶æ€æ¨ªå¹… */
+/* ²úÆ·×´Ì¬ºá·ù */
 .product-banner {
   display: flex;
   justify-content: space-between;
@@ -699,21 +699,21 @@ onMounted(() => {
   color: #52aaff;
 }
 
-/* å››å®«æ ¼æŒ‡æ ‡ */
+/* ËÄ¹¬¸ñÖ¸±ê */
 .quad-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
-/* ä¸­å¤®å·¥ä½œåŒºåŸŸ */
+/* ÖĞÑë¹¤×÷ÇøÓò */
 .main-workarea {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 1rem;
 }
 
-/* äº§å“æ¨¡æ¿åŒºåŸŸ */
+/* ²úÆ·Ä£°åÇøÓò */
 .product-template {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
@@ -773,7 +773,7 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-/* è§’è‰²å¿«æ·å…¥å£ */
+/* ½ÇÉ«¿ì½İÈë¿Ú */
 .role-quick-access {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
@@ -840,7 +840,7 @@ onMounted(() => {
   font-size: 1.2rem;
 }
 
-/* åº•éƒ¨ä¿¡æ¯ */
+/* µ×²¿ĞÅÏ¢ */
 .workbench-footer {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -924,14 +924,14 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-/* å…³é”®æ•°æ®é¢æ¿ */
+/* ¹Ø¼üÊı¾İÃæ°å */
 .data-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-/* å“åº”å¼ */
+/* ÏìÓ¦Ê½ */
 @media (max-width: 1400px) {
   .main-workarea {
     grid-template-columns: 1fr;
@@ -966,4 +966,5 @@ onMounted(() => {
   }
 }
 </style>
+
 

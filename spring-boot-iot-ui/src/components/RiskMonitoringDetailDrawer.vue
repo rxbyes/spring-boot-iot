@@ -30,7 +30,7 @@
         <PanelCard
           eyebrow="Current Snapshot"
           title="当前监测信息"
-          description="统一承接实时监测列表与 GIS 风险态势的详情入口。"
+          description="统一承接实时监测列表�?GIS 风险态势的详情入口�?
         >
           <div class="snapshot-grid">
             <div class="snapshot-item">
@@ -50,7 +50,7 @@
               <strong>{{ detail.regionName || '--' }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>风险点</span>
+              <span>风险�?/span>
               <strong>{{ detail.riskPointName || '--' }}</strong>
             </div>
             <div class="snapshot-item">
@@ -58,23 +58,23 @@
               <strong>{{ detail.metricName || detail.metricIdentifier || '--' }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>当前值</span>
+              <span>当前�?/span>
               <strong>{{ formatCurrentValue(detail.currentValue, detail.unit) }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>最新上报</span>
+              <span>最新上�?/span>
               <strong>{{ formatDateTime(detail.latestReportTime) }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>活跃告警数</span>
+              <span>活跃告警�?/span>
               <strong>{{ detail.activeAlarmCount ?? 0 }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>近期事件数</span>
+              <span>近期事件�?/span>
               <strong>{{ detail.recentEventCount ?? 0 }}</strong>
             </div>
             <div class="snapshot-item">
-              <span>经纬度</span>
+              <span>经纬�?/span>
               <strong>{{ formatCoordinate(detail.longitude, detail.latitude) }}</strong>
             </div>
             <div class="snapshot-item">
@@ -86,18 +86,18 @@
 
         <PanelCard
           eyebrow="24h Trend"
-          title="最近 24 小时趋势"
-          description="趋势图为空时显示兜底提示，便于真实环境验收判断空态。"
+          title="最�?24 小时趋势"
+          description="趋势图为空时显示兜底提示，便于真实环境验收判断空态�?
         >
           <div v-if="trendPoints.length" ref="trendChartRef" class="trend-chart" />
-          <div v-else class="empty-block">最近 24 小时暂无趋势数据</div>
+          <div v-else class="empty-block">最�?24 小时暂无趋势数据</div>
         </PanelCard>
 
         <div class="summary-grid">
           <PanelCard
             eyebrow="Recent Alarms"
-            title="最近告警"
-            description="展示最近触发的告警摘要。"
+            title="最近告�?
+            description="展示最近触发的告警摘要�?
           >
             <div v-if="recentAlarms.length" class="summary-list">
               <article
@@ -110,19 +110,19 @@
                   <el-tag :type="riskLevelTagType(alarm.alarmLevel)">{{ riskLevelText(alarm.alarmLevel) }}</el-tag>
                 </div>
                 <div class="summary-card__meta">
-                  <span>当前值 {{ alarm.currentValue || '--' }}</span>
-                  <span>阈值 {{ alarm.thresholdValue || '--' }}</span>
+                  <span>当前�?{{ alarm.currentValue || '--' }}</span>
+                  <span>阈�?{{ alarm.thresholdValue || '--' }}</span>
                   <span>{{ formatDateTime(alarm.triggerTime) }}</span>
                 </div>
               </article>
             </div>
-            <div v-else class="empty-block">暂无最近告警</div>
+            <div v-else class="empty-block">暂无最近告�?/div>
           </PanelCard>
 
           <PanelCard
             eyebrow="Recent Events"
-            title="最近事件"
-            description="展示与当前监测对象相关的事件摘要。"
+            title="最近事�?
+            description="展示与当前监测对象相关的事件摘要�?
           >
             <div v-if="recentEvents.length" class="summary-list">
               <article
@@ -135,13 +135,13 @@
                   <el-tag :type="riskLevelTagType(event.riskLevel)">{{ riskLevelText(event.riskLevel) }}</el-tag>
                 </div>
                 <div class="summary-card__meta">
-                  <span>当前值 {{ event.currentValue || '--' }}</span>
-                  <span>状态 {{ eventStatusText(event.status) }}</span>
+                  <span>当前�?{{ event.currentValue || '--' }}</span>
+                  <span>状�?{{ eventStatusText(event.status) }}</span>
                   <span>{{ formatDateTime(event.triggerTime) }}</span>
                 </div>
               </article>
             </div>
-            <div v-else class="empty-block">暂无最近事件</div>
+            <div v-else class="empty-block">暂无最近事�?/div>
           </PanelCard>
         </div>
       </template>
@@ -156,7 +156,7 @@ import type { ECharts, SetOptionOpts } from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { ElMessage } from 'element-plus';
+import { ElMessage } from '@/utils/message';
 
 import PanelCard from './PanelCard.vue';
 import {
@@ -298,7 +298,7 @@ function renderTrendChart() {
     },
     series: [
       {
-        name: '当前值',
+        name: '当前�?,
         type: 'line',
         smooth: true,
         showSymbol: false,
@@ -328,15 +328,15 @@ function riskLevelText(value?: string | null) {
     case 'CRITICAL':
       return '严重';
     case 'HIGH':
-      return '高';
+      return '�?;
     case 'WARNING':
     case 'MEDIUM':
-      return '中';
+      return '�?;
     case 'INFO':
     case 'LOW':
-      return '低';
+      return '�?;
     default:
-      return value || '未标注';
+      return value || '未标�?;
   }
 }
 
@@ -359,15 +359,15 @@ function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'succes
 function monitorStatusText(value?: string | null) {
   switch ((value || '').toUpperCase()) {
     case 'ALARM':
-      return '告警中';
+      return '告警�?;
     case 'OFFLINE':
       return '离线';
     case 'NO_DATA':
-      return '无数据';
+      return '无数�?;
     case 'NORMAL':
       return '正常';
     default:
-      return value || '未识别';
+      return value || '未识�?;
   }
 }
 
@@ -388,13 +388,13 @@ function monitorStatusTagType(value?: string | null): 'danger' | 'warning' | 'in
 function eventStatusText(status?: number | null) {
   switch (status) {
     case 0:
-      return '待处理';
+      return '待处�?;
     case 1:
-      return '处理中';
+      return '处理�?;
     case 2:
-      return '已完成';
+      return '已完�?;
     case 3:
-      return '已关闭';
+      return '已关�?;
     default:
       return status === null || status === undefined ? '--' : String(status);
   }
@@ -548,3 +548,4 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
   }
 }
 </style>
+

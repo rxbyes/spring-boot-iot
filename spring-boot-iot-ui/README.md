@@ -24,8 +24,9 @@
 - 增加类似 `vue-element-admin` 的最近访问标签视图
 - 已接入 `Element Plus` 作为真实组件体系，核心表单、表格、描述面板和消息提示已切换
 - `Element Plus` 已切换为按需自动导入，入口文件不再做全局组件注册；组件与 `v-loading` 指令会跟随页面异步 chunk 自动拆分
-- 构建分包已进一步收敛为稳定共享策略：`vendor-element-core`、`vendor-element-form`、`vendor-element-table`、`vendor-element-panel` 负责承接高频 UI 依赖；图表依赖则拆为 `vendor-echarts-runtime`、`vendor-echarts-legend`、`vendor-echarts-trend`、`vendor-echarts-stat` 与 `vendor-zrender`，当前构建已消除循环 chunk 告警，`tooltip` 仍并入 `vendor-echarts-runtime` 以规避 ECharts 互引导致的循环分块
+- 构建分包已进一步收敛为稳定共享策略：`vendor-element-core`、`vendor-element-form`、`vendor-element-table`、`vendor-element-panel` 负责承接高频 UI 依赖；图表依赖则拆为 `vendor-echarts-runtime`、`vendor-echarts-legend`、`vendor-echarts-trend`、`vendor-echarts-stat` 与 `vendor-zrender`，当前构建已消除循环 chunk 告警，`tooltip` 仍并入 `vendor-echarts-runtime` 以规避 ECharts 互引导致的循环分块；2026-03-16 追加验证后未保留 `title` 与 `visualMap` 的微拆分，原因分别是 `title` 收益仅约 2.41 kB 而会增加额外请求，`visualMap` 会产生 empty chunk；同日也验证过将 `@floating-ui`、`@popperjs/core`、`normalize-wheel-es`、`async-validator` 下沉到 `vendor-element-form` 会引入循环 chunk 告警，因此继续保留在 `vendor-element-core`
 - 表格工作页共用的 `table / table-column / pagination / checkbox` 已并入 `vendor-element-table`，首页壳层不预加载该块，列表类页面按路由异步命中共享依赖
+- 首页根入口当前仍会预加载 `vendor-element-form`，因为公共壳层中的接入配置区仍使用 `el-input / el-button`；共享壳层进一步脱离表单块仍是后续优化项
 - 驾驶舱会按需加载 `trend + stat + legend + runtime`，设备洞察与详情趋势图主要加载 `trend + legend + runtime`，报表页则同时命中 `trend + stat + legend + runtime`
 - 设备洞察页支持基于 `ECharts` 的数值属性趋势图
 - 关键异步响应区域增加 `aria-live` 提示

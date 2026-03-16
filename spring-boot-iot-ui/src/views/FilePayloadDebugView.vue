@@ -2,8 +2,8 @@
   <div class="page-stack">
     <section class="hero-grid">
       <PanelCard
-        eyebrow="File Payload Debug"
-        title="文件与固件调试"
+        eyebrow="Integrity Check"
+        title="数据完整性校验"
       >
         <form @submit.prevent="refreshAll">
           <div class="form-grid">
@@ -21,8 +21,8 @@
       </PanelCard>
 
       <PanelCard
-        eyebrow="Debug Summary"
-        title="文件消息消费概况"
+        eyebrow="Validation Summary"
+        title="文件消息完整性概况"
       >
         <div class="quad-grid">
           <div class="info-chip">
@@ -50,7 +50,7 @@
     <section class="two-column-grid">
       <PanelCard
         eyebrow="Type C.3"
-        title="文件快照"
+        title="文件快照校验"
       >
         <div v-if="fileSnapshots.length" class="timeline">
           <article v-for="item in fileSnapshots" :key="item.transferId" class="timeline-item">
@@ -63,7 +63,7 @@
 
       <PanelCard
         eyebrow="Type C.4"
-        title="固件聚合"
+        title="固件聚合校验"
       >
         <div v-if="firmwareAggregates.length" class="timeline">
           <article v-for="item in firmwareAggregates" :key="item.transferId" class="timeline-item">
@@ -137,8 +137,8 @@ async function refreshAll() {
     lastFetchTime.value = new Date().toISOString();
 
     recordActivity({
-      module: '文件调试台',
-      action: '刷新文件调试数据',
+      module: '数据完整性校验',
+      action: '刷新校验数据',
       request: { deviceCode: deviceCode.value },
       response: {
         fileSnapshots: snapshotResponse.data.length,
@@ -150,8 +150,8 @@ async function refreshAll() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     recordActivity({
-      module: '文件调试台',
-      action: '刷新文件调试数据',
+      module: '数据完整性校验',
+      action: '刷新校验数据',
       request: { deviceCode: deviceCode.value },
       response: { message: errorMessage.value },
       ok: false,
