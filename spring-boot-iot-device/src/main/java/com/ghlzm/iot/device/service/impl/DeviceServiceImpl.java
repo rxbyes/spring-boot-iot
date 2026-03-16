@@ -8,15 +8,22 @@ import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 设备服务实现，负责设备建档以及基于 deviceCode 的最小查询能力。
@@ -26,13 +33,16 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private final ProductService productService;
     private final DevicePropertyMapper devicePropertyMapper;
+    private final ProductModelMapper productModelMapper;
     private final IotProperties iotProperties;
 
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
+                             ProductModelMapper productModelMapper,
                              IotProperties iotProperties) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
+        this.productModelMapper = productModelMapper;
         this.iotProperties = iotProperties;
     }
 
@@ -107,5 +117,70 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         .eq(DeviceProperty::getDeviceId, device.getId())
                         .orderByDesc(DeviceProperty::getUpdateTime)
         );
+    }
+
+    @Override
+    public List<DeviceOptionVO> listDeviceOptions() {
+        return lambdaQuery()
+                .eq(Device::getDeleted, 0)
+                .eq(Device::getDeviceStatus, DeviceStatusEnum.ENABLED.getCode())
+                .orderByDesc(Device::getCreateTime)
+                .list()
+                .stream()
+                .map(this::toDeviceOption)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<DeviceMetricOptionVO> listMetricOptions(Long deviceId) {
+        Device device = getRequiredById(deviceId);
+        Map<String, DeviceMetricOptionVO> optionMap = new LinkedHashMap<>();
+
+        List<ProductModel> productModels = productModelMapper.selectList(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, device.getProductId())
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+                        .orderByAsc(ProductModel::getSortNo)
+                        .orderByAsc(ProductModel::getIdentifier)
+        );
+        for (ProductModel productModel : productModels) {
+            DeviceMetricOptionVO option = new DeviceMetricOptionVO();
+            option.setIdentifier(productModel.getIdentifier());
+            option.setName(productModel.getModelName() == null || productModel.getModelName().isBlank()
+                    ? productModel.getIdentifier()
+                    : productModel.getModelName());
+            option.setDataType(productModel.getDataType());
+            optionMap.put(option.getIdentifier(), option);
+        }
+
+        List<DeviceProperty> deviceProperties = devicePropertyMapper.selectList(
+                new LambdaQueryWrapper<DeviceProperty>()
+                        .eq(DeviceProperty::getDeviceId, device.getId())
+                        .orderByAsc(DeviceProperty::getIdentifier)
+        );
+        for (DeviceProperty deviceProperty : deviceProperties) {
+            optionMap.computeIfAbsent(deviceProperty.getIdentifier(), key -> {
+                DeviceMetricOptionVO option = new DeviceMetricOptionVO();
+                option.setIdentifier(deviceProperty.getIdentifier());
+                option.setName(deviceProperty.getPropertyName() == null || deviceProperty.getPropertyName().isBlank()
+                        ? deviceProperty.getIdentifier()
+                        : deviceProperty.getPropertyName());
+                option.setDataType(deviceProperty.getValueType());
+                return option;
+            });
+        }
+
+        return optionMap.values().stream().collect(Collectors.toList());
+    }
+
+    private DeviceOptionVO toDeviceOption(Device device) {
+        DeviceOptionVO option = new DeviceOptionVO();
+        option.setId(device.getId());
+        option.setProductId(device.getProductId());
+        option.setDeviceCode(device.getDeviceCode());
+        option.setDeviceName(device.getDeviceName());
+        option.setOnlineStatus(device.getOnlineStatus());
+        return option;
     }
 }

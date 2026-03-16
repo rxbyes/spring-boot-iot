@@ -5,76 +5,97 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.UserMapper;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.vo.RoleSummaryVO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-/**
- * 用户 Service 实现类
- */
 @Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-      @Autowired
-      private UserMapper userMapper;
+      private final UserMapper userMapper;
+      private final PasswordEncoder passwordEncoder;
+      private final PermissionService permissionService;
 
-      @Autowired
-      private PasswordEncoder passwordEncoder;
+      public UserServiceImpl(UserMapper userMapper,
+                             PasswordEncoder passwordEncoder,
+                             PermissionService permissionService) {
+            this.userMapper = userMapper;
+            this.passwordEncoder = passwordEncoder;
+            this.permissionService = permissionService;
+      }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public User addUser(User user) {
-            // 检查用户名是否已存在
             User existingUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, user.getUsername()));
             if (existingUser != null) {
                   throw new BizException("用户名已存在");
             }
 
-            // 加密密码
-            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            if (StringUtils.hasText(user.getPassword())) {
                   user.setPassword(passwordEncoder.encode(user.getPassword()));
             }
 
+            if (user.getTenantId() == null) {
+                  user.setTenantId(1L);
+            }
+            if (user.getStatus() == null) {
+                  user.setStatus(1);
+            }
             user.setCreateTime(new Date());
-            user.setCreateBy(user.getCreateBy());
             user.setDeleted(0);
-            user.setStatus(1);
 
             userMapper.insert(user);
-            return user;
+            if (user.getRoleIds() != null) {
+                  permissionService.replaceUserRoles(user.getId(), user.getRoleIds(), user.getCreateBy());
+            }
+            return getById(user.getId());
       }
 
       @Override
       public List<User> listUsers(String username, String phone, String email, Integer status) {
             LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-            if (username != null && !username.isEmpty()) {
-                  wrapper.like(User::getUsername, username);
+            if (StringUtils.hasText(username)) {
+                  wrapper.like(User::getUsername, username.trim());
             }
-            if (phone != null && !phone.isEmpty()) {
-                  wrapper.like(User::getPhone, phone);
+            if (StringUtils.hasText(phone)) {
+                  wrapper.like(User::getPhone, phone.trim());
             }
-            if (email != null && !email.isEmpty()) {
-                  wrapper.like(User::getEmail, email);
+            if (StringUtils.hasText(email)) {
+                  wrapper.like(User::getEmail, email.trim());
             }
             if (status != null) {
                   wrapper.eq(User::getStatus, status);
             }
-            wrapper.eq(User::getDeleted, 0);
-            wrapper.orderByDesc(User::getCreateTime);
-            return userMapper.selectList(wrapper);
+            wrapper.orderByDesc(User::getCreateTime).orderByDesc(User::getId);
+
+            List<User> users = userMapper.selectList(wrapper);
+            fillUserRoles(users);
+            return users;
       }
 
       @Override
       public User getById(Long id) {
-            return userMapper.selectById(id);
+            User user = userMapper.selectById(id);
+            if (user == null) {
+                  return null;
+            }
+            fillUserRoles(List.of(user));
+            user.setRoleIds(permissionService.listUserRoleIds(id));
+            return user;
       }
 
       @Override
@@ -85,7 +106,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   throw new BizException("用户不存在");
             }
 
-            // 检查用户名是否被其他用户使用
             User sameUsernameUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, user.getUsername())
                         .ne(User::getId, user.getId()));
@@ -93,10 +113,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   throw new BizException("用户名已存在");
             }
 
+            user.setTenantId(existingUser.getTenantId());
             user.setUpdateTime(new Date());
-            user.setUpdateBy(user.getUpdateBy());
-
             userMapper.updateById(user);
+
+            if (user.getRoleIds() != null) {
+                  permissionService.replaceUserRoles(user.getId(), user.getRoleIds(), user.getUpdateBy());
+            }
       }
 
       @Override
@@ -110,12 +133,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setDeleted(1);
             user.setUpdateTime(new Date());
             userMapper.updateById(user);
+            permissionService.deleteUserRoles(id);
       }
 
       @Override
       public User getByUsername(String username) {
             return userMapper.selectOne(new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, username)
+                        .eq(User::getDeleted, 0));
+      }
+
+      @Override
+      public User getByPhone(String phone) {
+            return userMapper.selectOne(new LambdaQueryWrapper<User>()
+                        .eq(User::getPhone, phone)
                         .eq(User::getDeleted, 0));
       }
 
@@ -127,12 +158,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   throw new BizException("用户不存在");
             }
 
-            // 验证旧密码
             if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
                   throw new BizException("原密码错误");
             }
 
-            // 加密新密码
             user.setPassword(passwordEncoder.encode(newPassword));
             user.setUpdateTime(new Date());
             userMapper.updateById(user);
@@ -146,9 +175,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   throw new BizException("用户不存在");
             }
 
-            // 重置为默认密码 123456
             user.setPassword(passwordEncoder.encode("123456"));
             user.setUpdateTime(new Date());
             userMapper.updateById(user);
+      }
+
+      private void fillUserRoles(List<User> users) {
+            if (CollectionUtils.isEmpty(users)) {
+                  return;
+            }
+
+            Map<Long, List<RoleSummaryVO>> roleMap = permissionService.listUserRolesByUserIds(
+                    users.stream().map(User::getId).toList()
+            );
+            for (User user : users) {
+                  List<RoleSummaryVO> roles = roleMap.getOrDefault(user.getId(), List.of());
+                  user.setRoleNames(roles.stream().map(RoleSummaryVO::getRoleName).collect(Collectors.toList()));
+            }
       }
 }

@@ -5,39 +5,22 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 设备健康统计实体
+ * Device health statistics payload.
  */
 @Data
 public class DeviceHealthStatistics implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 设备总数
-     */
     private Integer totalCount;
-
-    /**
-     * 在线设备数
-     */
+    private Integer total;
     private Integer onlineCount;
-
-    /**
-     * 离线设备数
-     */
+    private Integer online;
     private Integer offlineCount;
-
-    /**
-     * 在线率（百分比）
-     */
+    private Integer offline;
     private Double onlineRate;
-
-    /**
-     * 健康设备数（最近24小时有上报）
-     */
     private Integer healthyCount;
-
-    /**
-     * 不健康设备数
-     */
+    private Integer healthy;
     private Integer unhealthyCount;
+    private Integer warning;
+    private Integer critical;
 }

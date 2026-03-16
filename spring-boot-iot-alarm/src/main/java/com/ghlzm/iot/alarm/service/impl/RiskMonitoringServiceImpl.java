@@ -29,6 +29,7 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -52,6 +53,23 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private static final List<Integer> ACTIVE_ALARM_STATUSES = List.of(0, 1, 2);
     private static final int DETAIL_LIMIT = 10;
     private static final int TREND_LIMIT = 200;
+    private static final List<String> REQUIRED_BINDING_COLUMNS = List.of(
+            "id",
+            "risk_point_id",
+            "device_id",
+            "device_code",
+            "device_name",
+            "metric_identifier",
+            "metric_name",
+            "default_threshold",
+            "threshold_unit",
+            "create_time",
+            "update_time",
+            "create_by",
+            "update_by",
+            "deleted");
+    private static final String RISK_MONITORING_SCHEMA_HINT =
+            "风险监测依赖表 risk_point_device 缺失，请先执行 sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql";
 
     private final RiskPointMapper riskPointMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
@@ -61,6 +79,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private final DevicePropertyMapper devicePropertyMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final ProductMapper productMapper;
+    private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public RiskMonitoringServiceImpl(RiskPointMapper riskPointMapper,
@@ -70,7 +89,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                                      DeviceMapper deviceMapper,
                                      DevicePropertyMapper devicePropertyMapper,
                                      DeviceMessageLogMapper deviceMessageLogMapper,
-                                     ProductMapper productMapper) {
+                                     ProductMapper productMapper,
+                                     JdbcTemplate jdbcTemplate) {
         this.riskPointMapper = riskPointMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.alarmRecordMapper = alarmRecordMapper;
@@ -79,6 +99,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         this.devicePropertyMapper = devicePropertyMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.productMapper = productMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -105,6 +126,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
 
     @Override
     public RiskMonitoringDetailVO getRealtimeDetail(Long bindingId) {
+        ensureBindingTableReady();
         RiskPointDevice binding = riskPointDeviceMapper.selectById(bindingId);
         if (binding == null || Integer.valueOf(1).equals(binding.getDeleted())) {
             throw new BizException("风险监测绑定不存在");
@@ -166,6 +188,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             return Collections.emptyList();
         }
 
+        ensureBindingTableReady();
         Set<Long> riskPointIds = riskPoints.stream().map(RiskPoint::getId).collect(Collectors.toSet());
         List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
                 .eq(RiskPointDevice::getDeleted, 0)
@@ -209,9 +232,33 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     }
 
     private List<RiskPointDevice> listBindings(Long riskPointId) {
+        ensureBindingTableReady();
         return riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
                 .eq(RiskPointDevice::getDeleted, 0)
                 .eq(riskPointId != null, RiskPointDevice::getRiskPointId, riskPointId));
+    }
+
+    private void ensureBindingTableReady() {
+        Integer tableCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM information_schema.tables "
+                        + "WHERE table_schema = DATABASE() AND table_name = ?",
+                Integer.class,
+                "risk_point_device");
+        if (tableCount == null || tableCount < 1) {
+            throw new BizException(RISK_MONITORING_SCHEMA_HINT);
+        }
+
+        List<String> existingColumns = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns "
+                        + "WHERE table_schema = DATABASE() AND table_name = ?",
+                String.class,
+                "risk_point_device");
+        List<String> missingColumns = REQUIRED_BINDING_COLUMNS.stream()
+                .filter(required -> existingColumns.stream().noneMatch(required::equalsIgnoreCase))
+                .toList();
+        if (!missingColumns.isEmpty()) {
+            throw new BizException(RISK_MONITORING_SCHEMA_HINT + "，缺少列: " + String.join(", ", missingColumns));
+        }
     }
 
     private MonitoringContext buildContext(List<RiskPointDevice> bindings) {

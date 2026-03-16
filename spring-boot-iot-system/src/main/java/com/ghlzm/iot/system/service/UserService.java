@@ -41,6 +41,11 @@ public interface UserService extends IService<User> {
       User getByUsername(String username);
 
       /**
+       * 根据手机号查询用户
+       */
+      User getByPhone(String phone);
+
+      /**
        * 修改密码
        */
       void changePassword(Long userId, String oldPassword, String newPassword);

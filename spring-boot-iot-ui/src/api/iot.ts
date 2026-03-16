@@ -2,6 +2,8 @@ import { request } from './http';
 import type {
   Device,
   DeviceAddPayload,
+  DeviceMetricOption,
+  DeviceOption,
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
@@ -35,6 +37,14 @@ export function getDeviceById(id: string | number) {
 
 export function getDeviceByCode(deviceCode: string) {
   return request<Device>(`/device/code/${deviceCode}`);
+}
+
+export function listDeviceOptions() {
+  return request<DeviceOption[]>('/api/device/list');
+}
+
+export function getDeviceMetricOptions(deviceId: string | number) {
+  return request<DeviceMetricOption[]>(`/api/device/${deviceId}/metrics`);
 }
 
 export function reportByHttp(payload: HttpReportPayload) {

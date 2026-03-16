@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* 字体 - 保持现代科技感 */
   --font-display: "Space Grotesk", "Plus Jakarta Sans", "Segoe UI", sans-serif;
@@ -28,22 +28,23 @@
   --info: #1e80ff;
   --info-bg: rgba(30, 128, 255, 0.1);
 
-  /* 背景色 - 深空灰体系 */
-  --bg: #0d0d0d;
-  --bg-elevated: #141414;
-  --bg-panel: rgba(20, 20, 20, 0.95);
-  --bg-card: #1f1f1f;
-  --bg-hover: #262626;
-  --bg-active: #303030;
+  /* 背景色 - 云控制台浅色体系 */
+  --bg: #f3f6fb;
+  --bg-elevated: #f8fbff;
+  --bg-panel: rgba(255, 255, 255, 0.95);
+  --bg-card: #ffffff;
+  --bg-hover: #f4f7fc;
+  --bg-active: #edf3ff;
 
   /* 文字色 */
-  --text-primary: #f5f5f5;
-  --text-secondary: #bfbfbf;
-  --text-tertiary: #8c8c8c;
-  --text-disabled: #595959;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5d75;
+  --text-tertiary: #7a889d;
+  --text-disabled: #9aa6b8;
+  --ink-strong: #ffffff;
 
   /* 边框色 */
-  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-border: rgba(41, 60, 92, 0.14);
   --panel-border-strong: rgba(255, 106, 0, 0.35);
   --panel-border-hover: rgba(255, 106, 0, 0.5);
 
@@ -54,9 +55,10 @@
   --radius-xs: 4px;
 
   /* 阴影 */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 10px rgba(26, 47, 86, 0.08);
+  --shadow-md: 0 6px 20px rgba(26, 47, 86, 0.12);
+  --shadow-lg: 0 12px 36px rgba(26, 47, 86, 0.16);
+  --shadow-panel: 0 10px 24px rgba(31, 49, 90, 0.1);
   --shadow-brand: 0 4px 24px rgba(255, 106, 0, 0.25);
 
   /* 间距 */

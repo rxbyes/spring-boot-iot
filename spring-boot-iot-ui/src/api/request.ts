@@ -1,59 +1,35 @@
-import { runtimeState } from '../stores/runtime';
+﻿import { runtimeState } from '../stores/runtime';
 import type { ApiEnvelope } from '../types/api';
 
-/**
- * 请求配置选项
- */
-export interface RequestOptions extends Omit<RequestInit, 'body'> {
-  /** 请求体，支持多种类型 */
-  body?: BodyInit | Record<string, unknown> | null;
-  /** 是否需要响应数据 */
-  needData?: boolean;
-  /** 自定义错误处理 */
+export interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
+  body?: BodyInit | Record<string, unknown> | unknown | null;
+  headers?: HeadersInit;
   errorHandler?: (error: Error) => void;
 }
 
-/**
- * 请求拦截器回调类型
- */
 export interface RequestInterceptor {
-  /** 请求前拦截 */
   onRequest?: (options: RequestOptions) => RequestOptions | Promise<RequestOptions>;
-  /** 请求成功拦截 */
-  onsuccess?: (response: Response) => Response | Promise<Response>;
-  /** 请求失败拦截 */
   onerror?: (error: Error) => Error | Promise<Error>;
 }
 
-/**
- * 响应拦截器回调类型
- */
 export interface ResponseInterceptor<T = unknown> {
-  /** 响应成功拦截 */
   onsuccess?: (data: ApiEnvelope<T>) => ApiEnvelope<T> | Promise<ApiEnvelope<T>>;
-  /** 响应失败拦截 */
   onerror?: (error: Error) => Error | Promise<Error>;
 }
 
-/**
- * 拦截器管理器
- */
 class InterceptorManager {
   private requestInterceptors: RequestInterceptor[] = [];
   private responseInterceptors: ResponseInterceptor[] = [];
 
-  /** 添加请求拦截器 */
-  public addRequestInterceptor(interceptor: RequestInterceptor): void {
+  addRequestInterceptor(interceptor: RequestInterceptor): void {
     this.requestInterceptors.push(interceptor);
   }
 
-  /** 添加响应拦截器 */
-  public addResponseInterceptor(interceptor: ResponseInterceptor): void {
+  addResponseInterceptor(interceptor: ResponseInterceptor): void {
     this.responseInterceptors.push(interceptor);
   }
 
-  /** 应用请求拦截器 */
-  public async applyRequestInterceptors(options: RequestOptions): Promise<RequestOptions> {
+  async applyRequestInterceptors(options: RequestOptions): Promise<RequestOptions> {
     let result = options;
     for (const interceptor of this.requestInterceptors) {
       if (interceptor.onRequest) {
@@ -63,9 +39,8 @@ class InterceptorManager {
     return result;
   }
 
-  /** 应用响应拦截器 */
-  public async applyResponseInterceptors<T>(data: ApiEnvelope<T>): Promise<ApiEnvelope<T>> {
-    let result = data;
+  async applyResponseInterceptors<T>(payload: ApiEnvelope<T>): Promise<ApiEnvelope<T>> {
+    let result = payload;
     for (const interceptor of this.responseInterceptors) {
       if (interceptor.onsuccess) {
         result = await interceptor.onsuccess(result);
@@ -73,84 +48,72 @@ class InterceptorManager {
     }
     return result;
   }
-}
 
-/**
- * 全局拦截器管理器
- */
-export const interceptorManager = new InterceptorManager();
-
-/**
- * 统一请求处理函数
- */
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
-  const { body, headers, needData = true, errorHandler, ...rest } = options;
-  const requestHeaders = new Headers(headers);
-  let resolvedBody: BodyInit | undefined;
-
-  // 处理请求体
-  if (body && !(body instanceof FormData) && typeof body !== 'string' && !(body instanceof URLSearchParams)) {
-    requestHeaders.set('Content-Type', 'application/json');
-    resolvedBody = JSON.stringify(body);
-  } else if (typeof body === 'string' || body instanceof FormData || body instanceof URLSearchParams) {
-    resolvedBody = body;
+  async applyRequestErrorInterceptors(error: Error): Promise<void> {
+    for (const interceptor of this.requestInterceptors) {
+      if (interceptor.onerror) {
+        await interceptor.onerror(error);
+      }
+    }
   }
 
-  // 构建URL
+  async applyResponseErrorInterceptors(error: Error): Promise<void> {
+    for (const interceptor of this.responseInterceptors) {
+      if (interceptor.onerror) {
+        await interceptor.onerror(error);
+      }
+    }
+  }
+}
+
+export const interceptorManager = new InterceptorManager();
+
+function normalizeBody(body: RequestOptions['body'], headers: Headers): BodyInit | undefined {
+  if (body === null || body === undefined) {
+    return undefined;
+  }
+  if (body instanceof FormData || body instanceof URLSearchParams || typeof body === 'string') {
+    return body;
+  }
+
+  headers.set('Content-Type', 'application/json');
+  return JSON.stringify(body);
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
+  const { body, headers, errorHandler, ...rest } = options;
+  const requestHeaders = new Headers(headers);
+
   const url = `${runtimeState.apiBaseUrl}${path}`;
+  const finalOptions = await interceptorManager.applyRequestInterceptors({
+    ...rest,
+    headers: requestHeaders,
+    body: normalizeBody(body, requestHeaders)
+  });
 
   try {
-    // 应用请求拦截器
-    const processedOptions = await interceptorManager.applyRequestInterceptors({
-      ...rest,
-      headers: requestHeaders,
-      body: resolvedBody
-    });
-
-    // 发起请求
-    const response = await fetch(url, processedOptions);
-
-    // 应用响应拦截器
-    const processedResponse = await interceptorManager.applyResponseInterceptors(response as any);
-
-    // 处理响应
-    const rawText = await processedResponse.text();
+    const response = await fetch(url, finalOptions as RequestInit);
+    const rawText = await response.text();
     const payload = rawText ? (JSON.parse(rawText) as ApiEnvelope<T>) : null;
 
-    // 错误处理
-    if (!processedResponse.ok) {
-      const error = new Error(payload?.msg || `请求失败: ${processedResponse.status}`);
-      if (errorHandler) {
-        errorHandler(error);
-      }
-      throw error;
-    }
-
     if (!payload) {
-      const error = new Error('服务端没有返回有效内容');
-      if (errorHandler) {
-        errorHandler(error);
-      }
-      throw error;
+      throw new Error('服务端没有返回有效内容');
     }
 
-    if (payload.code !== 200) {
-      const error = new Error(payload.msg || '接口调用失败');
-      if (errorHandler) {
-        errorHandler(error);
-      }
-      throw error;
+    const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
+
+    if (!response.ok) {
+      throw new Error(processedPayload.msg || `请求失败: ${response.status}`);
     }
 
-    return payload;
+    return processedPayload;
   } catch (error) {
-    // 应用错误拦截器
     if (error instanceof Error) {
-      for (const interceptor of interceptorManager.requestInterceptors) {
-        if (interceptor.onerror) {
-          await interceptor.onerror(error);
-        }
+      if (errorHandler) {
+        errorHandler(error);
       }
+      await interceptorManager.applyRequestErrorInterceptors(error);
+      await interceptorManager.applyResponseErrorInterceptors(error);
     }
     throw error;
   }

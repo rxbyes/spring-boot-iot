@@ -19,6 +19,7 @@
         <module>spring-boot-iot-device</module>
         <module>spring-boot-iot-protocol</module>
         <module>spring-boot-iot-message</module>
+        <module>spring-boot-iot-rule</module>
         <module>spring-boot-iot-alarm</module>
         <module>spring-boot-iot-report</module>
         <module>spring-boot-iot-admin</module>

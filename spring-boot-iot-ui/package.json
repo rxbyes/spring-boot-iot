@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "acceptance:dev": "vite --host 0.0.0.0",
+    "acceptance:browser": "node ./scripts/business-browser-acceptance.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
@@ -26,10 +27,12 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.5",
     "@vitejs/plugin-vue": "^6.0.1",
+    "playwright-core": "^1.58.2",
     "@vitest/coverage-v8": "^2.1.8",
     "@vue/test-utils": "^2.4.6",
     "sass-embedded": "^1.98.0",
     "typescript": "^5.8.3",
+    "unplugin-vue-components": "^31.0.0",
     "vite": "^7.0.0"
   }
 }

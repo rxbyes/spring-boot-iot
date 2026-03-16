@@ -21,8 +21,8 @@ public class DevicePropertyController {
         this.deviceService = deviceService;
     }
 
-    @GetMapping("/device/{deviceCode}/properties")
-    public R<List<DeviceProperty>> getProperties(@PathVariable("deviceCode") String deviceCode) {
+    @GetMapping("/api/device/{deviceCode}/properties")
+    public R<List<DeviceProperty>> getProperties(@PathVariable String deviceCode) {
         return R.ok(deviceService.listProperties(deviceCode));
     }
 }

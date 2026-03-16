@@ -1,550 +1,148 @@
-# Phase 4 研发进度报告
-
-## 概述
-
-本文档记录了 Phase 4（风险监测预警处置平台）的研发进度，包括已完成和未完成的功能模块。
-
-## 已完成功能
-
-### 1. 告警中心 (已完成)
-
-#### 后端实现
-- **数据库表**: `iot_alarm_record`
-  - 告警编号、告警标题、告警类型、告警等级、区域、风险点、设备名称、测点名称、当前值、阈值、状态、触发时间
-- **实体类**: `AlarmRecord`
-- **Mapper**: `AlarmRecordMapper`
-- **Service**: `AlarmRecordService`
-- **Controller**: `AlarmRecordController`
-- **API**:
-  - `GET /alarm/records` - 告警列表
-  - `GET /alarm/record/{id}` - 告警详情
-  - `POST /alarm/record/{id}/confirm` - 告警确认
-  - `POST /alarm/record/{id}/suppress` - 告警抑制
-  - `GET /alarm/record/{id}/notifications` - 通知记录
-
-#### 前端实现
-- **API**: `src/api/alarm.ts`
-- **路由**: `/alarm-center`
-- **页面**: `AlarmCenterView.vue`
-  - 告警列表
-  - 告警详情
-  - 告警确认
-  - 告警抑制
-  - 通知记录
-
-### 2. 事件处置 (已完成)
-
-#### 后端实现
-- **数据库表**: `iot_event_record`, `iot_event_work_order`
-  - 事件编号、事件标题、风险等级、责任人、紧急程度、到场时限、完成时限、状态
-  - 工单编号、事件 ID、派发人、派发时间、处理人、处理时间、处理结果
-- **实体类**: `EventRecord`, `EventWorkOrder`
-- **Mapper**: `EventRecordMapper`, `EventWorkOrderMapper`
-- **Service**: `EventRecordService`, `EventWorkOrderService`
-- **Controller**: `EventRecordController`
-- **API**:
-  - `GET /event/records` - 事件列表
-  - `GET /event/record/{id}` - 事件详情
-  - `POST /event/record/{id}/dispatch` - 工单派发
-  - `POST /event/record/{id}/feedback` - 现场反馈
-  - `POST /event/record/{id}/close` - 事件关闭
-
-#### 前端实现
-- **API**: `src/api/eventRecord.ts`
-- **路由**: `/event-disposal`
-- **页面**: `EventDisposalView.vue`
-  - 事件列表
-  - 事件详情
-  - 工单派发
-  - 现场反馈
-  - 事件复盘
-
-### 3. 风险点管理 (已完成)
-
-#### 后端实现
-- **数据库表**: `risk_point`, `risk_point_device`
-  - 风险点编号、风险点名称、区域、负责人、风险等级
-  - 风险点 ID、设备 ID、绑定时间
-- **实体类**: `RiskPoint`, `RiskPointDevice`
-- **Mapper**: `RiskPointMapper`, `RiskPointDeviceMapper`
-- **Service**: `RiskPointService`
-- **Controller**: `RiskPointController`
-- **API**:
-  - `GET /risk/point` - 风险点列表
-  - `POST /risk/point` - 添加风险点
-  - `PUT /risk/point` - 更新风险点
-  - `DELETE /risk/point/{id}` - 删除风险点
-  - `POST /risk/point/bind` - 绑定设备
-  - `DELETE /risk/point/unbind` - 解绑设备
-
-#### 前端实现
-- **API**: `src/api/riskPoint.ts`
-- **路由**: `/risk-point`
-- **页面**: `RiskPointView.vue`
-  - 风险点列表
-  - 添加风险点
-  - 编辑风险点
-  - 绑定设备
-
-### 4. 阈值规则配置 (已完成)
-
-#### 后端实现
-- **数据库表**: `rule_definition`
-  - 规则 ID、规则名称、测点、表达式、持续时间、告警等级、通知方式、是否转事件
-- **实体类**: `RuleDefinition`
-- **Mapper**: `RuleDefinitionMapper`
-- **Service**: `RuleDefinitionService`
-- **Controller**: `RuleDefinitionController`
-- **API**:
-  - `GET /rule/definition` - 规则列表
-  - `POST /rule/definition` - 添加规则
-  - `PUT /rule/definition` - 更新规则
-  - `DELETE /rule/definition/{id}` - 删除规则
-  - `POST /rule/definition/test` - 规则测试
-
-#### 前端实现
-- **API**: `src/api/ruleDefinition.ts`
-- **路由**: `/rule-definition`
-- **页面**: `RuleDefinitionView.vue`
-  - 规则列表
-  - 添加规则
-  - 编辑规则
-  - 规则测试
-
-### 5. 联动规则与应急预案 (已完成)
-
-#### 后端实现
-- **数据库表**: `linkage_rule`, `emergency_plan`
-  - 联动规则 ID、规则名称、触发条件、动作列表
-  - 应急预案 ID、预案名称、响应步骤、联系人列表
-- **实体类**: `LinkageRule`, `EmergencyPlan`
-- **Mapper**: `LinkageRuleMapper`, `EmergencyPlanMapper`
-- **Service**: `LinkageRuleService`, `EmergencyPlanService`
-- **Controller**: `LinkageRuleController`, `EmergencyPlanController`
-- **API**:
-  - `GET /linkage/rule` - 联动规则列表
-  - `POST /linkage/rule` - 添加联动规则
-  - `PUT /linkage/rule` - 更新联动规则
-  - `DELETE /linkage/rule/{id}` - 删除联动规则
-  - `GET /emergency/plan` - 应急预案列表
-  - `POST /emergency/plan` - 添加应急预案
-  - `PUT /emergency/plan` - 更新应急预案
-  - `DELETE /emergency/plan/{id}` - 删除应急预案
-
-#### 前端实现
-- **API**: `src/api/linkageRule.ts`, `src/api/emergencyPlan.ts`
-- **路由**: `/linkage-rule`, `/emergency-plan`
-- **页面**: `LinkageRuleView.vue`, `EmergencyPlanView.vue`
-  - 联动规则列表、添加、编辑、删除
-  - 应急预案列表、添加、编辑、删除
-
-### 6. 分析报表 (已完成)
-
-#### 后端实现
-- **模块**: `spring-boot-iot-report`
-- **实体类**: `AlarmStatistics`, `EventStatistics`, `DeviceHealthStatistics`
-- **Service**: `ReportService`
-- **Controller**: `ReportController`
-- **API**:
-  - `GET /report/risk-trend` - 风险趋势分析
-  - `GET /report/alarm-statistics` - 告警统计分析
-  - `GET /report/event-closure` - 事件闭环分析
-  - `GET /report/device-health` - 设备健康分析
-
-#### 前端实现
-- **API**: `src/api/report.ts`
-- **路由**: `/report-analysis`
-- **页面**: `ReportAnalysisView.vue`
-  - KPI 指标卡片（告警总数、事件总数、已关闭事件、设备在线率）
-  - 风险趋势分析图表
-  - 告警等级分布图表
-  - 事件闭环分析图表
-  - 设备健康分析图表
-
-### 7. 系统管理功能
-
-#### 组织机构管理 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_organization`
-  - 组织 ID、组织名称、组织编码、组织类型、负责人、联系电话、邮箱、状态、排序、备注
-- **实体类**: `Organization`
-- **Mapper**: `OrganizationMapper`
-- **Service**: `OrganizationService`
-- **Controller**: `OrganizationController`
-- **API**:
-  - `GET /api/organization/tree` - 组织机构树
-  - `GET /api/organization/list` - 组织机构列表
-  - `GET /api/organization/{id}` - 获取组织机构详情
-  - `POST /api/organization` - 添加组织机构
-  - `PUT /api/organization` - 更新组织机构
-  - `DELETE /api/organization/{id}` - 删除组织机构
-
-##### 前端实现
-- **API**: `src/api/organization.ts`
-- **路由**: `/organization`
-- **页面**: `OrganizationView.vue`
-  - 组织机构树形列表
-  - 添加组织机构
-  - 编辑组织机构
-  - 删除组织机构
-  - 新增子级
-
-#### 用户管理 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_user`
-  - 用户 ID、租户 ID、用户名、真实姓名、手机号、邮箱、头像、状态、最后登录时间、最后登录 IP、创建时间、更新时间
-- **实体类**: `User`
-- **Mapper**: `UserMapper`
-- **Service**: `UserService`
-- **Controller**: `UserController`
-- **API**:
-  - `GET /api/user/list` - 用户列表
-  - `GET /api/user/{id}` - 获取用户详情
-  - `POST /api/user/add` - 添加用户
-  - `PUT /api/user/update` - 更新用户
-  - `DELETE /api/user/{id}` - 删除用户
-  - `GET /api/user/username/{username}` - 根据用户名查询用户
-  - `POST /api/user/change-password` - 修改密码
-  - `POST /api/user/reset-password/{userId}` - 重置密码
-
-##### 前端实现
-- **API**: `src/api/user.ts`
-- **路由**: `/user`
-- **页面**: `UserView.vue`
-  - 用户列表
-  - 添加用户
-  - 编辑用户
-  - 删除用户
-  - 重置密码
-
-#### 角色权限管理 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_role`, `sys_menu`, `sys_role_menu`, `sys_user_role`
-  - 角色 ID、租户 ID、角色名称、角色编码、描述、状态、创建时间、更新时间
-  - 菜单 ID、父菜单 ID、菜单名称、菜单类型、路径、图标、排序、状态、创建时间、更新时间
-  - 角色 ID、菜单 ID、创建时间
-  - 用户 ID、角色 ID、创建时间
-- **实体类**: `Role`, `Menu`
-- **Mapper**: `RoleMapper`, `MenuMapper`
-- **Service**: `RoleService`
-- **Controller**: `RoleController`
-- **API**:
-  - `GET /api/role/list` - 角色列表
-  - `GET /api/role/{id}` - 获取角色详情
-  - `POST /api/role/add` - 添加角色
-  - `PUT /api/role/update` - 更新角色
-  - `DELETE /api/role/{id}` - 删除角色
-  - `GET /api/role/user/{userId}` - 查询用户角色列表
-
-##### 前端实现
-- **API**: `src/api/role.ts`
-- **路由**: `/role`
-- **页面**: `RoleView.vue`
-  - 角色列表
-  - 添加角色
-  - 编辑角色
-  - 删除角色
-
-#### 区域管理 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_region`
-  - 区域 ID、区域名称、区域编码、父区域 ID、排序、备注、创建时间、更新时间
-- **实体类**: `Region`
-- **Mapper**: `RegionMapper`
-- **Service**: `RegionService`
-- **Controller**: `RegionController`
-- **API**:
-  - `GET /api/region/list` - 区域列表
-  - `GET /api/region/tree` - 区域树
-  - `GET /api/region/{id}` - 获取区域详情
-  - `POST /api/region` - 添加区域
-  - `PUT /api/region` - 更新区域
-  - `DELETE /api/region/{id}` - 删除区域
-
-##### 前端实现
-- **API**: `src/api/region.ts`
-- **路由**: `/region`
-- **页面**: `RegionView.vue`
-  - 区域列表
-  - 添加区域
-  - 编辑区域
-  - 删除区域
-
-#### 字典配置 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_dict`, `sys_dict_item`
-  - 字典 ID、字典名称、字典编码、描述、状态、创建时间、更新时间
-  - 字典项 ID、字典 ID、项名称、项值、排序、描述、状态、创建时间、更新时间
-- **实体类**: `Dict`, `DictItem`
-- **Mapper**: `DictMapper`, `DictItemMapper`
-- **Service**: `DictService`
-- **Controller**: `DictController`
-- **API**:
-  - `GET /api/dict/list` - 字典列表
-  - `GET /api/dict/{id}` - 获取字典详情
-  - `POST /api/dict` - 添加字典
-  - `PUT /api/dict` - 更新字典
-  - `DELETE /api/dict/{id}` - 删除字典
-  - `GET /api/dict/items/{dictId}` - 获取字典项列表
-  - `POST /api/dict/item` - 添加字典项
-  - `PUT /api/dict/item` - 更新字典项
-  - `DELETE /api/dict/item/{id}` - 删除字典项
-
-##### 前端实现
-- **API**: `src/api/dict.ts`
-- **路由**: `/dict`
-- **页面**: `DictView.vue`
-  - 字典列表
-  - 添加字典
-  - 编辑字典
-  - 删除字典
-  - 字典项管理
-
-#### 通知渠道管理 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_notification_channel`
-  - 渠道 ID、渠道名称、渠道类型、配置参数、状态、创建时间、更新时间
-- **实体类**: `NotificationChannel`
-- **Mapper**: `NotificationChannelMapper`
-- **Service**: `NotificationChannelService`
-- **Controller**: `NotificationChannelController`
-- **API**:
-  - `GET /api/notification/channel/list` - 通知渠道列表
-  - `GET /api/notification/channel/{id}` - 获取通知渠道详情
-  - `POST /api/notification/channel` - 添加通知渠道
-  - `PUT /api/notification/channel` - 更新通知渠道
-  - `DELETE /api/notification/channel/{id}` - 删除通知渠道
-  - `POST /api/notification/channel/test/{id}` - 测试通知渠道
-
-##### 前端实现
-- **API**: `src/api/channel.ts`
-- **路由**: `/channel`
-- **页面**: `ChannelView.vue`
-  - 通知渠道列表
-  - 添加通知渠道
-  - 编辑通知渠道
-  - 删除通知渠道
-  - 测试通知
-
-#### 审计日志 (已完成)
-
-##### 后端实现
-- **数据库表**: `sys_audit_log`
-  - 主键、租户 ID、操作用户 ID、操作用户名称、操作类型、操作模块、操作方法、请求 URL、请求方法、请求参数、响应结果、操作 IP、操作地点、操作结果、操作结果消息、操作时间、创建时间
-- **实体类**: `AuditLog`
-- **Mapper**: `AuditLogMapper`
-- **Service**: `AuditLogService`
-- **Controller**: `AuditLogController`
-- **API**:
-  - `GET /system/audit-log/list` - 审计日志列表
-  - `GET /system/audit-log/page` - 分页查询审计日志
-  - `GET /system/audit-log/get/{id}` - 根据 ID 查询审计日志
-  - `POST /system/audit-log/add` - 添加审计日志
-  - `DELETE /system/audit-log/delete/{id}` - 删除审计日志
-
-##### 前端实现
-- **API**: `src/api/auditLog.ts`
-- **路由**: `/audit-log`
-- **页面**: `AuditLogView.vue`
-  - 审计日志列表
-  - 搜索条件（操作用户、操作类型、操作模块）
-  - 详情对话框
-  - 删除操作
-
-## 未完成功能
-
-### 1. 首页驾驶舱增强
-
-#### KPI 指标卡片
-- 设备总数
-- 在线设备数
-- 今日告警数
-- 未关闭事件数
-
-#### 图表模块
-- 风险趋势折线图
-- 告警等级分布饼图
-
-#### 地图模块
-- GIS 风险点分布
-
-#### 列表模块
-- 最新告警
-- 待处理事件
-
-### 2. 风险监测模块
-
-#### 实时监测列表
-- 设备编码
-- 设备名称
-- 风险点
-- 测点名称
-- 当前值
-- 单位
-- 状态
-- 最新上报时间
-- 风险等级
-- 是否告警
-
-#### 监测详情页面
-- 设备信息
-- 当前监测数据
-- 最近 24 小时趋势
-- 最近告警记录
-
-### 3. 设备中心增强
-
-#### 产品物模型
-- 属性编码
-- 属性名称
-- 数据类型
-- 单位
-- 是否风险监测项
-- 默认阈值
-
-#### 设备管理增强
-- 风险点
-- 安装位置
-- 运行状态
-
-## 技术架构
-
-### 后端架构
-```
-spring-boot-iot
-├── spring-boot-iot-common
-├── spring-boot-iot-framework
-├── spring-boot-iot-auth
-├── spring-boot-iot-system
-│   ├── organization
-│   ├── user
-│   ├── role
-│   ├── menu
-│   ├── region
-│   ├── dict
-│   ├── notification channel
-│   └── audit log
-├── spring-boot-iot-device
-├── spring-boot-iot-protocol
-├── spring-boot-iot-message
-├── spring-boot-iot-alarm
-│   ├── alarm record
-│   ├── event record
-│   ├── risk point
-│   ├── rule definition
-│   ├── linkage rule
-│   └── emergency plan
-├── spring-boot-iot-report
-│   ├── alarm statistics
-│   ├── event statistics
-│   └── device health statistics
-└── spring-boot-iot-admin
-```
-
-### 前端架构
-```
-spring-boot-iot-ui
-├── src
-│   ├── api
-│   │   ├── alarm.ts
-│   │   ├── eventRecord.ts
-│   │   ├── riskPoint.ts
-│   │   ├── ruleDefinition.ts
-│   │   ├── linkageRule.ts
-│   │   ├── emergencyPlan.ts
-│   │   ├── report.ts
-│   │   ├── organization.ts
-│   │   ├── user.ts
-│   │   ├── role.ts
-│   │   ├── region.ts
-│   │   ├── dict.ts
-│   │   ├── channel.ts
-│   │   └── auditLog.ts
-│   ├── router
-│   │   └── index.ts
-│   └── views
-│       ├── AlarmCenterView.vue
-│       ├── EventDisposalView.vue
-│       ├── RiskPointView.vue
-│       ├── RuleDefinitionView.vue
-│       ├── LinkageRuleView.vue
-│       ├── EmergencyPlanView.vue
-│       ├── ReportAnalysisView.vue
-│       ├── OrganizationView.vue
-│       ├── UserView.vue
-│       ├── RoleView.vue
-│       ├── RegionView.vue
-│       ├── DictView.vue
-│       ├── ChannelView.vue
-│       └── AuditLogView.vue
-```
-
-## 数据库表
-
-### Phase 4 新增表
-1. `iot_alarm_record` - 告警记录表
-2. `iot_event_record` - 事件记录表
-3. `iot_event_work_order` - 事件工单表
-4. `risk_point` - 风险点表
-5. `risk_point_device` - 风险点设备绑定表
-6. `rule_definition` - 规则定义表
-7. `linkage_rule` - 联动规则表
-8. `emergency_plan` - 应急预案表
-9. `sys_organization` - 组织机构表
-10. `sys_user` - 用户表
-11. `sys_role` - 角色表
-12. `sys_menu` - 菜单表
-13. `sys_role_menu` - 角色菜单关联表
-14. `sys_user_role` - 用户角色关联表
-15. `sys_region` - 区域表
-16. `sys_dict` - 字典表
-17. `sys_dict_item` - 字典项表
-18. `sys_notification_channel` - 通知渠道表
-19. `sys_audit_log` - 审计日志表
-
-## 下一步计划
-
-### Phase 5: 平台增强与优化
-
-1. **首页驾驶舱增强**
-   - KPI 指标卡片
-   - 图表模块
-   - 地图模块
-   - 列表模块
-
-2. **风险监测模块**
-   - 实时监测列表
-   - 监测详情页面
-
-3. **设备中心增强**
-   - 产品物模型
-   - 设备管理增强
-
-4. **测试与验证**
-   - 告警中心 E2E 测试
-   - 事件处置 E2E 测试
-   - 风险配置 E2E 测试
-   - 报表分析 E2E 测试
-   - 系统管理 E2E 测试
-
-5. **性能优化**
-   - 数据库查询优化
-   - 缓存策略优化
-   - 前端加载优化
-
-6. **安全加固**
-   - 权限控制完善
-   - 审计日志完善
-   - 数据加密
-
-## 总结
-
-Phase 4 已完成告警中心、事件处置、风险点管理、阈值规则配置、联动规则与应急预案、分析报表、组织机构管理、用户管理、角色权限管理、区域管理、字典配置、通知渠道管理、审计日志等核心功能。
-
-下一步将进行 Phase 5 的研发，重点实现首页驾驶舱增强、风险监测模块、设备中心增强等功能，并进行全面的测试与优化。
+# Phase 4 持续跟进与开发指导（权威）
+
+更新时间：2026-03-16
+权威声明：本文件为 Phase 4 进度、后续开发与验收安排的唯一权威来源。如与 README.md、AGENTS.md 或其他路线图冲突，以本文件为准。
+
+## 1. 基本约束
+
+- 项目名称：`spring-boot-iot`
+- 启动模块：`spring-boot-iot-admin`
+- Base package：`com.ghlzm.iot`
+- 必须保持 Phase 1-3 主链路不回归：HTTP/MQTT 上报、指令闭环、网关/子设备拓扑、规则引擎。
+- 不破坏模块边界，不把持久化逻辑放进协议适配层，不把业务逻辑放进 Controller。
+- 不引入不必要的重依赖。
+- 消息日志表命名统一以 `iot_message_log` 为主，历史兼容关系由迁移方案处理。
+- Phase 4 验收统一走真实环境，不再使用旧 H2 验收剖面。
+- 真实环境默认参考 `spring-boot-iot-admin/src/main/resources/application-dev.yml`，可通过环境变量覆盖：
+  - `IOT_MYSQL_URL`、`IOT_MYSQL_USERNAME`、`IOT_MYSQL_PASSWORD`
+  - `IOT_TDENGINE_URL`、`IOT_TDENGINE_USERNAME`、`IOT_TDENGINE_PASSWORD`
+  - `IOT_REDIS_HOST`、`IOT_REDIS_PORT`、`IOT_REDIS_PASSWORD`、`IOT_REDIS_DATABASE`
+  - `IOT_MQTT_ENABLED`、`IOT_MQTT_BROKER_URL`、`IOT_MQTT_CLIENT_ID`、`IOT_MQTT_USERNAME`、`IOT_MQTT_PASSWORD`
+  - `spring.cloud.aes.merchants.{appId}`
+
+## 2. 当前进度（以本文件为准）
+
+### 2.1 已完成并已具备交付基础
+- 告警中心：后端已完成，前端页面已完成。
+- 事件处置：后端已完成，前端页面已完成。
+- 风险点管理：后端已完成，前端页面已完成。
+- 阈值规则配置：后端已完成，前端页面已完成。
+- 联动规则与应急预案：后端已完成，前端页面已完成。
+- 分析报表：后端真实统计已完成，前端页面已完成。
+- 系统管理：组织、用户、角色、区域、字典、通知渠道、审计日志已完成基础交付；2026-03-16 已补齐基于 MySQL 的动态菜单、角色菜单关系、用户角色关系与按钮权限基线。
+
+### 2.2 已完成开发，待真实环境联调验证
+- 风险监测后端只读接口：
+  - `GET /api/risk-monitoring/realtime/list`
+  - `GET /api/risk-monitoring/realtime/{bindingId}`
+  - `GET /api/risk-monitoring/gis/points`
+- 风险监测前端页面：
+  - `RealTimeMonitoringView` 已完成开发，待真实环境联调验证。
+  - `RiskGisView` 已完成开发，待真实环境联调验证。
+  - `RiskMonitoringDetailDrawer` 已完成开发，待真实环境联调。
+- 风险监测路由与导航入口已补齐：
+  - `/risk-monitoring`
+  - `/risk-monitoring-gis`
+
+### 2.2.1 当前阻塞与复验前置
+- 2026-03-16 已按 `spring-boot-iot-admin/src/main/resources/application-dev.yml` 指向的真实环境完成登录冒烟，`/api/auth/login` 已恢复可用并可正常获取 token。
+- `/api/risk-monitoring/realtime/list`、`/api/risk-monitoring/gis/points` 已确认接口路径与鉴权链路正确，且统一保持 `/api` 前缀不变。
+- 当前共享开发库仍存在 schema 漂移：
+  - 缺少 `risk_point_device` 表或关键列。
+  - 旧版 `risk_point` 仍缺少 Phase 4 对齐字段 `create_by` / `update_by`。
+- 复验前必须执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`，完成后再进行真实环境联调。
+
+### 2.3 明确未交付项
+- GIS SDK / 第三方地图底图能力未交付。
+- GIS 热力图、地图底图交互、驾驶舱内嵌风险监测子模块未交付。
+- 首页驾驶舱已完成商业化重构，并补齐角色视角 preset、待办中心和实施支撑能力分层；当前仍采用静态能力编排与本地 activity 兜底，不纳入真实环境验收；设备中心增强仍未开始。
+
+## 3. 当前轮次必须持续推进的工作项
+
+### 3.1 P0 质量与验收
+- 维护真实环境验收口径，不再新增端到端验收入口。
+- 持续补齐 `docs/test-scenarios.md`、`docs/14-mqttx-live-runbook.md` 等真实环境验收文档。
+- 启动并执行 Phase 4 真实环境验收，保留接口、页面、数据库、Redis、MQTTX 证据。
+
+### 3.2 P0 数据一致性
+- 持续推进 `iot_message_log` 命名统一方案。
+- 所有新文档、新接口说明、新验收口径一律优先使用 `iot_message_log`。
+- 历史实现仍使用旧表名时，必须显式标注兼容关系，避免新开发继续扩散旧命名。
+
+### 3.3 P1 风险监测联调
+- 使用真实环境数据完成实时监测列表联调。
+- 使用真实环境数据完成 GIS 点位联调。
+- 校验详情抽屉中的 24h 趋势、最近告警、最近事件三类数据可用性。
+- 补齐空态、无经纬度数据、接口异常三类兜底验收。
+
+### 3.4 P1 文档回写
+- 只要接口、页面结构、验收方式、环境变量发生变化，必须同步回写 `docs/`。
+- `README.md` 与 `AGENTS.md` 如无新增行为差异，可保持现状；如新增启动口径或验收脚本，再同步更新。
+
+## 4. 后续里程碑建议
+
+- M1：风险监测真实环境联调完成。
+- M2：Phase 4 核心模块真实环境验收闭环完成。
+- M3：`iot_message_log` 命名兼容/迁移方案落地。
+- M4：首页商业化重构完成并稳定维护，设备中心增强进入开发。
+
+## 5. 持续跟进任务清单
+
+| 优先级 | 模块 | 任务 | 当前状态 | 产出 | 验收点 |
+|---|---|---|---|---|---|
+| P0 | 质量保障 | Phase 4 真实环境验收清单与脚本整理 | 进行中 | `docs/test-scenarios.md`、验收脚本、核对步骤 | 关键场景可按文档执行 |
+| P0 | 数据一致性 | `iot_message_log` 命名统一方案 | 进行中 | 兼容或迁移方案 | 不影响已验证主链路 |
+| P1 | 风险监测 | 实时监测 API 复验 | 数据库脚本阻塞待复验 | `/api/risk-monitoring/realtime/list` | 已执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 且接口返回非 SQL 500 |
+| P1 | 风险监测 | 详情抽屉 API 复验 | 数据库脚本阻塞待复验 | `/api/risk-monitoring/realtime/{bindingId}` | 24h 趋势、最近告警、最近事件可查询 |
+| P1 | 风险监测 | 实时监测页联调 | 开发完成待真实环境复验 | `RealTimeMonitoringView` | 列表、筛选、详情抽屉可用 |
+| P1 | GIS | GIS 点位 API 复验 | 数据库脚本阻塞待复验 | `/api/risk-monitoring/gis/points` | 已执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 且接口返回点位数据 |
+| P1 | GIS | GIS 页面联调 | 开发完成待真实环境复验 | `RiskGisView` | 点位渲染、未定位列表、详情抽屉可用 |
+| P2 | 驾驶舱 | 首页信息架构商业化重构 | 已完成 | `CockpitView` 首页改版 | 去除无关入口，并围绕业务闭环组织首页 |
+| P2 | 驾驶舱 | 首页角色视角与待办引导 | 已完成 | 角色 preset、经营入口卡片、待办中心与 activity 痕迹 | 首屏不依赖 `/api/cockpit/*` 真实聚合接口 |
+| P2 | 设备中心 | 产品物模型增强 | 未开始 | 物模型管理页 | 支持风险监测字段 |
+| P2 | 设备中心 | 设备管理扩展 | 未开始 | 设备列表增强 | 风险点与运行状态可见 |
+
+## 6. 风险监测模块实现口径
+
+### 6.1 页面拆分
+- 实时监测与 GIS 风险态势必须保持两条独立路由，不做单页双 Tab。
+- 详情统一使用右侧抽屉，不新增独立详情路由。
+- `Cockpit` 只保留跳转入口，不承接本轮风险监测实现。
+
+### 6.2 实时监测页要求
+- 路由：`/risk-monitoring`
+- 筛选项：区域、风险点、设备编码、风险等级、在线状态
+- 列表字段：设备编码、设备名称、产品名称、风险点、测点、当前值、状态、最新上报时间、风险等级、告警标记
+- 交互：点击“查看详情”打开统一详情抽屉
+
+### 6.3 GIS 页要求
+- 路由：`/risk-monitoring-gis`
+- 可视化：基于 ECharts 的经纬度散点态势图，不引入第三方地图 SDK
+- 编码规则：颜色映射风险等级，点大小映射活跃告警数
+- 兜底要求：无经纬度数据的风险点必须进入“未定位风险点”列表
+- 当前轮次不承诺底图、瓦片服务、热力图或 GIS SDK 能力
+
+### 6.4 详情抽屉要求
+- 展示当前监测信息
+- 展示最近 24h 趋势
+- 展示最近告警
+- 展示最近事件
+- 支持从列表页与 GIS 页复用
+
+## 7. 验收与回归
+
+- 构建：`mvn -s .mvn/settings.xml clean package -DskipTests`
+- 后端运行：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
+- 前端运行：`cd spring-boot-iot-ui && npm install && npm run acceptance:dev`
+- 真实环境验收参考：`docs/test-scenarios.md`、`docs/14-mqttx-live-runbook.md`、`docs/04-api.md`
+
+## 8. 更新记录
+
+| 日期 | 更新内容 | 影响模块 | 责任人 | 备注 |
+|---|---|---|---|---|
+| 2026-03-16 | 确认本文件为 Phase 4 唯一权威进度文档 | 全局 | - | 后续冲突以本文件为准 |
+| 2026-03-16 | 风险监测前端状态修正为“已完成开发待真实环境验证” | UI / alarm | Codex | GIS SDK 与底图能力仍未交付 |
+| 2026-03-16 | 验收口径统一切换到真实环境，停止使用旧端到端验收链路 | 全局 | Codex | 参考 `application-dev.yml` 环境变量 |
+| 2026-03-16 | 报表分析接口改为真实业务表聚合，并固定前端日期参数为 YYYY-MM-DD | report / UI | Codex | ReportServiceImpl 不再是连通性占位实现 |
+| 2026-03-16 | 新增风险监测 schema 对齐脚本并补充共享开发库阻塞说明，明确需先执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 后再复验 | alarm / SQL / docs | Codex | 阻塞项集中在 `/api/risk-monitoring/*` |
+| 2026-03-16 | 首页驾驶舱完成商业化重构，并补齐角色视角 preset 与待办中心，当前仍不纳入真实环境验收 | UI | Codex | 首页主视图采用静态能力编排与 activity 兜底 |

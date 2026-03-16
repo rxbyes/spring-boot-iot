@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 
 import java.util.List;
 
@@ -31,4 +33,14 @@ public interface DeviceService extends IService<Device> {
      * 根据设备编码查询最新属性列表。
      */
     List<DeviceProperty> listProperties(String deviceCode);
+
+    /**
+     * 查询可用于绑定风险点的设备选项。
+     */
+    List<DeviceOptionVO> listDeviceOptions();
+
+    /**
+     * 查询指定设备的测点选项。
+     */
+    List<DeviceMetricOptionVO> listMetricOptions(Long deviceId);
 }

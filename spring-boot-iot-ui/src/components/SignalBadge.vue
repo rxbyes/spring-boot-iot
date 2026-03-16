@@ -15,16 +15,16 @@ defineProps<{
 <style scoped>
 .signal-badge {
   align-items: center;
-  border: 1px solid var(--panel-border-strong);
+  border: 1px solid var(--panel-border);
   border-radius: 999px;
   display: inline-flex;
   gap: 0.45rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   padding: 0.35rem 0.7rem;
   text-transform: uppercase;
   font-size: 0.72rem;
   color: var(--text-secondary);
-  background: rgba(9, 14, 28, 0.76);
+  background: #ffffff;
 }
 
 .signal-badge__dot {
@@ -33,7 +33,7 @@ defineProps<{
   height: 0.5rem;
   width: 0.5rem;
   background: currentColor;
-  box-shadow: 0 0 18px currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .signal-badge--success {

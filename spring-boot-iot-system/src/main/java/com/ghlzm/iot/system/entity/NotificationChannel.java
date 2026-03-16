@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -12,6 +13,7 @@ import java.util.Date;
 @Data
 @TableName("sys_notification_channel")
 public class NotificationChannel implements Serializable {
+      @Serial
       private static final long serialVersionUID = 1L;
 
       /**

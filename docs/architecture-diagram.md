@@ -12,7 +12,7 @@ Protocol Layer (ProtocolAdapter / Registry)
       v
 Business Layer (DeviceMessageService / Product / Device)
       |
-      +--> iot_device_message_log
+      +--> iot_message_log
       +--> iot_device_property
       +--> iot_device
       |

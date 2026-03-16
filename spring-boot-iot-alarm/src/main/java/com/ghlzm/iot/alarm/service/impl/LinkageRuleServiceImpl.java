@@ -42,9 +42,6 @@ public class LinkageRuleServiceImpl extends ServiceImpl<LinkageRuleMapper, Linka
 
       @Override
       public void deleteRule(Long id) {
-            LinkageRule rule = new LinkageRule();
-            rule.setId(id);
-            rule.setDeleted(1);
-            updateById(rule);
+            removeById(id);
       }
 }

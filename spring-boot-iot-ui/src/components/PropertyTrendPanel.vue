@@ -139,19 +139,19 @@ function renderChart() {
 
   const option = {
     animationDuration: 480,
-    color: ['#39f1ff', '#13b5ff', '#f5b440', '#33e9a7'],
+    color: ['#ff7a1a', '#1e80ff', '#f5b440', '#13b38b'],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(7, 12, 24, 0.94)',
-      borderColor: 'rgba(77, 225, 255, 0.24)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: 'rgba(55, 78, 112, 0.2)',
       textStyle: {
-        color: '#eef5ff'
+        color: '#1f2a3d'
       }
     },
     legend: {
       top: 0,
       textStyle: {
-        color: '#a8b9d9'
+        color: '#5a6d85'
       }
     },
     grid: {
@@ -166,23 +166,23 @@ function renderChart() {
       boundaryGap: false,
       data: chartPayload.value.xAxis,
       axisLabel: {
-        color: '#7284a5',
+        color: '#6c7e97',
         hideOverlap: true
       },
       axisLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.35)'
+          color: 'rgba(67, 98, 148, 0.24)'
         }
       }
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: '#7284a5'
+        color: '#6c7e97'
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.2)'
+          color: 'rgba(67, 98, 148, 0.14)'
         }
       }
     },
@@ -222,7 +222,7 @@ function renderChart() {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: rgba(5, 9, 18, 0.9);
+  background: #f8fbff;
 }
 
 .trend-summary__item span,

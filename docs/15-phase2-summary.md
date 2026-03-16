@@ -30,7 +30,7 @@
 ### 1.4 MQTT 上行能力
 - 真实 MQTT 上报可进入现有统一主链路
 - 已验证：
-  - `iot_device_message_log` 写入
+  - `iot_message_log` 写入
   - `iot_device_property` 更新
   - `iot_device.online_status` 刷新
   - `last_online_time`、`last_report_time` 刷新

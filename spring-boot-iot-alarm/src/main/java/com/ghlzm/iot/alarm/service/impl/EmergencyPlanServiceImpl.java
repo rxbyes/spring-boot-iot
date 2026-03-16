@@ -46,9 +46,6 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
 
       @Override
       public void deletePlan(Long id) {
-            EmergencyPlan plan = new EmergencyPlan();
-            plan.setId(id);
-            plan.setDeleted(1);
-            updateById(plan);
+            removeById(id);
       }
 }

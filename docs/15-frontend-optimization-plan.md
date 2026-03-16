@@ -3,17 +3,33 @@
 ## 一、现状分析
 
 ### 1.1 项目定位
-spring-boot-iot-ui 是一个基于 Vue 3 + Element Plus + ECharts 的独立调试前端工作区，服务于 spring-boot-iot 物联网网关平台。
+spring-boot-iot-ui 是一个基于 Vue 3 + Element Plus + ECharts 的前端工作区，承接监测预警平台首页、真实业务页面与实施联调能力，服务于 spring-boot-iot 物联网平台。
 
 ### 1.2 当前实现状态
 
 #### 已完成能力
-- **页面结构**：7个核心页面（驾驶舱、产品、设备、HTTP上报、设备洞察、文件调试、未来实验室）
+- **页面结构**：已形成“平台首页 / 设备接入 / 预警处置 / 系统治理”四个一级分区；`future-lab` 路由保留但已移出主导航
 - **API对接**：产品、设备、HTTP上报、属性查询、消息日志等接口
 - **组件体系**：PanelCard、MetricCard、ResponsePanel、PropertyTrendPanel等
 - **状态管理**：tabs、activity、theme等store
-- **视觉设计**：IoT科技感主题、暗色系、渐变背景、发光效果
+- **权限架构**：登录态、菜单树、按钮权限已切换为 `authContext + sys_menu/sys_role_menu/sys_user_role` 动态驱动，壳层不再维护静态角色菜单常量
+- **视觉设计**：公共壳层已升级为浅色产品控制台风格（顶部双层导航 + 左侧菜单），并已完成核心工作页与风险监测增强页（实时监测/GIS/详情抽屉）的浅色面板和图表主题统一；品牌统一为 `监测预警平台`
 - **图表能力**：ECharts属性趋势图、实时数据展示
+- **构建分包**：`vite.config.ts` 已接入 `unplugin-vue-components` 做 Element Plus 组件与指令按需导入，公共入口不再做全局注册；在此基础上，高频共享 UI 依赖已稳定收敛为 `vendor-element-core`、`vendor-element-form`、`vendor-element-table`、`vendor-element-panel` 四组，并保留 `vendor-vue` 等公共块；图表依赖也已从单一 `vendor-echarts-core` 收敛为 `vendor-echarts-runtime`、`vendor-echarts-legend`、`vendor-echarts-trend`、`vendor-echarts-stat` 与 `vendor-zrender`，其中驾驶舱与报表页会按需命中趋势/统计图表块，设备洞察类页面主要命中趋势图表块与图例块，减少图表页细碎请求且不再触发循环 chunk 告警，`tooltip` 仍并入 `vendor-echarts-runtime` 以规避 ECharts 互引导致的循环分块；`title` 与 `visualMap` 的进一步微拆分已在 2026-03-16 构建验证后回退，其中 `visualMap` 会产生 empty chunk，`title` 仅减少约 2.41 kB 但会额外增加一次请求，当前不保留；同日也验证过将 `@floating-ui`、`@popperjs/core`、`normalize-wheel-es`、`async-validator` 下沉到 `vendor-element-form` 会触发 `vendor-element-form -> vendor-element-core -> vendor-element-form` 循环 chunk 告警，因此保持在 `vendor-element-core` 中
+
+#### 已落地的产品化改造（2026-03）
+- **品牌与定位**：首页、壳层与登录页统一切换为“监测预警平台”，不再使用 “Spring IOT 控制台” 等研发控制台表述
+- **信息架构**：公共壳层已移除“快捷入口 / 常用入口 / 代理模式 / 费用与成本”等与当前业务定位不符的表达
+- **首页重构**：首页已按 Hero、KPI、角色视角、能力构成、能力进展、风险处置闭环、经营主线入口、治理能力、待办中心重组
+- **去工作区化**：平台首页已隐藏标签工作区与重复型重工具栏，改为轻量状态条，减少后台管理页观感
+- **接入区命名**：`接入回放台`、`风险点工作台`、`文件与固件校验` 已进一步收口为 `接入验证中心`、`监测对象工作台`、`数据完整性校验`
+- **角色视角**：首页已加入 `值班人员 / 运维主管 / 管理层` 三种 preset，首屏内容不再是固定模板
+- **待办中心**：右侧区域由“最近操作动态”改为角色化待办，本地 activity 只保留最近处理痕迹
+- **入口分层**：核心入口收敛为五条业务主线，`设备接入与验证` 下调为实施支撑能力
+- **数据策略**：首页首屏采用“静态能力编排 + activity store 动态兜底”，避免未稳定真实接口影响商业化首屏体验
+- **导航策略**：`future-lab` 仍保留规划展示路由，但不再作为主导航核心入口
+- **动态菜单**：`AppShell`、路由守卫、登录页、角色页、用户页已切到真实后端权限上下文；菜单、角色、按钮权限均来自 MySQL
+- **当前边界**：公共壳层的接入配置区仍使用 Element Plus 输入与按钮组件，因此根入口当前仍会预加载 `vendor-element-form`；共享壳层进一步轻量化仍属于后续优化项
 
 #### 存在问题
 1. **代码组织**：API调用分散在各组件中，缺乏统一的请求封装

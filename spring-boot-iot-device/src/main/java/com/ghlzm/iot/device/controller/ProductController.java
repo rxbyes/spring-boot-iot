@@ -19,14 +19,14 @@ public class ProductController {
         this.productService = productService;
     }
 
-    @PostMapping("/device/product/add")
+    @PostMapping("/api/device/product/add")
     public R<Product> add(@RequestBody @Valid ProductAddDTO dto) {
         // 控制层不承载业务判断，直接交给服务层处理。
         return R.ok(productService.addProduct(dto));
     }
 
-    @GetMapping("/device/product/{id}")
-    public R<Product> getById(@PathVariable("id") Long id) {
+    @GetMapping("/api/device/product/{id}")
+    public R<Product> getById(@PathVariable Long id) {
         return R.ok(productService.getRequiredById(id));
     }
 }

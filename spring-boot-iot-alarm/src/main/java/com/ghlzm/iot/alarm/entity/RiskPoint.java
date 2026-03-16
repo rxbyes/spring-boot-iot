@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -85,11 +86,13 @@ public class RiskPoint implements Serializable {
       /**
        * 创建人
        */
+      @TableField(exist = false)
       private Long createBy;
 
       /**
        * 更新人
        */
+      @TableField(exist = false)
       private Long updateBy;
 
       /**

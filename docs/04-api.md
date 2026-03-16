@@ -73,6 +73,57 @@
 ### 根据 deviceCode 查询设备
 `GET /device/code/{deviceCode}`
 
+### 查询设备选项列表
+`GET /api/device/list`
+
+说明：
+- 仅返回风险点绑定弹窗所需的最小设备字段。
+- 当前用于风险点管理页与风险监测筛选项的真实数据装载。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "id": 3001,
+      "productId": 2001,
+      "deviceCode": "accept-http-device-01",
+      "deviceName": "验收设备-HTTP-01",
+      "onlineStatus": 1
+    }
+  ]
+}
+```
+
+### 查询设备测点选项
+`GET /api/device/{deviceId}/metrics`
+
+说明：
+- 优先返回设备所属产品的 `property` 物模型。
+- 若物模型未维护，则回退到设备当前已产生的属性标识，保证风险点绑定可继续联调。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "identifier": "temperature",
+      "name": "温度",
+      "dataType": "double"
+    },
+    {
+      "identifier": "humidity",
+      "name": "湿度",
+      "dataType": "int"
+    }
+  ]
+}
+```
+
 ## 消息接入接口
 
 ### HTTP 模拟设备上报
@@ -275,6 +326,103 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 }
 ```
 
+## Phase 4 报表接口
+
+### 风险趋势分析
+`GET /api/report/risk-trend`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 未传日期区间时，后端按当前库内全部历史告警与事件记录聚合
+- 返回数组项字段固定为 `date`、`alarmCount`、`eventCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "date": "2026-03-15",
+      "alarmCount": 3,
+      "eventCount": 2
+    }
+  ]
+}
+```
+
+### 告警统计
+`GET /api/report/alarm-statistics`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 返回字段固定为 `total`、`critical`、`high`、`medium`、`low`
+- 兼容历史字段 `count`、`criticalCount`、`warningCount`、`infoCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 12,
+    "critical": 2,
+    "high": 5,
+    "medium": 4,
+    "low": 1
+  }
+}
+```
+
+### 事件闭环分析
+`GET /api/report/event-closure`
+
+说明：
+- 查询参数 `startDate`、`endDate` 可选，格式固定为 `YYYY-MM-DD`
+- 返回字段固定为 `total`、`closed`、`unclosed`
+- 兼容历史字段 `count`、`pendingCount`、`processingCount`、`closedCount`、`avgProcessingTime`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 9,
+    "closed": 6,
+    "unclosed": 3,
+    "pendingCount": 2,
+    "processingCount": 1,
+    "closedCount": 6,
+    "avgProcessingTime": 5.5
+  }
+}
+```
+
+### 设备健康分析
+`GET /api/report/device-health`
+
+说明：
+- 当前基于 `iot_device.online_status` 与 `iot_device.last_report_time` 计算
+- 返回字段固定为 `total`、`online`、`offline`、`onlineRate`、`healthy`、`warning`、`critical`
+- 兼容历史字段 `totalCount`、`onlineCount`、`offlineCount`、`healthyCount`、`unhealthyCount`
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 20,
+    "online": 16,
+    "offline": 4,
+    "onlineRate": 80.0,
+    "healthy": 11,
+    "warning": 5,
+    "critical": 4
+  }
+}
+```
 ## 典型错误返回
 
 ### 非法协议编码
@@ -292,3 +440,150 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
   "msg": "设备不存在: missing-device"
 }
 ```
+
+## 认证接口与鉴权规则（2026-03-16）
+
+### 登录
+`POST /api/auth/login`
+
+请求体：
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+账号密码模式说明：
+- `loginType` 缺省或传 `account` 时，按 `username + password` 校验。
+- 当前前端登录页路由为 `/login`，对应“账号密码登录”Tab。
+
+手机号模式请求体：
+```json
+{
+  "loginType": "phone",
+  "phone": "13800138000",
+  "password": "123456"
+}
+```
+
+手机号模式说明：
+- 当前共享环境使用“手机号 + 系统密码”统一登录，不引入短信验证码服务。
+- 后端会先按 `phone` 查询 `sys_user`，再复用同一套密码校验与 JWT 签发逻辑。
+- 登录页左侧已提供微信扫码视觉入口，但当前共享环境尚未接入微信开放平台回调与票据校验，因此该模式暂为接入占位，不计入真实环境验收通过项。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "token": "<jwt-token>",
+    "tokenType": "Bearer",
+    "expiresIn": 7200,
+    "tokenHeader": "Authorization",
+    "userId": 1,
+    "username": "admin",
+    "realName": "管理员",
+    "authContext": {
+      "userId": 1,
+      "username": "admin",
+      "realName": "管理员",
+      "displayName": "管理员",
+      "superAdmin": true,
+      "homePath": "/products",
+      "roleCodes": ["SUPER_ADMIN"],
+      "permissions": ["system:user:add", "system:user:update", "system:role:add"],
+      "roles": [
+        {
+          "id": 92000005,
+          "roleCode": "SUPER_ADMIN",
+          "roleName": "超级管理人员"
+        }
+      ],
+      "menus": [
+        {
+          "id": 93000001,
+          "menuName": "设备接入",
+          "menuCode": "iot-access",
+          "type": 0,
+          "meta": {
+            "description": "接入与运维",
+            "menuTitle": "设备接入与运维",
+            "menuHint": "管理产品模板、设备台账、上报回放与设备侧联调能力。"
+          },
+          "children": []
+        }
+      ]
+    }
+  }
+}
+```
+
+补充说明：
+- 登录成功后，前端应直接持久化 `token` 与 `authContext`。
+- `authContext.menus` 为当前用户已授权的导航树；前端不再内置固定角色菜单。
+- `authContext.permissions` 为当前用户按钮级权限码，当前用于 `v-permission`。
+
+### 当前登录用户
+`GET /api/auth/me`
+
+请求头：
+```text
+Authorization: Bearer <jwt-token>
+```
+
+未携带或携带无效 token 时返回：
+```json
+{
+  "code": 401,
+  "msg": "未认证或登录已过期",
+  "data": null
+}
+```
+
+成功时返回与登录响应中的 `authContext` 同结构数据，用于刷新页面后重新恢复当前用户菜单、角色和按钮权限。
+
+### 菜单树
+`GET /api/menu/tree`
+
+说明：
+- 返回完整启用菜单树，供角色管理页做菜单授权。
+- `type = 0/1` 为目录或页面，`type = 2` 为按钮权限。
+- `meta_json` 会解析为 `meta` 对象返回。
+
+### 鉴权规则
+- 以下接口免登录：
+  - `/api/auth/login`
+  - `/message/http/report`
+  - `/api/cockpit/**`
+  - `/actuator/**`
+  - `/doc.html`、`/swagger-ui/**`、`/v3/api-docs/**`
+- 其余接口默认需要 `Authorization: Bearer <jwt-token>`
+- 前端未登录访问受保护页面时，会统一跳转到 `/login`
+- 前端登录后，顶部导航、左侧菜单、按钮权限均应以 `authContext` 为准，不再以页面硬编码角色配置为准
+## Phase 4 风险监测 API
+
+### 实时监测列表
+`GET /api/risk-monitoring/realtime/list`
+
+说明：
+- 响应按统一 `ApiEnvelope<PageResult<RiskMonitoringListItem>>` 结构返回。
+- 支持筛选参数 `regionId`、`riskPointId`、`deviceCode`、`riskLevel`、`onlineStatus`、`pageNum`、`pageSize`。
+- 真实环境联调前需先执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`；若共享开发库缺少 `risk_point_device` 表或关键列，接口会返回明确业务错误。
+
+### 实时监测详情
+`GET /api/risk-monitoring/realtime/{bindingId}`
+
+说明：
+- 返回当前监测详情、最近 24h 趋势、最近告警、最近事件四类数据。
+- `bindingId` 对应风险点设备绑定表 `risk_point_device.id`。
+
+### GIS 风险态势点位
+`GET /api/risk-monitoring/gis/points`
+
+说明：
+- 响应按统一 `ApiEnvelope<RiskMonitoringGisPoint[]>` 结构返回。
+- 支持可选区域参数 `regionId`。
+- 当前仅用于 ECharts 点位态势图，不代表完整 GIS SDK / 地图底图集成。
+

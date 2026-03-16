@@ -73,7 +73,7 @@
   - `RawDeviceMessage -> UpMessageDispatcher -> ProtocolAdapter -> DeviceMessageService`
 
 ### 3.3 已有可复用的数据与上下文
-- `iot_device_message_log`
+- `iot_message_log`
 - `iot_device_property`
 - `iot_device`
 - Redis 设备会话
@@ -189,7 +189,7 @@ CREATED -> FAILED
   - 用于表达最小超时判定点
 
 ### 6.3 是否需要改现有表
-- 不建议在 MVP 阶段强行改 `iot_device_message_log`
+- 不建议在 MVP 阶段强行处理 `iot_message_log` 的物理迁表兼容关系
 - 命令生命周期应优先独立建表
 - 后续若需要审计联查，可通过 `command_id` 或 topic 做关联
 
