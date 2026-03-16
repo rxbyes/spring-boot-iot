@@ -27,19 +27,19 @@ export const downloadRowsAsCsv = <T extends object>(
   if (!rows.length) {
     return
   }
-  const defaultColumns = Array.from(
+  const defaultKeys = Array.from(
     rows.reduce((set, row) => {
       Object.keys(row as Record<string, unknown>).forEach((key) => {
         if (key !== 'children') {
-          set.add({ key, label: key })
+          set.add(key)
         }
       })
       return set
-    }, new Set<{ key: string; label: string }>())
+    }, new Set<string>())
   )
   const resolvedColumns = columns?.length
     ? columns
-    : defaultColumns.map((column) => ({ key: column.key, label: column.label }))
+    : defaultKeys.map((key) => ({ key, label: key }))
   if (!resolvedColumns.length) {
     return
   }

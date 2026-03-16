@@ -320,7 +320,18 @@ const handleRefresh = () => {
 };
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value);
+  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value, [
+    { key: 'eventCode', label: '事件编号' },
+    { key: 'eventTitle', label: '事件标题' },
+    { key: 'riskLevel', label: '风险等级', formatter: (value) => getRiskLevelText(String(value || '')) },
+    { key: 'regionName', label: '区域' },
+    { key: 'riskPointName', label: '风险点' },
+    { key: 'deviceName', label: '设备名称' },
+    { key: 'metricName', label: '测点名称' },
+    { key: 'currentValue', label: '当前值' },
+    { key: 'status', label: '状态', formatter: (value) => getStatusText(Number(value)) },
+    { key: 'triggerTime', label: '触发时间' }
+  ]);
 };
 
 const handleSizeChange = () => {

@@ -179,6 +179,8 @@ const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
 const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
+const tableRef = ref();
+const selectedRows = ref<RiskPoint[]>([]);
 
 // 查询条件
 const filters = reactive({
@@ -349,6 +351,19 @@ const handlePageChange = () => {
   loadRiskPointList();
 };
 
+const handleSelectionChange = (rows: RiskPoint[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection?.();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
+  loadRiskPointList();
+};
+
 // 新增风险点
 const handleAdd = () => {
   form.id = undefined;
@@ -495,38 +510,3 @@ onMounted(() => {
   loadRiskPointList();
 });
 </script>
-
-<style scoped>
-.risk-point-view {
-  padding: 20px;
-}
-
-.risk-point-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.risk-point-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.risk-point-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.risk-point-list {
-  margin-bottom: 20px;
-}
-
-.risk-point-pagination {
-  display: flex;
-  justify-content: flex-end;
-}
-</style>

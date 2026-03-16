@@ -270,7 +270,19 @@ const handleRefresh = () => {
 };
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('告警中心-选中项.csv', selectedRows.value);
+  downloadRowsAsCsv('告警中心-选中项.csv', selectedRows.value, [
+    { key: 'alarmCode', label: '告警编号' },
+    { key: 'alarmTitle', label: '告警标题' },
+    { key: 'alarmLevel', label: '告警等级', formatter: (value) => getAlarmLevelText(String(value || '')) },
+    { key: 'regionName', label: '区域' },
+    { key: 'riskPointName', label: '风险点' },
+    { key: 'deviceName', label: '设备名称' },
+    { key: 'metricName', label: '测点名称' },
+    { key: 'currentValue', label: '当前值' },
+    { key: 'thresholdValue', label: '阈值' },
+    { key: 'status', label: '状态', formatter: (value) => getStatusText(Number(value)) },
+    { key: 'triggerTime', label: '触发时间' }
+  ]);
 };
 
 const handleSizeChange = () => {

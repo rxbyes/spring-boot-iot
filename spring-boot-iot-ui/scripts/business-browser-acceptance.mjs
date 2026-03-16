@@ -23,6 +23,11 @@ const backendBaseUrl = normalizeBaseUrl(
 );
 const browserPath = process.env.IOT_ACCEPTANCE_BROWSER_PATH || detectBrowserPath();
 const headless = process.env.IOT_ACCEPTANCE_HEADLESS !== 'false';
+const unhandledAsyncErrors = [];
+
+process.on('unhandledRejection', (reason) => {
+  unhandledAsyncErrors.push(reason instanceof Error ? reason.message : String(reason));
+});
 
 class AcceptanceError extends Error {
   constructor(message, details = {}) {
@@ -1241,6 +1246,7 @@ function buildSummary(preflightResult, scenarioResults) {
       passed: baselineResults.filter((item) => item.status === 'passed').length,
       failed: baselineResults.filter((item) => item.status === 'failed').length
     },
+    unhandledAsyncErrors: unhandledAsyncErrors.length ? unhandledAsyncErrors : undefined,
     output: {
       reportPath,
       summaryPath,
