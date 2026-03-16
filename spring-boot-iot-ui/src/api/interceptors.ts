@@ -7,12 +7,12 @@ import type { RequestInterceptor, ResponseInterceptor } from './request';
 
 const ERROR_CODE_MAP: Record<number, string> = {
   400: '请求参数错误',
-  401: '未授权，请重新登�?,
+  401: '未授权，请重新登录',
   403: '拒绝访问',
-  404: '请求资源不存�?,
-  500: '服务器内部错�?,
+  404: '请求资源不存在',
+  500: '服务器内部错误',
   502: '网关错误',
-  503: '服务不可�?,
+  503: '服务不可用',
   504: '网关超时'
 };
 
@@ -36,7 +36,8 @@ export const errorResponseInterceptor: ResponseInterceptor = {
   async onsuccess(data) {
     if (data.code !== 200) {
       if (data.code === 401) {
-        // 会话失效后同时清理响应式状态并回到登录页，避免停留在受保护页面�?        const permissionStore = usePermissionStore();
+        // 会话失效后清理鉴权状态并回到登录页，避免停留在受保护页面
+        const permissionStore = usePermissionStore();
         permissionStore.logout();
         clearStoredAuth();
         if (router.currentRoute.value.path !== '/login') {
@@ -91,4 +92,3 @@ export function registerDefaultInterceptors() {
     interceptorManager.addResponseInterceptor(interceptor);
   });
 }
-

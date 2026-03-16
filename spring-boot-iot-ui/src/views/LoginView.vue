@@ -16,7 +16,8 @@
         <p class="login-hero__eyebrow">Unified Access</p>
         <h1>风险监测预警处置平台</h1>
         <p class="login-hero__lead">
-          面向园区与工业场景的风险监测、预警协同与事件处置统一入口�?        </p>
+          面向园区与工业场景的风险监测、预警协同与事件处置统一入口。
+        </p>
       </section>
 
       <section class="auth-panel">
@@ -41,10 +42,10 @@
             </div>
           </div>
 
-          <p class="auth-panel__scan-copy">支持企业微信 / 微信扫码登录，能力正在持续开通中�?/p>
+          <p class="auth-panel__scan-copy">支持企业微信 / 微信扫码登录，能力正在持续开通中。</p>
 
           <div class="auth-panel__scan-actions">
-            <button class="secondary-button" type="button" @click="showWechatHint">查看接入状�?/button>
+            <button class="secondary-button" type="button" @click="showWechatHint">查看接入状态</button>
             <button class="ghost-button" type="button" @click="activeTab = 'account'">切换账号登录</button>
           </div>
         </div>
@@ -69,13 +70,14 @@
               :aria-selected="activeTab === 'phone'"
               @click="switchTab('phone')"
             >
-              手机号登�?            </button>
+              手机号登录
+            </button>
           </div>
 
           <form class="auth-form" @submit.prevent="handleSubmit">
             <template v-if="activeTab === 'account'">
               <label class="auth-form__field">
-                <span>账号�?/span>
+                <span>账号</span>
                 <input
                   id="login-username"
                   v-model.trim="accountForm.username"
@@ -88,7 +90,7 @@
             </template>
             <template v-else>
               <label class="auth-form__field">
-                <span>手机�?/span>
+                <span>手机</span>
                 <input
                   id="login-phone"
                   v-model.trim="phoneForm.phone"
@@ -110,7 +112,7 @@
                   :type="passwordVisible ? 'text' : 'password'"
                   autocomplete="current-password"
                   name="login_password"
-                  placeholder="请输入密�?
+                  placeholder="请输入密码"
                 />
                 <button type="button" class="password-field__toggle" @click="passwordVisible = !passwordVisible">
                   {{ passwordVisible ? '隐藏' : '显示' }}
@@ -138,7 +140,7 @@
 
             <div class="auth-form__actions">
               <button id="login-submit" class="primary-button auth-form__submit" type="submit" :disabled="submitting">
-                {{ submitting ? '登录�?..' : submitLabel }}
+                {{ submitting ? '登录中...' : submitLabel }}
               </button>
               <button id="login-fill-demo" class="secondary-button" type="button" @click="fillDemoAccount">填入演示账号</button>
             </div>
@@ -185,11 +187,11 @@ const phoneForm = reactive({
   password: ''
 });
 
-const submitLabel = computed(() => (activeTab.value === 'account' ? '立即登录' : '手机号登�?));
+const submitLabel = computed(() => (activeTab.value === 'account' ? '立即登录' : '手机号登录'));
 const formTip = computed(() => (
   activeTab.value === 'account'
-    ? '请输入账号和密码完成登录�?
-    : '请输入手机号和密码完成登录�?
+    ? '请输入账号和密码完成登录'
+    : '请输入手机号和密码完成登录'
 ));
 
 const passwordModel = computed({
@@ -217,16 +219,16 @@ function fillDemoAccount() {
   accountForm.username = 'admin';
   accountForm.password = '123456';
   passwordVisible.value = false;
-  ElMessage.success('已填入默认演示账�?);
+  ElMessage.success('已填入默认演示账号');
 }
 
 function persistApiBaseUrl() {
   setApiBaseUrl(baseUrlDraft.value);
-  ElMessage.success('接入地址已保�?);
+  ElMessage.success('接入地址已保存');
 }
 
 function showWechatHint() {
-  ElMessage.info('微信扫码登录正在逐步开放中�?);
+  ElMessage.info('微信扫码登录正在逐步开放中');
 }
 
 function resolveRedirectPath() {
@@ -254,7 +256,7 @@ async function handleSubmit() {
       return;
     }
     if (!phoneForm.password) {
-      ElMessage.warning('请输入登录密�?);
+      ElMessage.warning('请输入登录密码');
       return;
     }
   }
@@ -806,4 +808,3 @@ function finderOrigins(size: number) {
   }
 }
 </style>
-
