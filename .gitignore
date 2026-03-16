@@ -9,3 +9,6 @@
 /spring-boot-iot-ui/dist/
 /spring-boot-iot-ui/node_modules/
 /.vscode/
+/.m2/
+/.mvn/
+/spring-boot-iot-ui/.npm-cache/
