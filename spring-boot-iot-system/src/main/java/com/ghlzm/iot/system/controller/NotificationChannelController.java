@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.controller;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.service.NotificationChannelService;
+import com.ghlzm.iot.system.service.SystemErrorNotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +18,9 @@ public class NotificationChannelController {
 
       @Autowired
       private NotificationChannelService notificationChannelService;
+
+      @Autowired
+      private SystemErrorNotificationService systemErrorNotificationService;
 
       /**
        * 查询通知渠道列表
@@ -60,6 +64,15 @@ public class NotificationChannelController {
       @DeleteMapping("/delete/{id}")
       public R<Void> deleteChannel(@PathVariable Long id) {
             notificationChannelService.deleteChannel(id);
+            return R.ok();
+      }
+
+      /**
+       * 发送测试通知
+       */
+      @PostMapping("/test/{channelCode}")
+      public R<Void> testChannel(@PathVariable String channelCode) {
+            systemErrorNotificationService.sendTestNotification(channelCode);
             return R.ok();
       }
 }

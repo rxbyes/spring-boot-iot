@@ -1,6 +1,6 @@
 # 真实环境测试与验收手册
 
-更新时间：2026-03-16
+更新时间：2026-03-17
 
 ## 1. 当前测试策略
 当前项目统一采用“自动化回归 + 真实环境验收”双轨策略：
@@ -66,7 +66,9 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
+- 若本轮需要验证“系统异常自动通知”，额外设置 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`，并准备可接收请求的 webhook 渠道地址
 - 前端代理默认指向 `http://127.0.0.1:9999`（可通过 `VITE_PROXY_TARGET` 覆盖）
+- 若通过局域网地址访问 Vite 开发服务（如 `http://172.21.16.1:5174`），当前 `dev` 配置已默认放行 `10.*`、`172.*`、`192.168.*` 来源，登录接口不应再出现 `Invalid CORS request`
 
 ## 4. HTTP 主链路真实环境验收
 ### 步骤 1：创建产品
@@ -235,6 +237,25 @@ Phase 4 统一按页面、接口、数据表三层核对：
 - 组织、用户、角色、区域、字典、通知渠道、审计日志
 - 风险监测实时监测、GIS 风险态势（代码已完成；2026-03-16 已确认共享开发库仍需先执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql`，完成后再进行真实环境复验）
 
+### 8.1 系统异常自动通知验证（2026-03-17）
+
+前置条件：
+- 已配置并启用一个 `webhook` / `wechat` / `feishu` / `dingtalk` 渠道。
+- 渠道 `config` 至少包含 `url`，自动系统异常通知验证时需包含 `scenes:["system_error"]`。
+- 应用已通过环境变量或 `application-dev.yml` 覆盖启用 `iot.observability.system-error-notify-enabled=true`。
+
+建议步骤：
+1. 先调用 `POST /api/system/channel/test/{channelCode}`，确认渠道测试消息可以成功送达。
+2. 使用 MQTTX 向不存在设备的 topic 发送消息，例如 `/sys/demo-product/demo-device-02/thing/property/post`。
+3. 观察应用日志中是否出现 `设备不存在: demo-device-02` 一类后台异常。
+4. 查询 `/audit-log` 页面或 `sys_audit_log` 表，确认新增 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 的审计记录。
+5. 检查 webhook 接收端或群机器人，确认收到系统异常通知消息。
+
+通过标准：
+- `POST /api/system/channel/test/{channelCode}` 返回 `code=200`，且接收端收到测试通知。
+- MQTT 异常触发后，`sys_audit_log` 新增对应 `system_error` 记录。
+- 当渠道配置包含 `scenes:["system_error"]` 且应用开关开启时，接收端能收到自动系统异常通知。
+
 ## 9. 验收产物要求
 每次真实环境验收至少保留以下产物：
 - 启动命令或脚本记录
@@ -246,6 +267,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 
 ## 10. 环境不可用时的处理原则
 - 先确认是网络、数据库、Redis、MQTT 哪一层阻塞
+- 若是 MQTT 链路异常或消息未落库，补查 `/audit-log` 页面或 `sys_audit_log` 表中的 `operation_type=system_error` 记录，优先定位 topic、设备编码、协议或 Broker 连接问题
 - 记录具体报错、时间、影响范围
 - 可继续执行 `mvn -s .mvn/settings.xml clean package -DskipTests`、`mvn -s .mvn/settings.xml test` 作为代码回归检查
 - 不允许回退到旧 H2 验收配置、H2 内存库、旧前端自动化链路或历史验收用例来宣布“验收通过”
@@ -350,3 +372,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-business-functio
 1. 脚本会先调用登录接口获取 token，再对业务接口进行自动验收。
 2. 脚本结果可直接回填到 `docs/21-business-functions-and-acceptance.md` 的打勾清单。
 3. 若大量接口返回 `500`，优先检查真实库 schema 是否与当前代码一致；必要时先执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql` 或 `python scripts/run-real-env-schema-sync.py` 后再复测。
+
+## 13. 浏览器自动巡检脚本（真实环境）
+
+主入口位置：
+- `scripts/auto/run-browser-acceptance.mjs`
+- `spring-boot-iot-ui/scripts/business-browser-acceptance.mjs` 为兼容包装器
+
+执行命令：
+```bash
+cd spring-boot-iot-ui
+npm run acceptance:browser
+```
+
+计划预览（不启动浏览器）：
+```bash
+cd spring-boot-iot-ui
+npm run acceptance:browser:plan
+```
+
+当前脚本能力：
+- 按 `delivery`、`baseline` 两类场景分组执行现有功能浏览器巡检。
+- 在脚本内部预留未来功能巡检清单，便于后续开发完成后直接纳管。
+- 统一输出 `logs/acceptance/business-browser-summary-<timestamp>.json`
+- 统一输出 `logs/acceptance/business-browser-results-<timestamp>.json`
+- 统一输出 `logs/acceptance/business-browser-report-<timestamp>.md`
+- 统一输出 `logs/acceptance/business-browser-screenshots-<timestamp>/`
+
+问题记录规则：
+- 正式执行 `npm run acceptance:browser` 后，脚本会默认把本轮失败问题追加到 `docs/22-automation-test-issues-20260316.md`
+- 如仅需生成结果文件、不追加问题文档，可执行：`node scripts/auto/run-browser-acceptance.mjs --no-append-issues`
+- 默认仅 `delivery` 场景失败会返回非零退出码；如需扩大阻断范围，可使用 `--fail-scopes=delivery,baseline`

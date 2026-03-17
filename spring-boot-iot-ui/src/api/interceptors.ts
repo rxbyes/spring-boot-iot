@@ -2,6 +2,7 @@ import { ElMessage } from '@/utils/message';
 
 import router from '../router';
 import { clearStoredAuth, getStoredAccessToken, usePermissionStore } from '../stores/permission';
+import { createRequestError } from './request';
 import { interceptorManager } from './request';
 import type { RequestInterceptor, ResponseInterceptor } from './request';
 
@@ -51,7 +52,7 @@ export const errorResponseInterceptor: ResponseInterceptor = {
       }
       const message = data.msg || ERROR_CODE_MAP[data.code] || '请求失败';
       ElMessage.error(message);
-      throw new Error(message);
+      throw createRequestError(message, true);
     }
     return data;
   }

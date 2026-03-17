@@ -53,6 +53,9 @@ public class AuditLogController {
       @GetMapping("/get/{id}")
       public R<AuditLog> getById(@PathVariable Long id) {
             AuditLog log = auditLogService.getById(id);
+            if (log == null) {
+                  return R.fail(404, "审计日志不存在或已删除");
+            }
             return R.ok(log);
       }
 

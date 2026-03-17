@@ -48,6 +48,14 @@ logging:
     com.ghlzm.iot: debug
 
 iot:
+  cors:
+    # 允许本机与常见内网网段的 Vite 开发地址直连，避免通过局域网 IP 访问前端时登录被 CORS 拦截。
+    allowed-origin-patterns:
+      - http://localhost:*
+      - http://127.0.0.1:*
+      - http://10.*:*
+      - http://172.*:*
+      - http://192.168.*:*
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
     broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}

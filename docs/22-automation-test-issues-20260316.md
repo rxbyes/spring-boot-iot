@@ -9,6 +9,7 @@
 1. 后续每轮测试发现的问题，统一追加到本文档，不再分散到其他临时问题文档。
 2. 每次追加至少包含：测试时间、测试方式（浏览器自动化/API/手工）、问题现象、影响范围、根因判断、处理状态。
 3. 已修复问题保留历史记录，并标注修复版本或修复时间，避免回归时丢失上下文。
+4. 自 2026-03-17 起，浏览器自动化主入口统一收敛到 `scripts/auto/run-browser-acceptance.mjs`；正式执行 `npm run acceptance:browser` 时，脚本默认自动追加本文件。
 
 ## 1. 执行说明
 
@@ -377,3 +378,102 @@
 ### 10.3 结论
 
 浏览器自动化全流程已收敛到稳定通过状态，可作为后续回归与发布前验收基线继续使用。
+
+## 11. 自动化巡检框架基线（2026-03-17）
+
+1. 浏览器自动化脚本现统一维护在 `scripts/auto/`，不再继续扩散新的单文件脚本入口。
+2. 当前可执行场景按 `delivery`、`baseline` 两类划分；同时在脚本内维护未来功能巡检预留清单，供 Phase 5 及后续功能直接纳管。
+3. `spring-boot-iot-ui/scripts/business-browser-acceptance.mjs` 仅保留兼容包装层，实际执行逻辑委托到 `scripts/auto/run-browser-acceptance.mjs`。
+4. 新增计划预览命令：`cd spring-boot-iot-ui && npm run acceptance:browser:plan`，用于在不启动浏览器的情况下检查场景装载是否正确。
+5. 正式执行 `npm run acceptance:browser` 时，脚本会生成 `logs/acceptance/business-browser-*` 结果文件，并默认把失败问题追加到本文件。
+
+## 12. 浏览器自动化巡检记录（2026-03-17）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-03-17 10:12:08（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260317101208.json`
+- `logs/acceptance/business-browser-results-20260317101208.json`
+- `logs/acceptance/business-browser-report-20260317101208.md`
+- `logs/acceptance/business-browser-screenshots-20260317101208/`
+
+### 本轮概览
+
+- 总场景：`21`
+- 通过：`17`
+- 失败：`4`
+- 交付范围：`15` 通过 / `4` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：Device create and query 巡检失败
+
+- 场景：`device-workbench`
+- 路由：`/devices`
+- 范围：`delivery`
+- 现象：Route redirect detected. Expected /devices, got /products.
+- 初步判断：页面路由发生跳转，需排查权限、菜单授权或页面初始化逻辑。
+- 证据：`logs/acceptance/business-browser-results-20260317101208.json`；`logs/acceptance/business-browser-screenshots-20260317101208/device-workbench-fail.png`
+- 状态：待处理
+
+### 问题 2：HTTP report submission 巡检失败
+
+- 场景：`report-workbench`
+- 路由：`/reporting`
+- 范围：`delivery`
+- 现象：HTTP report scenario requires a created product and device.
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/business-browser-results-20260317101208.json`；`logs/acceptance/business-browser-screenshots-20260317101208/report-workbench-fail.png`
+- 状态：待处理
+
+### 问题 3：Device insight refresh 巡检失败
+
+- 场景：`device-insight`
+- 路由：`/insight`
+- 范围：`delivery`
+- 现象：Insight scenario requires a created device.
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/business-browser-results-20260317101208.json`；`logs/acceptance/business-browser-screenshots-20260317101208/device-insight-fail.png`
+- 状态：待处理
+
+### 问题 4：Risk point create and bind device 巡检失败
+
+- 场景：`risk-point`
+- 路由：`/risk-point`
+- 范围：`delivery`
+- 现象：Risk point binding prerequisites are missing.
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/business-browser-results-20260317101208.json`；`logs/acceptance/business-browser-screenshots-20260317101208/risk-point-fail.png`
+- 状态：待处理
+
+## 13. 浏览器自动化巡检记录（2026-03-17）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-03-17 10:17:57（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260317101757.json`
+- `logs/acceptance/business-browser-results-20260317101757.json`
+- `logs/acceptance/business-browser-report-20260317101757.md`
+- `logs/acceptance/business-browser-screenshots-20260317101757/`
+
+### 本轮概览
+
+- 总场景：`21`
+- 通过：`21`
+- 失败：`0`
+- 交付范围：`19` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

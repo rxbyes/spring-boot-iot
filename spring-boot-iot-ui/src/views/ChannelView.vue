@@ -36,6 +36,7 @@
               <el-select v-model="searchForm.channelType" placeholder="请选择渠道类型" clearable>
                 <el-option label="邮箱" value="email" />
                 <el-option label="短信" value="sms" />
+                <el-option label="Webhook" value="webhook" />
                 <el-option label="微信" value="wechat" />
                 <el-option label="飞书" value="feishu" />
                 <el-option label="钉钉" value="dingtalk" />
@@ -91,9 +92,17 @@
         </el-table-column>
         <el-table-column prop="sortNo" label="排序" width="80" />
         <el-table-column prop="remark" label="备注" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button
+              type="success"
+              link
+              :disabled="!isTestableChannel(row.channelType)"
+              @click="handleTest(row)"
+            >
+              测试通知
+            </el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -135,10 +144,22 @@
             <el-select v-model="formData.channelType" placeholder="请选择渠道类型">
               <el-option label="邮箱" value="email" />
               <el-option label="短信" value="sms" />
+              <el-option label="Webhook" value="webhook" />
               <el-option label="微信" value="wechat" />
               <el-option label="飞书" value="feishu" />
               <el-option label="钉钉" value="dingtalk" />
             </el-select>
+          </el-form-item>
+          <el-form-item label="配置JSON" prop="config">
+            <el-input
+              v-model="formData.config"
+              type="textarea"
+              :rows="6"
+              :placeholder="configPlaceholder"
+            />
+            <div class="form-tip">
+              webhook/飞书/钉钉/企业微信建议配置 `url`，系统异常自动通知需在 `scenes` 中包含 `system_error`。
+            </div>
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
@@ -178,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -194,7 +215,8 @@ import {
   getChannelByCode,
   addChannel,
   updateChannel,
-  deleteChannel
+  deleteChannel,
+  testChannel
 } from '@/api/channel'
 
 // 表单引用
@@ -253,20 +275,63 @@ const formData = ref({
   channelName: '',
   channelCode: '',
   channelType: 'email',
+  config: '',
   status: 1,
   sortNo: 0,
   remark: ''
 })
 
+const TESTABLE_CHANNEL_TYPES = ['webhook', 'wechat', 'feishu', 'dingtalk']
+
+const isTestableChannel = (channelType?: string) =>
+  TESTABLE_CHANNEL_TYPES.includes(String(channelType || '').trim().toLowerCase())
+
+const validateConfig = (_rule: any, value: string, callback: (error?: Error) => void) => {
+  const content = String(value || '').trim()
+  if (!content) {
+    if (isTestableChannel(formData.value.channelType)) {
+      callback(new Error('当前渠道类型必须填写配置 JSON'))
+      return
+    }
+    callback()
+    return
+  }
+
+  try {
+    const parsed = JSON.parse(content)
+    if (isTestableChannel(formData.value.channelType) && !String(parsed?.url || '').trim()) {
+      callback(new Error('当前渠道类型配置中必须包含 url'))
+      return
+    }
+    callback()
+  } catch (_error) {
+    callback(new Error('配置 JSON 格式不正确'))
+  }
+}
+
 // 表单验证规则
 const formRules = {
   channelName: [{ required: true, message: '请输入渠道名称', trigger: 'blur' }],
   channelCode: [{ required: true, message: '请输入渠道编码', trigger: 'blur' }],
-  channelType: [{ required: true, message: '请选择渠道类型', trigger: 'change' }]
+  channelType: [{ required: true, message: '请选择渠道类型', trigger: 'change' }],
+  config: [{ validator: validateConfig, trigger: 'blur' }]
 }
 
 // 提交状态
 const submitLoading = ref(false)
+
+const configPlaceholders: Record<string, string> = {
+  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  email: '{\n  "host": "smtp.example.com",\n  "port": 465,\n  "from": "iot-alert@example.com"\n}',
+  sms: '{\n  "provider": "demo",\n  "signName": "spring-boot-iot"\n}'
+}
+
+const configPlaceholder = computed(
+  () => configPlaceholders[formData.value.channelType] || '{\n  "url": "https://example.com/iot/webhook"\n}'
+)
 
 // 获取通知渠道列表
 const getChannelList = async () => {
@@ -360,6 +425,7 @@ const handleAdd = () => {
     channelName: '',
     channelCode: '',
     channelType: 'email',
+    config: '',
     status: 1,
     sortNo: 0,
     remark: ''
@@ -397,12 +463,28 @@ const handleDelete = (row: any) => {
     .catch(() => {})
 }
 
+const handleTest = async (row: any) => {
+  if (!isTestableChannel(row.channelType)) {
+    ElMessage.warning('测试通知仅支持 Webhook / 企业微信 / 飞书 / 钉钉渠道')
+    return
+  }
+  try {
+    const res = await testChannel(row.channelCode)
+    if (res.code === 200) {
+      ElMessage.success('测试通知已发送')
+    }
+  } catch (error) {
+    console.error('测试通知失败', error)
+  }
+}
+
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate((valid: boolean) => {
-    if (!valid) return
-  })
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
 
   submitLoading.value = true
   try {
@@ -434,6 +516,7 @@ const getChannelTypeName = (type: string) => {
   const map: Record<string, string> = {
     email: '邮箱',
     sms: '短信',
+    webhook: 'Webhook',
     wechat: '微信',
     feishu: '飞书',
     dingtalk: '钉钉'
@@ -477,5 +560,13 @@ const handlePageChange = (page: number) => {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+
+.form-tip {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 </style>

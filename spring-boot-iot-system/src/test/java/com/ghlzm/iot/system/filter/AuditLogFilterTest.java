@@ -109,6 +109,27 @@ class AuditLogFilterTest {
     }
 
     @Test
+    void shouldMarkBusinessFailureFromResponseEnvelope() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/device/add");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (req, res) -> {
+            res.setContentType("application/json");
+            res.getWriter().write("{\"code\":500,\"msg\":\"设备不存在: demo-device-02\"}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        AuditLog log = recorder.lastLog().get();
+
+        assertEquals(0, log.getOperationResult());
+        assertEquals("设备不存在: demo-device-02", log.getResultMessage());
+    }
+
+    @Test
     void shouldFallbackOperationMethodToPattern() throws ServletException, IOException {
         AuditLogRecorder recorder = newRecorder();
         AuditLogFilter filter = new AuditLogFilter(recorder.service());

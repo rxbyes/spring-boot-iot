@@ -56,6 +56,8 @@
 - 后端默认允许 `http://localhost:*` 与 `http://127.0.0.1:*` 的最小 CORS 开发来源，便于需要直连时做浏览器联调
 - 风险监测驾驶舱 `/` 当前为公开首页，未登录状态也可访问；其他受保护页面在未登录时会回退到驾驶舱
 - 浏览器自动化脚本支持 `IOT_ACCEPTANCE_FRONTEND_URL`、`IOT_ACCEPTANCE_BACKEND_URL`，若未设置后端地址会回退读取 `VITE_PROXY_TARGET`（再回退 `http://127.0.0.1:9999`）
+- 浏览器自动化主脚本现位于仓库根目录 `scripts/auto/run-browser-acceptance.mjs`，当前文件 `scripts/business-browser-acceptance.mjs` 仅作兼容代理
+- 可使用 `npm run acceptance:browser:plan` 预览当前可执行场景与未来预留巡检清单
 
 可参考：
 - [docs/13-frontend-debug-console.md](../docs/13-frontend-debug-console.md)

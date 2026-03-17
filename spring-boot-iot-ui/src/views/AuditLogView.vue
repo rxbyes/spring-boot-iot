@@ -20,16 +20,17 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
-            <el-form-item label="操作类型">
-              <el-select v-model="searchForm.operationType" placeholder="请选择操作类型" clearable>
-                <el-option label="新增" value="insert" />
-                <el-option label="修改" value="update" />
-                <el-option label="删除" value="delete" />
-                <el-option label="查询" value="select" />
-              </el-select>
-            </el-form-item>
-          </el-col>
+            <el-col :span="8">
+              <el-form-item label="操作类型">
+                <el-select v-model="searchForm.operationType" placeholder="请选择操作类型" clearable>
+                  <el-option label="新增" value="insert" />
+                  <el-option label="修改" value="update" />
+                  <el-option label="删除" value="delete" />
+                  <el-option label="查询" value="select" />
+                  <el-option label="系统异常" value="system_error" />
+                </el-select>
+              </el-form-item>
+            </el-col>
           <el-col :span="8">
             <el-form-item label="操作模块">
               <el-input
@@ -82,8 +83,8 @@
         </el-table-column>
         <el-table-column prop="operationModule" label="操作模块" width="150" />
         <el-table-column prop="operationMethod" label="操作方法" />
-        <el-table-column prop="requestUrl" label="请求URL" />
-        <el-table-column prop="requestMethod" label="请求方法" width="100" />
+        <el-table-column prop="requestUrl" label="请求URL/目标" />
+        <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
         <el-table-column prop="userName" label="操作用户" width="120" />
         <el-table-column prop="ipAddress" label="操作IP" width="150" />
         <el-table-column prop="operationTime" label="操作时间" width="180" />
@@ -126,15 +127,16 @@
           <el-descriptions-item label="操作类型">{{ getOperationTypeName(detailData.operationType) }}</el-descriptions-item>
           <el-descriptions-item label="操作模块">{{ detailData.operationModule }}</el-descriptions-item>
           <el-descriptions-item label="操作方法">{{ detailData.operationMethod }}</el-descriptions-item>
-          <el-descriptions-item label="请求URL">{{ detailData.requestUrl }}</el-descriptions-item>
-          <el-descriptions-item label="请求方法">{{ detailData.requestMethod }}</el-descriptions-item>
+          <el-descriptions-item label="请求URL/目标">{{ detailData.requestUrl }}</el-descriptions-item>
+          <el-descriptions-item label="请求方法/通道">{{ detailData.requestMethod }}</el-descriptions-item>
           <el-descriptions-item label="操作用户">{{ detailData.userName }}</el-descriptions-item>
           <el-descriptions-item label="操作IP">{{ detailData.ipAddress }}</el-descriptions-item>
           <el-descriptions-item label="操作时间">{{ formatDate(detailData.operationTime) }}</el-descriptions-item>
           <el-descriptions-item label="操作结果" :span="2">
-            <el-tag :type="detailData.operationResult === 1 ? 'success' : 'danger'">
-              {{ detailData.operationResult === 1 ? '成功' : '失败' }}
+            <el-tag v-if="detailData.operationResult !== undefined && detailData.operationResult !== null" :type="getOperationResultTag(detailData.operationResult)">
+              {{ getOperationResultName(detailData.operationResult) }}
             </el-tag>
+            <el-text v-else>-</el-text>
           </el-descriptions-item>
           <el-descriptions-item label="请求参数" :span="2">
             <el-text v-if="detailData.requestParams" wrap class="detail-payload">{{ formatDetailPayload(detailData.requestParams) }}</el-text>
@@ -170,7 +172,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { pageLogs, getAuditLogById, deleteAuditLog } from '@/api/auditLog'
+import { pageLogs, getAuditLogById, deleteAuditLog, type AuditLogRecord } from '@/api/auditLog'
+import type { RequestError } from '@/api/request'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -232,7 +235,7 @@ const loading = ref(false)
 
 // 详情对话框
 const detailVisible = ref(false)
-const detailData = ref<any>({})
+const detailData = ref<Partial<AuditLogRecord>>({})
 
 // 获取审计日志列表
 const getAuditLogList = async () => {
@@ -321,13 +324,27 @@ const handlePageChange = (page: number) => {
 }
 
 // 查看详情
-const handleDetail = (row: any) => {
-  getAuditLogById(row.id).then((res) => {
-    if (res.code === 200) {
-      detailData.value = res.data
-      detailVisible.value = true
+const handleDetail = async (row: AuditLogRecord) => {
+  if (row.id === undefined || row.id === null || row.id === '') {
+    ElMessage.warning('当前审计日志缺少主键，无法查看详情')
+    return
+  }
+
+  try {
+    const res = await getAuditLogById(row.id)
+    if (!res.data || Array.isArray(res.data)) {
+      ElMessage.warning('审计日志详情不存在或已删除')
+      return
     }
-  })
+    detailData.value = { ...row, ...res.data }
+    detailVisible.value = true
+  } catch (error) {
+    const requestError = error as RequestError | undefined
+    if (!requestError?.handled) {
+      ElMessage.error('获取审计日志详情失败')
+    }
+    console.error('获取审计日志详情失败', error)
+  }
 }
 
 // 删除
@@ -355,7 +372,8 @@ const getOperationTypeName = (type: string) => {
     insert: '新增',
     update: '修改',
     delete: '删除',
-    select: '查询'
+    select: '查询',
+    system_error: '系统异常'
   }
   return map[type] || type
 }
@@ -366,18 +384,31 @@ const getOperationTypeTag = (type: string) => {
     insert: 'primary',
     update: 'warning',
     delete: 'danger',
-    select: 'info'
+    select: 'info',
+    system_error: 'danger'
   }
   return map[type] || 'info'
 }
 
+const getOperationResultName = (result?: number | null) => {
+  if (result === 1) return '成功'
+  if (result === 0) return '失败'
+  return '-'
+}
+
+const getOperationResultTag = (result?: number | null) => {
+  if (result === 1) return 'success'
+  if (result === 0) return 'danger'
+  return 'info'
+}
+
 // 格式化日期
-const formatDate = (date: string) => {
+const formatDate = (date?: string) => {
   if (!date) return '-'
   return new Date(date).toLocaleString('zh-CN')
 }
 
-const formatDetailPayload = (payload: string) => {
+const formatDetailPayload = (payload?: string) => {
   if (!payload) return '-'
   const text = String(payload)
   const trimmed = text.trim()

@@ -1,5 +1,8 @@
 package com.ghlzm.iot.system.filter;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
@@ -34,6 +37,9 @@ public class AuditLogFilter extends OncePerRequestFilter {
 
     private static final Long DEFAULT_TENANT_ID = 1L;
     private static final int MAX_CAPTURE_LENGTH = 4000;
+    private static final int MAX_RESULT_MESSAGE_LENGTH = 500;
+    private static final int MAX_REQUEST_URL_LENGTH = 255;
+    private static final int MAX_OPERATION_METHOD_LENGTH = 255;
     private static final Pattern JSON_SENSITIVE_PATTERN = Pattern.compile(
             "(?i)\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\"\\s*:\\s*\"[^\"]*\"");
     private static final Pattern ESCAPED_JSON_SENSITIVE_PATTERN = Pattern.compile(
@@ -46,6 +52,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
             "(?i)(authorization\\s*:\\s*bearer\\s+)([^\\s,;]+)");
 
     private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public AuditLogFilter(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
@@ -79,20 +86,21 @@ public class AuditLogFilter extends OncePerRequestFilter {
         }
 
         AuditLog auditLog = new AuditLog();
+        ResponseCapture responseCapture = captureResponse(response);
         Date now = new Date();
         auditLog.setTenantId(DEFAULT_TENANT_ID);
         fillUserInfo(auditLog);
         auditLog.setOperationType(resolveOperationType(request.getMethod()));
         auditLog.setOperationModule(resolveOperationModule(request.getRequestURI()));
-        auditLog.setOperationMethod(resolveOperationMethod(request));
-        auditLog.setRequestUrl(request.getRequestURI());
+        auditLog.setOperationMethod(truncate(resolveOperationMethod(request), MAX_OPERATION_METHOD_LENGTH));
+        auditLog.setRequestUrl(truncate(request.getRequestURI(), MAX_REQUEST_URL_LENGTH));
         auditLog.setRequestMethod(request.getMethod());
         auditLog.setRequestParams(resolveRequestParams(request));
-        auditLog.setResponseResult(resolveResponseResult(response));
+        auditLog.setResponseResult(responseCapture.responseResult());
         auditLog.setIpAddress(resolveIp(request));
         auditLog.setLocation("");
-        auditLog.setOperationResult(chainException == null && response.getStatus() < 400 ? 1 : 0);
-        auditLog.setResultMessage(resolveResultMessage(response, chainException));
+        auditLog.setOperationResult(resolveOperationResult(response, chainException, responseCapture));
+        auditLog.setResultMessage(resolveResultMessage(response, chainException, responseCapture));
         auditLog.setOperationTime(now);
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
@@ -155,6 +163,29 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return StringUtils.hasText(bodyPart) ? "body: " + bodyPart : queryPart;
     }
 
+    private ResponseCapture captureResponse(HttpServletResponse response) {
+        if (!(response instanceof ContentCachingResponseWrapper wrapper)) {
+            return new ResponseCapture("HTTP " + response.getStatus(), null, null);
+        }
+        byte[] content = wrapper.getContentAsByteArray();
+        if (content.length == 0) {
+            return new ResponseCapture("HTTP " + response.getStatus(), null, null);
+        }
+
+        Charset charset = resolveCharset(wrapper.getCharacterEncoding(), wrapper.getContentType());
+        String rawResponseBody = new String(content, charset);
+        String responseBody = sanitizeAndTruncate(rawResponseBody);
+        BusinessResponse businessResponse = parseBusinessResponse(rawResponseBody);
+        if (!StringUtils.hasText(responseBody)) {
+            return new ResponseCapture("HTTP " + response.getStatus(), businessResponse.code(), businessResponse.message());
+        }
+        return new ResponseCapture(
+                "HTTP " + response.getStatus() + " body: " + responseBody,
+                businessResponse.code(),
+                businessResponse.message()
+        );
+    }
+
     private String resolveRequestBody(HttpServletRequest request) {
         if (!(request instanceof ContentCachingRequestWrapper wrapper)) {
             return "";
@@ -167,25 +198,32 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return sanitizeAndTruncate(new String(content, charset));
     }
 
-    private String resolveResponseResult(HttpServletResponse response) {
-        if (!(response instanceof ContentCachingResponseWrapper wrapper)) {
-            return "HTTP " + response.getStatus();
+    private Integer resolveOperationResult(HttpServletResponse response,
+                                           Exception chainException,
+                                           ResponseCapture responseCapture) {
+        if (chainException != null || response.getStatus() >= 400) {
+            return 0;
         }
-        byte[] content = wrapper.getContentAsByteArray();
-        if (content.length == 0) {
-            return "HTTP " + response.getStatus();
+        if (responseCapture.businessCode() != null && responseCapture.businessCode() != R.SUCCESS) {
+            return 0;
         }
-        Charset charset = resolveCharset(wrapper.getCharacterEncoding(), wrapper.getContentType());
-        String responseBody = sanitizeAndTruncate(new String(content, charset));
-        if (!StringUtils.hasText(responseBody)) {
-            return "HTTP " + response.getStatus();
-        }
-        return "HTTP " + response.getStatus() + " body: " + responseBody;
+        return 1;
     }
 
-    private String resolveResultMessage(HttpServletResponse response, Exception chainException) {
-        if (chainException != null && StringUtils.hasText(chainException.getMessage())) {
-            return truncate(chainException.getMessage());
+    private String resolveResultMessage(HttpServletResponse response,
+                                        Exception chainException,
+                                        ResponseCapture responseCapture) {
+        if (chainException != null) {
+            if (StringUtils.hasText(chainException.getMessage())) {
+                return truncate(chainException.getMessage(), MAX_RESULT_MESSAGE_LENGTH);
+            }
+            return chainException.getClass().getSimpleName();
+        }
+        if (responseCapture.businessCode() != null && responseCapture.businessCode() != R.SUCCESS) {
+            if (StringUtils.hasText(responseCapture.businessMessage())) {
+                return truncate(maskSensitive(responseCapture.businessMessage()), MAX_RESULT_MESSAGE_LENGTH);
+            }
+            return "业务失败: code=" + responseCapture.businessCode();
         }
         return response.getStatus() < 400 ? "OK" : "HTTP " + response.getStatus();
     }
@@ -206,12 +244,29 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return StandardCharsets.UTF_8;
     }
 
+    private BusinessResponse parseBusinessResponse(String responseBody) {
+        if (!StringUtils.hasText(responseBody)) {
+            return new BusinessResponse(null, null);
+        }
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            if (!root.isObject()) {
+                return new BusinessResponse(null, null);
+            }
+            Integer code = root.has("code") && root.get("code").canConvertToInt() ? root.get("code").asInt() : null;
+            String message = root.has("msg") && !root.get("msg").isNull() ? root.get("msg").asText() : null;
+            return new BusinessResponse(code, message);
+        } catch (Exception ex) {
+            return new BusinessResponse(null, null);
+        }
+    }
+
     private String sanitizeAndTruncate(String text) {
         if (!StringUtils.hasText(text)) {
             return "";
         }
         String sanitized = maskSensitive(text);
-        return truncate(sanitized);
+        return truncate(sanitized, MAX_CAPTURE_LENGTH);
     }
 
     private String maskSensitive(String text) {
@@ -228,11 +283,11 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return matcher.replaceAll(replacement);
     }
 
-    private String truncate(String text) {
-        if (!StringUtils.hasText(text) || text.length() <= MAX_CAPTURE_LENGTH) {
+    private String truncate(String text, int maxLength) {
+        if (!StringUtils.hasText(text) || text.length() <= maxLength) {
             return text;
         }
-        return text.substring(0, MAX_CAPTURE_LENGTH) + "...(truncated)";
+        return text.substring(0, maxLength) + "...(truncated)";
     }
 
     private String resolveIp(HttpServletRequest request) {
@@ -246,5 +301,11 @@ public class AuditLogFilter extends OncePerRequestFilter {
             return realIp.trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private record ResponseCapture(String responseResult, Integer businessCode, String businessMessage) {
+    }
+
+    private record BusinessResponse(Integer code, String message) {
     }
 }

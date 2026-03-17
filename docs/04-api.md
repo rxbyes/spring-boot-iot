@@ -622,18 +622,74 @@ Authorization: Bearer <jwt-token>
 
 适用范围：
 - 自动采集范围保持不变：`/api/**`（排除 `/api/system/audit-log/**` 与 `/api/auth/login`）。
+- 新增后台异常事件采集：MQTT 客户端启动失败、订阅失败、连接断开、消息分发失败等异步异常会写入 `sys_audit_log`。
 
 采集字段增强：
 - `requestParams`：优先记录 query + 请求体（JSON/Form 等），不再仅记录 query string。
 - `responseResult`：记录 `HTTP 状态码` + 响应体摘要（有内容时）。
 - `operationMethod`：优先记录 `Controller#method`，无法解析时回退到匹配路由模板。
+- HTTP 请求即使返回 `200`，只要统一响应体中的 `code != 200`，也会按失败写入审计结果。
+
+系统异常事件口径：
+- `operationType`：固定为 `system_error`。
+- `userName`：固定为 `SYSTEM`。
+- `requestMethod`：异步 MQTT 异常固定记为 `MQTT`。
+- `requestUrl`：记录 MQTT topic，或 `startup` / `subscribe` / `connection` / `shutdown` 等生命周期目标。
 
 安全与容量控制：
 - 对 `password/token/secret/authorization/accessToken/refreshToken/clientSecret` 等敏感字段自动脱敏（`***`）。
 - 请求与响应内容按固定上限截断并追加 `...(truncated)`，避免超长日志影响查询与展示。
 
-审计详情接口：
-- `GET /api/system/audit-log/get/{id}`：返回增强后的 `requestParams`、`responseResult`、`resultMessage` 供前端详情页展示。
+ 审计详情接口：
+  - `GET /api/system/audit-log/get/{id}`：返回增强后的 `requestParams`、`responseResult`、`resultMessage` 供前端详情页展示。
+- 当 `{id}` 不存在或已删除时，返回 `code=404`、`msg=审计日志不存在或已删除`，前端不应继续展示空详情弹窗。
+
+## 系统异常自动通知（2026-03-17）
+
+适用范围：
+- 自动通知当前仅支持 `webhook`、`wechat`、`feishu`、`dingtalk` 四类通知渠道。
+- 只有开启 `iot.observability.system-error-notify-enabled=true` 后，后台 `system_error` 审计事件才会继续触发通知发送。
+
+配置项：
+- `iot.observability.system-error-notify-enabled`：是否启用系统异常自动通知，默认 `false`。
+- `iot.observability.notification-timeout-ms`：通知 HTTP 请求超时时间，默认 `3000` 毫秒。
+- `iot.observability.system-error-notify-cooldown-seconds`：同一渠道 + 同一异常签名的全局节流窗口，默认 `300` 秒。
+
+通知渠道 `config` JSON 示例：
+```json
+{
+  "url": "https://example.com/iot/webhook",
+  "headers": {
+    "Authorization": "Bearer demo-token"
+  },
+  "scenes": ["system_error"],
+  "timeoutMs": 3000,
+  "minIntervalSeconds": 300
+}
+```
+
+说明：
+- 自动系统异常通知要求 `config.url` 非空，且 `config.scenes` 或 `config.scene` 中包含 `system_error`。
+- `timeoutMs`、`minIntervalSeconds` 可按渠道单独覆盖全局默认值。
+- 通知发送失败只写应用日志，不会反向再写新的审计日志，避免递归异常风暴。
+
+测试通知接口：
+### 发送通知渠道测试消息
+`POST /api/system/channel/test/{channelCode}`
+
+说明：
+- 用于手工验证指定渠道的 URL、鉴权头、机器人地址等配置是否可用。
+- 测试发送不要求 `scenes` 包含 `system_error`，但仍要求渠道启用、类型受支持且 `config.url` 存在。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null
+}
+```
+
 ## Phase 4 风险监测 API
 
 ### 实时监测列表

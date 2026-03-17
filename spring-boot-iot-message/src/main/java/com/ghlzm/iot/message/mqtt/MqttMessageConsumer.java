@@ -71,7 +71,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             subscribeConfiguredTopics();
             running = true;
         } catch (MqttException ex) {
-            mqttConnectionListener.onMessageDispatchFailed("startup", ex);
+            mqttConnectionListener.onStartupFailed(ex);
         }
     }
 
@@ -87,7 +87,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             }
             mqttClient.close();
         } catch (MqttException ex) {
-            mqttConnectionListener.onMessageDispatchFailed("shutdown", ex);
+            mqttConnectionListener.onShutdownFailed(ex);
         } finally {
             running = false;
         }
@@ -197,7 +197,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             }
             mqttConnectionListener.onSubscribe(topics);
         } catch (MqttException ex) {
-            mqttConnectionListener.onMessageDispatchFailed("subscribe", ex);
+            mqttConnectionListener.onSubscribeFailed(topics, ex);
         }
     }
 

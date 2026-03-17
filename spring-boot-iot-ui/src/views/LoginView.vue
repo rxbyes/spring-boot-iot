@@ -134,6 +134,7 @@ import { ElMessage } from '@/utils/message';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import { login as loginApi } from '../api/auth';
+import type { RequestError } from '../api/request';
 import { usePermissionStore } from '../stores/permission';
 
 type LoginTab = 'account' | 'phone';
@@ -248,6 +249,11 @@ async function handleSubmit() {
     permissionStore.login(data);
     await router.replace(resolveRedirectPath());
     ElMessage.success('登录成功');
+  } catch (error) {
+    const requestError = error as RequestError | undefined;
+    if (!requestError?.handled) {
+      ElMessage.error(requestError?.message || '登录失败，请稍后重试');
+    }
   } finally {
     submitting.value = false;
   }

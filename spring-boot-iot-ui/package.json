@@ -10,6 +10,7 @@
     "dev": "vite",
     "acceptance:dev": "vite --host 0.0.0.0",
     "acceptance:browser": "node ./scripts/business-browser-acceptance.mjs",
+    "acceptance:browser:plan": "node ./scripts/business-browser-acceptance.mjs --dry-run",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",

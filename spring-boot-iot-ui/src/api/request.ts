@@ -17,6 +17,16 @@ export interface ResponseInterceptor<T = unknown> {
   onerror?: (error: Error) => Error | Promise<Error>;
 }
 
+export interface RequestError extends Error {
+  handled?: boolean;
+}
+
+export function createRequestError(message: string, handled = false): RequestError {
+  const error = new Error(message) as RequestError;
+  error.handled = handled;
+  return error;
+}
+
 class InterceptorManager {
   private requestInterceptors: RequestInterceptor[] = [];
   private responseInterceptors: ResponseInterceptor[] = [];
@@ -108,11 +118,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (!response.ok) {
       const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
       const message = payload?.msg || bodyText || `请求失败: ${statusMessage}`;
-      throw new Error(message);
+      throw createRequestError(message);
     }
 
     if (!payload) {
-      throw new Error('服务端返回格式无效，请检查后端日志');
+      throw createRequestError('服务端返回格式无效，请检查后端日志');
     }
 
     const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
