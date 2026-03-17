@@ -3,26 +3,28 @@
     <div class="header-tools" aria-label="系统工具">
       <button
         type="button"
-        class="tool-text"
+        class="tool-text tool-text--notice"
         :class="{ 'tool-text--active': showNoticePanel }"
         aria-label="打开消息通知"
+        title="消息通知"
         :aria-expanded="showNoticePanel"
         :aria-controls="noticePanelId"
         @click="$emit('toggle-notice')"
       >
-        消息通知
+        <span class="tool-text__label">通知</span>
         <span v-if="unreadNoticeCount > 0" class="tool-text__badge">{{ unreadNoticeCount }}</span>
       </button>
       <button
         type="button"
-        class="tool-text"
+        class="tool-text tool-text--help"
         :class="{ 'tool-text--active': showHelpPanel }"
         aria-label="打开帮助中心"
+        title="帮助中心"
         :aria-expanded="showHelpPanel"
         :aria-controls="helpPanelId"
         @click="$emit('toggle-help')"
       >
-        帮助中心
+        <span class="tool-text__label">帮助</span>
       </button>
     </div>
 
@@ -44,8 +46,8 @@
         <span class="account-chip__avatar">{{ accountInitial }}</span>
         <span class="account-chip__meta">
           <strong>{{ headerAccountName }}</strong>
-          <small>{{ headerRoleName }}</small>
         </span>
+        <span class="account-chip__sr">{{ headerRoleName }}</span>
         <span class="account-chip__caret" aria-hidden="true"></span>
       </button>
 
@@ -204,30 +206,55 @@ onBeforeUnmount(() => {
 }
 
 .tool-text {
-  min-height: 1.76rem;
-  padding: 0 0.62rem;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--panel-border);
-  background: var(--bg-card);
+  min-height: 1.7rem;
+  padding: 0 0.58rem;
+  border-radius: 999px;
+  border: 1px solid #e8edf5;
+  background: #fbfcfe;
   color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 500;
   line-height: 1;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .tool-text:hover {
-  border-color: #c9d7ef;
+  border-color: #d3dff2;
   color: var(--accent);
-  background: var(--bg-hover);
+  background: #f6f9fe;
 }
 
 .tool-text--active {
   border-color: #a8c4ef;
   color: var(--accent);
-  background: var(--bg-active);
+  background: #edf4ff;
+}
+
+.tool-text__label {
+  position: relative;
+  padding-left: 0.8rem;
+}
+
+.tool-text__label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: rgba(126, 142, 166, 0.55);
+}
+
+.tool-text--notice .tool-text__label::before {
+  background: rgba(22, 119, 255, 0.55);
+}
+
+.tool-text--help .tool-text__label::before {
+  background: rgba(82, 196, 26, 0.55);
 }
 
 .tool-text__badge {
@@ -251,12 +278,12 @@ onBeforeUnmount(() => {
 .account-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 2rem;
-  padding: 0.22rem 0.5rem 0.22rem 0.3rem;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--panel-border);
-  background: var(--bg-card);
+  gap: 0.42rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.46rem 0.2rem 0.28rem;
+  border-radius: 999px;
+  border: 1px solid #e8edf5;
+  background: #fbfcfe;
 }
 
 .account-chip__avatar,
@@ -278,19 +305,26 @@ onBeforeUnmount(() => {
 
 .account-chip__meta {
   display: grid;
-  gap: 0.05rem;
+  gap: 0;
   line-height: 1.2;
 }
 
 .account-chip__meta strong {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #1f3558;
 }
 
-.account-chip__meta small {
-  font-size: 0.68rem;
-  color: #5e769e;
+.account-chip__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .account-chip__caret {

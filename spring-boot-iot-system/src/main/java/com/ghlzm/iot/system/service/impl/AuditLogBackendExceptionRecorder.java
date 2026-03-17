@@ -10,6 +10,7 @@ import com.ghlzm.iot.system.service.SystemErrorNotificationService;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -40,7 +41,7 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
 
     private final AuditLogService auditLogService;
     private final SystemErrorNotificationService systemErrorNotificationService;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public AuditLogBackendExceptionRecorder(AuditLogService auditLogService,
                                             SystemErrorNotificationService systemErrorNotificationService) {

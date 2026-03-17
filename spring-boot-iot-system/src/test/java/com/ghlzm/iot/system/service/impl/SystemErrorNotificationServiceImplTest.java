@@ -8,7 +8,7 @@ import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.service.NotificationChannelService;
 import com.ghlzm.iot.system.service.NotificationHttpClient;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.Proxy;
 import java.time.Duration;
@@ -112,7 +112,7 @@ class SystemErrorNotificationServiceImplTest {
                 notificationChannelService(channels),
                 httpClient,
                 properties,
-                new ObjectMapper().findAndRegisterModules()
+                JsonMapper.builder().findAndAddModules().build()
         );
     }
 

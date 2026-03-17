@@ -12,6 +12,7 @@
     "headless": true,
     "issueDocPath": "docs/22-automation-test-issues-20260316.md",
     "outputPrefix": "config-browser",
+    "baselineDir": "config/automation/baselines",
     "scenarioScopes": ["delivery", "baseline"],
     "failScopes": ["delivery"]
   },

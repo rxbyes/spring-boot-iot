@@ -21,11 +21,12 @@
         </RouterLink>
 
         <label class="header-search" for="global-search">
+          <span class="header-search__icon" aria-hidden="true"></span>
           <input
             id="global-search"
             v-model="searchKeyword"
             type="search"
-            placeholder="搜索业务模块，如：告警中心、事件处置、风险点"
+            placeholder="搜索模块"
             @keydown.enter="handleSearch"
           />
           <button type="button" @click="handleSearch">搜索</button>
@@ -126,7 +127,7 @@
               :title="item.caption ? `${item.label}：${item.caption}` : item.label"
               :aria-label="item.caption ? `${item.label}，${item.caption}` : item.label"
             >
-              <span class="side-menu__marker">{{ item.short }}</span>
+              <span class="side-menu__marker">{{ sidebarCollapsed ? item.short : '' }}</span>
               <span class="side-menu__content">
                 <strong>{{ item.label }}</strong>
               </span>
@@ -136,8 +137,9 @@
       </aside>
 
       <section class="cloud-content">
-        <section class="console-toolbar">
+        <section class="console-toolbar" :class="{ 'console-toolbar--home': showSidebarContext }">
           <div class="console-toolbar__heading">
+            <p v-if="toolbarEyebrow" class="toolbar-eyebrow">{{ toolbarEyebrow }}</p>
             <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
             <p v-if="toolbarDescription">{{ toolbarDescription }}</p>
           </div>
@@ -559,6 +561,16 @@ const activeDescription = computed(() => {
 });
 const activeGroupHomePath = computed(() => activeGroup.value.items[0]?.to || '/');
 const showSidebarContext = computed(() => route.path === activeGroupHomePath.value);
+const toolbarEyebrow = computed(() => {
+  if (showSidebarContext.value) {
+    return '';
+  }
+  const groupLabel = activeGroup.value.label?.trim();
+  if (!groupLabel || groupLabel === activeTitle.value) {
+    return '';
+  }
+  return groupLabel;
+});
 const toolbarDescription = computed(() => (showSidebarContext.value ? '' : activeDescription.value));
 const showTabsView = computed(() => route.meta.trackTab !== false && visitedTabs.value.length > 1);
 const headerIdentity = computed(() => {
@@ -943,7 +955,7 @@ onBeforeUnmount(() => {
 
 .cloud-header__main {
   display: grid;
-  grid-template-columns: auto auto minmax(320px, 1fr) auto;
+  grid-template-columns: auto auto minmax(240px, 420px) auto;
   align-items: center;
   gap: 0.6rem;
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
@@ -1006,24 +1018,58 @@ onBeforeUnmount(() => {
 
 .header-search {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   justify-self: center;
-  width: min(100%, 760px);
-  height: 2rem;
+  width: min(100%, 420px);
+  height: 1.9rem;
   min-width: 0;
-  border: 1px solid #dcdfe6;
-  border-radius: 2px;
-  background: #fff;
+  border: 1px solid #e3e8f1;
+  border-radius: 999px;
+  background: #fbfcfe;
   overflow: hidden;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.header-search:focus-within {
+  border-color: #bfd2f2;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
+}
+
+.header-search__icon {
+  position: relative;
+  width: 1.6rem;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-search__icon::before {
+  content: '';
+  width: 0.56rem;
+  height: 0.56rem;
+  border: 1.6px solid #8ea0ba;
+  border-radius: 50%;
+}
+
+.header-search__icon::after {
+  content: '';
+  position: absolute;
+  width: 0.3rem;
+  height: 1.6px;
+  background: #8ea0ba;
+  border-radius: 999px;
+  transform: translate(0.26rem, 0.28rem) rotate(45deg);
 }
 
 .header-search input {
   border: none;
   background: transparent;
-  padding: 0.42rem 0.72rem;
+  padding: 0.35rem 0.15rem 0.35rem 0;
   min-width: 0;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .header-search input:focus {
@@ -1032,13 +1078,15 @@ onBeforeUnmount(() => {
 
 .header-search button {
   border: none;
-  border-left: 1px solid #d8dfeb;
-  border-radius: 0;
+  border-left: none;
+  border-radius: 999px;
   height: 100%;
-  padding: 0 0.9rem;
-  background: #f7f8fa;
-  color: #4b5565;
-  font-size: 0.8rem;
+  margin: 0.12rem;
+  padding: 0 0.72rem;
+  background: #edf4ff;
+  color: #1677ff;
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .cloud-header__sections {
@@ -1188,16 +1236,17 @@ onBeforeUnmount(() => {
 }
 
 .side-menu__marker {
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 6px;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
+  font-size: 0;
   font-weight: 600;
-  color: #ff6a00;
-  background: rgba(255, 106, 0, 0.12);
+  color: transparent;
+  background: rgba(148, 163, 184, 0.45);
+  flex-shrink: 0;
 }
 
 .side-menu__content {
@@ -1217,6 +1266,10 @@ onBeforeUnmount(() => {
   transform: translateX(1px);
 }
 
+.side-menu__item:hover .side-menu__marker {
+  background: rgba(22, 119, 255, 0.45);
+}
+
 .side-menu__item--active {
   border-color: #d8e7ff;
   background: linear-gradient(180deg, #eff5ff 0%, #e9f2ff 100%);
@@ -1228,8 +1281,7 @@ onBeforeUnmount(() => {
 }
 
 .side-menu__item--active .side-menu__marker {
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.12);
+  background: #1677ff;
 }
 
 .side-menu__item--active .side-menu__content strong {
@@ -1246,6 +1298,25 @@ onBeforeUnmount(() => {
   padding: 0.6rem 0.45rem;
 }
 
+.cloud-shell--collapsed .side-menu__marker {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: #8b5a00;
+  background: rgba(255, 106, 0, 0.12);
+}
+
+.cloud-shell--collapsed .side-menu__item:hover .side-menu__marker {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.12);
+}
+
+.cloud-shell--collapsed .side-menu__item--active .side-menu__marker {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.12);
+}
+
 .cloud-shell--collapsed .side-menu__content {
   display: none;
 }
@@ -1255,15 +1326,16 @@ onBeforeUnmount(() => {
 }
 
 .cloud-content {
-  padding: 0.75rem 0.85rem 1rem;
+  padding: 0.55rem 0.85rem 1rem;
   min-width: 0;
 }
 
 .console-toolbar {
-  padding: 0.75rem 0.85rem;
-  border-radius: 6px;
-  border: 1px solid #e6eaf0;
-  background: #fff;
+  padding: 0.15rem 0.12rem 0.45rem;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(230, 234, 240, 0.85);
+  background: transparent;
   box-shadow: none;
   display: flex;
   justify-content: space-between;
@@ -1271,31 +1343,38 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.console-toolbar--home {
+  padding-bottom: 0.2rem;
+  border-bottom: none;
+}
+
 .console-toolbar__heading {
   display: grid;
-  gap: 0.35rem;
-  max-width: 40rem;
+  gap: 0.22rem;
+  max-width: 42rem;
 }
 
 .toolbar-eyebrow {
   margin: 0;
-  color: #8290a6;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: 0.66rem;
+  color: #8a97aa;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 600;
 }
 
 .console-toolbar__heading h1 {
   margin: 0;
   color: #1f2a3d;
-  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  font-size: clamp(1rem, 1.35vw, 1.24rem);
+  font-weight: 600;
 }
 
 .console-toolbar__heading p {
   margin: 0;
   color: #69778c;
-  line-height: 1.6;
-  font-size: 0.84rem;
+  line-height: 1.55;
+  font-size: 0.78rem;
+  max-width: 34rem;
 }
 
 .console-toolbar__summary {
@@ -1557,7 +1636,7 @@ onBeforeUnmount(() => {
 }
 
 .content-frame {
-  margin-top: 0.7rem;
+  margin-top: 0.55rem;
 }
 
 .sidebar-mask {
@@ -1570,7 +1649,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1400px) {
   .cloud-header__main {
-    grid-template-columns: auto auto minmax(240px, 1fr) auto;
+    grid-template-columns: auto auto minmax(200px, 360px) auto;
   }
 }
 

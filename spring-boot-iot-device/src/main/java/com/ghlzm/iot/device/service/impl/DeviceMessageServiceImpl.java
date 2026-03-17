@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,7 +54,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
                                     DeviceMessageLogMapper deviceMessageLogMapper,

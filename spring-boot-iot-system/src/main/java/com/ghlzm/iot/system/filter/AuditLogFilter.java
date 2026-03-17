@@ -21,6 +21,7 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 import org.springframework.web.servlet.HandlerMapping;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -53,7 +54,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
             "(?i)(authorization\\s*:\\s*bearer\\s+)([^\\s,;]+)");
 
     private final AuditLogService auditLogService;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public AuditLogFilter(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;

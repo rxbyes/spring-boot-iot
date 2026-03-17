@@ -156,5 +156,7 @@
 
 补充说明：
 - `sys_audit_log` 当前用于同时承载业务审计与 `system_error` 异常审计；系统异常记录需具备 `trace_id`、`device_code`、`product_key`、`error_code`、`exception_class`，便于研发、测试与运维从消息追踪页回溯。
+- 历史共享库若仍停留在旧结构，服务层会按实际存在列动态读写 `sys_audit_log`，并兼容旧字段别名 `log_type` / `operation_uri`，保证列表、分页、详情、删除和新增审计不因缺列直接失败。
+- 若旧库尚未补齐 `trace_id`、`device_code`、`product_key`、`error_code`、`exception_class`，系统日志高级检索能力会按现有字段降级；执行 `20260316_phase4_real_env_schema_alignment.sql` 后可恢复完整排障字段。
 
 具体 SQL 核对模板见 [docs/21-business-functions-and-acceptance.md](21-business-functions-and-acceptance.md)。

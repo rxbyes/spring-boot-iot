@@ -86,7 +86,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize.longValue(), 200L);
         Set<String> columns = auditLogSchemaSupport.getColumns();
         QuerySpec querySpec = buildQuerySpec(log, excludeSystemError, columns);
-        if (querySpec.empty()) {
+        if (querySpec.emptyResult()) {
             return PageResult.empty(safePageNum, safePageSize);
         }
 
@@ -140,7 +140,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     private List<AuditLog> queryLogs(AuditLog log, Boolean excludeSystemError, Long limit, Long offset) {
         Set<String> columns = auditLogSchemaSupport.getColumns();
         QuerySpec querySpec = buildQuerySpec(log, excludeSystemError, columns);
-        if (querySpec.empty()) {
+        if (querySpec.emptyResult()) {
             return List.of();
         }
 
@@ -170,7 +170,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
             if (Boolean.TRUE.equals(excludeSystemError)) {
                 String operationTypeColumn = resolveColumn(columns, "operation_type", LEGACY_OPERATION_TYPE_COLUMN);
                 if (operationTypeColumn == null) {
-                    return QuerySpec.empty();
+                    return QuerySpec.emptySpec();
                 }
                 where.append(" AND ").append(operationTypeColumn).append(" <> ?");
                 params.add(SYSTEM_ERROR_TYPE);
@@ -179,51 +179,51 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         }
 
         if (appendEquals(where, params, resolveColumn(columns, "tenant_id"), log.getTenantId())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendEquals(where, params, resolveColumn(columns, "user_id"), log.getUserId())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextEquals(where, params, resolveColumn(columns, "trace_id"), log.getTraceId())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "device_code"), log.getDeviceCode())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "product_key"), log.getProductKey())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "user_name"), log.getUserName())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextEquals(where, params, resolveColumn(columns, "operation_type", LEGACY_OPERATION_TYPE_COLUMN), log.getOperationType())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "operation_module"), log.getOperationModule())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextEquals(where, params, resolveColumn(columns, "request_method"), log.getRequestMethod())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "request_url", LEGACY_REQUEST_URL_COLUMN), log.getRequestUrl())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "result_message"), log.getResultMessage())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextEquals(where, params, resolveColumn(columns, "error_code"), log.getErrorCode())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendTextLike(where, params, resolveColumn(columns, "exception_class"), log.getExceptionClass())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (appendEquals(where, params, resolveColumn(columns, "operation_result"), log.getOperationResult())) {
-            return QuerySpec.empty();
+            return QuerySpec.emptySpec();
         }
         if (Boolean.TRUE.equals(excludeSystemError)) {
             String operationTypeColumn = resolveColumn(columns, "operation_type", LEGACY_OPERATION_TYPE_COLUMN);
             if (operationTypeColumn == null) {
-                return QuerySpec.empty();
+                return QuerySpec.emptySpec();
             }
             where.append(" AND ").append(operationTypeColumn).append(" <> ?");
             params.add(SYSTEM_ERROR_TYPE);
@@ -455,9 +455,9 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         return value;
     }
 
-    private record QuerySpec(String whereClause, List<Object> params, boolean empty) {
+    private record QuerySpec(String whereClause, List<Object> params, boolean emptyResult) {
 
-        private static QuerySpec empty() {
+        private static QuerySpec emptySpec() {
             return new QuerySpec("", List.of(), true);
         }
     }

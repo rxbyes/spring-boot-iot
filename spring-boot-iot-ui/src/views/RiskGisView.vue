@@ -1,12 +1,30 @@
 <template>
-  <div class="risk-gis-view">
+  <div class="ops-workbench risk-gis-view">
     <PanelCard
       eyebrow="GIS Situation"
       title="GIS 风险态势"
-      description="GIS 点位态势列表，支持区域筛选并联动监测详情。"
+      description="统一呈现风险点空间分布、定位质量与监测入口，帮助值班人员快速掌握 GIS 风险态势。"
+      class="ops-hero-card"
     >
-      <el-form :model="filters" label-position="top">
-        <el-row :gutter="16">
+      <div class="ops-kpi-grid">
+        <MetricCard label="风险点总数" :value="String(totalPoints)" :badge="{ label: 'GIS 总览', tone: 'brand' }" />
+        <MetricCard label="已定位点位" :value="String(locatedPoints.length)" :badge="{ label: '可联动', tone: 'success' }" />
+        <MetricCard label="未定位点位" :value="String(unlocatedPoints.length)" :badge="{ label: '待补齐', tone: 'warning' }" />
+        <MetricCard label="活跃告警" :value="String(activeAlarmTotal)" :badge="{ label: '重点关注', tone: 'danger' }" />
+      </div>
+      <div class="ops-inline-note">
+        当前覆盖 {{ onlineDeviceTotal }} 台在线设备，可从点位列表直接进入统一监测详情抽屉，持续保持监测预警平台的工作台风格。
+      </div>
+    </PanelCard>
+
+    <PanelCard
+      eyebrow="GIS Filters"
+      title="筛选条件"
+      description="按区域聚焦 GIS 点位分布，优先补齐未定位风险点并联动查看监测详情。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
+        <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="区域">
               <el-select v-model="filters.regionId" clearable placeholder="全部区域">
@@ -14,32 +32,47 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="16">
-            <div class="filter-actions">
-              <el-button type="primary" @click="loadPoints">刷新点位</el-button>
-              <el-button @click="handleReset">重置筛选</el-button>
-            </div>
+          <el-col :span="8">
+            <el-form-item label="巡检建议">
+              <el-input :model-value="gisAdvice" disabled />
+            </el-form-item>
           </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="loadPoints">刷新点位</el-button>
+          <el-button @click="handleReset">重置筛选</el-button>
+        </div>
       </el-form>
     </PanelCard>
 
     <PanelCard
       eyebrow="Located Points"
       title="已定位风险点"
-      :description="`已定位 ${locatedPoints.length} 个点位，未定位 ${unlocatedPoints.length} 个点位。`"
+      :description="`已定位 ${locatedPoints.length} 个点位，可直接联动查看监测详情。`"
+      class="ops-table-card"
     >
-      <div v-if="loading" class="chart-state">正在加载 GIS 点位...</div>
-      <div v-else-if="locatedPoints.length === 0" class="chart-state">暂无可渲染的经纬度点位</div>
-      <el-table v-else :data="locatedPoints" border>
-        <el-table-column prop="riskPointName" label="风险点" min-width="160" />
-        <el-table-column prop="regionName" label="区域" min-width="120" />
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">已定位 {{ locatedPoints.length }} 个</span>
+          <span class="table-action-bar__meta">活跃告警 {{ activeAlarmTotal }} 条</span>
+          <span class="table-action-bar__meta">在线设备 {{ onlineDeviceTotal }} 台</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link @click="loadPoints">刷新点位</el-button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="ops-state">正在加载 GIS 点位...</div>
+      <div v-else-if="locatedPoints.length === 0" class="ops-state">暂无可渲染的经纬度点位</div>
+      <el-table v-else :data="locatedPoints" border stripe>
+        <el-table-column prop="riskPointName" label="风险点" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="regionName" label="区域" min-width="120" show-overflow-tooltip />
         <el-table-column label="风险等级" width="100">
           <template #default="{ row }">
-            <el-tag :type="riskLevelTagType(row.riskLevel)">{{ riskLevelText(row.riskLevel) }}</el-tag>
+            <el-tag :type="riskLevelTagType(row.riskLevel)" round>{{ riskLevelText(row.riskLevel) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="经纬度" min-width="220">
+        <el-table-column label="经纬度" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatCoordinate(row.longitude, row.latitude) }}
           </template>
@@ -61,22 +94,26 @@
     <PanelCard
       eyebrow="Fallback List"
       title="未定位风险点"
-      description="无经纬度的风险点进入该列表。"
+      description="无经纬度点位的风险点统一收拢为资源卡，方便补齐坐标与继续查看详情。"
+      class="ops-table-card"
     >
-      <div v-if="unlocatedPoints.length === 0" class="chart-state">当前没有未定位风险点</div>
-      <div v-else class="unlocated-grid">
-        <article v-for="point in unlocatedPoints" :key="point.riskPointId" class="unlocated-card">
-          <div class="unlocated-card__header">
+      <div v-if="loading" class="ops-state">正在同步未定位风险点...</div>
+      <div v-else-if="unlocatedPoints.length === 0" class="ops-state">当前没有未定位风险点</div>
+      <div v-else class="ops-resource-grid">
+        <article v-for="point in unlocatedPoints" :key="point.riskPointId" class="ops-resource-card">
+          <div class="ops-resource-card__header">
             <strong>{{ point.riskPointName || `风险点 ${point.riskPointId}` }}</strong>
-            <el-tag :type="riskLevelTagType(point.riskLevel)">{{ riskLevelText(point.riskLevel) }}</el-tag>
+            <el-tag :type="riskLevelTagType(point.riskLevel)" round>{{ riskLevelText(point.riskLevel) }}</el-tag>
           </div>
-          <div class="unlocated-card__meta">
+          <div class="ops-resource-card__meta">
             <span>区域 {{ point.regionName || '--' }}</span>
             <span>设备数 {{ point.deviceCount ?? 0 }}</span>
             <span>在线设备 {{ point.onlineDeviceCount ?? 0 }}</span>
             <span>活跃告警 {{ point.activeAlarmCount ?? 0 }}</span>
           </div>
-          <el-button type="primary" link @click="openDetailByRiskPoint(point.riskPointId)">查看详情</el-button>
+          <div class="ops-resource-card__footer">
+            <el-button type="primary" link @click="openDetailByRiskPoint(point.riskPointId)">查看详情</el-button>
+          </div>
         </article>
       </div>
     </PanelCard>
@@ -89,10 +126,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 
+import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import { getRiskMonitoringGisPoints, getRiskMonitoringList, type RiskMonitoringGisPoint } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
+import type { IdType } from '../types/api';
 
 interface SelectOption {
   value: number;
@@ -106,13 +145,23 @@ const riskPoints = ref<RiskPoint[]>([]);
 const regionOptions = ref<SelectOption[]>([]);
 const detailVisible = ref(false);
 const activeBindingId = ref<number | null>(null);
+const gisAdvice = '优先补齐未定位风险点的经纬度信息';
 
+const totalPoints = computed(() => points.value.length);
 const locatedPoints = computed(() =>
   points.value.filter((point) => point.longitude !== null && point.longitude !== undefined && point.latitude !== null && point.latitude !== undefined)
 );
 
 const unlocatedPoints = computed(() =>
   points.value.filter((point) => point.longitude === null || point.longitude === undefined || point.latitude === null || point.latitude === undefined)
+);
+
+const activeAlarmTotal = computed(() =>
+  points.value.reduce((sum, point) => sum + Number(point.activeAlarmCount ?? 0), 0)
+);
+
+const onlineDeviceTotal = computed(() =>
+  points.value.reduce((sum, point) => sum + Number(point.onlineDeviceCount ?? 0), 0)
 );
 
 onMounted(async () => {
@@ -153,7 +202,7 @@ function handleReset() {
   void loadPoints();
 }
 
-async function openDetailByRiskPoint(riskPointId: number) {
+async function openDetailByRiskPoint(riskPointId: IdType) {
   try {
     const response = await getRiskMonitoringList({ riskPointId, pageNum: 1, pageSize: 1 });
     const bindingId = response.data.records?.[0]?.bindingId;
@@ -161,7 +210,12 @@ async function openDetailByRiskPoint(riskPointId: number) {
       ElMessage.warning('当前风险点没有可用的监测绑定详情');
       return;
     }
-    activeBindingId.value = bindingId;
+    const normalizedBindingId = Number(bindingId);
+    if (Number.isNaN(normalizedBindingId)) {
+      ElMessage.warning('监测详情标识无效');
+      return;
+    }
+    activeBindingId.value = normalizedBindingId;
     detailVisible.value = true;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '监测详情入口解析失败');
@@ -208,43 +262,9 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
 
 <style scoped>
 .risk-gis-view {
-  display: grid;
-  gap: 1rem;
-}
-
-.filter-actions {
-  margin-top: 30px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.chart-state {
-  color: #6b7a92;
-}
-
-.unlocated-grid {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.unlocated-card {
-  border: 1px solid #edf1f7;
-  border-radius: 10px;
-  padding: 0.8rem;
-}
-
-.unlocated-card__header {
-  display: flex;
-  justify-content: space-between;
-}
-
-.unlocated-card__meta {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  color: #60708a;
-  font-size: 12px;
+  padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>

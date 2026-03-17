@@ -1,17 +1,29 @@
 <template>
-  <div class="event-disposal-view">
-    <div class="event-header">
-      <h1>事件处置</h1>
-      <div class="event-stats">
-        <el-statistic title="待派发事件" :value="stats.pendingEvents" />
-        <el-statistic title="已派发事件" :value="stats.dispatchedEvents" />
-        <el-statistic title="处理中事件" :value="stats.processingEvents" />
-        <el-statistic title="已关闭事件" :value="stats.closedEvents" />
+  <div class="ops-workbench event-disposal-view">
+    <PanelCard
+      eyebrow="Event Workflow"
+      title="事件处置"
+      description="聚合派发、处理与关闭状态，统一通过筛选卡和列表卡管理事件闭环。"
+      class="ops-hero-card"
+    >
+      <div class="ops-kpi-grid">
+        <MetricCard label="待派发事件" :value="String(stats.pendingEvents)" :badge="{ label: '待分派', tone: 'danger' }" />
+        <MetricCard label="已派发事件" :value="String(stats.dispatchedEvents)" :badge="{ label: '待响应', tone: 'warning' }" />
+        <MetricCard label="处理中事件" :value="String(stats.processingEvents)" :badge="{ label: '执行中', tone: 'brand' }" />
+        <MetricCard label="已关闭事件" :value="String(stats.closedEvents)" :badge="{ label: '已闭环', tone: 'success' }" />
       </div>
-    </div>
+      <div class="ops-inline-note">
+        当前支持按设备编码、风险等级和状态快速收敛事件范围，并通过详情抽屉查看全流程处置节点。
+      </div>
+    </PanelCard>
 
-    <div class="event-filters">
-      <el-form :model="filters" label-position="left" class="event-filter-form">
+    <PanelCard
+      eyebrow="Event Filters"
+      title="筛选条件"
+      description="优先关注待派发和处理中事件，快速定位仍在闭环中的风险事项。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="设备编码">
@@ -39,19 +51,28 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="" class="event-filter-actions">
-              <el-button type="primary" class="event-btn event-btn--primary" @click="handleSearch">查询</el-button>
-              <el-button class="event-btn event-btn--ghost" @click="handleReset">重置</el-button>
+            <el-form-item label="处置建议">
+              <el-input :model-value="eventListAdvice" disabled />
             </el-form-item>
           </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
-    </div>
+    </PanelCard>
 
-    <div class="event-list">
+    <PanelCard
+      eyebrow="Event List"
+      title="事件列表"
+      :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
+      class="ops-table-card"
+    >
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+          <span class="table-action-bar__meta">处理中 {{ stats.processingEvents }} 项</span>
         </div>
         <div class="table-action-bar__right">
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
@@ -61,47 +82,51 @@
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
       </div>
-      <el-table ref="tableRef" :data="eventList" v-loading="loading" border @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="eventCode" label="事件编号" width="180" />
-        <el-table-column prop="eventTitle" label="事件标题" />
-        <el-table-column prop="riskLevel" label="风险等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getRiskLevelType(row.riskLevel)">{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="regionName" label="区域" width="120" />
-        <el-table-column prop="riskPointName" label="风险点" width="150" />
-        <el-table-column prop="deviceName" label="设备名称" width="150" />
-        <el-table-column prop="metricName" label="测点名称" width="150" />
-        <el-table-column prop="currentValue" label="当前值" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="triggerTime" label="触发时间" width="180" />
-        <el-table-column label="操作" width="250" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 0" type="primary" link @click="handleDispatch(row)">派发</el-button>
-            <el-button v-if="row.status !== 4" type="primary" link @click="handleClose(row)">关闭</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+      <div v-if="loading" class="ops-state">正在加载事件列表...</div>
+      <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
+      <template v-else>
+        <el-table ref="tableRef" :data="eventList" border stripe @selection-change="handleSelectionChange">
+          <el-table-column type="selection" width="48" />
+          <el-table-column prop="eventCode" label="事件编号" width="180" show-overflow-tooltip />
+          <el-table-column prop="eventTitle" label="事件标题" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="riskLevel" label="风险等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="regionName" label="区域" width="120" show-overflow-tooltip />
+          <el-table-column prop="riskPointName" label="风险点" width="150" show-overflow-tooltip />
+          <el-table-column prop="deviceName" label="设备名称" width="150" show-overflow-tooltip />
+          <el-table-column prop="metricName" label="测点名称" width="150" show-overflow-tooltip />
+          <el-table-column prop="currentValue" label="当前值" width="120" show-overflow-tooltip />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="triggerTime" label="触发时间" width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="250" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
+              <el-button v-if="row.status === 0" type="primary" link @click="handleDispatch(row)">派发</el-button>
+              <el-button v-if="row.status !== 4" type="primary" link @click="handleClose(row)">关闭</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <div class="event-pagination">
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </div>
+        <div class="ops-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.size"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </PanelCard>
 
     <EventDetailDrawer
       v-model="detailVisible"
@@ -178,6 +203,8 @@ import { onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -251,6 +278,8 @@ const pagination = reactive({
   size: 10,
   total: 0
 });
+
+const eventListAdvice = '优先推进待派发和处理中事件';
 
 const dispatchForm = reactive({
   dispatchUserName: '系统管理员',
@@ -494,75 +523,19 @@ watch(detailVisible, (visible) => {
   border: 1px solid rgba(41, 60, 92, 0.1);
 }
 
-.event-header {
-  margin-bottom: 20px;
-}
-
-.event-header h1 {
-  font-size: 24px;
-  margin-bottom: 16px;
-}
-
-.event-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.event-stats :deep(.el-statistic) {
-  min-width: 170px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94));
-  box-shadow: var(--shadow-sm);
-}
-
-.event-filters {
-  margin-bottom: 12px;
-  padding: 12px 12px 4px;
-  background: #fafbfd;
-  border-radius: 4px;
-  border: 1px solid #e6eaf0;
-  box-shadow: none;
-}
-
-.event-filter-form :deep(.el-form-item__label) {
-  color: var(--text-secondary);
-}
-
-.event-filter-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .event-btn {
-  border-radius: 4px;
+  border-radius: 999px;
   padding-inline: 12px;
 }
 
 .event-btn--primary {
-  box-shadow: none;
+  box-shadow: var(--shadow-brand);
 }
 
 .event-btn--ghost {
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #4f5969;
-}
-
-.event-list {
-  margin-bottom: 12px;
-  border: 1px solid #e6eaf0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.event-pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding: 4px 0 0;
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(130deg, #fff, #f6f9ff);
+  color: var(--text-secondary);
 }
 
 .event-drawer-form :deep(.el-select),

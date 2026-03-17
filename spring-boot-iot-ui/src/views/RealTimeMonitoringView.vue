@@ -1,12 +1,30 @@
 <template>
-  <div class="risk-monitoring-view">
+  <div class="ops-workbench risk-monitoring-view">
     <PanelCard
       eyebrow="Real-Time Monitoring"
       title="实时监测"
-      description="按区域、风险点、设备和风险等级筛选当前监测项，并通过统一详情抽屉查看详情。"
+      description="统一汇总当前监测项的在线状态、告警风险与详情入口，帮助值班人员快速完成筛选与研判。"
+      class="ops-hero-card"
     >
-      <el-form :model="filters" label-position="top">
-        <el-row :gutter="16">
+      <div class="ops-kpi-grid">
+        <MetricCard label="筛选结果" :value="String(pagination.total)" :badge="{ label: '当前条件', tone: 'brand' }" />
+        <MetricCard label="当前页在线" :value="String(onlineCount)" :badge="{ label: '稳定', tone: 'success' }" />
+        <MetricCard label="当前页告警" :value="String(alarmCount)" :badge="{ label: '优先', tone: 'danger' }" />
+        <MetricCard label="高风险项" :value="String(criticalCount)" :badge="{ label: '严重', tone: 'warning' }" />
+      </div>
+      <div class="ops-inline-note">
+        支持按区域、风险点、设备编码、风险等级和在线状态组合筛选，列表与右侧详情抽屉保持统一的监测预警平台视觉风格。
+      </div>
+    </PanelCard>
+
+    <PanelCard
+      eyebrow="Monitoring Filters"
+      title="筛选条件"
+      description="优先关注当前页告警项、无数据项和高风险项，快速定位需要立即跟进的监测对象。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
+        <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="区域">
               <el-select v-model="filters.regionId" clearable placeholder="全部区域">
@@ -44,7 +62,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <div class="filter-actions">
+        <div class="ops-filter-actions">
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </div>
@@ -52,44 +70,57 @@
     </PanelCard>
 
     <PanelCard
-      eyebrow="Live List"
+      eyebrow="Monitoring List"
       title="监测列表"
-      :description="`当前 ${pagination.total} 条监测记录，按后端分页展示。`"
+      :description="`当前 ${pagination.total} 条监测记录，详情统一从右侧抽屉展开。`"
+      class="ops-table-card"
     >
-      <div v-if="loading" class="table-state">正在加载实时监测数据...</div>
-      <div v-else-if="rows.length === 0" class="table-state">暂无符合条件的监测记录</div>
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">当前页 {{ displayedCount }} 项</span>
+          <span class="table-action-bar__meta">告警 {{ alarmCount }} 项</span>
+          <span class="table-action-bar__meta">无数据 {{ noDataCount }} 项</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link @click="handleReset">重置筛选</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="ops-state">正在加载实时监测数据...</div>
+      <div v-else-if="rows.length === 0" class="ops-state">暂无符合条件的监测记录</div>
       <template v-else>
-        <el-table :data="rows" border>
-          <el-table-column prop="deviceCode" label="设备编码" min-width="140" />
-          <el-table-column prop="deviceName" label="设备名称" min-width="150" />
-          <el-table-column prop="productName" label="产品名称" min-width="150" />
-          <el-table-column prop="riskPointName" label="风险点" min-width="140" />
-          <el-table-column label="测点" min-width="150">
+        <el-table :data="rows" border stripe>
+          <el-table-column prop="deviceCode" label="设备编码" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="deviceName" label="设备名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="productName" label="产品名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="riskPointName" label="风险点" min-width="140" show-overflow-tooltip />
+          <el-table-column label="测点" min-width="150" show-overflow-tooltip>
             <template #default="{ row }">
               {{ row.metricName || row.metricIdentifier || '--' }}
             </template>
           </el-table-column>
-          <el-table-column label="当前值" min-width="120">
+          <el-table-column label="当前值" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               {{ formatCurrentValue(row.currentValue, row.unit) }}
             </template>
           </el-table-column>
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
-              <el-tag :type="monitorStatusTagType(row.monitorStatus)">{{ monitorStatusText(row.monitorStatus) }}</el-tag>
+              <el-tag :type="monitorStatusTagType(row.monitorStatus)" round>{{ monitorStatusText(row.monitorStatus) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最新上报时间" min-width="180">
+          <el-table-column label="最新上报时间" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">{{ formatDateTime(row.latestReportTime) }}</template>
           </el-table-column>
           <el-table-column label="风险等级" width="100">
             <template #default="{ row }">
-              <el-tag :type="riskLevelTagType(row.riskLevel)">{{ riskLevelText(row.riskLevel) }}</el-tag>
+              <el-tag :type="riskLevelTagType(row.riskLevel)" round>{{ riskLevelText(row.riskLevel) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="告警标记" width="100">
+          <el-table-column label="告警标记" width="110">
             <template #default="{ row }">
-              <el-tag :type="row.alarmFlag ? 'danger' : 'info'">
+              <el-tag :type="row.alarmFlag ? 'danger' : 'info'" round>
                 {{ row.alarmFlag ? '有告警' : '无告警' }}
               </el-tag>
             </template>
@@ -101,7 +132,7 @@
           </el-table-column>
         </el-table>
 
-        <div class="pagination-wrap">
+        <div class="ops-pagination">
           <el-pagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
@@ -120,17 +151,19 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 
+import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import { getRiskMonitoringList, type RiskMonitoringListItem } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
+import type { IdType } from '../types/api';
 import { formatDateTime } from '../utils/format';
 
 interface SelectOption {
-  value: number;
+  value: IdType;
   label: string;
 }
 
@@ -142,7 +175,7 @@ const activeBindingId = ref<number | null>(null);
 
 const filters = reactive<{
   regionId?: number;
-  riskPointId?: number;
+  riskPointId?: IdType;
   deviceCode: string;
   riskLevel: string;
   onlineStatus?: number;
@@ -162,6 +195,12 @@ const pagination = reactive({
 
 const regionOptions = ref<SelectOption[]>([]);
 const riskPointOptions = ref<SelectOption[]>([]);
+
+const displayedCount = computed(() => rows.value.length);
+const onlineCount = computed(() => rows.value.filter((row) => Number(row.onlineStatus) === 1).length);
+const alarmCount = computed(() => rows.value.filter((row) => Boolean(row.alarmFlag)).length);
+const noDataCount = computed(() => rows.value.filter((row) => (row.monitorStatus || '').toUpperCase() === 'NO_DATA').length);
+const criticalCount = computed(() => rows.value.filter((row) => (row.riskLevel || '').toUpperCase() === 'CRITICAL').length);
 
 onMounted(async () => {
   await Promise.all([loadFilterOptions(), loadList()]);
@@ -230,6 +269,10 @@ function handleReset() {
   void loadList();
 }
 
+function handleRefresh() {
+  void loadList();
+}
+
 function handlePageChange() {
   void loadList();
 }
@@ -239,8 +282,13 @@ function handlePageSizeChange() {
   void loadList();
 }
 
-function openDetail(bindingId: number) {
-  activeBindingId.value = bindingId;
+function openDetail(bindingId: IdType) {
+  const normalizedBindingId = Number(bindingId);
+  if (Number.isNaN(normalizedBindingId)) {
+    ElMessage.warning('监测详情标识无效');
+    return;
+  }
+  activeBindingId.value = normalizedBindingId;
   detailVisible.value = true;
 }
 
@@ -311,23 +359,9 @@ function formatCurrentValue(value?: string | null, unit?: string | null) {
 
 <style scoped>
 .risk-monitoring-view {
-  display: grid;
-  gap: 1rem;
-}
-
-.filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.table-state {
-  color: #6b7a92;
-}
-
-.pagination-wrap {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: flex-end;
+  padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>

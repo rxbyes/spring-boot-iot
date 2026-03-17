@@ -569,12 +569,13 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr minmax(260px, 320px);
   gap: 1rem;
-  padding: 1.4rem;
+  padding: 1.2rem;
   border: 1px solid var(--dash-line);
   background:
-    linear-gradient(135deg, rgba(255, 245, 231, 0.72), rgba(236, 246, 255, 0.88)),
-    radial-gradient(circle at top left, rgba(255, 140, 48, 0.15), transparent 40%);
-  border-radius: var(--radius-xl);
+    linear-gradient(135deg, rgba(255, 247, 236, 0.74), rgba(241, 248, 255, 0.9)),
+    radial-gradient(circle at top left, rgba(255, 140, 48, 0.12), transparent 38%);
+  border-radius: calc(var(--radius-lg) + 4px);
+  box-shadow: 0 6px 18px rgba(31, 35, 41, 0.05);
 }
 
 .cockpit-hero__eyebrow {
@@ -601,11 +602,12 @@ onUnmounted(() => {
 .cockpit-hero__clock {
   border: 1px solid var(--dash-line);
   background: rgba(255, 255, 255, 0.84);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
+  border-radius: calc(var(--radius-lg) + 2px);
+  padding: 0.9rem;
   display: grid;
   align-content: start;
   gap: 0.55rem;
+  box-shadow: 0 4px 12px rgba(31, 35, 41, 0.04);
 }
 
 .cockpit-hero__clock span {
@@ -633,12 +635,18 @@ onUnmounted(() => {
 
 .role-tabs__item {
   border: 1px solid var(--dash-line);
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius-lg) + 2px);
   background: rgba(255, 255, 255, 0.9);
-  padding: 0.85rem 0.95rem;
+  padding: 0.78rem 0.9rem;
   text-align: left;
   display: grid;
   gap: 0.2rem;
+  transition: all 160ms ease;
+}
+
+.role-tabs__item:hover {
+  border-color: rgba(39, 114, 240, 0.2);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .role-tabs__item strong {
@@ -654,7 +662,7 @@ onUnmounted(() => {
 .role-tabs__item--active {
   border-color: rgba(39, 114, 240, 0.36);
   background: linear-gradient(130deg, rgba(31, 109, 240, 0.13), rgba(31, 109, 240, 0.04));
-  box-shadow: 0 10px 22px rgba(31, 109, 240, 0.12);
+  box-shadow: 0 6px 16px rgba(31, 109, 240, 0.1);
 }
 
 .kpi-grid {
@@ -677,9 +685,10 @@ onUnmounted(() => {
 
 .focus-card {
   border: 1px solid var(--dash-line);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   padding: 0.9rem;
   background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
 }
 
 .focus-card span {
@@ -731,9 +740,10 @@ onUnmounted(() => {
 
 .queue-item {
   border: 1px solid var(--dash-line);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   padding: 0.85rem;
   background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
 }
 
 .queue-item__head {
@@ -807,11 +817,12 @@ onUnmounted(() => {
 
 .todo-item {
   border: 1px solid var(--dash-line);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   background: rgba(255, 255, 255, 0.9);
   padding: 0.85rem;
   display: grid;
   gap: 0.5rem;
+  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
 }
 
 .todo-item__meta {
@@ -830,12 +841,21 @@ onUnmounted(() => {
 
 .todo-item button {
   justify-self: start;
-  border: 1px solid rgba(66, 120, 218, 0.3);
-  background: rgba(42, 121, 255, 0.07);
+  min-height: 1.9rem;
+  border: 1px solid rgba(91, 136, 216, 0.22);
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
   color: #2b68d3;
-  border-radius: 0.5rem;
-  padding: 0.33rem 0.72rem;
-  font-size: 0.82rem;
+  border-radius: 999px;
+  padding: 0 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: all 160ms ease;
+}
+
+.todo-item button:hover {
+  border-color: rgba(42, 121, 255, 0.28);
+  background: #edf4ff;
+  box-shadow: 0 4px 10px rgba(22, 119, 255, 0.12);
 }
 
 .todo-item--danger {
@@ -862,10 +882,18 @@ onUnmounted(() => {
 
 .workbench-entry {
   border: 1px solid var(--dash-line);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   background: rgba(255, 255, 255, 0.9);
   padding: 0.82rem;
   text-align: left;
+  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  transition: all 160ms ease;
+}
+
+.workbench-entry:hover {
+  border-color: rgba(39, 114, 240, 0.2);
+  box-shadow: 0 8px 18px rgba(31, 109, 240, 0.08);
+  transform: translateY(-1px);
 }
 
 .workbench-entry strong {
@@ -889,7 +917,7 @@ onUnmounted(() => {
 .activity-trace {
   margin-top: 0.8rem;
   border: 1px dashed rgba(78, 117, 179, 0.38);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   padding: 0.7rem 0.8rem;
   background: rgba(240, 247, 255, 0.8);
   display: grid;

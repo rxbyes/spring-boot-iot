@@ -31,6 +31,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -80,7 +81,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final ProductMapper productMapper;
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMonitoringServiceImpl(RiskPointMapper riskPointMapper,
                                      RiskPointDeviceMapper riskPointDeviceMapper,

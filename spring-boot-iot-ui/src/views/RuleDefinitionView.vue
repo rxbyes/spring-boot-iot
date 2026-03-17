@@ -1,26 +1,44 @@
 <template>
-  <div class="rule-definition-view sys-mgmt-view">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>阈值规则配置</span>
-          <el-button type="primary" @click="handleAdd">新增规则</el-button>
-        </div>
+  <div class="ops-workbench rule-definition-view">
+    <PanelCard
+      eyebrow="Threshold Rules"
+      title="阈值规则配置"
+      description="统一维护告警阈值、持续时间和转事件策略，支撑风险监测的告警触发与处置闭环。"
+      class="ops-hero-card"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleAdd">新增规则</el-button>
       </template>
+      <div class="ops-kpi-grid">
+        <MetricCard label="规则总数" :value="String(pagination.total)" :badge="{ label: '阈值治理', tone: 'brand' }" />
+        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
+        <MetricCard label="转事件规则" :value="String(convertToEventCount)" :badge="{ label: '闭环联动', tone: 'warning' }" />
+        <MetricCard label="严重告警规则" :value="String(criticalRuleCount)" :badge="{ label: '重点策略', tone: 'danger' }" />
+      </div>
+      <div class="ops-inline-note">
+        阈值规则与告警等级、通知方式、转事件开关集中呈现，支持通过同一套抽屉表单完成策略维护，减少配置分散感。
+      </div>
+    </PanelCard>
 
-      <el-form :model="filters" label-width="96px" class="search-form">
+    <PanelCard
+      eyebrow="Rule Filters"
+      title="筛选条件"
+      description="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="规则名称">
               <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="测点标识符">
               <el-input v-model="filters.metricIdentifier" placeholder="请输入测点标识符" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="告警等级">
               <el-select v-model="filters.alarmLevel" placeholder="请选择告警等级" clearable>
                 <el-option label="严重" value="critical" />
@@ -29,7 +47,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="状态">
               <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
@@ -38,17 +56,24 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
+    </PanelCard>
 
+    <PanelCard
+      eyebrow="Rule List"
+      title="阈值规则列表"
+      :description="`当前 ${pagination.total} 条阈值规则，支持告警触发和转事件配置。`"
+      class="ops-table-card"
+    >
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
+          <span class="table-action-bar__meta">转事件 {{ convertToEventCount }} 项</span>
         </div>
         <div class="table-action-bar__right">
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
@@ -56,57 +81,61 @@
         </div>
       </div>
 
-      <el-table
-        ref="tableRef"
-        :data="ruleList"
-        v-loading="loading"
-        border
-        stripe
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="ruleName" label="规则名称" />
-        <el-table-column prop="metricIdentifier" label="测点标识符" width="150" />
-        <el-table-column prop="metricName" label="测点名称" width="120" />
-        <el-table-column prop="expression" label="表达式" width="200" />
-        <el-table-column prop="duration" label="持续时间(秒)" width="120" />
-        <el-table-column prop="alarmLevel" label="告警等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getAlarmLevelType(row.alarmLevel)">{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="convertToEvent" label="转事件" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.convertToEvent === 1 ? 'success' : 'info'">
-              {{ row.convertToEvent === 1 ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="loading" class="ops-state">正在加载阈值规则列表...</div>
+      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的阈值规则</div>
+      <template v-else>
+        <el-table
+          ref="tableRef"
+          :data="ruleList"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="48" />
+          <el-table-column prop="ruleName" label="规则名称" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="metricIdentifier" label="测点标识符" width="160" show-overflow-tooltip />
+          <el-table-column prop="metricName" label="测点名称" width="140" show-overflow-tooltip />
+          <el-table-column prop="expression" label="表达式" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="duration" label="持续时间(秒)" width="120" />
+          <el-table-column prop="alarmLevel" label="告警等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="convertToEvent" label="转事件" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.convertToEvent === 1 ? 'success' : 'info'" round>
+                {{ row.convertToEvent === 1 ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </el-card>
+        <div class="ops-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.size"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </PanelCard>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -164,28 +193,28 @@
       </el-form>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </StandardFormDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
 import type { RuleDefinition } from '../api/ruleDefinition';
 
-// 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
 
-// 查询条件
 const filters = reactive({
   ruleName: '',
   metricIdentifier: '',
@@ -193,16 +222,14 @@ const filters = reactive({
   status: '' as '' | number
 });
 
-// 分页
 const pagination = reactive({
   page: 1,
   size: 10,
   total: 0
 });
 
-// 表单
 const formRef = ref();
-const formTitle = computed(() => form.id ? '编辑规则' : '新增规则');
+const formTitle = computed(() => (form.id ? '编辑规则' : '新增规则'));
 const form = reactive({
   id: undefined as number | undefined,
   ruleName: '',
@@ -226,7 +253,10 @@ const rules = {
 
 const submitLoading = ref(false);
 
-// 获取告警等级类型
+const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
+const convertToEventCount = computed(() => ruleList.value.filter((item) => item.convertToEvent === 1).length);
+const criticalRuleCount = computed(() => ruleList.value.filter((item) => item.alarmLevel === 'critical').length);
+
 const getAlarmLevelType = (level: string) => {
   switch (level) {
     case 'critical':
@@ -240,7 +270,6 @@ const getAlarmLevelType = (level: string) => {
   }
 };
 
-// 获取告警等级文本
 const getAlarmLevelText = (level: string) => {
   switch (level) {
     case 'critical':
@@ -254,7 +283,6 @@ const getAlarmLevelText = (level: string) => {
   }
 };
 
-// 获取状态类型
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -266,7 +294,6 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文本
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -278,7 +305,6 @@ const getStatusText = (status: number) => {
   }
 };
 
-// 获取规则列表
 const loadRuleList = async () => {
   loading.value = true;
   try {
@@ -293,6 +319,8 @@ const loadRuleList = async () => {
     if (res.code === 200) {
       ruleList.value = res.data?.records || [];
       pagination.total = res.data?.total || 0;
+      pagination.page = res.data?.pageNum || pagination.page;
+      pagination.size = res.data?.pageSize || pagination.size;
     }
   } catch (error) {
     console.error('查询规则列表失败', error);
@@ -301,30 +329,26 @@ const loadRuleList = async () => {
   }
 };
 
-// 处理搜索
 const handleSearch = () => {
   pagination.page = 1;
-  loadRuleList();
+  void loadRuleList();
 };
 
-// 处理重置
 const handleReset = () => {
   filters.ruleName = '';
   filters.metricIdentifier = '';
   filters.alarmLevel = '';
   filters.status = '';
   pagination.page = 1;
-  loadRuleList();
+  void loadRuleList();
 };
 
-// 处理大小变化
 const handleSizeChange = () => {
-  loadRuleList();
+  void loadRuleList();
 };
 
-// 处理页码变化
 const handlePageChange = () => {
-  loadRuleList();
+  void loadRuleList();
 };
 
 const handleSelectionChange = (rows: RuleDefinition[]) => {
@@ -337,7 +361,8 @@ const clearSelection = () => {
 };
 
 const handleRefresh = () => {
-  loadRuleList();
+  clearSelection();
+  void loadRuleList();
 };
 
 const resetRuleForm = () => {
@@ -354,13 +379,11 @@ const resetRuleForm = () => {
   form.remark = '';
 };
 
-// 新增规则
 const handleAdd = () => {
   resetRuleForm();
   formVisible.value = true;
 };
 
-// 编辑规则
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
   form.ruleName = row.ruleName;
@@ -376,7 +399,6 @@ const handleEdit = (row: RuleDefinition) => {
   formVisible.value = true;
 };
 
-// 删除规则
 const handleDelete = async (row: RuleDefinition) => {
   try {
     await ElMessageBox.confirm('确定要删除该规则吗？', '删除规则', {
@@ -385,14 +407,13 @@ const handleDelete = async (row: RuleDefinition) => {
     const res = await deleteRule(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
-      loadRuleList();
+      void loadRuleList();
     }
   } catch (error) {
     console.error('删除规则失败', error);
   }
 };
 
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
@@ -406,7 +427,7 @@ const handleSubmit = async () => {
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
-      loadRuleList();
+      void loadRuleList();
     }
   } catch (error) {
     console.error('提交表单失败', error);
@@ -420,8 +441,16 @@ const handleFormClose = () => {
   resetRuleForm();
 };
 
-// 初始化
 onMounted(() => {
-  loadRuleList();
+  void loadRuleList();
 });
 </script>
+
+<style scoped>
+.rule-definition-view {
+  padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
+}
+</style>

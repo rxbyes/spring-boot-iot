@@ -1,7 +1,15 @@
-import path from 'node:path';
+﻿import path from 'node:path';
 import { access, copyFile, mkdir, readFile } from 'node:fs/promises';
 
 import { comparePngFiles } from './png-visual-regression.mjs';
+import {
+  buildVisualDiffIndexHtml,
+  buildVisualFailureDetailHtml,
+  buildVisualManifest,
+  collectVisualAssertionRecords,
+  resolveArtifactPrefix,
+  summarizeVisualAssertionRecords
+} from './visual-regression-report.mjs';
 
 function readPathValue(source, pathExpression) {
   return String(pathExpression || '')
@@ -337,19 +345,6 @@ async function executeMatchedAction({ matcher, action, page, helpers, context, l
   const resolvedMatcher = interpolateTemplate(matcher || '', context).trim();
   if (!resolvedMatcher) {
     await action();
-    const visualFailureSections =
-      visualFailures.length > 0
-        ? [
-            '',
-            '## Visual Diff Findings',
-            '',
-            ...visualFailures.slice(0, 10).map(
-              (item) =>
-                `- ${item.label}: baseline \`${item.baselinePath || 'n/a'}\`, actual \`${item.actualPath || 'n/a'}\`, diff \`${item.diffPath || 'n/a'}\`, ratio \`${typeof item.mismatchRatio === 'number' ? item.mismatchRatio.toFixed(6) : 'n/a'}\``
-            )
-          ]
-        : [];
-
     return {
       matcher: '',
       response: undefined
@@ -763,6 +758,7 @@ async function executePlanStep({ plan, scenario, step, page, helpers, context, o
 
   const finish = (status, extra = {}) => {
     const record = {
+      stepId: step.id,
       label: step.label,
       type: step.type,
       status,
@@ -915,21 +911,14 @@ function extractScenarioStepResults(scenarioResult) {
 export function buildPlanExecutionEnhancement(planInfo) {
   const { plan, absolutePath } = planInfo;
 
-  return ({ scenarioResults, options }) => {
+  return ({ scenarioResults, options, artifacts }) => {
     const workspaceRoot = options?.workspaceRoot || process.cwd();
     const relativePlanPath = path.relative(workspaceRoot, absolutePath).replace(/\\/g, '/');
     const recommendations = [];
     const failedResults = scenarioResults.filter((item) => item.status === 'failed');
-    const stepResults = scenarioResults.flatMap((item) => extractScenarioStepResults(item));
-    const visualResults = stepResults.filter((step) => step.type === 'assertScreenshot');
-    const visualFailures = visualResults.filter((step) => step.status === 'failed');
-    const visualSummary = {
-      total: visualResults.length,
-      passed: visualResults.filter((step) => step.status === 'passed').length,
-      failed: visualFailures.length,
-      updated: visualResults.filter((step) => step.baselineUpdated).length,
-      missing: visualResults.filter((step) => step.baselineStatus === 'missing').length
-    };
+    const visualResults = collectVisualAssertionRecords(scenarioResults);
+    const visualSummary = summarizeVisualAssertionRecords(visualResults);
+    const visualFailures = visualResults.filter((step) => ['mismatch', 'missing'].includes(step.category));
     const missingAssertionScenarios = (plan.scenarios || []).filter(
       (scenario) =>
         !(scenario.steps || []).some((step) =>
@@ -952,7 +941,9 @@ export function buildPlanExecutionEnhancement(planInfo) {
 
     if (missingAssertionScenarios.length > 0) {
       recommendations.push(
-        `断言建议：为以下场景补充页面断言，提升结果可信度：${missingAssertionScenarios.map((item) => item.name).join('、')}。`
+        `断言建议：为以下场景补充页面断言，提升结果可信度：${missingAssertionScenarios
+          .map((item) => item.name)
+          .join('、')}。`
       );
     }
 
@@ -972,6 +963,38 @@ export function buildPlanExecutionEnhancement(planInfo) {
       recommendations.push('扩面建议：当前计划已跑通，可继续补充详情抽屉、导出、批量操作与异常路径场景。');
     }
 
+    const prefix = resolveArtifactPrefix(artifacts);
+    const visualManifestAbsolutePath = path.join(
+      artifacts.absolute.logsRoot,
+      `${prefix}-visual-manifest-${artifacts.runTimestamp}.json`
+    );
+    const visualIndexAbsolutePath = path.join(
+      artifacts.absolute.logsRoot,
+      `${prefix}-visual-index-${artifacts.runTimestamp}.html`
+    );
+    const visualFailuresAbsolutePath = path.join(
+      artifacts.absolute.logsRoot,
+      `${prefix}-visual-failures-${artifacts.runTimestamp}.html`
+    );
+    const visualManifestRelativePath = path.relative(workspaceRoot, visualManifestAbsolutePath).replace(/\\/g, '/');
+    const visualIndexRelativePath = path.relative(workspaceRoot, visualIndexAbsolutePath).replace(/\\/g, '/');
+    const visualFailuresRelativePath = path
+      .relative(workspaceRoot, visualFailuresAbsolutePath)
+      .replace(/\\/g, '/');
+
+    const visualFailureSections =
+      visualFailures.length > 0
+        ? [
+            '',
+            '## Visual Diff Findings',
+            '',
+            ...visualFailures.slice(0, 10).map(
+              (item) =>
+                `- ${item.label}: baseline \`${item.baselinePath || 'n/a'}\`, actual \`${item.actualPath || 'n/a'}\`, diff \`${item.diffPath || 'n/a'}\`, ratio \`${typeof item.mismatchRatio === 'number' ? item.mismatchRatio.toFixed(6) : 'n/a'}\``
+            )
+          ]
+        : [];
+
     return {
       summaryExtras: {
         planPath: relativePlanPath,
@@ -982,9 +1005,49 @@ export function buildPlanExecutionEnhancement(planInfo) {
         planPath: absolutePath,
         planName: plan.target?.planName || '',
         visualSummary,
+        visualResults,
         visualFailures,
         recommendations
       },
+      outputFiles:
+        visualResults.length > 0
+          ? [
+              {
+                key: 'visualManifestPath',
+                absolutePath: visualManifestAbsolutePath,
+                content: JSON.stringify(
+                  buildVisualManifest({
+                    sourcePath: relativePlanPath,
+                    records: visualResults
+                  }),
+                  null,
+                  2
+                )
+              },
+              {
+                key: 'visualIndexPath',
+                absolutePath: visualIndexAbsolutePath,
+                content: buildVisualDiffIndexHtml({
+                  outputPath: visualIndexAbsolutePath,
+                  workspaceRoot,
+                  records: visualResults,
+                  sourcePath: relativePlanPath,
+                  failureDetailPath: visualFailuresAbsolutePath
+                })
+              },
+              {
+                key: 'visualFailureDetailPath',
+                absolutePath: visualFailuresAbsolutePath,
+                content: buildVisualFailureDetailHtml({
+                  outputPath: visualFailuresAbsolutePath,
+                  workspaceRoot,
+                  records: visualResults,
+                  sourcePath: relativePlanPath,
+                  indexPath: visualIndexAbsolutePath
+                })
+              }
+            ]
+          : [],
       reportSections: [
         '## Plan',
         '',
@@ -996,15 +1059,18 @@ export function buildPlanExecutionEnhancement(planInfo) {
         '## Visual Regression',
         '',
         `- Passed visual checks: \`${visualSummary.passed}\``,
-        `- Failed visual checks: \`${visualSummary.failed}\``,
+        `- Failed visual checks: \`${visualSummary.mismatch}\``,
         `- Updated baselines: \`${visualSummary.updated}\``,
         `- Missing baselines: \`${visualSummary.missing}\``,
+        visualResults.length > 0 ? `- Visual manifest: \`${visualManifestRelativePath}\`` : '- Visual manifest: \`n/a\`',
+        visualResults.length > 0 ? `- Visual diff index: \`${visualIndexRelativePath}\`` : '- Visual diff index: \`n/a\`',
+        visualResults.length > 0
+          ? `- Visual failure detail: \`${visualFailuresRelativePath}\``
+          : '- Visual failure detail: \`n/a\`',
         '',
         '## Suggestions',
         '',
-        ...(recommendations.length > 0
-          ? recommendations.map((item) => `- ${item}`)
-          : ['- ?????????']),
+        ...(recommendations.length > 0 ? recommendations.map((item) => `- ${item}`) : ['- 当前暂无新增建议。']),
         ...visualFailureSections
       ]
     };

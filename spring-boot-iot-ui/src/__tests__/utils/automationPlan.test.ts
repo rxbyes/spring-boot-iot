@@ -39,6 +39,7 @@ describe('automationPlan utils', () => {
     });
 
     expect(plan.target.backendBaseUrl).toBe('http://127.0.0.1:9999');
+    expect(plan.target.baselineDir).toBe('config/automation/baselines');
     expect(plan.scenarios[0].steps.length).toBeGreaterThan(0);
     expect(plan.scenarios[0].scope).toBe('baseline');
   });
@@ -47,6 +48,24 @@ describe('automationPlan utils', () => {
     const previews = buildScenarioPreviews(createDefaultAutomationPlan());
     expect(previews[0].stepCount).toBeGreaterThan(0);
     expect(previews.some((item: { hasAssertion: boolean }) => item.hasAssertion)).toBe(true);
+  });
+
+  it('treats screenshot assertions as assertion coverage', () => {
+    const plan = createDefaultAutomationPlan();
+    plan.scenarios[0].steps = [
+      {
+        id: 'visual-check',
+        label: '页面截图断言',
+        type: 'assertScreenshot',
+        screenshotTarget: 'page',
+        baselineName: 'login-page',
+        threshold: 0
+      } as any
+    ];
+
+    const previews = buildScenarioPreviews(plan);
+
+    expect(previews[0].hasAssertion).toBe(true);
   });
 
   it('warns when a plan misses auth and assertions', () => {

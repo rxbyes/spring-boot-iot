@@ -1,21 +1,39 @@
 <template>
-  <div class="risk-point-view sys-mgmt-view">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>风险点管理</span>
-          <el-button type="primary" @click="handleAdd">新增风险点</el-button>
-        </div>
+  <div class="ops-workbench risk-point-view">
+    <PanelCard
+      eyebrow="Risk Point Workspace"
+      title="风险点管理"
+      description="统一管理风险点档案、风险等级、启停状态与设备绑定，支撑后续监测、阈值和联动配置。"
+      class="ops-hero-card"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleAdd">新增风险点</el-button>
       </template>
+      <div class="ops-kpi-grid">
+        <MetricCard label="风险点总数" :value="String(pagination.total)" :badge="{ label: '配置基线', tone: 'brand' }" />
+        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
+        <MetricCard label="当前页严重" :value="String(criticalCount)" :badge="{ label: '优先排查', tone: 'danger' }" />
+        <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: '待复核', tone: 'warning' }" />
+      </div>
+      <div class="ops-inline-note">
+        风险点作为风险平台的基础对象，列表、维护抽屉和绑定设备抽屉已统一为同一套工作台风格，方便值班与治理人员连续操作。
+      </div>
+    </PanelCard>
 
-      <el-form :model="filters" label-width="96px" class="search-form">
+    <PanelCard
+      eyebrow="Risk Filters"
+      title="筛选条件"
+      description="优先核查高风险且已启用的风险点，快速定位需要补录、整改或重新绑定设备的对象。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="风险点编号">
               <el-input v-model="filters.riskPointCode" placeholder="请输入风险点编号" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="风险等级">
               <el-select v-model="filters.riskLevel" placeholder="请选择风险等级" clearable>
                 <el-option label="严重" value="critical" />
@@ -24,7 +42,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-form-item label="状态">
               <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
@@ -32,18 +50,30 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-col :span="6">
+            <el-form-item label="治理建议">
+              <el-input :model-value="riskPointAdvice" disabled />
+            </el-form-item>
           </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
+    </PanelCard>
 
+    <PanelCard
+      eyebrow="Risk Point List"
+      title="风险点列表"
+      :description="`当前 ${pagination.total} 条风险点记录，支持档案维护和设备绑定。`"
+      class="ops-table-card"
+    >
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
+          <span class="table-action-bar__meta">严重 {{ criticalCount }} 项</span>
         </div>
         <div class="table-action-bar__right">
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
@@ -51,50 +81,54 @@
         </div>
       </div>
 
-      <el-table
-        ref="tableRef"
-        :data="riskPointList"
-        v-loading="loading"
-        border
-        stripe
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="riskPointCode" label="风险点编号" width="150" />
-        <el-table-column prop="riskPointName" label="风险点名称" min-width="180" />
-        <el-table-column prop="regionName" label="区域" width="120" />
-        <el-table-column prop="riskLevel" label="风险等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getRiskLevelType(row.riskLevel)">{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="responsiblePhone" label="负责人电话" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleBindDevice(row)">绑定设备</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="loading" class="ops-state">正在加载风险点列表...</div>
+      <div v-else-if="riskPointList.length === 0" class="ops-state">暂无符合条件的风险点记录</div>
+      <template v-else>
+        <el-table
+          ref="tableRef"
+          :data="riskPointList"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="48" />
+          <el-table-column prop="riskPointCode" label="风险点编号" width="150" show-overflow-tooltip />
+          <el-table-column prop="riskPointName" label="风险点名称" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="regionName" label="区域" width="120" show-overflow-tooltip />
+          <el-table-column prop="riskLevel" label="风险等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="responsiblePhone" label="负责人电话" width="140" show-overflow-tooltip />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="primary" link @click="handleBindDevice(row)">绑定设备</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </el-card>
+        <div class="ops-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.size"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </PanelCard>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -136,7 +170,7 @@
       </el-form>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </StandardFormDrawer>
 
@@ -169,23 +203,24 @@
       </el-form>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="bindDeviceVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleBindSubmit" :loading="submitLoading">确定</el-button>
+        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleBindSubmit">确定</el-button>
       </template>
     </StandardFormDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
 
-// 状态
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
@@ -195,23 +230,20 @@ const metricList = ref<DeviceMetricOption[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
 
-// 查询条件
 const filters = reactive({
   riskPointCode: '',
   riskLevel: '',
   status: '' as '' | number
 });
 
-// 分页
 const pagination = reactive({
   page: 1,
   size: 10,
   total: 0
 });
 
-// 表单
 const formRef = ref();
-const formTitle = computed(() => form.id ? '编辑风险点' : '新增风险点');
+const formTitle = computed(() => (form.id ? '编辑风险点' : '新增风险点'));
 const form = reactive({
   id: undefined as number | undefined,
   riskPointCode: '',
@@ -231,7 +263,6 @@ const rules = {
   riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }]
 };
 
-// 绑定设备表单
 const bindForm = reactive({
   riskPointId: 0,
   riskPointName: '',
@@ -242,6 +273,11 @@ const bindForm = reactive({
   metricName: ''
 });
 const submitLoading = ref(false);
+const riskPointAdvice = '优先核查高风险且已启用的风险点';
+
+const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
+const criticalCount = computed(() => riskPointList.value.filter((item) => item.riskLevel === 'critical').length);
+const disabledCount = computed(() => riskPointList.value.filter((item) => item.status === 1).length);
 
 const loadDeviceOptions = async () => {
   try {
@@ -267,7 +303,6 @@ const loadMetricOptions = async (deviceId: string | number) => {
   }
 };
 
-// 获取风险等级类型
 const getRiskLevelType = (level: string) => {
   switch (level) {
     case 'critical':
@@ -281,7 +316,6 @@ const getRiskLevelType = (level: string) => {
   }
 };
 
-// 获取风险等级文本
 const getRiskLevelText = (level: string) => {
   switch (level) {
     case 'critical':
@@ -295,7 +329,6 @@ const getRiskLevelText = (level: string) => {
   }
 };
 
-// 获取状态类型
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -307,7 +340,6 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文本
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -319,7 +351,6 @@ const getStatusText = (status: number) => {
   }
 };
 
-// 获取风险点列表
 const loadRiskPointList = async () => {
   loading.value = true;
   try {
@@ -333,6 +364,8 @@ const loadRiskPointList = async () => {
     if (res.code === 200) {
       riskPointList.value = res.data?.records || [];
       pagination.total = res.data?.total || 0;
+      pagination.page = res.data?.pageNum || pagination.page;
+      pagination.size = res.data?.pageSize || pagination.size;
     }
   } catch (error) {
     console.error('查询风险点列表失败', error);
@@ -341,29 +374,25 @@ const loadRiskPointList = async () => {
   }
 };
 
-// 处理搜索
 const handleSearch = () => {
   pagination.page = 1;
-  loadRiskPointList();
+  void loadRiskPointList();
 };
 
-// 处理重置
 const handleReset = () => {
   filters.riskPointCode = '';
   filters.riskLevel = '';
   filters.status = '';
   pagination.page = 1;
-  loadRiskPointList();
+  void loadRiskPointList();
 };
 
-// 处理大小变化
 const handleSizeChange = () => {
-  loadRiskPointList();
+  void loadRiskPointList();
 };
 
-// 处理页码变化
 const handlePageChange = () => {
-  loadRiskPointList();
+  void loadRiskPointList();
 };
 
 const handleSelectionChange = (rows: RiskPoint[]) => {
@@ -376,7 +405,8 @@ const clearSelection = () => {
 };
 
 const handleRefresh = () => {
-  loadRiskPointList();
+  clearSelection();
+  void loadRiskPointList();
 };
 
 const resetRiskPointForm = () => {
@@ -403,13 +433,11 @@ const resetBindForm = () => {
   metricList.value = [];
 };
 
-// 新增风险点
 const handleAdd = () => {
   resetRiskPointForm();
   formVisible.value = true;
 };
 
-// 编辑风险点
 const handleEdit = (row: RiskPoint) => {
   form.id = row.id;
   form.riskPointCode = row.riskPointCode;
@@ -424,7 +452,6 @@ const handleEdit = (row: RiskPoint) => {
   formVisible.value = true;
 };
 
-// 删除风险点
 const handleDelete = async (row: RiskPoint) => {
   try {
     await ElMessageBox.confirm('确定要删除该风险点吗？', '删除风险点', {
@@ -433,14 +460,13 @@ const handleDelete = async (row: RiskPoint) => {
     const res = await deleteRiskPoint(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
-      loadRiskPointList();
+      void loadRiskPointList();
     }
   } catch (error) {
     console.error('删除风险点失败', error);
   }
 };
 
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
@@ -450,7 +476,7 @@ const handleSubmit = async () => {
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
-      loadRiskPointList();
+      void loadRiskPointList();
     }
   } catch (error) {
     console.error('提交表单失败', error);
@@ -459,16 +485,14 @@ const handleSubmit = async () => {
   }
 };
 
-// 绑定设备
 const handleBindDevice = async (row: RiskPoint) => {
   resetBindForm();
-  bindForm.riskPointId = row.id;
+  bindForm.riskPointId = Number(row.id);
   bindForm.riskPointName = row.riskPointName;
   await loadDeviceOptions();
   bindDeviceVisible.value = true;
 };
 
-// 提交绑定
 const handleBindSubmit = async () => {
   if (!bindForm.deviceId || !bindForm.metricIdentifier) {
     ElMessage.warning('请选择设备和测点');
@@ -476,8 +500,8 @@ const handleBindSubmit = async () => {
   }
   try {
     submitLoading.value = true;
-    const selectedDevice = deviceList.value.find(device => String(device.id) === String(bindForm.deviceId));
-    const selectedMetric = metricList.value.find(metric => metric.identifier === bindForm.metricIdentifier);
+    const selectedDevice = deviceList.value.find((device) => String(device.id) === String(bindForm.deviceId));
+    const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
     if (!selectedDevice || !selectedMetric) {
       ElMessage.warning('请选择有效的设备和测点');
       return;
@@ -493,7 +517,7 @@ const handleBindSubmit = async () => {
     if (res.code === 200) {
       ElMessage.success('绑定成功');
       bindDeviceVisible.value = false;
-      loadRiskPointList();
+      void loadRiskPointList();
     }
   } catch (error) {
     console.error('绑定设备失败', error);
@@ -513,7 +537,7 @@ const handleBindDrawerClose = () => {
 
 watch(
   () => bindForm.deviceId,
-  async deviceId => {
+  async (deviceId) => {
     bindForm.deviceCode = '';
     bindForm.deviceName = '';
     bindForm.metricIdentifier = '';
@@ -522,7 +546,7 @@ watch(
     if (!deviceId) {
       return;
     }
-    const selectedDevice = deviceList.value.find(device => String(device.id) === String(deviceId));
+    const selectedDevice = deviceList.value.find((device) => String(device.id) === String(deviceId));
     if (selectedDevice) {
       bindForm.deviceCode = selectedDevice.deviceCode;
       bindForm.deviceName = selectedDevice.deviceName;
@@ -533,14 +557,22 @@ watch(
 
 watch(
   () => bindForm.metricIdentifier,
-  metricIdentifier => {
-    const selectedMetric = metricList.value.find(metric => metric.identifier === metricIdentifier);
+  (metricIdentifier) => {
+    const selectedMetric = metricList.value.find((metric) => metric.identifier === metricIdentifier);
     bindForm.metricName = selectedMetric?.name || '';
   }
 );
 
-// 初始化
 onMounted(() => {
-  loadRiskPointList();
+  void loadRiskPointList();
 });
 </script>
+
+<style scoped>
+.risk-point-view {
+  padding: 20px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
+}
+</style>

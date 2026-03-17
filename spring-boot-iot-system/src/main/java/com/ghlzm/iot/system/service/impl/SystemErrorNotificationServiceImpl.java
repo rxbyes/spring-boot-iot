@@ -126,7 +126,7 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
             Map<String, String> headers = new LinkedHashMap<>();
             JsonNode headersNode = root.get("headers");
             if (headersNode != null && headersNode.isObject()) {
-                headersNode.fields().forEachRemaining(entry -> headers.put(entry.getKey(), entry.getValue().asText("")));
+                headersNode.forEachEntry((key, value) -> headers.put(key, value.asText("")));
             }
 
             List<String> scenes = new ArrayList<>();

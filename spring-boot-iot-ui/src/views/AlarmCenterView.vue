@@ -1,17 +1,29 @@
 <template>
-  <div class="alarm-center-view">
-    <div class="alarm-header">
-      <h1>告警中心</h1>
-      <div class="alarm-stats">
-        <el-statistic title="今日告警" :value="stats.todayAlarms" />
-        <el-statistic title="未确认告警" :value="stats.unconfirmedAlarms" />
-        <el-statistic title="已确认告警" :value="stats.confirmedAlarms" />
-        <el-statistic title="已关闭告警" :value="stats.closedAlarms" />
+  <div class="ops-workbench alarm-center-view">
+    <PanelCard
+      eyebrow="Alarm Command"
+      title="告警中心"
+      description="聚合今日告警、待确认状态与处置结果，统一通过筛选卡和列表卡完成告警研判与处置。"
+      class="ops-hero-card"
+    >
+      <div class="ops-kpi-grid">
+        <MetricCard label="今日告警" :value="String(stats.todayAlarms)" :badge="{ label: '实时', tone: 'brand' }" />
+        <MetricCard label="未确认告警" :value="String(stats.unconfirmedAlarms)" :badge="{ label: '待处理', tone: 'danger' }" />
+        <MetricCard label="已确认告警" :value="String(stats.confirmedAlarms)" :badge="{ label: '跟踪中', tone: 'warning' }" />
+        <MetricCard label="已关闭告警" :value="String(stats.closedAlarms)" :badge="{ label: '已收口', tone: 'success' }" />
       </div>
-    </div>
+      <div class="ops-inline-note">
+        当前支持按设备编码、告警等级和状态快速筛选，并通过统一详情抽屉查看完整告警上下文与处置记录。
+      </div>
+    </PanelCard>
 
-    <div class="alarm-filters">
-      <el-form :model="filters" label-position="left" class="alarm-filter-form">
+    <PanelCard
+      eyebrow="Alarm Filters"
+      title="筛选条件"
+      description="优先定位待确认和高等级告警，快速聚焦需要立即响应的风险项。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="设备编码">
@@ -38,19 +50,28 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="" class="alarm-filter-actions">
-              <el-button type="primary" class="alarm-btn alarm-btn--primary" @click="handleSearch">查询</el-button>
-              <el-button class="alarm-btn alarm-btn--ghost" @click="handleReset">重置</el-button>
+            <el-form-item label="处置建议">
+              <el-input :model-value="alarmListAdvice" disabled />
             </el-form-item>
           </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
-    </div>
+    </PanelCard>
 
-    <div class="alarm-list">
+    <PanelCard
+      eyebrow="Alarm List"
+      title="告警列表"
+      :description="`当前 ${pagination.total} 条告警记录，支持选择、导出和批量排查。`"
+      class="ops-table-card"
+    >
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
+          <span class="table-action-bar__meta">未确认 {{ stats.unconfirmedAlarms }} 项</span>
         </div>
         <div class="table-action-bar__right">
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
@@ -60,49 +81,53 @@
           <el-button link @click="handleRefresh">刷新列表</el-button>
         </div>
       </div>
-      <el-table ref="tableRef" :data="alarmList" v-loading="loading" border @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="alarmCode" label="告警编号" width="180" />
-        <el-table-column prop="alarmTitle" label="告警标题" />
-        <el-table-column prop="alarmLevel" label="告警等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getAlarmLevelType(row.alarmLevel)">{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="regionName" label="区域" width="120" />
-        <el-table-column prop="riskPointName" label="风险点" width="150" />
-        <el-table-column prop="deviceName" label="设备名称" width="150" />
-        <el-table-column prop="metricName" label="测点名称" width="150" />
-        <el-table-column prop="currentValue" label="当前值" width="120" />
-        <el-table-column prop="thresholdValue" label="阈值" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="triggerTime" label="触发时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 0" type="primary" link @click="handleConfirm(row)">确认</el-button>
-            <el-button v-if="row.status === 0" type="primary" link @click="handleSuppress(row)">抑制</el-button>
-            <el-button v-if="row.status !== 3" type="primary" link @click="handleClose(row)">关闭</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+      <div v-if="loading" class="ops-state">正在加载告警列表...</div>
+      <div v-else-if="alarmList.length === 0" class="ops-state">暂无符合条件的告警记录</div>
+      <template v-else>
+        <el-table ref="tableRef" :data="alarmList" border stripe @selection-change="handleSelectionChange">
+          <el-table-column type="selection" width="48" />
+          <el-table-column prop="alarmCode" label="告警编号" width="180" show-overflow-tooltip />
+          <el-table-column prop="alarmTitle" label="告警标题" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="alarmLevel" label="告警等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="regionName" label="区域" width="120" show-overflow-tooltip />
+          <el-table-column prop="riskPointName" label="风险点" width="150" show-overflow-tooltip />
+          <el-table-column prop="deviceName" label="设备名称" width="150" show-overflow-tooltip />
+          <el-table-column prop="metricName" label="测点名称" width="150" show-overflow-tooltip />
+          <el-table-column prop="currentValue" label="当前值" width="120" show-overflow-tooltip />
+          <el-table-column prop="thresholdValue" label="阈值" width="120" show-overflow-tooltip />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="triggerTime" label="触发时间" width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
+              <el-button v-if="row.status === 0" type="primary" link @click="handleConfirm(row)">确认</el-button>
+              <el-button v-if="row.status === 0" type="primary" link @click="handleSuppress(row)">抑制</el-button>
+              <el-button v-if="row.status !== 3" type="primary" link @click="handleClose(row)">关闭</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <div class="alarm-pagination">
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </div>
+        <div class="ops-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.size"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </PanelCard>
 
     <AlarmDetailDrawer
       v-model="detailVisible"
@@ -129,6 +154,8 @@ import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
 import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -197,6 +224,8 @@ const pagination = reactive({
   size: 10,
   total: 0
 });
+
+const alarmListAdvice = '优先处理未确认与严重告警';
 
 const getAlarmLevelType = (level: string) => {
   switch (level) {
@@ -410,76 +439,4 @@ watch(detailVisible, (visible) => {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
   border: 1px solid rgba(41, 60, 92, 0.1);
 }
-
-.alarm-header {
-  margin-bottom: 20px;
-}
-
-.alarm-header h1 {
-  font-size: 20px;
-  margin-bottom: 12px;
-}
-
-.alarm-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.alarm-stats :deep(.el-statistic) {
-  min-width: 170px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94));
-  box-shadow: var(--shadow-sm);
-}
-
-.alarm-filters {
-  margin-bottom: 12px;
-  padding: 12px 12px 4px;
-  background: #fafbfd;
-  border-radius: 4px;
-  border: 1px solid #e6eaf0;
-  box-shadow: none;
-}
-
-.alarm-filter-form :deep(.el-form-item__label) {
-  color: var(--text-secondary);
-}
-
-.alarm-filter-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.alarm-btn {
-  border-radius: 4px;
-  padding-inline: 12px;
-}
-
-.alarm-btn--primary {
-  box-shadow: none;
-}
-
-.alarm-btn--ghost {
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #4f5969;
-}
-
-.alarm-list {
-  margin-bottom: 12px;
-  border: 1px solid #e6eaf0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.alarm-pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding: 4px 0 0;
-}
-
 </style>

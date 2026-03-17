@@ -17,6 +17,7 @@ import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * MQTT 下行消息服务实现。
@@ -33,7 +34,7 @@ public class DownMessageServiceImpl implements DownMessageService {
     private final DeviceService deviceService;
     private final ProductService productService;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DownMessageServiceImpl(MqttDownMessagePublisher mqttDownMessagePublisher,
                                   CommandRecordService commandRecordService,

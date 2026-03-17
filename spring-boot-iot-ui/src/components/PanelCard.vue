@@ -24,16 +24,16 @@ defineProps<{
 
 <style scoped>
 .panel-card {
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius-lg) + 2px);
   border: 1px solid var(--panel-border);
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95)),
-    radial-gradient(circle at top left, rgba(255, 106, 0, 0.1), transparent 42%);
-  box-shadow: var(--shadow-sm);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.97)),
+    radial-gradient(circle at top left, rgba(255, 106, 0, 0.06), transparent 38%);
+  box-shadow: 0 4px 12px rgba(31, 35, 41, 0.05);
 }
 
 .panel-card :deep(.el-card__body) {
-  padding: 1.2rem;
+  padding: 1.1rem 1.15rem;
 }
 
 .panel-card__header {
@@ -44,25 +44,25 @@ defineProps<{
 }
 
 .panel-card__eyebrow {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.3rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   color: var(--text-tertiary);
   font-size: 0.72rem;
 }
 
 .panel-card__title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.08rem;
 }
 
 .panel-card__description {
-  margin: 0.8rem 0 0;
+  margin: 0.65rem 0 0;
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .panel-card__content {
-  margin-top: 1.1rem;
+  margin-top: 0.95rem;
 }
 </style>

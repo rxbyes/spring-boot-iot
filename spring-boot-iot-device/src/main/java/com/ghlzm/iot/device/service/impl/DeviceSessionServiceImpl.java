@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -26,7 +27,7 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
     private final StringRedisTemplate stringRedisTemplate;
     private final DeviceMapper deviceMapper;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceSessionServiceImpl(StringRedisTemplate stringRedisTemplate,
                                     DeviceMapper deviceMapper,

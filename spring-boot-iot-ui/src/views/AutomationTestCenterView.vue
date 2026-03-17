@@ -91,6 +91,9 @@
           <el-form-item label="输出前缀">
             <el-input v-model="plan.target.outputPrefix" placeholder="config-browser" />
           </el-form-item>
+          <el-form-item label="基线路径">
+            <el-input v-model="plan.target.baselineDir" placeholder="config/automation/baselines" />
+          </el-form-item>
           <el-form-item label="执行模式">
             <el-switch
               v-model="plan.target.headless"
@@ -371,7 +374,7 @@
                 </label>
                 <label class="field-card">
                   <span>步骤类型</span>
-                  <el-select v-model="step.type" placeholder="选择步骤类型">
+                  <el-select v-model="step.type" placeholder="选择步骤类型" @change="handleStepTypeChange(step)">
                     <el-option v-for="type in stepTypeOptions" :key="type" :label="type" :value="type" />
                   </el-select>
                 </label>
@@ -384,7 +387,7 @@
                   <el-switch v-model="step.optional" />
                 </label>
 
-                <template v-if="stepUsesLocator(step.type) && step.locator">
+                <template v-if="stepUsesLocator(step) && step.locator">
                   <label class="field-card">
                     <span>定位方式</span>
                     <el-select v-model="step.locator.type" placeholder="选择定位方式">
@@ -430,6 +433,28 @@
                     placeholder="相对仓库根目录或绝对路径，支持模板变量与 JSON 数组"
                   />
                 </label>
+
+                <template v-if="step.type === 'assertScreenshot'">
+                  <label class="field-card">
+                    <span>截图目标</span>
+                    <el-select v-model="step.screenshotTarget" @change="handleScreenshotTargetChange(step)">
+                      <el-option label="page" value="page" />
+                      <el-option label="locator" value="locator" />
+                    </el-select>
+                  </label>
+                  <label class="field-card">
+                    <span>基线名称</span>
+                    <el-input v-model="step.baselineName" placeholder="留空时默认使用步骤名称" />
+                  </label>
+                  <label class="field-card">
+                    <span>差异阈值</span>
+                    <el-input-number v-model="step.threshold" :min="0" :max="1" :step="0.001" :precision="4" />
+                  </label>
+                  <label class="field-card field-card--switch">
+                    <span>整页截图</span>
+                    <el-switch v-model="step.fullPage" :disabled="step.screenshotTarget === 'locator'" />
+                  </label>
+                </template>
 
                 <label v-if="step.type === 'tableRowAction'" class="field-card field-card--wide">
                   <span>目标行文本</span>
@@ -745,6 +770,7 @@ const stepTypeOptions = [
   'dialogAction',
   'assertText',
   'assertUrlIncludes',
+  'assertScreenshot',
   'sleep'
 ];
 const inventoryTemplateOptions: AutomationScenarioTemplateType[] = [
@@ -796,7 +822,7 @@ const assertedScenarios = computed(() =>
 const commandPreview = computed(() => buildAutomationCommand('config/automation/sample-web-smoke-plan.json'));
 
 function ensureStepShape(step: AutomationStep): void {
-  if (!step.locator && stepUsesLocator(step.type)) {
+  if (!step.locator && stepUsesLocator(step)) {
     step.locator = {
       type: 'css',
       value: ''
@@ -820,6 +846,17 @@ function ensureStepShape(step: AutomationStep): void {
           type: 'css',
           value: ''
         }
+      };
+    }
+  }
+  if (step.type === 'assertScreenshot') {
+    step.screenshotTarget = step.screenshotTarget || 'page';
+    step.threshold = step.threshold ?? 0;
+    step.fullPage = step.fullPage ?? true;
+    if (step.screenshotTarget === 'locator' && !step.locator) {
+      step.locator = {
+        type: 'css',
+        value: ''
       };
     }
   }
@@ -856,7 +893,11 @@ function needsValue(stepType: string): boolean {
   return ['fill', 'press', 'assertText', 'assertUrlIncludes'].includes(stepType);
 }
 
-function stepUsesLocator(stepType: string): boolean {
+function stepUsesLocator(step: AutomationStep | string): boolean {
+  const stepType = typeof step === 'string' ? step : step.type;
+  if (stepType === 'assertScreenshot') {
+    return typeof step === 'string' ? true : step.screenshotTarget !== 'page';
+  }
   return !['sleep', 'assertUrlIncludes', 'dialogAction'].includes(stepType);
 }
 
@@ -1060,6 +1101,14 @@ function addCapture(step: AutomationStep) {
     variable: '',
     path: ''
   });
+}
+
+function handleStepTypeChange(step: AutomationStep) {
+  ensureStepShape(step);
+}
+
+function handleScreenshotTargetChange(step: AutomationStep) {
+  ensureStepShape(step);
 }
 
 function moveStep(scenario: AutomationScenarioConfig, index: number, offset: number) {

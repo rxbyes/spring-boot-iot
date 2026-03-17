@@ -15,6 +15,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -43,7 +44,7 @@ public class DeviceFileServiceImpl implements DeviceFileService {
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectProvider<List<DeviceFilePayloadListener>> listenersProvider;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceFileServiceImpl(StringRedisTemplate stringRedisTemplate,
                                  ObjectProvider<List<DeviceFilePayloadListener>> listenersProvider,

@@ -271,6 +271,13 @@ function buildMarkdownReport(summary, scenarioResults, plannedScenarios, extraSe
   return lines.join('\n');
 }
 
+function mergeOutputPaths(baseOutput = {}, extraOutput = {}) {
+  return {
+    ...baseOutput,
+    ...Object.fromEntries(Object.entries(extraOutput).filter(([, value]) => Boolean(value)))
+  };
+}
+
 function buildSummary(runtimeOptions, artifacts, preflightResult, scenarioResults, plannedScenarios, unhandledAsyncErrors) {
   return {
     runTimestamp: artifacts.runTimestamp,
@@ -998,24 +1005,42 @@ export async function runBrowserAcceptance({
           artifacts
         })
       : null;
-    const finalSummary = enhancement?.summaryExtras
+
+    const generatedOutputPaths = {};
+    for (const outputFile of enhancement?.outputFiles || []) {
+      if (!outputFile?.absolutePath) {
+        continue;
+      }
+      await mkdir(path.dirname(outputFile.absolutePath), { recursive: true });
+      await writeFile(outputFile.absolutePath, outputFile.content, 'utf8');
+      if (outputFile.key) {
+        generatedOutputPaths[outputFile.key] = toWorkspaceRelative(
+          runtimeOptions.workspaceRoot,
+          outputFile.absolutePath
+        );
+      }
+    }
+
+    const enhancedSummary = enhancement?.summaryExtras
       ? {
           ...summary,
           ...enhancement.summaryExtras
         }
       : summary;
+    const finalSummary = {
+      ...enhancedSummary,
+      output: mergeOutputPaths(enhancedSummary.output, generatedOutputPaths)
+    };
+    const finalDetail = {
+      preflight: preflightResult,
+      scenarios: scenarioResults,
+      output: finalSummary.output,
+      ...(enhancement?.detailExtras || {})
+    };
 
     await writeFile(
       artifacts.absolute.detailPath,
-      JSON.stringify(
-        {
-          preflight: preflightResult,
-          scenarios: scenarioResults,
-          ...(enhancement?.detailExtras || {})
-        },
-        null,
-        2
-      ),
+      JSON.stringify(finalDetail, null, 2),
       'utf8'
     );
     await writeFile(artifacts.absolute.summaryPath, JSON.stringify(finalSummary, null, 2), 'utf8');

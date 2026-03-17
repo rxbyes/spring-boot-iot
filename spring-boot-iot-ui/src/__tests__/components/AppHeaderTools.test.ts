@@ -23,7 +23,7 @@ describe('AppHeaderTools', () => {
   it('renders account and role info', () => {
     const wrapper = mount(AppHeaderTools, { props: baseProps });
     expect(wrapper.text()).toContain('rxbyes');
-    expect(wrapper.text()).toContain('超级管理员');
+    expect(wrapper.find('.account-chip').attributes('title')).toContain('系统管理员');
   });
 
   it('shows unread badge when unreadNoticeCount > 0', () => {

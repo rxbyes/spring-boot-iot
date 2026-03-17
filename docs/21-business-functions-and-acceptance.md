@@ -196,7 +196,7 @@ Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 8. 业务日志：`/api/system/audit-log`（前端业务日志页默认排除 `system_error`）
 9. 系统日志：设备接入分区复用 `/api/system/audit-log`，固定查看 `operation_type=system_error`
 10. 消息追踪：`/api/device/message-trace/page`，支持按 `TraceId`、设备编码、产品标识、消息类型、Topic 分页检索接入消息日志
-11. 前端列表交互基线：组织、用户、角色、区域、字典、通知渠道、业务日志，以及告警中心、事件处置均统一支持“已选项计数 / 清空选中 / 刷新列表”操作栏
+11. 前端列表交互基线：组织、用户、角色、区域、字典、通知渠道、业务日志，以及告警中心、事件处置、实时监测、GIS 风险态势统一采用“KPI 概览卡 + 筛选卡 + 列表卡 / 资源卡”工作台结构；其中列表页支持“已选项计数 / 清空选中 / 刷新列表”等操作栏，GIS 未定位对象使用资源卡收拢展示
 12. 前端列表导出基线：上述页面均支持“导出选中”与“导出当前结果”CSV（本地导出，不依赖新增后端接口），并包含中文列头与关键状态文案映射
 13. 前端导出设置基线：支持“导出列设置”（列勾选 + 顺序调整），导出配置按页面本地持久化
 14. 前端导出模板基线：支持默认/运维/管理导出模板，快速切换导出列配置
@@ -561,6 +561,8 @@ LIMIT 20;
 说明：
 - HTTP 业务失败即使返回 `HTTP 200`，只要统一响应体中的 `code != 200`，也应在审计日志中体现为失败。
 - MQTT 启动失败、订阅失败、连接断开、消息分发失败等异步异常应以 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 写入 `sys_audit_log`。
+- 历史共享库若尚未补齐 `sys_audit_log.trace_id/device_code/product_key/error_code/exception_class`，执行角色管理、菜单管理、用户管理等系统治理新增/更新时，也不应再因审计表缺列导致主业务失败；业务日志页与系统日志页至少要能完成列表、分页、详情与删除。
+- 若目标库仍使用旧字段 `log_type` / `operation_uri`，后端查询应自动兼容；如需完整的 Trace 检索与异常定位能力，仍需执行 `20260316_phase4_real_env_schema_alignment.sql`。
 - 当 `iot.observability.system-error-notify-enabled=true` 且存在匹配 `system_error` 场景的通知渠道时，上述后台异常还应触发通知发送；通知失败只记录应用日志，不反向生成新的审计日志。
 
 #### 分析报表
@@ -643,7 +645,7 @@ WHERE deleted = 0;
 | 用户管理 | `/user` / `UserView.vue` | `spring-boot-iot-ui/src/api/user.ts` | `/api/user/list`；`/api/user/{id}`；`/api/user/add`；`/api/user/update`；`/api/user/change-password`；`/api/user/reset-password/{userId}` | `sys_user`、`sys_user_role` | 已按真实后端对齐；新增/编辑已支持角色分配，列表展示角色名称；右上角头像菜单可直接触发当前登录账号改密码 |
 | 角色管理 | `/role` / `RoleView.vue` | `spring-boot-iot-ui/src/api/role.ts`；`spring-boot-iot-ui/src/api/menu.ts` | `/api/role/add`；`/api/role/list`；`/api/role/{id}`；`/api/role/update`；`/api/role/user/{userId}`；`/api/menu/tree` | `sys_role`、`sys_user_role`、`sys_menu`、`sys_role_menu` | 已接真实后端；角色页已补齐菜单树授权、筛选、全选/清空，且新增/编辑/删除按钮按 `system:role:*` 收口 |
 | 菜单管理 | `/menu` / `MenuView.vue` | `spring-boot-iot-ui/src/api/menu.ts` | `/api/menu/tree`；`/api/menu/list`；`/api/menu/{id}`；`/api/menu/add`；`/api/menu/update`；`DELETE /api/menu/{id}` | `sys_menu`、`sys_role_menu` | 已接真实后端；支持菜单树查看与菜单 CRUD，删除时校验子菜单与角色引用，且新增/编辑/删除按钮按 `system:menu:*` 收口，跳转角色授权入口按 `system:role:update` 收口 |
-| 自动化测试 | `/automation-test` / `AutomationTestCenterView.vue` | 无（前端本地编排，导出 JSON 计划） | 无（由 `scripts/auto/run-browser-acceptance.mjs --plan=...` 读取计划执行） | `localStorage`、`config/automation/*.json`、`logs/acceptance/*` | 已交付配置驱动骨架；支持模板编排、变量捕获、报告导出、测试建议生成、页面盘点、覆盖分析、一键脚手架生成，以及插件式复杂步骤（勾选、上传、表格行、弹窗） |
+| 自动化测试 | `/automation-test` / `AutomationTestCenterView.vue` | 无（前端本地编排，导出 JSON 计划） | 无（由 `scripts/auto/run-browser-acceptance.mjs --plan=...` 读取计划执行） | `localStorage`、`config/automation/*.json`、`config/automation/baselines/*`、`logs/acceptance/*` | 已交付配置驱动骨架；支持模板编排、变量捕获、报告导出、测试建议生成、页面盘点、覆盖分析、一键脚手架生成，以及插件式复杂步骤（勾选、上传、表格行、弹窗）；2026-03-17 起已补齐截图基线、视觉回归、失败截图 diff 报告，并支持 `baselineDir`、`assertScreenshot` 与 `--update-baseline` |
 | 区域管理 | `/region` / `RegionView.vue` | `spring-boot-iot-ui/src/api/region.ts` | `/api/region`；`/api/region/list`；`/api/region/tree`；`/api/region/{id}` | `sys_region` | 已接真实后端；树形区域维护能力可用 |
 | 字典配置 | `/dict` / `DictView.vue` | `spring-boot-iot-ui/src/api/dict.ts` | `/api/dict`；`/api/dict/list`；`/api/dict/tree`；`/api/dict/{id}`；`/api/dict/code/{dictCode}` | `sys_dict`、`sys_dict_item` | 主字典 CRUD 已接后端；字典项子接口前端已写、后端未见对应 Controller |
 | 通知渠道 | `/channel` / `ChannelView.vue` | `spring-boot-iot-ui/src/api/channel.ts` | `/api/system/channel/list`；`/api/system/channel/getByCode/{channelCode}`；`/api/system/channel/add`；`/api/system/channel/update`；`/api/system/channel/delete/{id}`；`/api/system/channel/test/{channelCode}` | `sys_notification_channel` | 已接真实后端；支持 `Webhook` 配置提示、测试通知与 `system_error` 场景配置 |
@@ -688,7 +690,7 @@ WHERE deleted = 0;
 2. 顶部头像菜单需至少提供：账号中心、实名认证说明、登录方式管理、修改密码、退出登录。
 3. `系统管理` 分组页面默认不展示最近访问标签，避免与左侧导航重复表达当前定位。
 4. 页面头部不再展示 `接入设置` 展开区，避免与业务内容竞争视觉焦点。
-5. 左侧分组简介卡仅在各一级分组首页展示，进入二级详情页后仅保留菜单列表与当前页标题；二级导航以菜单名称为主，说明通过悬浮提示提供，不再在左栏重复展开。
+5. 左侧分组简介卡仅在各一级分组首页展示，进入二级详情页后仅保留菜单列表与当前页标题；二级导航以菜单名称为主，说明通过悬浮提示提供，不再在左栏重复展开；内容区标题栏采用轻量层级展示，不再使用厚卡片式页头。
 6. `GET /api/auth/me` 返回的 `authContext` 需包含当前用户手机号、邮箱、账号类型、实名状态和可用登录方式，供头像菜单与账号抽屉直接渲染。
 7. 一级导航点击后应优先进入分组首页（如 `/device-access`、`/risk-disposal`、`/system-management`），再从概览页进入具体功能页面。
 
@@ -699,7 +701,7 @@ WHERE deleted = 0;
 | 驾驶舱 | `/` / `CockpitView.vue` | `spring-boot-iot-ui/src/api/report.ts` + `spring-boot-iot-ui/src/stores/activity.ts` | `/api/report/risk-trend`；`/api/report/alarm-statistics`；`/api/report/event-closure`；`/api/report/device-health`；旧 `/api/cockpit/*` 演示接口仍保留 | 报表聚合数据 + activity store 本地记录；旧 `CockpitServiceImpl` 演示数据 | 页面已升级为“数据看板驾驶舱 + 事务工作台入口”双层结构，支持一线/运维/管理/研发四类角色视角切换；KPI 优先使用真实报表聚合接口，接口不可用时自动回退稳定口径 |
 | 分组首页 | `/device-access`、`/risk-disposal`、`/system-management`、`/risk-enhance` / `SectionLandingView.vue` | 无（前端静态编排 + 权限过滤） | 无（依赖 `GET /api/auth/me` 返回的 `authContext.menus` 与账号资料） | `localStorage(auth-context)` + `activity store` 本地痕迹 | 作为一级导航统一落地页，展示分组概览、常用入口、最近使用、推荐操作与全部能力；不单独引入后端接口 |
 | 报表分析 | `/report-analysis` / `ReportAnalysisView.vue` | `spring-boot-iot-ui/src/api/report.ts` | `/api/report/risk-trend`；`/api/report/alarm-statistics`；`/api/report/event-closure`；`/api/report/device-health` | `iot_alarm_record`、`iot_event_record`、`iot_device` | 前端已对齐真实接口；后端已按业务表完成聚合，日期筛选参数固定为 `YYYY-MM-DD` |
-| 风险监测增强 | `/risk-monitoring` / `RealTimeMonitoringView.vue`；`/risk-monitoring-gis` / `RiskGisView.vue` | `spring-boot-iot-ui/src/api/riskMonitoring.ts` | `/api/risk-monitoring/realtime/list`；`/api/risk-monitoring/realtime/{bindingId}`；`/api/risk-monitoring/gis/points` | `risk_point`、`risk_point_device`、`iot_alarm_record`、`iot_event_record`、`iot_device`、`iot_device_property`、`iot_message_log`、`iot_product` | 代码已完成并接入真实 API；2026-03-16 已确认共享开发库需先执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql` 后再复验，GIS 当前仅交付 ECharts 点位态势图 |
+| 风险监测增强 | `/risk-monitoring` / `RealTimeMonitoringView.vue`；`/risk-monitoring-gis` / `RiskGisView.vue` | `spring-boot-iot-ui/src/api/riskMonitoring.ts` | `/api/risk-monitoring/realtime/list`；`/api/risk-monitoring/realtime/{bindingId}`；`/api/risk-monitoring/gis/points` | `risk_point`、`risk_point_device`、`iot_alarm_record`、`iot_event_record`、`iot_device`、`iot_device_property`、`iot_message_log`、`iot_product` | 代码已完成并接入真实 API；实时监测 / GIS 页面已统一为“KPI 概览卡 + 筛选卡 + 列表卡 / 资源卡 + 详情抽屉”结构，2026-03-16 已确认共享开发库需先执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql` 后再复验 |
 | 规划展示 | `/future-lab` / `FutureLabView.vue` | 无 | 无 | 无 | 纯规划展示页，不连接后端接口与数据表 |
 
 ## 6. 验收输出物建议

@@ -15,6 +15,9 @@
 - 自 2026-03-17 起，对于后端 `Long` 类型主键（如 `id`），响应统一按字符串返回，避免前端 JavaScript 对超大整数（雪花 ID）出现精度丢失。
 - 前端 `spring-boot-iot-ui/src/api/request.ts` 也会在 `JSON.parse` 前兜底识别 `id/*Id` 的超大整数历史响应，并按字符串语义保留，避免审计日志等详情链路因精度丢失而误报“记录不存在”。
 
+补充说明：
+- 自 2026-03-17 起，后端 `@RequestBody` 与统一 JSON 序列化链路统一按 Spring Boot 4 / Jackson 3 兼容写法维护：运行时 `ObjectMapper` 使用 `JsonMapper` / `JsonMapperBuilderCustomizer`，但 `JsonFormat` 等注解仍沿用 `com.fasterxml.jackson.annotation`。
+
 ## 异常返回约定
 - 参数校验或参数绑定失败：返回 `code=400`，`msg` 为可读错误信息（如 `缺少必要参数: confirmUser`、`参数类型错误: status`、`请求体格式不正确`）。
 - 业务异常：返回业务定义错误码与业务消息。

@@ -283,6 +283,10 @@ function createStep(step: Partial<AutomationStep> = {}): AutomationStep {
     dialogTitle: step.dialogTitle,
     dialogAction: step.dialogAction,
     actionText: step.actionText,
+    screenshotTarget: step.screenshotTarget,
+    baselineName: step.baselineName,
+    threshold: step.threshold,
+    fullPage: step.fullPage,
     timeout: step.timeout,
     optional: step.optional ?? false,
     action: step.action ? deepClone(step.action) : undefined,
@@ -302,6 +306,7 @@ function createDefaultTarget() {
     headless: true,
     issueDocPath: 'docs/22-automation-test-issues-20260316.md',
     outputPrefix: 'config-browser',
+    baselineDir: 'config/automation/baselines',
     scenarioScopes: ['delivery', 'baseline'],
     failScopes: ['delivery']
   };
@@ -646,6 +651,7 @@ export function normalizeAutomationPlan(
   normalizedTarget.password = cleanString(normalizedTarget.password, fallback.target.password);
   normalizedTarget.issueDocPath = cleanString(normalizedTarget.issueDocPath, fallback.target.issueDocPath);
   normalizedTarget.outputPrefix = cleanString(normalizedTarget.outputPrefix, fallback.target.outputPrefix);
+  normalizedTarget.baselineDir = cleanString(normalizedTarget.baselineDir, fallback.target.baselineDir);
   normalizedTarget.scenarioScopes = cleanArray(normalizedTarget.scenarioScopes, fallback.target.scenarioScopes);
   normalizedTarget.failScopes = cleanArray(normalizedTarget.failScopes, fallback.target.failScopes);
   normalizedTarget.browserPath = cleanString(normalizedTarget.browserPath, '');
@@ -795,7 +801,9 @@ export function buildScenarioPreviews(plan: AutomationPlanDocument): AutomationS
     apiCount:
       scenario.initialApis.length + scenario.steps.filter((step: AutomationStep) => step.type === 'triggerApi').length,
     featureCount: scenario.featurePoints.length,
-    hasAssertion: scenario.steps.some((step: AutomationStep) => step.type === 'assertText' || step.type === 'assertUrlIncludes')
+    hasAssertion: scenario.steps.some((step: AutomationStep) =>
+      ['assertText', 'assertUrlIncludes', 'assertScreenshot'].includes(step.type)
+    )
   }));
 }
 
@@ -838,6 +846,21 @@ export function buildPlanSuggestions(plan: AutomationPlanDocument): AutomationPl
       level: 'info',
       title: '接口证据可继续补强',
       detail: `以下场景尚未声明任何首屏或触发接口：${apiWeakScenarios.map((item: AutomationScenarioPreview) => item.name).join('、')}。`
+    });
+  }
+
+  const baselineVisualWeakScenarios = plan.scenarios.filter(
+    (scenario) =>
+      scenario.scope === 'baseline' &&
+      !scenario.steps.some((step: AutomationStep) => step.type === 'assertScreenshot')
+  );
+  if (baselineVisualWeakScenarios.length > 0) {
+    suggestions.push({
+      level: 'info',
+      title: '视觉回归可继续补强',
+      detail: `以下 baseline 场景建议补充截图断言：${baselineVisualWeakScenarios
+        .map((item: AutomationScenarioConfig) => item.name)
+        .join('、')}。`
     });
   }
 
