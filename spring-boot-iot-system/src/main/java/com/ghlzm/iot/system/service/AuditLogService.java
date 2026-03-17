@@ -19,12 +19,12 @@ public interface AuditLogService extends IService<AuditLog> {
       /**
        * 查询审计日志列表
        */
-      List<AuditLog> listLogs(AuditLog log);
+      List<AuditLog> listLogs(AuditLog log, Boolean excludeSystemError);
 
       /**
        * 分页查询审计日志
        */
-      PageResult<AuditLog> pageLogs(AuditLog log, Integer pageNum, Integer pageSize);
+      PageResult<AuditLog> pageLogs(AuditLog log, Boolean excludeSystemError, Integer pageNum, Integer pageSize);
 
       /**
        * 根据ID查询审计日志

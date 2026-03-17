@@ -2,8 +2,10 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.service.SystemErrorNotificationService;
@@ -28,6 +30,11 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
     private static final int MAX_REQUEST_URL_LENGTH = 255;
     private static final int MAX_REQUEST_METHOD_LENGTH = 16;
     private static final int MAX_RESULT_MESSAGE_LENGTH = 500;
+    private static final int MAX_TRACE_ID_LENGTH = 64;
+    private static final int MAX_DEVICE_CODE_LENGTH = 64;
+    private static final int MAX_PRODUCT_KEY_LENGTH = 64;
+    private static final int MAX_ERROR_CODE_LENGTH = 64;
+    private static final int MAX_EXCEPTION_CLASS_LENGTH = 255;
     private static final String SYSTEM_USER_NAME = "SYSTEM";
     private static final String SYSTEM_ERROR_TYPE = "system_error";
     private static final String DEFAULT_REQUEST_METHOD = "SYSTEM";
@@ -52,6 +59,9 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
         Date now = new Date();
         auditLog.setTenantId(DEFAULT_TENANT_ID);
         auditLog.setUserName(SYSTEM_USER_NAME);
+        auditLog.setTraceId(truncate(resolveContextText(event.context(), "traceId", TraceContextHolder.getTraceId()), MAX_TRACE_ID_LENGTH));
+        auditLog.setDeviceCode(truncate(resolveContextText(event.context(), "deviceCode", null), MAX_DEVICE_CODE_LENGTH));
+        auditLog.setProductKey(truncate(resolveContextText(event.context(), "productKey", null), MAX_PRODUCT_KEY_LENGTH));
         auditLog.setOperationType(SYSTEM_ERROR_TYPE);
         auditLog.setOperationModule(truncate(defaultText(event.operationModule(), "unknown"), MAX_OPERATION_MODULE_LENGTH));
         auditLog.setOperationMethod(truncate(defaultText(event.operationMethod(), "unknown"), MAX_OPERATION_METHOD_LENGTH));
@@ -63,6 +73,8 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
         auditLog.setLocation("");
         auditLog.setOperationResult(0);
         auditLog.setResultMessage(truncate(resolveResultMessage(event.throwable()), MAX_RESULT_MESSAGE_LENGTH));
+        auditLog.setErrorCode(truncate(resolveErrorCode(event), MAX_ERROR_CODE_LENGTH));
+        auditLog.setExceptionClass(truncate(event.throwable().getClass().getName(), MAX_EXCEPTION_CLASS_LENGTH));
         auditLog.setOperationTime(now);
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
@@ -70,7 +82,7 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
         try {
             systemErrorNotificationService.notifySystemError(event, auditLog);
         } catch (Exception ex) {
-            // 通知失败不影响异常审计主链路。
+            // 通知失败不影响主链路。
         }
     }
 
@@ -98,6 +110,30 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
             return throwable.getClass().getSimpleName();
         }
         return throwable.getClass().getSimpleName() + ": " + throwable.getMessage();
+    }
+
+    private String resolveErrorCode(BackendExceptionEvent event) {
+        String errorCode = resolveContextText(event.context(), "errorCode", null);
+        if (StringUtils.hasText(errorCode)) {
+            return errorCode;
+        }
+        Throwable throwable = event.throwable();
+        if (throwable instanceof BizException bizException && bizException.getCode() != null) {
+            return String.valueOf(bizException.getCode());
+        }
+        return null;
+    }
+
+    private String resolveContextText(Map<String, Object> context, String key, String fallback) {
+        if (context == null || context.isEmpty()) {
+            return fallback;
+        }
+        Object value = context.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        String text = String.valueOf(value);
+        return StringUtils.hasText(text) ? text : fallback;
     }
 
     private String defaultText(String value, String fallback) {

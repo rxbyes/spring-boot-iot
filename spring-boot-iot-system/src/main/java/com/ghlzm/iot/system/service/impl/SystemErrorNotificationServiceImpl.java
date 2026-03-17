@@ -62,7 +62,7 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
             return;
         }
 
-        for (NotificationChannel channel : notificationChannelService.listChannels()) {
+        for (NotificationChannel channel : notificationChannelService.listChannels(null, null, null)) {
             if (!isEnabled(channel) || !supportsWebhook(channel)) {
                 continue;
             }
@@ -178,6 +178,11 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
         genericPayload.put("title", DEFAULT_TITLE);
         genericPayload.put("summary", summary);
         genericPayload.put("auditLogId", auditLog == null ? null : auditLog.getId());
+        genericPayload.put("traceId", auditLog == null ? null : auditLog.getTraceId());
+        genericPayload.put("deviceCode", auditLog == null ? null : auditLog.getDeviceCode());
+        genericPayload.put("productKey", auditLog == null ? null : auditLog.getProductKey());
+        genericPayload.put("errorCode", auditLog == null ? null : auditLog.getErrorCode());
+        genericPayload.put("exceptionClass", auditLog == null ? null : auditLog.getExceptionClass());
         genericPayload.put("operationModule", auditLog == null ? event.operationModule() : auditLog.getOperationModule());
         genericPayload.put("operationMethod", auditLog == null ? event.operationMethod() : auditLog.getOperationMethod());
         genericPayload.put("requestUrl", auditLog == null ? event.requestUrl() : auditLog.getRequestUrl());
@@ -193,6 +198,11 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
                 - 目标：%s
                 - 通道：%s
                 - 摘要：%s
+                - traceId：%s
+                - 设备：%s
+                - 产品：%s
+                - 错误码：%s
+                - 异常类：%s
                 - 审计ID：%s
                 """.formatted(
                 operationTime.format(TIME_FORMATTER),
@@ -201,6 +211,11 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
                 safeText(genericPayload.get("requestUrl")),
                 safeText(genericPayload.get("requestMethod")),
                 safeText(summary),
+                safeText(genericPayload.get("traceId")),
+                safeText(genericPayload.get("deviceCode")),
+                safeText(genericPayload.get("productKey")),
+                safeText(genericPayload.get("errorCode")),
+                safeText(genericPayload.get("exceptionClass")),
                 safeText(genericPayload.get("auditLogId"))
         );
         String plainText = """
@@ -211,6 +226,11 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
                 目标: %s
                 通道: %s
                 摘要: %s
+                traceId: %s
+                设备: %s
+                产品: %s
+                错误码: %s
+                异常类: %s
                 审计ID: %s
                 """.formatted(
                 operationTime.format(TIME_FORMATTER),
@@ -219,6 +239,11 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
                 safeText(genericPayload.get("requestUrl")),
                 safeText(genericPayload.get("requestMethod")),
                 safeText(summary),
+                safeText(genericPayload.get("traceId")),
+                safeText(genericPayload.get("deviceCode")),
+                safeText(genericPayload.get("productKey")),
+                safeText(genericPayload.get("errorCode")),
+                safeText(genericPayload.get("exceptionClass")),
                 safeText(genericPayload.get("auditLogId"))
         );
         return new NotificationEnvelope(DEFAULT_TITLE, plainText, markdown, genericPayload);

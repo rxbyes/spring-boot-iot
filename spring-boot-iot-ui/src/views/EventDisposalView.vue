@@ -103,28 +103,22 @@
       />
     </div>
 
-    <el-dialog v-model="detailVisible" title="事件详情" width="800px" class="event-dialog">
-      <el-descriptions v-if="detail" :column="2" border>
-        <el-descriptions-item label="事件编号">{{ detail.eventCode || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="事件标题">{{ detail.eventTitle || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="风险等级">{{ getRiskLevelText(detail.riskLevel) || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="区域">{{ detail.regionName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="风险点">{{ detail.riskPointName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备编码">{{ detail.deviceCode || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备名称">{{ detail.deviceName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="测点名称">{{ detail.metricName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="当前值">{{ detail.currentValue || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="触发时间">{{ detail.triggerTime || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ getStatusText(detail.status) || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <el-empty v-else description="暂无数据" />
-      <template #footer>
-        <el-button class="event-btn event-btn--ghost" @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <EventDetailDrawer
+      v-model="detailVisible"
+      :detail="detail"
+      :loading="detailLoading"
+      :error-message="detailErrorMessage"
+    />
 
-    <el-dialog v-model="dispatchVisible" title="工单派发" width="500px" class="event-dialog">
-      <el-form :model="dispatchForm" label-position="left">
+    <StandardFormDrawer
+      v-model="dispatchVisible"
+      eyebrow="Event Workflow"
+      title="工单派发"
+      subtitle="统一通过右侧抽屉配置派发对象与处理时限。"
+      size="34rem"
+      @close="closeDispatchDialog"
+    >
+      <el-form :model="dispatchForm" label-position="left" class="event-drawer-form">
         <el-form-item label="派发人">
           <el-input v-model="dispatchForm.dispatchUserName" disabled />
         </el-form-item>
@@ -143,22 +137,29 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="event-btn event-btn--ghost" @click="dispatchVisible = false">取消</el-button>
+        <el-button class="event-btn event-btn--ghost" @click="closeDispatchDialog">取消</el-button>
         <el-button type="primary" class="event-btn event-btn--primary" @click="handleDispatchConfirm">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
 
-    <el-dialog v-model="closeVisible" title="事件关闭" width="500px" class="event-dialog">
-      <el-form :model="closeForm" label-position="left">
+    <StandardFormDrawer
+      v-model="closeVisible"
+      eyebrow="Event Workflow"
+      title="事件关闭"
+      subtitle="统一通过右侧抽屉填写关闭原因并完成事件收口。"
+      size="34rem"
+      @close="closeCloseDialog"
+    >
+      <el-form :model="closeForm" label-position="left" class="event-drawer-form">
         <el-form-item label="关闭原因">
           <el-input v-model="closeForm.closeReason" type="textarea" :rows="3" placeholder="请输入关闭原因" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="event-btn event-btn--ghost" @click="closeVisible = false">取消</el-button>
+        <el-button class="event-btn event-btn--ghost" @click="closeCloseDialog">取消</el-button>
         <el-button type="primary" class="event-btn event-btn--primary" @click="handleCloseConfirm">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
 
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
@@ -173,9 +174,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -190,10 +193,14 @@ import type { EventRecord } from '../api/alarm';
 
 const loading = ref(false);
 const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detailErrorMessage = ref('');
 const dispatchVisible = ref(false);
 const closeVisible = ref(false);
 const eventList = ref<EventRecord[]>([]);
 const detail = ref<EventRecord | null>(null);
+const dispatchTarget = ref<EventRecord | null>(null);
+const closeTarget = ref<EventRecord | null>(null);
 const tableRef = ref();
 const selectedRows = ref<EventRecord[]>([]);
 const exportColumns: CsvColumn<EventRecord>[] = [
@@ -395,32 +402,35 @@ const handlePageChange = () => {
 };
 
 const handleViewDetail = async (row: EventRecord) => {
-  loading.value = true;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  detailErrorMessage.value = '';
+  detail.value = row;
   try {
     const res = await getEventDetail(row.id);
     if (res.code === 200) {
-      detail.value = res.data;
-      detailVisible.value = true;
+      detail.value = res.data || row;
     }
   } catch (error) {
+    detailErrorMessage.value = error instanceof Error ? error.message : '查询事件详情失败';
     console.error('查询事件详情失败', error);
   } finally {
-    loading.value = false;
+    detailLoading.value = false;
   }
 };
 
 const handleDispatch = (row: EventRecord) => {
-  detail.value = row;
+  dispatchTarget.value = row;
   dispatchVisible.value = true;
 };
 
 const handleDispatchConfirm = async () => {
-  if (!detail.value) return;
+  if (!dispatchTarget.value) return;
   try {
-    const res = await dispatchEvent(detail.value.id, 1, dispatchForm.receiveUser);
+    const res = await dispatchEvent(dispatchTarget.value.id, 1, dispatchForm.receiveUser);
     if (res.code === 200) {
       ElMessage.success('派发成功');
-      dispatchVisible.value = false;
+      closeDispatchDialog();
       void loadEventList();
     }
   } catch (error) {
@@ -429,23 +439,22 @@ const handleDispatchConfirm = async () => {
 };
 
 const handleClose = (row: EventRecord) => {
-  detail.value = row;
+  closeTarget.value = row;
   closeVisible.value = true;
 };
 
 const handleCloseConfirm = async () => {
-  if (!detail.value) return;
+  if (!closeTarget.value) return;
   if (!closeForm.closeReason) {
     ElMessage.warning('请输入关闭原因');
     return;
   }
   try {
     await ElMessageBox.confirm('确定要关闭该事件吗？', '关闭事件', { type: 'warning' });
-    const res = await closeEvent(detail.value.id, 1, closeForm.closeReason);
+    const res = await closeEvent(closeTarget.value.id, 1, closeForm.closeReason);
     if (res.code === 200) {
       ElMessage.success('关闭成功');
-      closeVisible.value = false;
-      closeForm.closeReason = '';
+      closeCloseDialog();
       void loadEventList();
     }
   } catch (error) {
@@ -455,6 +464,25 @@ const handleCloseConfirm = async () => {
 
 onMounted(() => {
   void loadEventList();
+});
+
+function closeDispatchDialog() {
+  dispatchVisible.value = false;
+  dispatchTarget.value = null;
+}
+
+function closeCloseDialog() {
+  closeVisible.value = false;
+  closeTarget.value = null;
+  closeForm.closeReason = '';
+}
+
+watch(detailVisible, (visible) => {
+  if (!visible) {
+    detail.value = null;
+    detailLoading.value = false;
+    detailErrorMessage.value = '';
+  }
 });
 </script>
 
@@ -537,27 +565,8 @@ onMounted(() => {
   padding: 4px 0 0;
 }
 
-.event-dialog :deep(.el-dialog__header) {
-  margin-right: 0;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--panel-border);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.95));
-}
-
-.event-dialog :deep(.el-dialog__title) {
-  color: var(--text-primary);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.event-dialog :deep(.el-dialog__body) {
-  padding: 16px 20px;
-  background: #fff;
-}
-
-.event-dialog :deep(.el-dialog__footer) {
-  padding: 12px 20px 16px;
-  border-top: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.9), rgba(245, 249, 255, 0.96));
+.event-drawer-form :deep(.el-select),
+.event-drawer-form :deep(.el-input-number) {
+  width: 100%;
 }
 </style>

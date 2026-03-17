@@ -2,17 +2,20 @@ package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * MQTT 连接监听器。
- * 该类只负责连接与消费侧日志输出，避免把日志细节塞进消费者主流程。
  */
 @Component
 public class MqttConnectionListener {
@@ -39,9 +42,9 @@ public class MqttConnectionListener {
         log.info("MQTT 收到上行消息, topic={}, payloadSize={}", topic, payloadSize);
     }
 
-    public void onMessageDispatched(String topic, String deviceCode, String messageType) {
-        log.info("MQTT 上行消息进入主链路成功, topic={}, deviceCode={}, messageType={}",
-                topic, deviceCode, messageType);
+    public void onMessageDispatched(String topic, String deviceCode, String messageType, String traceId) {
+        log.info("MQTT 上行消息进入主链路成功, topic={}, deviceCode={}, messageType={}, traceId={}",
+                topic, deviceCode, messageType, traceId);
     }
 
     public void onConnectionLost(Throwable cause) {
@@ -90,12 +93,22 @@ public class MqttConnectionListener {
         );
     }
 
-    public void onMessageDispatchFailed(String topic, Throwable throwable) {
+    public void onMessageDispatchFailed(String topic, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
         log.error("MQTT 消息分发失败, topic={}", topic, throwable);
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("event", "messageDispatchFailed");
+        context.put("topic", topic);
+        if (rawDeviceMessage != null) {
+            putIfHasText(context, "traceId", rawDeviceMessage.getTraceId());
+            putIfHasText(context, "deviceCode", rawDeviceMessage.getDeviceCode());
+            putIfHasText(context, "productKey", rawDeviceMessage.getProductKey());
+            putIfHasText(context, "messageType", rawDeviceMessage.getMessageType());
+            putIfHasText(context, "topicRouteType", rawDeviceMessage.getTopicRouteType());
+        }
         recordBackendException(
                 "MqttMessageConsumer#messageArrived",
                 topic,
-                Map.of("event", "messageDispatchFailed", "topic", topic),
+                context,
                 throwable
         );
     }
@@ -112,17 +125,30 @@ public class MqttConnectionListener {
         if (recorder == null || throwable == null) {
             return;
         }
+        Map<String, Object> finalContext = new LinkedHashMap<>();
+        if (context != null) {
+            finalContext.putAll(context);
+        }
+        if (!finalContext.containsKey("traceId")) {
+            putIfHasText(finalContext, "traceId", TraceContextHolder.getTraceId());
+        }
         try {
             recorder.record(new BackendExceptionEvent(
                     MQTT_MODULE,
                     operationMethod,
                     requestUrl,
                     MQTT_METHOD,
-                    context,
+                    finalContext,
                     throwable
             ));
         } catch (Exception ex) {
             log.warn("写入后台异常审计失败, requestUrl={}, error={}", requestUrl, ex.getMessage());
+        }
+    }
+
+    private void putIfHasText(Map<String, Object> context, String key, String value) {
+        if (context != null && StringUtils.hasText(value)) {
+            context.put(key, value.trim());
         }
     }
 }

@@ -3,6 +3,7 @@ package com.ghlzm.iot.message.mqtt;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
@@ -20,7 +21,6 @@ import java.util.List;
 
 /**
  * MQTT 消息接入消费者。
- * 该类只负责连接 Broker、订阅主题、把 MQTT 报文桥接到一期已有的 RawDeviceMessage 主链路。
  */
 @Component
 public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended {
@@ -131,42 +131,41 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     @Override
     public void messageArrived(String topic, MqttMessage message) {
+        RawDeviceMessage rawDeviceMessage = null;
+        String traceId = TraceContextHolder.bindTraceId(null);
         try {
             mqttConnectionListener.onMessageReceived(topic, message == null || message.getPayload() == null
                     ? 0
                     : message.getPayload().length);
-            RawDeviceMessage rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
+            rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
+            rawDeviceMessage.setTraceId(traceId);
+
             DeviceUpMessage upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
             String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
                     ? upMessage.getDeviceCode()
                     : rawDeviceMessage.getDeviceCode();
-            mqttConnectionListener.onMessageDispatched(topic, resolvedDeviceCode, upMessage.getMessageType());
+            mqttConnectionListener.onMessageDispatched(topic, resolvedDeviceCode, upMessage.getMessageType(), upMessage.getTraceId());
+
             String resolvedClientId = hasText(rawDeviceMessage.getClientId())
                     ? rawDeviceMessage.getClientId()
                     : resolvedDeviceCode;
-            // 当前阶段以“成功进入主链路的上行消息”作为在线与活跃刷新触发点。
-            deviceSessionService.online(
-                    resolvedDeviceCode,
-                    resolvedClientId
-            );
-            deviceSessionService.refreshLastSeen(
-                    resolvedDeviceCode,
-                    resolvedClientId,
-                    topic
-            );
+            deviceSessionService.online(resolvedDeviceCode, resolvedClientId);
+            deviceSessionService.refreshLastSeen(resolvedDeviceCode, resolvedClientId, topic);
             mqttConnectionListener.onDeviceSessionRefreshed(resolvedDeviceCode, resolvedClientId, topic);
         } catch (Exception ex) {
-            mqttConnectionListener.onMessageDispatchFailed(topic, ex);
+            mqttConnectionListener.onMessageDispatchFailed(topic, rawDeviceMessage, ex);
+        } finally {
+            TraceContextHolder.clear();
         }
     }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
-        // 当前消费者只关心上行接入，不需要处理额外的投递回调逻辑。
+        // 当前只处理上行接入。
     }
 
     /**
-     * 为后续 Task 6 下行发布复用同一 MQTT 客户端。
+     * 复用同一 MQTT 客户端执行下行发布。
      */
     public void publish(String topic, byte[] payload, int qos, boolean retained) {
         if (mqttClient == null || !mqttClient.isConnected()) {

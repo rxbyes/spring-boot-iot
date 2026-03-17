@@ -4,31 +4,20 @@
       <template #header>
         <div class="card-header">
           <span>组织机构管理</span>
-          <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
 
-      <!-- 搜索表单 -->
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="组织名称">
-              <el-input
-                v-model="searchForm.orgName"
-                placeholder="请输入组织名称"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.orgName" placeholder="请输入组织名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="组织编码">
-              <el-input
-                v-model="searchForm.orgCode"
-                placeholder="请输入组织编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.orgCode" placeholder="请输入组织编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -48,6 +37,23 @@
         </el-row>
       </el-form>
 
+      <el-alert
+        v-if="!isFilterMode"
+        title="默认仅分页加载根节点，展开行时按需加载子节点。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="view-alert"
+      />
+      <el-alert
+        v-else
+        title="搜索模式返回扁平分页结果，不再一次性加载整棵组织树。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="view-alert"
+      />
+
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
@@ -61,7 +67,6 @@
         </div>
       </div>
 
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
@@ -70,7 +75,9 @@
         stripe
         style="width: 100%"
         row-key="id"
-        :tree-props="{ children: 'children' }"
+        :lazy="!isFilterMode"
+        :load="loadChildren"
+        :tree-props="treeProps"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
@@ -104,32 +111,26 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        class="pagination"
       />
 
-      <!-- 表单对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="dialogVisible"
+        eyebrow="System Form"
         :title="dialogTitle"
-        class="sys-dialog"
-        width="600px"
+        subtitle="统一通过右侧抽屉维护组织机构主数据。"
+        size="42rem"
         @close="handleDialogClose"
       >
-        <el-form
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="100px"
-        >
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
           <el-form-item label="组织名称" prop="orgName">
             <el-input v-model="formData.orgName" placeholder="请输入组织名称" />
           </el-form-item>
@@ -162,19 +163,16 @@
             <el-input-number v-model="formData.sortNo" :min="0" :max="999" />
           </el-form-item>
           <el-form-item label="备注" prop="remark">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备注"
-            />
+            <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <template #footer>
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
+            确定
+          </el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
@@ -190,10 +188,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -202,36 +201,58 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import {
-  listOrganizationTree,
-  getOrganization,
   addOrganization,
+  deleteOrganization,
+  getOrganization,
+  listOrganizations,
+  pageOrganizations,
   updateOrganization,
-  deleteOrganization
+  type Organization
 } from '@/api/organization'
 
-// 表单引用
 const formRef = ref()
+const tableRef = ref()
+const loading = ref(false)
+const submitLoading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增组织机构')
+const tableData = ref<Organization[]>([])
+const selectedRows = ref<Organization[]>([])
 
-// 搜索表单
 const searchForm = reactive({
   orgName: '',
   orgCode: '',
-  status: undefined
+  status: undefined as number | undefined
 })
 
-// 分页
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
 })
 
-// 表格数据
-const tableData = ref<any[]>([])
-const sourceTreeData = ref<any[]>([])
-const tableRef = ref()
-const selectedRows = ref<any[]>([])
-const exportColumns: CsvColumn<any>[] = [
+const formData = ref<Partial<Organization>>({
+  id: undefined,
+  parentId: 0,
+  orgName: '',
+  orgCode: '',
+  orgType: 'dept',
+  leaderName: '',
+  phone: '',
+  email: '',
+  status: 1,
+  sortNo: 0,
+  remark: ''
+})
+
+const formRules = {
+  orgName: [{ required: true, message: '请输入组织名称', trigger: 'blur' }],
+  orgCode: [{ required: true, message: '请输入组织编码', trigger: 'blur' }],
+  orgType: [{ required: true, message: '请选择组织类型', trigger: 'change' }],
+  leaderName: [{ required: true, message: '请输入负责人姓名', trigger: 'blur' }]
+}
+
+const exportColumns: CsvColumn<Organization>[] = [
   { key: 'orgCode', label: '组织编码' },
   { key: 'orgName', label: '组织名称' },
   { key: 'orgType', label: '组织类型', formatter: (value) => getOrgTypeName(String(value || '')) },
@@ -257,109 +278,69 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
-const loading = ref(false)
+const isFilterMode = computed(
+  () => Boolean(searchForm.orgName.trim() || searchForm.orgCode.trim() || searchForm.status !== undefined)
+)
 
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增组织机构')
-const formData = ref({
-  id: undefined,
-  parentId: 0,
-  orgName: '',
-  orgCode: '',
-  orgType: 'dept',
-  leaderName: '',
-  phone: '',
-  email: '',
-  status: 1,
-  sortNo: 0,
-  remark: ''
-})
-
-// 表单验证规则
-const formRules = {
-  orgName: [{ required: true, message: '请输入组织名称', trigger: 'blur' }],
-  orgCode: [{ required: true, message: '请输入组织编码', trigger: 'blur' }],
-  orgType: [{ required: true, message: '请选择组织类型', trigger: 'change' }],
-  leaderName: [{ required: true, message: '请输入负责人姓名', trigger: 'blur' }]
+const treeProps = {
+  children: 'children',
+  hasChildren: 'hasChildren'
 }
 
-// 提交状态
-const submitLoading = ref(false)
-
-// 获取组织机构树
-const getOrganizationTree = async () => {
+const loadOrganizationPage = async () => {
   loading.value = true
   try {
-    const res = await listOrganizationTree()
-    if (res.code === 200) {
-      sourceTreeData.value = res.data || []
-      tableData.value = sourceTreeData.value
-      pagination.total = countTreeNodes(tableData.value)
+    const res = await pageOrganizations({
+      orgName: searchForm.orgName || undefined,
+      orgCode: searchForm.orgCode || undefined,
+      status: searchForm.status,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取组织机构树失败', error)
+    console.error('获取组织分页失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始化
+const loadChildren = async (row: Organization, _treeNode: unknown, resolve: (data: Organization[]) => void) => {
+  try {
+    const res = await listOrganizations(row.id)
+    const children = res.data || []
+    row.children = children
+    row.hasChildren = children.length > 0
+    resolve(children)
+  } catch (error) {
+    console.error('加载组织子节点失败', error)
+    resolve([])
+  }
+}
+
 onMounted(() => {
-  getOrganizationTree()
+  loadOrganizationPage()
 })
 
-const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
-
-const nodeMatchesSearch = (node: any) => {
-  const orgNameKeyword = normalizeKeyword(searchForm.orgName)
-  const orgCodeKeyword = normalizeKeyword(searchForm.orgCode)
-  const statusMatched = searchForm.status === undefined || node.status === searchForm.status
-  const orgNameMatched = !orgNameKeyword || String(node.orgName || '').toLowerCase().includes(orgNameKeyword)
-  const orgCodeMatched = !orgCodeKeyword || String(node.orgCode || '').toLowerCase().includes(orgCodeKeyword)
-  return statusMatched && orgNameMatched && orgCodeMatched
-}
-
-const filterOrganizationTree = (nodes: any[]): any[] => {
-  return nodes
-    .map((node) => {
-      const filteredChildren = Array.isArray(node.children) ? filterOrganizationTree(node.children) : []
-      if (nodeMatchesSearch(node) || filteredChildren.length > 0) {
-        return {
-          ...node,
-          children: filteredChildren
-        }
-      }
-      return null
-    })
-    .filter(Boolean) as any[]
-}
-
-const countTreeNodes = (nodes: any[]): number => {
-  return nodes.reduce((count, node) => count + 1 + countTreeNodes(node.children || []), 0)
-}
-
-const applyOrganizationFilters = () => {
-  tableData.value = filterOrganizationTree(sourceTreeData.value)
-  pagination.total = countTreeNodes(tableData.value)
-}
-
-// 处理搜索
 const handleSearch = () => {
-  applyOrganizationFilters()
+  pagination.pageNum = 1
+  clearSelection()
+  loadOrganizationPage()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.orgName = ''
   searchForm.orgCode = ''
   searchForm.status = undefined
-  tableData.value = sourceTreeData.value
-  pagination.total = countTreeNodes(tableData.value)
+  pagination.pageNum = 1
+  clearSelection()
+  loadOrganizationPage()
 }
 
-const handleSelectionChange = (rows: any[]) => {
+const handleSelectionChange = (rows: Organization[]) => {
   selectedRows.value = rows
 }
 
@@ -370,7 +351,7 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection()
-  getOrganizationTree()
+  loadOrganizationPage()
 }
 
 const openExportColumnSetting = () => {
@@ -388,117 +369,89 @@ const handleExportSelected = () => {
   downloadRowsAsCsv('组织机构-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
-const flattenTreeRows = (rows: any[]): any[] =>
-  rows.flatMap((row) => {
-    const children = Array.isArray(row.children) ? flattenTreeRows(row.children) : []
-    return [row, ...children]
-  })
+const flattenTreeRows = (rows: Organization[]): Organization[] =>
+  rows.flatMap((row) => [row, ...(Array.isArray(row.children) ? flattenTreeRows(row.children) : [])])
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('组织机构-当前结果.csv', flattenTreeRows(tableData.value), getResolvedExportColumns())
+  const rows = isFilterMode.value ? tableData.value : flattenTreeRows(tableData.value)
+  downloadRowsAsCsv('组织机构-当前结果.csv', rows, getResolvedExportColumns())
 }
 
-// 新增
+const resetFormData = (organization?: Partial<Organization>) => {
+  formData.value = {
+    id: organization?.id,
+    parentId: organization?.parentId ?? 0,
+    orgName: organization?.orgName || '',
+    orgCode: organization?.orgCode || '',
+    orgType: organization?.orgType || 'dept',
+    leaderName: organization?.leaderName || '',
+    phone: organization?.phone || '',
+    email: organization?.email || '',
+    status: organization?.status ?? 1,
+    sortNo: organization?.sortNo ?? 0,
+    remark: organization?.remark || ''
+  }
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增组织机构'
-  formData.value = {
-    id: undefined,
-    parentId: 0,
-    orgName: '',
-    orgCode: '',
-    orgType: 'dept',
-    leaderName: '',
-    phone: '',
-    email: '',
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData()
   dialogVisible.value = true
 }
 
-// 新增子级
-const handleAddSub = (row: any) => {
+const handleAddSub = (row: Organization) => {
   dialogTitle.value = '新增子级'
-  formData.value = {
-    id: undefined,
-    parentId: row.id,
-    orgName: '',
-    orgCode: '',
-    orgType: 'dept',
-    leaderName: '',
-    phone: '',
-    email: '',
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData({ parentId: row.id })
   dialogVisible.value = true
 }
 
-// 编辑
-const handleEdit = (row: any) => {
+const handleEdit = async (row: Organization) => {
   dialogTitle.value = '编辑组织机构'
-  getOrganization(row.id).then((res) => {
-    if (res.code === 200) {
-      formData.value = res.data
-      dialogVisible.value = true
-    }
-  })
+  const res = await getOrganization(row.id)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+    dialogVisible.value = true
+  }
 }
 
-// 删除
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定要删除该组织机构吗？', '警告', {
-    type: 'warning'
-  })
+const handleDelete = (row: Organization) => {
+  ElMessageBox.confirm(`确定要删除组织“${row.orgName}”吗？`, '警告', { type: 'warning' })
     .then(async () => {
-      try {
-        const res = await deleteOrganization(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getOrganizationTree()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+      await deleteOrganization(row.id)
+      ElMessage.success('删除成功')
+      loadOrganizationPage()
     })
     .catch(() => {})
 }
 
-// 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate((valid: boolean) => {
-    if (!valid) return
-  })
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
 
   submitLoading.value = true
   try {
-    let res: any
     if (formData.value.id) {
-      res = await updateOrganization(formData.value)
+      await updateOrganization(formData.value)
+      ElMessage.success('更新成功')
     } else {
-      res = await addOrganization(formData.value)
+      await addOrganization(formData.value)
+      ElMessage.success('新增成功')
     }
-    if (res.code === 200) {
-      ElMessage.success(formData.value.id ? '更新成功' : '新增成功')
-      dialogVisible.value = false
-      getOrganizationTree()
-    }
+    dialogVisible.value = false
+    loadOrganizationPage()
   } catch (error) {
-    console.error('提交失败', error)
+    console.error('提交组织失败', error)
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 获取组织类型名称
 const getOrgTypeName = (type: string) => {
   const map: Record<string, string> = {
     dept: '部门',
@@ -508,7 +461,6 @@ const getOrgTypeName = (type: string) => {
   return map[type] || type
 }
 
-// 获取组织类型标签
 const getOrgTypeTag = (type: string) => {
   const map: Record<string, string> = {
     dept: 'primary',
@@ -518,16 +470,15 @@ const getOrgTypeTag = (type: string) => {
   return map[type] || 'info'
 }
 
-// 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  getOrganizationTree()
+  pagination.pageNum = 1
+  loadOrganizationPage()
 }
 
-// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
-  getOrganizationTree()
+  loadOrganizationPage()
 }
 </script>
 
@@ -543,6 +494,10 @@ const handlePageChange = (page: number) => {
 }
 
 .search-form {
+  margin-bottom: 12px;
+}
+
+.view-alert {
   margin-bottom: 12px;
 }
 

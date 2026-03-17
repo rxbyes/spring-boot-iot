@@ -1,8 +1,11 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.service.PermissionService;
@@ -40,7 +43,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       @Transactional(rollbackFor = Exception.class)
       public User addUser(User user) {
             User existingUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                        .eq(User::getUsername, user.getUsername()));
+                    .eq(User::getUsername, user.getUsername()));
             if (existingUser != null) {
                   throw new BizException("用户名已存在");
             }
@@ -67,24 +70,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
       @Override
       public List<User> listUsers(String username, String phone, String email, Integer status) {
-            LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-            if (StringUtils.hasText(username)) {
-                  wrapper.like(User::getUsername, username.trim());
-            }
-            if (StringUtils.hasText(phone)) {
-                  wrapper.like(User::getPhone, phone.trim());
-            }
-            if (StringUtils.hasText(email)) {
-                  wrapper.like(User::getEmail, email.trim());
-            }
-            if (status != null) {
-                  wrapper.eq(User::getStatus, status);
-            }
-            wrapper.orderByDesc(User::getCreateTime).orderByDesc(User::getId);
-
-            List<User> users = userMapper.selectList(wrapper);
+            List<User> users = userMapper.selectList(buildUserQueryWrapper(username, phone, email, status));
             fillUserRoles(users);
             return users;
+      }
+
+      @Override
+      public PageResult<User> pageUsers(String username, String phone, String email, Integer status, Long pageNum, Long pageSize) {
+            Page<User> page = PageQueryUtils.buildPage(pageNum, pageSize);
+            Page<User> result = page(page, buildUserQueryWrapper(username, phone, email, status));
+            List<User> records = result.getRecords();
+            fillUserRoles(records);
+            return PageQueryUtils.toPageResult(result);
       }
 
       @Override
@@ -107,8 +104,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
 
             User sameUsernameUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                        .eq(User::getUsername, user.getUsername())
-                        .ne(User::getId, user.getId()));
+                    .eq(User::getUsername, user.getUsername())
+                    .ne(User::getId, user.getId()));
             if (sameUsernameUser != null) {
                   throw new BizException("用户名已存在");
             }
@@ -139,15 +136,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       @Override
       public User getByUsername(String username) {
             return userMapper.selectOne(new LambdaQueryWrapper<User>()
-                        .eq(User::getUsername, username)
-                        .eq(User::getDeleted, 0));
+                    .eq(User::getUsername, username)
+                    .eq(User::getDeleted, 0));
       }
 
       @Override
       public User getByPhone(String phone) {
             return userMapper.selectOne(new LambdaQueryWrapper<User>()
-                        .eq(User::getPhone, phone)
-                        .eq(User::getDeleted, 0));
+                    .eq(User::getPhone, phone)
+                    .eq(User::getDeleted, 0));
       }
 
       @Override
@@ -178,6 +175,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setPassword(passwordEncoder.encode("123456"));
             user.setUpdateTime(new Date());
             userMapper.updateById(user);
+      }
+
+      private LambdaQueryWrapper<User> buildUserQueryWrapper(String username, String phone, String email, Integer status) {
+            LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+            if (StringUtils.hasText(username)) {
+                  wrapper.like(User::getUsername, username.trim());
+            }
+            if (StringUtils.hasText(phone)) {
+                  wrapper.like(User::getPhone, phone.trim());
+            }
+            if (StringUtils.hasText(email)) {
+                  wrapper.like(User::getEmail, email.trim());
+            }
+            if (status != null) {
+                  wrapper.eq(User::getStatus, status);
+            }
+            wrapper.orderByDesc(User::getCreateTime).orderByDesc(User::getId);
+            return wrapper;
       }
 
       private void fillUserRoles(List<User> users) {

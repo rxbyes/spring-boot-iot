@@ -291,7 +291,7 @@ const rolePresets: RolePreset[] = [
     todos: [
       { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '查看高风险区域态势', detail: '确认重点区域告警攀升原因与资源分配。', actionLabel: '进入分析报表', tone: 'danger', path: '/report-analysis' },
       { id: 'mg-2', priority: 'P2', window: '今日', title: '审阅跨部门协同事件', detail: '对超时事件给出协调决策。', actionLabel: '进入事件处置', tone: 'warning', path: '/event-disposal' },
-      { id: 'mg-3', priority: 'P3', window: '本周', title: '复核治理执行情况', detail: '关注审计日志和组织执行情况。', actionLabel: '进入审计日志', tone: 'brand', path: '/audit-log' }
+      { id: 'mg-3', priority: 'P3', window: '本周', title: '复核治理执行情况', detail: '关注业务日志和组织执行情况。', actionLabel: '进入业务日志', tone: 'brand', path: '/audit-log' }
     ]
   },
   {
@@ -317,7 +317,7 @@ const rolePresets: RolePreset[] = [
       { label: '发布后观察项', value: '8', hint: '灰度监控', percent: 58, tag: '观察', tone: 'brand' }
     ],
     todos: [
-      { id: 'rd-1', priority: 'P1', window: '立即', title: '定位 1 条接口 5xx 告警', detail: '优先核查认证与风险监测接口日志。', actionLabel: '进入审计日志', tone: 'danger', path: '/audit-log' },
+      { id: 'rd-1', priority: 'P1', window: '立即', title: '定位 1 条接口 5xx 告警', detail: '优先核查认证、接入与风险监测链路的系统日志。', actionLabel: '进入系统日志', tone: 'danger', path: '/system-log' },
       { id: 'rd-2', priority: 'P2', window: '今天', title: '复盘协议解析异常样本', detail: '检查 legacy 报文兼容解析和安全校验。', actionLabel: '进入接入验证中心', tone: 'warning', path: '/reporting' },
       { id: 'rd-3', priority: 'P3', window: '本周', title: '回归关键业务流程', detail: '覆盖告警、事件、规则、报表与登录链路。', actionLabel: '进入监测对象工作台', tone: 'brand', path: '/insight' }
     ]

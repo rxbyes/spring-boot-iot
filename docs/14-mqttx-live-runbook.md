@@ -146,7 +146,7 @@ iot:device:session:demo-device-01
 - `lastSeenTime`
 
 ## 10. 常见排查
-- MQTTX 已发送但数据库无变化：先看后端是否收到 MQTT 上行日志，再检查 `sys_audit_log` 中是否新增 `operation_type=system_error` 的 MQTT 异常记录，然后继续核对 topic、设备编码、Broker 权限。
+- MQTTX 已发送但数据库无变化：先看后端是否收到 MQTT 上行日志，再检查 `/system-log` 页面或 `sys_audit_log` 中是否新增 `operation_type=system_error` 的 MQTT 异常记录，然后继续核对 topic、设备编码、Broker 权限。
 - 若已开启 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`：同步检查通知渠道 `config` 是否包含 `url` 与 `scenes:["system_error"]`，必要时先调用 `POST /api/system/channel/test/{channelCode}` 验证 webhook 侧可达性。
 - 后端收到消息但未进入主链路：重点排查设备不存在、设备协议不匹配、产品与设备绑定不一致。
 - 标准 topic 无效：检查 `productKey`、`deviceCode` 是否与数据库一致。

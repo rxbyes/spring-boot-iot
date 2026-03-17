@@ -283,10 +283,17 @@ CREATE TABLE sys_audit_log (
     operation_result TINYINT DEFAULT NULL COMMENT '操作结果 1成功 0失败',
     result_message VARCHAR(500) DEFAULT NULL COMMENT '结果消息',
     operation_time DATETIME DEFAULT NULL COMMENT '操作时间',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT 'device code',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT 'product key',
+    error_code VARCHAR(64) DEFAULT NULL COMMENT 'error code',
+    exception_class VARCHAR(255) DEFAULT NULL COMMENT 'exception class',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    KEY idx_operation_time (operation_time)
+    KEY idx_operation_time (operation_time),
+    KEY idx_trace_id (trace_id),
+    KEY idx_device_code (device_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志表';
 
 -- =========================
@@ -395,10 +402,15 @@ CREATE TABLE iot_device_message_log (
     topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
     payload JSON DEFAULT NULL COMMENT '原始消息',
     report_time DATETIME NOT NULL COMMENT '上报时间',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT 'device code',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT 'product key',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_device_time (device_id, report_time),
-    KEY idx_message_type (message_type)
+    KEY idx_message_type (message_type),
+    KEY idx_trace_id (trace_id),
+    KEY idx_device_code_time (device_code, report_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备消息日志表';
 
 CREATE TABLE iot_command_record (
@@ -654,6 +666,9 @@ SELECT
     tenant_id,
     device_id,
     product_id,
+    trace_id,
+    device_code,
+    product_key,
     message_type,
     topic,
     payload,

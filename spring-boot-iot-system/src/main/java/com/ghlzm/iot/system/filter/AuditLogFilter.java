@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.filter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
@@ -90,6 +91,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
         Date now = new Date();
         auditLog.setTenantId(DEFAULT_TENANT_ID);
         fillUserInfo(auditLog);
+        auditLog.setTraceId(TraceContextHolder.currentOrCreate());
         auditLog.setOperationType(resolveOperationType(request.getMethod()));
         auditLog.setOperationModule(resolveOperationModule(request.getRequestURI()));
         auditLog.setOperationMethod(truncate(resolveOperationMethod(request), MAX_OPERATION_METHOD_LENGTH));

@@ -26,6 +26,9 @@ public class DeviceMessageLog {
 
     private Long deviceId;
     private Long productId;
+    private String traceId;
+    private String deviceCode;
+    private String productKey;
     private String messageType;
     private String topic;
     private String payload;

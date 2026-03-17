@@ -1,5 +1,6 @@
 package com.ghlzm.iot.system.controller;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.Role;
 import com.ghlzm.iot.system.service.RoleService;
@@ -32,11 +33,19 @@ public class RoleController {
       }
 
       @GetMapping("/list")
-      public R<List<Role>> listRoles(
-                  @RequestParam(required = false) String roleName,
-                  @RequestParam(required = false) String roleCode,
-                  @RequestParam(required = false) Integer status) {
+      public R<List<Role>> listRoles(@RequestParam(required = false) String roleName,
+                                     @RequestParam(required = false) String roleCode,
+                                     @RequestParam(required = false) Integer status) {
             return R.ok(roleService.listRoles(roleName, roleCode, status));
+      }
+
+      @GetMapping("/page")
+      public R<PageResult<Role>> pageRoles(@RequestParam(required = false) String roleName,
+                                           @RequestParam(required = false) String roleCode,
+                                           @RequestParam(required = false) Integer status,
+                                           @RequestParam(defaultValue = "1") Long pageNum,
+                                           @RequestParam(defaultValue = "10") Long pageSize) {
+            return R.ok(roleService.pageRoles(roleName, roleCode, status, pageNum, pageSize));
       }
 
       @GetMapping("/{id}")

@@ -1,15 +1,21 @@
 package com.ghlzm.iot.system.controller;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.service.OrganizationService;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 组织机构 Controller
- */
 @RestController
 @RequestMapping("/api/organization")
 public class OrganizationController {
@@ -20,54 +26,42 @@ public class OrganizationController {
             this.organizationService = organizationService;
       }
 
-      /**
-       * 添加组织机构
-       */
       @PostMapping
       public R<Organization> addOrganization(@RequestBody Organization organization) {
             Organization result = organizationService.addOrganization(organization);
             return R.ok(result);
       }
 
-      /**
-       * 查询组织机构列表
-       */
       @GetMapping("/list")
       public R<List<Organization>> listOrganizations(@RequestParam(required = false) Long parentId) {
-            List<Organization> list = organizationService.listOrganizations(parentId);
-            return R.ok(list);
+            return R.ok(organizationService.listOrganizations(parentId));
       }
 
-      /**
-       * 查询组织机构树
-       */
+      @GetMapping("/page")
+      public R<PageResult<Organization>> pageOrganizations(@RequestParam(required = false) String orgName,
+                                                           @RequestParam(required = false) String orgCode,
+                                                           @RequestParam(required = false) Integer status,
+                                                           @RequestParam(defaultValue = "1") Long pageNum,
+                                                           @RequestParam(defaultValue = "10") Long pageSize) {
+            return R.ok(organizationService.pageOrganizations(orgName, orgCode, status, pageNum, pageSize));
+      }
+
       @GetMapping("/tree")
       public R<List<Organization>> listOrganizationTree() {
-            List<Organization> tree = organizationService.listOrganizationTree();
-            return R.ok(tree);
+            return R.ok(organizationService.listOrganizationTree());
       }
 
-      /**
-       * 根据ID查询组织机构
-       */
       @GetMapping("/{id}")
       public R<Organization> getById(@PathVariable Long id) {
-            Organization organization = organizationService.getById(id);
-            return R.ok(organization);
+            return R.ok(organizationService.getById(id));
       }
 
-      /**
-       * 更新组织机构
-       */
       @PutMapping
       public R<Void> updateOrganization(@RequestBody Organization organization) {
             organizationService.updateOrganization(organization);
             return R.ok();
       }
 
-      /**
-       * 删除组织机构
-       */
       @DeleteMapping("/{id}")
       public R<Void> deleteOrganization(@PathVariable Long id) {
             organizationService.deleteOrganization(id);

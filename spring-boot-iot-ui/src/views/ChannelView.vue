@@ -4,42 +4,26 @@
       <template #header>
         <div class="card-header">
           <span>通知渠道</span>
-          <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
 
-      <!-- 搜索表单 -->
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="渠道名称">
-              <el-input
-                v-model="searchForm.channelName"
-                placeholder="请输入渠道名称"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.channelName" placeholder="请输入渠道名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="渠道编码">
-              <el-input
-                v-model="searchForm.channelCode"
-                placeholder="请输入渠道编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.channelCode" placeholder="请输入渠道编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="渠道类型">
               <el-select v-model="searchForm.channelType" placeholder="请选择渠道类型" clearable>
-                <el-option label="邮箱" value="email" />
-                <el-option label="短信" value="sms" />
-                <el-option label="Webhook" value="webhook" />
-                <el-option label="微信" value="wechat" />
-                <el-option label="飞书" value="feishu" />
-                <el-option label="钉钉" value="dingtalk" />
+                <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -65,7 +49,6 @@
         </div>
       </div>
 
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
@@ -95,12 +78,7 @@
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button
-              type="success"
-              link
-              :disabled="!isTestableChannel(row.channelType)"
-              @click="handleTest(row)"
-            >
+            <el-button type="success" link :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">
               测试通知
             </el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
@@ -108,32 +86,26 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        class="pagination"
       />
 
-      <!-- 表单对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="dialogVisible"
+        eyebrow="System Form"
         :title="dialogTitle"
-        class="sys-dialog"
-        width="600px"
+        subtitle="统一通过右侧抽屉维护通知渠道与配置 JSON。"
+        size="44rem"
         @close="handleDialogClose"
       >
-        <el-form
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="100px"
-        >
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
           <el-form-item label="渠道名称" prop="channelName">
             <el-input v-model="formData.channelName" placeholder="请输入渠道名称" />
           </el-form-item>
@@ -142,23 +114,13 @@
           </el-form-item>
           <el-form-item label="渠道类型" prop="channelType">
             <el-select v-model="formData.channelType" placeholder="请选择渠道类型">
-              <el-option label="邮箱" value="email" />
-              <el-option label="短信" value="sms" />
-              <el-option label="Webhook" value="webhook" />
-              <el-option label="微信" value="wechat" />
-              <el-option label="飞书" value="feishu" />
-              <el-option label="钉钉" value="dingtalk" />
+              <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <el-form-item label="配置JSON" prop="config">
-            <el-input
-              v-model="formData.config"
-              type="textarea"
-              :rows="6"
-              :placeholder="configPlaceholder"
-            />
+          <el-form-item label="配置 JSON" prop="config">
+            <el-input v-model="formData.config" type="textarea" :rows="6" :placeholder="configPlaceholder" />
             <div class="form-tip">
-              webhook/飞书/钉钉/企业微信建议配置 `url`，系统异常自动通知需在 `scenes` 中包含 `system_error`。
+              webhook / 微信 / 飞书 / 钉钉 建议配置 `url`，系统异常自动通知需在 `scenes` 中包含 `system_error`。
             </div>
           </el-form-item>
           <el-form-item label="状态" prop="status">
@@ -171,19 +133,16 @@
             <el-input-number v-model="formData.sortNo" :min="0" :max="999" />
           </el-form-item>
           <el-form-item label="备注" prop="remark">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备注"
-            />
+            <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <template #footer>
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
+            确定
+          </el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
@@ -199,10 +158,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -211,37 +171,97 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import {
-  listChannels,
-  getChannelByCode,
+  CHANNEL_TYPES,
   addChannel,
-  updateChannel,
   deleteChannel,
-  testChannel
+  getChannelByCode,
+  pageChannels,
+  testChannel,
+  updateChannel,
+  type ChannelRecord
 } from '@/api/channel'
 
-// 表单引用
 const formRef = ref()
+const tableRef = ref()
+const loading = ref(false)
+const submitLoading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增通知渠道')
+const tableData = ref<ChannelRecord[]>([])
+const selectedRows = ref<ChannelRecord[]>([])
 
-// 搜索表单
 const searchForm = reactive({
   channelName: '',
   channelCode: '',
-  channelType: undefined
+  channelType: undefined as string | undefined
 })
 
-// 分页
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
 })
 
-// 表格数据
-const tableData = ref<any[]>([])
-const sourceTableData = ref<any[]>([])
-const tableRef = ref()
-const selectedRows = ref<any[]>([])
-const exportColumns: CsvColumn<any>[] = [
+const formData = ref<Partial<ChannelRecord>>({
+  id: undefined,
+  channelName: '',
+  channelCode: '',
+  channelType: 'email',
+  config: '',
+  status: 1,
+  sortNo: 0,
+  remark: ''
+})
+
+const TESTABLE_CHANNEL_TYPES = ['webhook', 'wechat', 'feishu', 'dingtalk']
+
+const isTestableChannel = (channelType?: string) =>
+  TESTABLE_CHANNEL_TYPES.includes(String(channelType || '').trim().toLowerCase())
+
+const validateConfig = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  const content = String(value || '').trim()
+  if (!content) {
+    if (isTestableChannel(formData.value.channelType)) {
+      callback(new Error('当前渠道类型必须填写配置 JSON'))
+      return
+    }
+    callback()
+    return
+  }
+
+  try {
+    const parsed = JSON.parse(content)
+    if (isTestableChannel(formData.value.channelType) && !String(parsed?.url || '').trim()) {
+      callback(new Error('当前渠道类型配置中必须包含 url'))
+      return
+    }
+    callback()
+  } catch {
+    callback(new Error('配置 JSON 格式不正确'))
+  }
+}
+
+const formRules = {
+  channelName: [{ required: true, message: '请输入渠道名称', trigger: 'blur' }],
+  channelCode: [{ required: true, message: '请输入渠道编码', trigger: 'blur' }],
+  channelType: [{ required: true, message: '请选择渠道类型', trigger: 'change' }],
+  config: [{ validator: validateConfig, trigger: 'blur' }]
+}
+
+const configPlaceholders: Record<string, string> = {
+  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  email: '{\n  "host": "smtp.example.com",\n  "port": 465,\n  "from": "iot-alert@example.com"\n}',
+  sms: '{\n  "provider": "demo",\n  "signName": "spring-boot-iot"\n}'
+}
+
+const configPlaceholder = computed(
+  () => configPlaceholders[String(formData.value.channelType || '').trim()] || '{\n  "url": "https://example.com/iot/webhook"\n}'
+)
+
+const exportColumns: CsvColumn<ChannelRecord>[] = [
   { key: 'channelCode', label: '渠道编码' },
   { key: 'channelName', label: '渠道名称' },
   { key: 'channelType', label: '渠道类型', formatter: (value) => getChannelTypeName(String(value || '')) },
@@ -264,127 +284,47 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
-const loading = ref(false)
-
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增通知渠道')
-const formData = ref({
-  id: undefined,
-  channelName: '',
-  channelCode: '',
-  channelType: 'email',
-  config: '',
-  status: 1,
-  sortNo: 0,
-  remark: ''
-})
-
-const TESTABLE_CHANNEL_TYPES = ['webhook', 'wechat', 'feishu', 'dingtalk']
-
-const isTestableChannel = (channelType?: string) =>
-  TESTABLE_CHANNEL_TYPES.includes(String(channelType || '').trim().toLowerCase())
-
-const validateConfig = (_rule: any, value: string, callback: (error?: Error) => void) => {
-  const content = String(value || '').trim()
-  if (!content) {
-    if (isTestableChannel(formData.value.channelType)) {
-      callback(new Error('当前渠道类型必须填写配置 JSON'))
-      return
-    }
-    callback()
-    return
-  }
-
-  try {
-    const parsed = JSON.parse(content)
-    if (isTestableChannel(formData.value.channelType) && !String(parsed?.url || '').trim()) {
-      callback(new Error('当前渠道类型配置中必须包含 url'))
-      return
-    }
-    callback()
-  } catch (_error) {
-    callback(new Error('配置 JSON 格式不正确'))
-  }
-}
-
-// 表单验证规则
-const formRules = {
-  channelName: [{ required: true, message: '请输入渠道名称', trigger: 'blur' }],
-  channelCode: [{ required: true, message: '请输入渠道编码', trigger: 'blur' }],
-  channelType: [{ required: true, message: '请选择渠道类型', trigger: 'change' }],
-  config: [{ validator: validateConfig, trigger: 'blur' }]
-}
-
-// 提交状态
-const submitLoading = ref(false)
-
-const configPlaceholders: Record<string, string> = {
-  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  email: '{\n  "host": "smtp.example.com",\n  "port": 465,\n  "from": "iot-alert@example.com"\n}',
-  sms: '{\n  "provider": "demo",\n  "signName": "spring-boot-iot"\n}'
-}
-
-const configPlaceholder = computed(
-  () => configPlaceholders[formData.value.channelType] || '{\n  "url": "https://example.com/iot/webhook"\n}'
-)
-
-// 获取通知渠道列表
-const getChannelList = async () => {
+const loadChannelPage = async () => {
   loading.value = true
   try {
-    const res = await listChannels()
-    if (res.code === 200) {
-      sourceTableData.value = res.data || []
-      tableData.value = sourceTableData.value
-      pagination.total = tableData.value.length
+    const res = await pageChannels({
+      channelName: searchForm.channelName || undefined,
+      channelCode: searchForm.channelCode || undefined,
+      channelType: searchForm.channelType || undefined,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取通知渠道列表失败', error)
+    console.error('获取通知渠道分页失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始化
 onMounted(() => {
-  getChannelList()
+  loadChannelPage()
 })
 
-const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
-
-const applyChannelFilters = () => {
-  const nameKeyword = normalizeKeyword(searchForm.channelName)
-  const codeKeyword = normalizeKeyword(searchForm.channelCode)
-
-  tableData.value = sourceTableData.value.filter((item: any) => {
-    const nameMatched = !nameKeyword || String(item.channelName || '').toLowerCase().includes(nameKeyword)
-    const codeMatched = !codeKeyword || String(item.channelCode || '').toLowerCase().includes(codeKeyword)
-    const typeMatched = !searchForm.channelType || item.channelType === searchForm.channelType
-    return nameMatched && codeMatched && typeMatched
-  })
-  pagination.total = tableData.value.length
-}
-
-// 处理搜索
 const handleSearch = () => {
-  applyChannelFilters()
+  pagination.pageNum = 1
+  clearSelection()
+  loadChannelPage()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.channelName = ''
   searchForm.channelCode = ''
   searchForm.channelType = undefined
-  tableData.value = sourceTableData.value
-  pagination.total = tableData.value.length
+  pagination.pageNum = 1
+  clearSelection()
+  loadChannelPage()
 }
 
-const handleSelectionChange = (rows: any[]) => {
+const handleSelectionChange = (rows: ChannelRecord[]) => {
   selectedRows.value = rows
 }
 
@@ -395,7 +335,7 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection()
-  getChannelList()
+  loadChannelPage()
 }
 
 const openExportColumnSetting = () => {
@@ -417,123 +357,99 @@ const handleExportCurrent = () => {
   downloadRowsAsCsv('通知渠道-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
-// 新增
+const resetFormData = (channel?: Partial<ChannelRecord>) => {
+  formData.value = {
+    id: channel?.id,
+    channelName: channel?.channelName || '',
+    channelCode: channel?.channelCode || '',
+    channelType: channel?.channelType || 'email',
+    config: channel?.config || '',
+    status: channel?.status ?? 1,
+    sortNo: channel?.sortNo ?? 0,
+    remark: channel?.remark || ''
+  }
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增通知渠道'
-  formData.value = {
-    id: undefined,
-    channelName: '',
-    channelCode: '',
-    channelType: 'email',
-    config: '',
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData()
   dialogVisible.value = true
 }
 
-// 编辑
-const handleEdit = (row: any) => {
+const handleEdit = async (row: ChannelRecord) => {
   dialogTitle.value = '编辑通知渠道'
-  getChannelByCode(row.channelCode).then((res) => {
-    if (res.code === 200) {
-      formData.value = res.data
-      dialogVisible.value = true
-    }
-  })
+  const res = await getChannelByCode(row.channelCode)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+    dialogVisible.value = true
+  }
 }
 
-// 删除
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定要删除该通知渠道吗？', '警告', {
-    type: 'warning'
-  })
+const handleDelete = (row: ChannelRecord) => {
+  ElMessageBox.confirm(`确定要删除渠道“${row.channelName}”吗？`, '警告', { type: 'warning' })
     .then(async () => {
-      try {
-        const res = await deleteChannel(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getChannelList()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+      await deleteChannel(row.id)
+      ElMessage.success('删除成功')
+      loadChannelPage()
     })
     .catch(() => {})
 }
 
-const handleTest = async (row: any) => {
+const handleTest = async (row: ChannelRecord) => {
   if (!isTestableChannel(row.channelType)) {
-    ElMessage.warning('测试通知仅支持 Webhook / 企业微信 / 飞书 / 钉钉渠道')
+    ElMessage.warning('测试通知仅支持 Webhook / 微信 / 飞书 / 钉钉渠道')
     return
   }
   try {
-    const res = await testChannel(row.channelCode)
-    if (res.code === 200) {
-      ElMessage.success('测试通知已发送')
-    }
+    await testChannel(row.channelCode)
+    ElMessage.success('测试通知已发送')
   } catch (error) {
     console.error('测试通知失败', error)
   }
 }
 
-// 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate().catch(() => false)
+  const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) {
     return
   }
 
   submitLoading.value = true
   try {
-    let res: any
     if (formData.value.id) {
-      res = await updateChannel(formData.value)
+      await updateChannel(formData.value)
+      ElMessage.success('更新成功')
     } else {
-      res = await addChannel(formData.value)
+      await addChannel(formData.value)
+      ElMessage.success('新增成功')
     }
-    if (res.code === 200) {
-      ElMessage.success(formData.value.id ? '更新成功' : '新增成功')
-      dialogVisible.value = false
-      getChannelList()
-    }
+    dialogVisible.value = false
+    loadChannelPage()
   } catch (error) {
-    console.error('提交失败', error)
+    console.error('提交通知渠道失败', error)
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 获取渠道类型名称
 const getChannelTypeName = (type: string) => {
-  const map: Record<string, string> = {
-    email: '邮箱',
-    sms: '短信',
-    webhook: 'Webhook',
-    wechat: '微信',
-    feishu: '飞书',
-    dingtalk: '钉钉'
-  }
-  return map[type] || type
+  const matched = CHANNEL_TYPES.find((item) => item.value === type)
+  return matched?.label || type
 }
 
-// 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  getChannelList()
+  pagination.pageNum = 1
+  loadChannelPage()
 }
 
-// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
-  getChannelList()
+  loadChannelPage()
 }
 </script>
 

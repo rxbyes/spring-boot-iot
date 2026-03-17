@@ -1,14 +1,14 @@
 package com.ghlzm.iot.device.service;
 
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 
 import java.util.List;
 
 /**
- * Author rxbyes
- * Since 2.0
- * Date 2026/3/13 - 14:32
+ * 设备消息服务。
  */
 public interface DeviceMessageService {
 
@@ -18,8 +18,12 @@ public interface DeviceMessageService {
     List<DeviceMessageLog> listMessageLogs(String deviceCode);
 
     /**
+     * 按条件分页查询消息追踪日志。
+     */
+    PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize);
+
+    /**
      * 处理设备上行消息。
-     * 当前方法保留给后续上报链路使用，本轮不扩展逻辑。
      */
     void handleUpMessage(DeviceUpMessage upMessage);
 }

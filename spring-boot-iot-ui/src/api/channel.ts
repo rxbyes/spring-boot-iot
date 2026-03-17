@@ -1,5 +1,5 @@
-﻿import { request } from './request'
-import type { ApiEnvelope, IdType } from '../types/api'
+import { request } from './request'
+import type { ApiEnvelope, IdType, PageResult } from '../types/api'
 
 export const CHANNEL_TYPES = [
   { value: 'email', label: '邮件' },
@@ -16,14 +16,43 @@ export interface ChannelRecord {
   channelName: string
   channelType: string
   status: number
+  sortNo?: number
+  remark?: string
   isDefault?: number
   config?: string
   createTime?: string
   updateTime?: string
 }
 
-export function listChannels(): Promise<ApiEnvelope<ChannelRecord[]>> {
-  return request<ChannelRecord[]>('/api/system/channel/list', { method: 'GET' })
+export interface ChannelQueryParams {
+  channelName?: string
+  channelCode?: string
+  channelType?: string
+}
+
+export interface ChannelPageQueryParams extends ChannelQueryParams {
+  pageNum?: number
+  pageSize?: number
+}
+
+function buildQuery(params: Record<string, unknown>) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.append(key, String(value))
+    }
+  })
+  return query.toString()
+}
+
+export function listChannels(params: ChannelQueryParams = {}): Promise<ApiEnvelope<ChannelRecord[]>> {
+  const query = buildQuery(params)
+  return request<ChannelRecord[]>(`/api/system/channel/list${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
+export function pageChannels(params: ChannelPageQueryParams = {}): Promise<ApiEnvelope<PageResult<ChannelRecord>>> {
+  const query = buildQuery(params)
+  return request<PageResult<ChannelRecord>>(`/api/system/channel/page${query ? `?${query}` : ''}`, { method: 'GET' })
 }
 
 export function getChannelByCode(channelCode: string): Promise<ApiEnvelope<ChannelRecord>> {

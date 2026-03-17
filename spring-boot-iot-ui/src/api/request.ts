@@ -1,5 +1,5 @@
 ﻿import { runtimeState } from '../stores/runtime';
-import type { ApiEnvelope, IdType } from '../types/api';
+import type { ApiEnvelope } from '../types/api';
 
 export interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   body?: BodyInit | Record<string, unknown> | unknown | null;
@@ -21,10 +21,35 @@ export interface RequestError extends Error {
   handled?: boolean;
 }
 
+const UNSAFE_ID_JSON_FIELD_PATTERN =
+  /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
+
 export function createRequestError(message: string, handled = false): RequestError {
   const error = new Error(message) as RequestError;
   error.handled = handled;
   return error;
+}
+
+export function normalizeUnsafeIdJson(bodyText: string): string {
+  // 真实环境历史响应仍可能把雪花 Long 主键直接返回为 number，这里在 JSON.parse 前兜底转成字符串。
+  return bodyText.replace(
+    UNSAFE_ID_JSON_FIELD_PATTERN,
+    (_match, prefix: string, whitespace: string, fieldName: string, value: string) => {
+      return `${prefix}${whitespace}"${fieldName}":"${value}"`;
+    }
+  );
+}
+
+export function parseApiEnvelope<T>(bodyText: string): ApiEnvelope<T> | null {
+  if (!bodyText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(normalizeUnsafeIdJson(bodyText)) as ApiEnvelope<T>;
+  } catch {
+    return null;
+  }
 }
 
 class InterceptorManager {
@@ -105,15 +130,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const response = await fetch(url, finalOptions as RequestInit);
     const rawText = await response.text();
     const bodyText = rawText.trim();
-    let payload: ApiEnvelope<T> | null = null;
-
-    if (bodyText) {
-      try {
-        payload = JSON.parse(bodyText) as ApiEnvelope<T>;
-      } catch {
-        payload = null;
-      }
-    }
+    const payload = parseApiEnvelope<T>(bodyText);
 
     if (!response.ok) {
       const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);

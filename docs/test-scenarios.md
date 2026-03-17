@@ -69,6 +69,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 若本轮需要验证“系统异常自动通知”，额外设置 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`，并准备可接收请求的 webhook 渠道地址
 - 前端代理默认指向 `http://127.0.0.1:9999`（可通过 `VITE_PROXY_TARGET` 覆盖）
 - 若通过局域网地址访问 Vite 开发服务（如 `http://172.21.16.1:5174`），当前 `dev` 配置已默认放行 `10.*`、`172.*`、`192.168.*` 来源，登录接口不应再出现 `Invalid CORS request`
+- 用户管理、角色管理、菜单管理页的操作按钮按 `authContext.permissions` 显示；若角色未授权对应 `system:*:*` 按钮权限，则仅保留页面级只读访问；菜单页“前往角色授权”入口需额外校验 `system:role:update`
 
 ## 4. HTTP 主链路真实环境验收
 ### 步骤 1：创建产品
@@ -234,7 +235,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 - 联动规则
 - 应急预案
 - 分析报表（当前以接口连通和页面可访问为主）
-- 组织、用户、角色、区域、字典、通知渠道、审计日志
+- 组织、用户、角色、区域、字典、通知渠道、业务日志
 - 风险监测实时监测、GIS 风险态势（代码已完成；2026-03-16 已确认共享开发库仍需先执行 `20260316_phase4_task3_risk_monitoring_schema_sync.sql`，完成后再进行真实环境复验）
 
 ### 8.1 系统异常自动通知验证（2026-03-17）
@@ -248,7 +249,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 1. 先调用 `POST /api/system/channel/test/{channelCode}`，确认渠道测试消息可以成功送达。
 2. 使用 MQTTX 向不存在设备的 topic 发送消息，例如 `/sys/demo-product/demo-device-02/thing/property/post`。
 3. 观察应用日志中是否出现 `设备不存在: demo-device-02` 一类后台异常。
-4. 查询 `/audit-log` 页面或 `sys_audit_log` 表，确认新增 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 的审计记录。
+4. 查询 `/system-log` 页面或 `sys_audit_log` 表，确认新增 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 的审计记录。
 5. 检查 webhook 接收端或群机器人，确认收到系统异常通知消息。
 
 通过标准：
@@ -267,7 +268,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 
 ## 10. 环境不可用时的处理原则
 - 先确认是网络、数据库、Redis、MQTT 哪一层阻塞
-- 若是 MQTT 链路异常或消息未落库，补查 `/audit-log` 页面或 `sys_audit_log` 表中的 `operation_type=system_error` 记录，优先定位 topic、设备编码、协议或 Broker 连接问题
+- 若是 MQTT 链路异常或消息未落库，补查 `/system-log` 页面或 `sys_audit_log` 表中的 `operation_type=system_error` 记录，优先定位 topic、设备编码、协议或 Broker 连接问题
 - 记录具体报错、时间、影响范围
 - 可继续执行 `mvn -s .mvn/settings.xml clean package -DskipTests`、`mvn -s .mvn/settings.xml test` 作为代码回归检查
 - 不允许回退到旧 H2 验收配置、H2 内存库、旧前端自动化链路或历史验收用例来宣布“验收通过”
@@ -394,6 +395,7 @@ npm run acceptance:browser:plan
 当前脚本能力：
 - 按 `delivery`、`baseline` 两类场景分组执行现有功能浏览器巡检。
 - 在脚本内部预留未来功能巡检清单，便于后续开发完成后直接纳管。
+- 支持 `--plan=...` 加载配置驱动 JSON 计划，将浏览器巡检能力扩展到任意带 Web 界面的业务系统。
 - 统一输出 `logs/acceptance/business-browser-summary-<timestamp>.json`
 - 统一输出 `logs/acceptance/business-browser-results-<timestamp>.json`
 - 统一输出 `logs/acceptance/business-browser-report-<timestamp>.md`
@@ -403,3 +405,28 @@ npm run acceptance:browser:plan
 - 正式执行 `npm run acceptance:browser` 后，脚本会默认把本轮失败问题追加到 `docs/22-automation-test-issues-20260316.md`
 - 如仅需生成结果文件、不追加问题文档，可执行：`node scripts/auto/run-browser-acceptance.mjs --no-append-issues`
 - 默认仅 `delivery` 场景失败会返回非零退出码；如需扩大阻断范围，可使用 `--fail-scopes=delivery,baseline`
+
+### 13.1 配置驱动自动化测试中心
+
+前端入口：
+- 路由：`/automation-test`
+- 页面：`spring-boot-iot-ui/src/views/AutomationTestCenterView.vue`
+
+能力说明：
+- 通过前端维护目标系统地址、登录信息、场景模板、页面步骤、接口 matcher、变量捕获与页面断言。
+- 支持导出标准 JSON 计划，供 `scripts/auto/run-browser-acceptance.mjs --plan=...` 直接执行。
+- 适合把当前 IoT 平台页面巡检、外部业务系统页面验证与后续扩面场景统一纳入一套执行骨架。
+
+示例计划：
+- `config/automation/sample-web-smoke-plan.json`
+
+示例命令：
+```bash
+node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web-smoke-plan.json --dry-run
+node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web-smoke-plan.json
+```
+
+建议实践：
+1. 先在自动化测试中心整理“业务点梳理”，再细化到步骤层，避免直接写低层选择器导致后续难维护。
+2. 对关键页面至少补齐 `readySelector + triggerApi + assertText/assertUrlIncludes` 三类证据。
+3. 动态菜单环境下，新增路由授权后需重新登录，确保 `authContext.menus` 刷新后再执行浏览器巡检。

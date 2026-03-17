@@ -203,7 +203,12 @@ function countByScope(scenarioResults, scope) {
   };
 }
 
-function buildMarkdownReport(summary, scenarioResults, plannedScenarios) {
+function collectScopeSummary(scenarioResults) {
+  const scopes = Array.from(new Set(scenarioResults.map((item) => item.scope).filter(Boolean)));
+  return Object.fromEntries(scopes.map((scope) => [scope, countByScope(scenarioResults, scope)]));
+}
+
+function buildMarkdownReport(summary, scenarioResults, plannedScenarios, extraSections = []) {
   const lines = [
     '# Business Browser Acceptance Report',
     '',
@@ -220,8 +225,6 @@ function buildMarkdownReport(summary, scenarioResults, plannedScenarios) {
     `- Total scenarios: \`${summary.counts.total}\``,
     `- Passed: \`${summary.counts.passed}\``,
     `- Failed: \`${summary.counts.failed}\``,
-    `- Delivery scope passed/failed: \`${summary.delivery.passed}\` / \`${summary.delivery.failed}\``,
-    `- Baseline scope passed/failed: \`${summary.baseline.passed}\` / \`${summary.baseline.failed}\``,
     `- Planned future scenarios: \`${summary.planned.total}\``,
     '',
     '## Scenarios',
@@ -242,6 +245,17 @@ function buildMarkdownReport(summary, scenarioResults, plannedScenarios) {
     for (const scenario of plannedScenarios) {
       lines.push(`| ${scenario.key} | \`${scenario.route}\` | ${scenario.activation} |`);
     }
+  }
+
+  const scopeEntries = Object.entries(summary.scopes || {});
+  if (scopeEntries.length > 0) {
+    lines.splice(13, 0, ...scopeEntries.map(
+      ([scope, counts]) => `- Scope \`${scope}\` passed/failed: \`${counts.passed}\` / \`${counts.failed}\``
+    ));
+  }
+
+  if (extraSections.length > 0) {
+    lines.push('', ...extraSections);
   }
 
   lines.push(
@@ -273,6 +287,7 @@ function buildSummary(runtimeOptions, artifacts, preflightResult, scenarioResult
       passed: scenarioResults.filter((item) => item.status === 'passed').length,
       failed: scenarioResults.filter((item) => item.status === 'failed').length
     },
+    scopes: collectScopeSummary(scenarioResults),
     delivery: countByScope(scenarioResults, 'delivery'),
     baseline: countByScope(scenarioResults, 'baseline'),
     planned: {
@@ -963,23 +978,39 @@ export async function runBrowserAcceptance({
       plannedScenarios,
       unhandledAsyncErrors
     );
+    const enhancement = typeof options.enhanceResult === 'function'
+      ? await options.enhanceResult({
+          summary,
+          scenarioResults,
+          plannedScenarios,
+          options: runtimeOptions,
+          artifacts
+        })
+      : null;
+    const finalSummary = enhancement?.summaryExtras
+      ? {
+          ...summary,
+          ...enhancement.summaryExtras
+        }
+      : summary;
 
     await writeFile(
       artifacts.absolute.detailPath,
       JSON.stringify(
         {
           preflight: preflightResult,
-          scenarios: scenarioResults
+          scenarios: scenarioResults,
+          ...(enhancement?.detailExtras || {})
         },
         null,
         2
       ),
       'utf8'
     );
-    await writeFile(artifacts.absolute.summaryPath, JSON.stringify(summary, null, 2), 'utf8');
+    await writeFile(artifacts.absolute.summaryPath, JSON.stringify(finalSummary, null, 2), 'utf8');
     await writeFile(
       artifacts.absolute.reportPath,
-      buildMarkdownReport(summary, scenarioResults, plannedScenarios),
+      buildMarkdownReport(finalSummary, scenarioResults, plannedScenarios, enhancement?.reportSections || []),
       'utf8'
     );
 
@@ -991,7 +1022,7 @@ export async function runBrowserAcceptance({
       dryRun: false,
       options: runtimeOptions,
       artifacts,
-      summary,
+      summary: finalSummary,
       scenarioResults,
       plannedScenarios,
       exitCode: hasBlockingFailures ? 1 : 0

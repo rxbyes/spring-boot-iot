@@ -24,6 +24,7 @@ public class DeviceUpMessage {
     private String productKey;
     private String deviceCode;
     private String protocolCode;
+    private String traceId;
 
     /**
      * 例如 property / event / reply。

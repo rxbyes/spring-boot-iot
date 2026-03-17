@@ -1,94 +1,78 @@
 <template>
-  <el-drawer
+  <StandardDetailDrawer
     :model-value="modelValue"
-    size="48rem"
-    direction="rtl"
-    destroy-on-close
-    @close="emit('update:modelValue', false)"
+    eyebrow="Risk Monitoring Detail"
+    :title="detail?.riskPointName || detail?.deviceName || '监测详情'"
+    :subtitle="detail?.deviceCode ? `设备编码：${detail.deviceCode}` : '查看风险监测对象当前态势'"
+    :tags="drawerTags"
+    :loading="loading"
+    loading-text="正在加载监测详情..."
+    :error-message="errorMessage"
+    :empty="!detail"
+    empty-text="暂无监测详情"
+    @update:modelValue="emit('update:modelValue', $event)"
   >
-    <template #header>
-      <div class="drawer-header">
-        <div>
-          <p class="drawer-eyebrow">Risk Monitoring Detail</p>
-          <h2>{{ detail?.riskPointName || detail?.deviceName || '监测详情' }}</h2>
-        </div>
-        <div class="drawer-statuses" v-if="detail">
-          <el-tag :type="riskLevelTagType(detail.riskLevel)">{{ riskLevelText(detail.riskLevel) }}</el-tag>
-          <el-tag :type="monitorStatusTagType(detail.monitorStatus)">{{ monitorStatusText(detail.monitorStatus) }}</el-tag>
-          <el-tag :type="detail.onlineStatus === 1 ? 'success' : 'info'">
-            {{ detail.onlineStatus === 1 ? '在线' : '离线' }}
-          </el-tag>
-        </div>
+    <section class="detail-panel">
+      <h3>当前监测信息</h3>
+      <div class="detail-grid">
+        <div class="detail-field"><span class="detail-field__label">设备编码</span><strong class="detail-field__value">{{ detail?.deviceCode || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">设备名称</span><strong class="detail-field__value">{{ detail?.deviceName || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">产品名称</span><strong class="detail-field__value">{{ detail?.productName || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">区域</span><strong class="detail-field__value">{{ detail?.regionName || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">风险点</span><strong class="detail-field__value">{{ detail?.riskPointName || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">测点</span><strong class="detail-field__value">{{ detail?.metricName || detail?.metricIdentifier || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">当前值</span><strong class="detail-field__value">{{ formatCurrentValue(detail?.currentValue, detail?.unit) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">最新上报</span><strong class="detail-field__value">{{ formatDateTime(detail?.latestReportTime) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">活跃告警</span><strong class="detail-field__value">{{ detail?.activeAlarmCount ?? 0 }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">近期事件</span><strong class="detail-field__value">{{ detail?.recentEventCount ?? 0 }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">经纬度</span><strong class="detail-field__value">{{ formatCoordinate(detail?.longitude, detail?.latitude) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">位置描述</span><strong class="detail-field__value">{{ detail?.address || '--' }}</strong></div>
       </div>
-    </template>
+    </section>
 
-    <div class="drawer-body">
-      <div v-if="loading" class="drawer-state">正在加载监测详情...</div>
-      <div v-else-if="errorMessage" class="drawer-state drawer-state--error">{{ errorMessage }}</div>
-      <div v-else-if="!detail" class="drawer-state">暂无详情数据</div>
-      <template v-else>
-        <section class="panel">
-          <h3>当前监测信息</h3>
-          <div class="snapshot-grid">
-            <div class="snapshot-item"><span>设备编码</span><strong>{{ detail.deviceCode || '--' }}</strong></div>
-            <div class="snapshot-item"><span>设备名称</span><strong>{{ detail.deviceName || '--' }}</strong></div>
-            <div class="snapshot-item"><span>产品名称</span><strong>{{ detail.productName || '--' }}</strong></div>
-            <div class="snapshot-item"><span>区域</span><strong>{{ detail.regionName || '--' }}</strong></div>
-            <div class="snapshot-item"><span>风险点</span><strong>{{ detail.riskPointName || '--' }}</strong></div>
-            <div class="snapshot-item"><span>测点</span><strong>{{ detail.metricName || detail.metricIdentifier || '--' }}</strong></div>
-            <div class="snapshot-item"><span>当前值</span><strong>{{ formatCurrentValue(detail.currentValue, detail.unit) }}</strong></div>
-            <div class="snapshot-item"><span>最新上报</span><strong>{{ formatDateTime(detail.latestReportTime) }}</strong></div>
-            <div class="snapshot-item"><span>活跃告警</span><strong>{{ detail.activeAlarmCount ?? 0 }}</strong></div>
-            <div class="snapshot-item"><span>近期事件</span><strong>{{ detail.recentEventCount ?? 0 }}</strong></div>
-            <div class="snapshot-item"><span>经纬度</span><strong>{{ formatCoordinate(detail.longitude, detail.latitude) }}</strong></div>
-            <div class="snapshot-item"><span>位置描述</span><strong>{{ detail.address || '--' }}</strong></div>
+    <section class="detail-panel">
+      <h3>最近告警</h3>
+      <div v-if="recentAlarms.length" class="detail-card-list">
+        <article v-for="alarm in recentAlarms" :key="alarm.id" class="detail-card">
+          <div class="detail-card__header">
+            <strong>{{ alarm.alarmTitle || alarm.alarmCode || `告警 ${alarm.id}` }}</strong>
+            <el-tag :type="riskLevelTagType(alarm.alarmLevel)" round>{{ riskLevelText(alarm.alarmLevel) }}</el-tag>
           </div>
-        </section>
+          <div class="detail-card__meta">
+            <span>当前值 {{ alarm.currentValue || '--' }}</span>
+            <span>阈值 {{ alarm.thresholdValue || '--' }}</span>
+            <span>{{ formatDateTime(alarm.triggerTime) }}</span>
+          </div>
+        </article>
+      </div>
+      <div v-else class="detail-empty">暂无最近告警</div>
+    </section>
 
-        <section class="panel">
-          <h3>最近告警</h3>
-          <div v-if="recentAlarms.length" class="summary-list">
-            <article v-for="alarm in recentAlarms" :key="alarm.id" class="summary-card">
-              <div class="summary-card__header">
-                <strong>{{ alarm.alarmTitle || alarm.alarmCode || `告警 ${alarm.id}` }}</strong>
-                <el-tag :type="riskLevelTagType(alarm.alarmLevel)">{{ riskLevelText(alarm.alarmLevel) }}</el-tag>
-              </div>
-              <div class="summary-card__meta">
-                <span>当前值 {{ alarm.currentValue || '--' }}</span>
-                <span>阈值 {{ alarm.thresholdValue || '--' }}</span>
-                <span>{{ formatDateTime(alarm.triggerTime) }}</span>
-              </div>
-            </article>
+    <section class="detail-panel">
+      <h3>最近事件</h3>
+      <div v-if="recentEvents.length" class="detail-card-list">
+        <article v-for="event in recentEvents" :key="event.id" class="detail-card">
+          <div class="detail-card__header">
+            <strong>{{ event.eventTitle || event.eventCode || `事件 ${event.id}` }}</strong>
+            <el-tag :type="riskLevelTagType(event.riskLevel)" round>{{ riskLevelText(event.riskLevel) }}</el-tag>
           </div>
-          <div v-else class="empty-block">暂无最近告警</div>
-        </section>
-
-        <section class="panel">
-          <h3>最近事件</h3>
-          <div v-if="recentEvents.length" class="summary-list">
-            <article v-for="event in recentEvents" :key="event.id" class="summary-card">
-              <div class="summary-card__header">
-                <strong>{{ event.eventTitle || event.eventCode || `事件 ${event.id}` }}</strong>
-                <el-tag :type="riskLevelTagType(event.riskLevel)">{{ riskLevelText(event.riskLevel) }}</el-tag>
-              </div>
-              <div class="summary-card__meta">
-                <span>当前值 {{ event.currentValue || '--' }}</span>
-                <span>状态 {{ eventStatusText(event.status) }}</span>
-                <span>{{ formatDateTime(event.triggerTime) }}</span>
-              </div>
-            </article>
+          <div class="detail-card__meta">
+            <span>当前值 {{ event.currentValue || '--' }}</span>
+            <span>状态 {{ eventStatusText(event.status) }}</span>
+            <span>{{ formatDateTime(event.triggerTime) }}</span>
           </div>
-          <div v-else class="empty-block">暂无最近事件</div>
-        </section>
-      </template>
-    </div>
-  </el-drawer>
+        </article>
+      </div>
+      <div v-else class="detail-empty">暂无最近事件</div>
+    </section>
+  </StandardDetailDrawer>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import {
   getRiskMonitoringDetail,
   type RiskMonitoringAlarmSummary,
@@ -112,6 +96,16 @@ const detail = ref<RiskMonitoringDetail | null>(null);
 
 const recentAlarms = computed<RiskMonitoringAlarmSummary[]>(() => detail.value?.recentAlarms ?? []);
 const recentEvents = computed<RiskMonitoringEventSummary[]>(() => detail.value?.recentEvents ?? []);
+const drawerTags = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+  return [
+    { label: riskLevelText(detail.value.riskLevel), type: riskLevelTagType(detail.value.riskLevel) },
+    { label: monitorStatusText(detail.value.monitorStatus), type: monitorStatusTagType(detail.value.monitorStatus) },
+    { label: detail.value.onlineStatus === 1 ? '在线' : '离线', type: detail.value.onlineStatus === 1 ? 'success' : 'info' as const }
+  ];
+});
 
 watch(
   () => [props.modelValue, props.bindingId] as const,
@@ -223,95 +217,3 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
   return `${longitude.toFixed(6)}, ${latitude.toFixed(6)}`;
 }
 </script>
-
-<style scoped>
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-}
-
-.drawer-eyebrow {
-  margin: 0;
-  color: #6b7a92;
-  font-size: 12px;
-}
-
-.drawer-header h2 {
-  margin: 0.25rem 0 0;
-  font-size: 1.2rem;
-}
-
-.drawer-statuses {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.drawer-body {
-  display: grid;
-  gap: 1rem;
-}
-
-.panel {
-  border: 1px solid #e8edf5;
-  border-radius: 10px;
-  padding: 0.9rem;
-}
-
-.panel h3 {
-  margin: 0 0 0.8rem;
-}
-
-.snapshot-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.snapshot-item span {
-  display: block;
-  color: #6b7a92;
-  font-size: 12px;
-}
-
-.snapshot-item strong {
-  display: block;
-  margin-top: 0.15rem;
-}
-
-.summary-list {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.summary-card {
-  border: 1px solid #edf1f7;
-  border-radius: 8px;
-  padding: 0.7rem;
-}
-
-.summary-card__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.summary-card__meta {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  color: #5f6f88;
-  font-size: 12px;
-}
-
-.drawer-state,
-.empty-block {
-  color: #6b7a92;
-}
-
-.drawer-state--error {
-  color: #d94848;
-}
-</style>

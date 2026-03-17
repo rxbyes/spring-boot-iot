@@ -4,41 +4,25 @@
       <template #header>
         <div class="card-header">
           <span>用户管理</span>
-          <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+          <el-button v-permission="'system:user:add'" type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
 
-      <!-- 搜索表单 -->
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="用户名">
-              <el-input
-                v-model="searchForm.username"
-                placeholder="请输入用户名"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="手机号">
-              <el-input
-                v-model="searchForm.phone"
-                placeholder="请输入手机号"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.phone" placeholder="请输入手机号" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="邮箱">
-              <el-input
-                v-model="searchForm.email"
-                placeholder="请输入邮箱"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.email" placeholder="请输入邮箱" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -63,11 +47,10 @@
         </div>
       </div>
 
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
-        :data="pagedTableData"
+        :data="tableData"
         border
         stripe
         style="width: 100%"
@@ -86,43 +69,37 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastLoginTime" label="最后登录时间" width="180" />
-        <el-table-column prop="lastLoginIp" label="最后登录IP" width="150" />
+        <el-table-column prop="lastLoginIp" label="最后登录 IP" width="150" />
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleResetPassword(row)">重置密码</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'system:user:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'system:user:reset-password'" type="primary" link @click="handleResetPassword(row)">重置密码</el-button>
+            <el-button v-permission="'system:user:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        class="pagination"
       />
 
-      <!-- 表单对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="dialogVisible"
+        eyebrow="System Form"
         :title="dialogTitle"
-        class="sys-dialog"
-        width="600px"
+        subtitle="统一通过右侧抽屉维护用户基础信息。"
+        size="42rem"
         @close="handleDialogClose"
       >
-        <el-form
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="100px"
-        >
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
           <el-form-item label="用户名" prop="username">
             <el-input v-model="formData.username" placeholder="请输入用户名" />
           </el-form-item>
@@ -135,12 +112,8 @@
           <el-form-item label="邮箱" prop="email">
             <el-input v-model="formData.email" placeholder="请输入邮箱" />
           </el-form-item>
-          <el-form-item label="密码" prop="password" v-if="!formData.id">
-            <el-input
-              v-model="formData.password"
-              type="password"
-              placeholder="请输入密码"
-            />
+          <el-form-item v-if="!formData.id" label="密码" prop="password">
+            <el-input v-model="formData.password" type="password" placeholder="请输入密码" show-password />
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
@@ -151,9 +124,17 @@
         </el-form>
         <template #footer>
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button
+            v-permission="formData.id ? 'system:user:update' : 'system:user:add'"
+            type="primary"
+            class="sys-dialog__btn sys-dialog__btn--primary"
+            :loading="submitLoading"
+            @click="handleSubmit"
+          >
+            确定
+          </el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
@@ -169,10 +150,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -180,45 +163,55 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
-import {
-  listUsers,
-  getUser,
-  addUser,
-  updateUser,
-  deleteUser,
-  resetPassword
-} from '@/api/user'
+import { addUser, deleteUser, getUser, pageUsers, resetPassword, updateUser, type User } from '@/api/user'
 
-// 表单引用
 const formRef = ref()
+const tableRef = ref()
+const loading = ref(false)
+const submitLoading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增用户')
+const tableData = ref<User[]>([])
+const selectedRows = ref<User[]>([])
 
-// 搜索表单
 const searchForm = reactive({
   username: '',
   phone: '',
-  email: '',
-  status: undefined
+  email: ''
 })
 
-// 分页
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
 })
 
-// 表格数据
-const tableData = ref<any[]>([])
-const tableRef = ref()
-const selectedRows = ref<any[]>([])
-const exportColumns: CsvColumn<any>[] = [
+const formData = ref<Partial<User>>({
+  id: undefined,
+  username: '',
+  realName: '',
+  phone: '',
+  email: '',
+  password: '',
+  status: 1
+})
+
+const formRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
+
+const exportColumns: CsvColumn<User>[] = [
   { key: 'username', label: '用户名' },
   { key: 'realName', label: '真实姓名' },
   { key: 'phone', label: '手机号' },
   { key: 'email', label: '邮箱' },
   { key: 'status', label: '状态', formatter: (value) => (Number(value) === 1 ? '启用' : '禁用') },
   { key: 'lastLoginTime', label: '最后登录时间' },
-  { key: 'lastLoginIp', label: '最后登录IP' },
+  { key: 'lastLoginIp', label: '最后登录 IP' },
   { key: 'createTime', label: '创建时间' }
 ]
 const exportColumnStorageKey = 'user-view'
@@ -236,91 +229,47 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
-const loading = ref(false)
-
-const pagedTableData = computed(() => {
-  const start = (pagination.pageNum - 1) * pagination.pageSize
-  const end = start + pagination.pageSize
-  return tableData.value.slice(start, end)
-})
-
-const normalizePageNum = () => {
-  const maxPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
-  if (pagination.pageNum > maxPage) {
-    pagination.pageNum = maxPage
-  }
-}
-
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增用户')
-const formData = ref({
-  id: undefined,
-  username: '',
-  realName: '',
-  phone: '',
-  email: '',
-  password: '',
-  status: 1
-})
-
-// 表单验证规则
-const formRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-}
-
-// 提交状态
-const submitLoading = ref(false)
-
-// 获取用户列表
-const getUsers = async () => {
+const loadUserPage = async () => {
   loading.value = true
   try {
-    const res = await listUsers({
+    const res = await pageUsers({
       username: searchForm.username || undefined,
       phone: searchForm.phone || undefined,
       email: searchForm.email || undefined,
-      status: searchForm.status || undefined
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
     })
-    if (res.code === 200) {
-      tableData.value = res.data || []
-      pagination.total = res.data?.length || 0
-      normalizePageNum()
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取用户列表失败', error)
+    console.error('获取用户分页失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始化
 onMounted(() => {
-  getUsers()
+  loadUserPage()
 })
 
-// 处理搜索
 const handleSearch = () => {
   pagination.pageNum = 1
-  getUsers()
+  clearSelection()
+  loadUserPage()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.username = ''
   searchForm.phone = ''
   searchForm.email = ''
-  searchForm.status = undefined
   pagination.pageNum = 1
-  getUsers()
+  clearSelection()
+  loadUserPage()
 }
 
-const handleSelectionChange = (rows: any[]) => {
+const handleSelectionChange = (rows: User[]) => {
   selectedRows.value = rows
 }
 
@@ -331,7 +280,7 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection()
-  getUsers()
+  loadUserPage()
 }
 
 const openExportColumnSetting = () => {
@@ -350,114 +299,97 @@ const handleExportSelected = () => {
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('用户管理-当前结果.csv', pagedTableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv('用户管理-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
-// 新增
+const resetFormData = (parent?: Partial<User>) => {
+  formData.value = {
+    id: parent?.id,
+    username: parent?.username || '',
+    realName: parent?.realName || '',
+    phone: parent?.phone || '',
+    email: parent?.email || '',
+    password: '',
+    status: parent?.status ?? 1,
+    roleIds: parent?.roleIds
+  }
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增用户'
-  formData.value = {
-    id: undefined,
-    username: '',
-    realName: '',
-    phone: '',
-    email: '',
-    password: '',
-    status: 1
-  }
+  resetFormData()
   dialogVisible.value = true
 }
 
-// 编辑
-const handleEdit = (row: any) => {
+const handleEdit = async (row: User) => {
   dialogTitle.value = '编辑用户'
-  getUser(row.id).then((res) => {
-    if (res.code === 200) {
-      formData.value = res.data
-      delete formData.value.password // 编辑时不需要密码
-      dialogVisible.value = true
-    }
-  })
+  const res = await getUser(row.id as string | number)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+    dialogVisible.value = true
+  }
 }
 
-// 删除
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定要删除该用户吗？', '警告', {
+const handleDelete = (row: User) => {
+  ElMessageBox.confirm(`确定要删除用户“${row.username}”吗？`, '警告', {
     type: 'warning'
   })
     .then(async () => {
-      try {
-        const res = await deleteUser(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getUsers()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+      await deleteUser(row.id as string | number)
+      ElMessage.success('删除成功')
+      loadUserPage()
     })
     .catch(() => {})
 }
 
-// 重置密码
-const handleResetPassword = (row: any) => {
-  ElMessageBox.confirm(`确定要重置用户 "${row.username}" 的密码吗？`, '警告', {
+const handleResetPassword = (row: User) => {
+  ElMessageBox.confirm(`确定要重置用户“${row.username}”的密码吗？`, '警告', {
     type: 'warning'
   })
     .then(async () => {
-      try {
-        const res = await resetPassword(row.id)
-        if (res.code === 200) {
-          ElMessage.success('密码重置成功，默认密码为 123456')
-        }
-      } catch (error) {
-        console.error('重置密码失败', error)
-      }
+      await resetPassword(row.id as string | number)
+      ElMessage.success('密码已重置为 123456')
     })
     .catch(() => {})
 }
 
-// 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate((valid: boolean) => {
-    if (!valid) return
-  })
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
 
   submitLoading.value = true
   try {
-    let res: any
     if (formData.value.id) {
-      res = await updateUser(formData.value)
+      await updateUser(formData.value)
+      ElMessage.success('更新成功')
     } else {
-      res = await addUser(formData.value)
+      await addUser(formData.value)
+      ElMessage.success('新增成功')
     }
-    if (res.code === 200) {
-      ElMessage.success(formData.value.id ? '更新成功' : '新增成功')
-      dialogVisible.value = false
-      getUsers()
-    }
+    dialogVisible.value = false
+    loadUserPage()
   } catch (error) {
-    console.error('提交失败', error)
+    console.error('提交用户失败', error)
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  normalizePageNum()
+  pagination.pageNum = 1
+  loadUserPage()
 }
 
-// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
+  loadUserPage()
 }
 </script>
 

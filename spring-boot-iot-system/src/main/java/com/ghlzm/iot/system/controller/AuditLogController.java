@@ -25,8 +25,9 @@ public class AuditLogController {
        * 查询审计日志列表
        */
       @GetMapping("/list")
-      public R<List<AuditLog>> listLogs(AuditLog log) {
-            List<AuditLog> logs = auditLogService.listLogs(log);
+      public R<List<AuditLog>> listLogs(AuditLog log,
+                  @RequestParam(defaultValue = "false") Boolean excludeSystemError) {
+            List<AuditLog> logs = auditLogService.listLogs(log, excludeSystemError);
             return R.ok(logs);
       }
 
@@ -35,9 +36,10 @@ public class AuditLogController {
        */
       @GetMapping("/page")
       public R<Map<String, Object>> pageLogs(AuditLog log,
+                  @RequestParam(defaultValue = "false") Boolean excludeSystemError,
                   @RequestParam(defaultValue = "1") Integer pageNum,
                   @RequestParam(defaultValue = "10") Integer pageSize) {
-            PageResult<AuditLog> page = auditLogService.pageLogs(log, pageNum, pageSize);
+            PageResult<AuditLog> page = auditLogService.pageLogs(log, excludeSystemError, pageNum, pageSize);
             // 显式返回标准分页结构，避免历史序列化差异导致前端拿到数组而非对象
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("total", page.getTotal());

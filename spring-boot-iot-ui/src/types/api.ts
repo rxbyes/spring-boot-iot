@@ -6,6 +6,13 @@ export interface ApiEnvelope<T> {
 
 export type IdType = string | number;
 
+export interface PageResult<T> {
+  total: number;
+  pageNum: number;
+  pageSize: number;
+  records: T[];
+}
+
 export interface Product {
   id: IdType;
   productKey: string;

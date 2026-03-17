@@ -4,31 +4,20 @@
       <template #header>
         <div class="card-header">
           <span>区域管理</span>
-          <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
 
-      <!-- 搜索表单 -->
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="区域名称">
-              <el-input
-                v-model="searchForm.regionName"
-                placeholder="请输入区域名称"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.regionName" placeholder="请输入区域名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="区域编码">
-              <el-input
-                v-model="searchForm.regionCode"
-                placeholder="请输入区域编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.regionCode" placeholder="请输入区域编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -50,6 +39,23 @@
         </el-row>
       </el-form>
 
+      <el-alert
+        v-if="!isFilterMode"
+        title="默认仅分页加载根区域，展开行时按需加载子区域。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="view-alert"
+      />
+      <el-alert
+        v-else
+        title="搜索模式返回扁平分页结果，不再加载整棵区域树。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="view-alert"
+      />
+
       <div class="table-action-bar">
         <div class="table-action-bar__left">
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
@@ -63,7 +69,6 @@
         </div>
       </div>
 
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
@@ -72,7 +77,9 @@
         stripe
         style="width: 100%"
         row-key="id"
-        :tree-props="{ children: 'children' }"
+        :lazy="!isFilterMode"
+        :load="loadChildren"
+        :tree-props="treeProps"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
@@ -105,32 +112,26 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        class="pagination"
       />
 
-      <!-- 表单对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="dialogVisible"
+        eyebrow="System Form"
         :title="dialogTitle"
-        class="sys-dialog"
-        width="600px"
+        subtitle="统一通过右侧抽屉维护区域层级与坐标信息。"
+        size="42rem"
         @close="handleDialogClose"
       >
-        <el-form
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="100px"
-        >
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
           <el-form-item label="区域名称" prop="regionName">
             <el-input v-model="formData.regionName" placeholder="请输入区域名称" />
           </el-form-item>
@@ -146,22 +147,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="经度" prop="longitude">
-            <el-input-number
-              v-model="formData.longitude"
-              :min="-180"
-              :max="180"
-              :step="0.000001"
-              placeholder="请输入经度"
-            />
+            <el-input-number v-model="formData.longitude" :min="-180" :max="180" :step="0.000001" />
           </el-form-item>
           <el-form-item label="纬度" prop="latitude">
-            <el-input-number
-              v-model="formData.latitude"
-              :min="-90"
-              :max="90"
-              :step="0.000001"
-              placeholder="请输入纬度"
-            />
+            <el-input-number v-model="formData.latitude" :min="-90" :max="90" :step="0.000001" />
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
@@ -173,19 +162,16 @@
             <el-input-number v-model="formData.sortNo" :min="0" :max="999" />
           </el-form-item>
           <el-form-item label="备注" prop="remark">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备注"
-            />
+            <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <template #footer>
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
+            确定
+          </el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
@@ -201,10 +187,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -213,36 +200,56 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import {
-  listRegionTree,
-  getRegion,
   addRegion,
+  deleteRegion,
+  getRegion,
+  listRegions,
+  pageRegions,
   updateRegion,
-  deleteRegion
+  type Region
 } from '@/api/region'
 
-// 表单引用
 const formRef = ref()
+const tableRef = ref()
+const loading = ref(false)
+const submitLoading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增区域')
+const tableData = ref<Region[]>([])
+const selectedRows = ref<Region[]>([])
 
-// 搜索表单
 const searchForm = reactive({
   regionName: '',
   regionCode: '',
-  regionType: undefined
+  regionType: undefined as string | undefined
 })
 
-// 分页
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
 })
 
-// 表格数据
-const tableData = ref<any[]>([])
-const sourceTreeData = ref<any[]>([])
-const tableRef = ref()
-const selectedRows = ref<any[]>([])
-const exportColumns: CsvColumn<any>[] = [
+const formData = ref<Partial<Region>>({
+  id: undefined,
+  parentId: 0,
+  regionName: '',
+  regionCode: '',
+  regionType: 'province',
+  longitude: undefined,
+  latitude: undefined,
+  status: 1,
+  sortNo: 0,
+  remark: ''
+})
+
+const formRules = {
+  regionName: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
+  regionCode: [{ required: true, message: '请输入区域编码', trigger: 'blur' }],
+  regionType: [{ required: true, message: '请选择区域类型', trigger: 'change' }]
+}
+
+const exportColumns: CsvColumn<Region>[] = [
   { key: 'regionCode', label: '区域编码' },
   { key: 'regionName', label: '区域名称' },
   { key: 'regionType', label: '区域类型', formatter: (value) => getRegionTypeName(String(value || '')) },
@@ -267,107 +274,69 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
-const loading = ref(false)
+const isFilterMode = computed(
+  () => Boolean(searchForm.regionName.trim() || searchForm.regionCode.trim() || searchForm.regionType)
+)
 
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增区域')
-const formData = ref({
-  id: undefined,
-  parentId: 0,
-  regionName: '',
-  regionCode: '',
-  regionType: 'province',
-  longitude: undefined,
-  latitude: undefined,
-  status: 1,
-  sortNo: 0,
-  remark: ''
-})
-
-// 表单验证规则
-const formRules = {
-  regionName: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
-  regionCode: [{ required: true, message: '请输入区域编码', trigger: 'blur' }],
-  regionType: [{ required: true, message: '请选择区域类型', trigger: 'change' }]
+const treeProps = {
+  children: 'children',
+  hasChildren: 'hasChildren'
 }
 
-// 提交状态
-const submitLoading = ref(false)
-
-// 获取区域树
-const getRegionTree = async () => {
+const loadRegionPage = async () => {
   loading.value = true
   try {
-    const res = await listRegionTree()
-    if (res.code === 200) {
-      sourceTreeData.value = res.data || []
-      tableData.value = sourceTreeData.value
-      pagination.total = countTreeNodes(tableData.value)
+    const res = await pageRegions({
+      regionName: searchForm.regionName || undefined,
+      regionCode: searchForm.regionCode || undefined,
+      regionType: searchForm.regionType || undefined,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取区域树失败', error)
+    console.error('获取区域分页失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始化
+const loadChildren = async (row: Region, _treeNode: unknown, resolve: (data: Region[]) => void) => {
+  try {
+    const res = await listRegions(row.id)
+    const children = res.data || []
+    row.children = children
+    row.hasChildren = children.length > 0
+    resolve(children)
+  } catch (error) {
+    console.error('加载区域子节点失败', error)
+    resolve([])
+  }
+}
+
 onMounted(() => {
-  getRegionTree()
+  loadRegionPage()
 })
 
-const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
-
-const nodeMatchesSearch = (node: any) => {
-  const regionNameKeyword = normalizeKeyword(searchForm.regionName)
-  const regionCodeKeyword = normalizeKeyword(searchForm.regionCode)
-  const typeMatched = searchForm.regionType === undefined || node.regionType === searchForm.regionType
-  const regionNameMatched = !regionNameKeyword || String(node.regionName || '').toLowerCase().includes(regionNameKeyword)
-  const regionCodeMatched = !regionCodeKeyword || String(node.regionCode || '').toLowerCase().includes(regionCodeKeyword)
-  return typeMatched && regionNameMatched && regionCodeMatched
-}
-
-const filterRegionTree = (nodes: any[]): any[] => {
-  return nodes
-    .map((node) => {
-      const filteredChildren = Array.isArray(node.children) ? filterRegionTree(node.children) : []
-      if (nodeMatchesSearch(node) || filteredChildren.length > 0) {
-        return {
-          ...node,
-          children: filteredChildren
-        }
-      }
-      return null
-    })
-    .filter(Boolean) as any[]
-}
-
-const countTreeNodes = (nodes: any[]): number => {
-  return nodes.reduce((count, node) => count + 1 + countTreeNodes(node.children || []), 0)
-}
-
-const applyRegionFilters = () => {
-  tableData.value = filterRegionTree(sourceTreeData.value)
-  pagination.total = countTreeNodes(tableData.value)
-}
-
-// 处理搜索
 const handleSearch = () => {
-  applyRegionFilters()
+  pagination.pageNum = 1
+  clearSelection()
+  loadRegionPage()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.regionName = ''
   searchForm.regionCode = ''
   searchForm.regionType = undefined
-  tableData.value = sourceTreeData.value
-  pagination.total = countTreeNodes(tableData.value)
+  pagination.pageNum = 1
+  clearSelection()
+  loadRegionPage()
 }
 
-const handleSelectionChange = (rows: any[]) => {
+const handleSelectionChange = (rows: Region[]) => {
   selectedRows.value = rows
 }
 
@@ -378,7 +347,7 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection()
-  getRegionTree()
+  loadRegionPage()
 }
 
 const openExportColumnSetting = () => {
@@ -396,115 +365,88 @@ const handleExportSelected = () => {
   downloadRowsAsCsv('区域管理-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
-const flattenTreeRows = (rows: any[]): any[] =>
-  rows.flatMap((row) => {
-    const children = Array.isArray(row.children) ? flattenTreeRows(row.children) : []
-    return [row, ...children]
-  })
+const flattenTreeRows = (rows: Region[]): Region[] =>
+  rows.flatMap((row) => [row, ...(Array.isArray(row.children) ? flattenTreeRows(row.children) : [])])
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('区域管理-当前结果.csv', flattenTreeRows(tableData.value), getResolvedExportColumns())
+  const rows = isFilterMode.value ? tableData.value : flattenTreeRows(tableData.value)
+  downloadRowsAsCsv('区域管理-当前结果.csv', rows, getResolvedExportColumns())
 }
 
-// 新增
+const resetFormData = (region?: Partial<Region>) => {
+  formData.value = {
+    id: region?.id,
+    parentId: region?.parentId ?? 0,
+    regionName: region?.regionName || '',
+    regionCode: region?.regionCode || '',
+    regionType: region?.regionType || 'province',
+    longitude: region?.longitude,
+    latitude: region?.latitude,
+    status: region?.status ?? 1,
+    sortNo: region?.sortNo ?? 0,
+    remark: region?.remark || ''
+  }
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增区域'
-  formData.value = {
-    id: undefined,
-    parentId: 0,
-    regionName: '',
-    regionCode: '',
-    regionType: 'province',
-    longitude: undefined,
-    latitude: undefined,
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData()
   dialogVisible.value = true
 }
 
-// 新增子级
-const handleAddSub = (row: any) => {
+const handleAddSub = (row: Region) => {
   dialogTitle.value = '新增子级'
-  formData.value = {
-    id: undefined,
-    parentId: row.id,
-    regionName: '',
-    regionCode: '',
-    regionType: 'province',
-    longitude: undefined,
-    latitude: undefined,
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData({ parentId: row.id })
   dialogVisible.value = true
 }
 
-// 编辑
-const handleEdit = (row: any) => {
+const handleEdit = async (row: Region) => {
   dialogTitle.value = '编辑区域'
-  getRegion(row.id).then((res) => {
-    if (res.code === 200) {
-      formData.value = res.data
-      dialogVisible.value = true
-    }
-  })
+  const res = await getRegion(row.id)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+    dialogVisible.value = true
+  }
 }
 
-// 删除
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定要删除该区域吗？', '警告', {
-    type: 'warning'
-  })
+const handleDelete = (row: Region) => {
+  ElMessageBox.confirm(`确定要删除区域“${row.regionName}”吗？`, '警告', { type: 'warning' })
     .then(async () => {
-      try {
-        const res = await deleteRegion(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getRegionTree()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+      await deleteRegion(row.id)
+      ElMessage.success('删除成功')
+      loadRegionPage()
     })
     .catch(() => {})
 }
 
-// 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate((valid: boolean) => {
-    if (!valid) return
-  })
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
 
   submitLoading.value = true
   try {
-    let res: any
     if (formData.value.id) {
-      res = await updateRegion(formData.value)
+      await updateRegion(formData.value)
+      ElMessage.success('更新成功')
     } else {
-      res = await addRegion(formData.value)
+      await addRegion(formData.value)
+      ElMessage.success('新增成功')
     }
-    if (res.code === 200) {
-      ElMessage.success(formData.value.id ? '更新成功' : '新增成功')
-      dialogVisible.value = false
-      getRegionTree()
-    }
+    dialogVisible.value = false
+    loadRegionPage()
   } catch (error) {
-    console.error('提交失败', error)
+    console.error('提交区域失败', error)
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 获取区域类型名称
 const getRegionTypeName = (type: string) => {
   const map: Record<string, string> = {
     province: '省份',
@@ -515,7 +457,6 @@ const getRegionTypeName = (type: string) => {
   return map[type] || type
 }
 
-// 获取区域类型标签
 const getRegionTypeTag = (type: string) => {
   const map: Record<string, string> = {
     province: 'primary',
@@ -526,16 +467,15 @@ const getRegionTypeTag = (type: string) => {
   return map[type] || 'info'
 }
 
-// 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  getRegionTree()
+  pagination.pageNum = 1
+  loadRegionPage()
 }
 
-// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
-  getRegionTree()
+  loadRegionPage()
 }
 </script>
 
@@ -551,6 +491,10 @@ const handlePageChange = (page: number) => {
 }
 
 .search-form {
+  margin-bottom: 12px;
+}
+
+.view-alert {
   margin-bottom: 12px;
 }
 

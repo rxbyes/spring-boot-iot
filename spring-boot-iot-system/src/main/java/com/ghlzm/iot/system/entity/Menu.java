@@ -10,6 +10,7 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 
 @Data
 @TableName("sys_menu")
@@ -52,4 +53,10 @@ public class Menu implements Serializable {
 
       @TableLogic
       private Integer deleted;
+
+      @TableField(exist = false)
+      private List<Menu> children;
+
+      @TableField(exist = false)
+      private Boolean hasChildren;
 }

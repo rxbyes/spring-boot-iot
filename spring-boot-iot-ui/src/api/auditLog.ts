@@ -1,5 +1,5 @@
 import { request } from './request'
-import type { ApiEnvelope, IdType } from '../types/api'
+import type { ApiEnvelope, IdType, PageResult } from '../types/api'
 
 export interface AuditLogRecord {
   id: IdType
@@ -20,11 +20,17 @@ export interface AuditLogRecord {
   createTime?: string
 }
 
-export interface PageResult<T> {
-  total: number
-  pageNum: number
-  pageSize: number
-  records: T[]
+export interface AuditLogQueryParams {
+  userName?: string
+  operationType?: string
+  operationModule?: string
+  requestMethod?: string
+  requestUrl?: string
+  resultMessage?: string
+  operationResult?: number
+  pageNum?: number
+  pageSize?: number
+  excludeSystemError?: boolean
 }
 
 function toQueryString(params: Record<string, unknown>) {
@@ -37,13 +43,13 @@ function toQueryString(params: Record<string, unknown>) {
   return search.toString()
 }
 
-export function listLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<AuditLogRecord[]>> {
+export function listLogs(params: AuditLogQueryParams = {}): Promise<ApiEnvelope<AuditLogRecord[]>> {
   const query = toQueryString(params)
   const path = `/api/system/audit-log/list${query ? `?${query}` : ''}`
   return request<AuditLogRecord[]>(path, { method: 'GET' })
 }
 
-export function pageLogs(params: Record<string, unknown> = {}): Promise<ApiEnvelope<PageResult<AuditLogRecord>>> {
+export function pageLogs(params: AuditLogQueryParams = {}): Promise<ApiEnvelope<PageResult<AuditLogRecord>>> {
   const query = toQueryString(params)
   const path = `/api/system/audit-log/page${query ? `?${query}` : ''}`
   return request<PageResult<AuditLogRecord>>(path, { method: 'GET' })

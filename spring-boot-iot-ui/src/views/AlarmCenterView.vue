@@ -104,27 +104,12 @@
       />
     </div>
 
-    <el-dialog v-model="detailVisible" title="告警详情" width="800px" class="alarm-dialog">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="告警编号">{{ detail?.alarmCode }}</el-descriptions-item>
-        <el-descriptions-item label="告警标题">{{ detail?.alarmTitle }}</el-descriptions-item>
-        <el-descriptions-item label="告警等级">{{ getAlarmLevelText(detail?.alarmLevel || '') }}</el-descriptions-item>
-        <el-descriptions-item label="告警类型">{{ detail?.alarmType }}</el-descriptions-item>
-        <el-descriptions-item label="区域">{{ detail?.regionName }}</el-descriptions-item>
-        <el-descriptions-item label="风险点">{{ detail?.riskPointName }}</el-descriptions-item>
-        <el-descriptions-item label="设备编码">{{ detail?.deviceCode }}</el-descriptions-item>
-        <el-descriptions-item label="设备名称">{{ detail?.deviceName }}</el-descriptions-item>
-        <el-descriptions-item label="测点名称">{{ detail?.metricName }}</el-descriptions-item>
-        <el-descriptions-item label="当前值">{{ detail?.currentValue }}</el-descriptions-item>
-        <el-descriptions-item label="阈值">{{ detail?.thresholdValue }}</el-descriptions-item>
-        <el-descriptions-item label="触发时间">{{ detail?.triggerTime }}</el-descriptions-item>
-        <el-descriptions-item label="规则名称">{{ detail?.ruleName }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ getStatusText(detail?.status ?? -1) }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button class="alarm-btn alarm-btn--ghost" @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <AlarmDetailDrawer
+      v-model="detailVisible"
+      :detail="detail"
+      :loading="detailLoading"
+      :error-message="detailErrorMessage"
+    />
 
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
@@ -139,9 +124,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -156,6 +142,8 @@ import type { AlarmRecord } from '../api/alarm';
 
 const loading = ref(false);
 const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detailErrorMessage = ref('');
 const alarmList = ref<AlarmRecord[]>([]);
 const detail = ref<AlarmRecord | null>(null);
 const tableRef = ref();
@@ -346,17 +334,20 @@ const handlePageChange = () => {
 };
 
 const handleViewDetail = async (row: AlarmRecord) => {
-  loading.value = true;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  detailErrorMessage.value = '';
+  detail.value = row;
   try {
     const res = await getAlarmDetail(row.id);
     if (res.code === 200) {
-      detail.value = res.data;
-      detailVisible.value = true;
+      detail.value = res.data || row;
     }
   } catch (error) {
+    detailErrorMessage.value = error instanceof Error ? error.message : '查询告警详情失败';
     console.error('查询告警详情失败', error);
   } finally {
-    loading.value = false;
+    detailLoading.value = false;
   }
 };
 
@@ -401,6 +392,14 @@ const handleClose = async (row: AlarmRecord) => {
 
 onMounted(() => {
   void loadAlarmList();
+});
+
+watch(detailVisible, (visible) => {
+  if (!visible) {
+    detail.value = null;
+    detailLoading.value = false;
+    detailErrorMessage.value = '';
+  }
 });
 </script>
 
@@ -483,27 +482,4 @@ onMounted(() => {
   padding: 4px 0 0;
 }
 
-.alarm-dialog :deep(.el-dialog__header) {
-  margin-right: 0;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--panel-border);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.95));
-}
-
-.alarm-dialog :deep(.el-dialog__title) {
-  color: var(--text-primary);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.alarm-dialog :deep(.el-dialog__body) {
-  padding: 16px 20px;
-  background: #fff;
-}
-
-.alarm-dialog :deep(.el-dialog__footer) {
-  padding: 12px 20px 16px;
-  border-top: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.9), rgba(245, 249, 255, 0.96));
-}
 </style>

@@ -93,8 +93,14 @@
       />
     </el-card>
 
-    <!-- 预案表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Risk Platform Form"
+      :title="formTitle"
+      subtitle="统一通过右侧抽屉维护应急预案与响应步骤。"
+      size="44rem"
+      @close="handleFormClose"
+    >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="预案名称" prop="planName">
           <el-input v-model="form.planName" placeholder="请输入预案名称" />
@@ -126,7 +132,7 @@
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
   </div>
 </template>
 
@@ -134,6 +140,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
@@ -291,8 +298,7 @@ const handleRefresh = () => {
   loadPlanList();
 };
 
-// 新增预案
-const handleAdd = () => {
+const resetPlanForm = () => {
   form.id = undefined;
   form.planName = '';
   form.riskLevel = 'warning';
@@ -300,6 +306,11 @@ const handleAdd = () => {
   form.responseSteps = '';
   form.contactList = '';
   form.status = 0;
+};
+
+// 新增预案
+const handleAdd = () => {
+  resetPlanForm();
   formVisible.value = true;
 };
 
@@ -348,6 +359,11 @@ const handleSubmit = async () => {
   } finally {
     submitLoading.value = false;
   }
+};
+
+const handleFormClose = () => {
+  formRef.value?.clearValidate?.();
+  resetPlanForm();
 };
 
 // 初始化

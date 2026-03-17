@@ -2,6 +2,7 @@ package com.ghlzm.iot.message.dispatcher;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceMessageService;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -16,11 +17,6 @@ import java.util.Map;
 
 /**
  * 上行消息分发器。
- * 该层只负责协议适配器路由和统一消息转换，不承担业务落库职责。
- *
- * Author rxbyes
- * Since 2.0
- * Date 2026/3/13 - 14:34
  */
 @Component
 public class UpMessageDispatcher {
@@ -35,13 +31,16 @@ public class UpMessageDispatcher {
     }
 
     public DeviceUpMessage dispatch(RawDeviceMessage rawMessage) {
-        // 先按协议编码选择适配器，message 模块只做接入与分发。
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
             throw new BizException("未找到协议适配器: " + rawMessage.getProtocolCode());
         }
 
-        // 构造协议上下文，把接入层已知的信息统一传给协议层。
+        String traceId = hasText(rawMessage.getTraceId())
+                ? rawMessage.getTraceId()
+                : TraceContextHolder.currentOrCreate();
+        rawMessage.setTraceId(traceId);
+
         ProtocolContext context = new ProtocolContext();
         context.setTenantCode(rawMessage.getTenantId());
         context.setProductKey(rawMessage.getProductKey());
@@ -59,41 +58,49 @@ public class UpMessageDispatcher {
             throw new BizException("协议解析结果为空");
         }
 
-        // 一期主链路要求上下游字段完整，这里对适配器未显式回填的字段做最小兜底。
-        if (upMessage.getTenantId() == null || upMessage.getTenantId().isBlank()) {
+        if (!hasText(upMessage.getTenantId())) {
             upMessage.setTenantId(rawMessage.getTenantId());
         }
-        if (upMessage.getProductKey() == null || upMessage.getProductKey().isBlank()) {
+        if (!hasText(upMessage.getProductKey())) {
             upMessage.setProductKey(rawMessage.getProductKey());
         }
-        if (upMessage.getDeviceCode() == null || upMessage.getDeviceCode().isBlank()) {
+        if (!hasText(upMessage.getDeviceCode())) {
             upMessage.setDeviceCode(rawMessage.getDeviceCode());
         }
-        if (upMessage.getMessageType() == null || upMessage.getMessageType().isBlank()) {
+        if (!hasText(upMessage.getMessageType())) {
             upMessage.setMessageType(rawMessage.getMessageType());
         }
-        if (upMessage.getRawPayload() == null || upMessage.getRawPayload().isBlank()) {
+        if (!hasText(upMessage.getRawPayload())) {
             upMessage.setRawPayload(new String(rawMessage.getPayload(), StandardCharsets.UTF_8));
         }
         if (upMessage.getTimestamp() == null) {
             upMessage.setTimestamp(LocalDateTime.now());
         }
+        if (!hasText(upMessage.getTraceId())) {
+            upMessage.setTraceId(traceId);
+        }
         upMessage.setProtocolCode(rawMessage.getProtocolCode());
         upMessage.setTopic(rawMessage.getTopic());
 
-        // 分发完成后交给 device 模块处理落库、属性更新和在线状态刷新。
         deviceMessageService.handleUpMessage(upMessage);
         return upMessage;
     }
 
     private Map<String, Object> buildMetadata(RawDeviceMessage rawMessage) {
         Map<String, Object> metadata = new HashMap<>();
+        metadata.put("traceId", rawMessage.getTraceId());
         metadata.put("messageType", rawMessage.getMessageType());
         metadata.put("topic", rawMessage.getTopic());
         metadata.put("clientId", rawMessage.getClientId());
+        metadata.put("productKey", rawMessage.getProductKey());
+        metadata.put("deviceCode", rawMessage.getDeviceCode());
         metadata.put("topicRouteType", rawMessage.getTopicRouteType());
         metadata.put("gatewayDeviceCode", rawMessage.getGatewayDeviceCode());
         metadata.put("subDeviceCode", rawMessage.getSubDeviceCode());
         return metadata;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

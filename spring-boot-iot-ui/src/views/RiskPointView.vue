@@ -96,8 +96,14 @@
       />
     </el-card>
 
-    <!-- 风险点表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Risk Platform Form"
+      :title="formTitle"
+      subtitle="统一通过右侧抽屉维护风险点基础信息。"
+      size="42rem"
+      @close="handleFormClose"
+    >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="风险点编号" prop="riskPointCode">
           <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
@@ -132,10 +138,16 @@
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
 
-    <!-- 绑定设备对话框 -->
-    <el-dialog v-model="bindDeviceVisible" title="绑定设备" class="sys-dialog" width="600px">
+    <StandardFormDrawer
+      v-model="bindDeviceVisible"
+      eyebrow="Risk Platform Form"
+      title="绑定设备"
+      subtitle="统一通过右侧抽屉为风险点绑定设备与测点。"
+      size="42rem"
+      @close="handleBindDrawerClose"
+    >
       <el-form :model="bindForm" label-width="100px">
         <el-form-item label="风险点">
           <el-input v-model="bindForm.riskPointName" disabled />
@@ -159,7 +171,7 @@
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="bindDeviceVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleBindSubmit" :loading="submitLoading">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
   </div>
 </template>
 
@@ -167,6 +179,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
@@ -366,8 +379,7 @@ const handleRefresh = () => {
   loadRiskPointList();
 };
 
-// 新增风险点
-const handleAdd = () => {
+const resetRiskPointForm = () => {
   form.id = undefined;
   form.riskPointCode = '';
   form.riskPointName = '';
@@ -378,6 +390,22 @@ const handleAdd = () => {
   form.riskLevel = 'info';
   form.description = '';
   form.status = 0;
+};
+
+const resetBindForm = () => {
+  bindForm.riskPointId = 0;
+  bindForm.riskPointName = '';
+  bindForm.deviceId = 0;
+  bindForm.deviceCode = '';
+  bindForm.deviceName = '';
+  bindForm.metricIdentifier = '';
+  bindForm.metricName = '';
+  metricList.value = [];
+};
+
+// 新增风险点
+const handleAdd = () => {
+  resetRiskPointForm();
   formVisible.value = true;
 };
 
@@ -433,14 +461,9 @@ const handleSubmit = async () => {
 
 // 绑定设备
 const handleBindDevice = async (row: RiskPoint) => {
+  resetBindForm();
   bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
-  bindForm.deviceId = 0;
-  bindForm.deviceCode = '';
-  bindForm.deviceName = '';
-  bindForm.metricIdentifier = '';
-  bindForm.metricName = '';
-  metricList.value = [];
   await loadDeviceOptions();
   bindDeviceVisible.value = true;
 };
@@ -477,6 +500,15 @@ const handleBindSubmit = async () => {
   } finally {
     submitLoading.value = false;
   }
+};
+
+const handleFormClose = () => {
+  formRef.value?.clearValidate?.();
+  resetRiskPointForm();
+};
+
+const handleBindDrawerClose = () => {
+  resetBindForm();
 };
 
 watch(

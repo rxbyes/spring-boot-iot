@@ -13,6 +13,7 @@
 
 说明：
 - 自 2026-03-17 起，对于后端 `Long` 类型主键（如 `id`），响应统一按字符串返回，避免前端 JavaScript 对超大整数（雪花 ID）出现精度丢失。
+- 前端 `spring-boot-iot-ui/src/api/request.ts` 也会在 `JSON.parse` 前兜底识别 `id/*Id` 的超大整数历史响应，并按字符串语义保留，避免审计日志等详情链路因精度丢失而误报“记录不存在”。
 
 ## 异常返回约定
 - 参数校验或参数绑定失败：返回 `code=400`，`msg` 为可读错误信息（如 `缺少必要参数: confirmUser`、`参数类型错误: status`、`请求体格式不正确`）。
@@ -556,6 +557,7 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 - 登录成功后，前端应直接持久化 `token` 与 `authContext`。
 - `authContext.menus` 为当前用户已授权的导航树；前端不再内置固定角色菜单。
 - `authContext.permissions` 为当前用户按钮级权限码，当前用于 `v-permission`。
+- 当前系统治理页已接入的按钮权限码包括：`system:user:add`、`system:user:update`、`system:user:delete`、`system:user:reset-password`、`system:role:add`、`system:role:update`、`system:role:delete`、`system:menu:add`、`system:menu:update`、`system:menu:delete`。
 
 ### 当前登录用户
 `GET /api/auth/me`
@@ -576,6 +578,51 @@ Authorization: Bearer <jwt-token>
 
 成功时返回与登录响应中的 `authContext` 同结构数据，用于刷新页面后重新恢复当前用户菜单、角色和按钮权限。
 
+### 角色列表
+`GET /api/role/list`
+
+说明：
+- 支持可选筛选参数：`roleName`、`roleCode`、`status`。
+- 角色列表返回角色主数据；菜单授权详情通过角色详情接口获取。
+
+### 角色详情
+`GET /api/role/{id}`
+
+说明：
+- 返回角色主数据，同时附带 `menuIds`。
+- `menuIds` 为当前角色已绑定的页面/按钮菜单 ID 集合，父级目录会在保存时由后端自动补齐。
+
+### 新增角色
+`POST /api/role/add`
+
+请求体示例：
+```json
+{
+  "roleName": "值班组长",
+  "roleCode": "DUTY_MANAGER",
+  "description": "负责值班统筹与处置协同",
+  "status": 1,
+  "menuIds": [93002001, 93002002, 93003201]
+}
+```
+
+说明：
+- `menuIds` 可同时传页面菜单与按钮权限。
+- 角色管理页仅要求勾选页面/按钮节点，目录节点由后端自动补齐到 `sys_role_menu`。
+
+### 更新角色
+`PUT /api/role/update`
+
+说明：
+- 请求体与新增角色一致，但必须携带 `id`。
+- 更新菜单授权后，相关用户重新登录即可刷新 `authContext.menus` 与按钮权限。
+
+### 删除角色
+`DELETE /api/role/{id}`
+
+### 按用户查询角色
+`GET /api/role/user/{userId}`
+
 ### 菜单树
 `GET /api/menu/tree`
 
@@ -583,6 +630,8 @@ Authorization: Bearer <jwt-token>
 - 返回完整启用菜单树，供角色管理页做菜单授权。
 - `type = 0/1` 为目录或页面，`type = 2` 为按钮权限。
 - `meta_json` 会解析为 `meta` 对象返回。
+- 当前前端角色授权树按“菜单管理维护结构、角色管理维护授权”的职责拆分：菜单页负责元数据维护，角色页负责勾选页面与按钮权限。
+- 菜单管理页自身的操作按钮通过 `system:menu:add`、`system:menu:update`、`system:menu:delete` 控制可见性；“前往角色授权”入口通过 `system:role:update` 控制。
 
 ### 菜单列表
 `GET /api/menu/list`
@@ -606,6 +655,29 @@ Authorization: Bearer <jwt-token>
 说明：
 - 存在子菜单时不允许删除。
 - 被角色授权引用的菜单不允许删除。
+
+## 审计日志查询接口补充（2026-03-17）
+
+### 审计日志列表
+`GET /api/system/audit-log/list`
+
+### 审计日志分页
+`GET /api/system/audit-log/page`
+
+支持的筛选参数：
+- `userName`：按操作用户模糊匹配。
+- `operationType`：按操作类型精确匹配；系统日志页固定使用 `system_error`。
+- `operationModule`：按操作模块模糊匹配。
+- `requestMethod`：按请求方法/通道精确匹配，例如 `MQTT`、`SYSTEM`、`GET`、`POST`。
+- `requestUrl`：按请求 URL、topic 或生命周期目标模糊匹配。
+- `resultMessage`：按结果消息模糊匹配。
+- `operationResult`：按结果状态精确匹配（`1` 成功、`0` 失败）。
+- `pageNum` / `pageSize`：分页参数，仅 `/page` 生效。
+- `excludeSystemError`：是否排除 `operation_type=system_error`；业务日志页建议传 `true`，系统日志页不传并固定追加 `operationType=system_error`。
+
+前端入口约定：
+- `/audit-log`：业务日志页，默认排除 `system_error`。
+- `/system-log`：系统日志页，只展示 `system_error` 后台异常记录。
 
 ### 鉴权规则
 - 以下接口免登录：
@@ -714,3 +786,45 @@ Authorization: Bearer <jwt-token>
 - 响应按统一 `ApiEnvelope<RiskMonitoringGisPoint[]>` 结构返回。
 - 支持可选区域参数 `regionId`。
 - 当前仅用于 ECharts 点位态势图，不代表完整 GIS SDK / 地图底图集成。
+
+## 系统治理分页接口补充（2026-03-17）
+
+为解决系统治理模块“分页展示条数异常、后端仍全量查询”的问题，系统管理相关列表统一补充真实分页接口，前端改为按需加载。
+
+统一分页返回 `data` 结构：
+```json
+{
+  "total": 125,
+  "pageNum": 1,
+  "pageSize": 10,
+  "records": []
+}
+```
+
+新增或补齐的分页接口：
+- `GET /api/user/page`
+- `GET /api/role/page`
+- `GET /api/dict/page`
+- `GET /api/system/channel/page`
+- `GET /api/organization/page`
+- `GET /api/region/page`
+- `GET /api/menu/page`
+- `GET /api/system/audit-log/page`
+
+参数说明：
+- 用户分页：`username`、`phone`、`email`、`status`、`pageNum`、`pageSize`
+- 角色分页：`roleName`、`roleCode`、`status`、`pageNum`、`pageSize`
+- 字典分页：`dictName`、`dictCode`、`dictType`、`pageNum`、`pageSize`
+- 通知渠道分页：`channelName`、`channelCode`、`channelType`、`pageNum`、`pageSize`
+- 组织分页：`orgName`、`orgCode`、`status`、`pageNum`、`pageSize`
+- 区域分页：`regionName`、`regionCode`、`regionType`、`pageNum`、`pageSize`
+- 菜单分页：`menuName`、`menuCode`、`type`、`status`、`pageNum`、`pageSize`
+
+树形页面加载约定：
+- 组织机构、区域管理、菜单管理在“无筛选条件”时仅分页查询根节点。
+- 展开树节点时，通过原有 `/list?parentId=...` 接口按需懒加载子节点，不再一次性拉整棵树。
+- 进入筛选模式后，`/page` 返回扁平分页结果，用于避免搜索时再次退化为全量树查询。
+
+兼容性说明：
+- 原有 `/list`、`/tree` 接口继续保留，用于兼容既有调用链与授权树场景。
+- `GET /api/menu/tree` 仍作为角色授权树专用接口；菜单管理页主列表已改用 `/api/menu/page` + `/api/menu/list?parentId=...`。

@@ -112,4 +112,7 @@ public class Organization implements Serializable {
        */
       @TableField(exist = false)
       private List<Organization> children;
+
+      @TableField(exist = false)
+      private Boolean hasChildren;
 }

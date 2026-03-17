@@ -4,31 +4,20 @@
       <template #header>
         <div class="card-header">
           <span>字典配置</span>
-          <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
 
-      <!-- 搜索表单 -->
       <el-form :model="searchForm" label-width="100px" class="search-form">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="字典名称">
-              <el-input
-                v-model="searchForm.dictName"
-                placeholder="请输入字典名称"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.dictName" placeholder="请输入字典名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="字典编码">
-              <el-input
-                v-model="searchForm.dictCode"
-                placeholder="请输入字典编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
+              <el-input v-model="searchForm.dictCode" placeholder="请输入字典编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -63,7 +52,6 @@
         </div>
       </div>
 
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
@@ -101,32 +89,26 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        class="pagination"
       />
 
-      <!-- 表单对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="dialogVisible"
+        eyebrow="System Form"
         :title="dialogTitle"
-        class="sys-dialog"
-        width="600px"
+        subtitle="统一通过右侧抽屉维护字典分类主数据。"
+        size="42rem"
         @close="handleDialogClose"
       >
-        <el-form
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="100px"
-        >
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
           <el-form-item label="字典名称" prop="dictName">
             <el-input v-model="formData.dictName" placeholder="请输入字典名称" />
           </el-form-item>
@@ -151,26 +133,24 @@
             <el-input-number v-model="formData.sortNo" :min="0" :max="999" />
           </el-form-item>
           <el-form-item label="备注" prop="remark">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备注"
-            />
+            <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <template #footer>
           <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
+            确定
+          </el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
 
-      <!-- 字典项管理对话框 -->
-      <el-dialog
+      <StandardFormDrawer
         v-model="itemsDialogVisible"
-        title="字典项管理"
-        class="sys-dialog"
-        width="800px"
+        eyebrow="Dictionary Items"
+        :title="currentDictName ? `${currentDictName} 字典项` : '字典项管理'"
+        subtitle="统一通过右侧抽屉查看和维护字典项明细，支持新增、编辑、导出与刷新。"
+        size="58rem"
+        @close="handleItemsDialogClose"
       >
         <div class="table-action-bar">
           <div class="table-action-bar__left">
@@ -184,7 +164,7 @@
             <el-button link @click="handleRefreshItems">刷新列表</el-button>
           </div>
         </div>
-        <el-button type="primary" @click="handleAddItem" style="margin-bottom: 10px;">新增字典项</el-button>
+        <el-button type="primary" style="margin-bottom: 10px" @click="handleAddItem">新增字典项</el-button>
         <el-table
           ref="itemsTableRef"
           v-loading="itemsLoading"
@@ -218,9 +198,33 @@
           </el-table-column>
         </el-table>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="itemsDialogVisible = false">关闭</el-button>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleItemsDialogClose">关闭</el-button>
         </template>
-      </el-dialog>
+      </StandardFormDrawer>
+
+      <StandardFormDrawer
+        v-model="itemDialogVisible"
+        eyebrow="Dictionary Item"
+        :title="itemDialogTitle"
+        :subtitle="currentDictName ? `所属字典：${currentDictName}` : '统一通过右侧抽屉维护字典项信息。'"
+        size="36rem"
+        @close="handleItemDialogClose"
+      >
+        <el-form ref="itemFormRef" :model="itemFormData" :rules="itemFormRules" label-width="100px">
+          <el-form-item label="项名称" prop="itemName">
+            <el-input v-model="itemFormData.itemName" placeholder="请输入字典项名称" />
+          </el-form-item>
+          <el-form-item label="项值" prop="itemValue">
+            <el-input v-model="itemFormData.itemValue" placeholder="请输入字典项值" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleItemDialogClose">取消</el-button>
+          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="itemSubmitLoading" @click="handleItemSubmit">
+            确定
+          </el-button>
+        </template>
+      </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
@@ -246,10 +250,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -258,40 +263,86 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import {
-  listDicts,
-  getDict,
   addDict,
-  updateDict,
-  deleteDict,
-  listDictItems,
   addDictItem,
+  deleteDict,
+  deleteDictItem,
+  getDict,
+  listDictItems,
+  pageDicts,
+  updateDict,
   updateDictItem,
-  deleteDictItem
+  type Dict,
+  type DictItem
 } from '@/api/dict'
+import type { IdType } from '@/types/api'
 
-// 表单引用
 const formRef = ref()
+const itemFormRef = ref()
+const tableRef = ref()
+const itemsTableRef = ref()
 
-// 搜索表单
+const loading = ref(false)
+const itemsLoading = ref(false)
+const submitLoading = ref(false)
+const itemSubmitLoading = ref(false)
+const dialogVisible = ref(false)
+const itemsDialogVisible = ref(false)
+const itemDialogVisible = ref(false)
+const dialogTitle = ref('新增字典')
+const itemDialogTitle = ref('新增字典项')
+const tableData = ref<Dict[]>([])
+const itemsTableData = ref<DictItem[]>([])
+const selectedRows = ref<Dict[]>([])
+const selectedItemRows = ref<DictItem[]>([])
+const currentDictId = ref<IdType>()
+const currentDictName = ref('')
+
 const searchForm = reactive({
   dictName: '',
   dictCode: '',
-  dictType: undefined
+  dictType: undefined as string | undefined
 })
 
-// 分页
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
 })
 
-// 表格数据
-const tableData = ref<any[]>([])
-const sourceTableData = ref<any[]>([])
-const tableRef = ref()
-const selectedRows = ref<any[]>([])
-const exportColumns: CsvColumn<any>[] = [
+const formData = ref<Partial<Dict>>({
+  id: undefined,
+  dictName: '',
+  dictCode: '',
+  dictType: 'text',
+  status: 1,
+  sortNo: 0,
+  remark: ''
+})
+
+const itemFormData = ref<Partial<DictItem>>({
+  id: undefined,
+  dictId: undefined,
+  itemName: '',
+  itemValue: '',
+  itemType: 'string',
+  status: 1,
+  sortNo: 1,
+  remark: ''
+})
+
+const formRules = {
+  dictName: [{ required: true, message: '请输入字典名称', trigger: 'blur' }],
+  dictCode: [{ required: true, message: '请输入字典编码', trigger: 'blur' }],
+  dictType: [{ required: true, message: '请选择字典类型', trigger: 'change' }]
+}
+
+const itemFormRules = {
+  itemName: [{ required: true, message: '请输入字典项名称', trigger: 'blur' }],
+  itemValue: [{ required: true, message: '请输入字典项值', trigger: 'blur' }]
+}
+
+const exportColumns: CsvColumn<Dict>[] = [
   { key: 'dictCode', label: '字典编码' },
   { key: 'dictName', label: '字典名称' },
   { key: 'dictType', label: '字典类型', formatter: (value) => getDictTypeName(String(value || '')) },
@@ -314,40 +365,7 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
-const loading = ref(false)
-
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增字典')
-const formData = ref({
-  id: undefined,
-  dictName: '',
-  dictCode: '',
-  dictType: 'text',
-  status: 1,
-  sortNo: 0,
-  remark: ''
-})
-
-// 表单验证规则
-const formRules = {
-  dictName: [{ required: true, message: '请输入字典名称', trigger: 'blur' }],
-  dictCode: [{ required: true, message: '请输入字典编码', trigger: 'blur' }],
-  dictType: [{ required: true, message: '请选择字典类型', trigger: 'change' }]
-}
-
-// 提交状态
-const submitLoading = ref(false)
-
-// 字典项管理对话框
-const itemsDialogVisible = ref(false)
-const itemsTableData = ref<any[]>([])
-const itemsLoading = ref(false)
-const currentDictId = ref<number>()
-const itemsTableRef = ref()
-const selectedItemRows = ref<any[]>([])
-const itemExportColumns: CsvColumn<any>[] = [
+const itemExportColumns: CsvColumn<DictItem>[] = [
   { key: 'itemName', label: '项名称' },
   { key: 'itemValue', label: '项值' },
   { key: 'itemType', label: '项类型' },
@@ -369,58 +387,47 @@ const selectedItemExportColumnKeys = ref<string[]>(
 )
 const itemExportColumnDialogVisible = ref(false)
 
-// 获取字典列表
-const getDictList = async () => {
+const loadDictPage = async () => {
   loading.value = true
   try {
-    const res = await listDicts()
-    if (res.code === 200) {
-      sourceTableData.value = res.data || []
-      tableData.value = sourceTableData.value
-      pagination.total = tableData.value.length
+    const res = await pageDicts({
+      dictName: searchForm.dictName || undefined,
+      dictCode: searchForm.dictCode || undefined,
+      dictType: searchForm.dictType || undefined,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
     }
   } catch (error) {
-    console.error('获取字典列表失败', error)
+    console.error('获取字典分页失败', error)
   } finally {
     loading.value = false
   }
 }
 
-// 初始化
 onMounted(() => {
-  getDictList()
+  loadDictPage()
 })
 
-const normalizeKeyword = (value?: string) => (value || '').trim().toLowerCase()
-
-const applyDictFilters = () => {
-  const nameKeyword = normalizeKeyword(searchForm.dictName)
-  const codeKeyword = normalizeKeyword(searchForm.dictCode)
-
-  tableData.value = sourceTableData.value.filter((item: any) => {
-    const nameMatched = !nameKeyword || String(item.dictName || '').toLowerCase().includes(nameKeyword)
-    const codeMatched = !codeKeyword || String(item.dictCode || '').toLowerCase().includes(codeKeyword)
-    const typeMatched = !searchForm.dictType || item.dictType === searchForm.dictType
-    return nameMatched && codeMatched && typeMatched
-  })
-  pagination.total = tableData.value.length
-}
-
-// 处理搜索
 const handleSearch = () => {
-  applyDictFilters()
+  pagination.pageNum = 1
+  clearSelection()
+  loadDictPage()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.dictName = ''
   searchForm.dictCode = ''
   searchForm.dictType = undefined
-  tableData.value = sourceTableData.value
-  pagination.total = tableData.value.length
+  pagination.pageNum = 1
+  clearSelection()
+  loadDictPage()
 }
 
-const handleSelectionChange = (rows: any[]) => {
+const handleSelectionChange = (rows: Dict[]) => {
   selectedRows.value = rows
 }
 
@@ -431,7 +438,7 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection()
-  getDictList()
+  loadDictPage()
 }
 
 const openExportColumnSetting = () => {
@@ -453,60 +460,65 @@ const handleExportCurrent = () => {
   downloadRowsAsCsv('字典配置-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
-// 新增
+const resetFormData = (dict?: Partial<Dict>) => {
+  formData.value = {
+    id: dict?.id,
+    dictName: dict?.dictName || '',
+    dictCode: dict?.dictCode || '',
+    dictType: dict?.dictType || 'text',
+    status: dict?.status ?? 1,
+    sortNo: dict?.sortNo ?? 0,
+    remark: dict?.remark || ''
+  }
+}
+
+const resetItemFormData = (item?: Partial<DictItem>) => {
+  itemFormData.value = {
+    id: item?.id,
+    dictId: currentDictId.value,
+    itemName: item?.itemName || '',
+    itemValue: item?.itemValue || '',
+    itemType: item?.itemType || 'string',
+    status: item?.status ?? 1,
+    sortNo: item?.sortNo ?? itemsTableData.value.length + 1,
+    remark: item?.remark || ''
+  }
+}
+
 const handleAdd = () => {
   dialogTitle.value = '新增字典'
-  formData.value = {
-    id: undefined,
-    dictName: '',
-    dictCode: '',
-    dictType: 'text',
-    status: 1,
-    sortNo: 0,
-    remark: ''
-  }
+  resetFormData()
   dialogVisible.value = true
 }
 
-// 编辑
-const handleEdit = (row: any) => {
+const handleEdit = async (row: Dict) => {
   dialogTitle.value = '编辑字典'
-  getDict(row.id).then((res) => {
-    if (res.code === 200) {
-      formData.value = res.data
-      dialogVisible.value = true
-    }
-  })
+  const res = await getDict(row.id)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+    dialogVisible.value = true
+  }
 }
 
-// 删除
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定要删除该字典吗？', '警告', {
-    type: 'warning'
-  })
+const handleDelete = (row: Dict) => {
+  ElMessageBox.confirm(`确定要删除字典“${row.dictName}”吗？`, '警告', { type: 'warning' })
     .then(async () => {
-      try {
-        const res = await deleteDict(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getDictList()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+      await deleteDict(row.id)
+      ElMessage.success('删除成功')
+      loadDictPage()
     })
     .catch(() => {})
 }
 
-// 查看字典项
-const handleItems = (row: any) => {
+const handleItems = (row: Dict) => {
   currentDictId.value = row.id
+  currentDictName.value = row.dictName
+  handleItemDialogClose()
   itemsDialogVisible.value = true
   getDictItems(row.id)
 }
 
-// 获取字典项
-const getDictItems = async (dictId: number) => {
+const getDictItems = async (dictId: IdType) => {
   itemsLoading.value = true
   try {
     const res = await listDictItems(dictId)
@@ -521,7 +533,7 @@ const getDictItems = async (dictId: number) => {
   }
 }
 
-const handleItemSelectionChange = (rows: any[]) => {
+const handleItemSelectionChange = (rows: DictItem[]) => {
   selectedItemRows.value = rows
 }
 
@@ -532,7 +544,7 @@ const clearItemSelection = () => {
 
 const handleRefreshItems = () => {
   clearItemSelection()
-  if (currentDictId.value) {
+  if (currentDictId.value !== undefined) {
     getDictItems(currentDictId.value)
   }
 }
@@ -546,8 +558,7 @@ const handleItemExportColumnConfirm = (selectedKeys: string[]) => {
   saveCsvColumnSelection(itemExportColumnStorageKey, selectedKeys)
 }
 
-const getResolvedItemExportColumns = () =>
-  resolveCsvColumns(itemExportColumns, selectedItemExportColumnKeys.value)
+const getResolvedItemExportColumns = () => resolveCsvColumns(itemExportColumns, selectedItemExportColumnKeys.value)
 
 const handleExportSelectedItems = () => {
   downloadRowsAsCsv('字典项管理-选中项.csv', selectedItemRows.value, getResolvedItemExportColumns())
@@ -557,132 +568,124 @@ const handleExportCurrentItems = () => {
   downloadRowsAsCsv('字典项管理-当前结果.csv', itemsTableData.value, getResolvedItemExportColumns())
 }
 
-// 新增字典项
-const handleAddItem = async () => {
-  if (!currentDictId.value) {
+const handleAddItem = () => {
+  if (currentDictId.value === undefined) {
     ElMessage.warning('请先选择字典')
     return
   }
-  try {
-    const nameRes = await ElMessageBox.prompt('请输入字典项名称', '新增字典项', {
-      inputValue: '',
-      inputPattern: /\S+/,
-      inputErrorMessage: '字典项名称不能为空'
-    })
-    const valueRes = await ElMessageBox.prompt('请输入字典项值', '新增字典项', {
-      inputValue: '',
-      inputPattern: /\S+/,
-      inputErrorMessage: '字典项值不能为空'
-    })
-
-    const res = await addDictItem({
-      dictId: currentDictId.value,
-      itemName: nameRes.value.trim(),
-      itemValue: valueRes.value.trim(),
-      itemType: 'string',
-      status: 1,
-      sortNo: itemsTableData.value.length + 1
-    })
-    if (res.code === 200) {
-      ElMessage.success('新增字典项成功')
-      await getDictItems(currentDictId.value)
-    }
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('新增字典项失败', error)
-    }
-  }
+  itemDialogTitle.value = '新增字典项'
+  resetItemFormData({
+    sortNo: itemsTableData.value.length + 1
+  })
+  itemDialogVisible.value = true
 }
 
-// 编辑字典项
-const handleEditItem = async (row: any) => {
-  if (!currentDictId.value) {
+const handleEditItem = (row: DictItem) => {
+  if (currentDictId.value === undefined) {
     ElMessage.warning('请先选择字典')
     return
   }
-  try {
-    const nameRes = await ElMessageBox.prompt('请输入字典项名称', '编辑字典项', {
-      inputValue: row.itemName || '',
-      inputPattern: /\S+/,
-      inputErrorMessage: '字典项名称不能为空'
-    })
-    const valueRes = await ElMessageBox.prompt('请输入字典项值', '编辑字典项', {
-      inputValue: row.itemValue || '',
-      inputPattern: /\S+/,
-      inputErrorMessage: '字典项值不能为空'
-    })
-
-    const res = await updateDictItem({
-      ...row,
-      dictId: currentDictId.value,
-      itemName: nameRes.value.trim(),
-      itemValue: valueRes.value.trim()
-    })
-    if (res.code === 200) {
-      ElMessage.success('更新字典项成功')
-      await getDictItems(currentDictId.value)
-    }
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('编辑字典项失败', error)
-    }
-  }
+  itemDialogTitle.value = '编辑字典项'
+  resetItemFormData(row)
+  itemDialogVisible.value = true
 }
 
-// 删除字典项
-const handleDeleteItem = (row: any) => {
+const handleDeleteItem = (row: DictItem) => {
   ElMessageBox.confirm('确定要删除该字典项吗？', '警告', {
     type: 'warning'
   })
     .then(async () => {
-      try {
-        const res = await deleteDictItem(row.id)
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          if (currentDictId.value) {
-            getDictItems(currentDictId.value)
-          }
-        }
-      } catch (error) {
-        console.error('删除失败', error)
+      await deleteDictItem(row.id)
+      ElMessage.success('删除成功')
+      if (currentDictId.value !== undefined) {
+        getDictItems(currentDictId.value)
       }
     })
     .catch(() => {})
 }
 
-// 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate((valid: boolean) => {
-    if (!valid) return
-  })
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
 
   submitLoading.value = true
   try {
-    let res: any
     if (formData.value.id) {
-      res = await updateDict(formData.value)
+      await updateDict(formData.value)
+      ElMessage.success('更新成功')
     } else {
-      res = await addDict(formData.value)
+      await addDict(formData.value)
+      ElMessage.success('新增成功')
     }
-    if (res.code === 200) {
-      ElMessage.success(formData.value.id ? '更新成功' : '新增成功')
-      dialogVisible.value = false
-      getDictList()
-    }
+    dialogVisible.value = false
+    loadDictPage()
   } catch (error) {
-    console.error('提交失败', error)
+    console.error('提交字典失败', error)
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
+const handleItemSubmit = async () => {
+  if (currentDictId.value === undefined) {
+    ElMessage.warning('请先选择字典')
+    return
+  }
+
+  const valid = await itemFormRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
+
+  itemSubmitLoading.value = true
+  try {
+    if (itemFormData.value.id) {
+      await updateDictItem({
+        ...itemFormData.value,
+        dictId: currentDictId.value,
+        itemName: itemFormData.value.itemName?.trim(),
+        itemValue: itemFormData.value.itemValue?.trim()
+      })
+      ElMessage.success('更新字典项成功')
+    } else {
+      await addDictItem({
+        ...itemFormData.value,
+        dictId: currentDictId.value,
+        itemName: itemFormData.value.itemName?.trim(),
+        itemValue: itemFormData.value.itemValue?.trim()
+      })
+      ElMessage.success('新增字典项成功')
+    }
+    handleItemDialogClose()
+    await getDictItems(currentDictId.value)
+  } catch (error) {
+    console.error('提交字典项失败', error)
+  } finally {
+    itemSubmitLoading.value = false
+  }
+}
+
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 获取字典类型名称
+const handleItemsDialogClose = () => {
+  itemsDialogVisible.value = false
+  clearItemSelection()
+  itemsTableData.value = []
+  currentDictId.value = undefined
+  currentDictName.value = ''
+  handleItemDialogClose()
+}
+
+const handleItemDialogClose = () => {
+  itemDialogVisible.value = false
+  itemFormRef.value?.clearValidate?.()
+  resetItemFormData()
+}
+
 const getDictTypeName = (type: string) => {
   const map: Record<string, string> = {
     text: '文本',
@@ -693,7 +696,6 @@ const getDictTypeName = (type: string) => {
   return map[type] || type
 }
 
-// 获取字典类型标签
 const getDictTypeTag = (type: string) => {
   const map: Record<string, string> = {
     text: 'primary',
@@ -704,16 +706,15 @@ const getDictTypeTag = (type: string) => {
   return map[type] || 'info'
 }
 
-// 分页大小变化
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
-  getDictList()
+  pagination.pageNum = 1
+  loadDictPage()
 }
 
-// 当前页变化
 const handlePageChange = (page: number) => {
   pagination.pageNum = page
-  getDictList()
+  loadDictPage()
 }
 </script>
 

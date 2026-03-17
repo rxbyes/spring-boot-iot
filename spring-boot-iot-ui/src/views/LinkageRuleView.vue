@@ -79,8 +79,14 @@
       />
     </el-card>
 
-    <!-- 规则表单对话框 -->
-    <el-dialog v-model="formVisible" :title="formTitle" class="sys-dialog" width="600px">
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Risk Platform Form"
+      :title="formTitle"
+      subtitle="统一通过右侧抽屉维护联动规则与动作编排。"
+      size="44rem"
+      @close="handleFormClose"
+    >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="规则名称" prop="ruleName">
           <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
@@ -105,7 +111,7 @@
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
   </div>
 </template>
 
@@ -113,6 +119,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/linkageRule';
 import type { LinkageRule } from '../api/linkageRule';
 
@@ -238,14 +245,18 @@ const handleRefresh = () => {
   loadRuleList();
 };
 
-// 新增规则
-const handleAdd = () => {
+const resetRuleForm = () => {
   form.id = undefined;
   form.ruleName = '';
   form.description = '';
   form.triggerCondition = '';
   form.actionList = '';
   form.status = 0;
+};
+
+// 新增规则
+const handleAdd = () => {
+  resetRuleForm();
   formVisible.value = true;
 };
 
@@ -293,6 +304,11 @@ const handleSubmit = async () => {
   } finally {
     submitLoading.value = false;
   }
+};
+
+const handleFormClose = () => {
+  formRef.value?.clearValidate?.();
+  resetRuleForm();
 };
 
 // 初始化

@@ -3,6 +3,7 @@ package com.ghlzm.iot.message.mqtt;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
@@ -20,8 +21,18 @@ class MqttConnectionListenerTest {
         AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
         MqttConnectionListener listener = newListener(captured);
         BizException ex = new BizException("设备不存在: demo-device-02");
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-001");
+        rawDeviceMessage.setDeviceCode("demo-device-02");
+        rawDeviceMessage.setProductKey("demo-product");
+        rawDeviceMessage.setMessageType("property");
+        rawDeviceMessage.setTopicRouteType("direct");
 
-        listener.onMessageDispatchFailed("/sys/demo-product/demo-device-02/thing/property/post", ex);
+        listener.onMessageDispatchFailed(
+                "/sys/demo-product/demo-device-02/thing/property/post",
+                rawDeviceMessage,
+                ex
+        );
 
         BackendExceptionEvent event = captured.get();
         assertNotNull(event);
@@ -30,6 +41,11 @@ class MqttConnectionListenerTest {
         assertEquals("/sys/demo-product/demo-device-02/thing/property/post", event.requestUrl());
         assertEquals("MQTT", event.requestMethod());
         assertEquals("messageDispatchFailed", event.context().get("event"));
+        assertEquals("trace-demo-001", event.context().get("traceId"));
+        assertEquals("demo-device-02", event.context().get("deviceCode"));
+        assertEquals("demo-product", event.context().get("productKey"));
+        assertEquals("property", event.context().get("messageType"));
+        assertEquals("direct", event.context().get("topicRouteType"));
         assertSame(ex, event.throwable());
     }
 

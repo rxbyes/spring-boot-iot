@@ -75,13 +75,15 @@ INSERT INTO sys_menu (
 ) VALUES
     (93000001, 1, 0, '设备接入', 'iot-access', '', 'Layout', 'connection', '{"description":"接入与运维","menuTitle":"设备接入与运维"}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000002, 1, 0, '预警处置', 'risk-ops', '', 'Layout', 'warning', '{"description":"闭环与复盘","menuTitle":"风险处置闭环"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000003, 1, 0, '系统治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织与审计","menuTitle":"组织治理与审计"}', 30, 0, 0, '', 'system-governance', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000003, 1, 0, '系统治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织与业务治理","menuTitle":"组织治理与业务日志"}', 30, 0, 0, '', 'system-governance', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001001, 1, 93000001, '产品模板中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模板建模、协议绑定与设备归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备运维中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态核查与基础运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 1, 93000001, '接入回放台', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001004, 1, 93000001, '风险点工作台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索"}', 14, 1, 1, '/insight', 'iot:insight', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001005, 1, 93000001, '文件与固件校验', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验"}', 15, 1, 1, '/file-debug', 'iot:file-debug', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001006, 1, 93000001, '系统日志', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 16, 1, 1, '/system-log', 'iot:system-log', 16, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001007, 1, 93000001, '消息追踪', 'iot:message-trace', '/message-trace', 'MessageTraceView', 'tickets', '{"caption":"按 TraceId、设备编码与 Topic 排查设备接入链路"}', 17, 1, 1, '/message-trace', 'iot:message-trace', 17, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93002001, 1, 93000002, '告警中心', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭"}', 21, 1, 1, '/alarm-center', 'risk:alarm', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002002, 1, 93000002, '事件处置', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环"}', 22, 1, 1, '/event-disposal', 'risk:event', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -99,8 +101,9 @@ INSERT INTO sys_menu (
     (93003004, 1, 93000003, '区域管理', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护"}', 34, 1, 1, '/region', 'system:region', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003005, 1, 93000003, '字典配置', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置"}', 35, 1, 1, '/dict', 'system:dict', 35, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003006, 1, 93000003, '通知渠道', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 36, 1, 1, '/channel', 'system:channel', 36, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '审计日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"关键操作记录审计与追踪"}', 37, 1, 1, '/audit-log', 'system:audit', 37, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '业务日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 37, 1, 1, '/audit-log', 'system:audit', 37, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003008, 1, 93000003, '菜单管理', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护"}', 38, 1, 1, '/menu', 'system:menu', 38, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003009, 1, 93000003, '自动化测试', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 39, 1, 1, '/automation-test', 'system:automation-test', 39, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003101, 1, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限"}', 3201, 2, 2, '', 'system:user:add', 3201, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003102, 1, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限"}', 3202, 2, 2, '', 'system:user:update', 3202, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -108,7 +111,10 @@ INSERT INTO sys_menu (
     (93003104, 1, 93003002, '重置密码', 'system:user:reset-password', '', '', '', '{"caption":"重置密码按钮权限"}', 3204, 2, 2, '', 'system:user:reset-password', 3204, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003201, 1, 93003003, '新增角色', 'system:role:add', '', '', '', '{"caption":"新增角色按钮权限"}', 3301, 2, 2, '', 'system:role:add', 3301, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003202, 1, 93003003, '编辑角色', 'system:role:update', '', '', '', '{"caption":"编辑角色按钮权限"}', 3302, 2, 2, '', 'system:role:update', 3302, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003203, 1, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限"}', 3303, 2, 2, '', 'system:role:delete', 3303, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003203, 1, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限"}', 3303, 2, 2, '', 'system:role:delete', 3303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003301, 1, 93003008, '新增菜单', 'system:menu:add', '', '', '', '{"caption":"新增菜单按钮权限"}', 3801, 2, 2, '', 'system:menu:add', 3801, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003302, 1, 93003008, '编辑菜单', 'system:menu:update', '', '', '', '{"caption":"编辑菜单按钮权限"}', 3802, 2, 2, '', 'system:menu:update', 3802, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003303, 1, 93003008, '删除菜单', 'system:menu:delete', '', '', '', '{"caption":"删除菜单按钮权限"}', 3803, 2, 2, '', 'system:menu:delete', 3803, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -228,12 +234,12 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW();
 
 INSERT INTO iot_device_message_log (
-    id, tenant_id, device_id, product_id, message_type, topic, payload, report_time, create_time
+    id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time
 ) VALUES
-    (5001, 1, 2001, 1001, 'property', '/sys/accept-http-product-01/accept-http-device-01/thing/property/post',
+    (5001, 1, 2001, 1001, 'trace-accept-http-0001', 'accept-http-device-01', 'accept-http-product-01', 'property', '/sys/accept-http-product-01/accept-http-device-01/thing/property/post',
      JSON_OBJECT('messageType', 'property', 'properties', JSON_OBJECT('temperature', 26.5, 'humidity', 68, 'pressure', 101.3)),
      DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW()),
-    (5002, 1, 2002, 1002, 'property', '/sys/accept-mqtt-product-01/accept-mqtt-device-01/thing/property/post',
+    (5002, 1, 2002, 1002, 'trace-accept-mqtt-0001', 'accept-mqtt-device-01', 'accept-mqtt-product-01', 'property', '/sys/accept-mqtt-product-01/accept-mqtt-device-01/thing/property/post',
      JSON_OBJECT('messageType', 'property', 'properties', JSON_OBJECT('temperature', 31.2, 'vibration', 5.6)),
      DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW())
 ON DUPLICATE KEY UPDATE
@@ -361,12 +367,12 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 INSERT INTO sys_audit_log (
-    id, tenant_id, user_id, user_name, operation_type, operation_module, operation_method,
+    id, tenant_id, user_id, user_name, trace_id, device_code, product_key, operation_type, operation_module, operation_method,
     request_url, request_method, request_params, response_result, ip_address, location,
-    operation_result, result_message, operation_time, create_time, deleted
+    operation_result, result_message, error_code, exception_class, operation_time, create_time, deleted
 ) VALUES
-    (7501, 1, 1, 'admin', 'select', 'device', 'DeviceService.list', '/api/device/list', 'GET', '{}', 'HTTP 200', '127.0.0.1', 'local', 1, 'OK', DATE_SUB(NOW(), INTERVAL 5 MINUTE), NOW(), 0),
-    (7502, 1, 1, 'admin', 'update', 'alarm', 'AlarmRecordService.closeAlarm', '/api/alarm/2033491770125463554/close', 'POST', '{"closeUser":1}', 'HTTP 200', '127.0.0.1', 'local', 1, 'OK', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), 0)
+    (7501, 1, 1, 'admin', 'trace-audit-0001', NULL, NULL, 'select', 'device', 'DeviceService.list', '/api/device/list', 'GET', '{}', 'HTTP 200', '127.0.0.1', 'local', 1, 'OK', NULL, NULL, DATE_SUB(NOW(), INTERVAL 5 MINUTE), NOW(), 0),
+    (7502, 1, 1, 'admin', 'trace-audit-0002', NULL, NULL, 'update', 'alarm', 'AlarmRecordService.closeAlarm', '/api/alarm/2033491770125463554/close', 'POST', '{"closeUser":1}', 'HTTP 200', '127.0.0.1', 'local', 1, 'OK', NULL, NULL, DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), 0)
 ON DUPLICATE KEY UPDATE
     response_result = VALUES(response_result),
     operation_result = VALUES(operation_result),

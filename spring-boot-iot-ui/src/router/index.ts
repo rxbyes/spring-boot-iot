@@ -78,6 +78,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/system-log',
+    name: 'system-log',
+    component: () => import('../views/AuditLogView.vue'),
+    meta: {
+      title: '系统日志',
+      description: '设备接入链路的系统异常定位与调试回看。',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/future-lab',
     name: 'future-lab',
     component: () => import('../views/FutureLabView.vue'),
@@ -248,12 +258,22 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/automation-test',
+    name: 'automation-test',
+    component: () => import('../views/AutomationTestCenterView.vue'),
+    meta: {
+      title: '自动化测试',
+      description: '配置驱动的浏览器自动化编排、报告与测试建议中心。',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/audit-log',
     name: 'audit-log',
     component: () => import('../views/AuditLogView.vue'),
     meta: {
-      title: '审计日志',
-      description: '系统关键操作审计查询。',
+      title: '业务日志',
+      description: '面向业务与治理侧的关键操作审计查询。',
       requiresAuth: true
     }
   }

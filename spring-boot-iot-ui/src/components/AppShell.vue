@@ -254,6 +254,7 @@ const docFallbackGroups: NavGroup[] = [
       { to: '/devices', label: '设备运维中心', caption: '设备建档、在线状态与运维管理', short: '设' },
       { to: '/reporting', label: '接入验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
       { to: '/insight', label: '监测对象工作台', caption: '设备属性、日志与研判线索', short: '洞' },
+      { to: '/system-log', label: '系统日志', caption: '研发测试定位系统异常与接入问题', short: '统' },
       { to: '/file-debug', label: '数据完整性校验', caption: '文件快照与固件聚合调试', short: '校' }
     ]
   },
@@ -278,16 +279,17 @@ const docFallbackGroups: NavGroup[] = [
     label: '系统管理',
     description: '组织与权限治理',
     menuTitle: '系统治理与权限',
-    menuHint: '覆盖组织、用户、角色、菜单、区域、字典、通知与审计。',
+    menuHint: '覆盖组织、用户、角色、菜单、区域、字典、通知与业务日志。',
     items: [
       { to: '/organization', label: '组织管理', caption: '组织树维护与层级治理', short: '组' },
       { to: '/user', label: '用户管理', caption: '用户档案、状态与角色分配', short: '用' },
       { to: '/role', label: '角色管理', caption: '角色与菜单权限授权', short: '角' },
       { to: '/menu', label: '菜单管理', caption: '菜单树结构与页面权限项维护', short: '菜' },
+      { to: '/automation-test', label: '自动化测试', caption: '配置驱动场景编排、执行计划与报告导出', short: '测' },
       { to: '/region', label: '区域管理', caption: '区域树维护与引用配置', short: '区' },
       { to: '/dict', label: '字典配置', caption: '字典分类维护与编码查询', short: '字' },
       { to: '/channel', label: '通知渠道', caption: '通知渠道增删改查', short: '通' },
-      { to: '/audit-log', label: '审计日志', caption: '关键操作审计查询', short: '审' }
+      { to: '/audit-log', label: '业务日志', caption: '客户与治理侧业务操作审计', short: '业' }
     ]
   },
   {
