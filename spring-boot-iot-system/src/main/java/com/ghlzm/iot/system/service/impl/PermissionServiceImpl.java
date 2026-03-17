@@ -2,7 +2,6 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.dto.RoleMenuBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleBindingDTO;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -95,6 +95,11 @@ public class PermissionServiceImpl implements PermissionService {
         context.setUsername(user.getUsername());
         context.setRealName(user.getRealName());
         context.setDisplayName(StringUtils.hasText(user.getRealName()) ? user.getRealName() : user.getUsername());
+        context.setPhone(user.getPhone());
+        context.setEmail(user.getEmail());
+        context.setAccountType(superAdmin ? "主账号" : "子账号");
+        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
+        context.setLoginMethods(buildLoginMethods(user));
         context.setSuperAdmin(superAdmin);
         context.setHomePath(resolveHomePath(navigationMenus));
         context.setRoles(roles.stream().map(this::toRoleSummary).toList());
@@ -225,6 +230,15 @@ public class PermissionServiceImpl implements PermissionService {
 
     private List<Long> extractRoleIds(List<Role> roles) {
         return roles.stream().map(Role::getId).filter(Objects::nonNull).toList();
+    }
+
+    private List<String> buildLoginMethods(User user) {
+        List<String> methods = new ArrayList<>();
+        methods.add("账号登录");
+        if (StringUtils.hasText(user.getPhone())) {
+            methods.add("手机号登录");
+        }
+        return methods;
     }
 
     private Set<Long> expandWithAncestors(Collection<Long> menuIds, Map<Long, Menu> menuMap) {

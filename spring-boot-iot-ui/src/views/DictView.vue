@@ -262,6 +262,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addDict,
   addDictItem,
@@ -296,18 +297,13 @@ const itemsTableData = ref<DictItem[]>([])
 const selectedRows = ref<Dict[]>([])
 const selectedItemRows = ref<DictItem[]>([])
 const currentDictId = ref<IdType>()
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 const currentDictName = ref('')
 
 const searchForm = reactive({
   dictName: '',
   dictCode: '',
   dictType: undefined as string | undefined
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const formData = ref<Partial<Dict>>({
@@ -398,8 +394,7 @@ const loadDictPage = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取字典分页失败', error)
@@ -413,7 +408,7 @@ onMounted(() => {
 })
 
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadDictPage()
 }
@@ -422,7 +417,7 @@ const handleReset = () => {
   searchForm.dictName = ''
   searchForm.dictCode = ''
   searchForm.dictType = undefined
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadDictPage()
 }
@@ -707,13 +702,12 @@ const getDictTypeTag = (type: string) => {
 }
 
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadDictPage()
 }
 
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   loadDictPage()
 }
 </script>

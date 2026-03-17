@@ -181,6 +181,7 @@ import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import { useServerPagination } from '@/composables/useServerPagination'
 
 const router = useRouter()
 const loading = ref(false)
@@ -190,17 +191,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增菜单')
 const dialogMode = ref<'add' | 'edit'>('add')
 const formRef = ref()
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const filters = reactive({
   menuName: '',
   menuCode: '',
   type: undefined as number | undefined
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const form = reactive<Partial<Menu>>({
@@ -262,8 +258,7 @@ async function loadMenuPage() {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('查询菜单分页失败', error)
@@ -287,7 +282,7 @@ async function loadChildren(row: Menu, _treeNode: unknown, resolve: (data: Menu[
 }
 
 function handleSearch() {
-  pagination.pageNum = 1
+  resetPage()
   loadMenuPage()
 }
 
@@ -295,7 +290,7 @@ function handleReset() {
   filters.menuName = ''
   filters.menuCode = ''
   filters.type = undefined
-  pagination.pageNum = 1
+  resetPage()
   loadMenuPage()
 }
 
@@ -377,13 +372,12 @@ function handleDialogClose() {
 }
 
 function handleSizeChange(size: number) {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadMenuPage()
 }
 
 function handlePageChange(page: number) {
-  pagination.pageNum = page
+  setPageNum(page)
   loadMenuPage()
 }
 

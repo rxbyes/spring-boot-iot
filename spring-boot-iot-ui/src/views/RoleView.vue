@@ -252,6 +252,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
 import { listMenuTree } from '@/api/menu';
 import { addRole, deleteRole, getRole, pageRoles, updateRole, type Role } from '@/api/role';
 import type { MenuTreeNode } from '@/types/auth';
@@ -282,17 +283,12 @@ interface RoleMenuTreeNode extends MenuTreeNode {
 const formRef = ref();
 const tableRef = ref();
 const menuTreeRef = ref();
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const searchForm = reactive<SearchFormState>({
   roleName: '',
   roleCode: '',
   status: undefined
-});
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 });
 
 const tableData = ref<Role[]>([]);
@@ -394,8 +390,7 @@ async function getRoles() {
       pageSize: pagination.pageSize
     });
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || [];
-      pagination.total = res.data.total || 0;
+      tableData.value = applyPageResult(res.data);
     }
   } catch (error) {
     console.error('获取角色列表失败', error);
@@ -446,7 +441,7 @@ async function openRoleDialog(title: string, role: RoleFormData) {
 }
 
 function handleSearch() {
-  pagination.pageNum = 1;
+  resetPage();
   getRoles();
 }
 
@@ -454,7 +449,7 @@ function handleReset() {
   searchForm.roleName = '';
   searchForm.roleCode = '';
   searchForm.status = undefined;
-  pagination.pageNum = 1;
+  resetPage();
   getRoles();
 }
 
@@ -643,13 +638,12 @@ function handleDialogClose() {
 }
 
 function handleSizeChange(size: number) {
-  pagination.pageSize = size;
-  pagination.pageNum = 1;
+  setPageSize(size);
   getRoles();
 }
 
 function handlePageChange(page: number) {
-  pagination.pageNum = page;
+  setPageNum(page);
   getRoles();
 }
 

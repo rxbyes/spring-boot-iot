@@ -217,6 +217,7 @@ function buildMarkdownReport(summary, scenarioResults, plannedScenarios, extraSe
     `- Backend: \`${summary.backendBaseUrl}\``,
     `- Browser: \`${summary.browserPath || 'dry-run'}\``,
     `- Headless: \`${summary.headless}\``,
+    `- Update baseline: \`${summary.updateBaseline}\``,
     `- Scope filter: \`${summary.filters.scenarioScopes.join(', ')}\``,
     `- Fail scopes: \`${summary.filters.failScopes.join(', ')}\``,
     '',
@@ -277,6 +278,7 @@ function buildSummary(runtimeOptions, artifacts, preflightResult, scenarioResult
     backendBaseUrl: runtimeOptions.backendBaseUrl,
     browserPath: runtimeOptions.browserPath,
     headless: runtimeOptions.headless,
+    updateBaseline: runtimeOptions.updateBaseline,
     filters: {
       scenarioScopes: runtimeOptions.scenarioScopes,
       failScopes: runtimeOptions.failScopes
@@ -343,6 +345,10 @@ function createRuntimeOptions(rawOptions = {}) {
     headless: parseBoolean(
       rawOptions.headless ?? process.env.IOT_ACCEPTANCE_HEADLESS,
       true
+    ),
+    updateBaseline: parseBoolean(
+      rawOptions.updateBaseline ?? process.env.IOT_AUTO_UPDATE_BASELINE,
+      false
     ),
     login: {
       username: rawOptions.username || process.env.IOT_ACCEPTANCE_USERNAME || 'admin',
@@ -964,7 +970,12 @@ export async function runBrowserAcceptance({
             finishedAt: new Date().toISOString(),
             screenshotPath,
             error: error instanceof Error ? error.message : String(error),
-            detail: error instanceof AcceptanceError ? error.details : undefined
+            detail:
+              error && typeof error === 'object' && 'details' in error
+                ? error.details
+                : error instanceof AcceptanceError
+                  ? error.details
+                  : undefined
           })
         );
       }

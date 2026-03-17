@@ -170,6 +170,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { useServerPagination } from '@/composables/useServerPagination'
 import {
   CHANNEL_TYPES,
   addChannel,
@@ -189,17 +190,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增通知渠道')
 const tableData = ref<ChannelRecord[]>([])
 const selectedRows = ref<ChannelRecord[]>([])
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const searchForm = reactive({
   channelName: '',
   channelCode: '',
   channelType: undefined as string | undefined
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const formData = ref<Partial<ChannelRecord>>({
@@ -295,8 +291,7 @@ const loadChannelPage = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取通知渠道分页失败', error)
@@ -310,7 +305,7 @@ onMounted(() => {
 })
 
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadChannelPage()
 }
@@ -319,7 +314,7 @@ const handleReset = () => {
   searchForm.channelName = ''
   searchForm.channelCode = ''
   searchForm.channelType = undefined
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadChannelPage()
 }
@@ -442,13 +437,12 @@ const getChannelTypeName = (type: string) => {
 }
 
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadChannelPage()
 }
 
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   loadChannelPage()
 }
 </script>

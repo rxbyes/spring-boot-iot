@@ -1,8 +1,6 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.alarm.dto.RiskMonitoringListQuery;
 import com.ghlzm.iot.alarm.entity.AlarmRecord;
 import com.ghlzm.iot.alarm.entity.EventRecord;
@@ -31,6 +29,8 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;

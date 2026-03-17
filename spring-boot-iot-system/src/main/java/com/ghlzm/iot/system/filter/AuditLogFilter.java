@@ -1,7 +1,5 @@
 package com.ghlzm.iot.system.filter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
@@ -21,6 +19,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 import org.springframework.web.servlet.HandlerMapping;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.charset.Charset;

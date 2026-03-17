@@ -39,25 +39,42 @@
           :header-identity="headerIdentity"
           :header-account-name="headerAccountName"
           :header-role-name="headerRoleName"
+          :header-account-code="headerAccountCode"
+          :header-account-type="headerAccountType"
+          :header-auth-status="headerAuthStatus"
+          :header-primary-contact="headerPrimaryContact"
+          :header-login-methods="headerLoginMethods"
           :account-initial="accountInitial"
           :unread-notice-count="unreadNoticeCount"
           @toggle-notice="toggleNoticePanel"
           @toggle-help="toggleHelpPanel"
+          @open-account-menu="closeHeaderPanels"
+          @open-account-center="openAccountCenter"
+          @open-real-name-auth="openRealNameAuth"
+          @open-login-methods="openLoginMethods"
+          @open-change-password="openChangePasswordDialog"
+          @logout="handleLogout"
         />
       </div>
 
       <nav class="cloud-header__sections" aria-label="一级导航">
-        <button
+        <el-tooltip
           v-for="group in navigationGroups"
           :key="group.key"
-          type="button"
-          class="section-tab"
-          :class="{ 'section-tab--active': activeGroup.key === group.key }"
-          @click="switchGroup(group.key)"
+          placement="bottom"
+          effect="light"
+          :content="group.description"
         >
-          <span>{{ group.label }}</span>
-          <small>{{ group.description }}</small>
-        </button>
+          <button
+            type="button"
+            class="section-tab"
+            :class="{ 'section-tab--active': activeGroup.key === group.key }"
+            :aria-label="`${group.label}，${group.description}`"
+            @click="switchGroup(group.key)"
+          >
+            <span>{{ group.label }}</span>
+          </button>
+        </el-tooltip>
       </nav>
 
       <transition name="header-pop">
@@ -88,103 +105,206 @@
 
     <div class="cloud-layout">
       <aside class="cloud-sidebar" :aria-hidden="isMobile && !mobileMenuOpen">
-        <div class="sidebar-context">
+        <div v-if="showSidebarContext" class="sidebar-context">
           <p class="sidebar-context__eyebrow">{{ activeGroup.label }}</p>
           <h2>{{ activeGroup.menuTitle }}</h2>
           <p>{{ activeGroup.menuHint }}</p>
         </div>
 
         <nav class="side-menu" aria-label="二级导航">
-          <RouterLink
+          <el-tooltip
             v-for="item in activeGroup.items"
             :key="item.to"
-            :to="item.to"
-            class="side-menu__item"
-            :class="{ 'side-menu__item--active': route.path === item.to }"
-            :title="item.label"
+            placement="right"
+            effect="light"
+            :content="item.caption || item.label"
           >
-            <span class="side-menu__marker">{{ item.short }}</span>
-            <span class="side-menu__content">
-              <strong>{{ item.label }}</strong>
-              <small>{{ item.caption }}</small>
-            </span>
-          </RouterLink>
+            <RouterLink
+              :to="item.to"
+              class="side-menu__item"
+              :class="{ 'side-menu__item--active': route.path === item.to }"
+              :title="item.caption ? `${item.label}：${item.caption}` : item.label"
+              :aria-label="item.caption ? `${item.label}，${item.caption}` : item.label"
+            >
+              <span class="side-menu__marker">{{ item.short }}</span>
+              <span class="side-menu__content">
+                <strong>{{ item.label }}</strong>
+              </span>
+            </RouterLink>
+          </el-tooltip>
         </nav>
       </aside>
 
       <section class="cloud-content">
         <section class="console-toolbar">
           <div class="console-toolbar__heading">
-            <p class="toolbar-eyebrow">{{ activeGroup.label }}</p>
             <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
-            <p>{{ activeDescription }}</p>
-          </div>
-
-          <div class="console-toolbar__summary">
-            <div class="console-toolbar__actions">
-              <button
-                type="button"
-                class="toolbar-button toolbar-button--ghost"
-                @click="showAccessPanel = !showAccessPanel"
-              >
-                {{ showAccessPanel ? '收起接入设置' : '接入设置' }}
-              </button>
-              <button
-                v-if="permissionStore.isLoggedIn"
-                type="button"
-                class="toolbar-button"
-                @click="handleLogout"
-              >
-                退出登录
-              </button>
-            </div>
+            <p v-if="toolbarDescription">{{ toolbarDescription }}</p>
           </div>
         </section>
 
-        <transition name="console-settings">
-          <section v-if="showAccessPanel" class="console-settings">
-            <div class="console-settings__intro">
-              <p>接入配置</p>
-              <h2>导航采用统一控制台模板，按钮权限仍按数据库授权控制。</h2>
-              <span>{{ environmentValue }}</span>
-            </div>
-
-            <div class="console-settings__content">
-              <label class="toolbar-field toolbar-field--wide">
-                <span>接入地址</span>
-                <input
-                  v-model="baseUrlDraft"
-                  class="toolbar-input"
-                  name="api_base_url"
-                  type="url"
-                  autocomplete="url"
-                  spellcheck="false"
-                  placeholder="留空使用当前站点同源地址，或填写外部网关地址"
-                  @keydown.enter="saveApiBaseUrl"
-                />
-              </label>
-
-              <button type="button" class="toolbar-button toolbar-button--primary" @click="saveApiBaseUrl">应用地址</button>
-
-              <template v-if="!permissionStore.isLoggedIn">
-                <button type="button" class="toolbar-button toolbar-button--success" @click="goToLogin">
-                  前往登录
-                </button>
-              </template>
-
-              <div v-else class="logged-user-card">
-                <strong>{{ permissionStore.displayName || permissionStore.userInfo?.username }}</strong>
-                <span>{{ loggedUserHint }}</span>
-              </div>
-            </div>
-          </section>
-        </transition>
-
-        <TabsView />
+        <TabsView v-if="showTabsView" />
 
         <main id="main-content" class="content-frame">
           <RouterView />
         </main>
+
+        <StandardFormDrawer
+          v-model="showAccountDialog"
+          eyebrow="Account Center"
+          title="账号中心"
+          subtitle="统一通过右侧抽屉查看当前账号、角色、联系方式与认证状态。"
+          size="32rem"
+          @close="closeAccountDialog"
+        >
+          <div class="account-dialog">
+            <div class="account-dialog__hero">
+              <span class="account-dialog__avatar">{{ accountInitial }}</span>
+              <div class="account-dialog__hero-content">
+                <strong>{{ headerAccountName }}</strong>
+                <p>登录账号：{{ headerAccountCode }}</p>
+              </div>
+            </div>
+
+            <dl class="account-dialog__list">
+              <div>
+                <dt>账号类型</dt>
+                <dd>{{ headerAccountType }}</dd>
+              </div>
+              <div>
+                <dt>当前角色</dt>
+                <dd>{{ headerRoleName }}</dd>
+              </div>
+              <div>
+                <dt>真实姓名</dt>
+                <dd>{{ permissionStore.authContext?.realName || '未填写' }}</dd>
+              </div>
+              <div>
+                <dt>显示名称</dt>
+                <dd>{{ permissionStore.displayName || headerAccountCode }}</dd>
+              </div>
+              <div>
+                <dt>手机号</dt>
+                <dd>{{ maskedPhone }}</dd>
+              </div>
+              <div>
+                <dt>邮箱</dt>
+                <dd>{{ maskedEmail }}</dd>
+              </div>
+              <div>
+                <dt>认证状态</dt>
+                <dd>{{ headerAuthStatus }}</dd>
+              </div>
+              <div>
+                <dt>登录方式</dt>
+                <dd>{{ headerLoginMethods }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <template #footer>
+            <el-button @click="openRealNameAuth">实名认证</el-button>
+            <el-button @click="openLoginMethods">登录方式管理</el-button>
+            <el-button @click="openChangePasswordDialog">修改密码</el-button>
+            <el-button type="primary" @click="closeAccountDialog">关闭</el-button>
+          </template>
+        </StandardFormDrawer>
+
+        <StandardFormDrawer
+          v-model="showRealNameAuthDialog"
+          eyebrow="Account Verification"
+          title="实名认证"
+          subtitle="当前版本先展示账号实名信息与接入状态，后续再补独立认证流程。"
+          size="30rem"
+          @close="closeRealNameAuthDialog"
+        >
+          <div class="account-dialog">
+            <dl class="account-dialog__list">
+              <div>
+                <dt>实名状态</dt>
+                <dd>{{ headerAuthStatus }}</dd>
+              </div>
+              <div>
+                <dt>实名姓名</dt>
+                <dd>{{ permissionStore.authContext?.realName || '未填写' }}</dd>
+              </div>
+              <div>
+                <dt>账号类型</dt>
+                <dd>{{ headerAccountType }}</dd>
+              </div>
+              <div>
+                <dt>当前说明</dt>
+                <dd>当前共享环境仅展示实名信息状态，不提供外部实名认证提交流程。</dd>
+              </div>
+            </dl>
+          </div>
+
+          <template #footer>
+            <el-button @click="openAccountCenter">返回账号中心</el-button>
+            <el-button type="primary" @click="closeRealNameAuthDialog">我知道了</el-button>
+          </template>
+        </StandardFormDrawer>
+
+        <StandardFormDrawer
+          v-model="showLoginMethodsDialog"
+          eyebrow="Login Methods"
+          title="登录方式管理"
+          subtitle="展示当前账号可用的登录方式与联系信息，后续再补独立绑定流程。"
+          size="30rem"
+          @close="closeLoginMethodsDialog"
+        >
+          <div class="account-dialog">
+            <dl class="account-dialog__list">
+              <div>
+                <dt>可用登录方式</dt>
+                <dd>{{ headerLoginMethods }}</dd>
+              </div>
+              <div>
+                <dt>账号登录</dt>
+                <dd>{{ headerAccountCode }}</dd>
+              </div>
+              <div>
+                <dt>手机号登录</dt>
+                <dd>{{ maskedPhone }}</dd>
+              </div>
+              <div>
+                <dt>邮箱通知</dt>
+                <dd>{{ maskedEmail }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <template #footer>
+            <el-button @click="openAccountCenter">返回账号中心</el-button>
+            <el-button type="primary" @click="closeLoginMethodsDialog">关闭</el-button>
+          </template>
+        </StandardFormDrawer>
+
+        <StandardFormDrawer
+          v-model="showChangePasswordDialog"
+          eyebrow="Account Security"
+          title="修改密码"
+          subtitle="统一通过右侧抽屉完成密码修改，提交成功后需要重新登录。"
+          size="30rem"
+          @close="closeChangePasswordDialog"
+        >
+          <el-form label-position="top" class="account-password-form">
+            <el-form-item label="原密码">
+              <el-input v-model="passwordForm.oldPassword" type="password" show-password autocomplete="current-password" />
+            </el-form-item>
+            <el-form-item label="新密码">
+              <el-input v-model="passwordForm.newPassword" type="password" show-password autocomplete="new-password" />
+            </el-form-item>
+            <el-form-item label="确认新密码">
+              <el-input v-model="passwordForm.confirmPassword" type="password" show-password autocomplete="new-password" />
+            </el-form-item>
+          </el-form>
+
+          <template #footer>
+            <el-button @click="closeChangePasswordDialog">取消</el-button>
+            <el-button type="primary" :loading="passwordSubmitting" @click="submitChangePassword">确认修改</el-button>
+          </template>
+        </StandardFormDrawer>
       </section>
     </div>
 
@@ -199,17 +319,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 
+import { changePassword } from '../api/user';
+import { createSectionHomeNavItem } from '../config/sectionHomes';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
-import { runtimeState, setApiBaseUrl } from '../stores/runtime';
+import { visitedTabs } from '../stores/tabs';
 import type { MenuTreeNode } from '../types/auth';
 import { formatDateTime } from '../utils/format';
 import AppHeaderTools from './AppHeaderTools.vue';
 import HeaderPopoverPanel from './HeaderPopoverPanel.vue';
+import StandardFormDrawer from './StandardFormDrawer.vue';
 import TabsView from './TabsView.vue';
 
 interface NavItem {
@@ -255,6 +378,7 @@ const docFallbackGroups: NavGroup[] = [
       { to: '/reporting', label: '接入验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
       { to: '/insight', label: '监测对象工作台', caption: '设备属性、日志与研判线索', short: '洞' },
       { to: '/system-log', label: '系统日志', caption: '研发测试定位系统异常与接入问题', short: '统' },
+      { to: '/message-trace', label: '消息追踪', caption: '按 TraceId、设备编码与 Topic 串联接入链路', short: '追' },
       { to: '/file-debug', label: '数据完整性校验', caption: '文件快照与固件聚合调试', short: '校' }
     ]
   },
@@ -312,6 +436,17 @@ function cloneGroups(groups: NavGroup[]): NavGroup[] {
   }));
 }
 
+function prependSectionHomeItem(groupKey: string, groupLabel: string, items: NavItem[]): NavItem[] {
+  const overviewItem = createSectionHomeNavItem(groupKey, groupLabel);
+  if (!overviewItem) {
+    return items;
+  }
+  if (items.some((item) => item.to === overviewItem.to)) {
+    return items;
+  }
+  return [overviewItem, ...items];
+}
+
 function buildShortLabel(label: string, fallback?: string): string {
   const short = (fallback || '').trim();
   if (short) {
@@ -352,24 +487,31 @@ function buildDynamicGroups(menus: MenuTreeNode[]): NavGroup[] {
         description: root.meta?.description || '权限分组',
         menuTitle: root.meta?.menuTitle || root.menuName || '菜单分组',
         menuHint: root.meta?.menuHint || root.meta?.description || '由后端菜单权限动态驱动。',
-        items
+        items: prependSectionHomeItem(root.menuCode || `menu-${root.id}`, root.menuName || '', items)
       } as NavGroup;
     })
     .filter((group) => group.items.length > 0);
 }
 
 const searchKeyword = ref('');
-const baseUrlDraft = ref(runtimeState.apiBaseUrl);
-const showAccessPanel = ref(false);
-
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
 const sidebarCollapsed = ref(false);
 const showNoticePanel = ref(false);
 const showHelpPanel = ref(false);
+const showAccountDialog = ref(false);
+const showRealNameAuthDialog = ref(false);
+const showLoginMethodsDialog = ref(false);
+const showChangePasswordDialog = ref(false);
+const passwordSubmitting = ref(false);
 const readNoticeIds = ref<string[]>([]);
 const noticePanelId = 'header-notice-panel';
 const helpPanelId = 'header-help-panel';
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+});
 const staticNavigationGroups = cloneGroups(docFallbackGroups);
 
 const navigationGroups = computed<NavGroup[]>(() => {
@@ -381,7 +523,10 @@ const navigationGroups = computed<NavGroup[]>(() => {
     return dynamicGroups;
   }
   // 共享环境菜单未初始化时使用临时兜底，避免登录后无导航可用。
-  return staticNavigationGroups;
+  return staticNavigationGroups.map((group) => ({
+    ...group,
+    items: prependSectionHomeItem(group.key, group.label, group.items)
+  }));
 });
 
 const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
@@ -394,13 +539,6 @@ const activeGroup = computed(() => {
 const activeMenuItem = computed(() => flattenedItems.value.find((item) => item.to === route.path) || null);
 
 watch(
-  () => runtimeState.apiBaseUrl,
-  (value) => {
-    baseUrlDraft.value = value;
-  }
-);
-
-watch(
   () => route.path,
   () => {
     if (isMobile.value) {
@@ -408,7 +546,10 @@ watch(
     }
     showNoticePanel.value = false;
     showHelpPanel.value = false;
-    showAccessPanel.value = false;
+    showAccountDialog.value = false;
+    showRealNameAuthDialog.value = false;
+    showLoginMethodsDialog.value = false;
+    showChangePasswordDialog.value = false;
   }
 );
 
@@ -416,11 +557,16 @@ const activeTitle = computed(() => activeMenuItem.value?.label || String(route.m
 const activeDescription = computed(() => {
   return activeMenuItem.value?.caption || String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。');
 });
+const activeGroupHomePath = computed(() => activeGroup.value.items[0]?.to || '/');
+const showSidebarContext = computed(() => route.path === activeGroupHomePath.value);
+const toolbarDescription = computed(() => (showSidebarContext.value ? '' : activeDescription.value));
+const showTabsView = computed(() => route.meta.trackTab !== false && visitedTabs.value.length > 1);
 const headerIdentity = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '访客模式';
   }
-  return '系统管理员 · 超级管理员';
+  const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
+  return `当前角色：${roleText}`;
 });
 const headerAccountName = computed(() => {
   if (!permissionStore.isLoggedIn) {
@@ -428,23 +574,49 @@ const headerAccountName = computed(() => {
   }
   return permissionStore.displayName || permissionStore.userInfo?.username || '系统管理员';
 });
+const headerAccountCode = computed(() => permissionStore.userInfo?.username || 'guest');
+const headerAccountType = computed(() => permissionStore.userInfo?.accountType || '子账号');
 const headerRoleName = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '未登录';
   }
-  return permissionStore.primaryRoleName || '超级管理员';
+  return permissionStore.roleNames.join(' / ') || permissionStore.primaryRoleName || '未分配角色';
+});
+const headerAuthStatus = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '未登录';
+  }
+  return permissionStore.userInfo?.authStatus || '未填写实名信息';
+});
+const headerLoginMethods = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return '账号登录';
+  }
+  const methods = permissionStore.userInfo?.loginMethods || [];
+  return methods.length > 0 ? methods.join(' / ') : '账号登录';
+});
+const maskedPhone = computed(() => maskPhone(permissionStore.userInfo?.phone));
+const maskedEmail = computed(() => maskEmail(permissionStore.userInfo?.email));
+const headerPrimaryContact = computed(() => {
+  if (maskedPhone.value !== '未绑定手机号') {
+    return `手机号：${maskedPhone.value}`;
+  }
+  if (maskedEmail.value !== '未绑定邮箱') {
+    return `邮箱：${maskedEmail.value}`;
+  }
+  return '';
 });
 const accountInitial = computed(() => {
   const source = headerAccountName.value.trim();
   return source ? source.slice(0, 1).toUpperCase() : '管';
 });
-const noticeItems = computed(() => {
+  const noticeItems = computed(() => {
   const fromActivity = activityEntries.value.slice(0, 4).map((item) => ({
-    id: item.id,
-    title: `${item.module} · ${item.action}`,
-    time: formatDateTime(item.createdAt),
-    path: route.path
-  }));
+      id: item.id,
+      title: item.title || [item.module, item.action].filter(Boolean).join(' · ') || '最近操作',
+      time: formatDateTime(item.createdAt),
+      path: item.path || route.path
+    }));
 
   if (fromActivity.length > 0) {
     return fromActivity;
@@ -453,7 +625,7 @@ const noticeItems = computed(() => {
   return [
     { id: 'notice-1', title: '系统导航已升级为统一控制台样式', time: '刚刚', path: '/' },
     { id: 'notice-2', title: '按钮权限仍按数据库角色授权控制', time: '刚刚', path: '/role' },
-    { id: 'notice-3', title: '可在接入设置中切换 API 网关地址', time: '刚刚', path: route.path }
+    { id: 'notice-3', title: '右上角头像已收口账号信息与安全操作', time: '刚刚', path: route.path }
   ];
 });
 const noticePopoverItems = computed(() =>
@@ -481,11 +653,6 @@ const helpPopoverItems = computed(() =>
     path: item.path
   }))
 );
-const environmentValue = computed(() => runtimeState.apiBaseUrl || '当前站点同源访问 /api');
-const loggedUserHint = computed(() => {
-  const roleText = permissionStore.roleNames.join(' / ') || '未分配角色';
-  return `当前角色：${roleText}，一级导航使用统一模板，按钮权限按数据库授权控制。`;
-});
 
 watch(
   noticeItems,
@@ -527,11 +694,6 @@ function handleSearch() {
   router.push(target.to);
 }
 
-function saveApiBaseUrl() {
-  setApiBaseUrl(baseUrlDraft.value);
-  ElMessage.success('接入地址已更新');
-}
-
 function toggleNoticePanel() {
   const willOpen = !showNoticePanel.value;
   showNoticePanel.value = willOpen;
@@ -564,6 +726,32 @@ function closeHeaderPanels() {
   showHelpPanel.value = false;
 }
 
+function maskPhone(phone?: string | null): string {
+  const value = (phone || '').trim();
+  if (!value) {
+    return '未绑定手机号';
+  }
+  if (value.length < 7) {
+    return value;
+  }
+  return `${value.slice(0, 3)}****${value.slice(-4)}`;
+}
+
+function maskEmail(email?: string | null): string {
+  const value = (email || '').trim();
+  if (!value) {
+    return '未绑定邮箱';
+  }
+  const [name, domain] = value.split('@');
+  if (!name || !domain) {
+    return value;
+  }
+  if (name.length <= 2) {
+    return `${name.slice(0, 1)}***@${domain}`;
+  }
+  return `${name.slice(0, 2)}***@${domain}`;
+}
+
 function handleDocumentPointerDown(event: PointerEvent) {
   if (!showNoticePanel.value && !showHelpPanel.value) {
     return;
@@ -588,10 +776,6 @@ function handleDocumentKeydown(event: KeyboardEvent) {
   closeHeaderPanels();
 }
 
-function goToLogin() {
-  router.push('/login');
-}
-
 function updateViewportState() {
   isMobile.value = window.matchMedia('(max-width: 1200px)').matches;
   if (isMobile.value) {
@@ -611,7 +795,100 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value;
 }
 
+function openAccountCenter() {
+  closeRealNameAuthDialog();
+  closeLoginMethodsDialog();
+  showAccountDialog.value = true;
+}
+
+function closeAccountDialog() {
+  showAccountDialog.value = false;
+}
+
+function openRealNameAuth() {
+  closeAccountDialog();
+  closeLoginMethodsDialog();
+  showRealNameAuthDialog.value = true;
+}
+
+function closeRealNameAuthDialog() {
+  showRealNameAuthDialog.value = false;
+}
+
+function openLoginMethods() {
+  closeAccountDialog();
+  closeRealNameAuthDialog();
+  showLoginMethodsDialog.value = true;
+}
+
+function closeLoginMethodsDialog() {
+  showLoginMethodsDialog.value = false;
+}
+
+function openChangePasswordDialog() {
+  if (!permissionStore.isLoggedIn) {
+    router.push('/login');
+    return;
+  }
+  closeAccountDialog();
+  closeRealNameAuthDialog();
+  closeLoginMethodsDialog();
+  resetChangePasswordForm();
+  showChangePasswordDialog.value = true;
+}
+
+function resetChangePasswordForm() {
+  passwordForm.oldPassword = '';
+  passwordForm.newPassword = '';
+  passwordForm.confirmPassword = '';
+  passwordSubmitting.value = false;
+}
+
+function closeChangePasswordDialog() {
+  showChangePasswordDialog.value = false;
+  resetChangePasswordForm();
+}
+
+async function submitChangePassword() {
+  const currentUserId = permissionStore.userInfo?.id;
+  if (!currentUserId) {
+    ElMessage.error('当前登录信息缺失，请重新登录后再试');
+    return;
+  }
+  if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    ElMessage.warning('请完整填写密码信息');
+    return;
+  }
+  if (passwordForm.newPassword.length < 6) {
+    ElMessage.warning('新密码长度不能少于 6 位');
+    return;
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致');
+    return;
+  }
+
+  passwordSubmitting.value = true;
+  try {
+    await changePassword({
+      id: currentUserId,
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    });
+    closeChangePasswordDialog();
+    permissionStore.logout();
+    await router.push('/login');
+    ElMessage.success('密码已修改，请重新登录');
+  } catch {
+    passwordSubmitting.value = false;
+  }
+}
+
 function handleLogout() {
+  closeAccountDialog();
+  closeRealNameAuthDialog();
+  closeLoginMethodsDialog();
+  closeChangePasswordDialog();
   permissionStore.logout();
   router.push('/login');
   ElMessage.success('已退出登录');
@@ -769,7 +1046,7 @@ onBeforeUnmount(() => {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 0.2rem;
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
   margin: 0 auto;
   padding: 0;
@@ -788,39 +1065,39 @@ onBeforeUnmount(() => {
 
 .section-tab {
   border: none;
-  border-radius: 0;
+  border-radius: 999px;
   background: transparent;
   color: #3f4653;
-  padding: 0.55rem 1.2rem;
-  display: grid;
-  gap: 0;
+  padding: 0.45rem 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   position: relative;
+  transition: all 160ms ease;
 }
 
 .section-tab span {
   font-size: 0.84rem;
-  font-weight: 500;
-}
-
-.section-tab small {
-  display: none;
+  font-weight: 600;
 }
 
 .section-tab:hover {
   color: #1677ff;
+  background: rgba(22, 119, 255, 0.06);
 }
 
 .section-tab--active {
   color: #1677ff;
+  background: rgba(22, 119, 255, 0.08);
 }
 
 .section-tab--active::after {
   content: '';
   position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: 0;
+  left: 0.9rem;
+  right: 0.9rem;
+  bottom: -0.35rem;
   height: 2px;
   border-radius: 2px;
   background: #1677ff;
@@ -876,7 +1153,7 @@ onBeforeUnmount(() => {
 
 .side-menu {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.3rem;
   overflow-y: auto;
   padding-right: 0.15rem;
 }
@@ -884,20 +1161,36 @@ onBeforeUnmount(() => {
 .side-menu__item {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.65rem;
-  align-items: start;
+  gap: 0.72rem;
+  align-items: center;
   text-decoration: none;
   color: #334155;
   border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 0.5rem 0.52rem;
+  border-radius: 10px;
+  padding: 0.62rem 0.68rem;
   transition: all 160ms ease;
+  position: relative;
+  min-height: 2.7rem;
+}
+
+.side-menu__item::before {
+  content: '';
+  position: absolute;
+  left: -0.1rem;
+  top: 50%;
+  width: 3px;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: #1677ff;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 160ms ease;
 }
 
 .side-menu__marker {
-  width: 1.45rem;
-  height: 1.45rem;
-  border-radius: 2px;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -911,30 +1204,36 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.side-menu__content strong,
-.side-menu__content small {
-  display: block;
-}
-
 .side-menu__content strong {
+  display: block;
   font-size: 0.82rem;
-}
-
-.side-menu__content small {
-  margin-top: 0.22rem;
-  color: #728197;
-  font-size: 0.72rem;
   line-height: 1.45;
+  font-weight: 600;
 }
 
 .side-menu__item:hover {
   border-color: #d6deeb;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(22, 119, 255, 0.05);
+  transform: translateX(1px);
 }
 
 .side-menu__item--active {
-  border-color: #cfe1ff;
-  background: #edf4ff;
+  border-color: #d8e7ff;
+  background: linear-gradient(180deg, #eff5ff 0%, #e9f2ff 100%);
+  box-shadow: inset 0 0 0 1px rgba(22, 119, 255, 0.05);
+}
+
+.side-menu__item--active::before {
+  opacity: 1;
+}
+
+.side-menu__item--active .side-menu__marker {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.12);
+}
+
+.side-menu__item--active .side-menu__content strong {
+  color: #1677ff;
 }
 
 .cloud-shell--collapsed .sidebar-context {
@@ -944,10 +1243,14 @@ onBeforeUnmount(() => {
 .cloud-shell--collapsed .side-menu__item {
   grid-template-columns: 1fr;
   justify-items: center;
-  padding: 0.55rem;
+  padding: 0.6rem 0.45rem;
 }
 
 .cloud-shell--collapsed .side-menu__content {
+  display: none;
+}
+
+.cloud-shell--collapsed .side-menu__item::before {
   display: none;
 }
 
@@ -1180,6 +1483,77 @@ onBeforeUnmount(() => {
 
 .toolbar-button--ghost {
   border-style: dashed;
+}
+
+.account-dialog {
+  display: grid;
+  gap: 1rem;
+}
+
+.account-dialog__hero {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #e2eaf5;
+}
+
+.account-dialog__avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(160deg, #4d8bff, #2f66da);
+}
+
+.account-dialog__hero-content strong {
+  display: block;
+  color: #1f3558;
+  font-size: 1rem;
+}
+
+.account-dialog__hero-content p {
+  margin: 0.22rem 0 0;
+  color: #5e769e;
+  font-size: 0.8rem;
+}
+
+.account-dialog__list {
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.account-dialog__list div {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.8rem;
+  background: #f7f9fc;
+  border: 1px solid #e8edf5;
+}
+
+.account-dialog__list dt {
+  color: #7b8ca6;
+  font-size: 0.75rem;
+}
+
+.account-dialog__list dd {
+  margin: 0;
+  color: #1f3558;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.account-password-form {
+  padding-top: 0.25rem;
 }
 
 .content-frame {

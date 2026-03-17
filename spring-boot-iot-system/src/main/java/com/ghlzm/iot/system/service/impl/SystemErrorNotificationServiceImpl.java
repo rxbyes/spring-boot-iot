@@ -1,7 +1,5 @@
 package com.ghlzm.iot.system.service.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
@@ -13,6 +11,8 @@ import com.ghlzm.iot.system.service.SystemErrorNotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

@@ -1,8 +1,20 @@
 import { request } from './request';
+import { buildQueryString } from './query';
 import type {
   DeviceMessageLog,
-  HttpReportPayload
+  HttpReportPayload,
+  PageResult
 } from '../types/api';
+
+export interface MessageTraceQueryParams {
+  deviceCode?: string;
+  productKey?: string;
+  traceId?: string;
+  messageType?: string;
+  topic?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
 
 /**
  * 消息相关API
@@ -23,6 +35,15 @@ export const messageApi = {
    */
   getDeviceMessageLogs(deviceCode: string) {
     return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`);
+  },
+
+  /**
+   * 分页查询消息追踪日志
+   */
+  pageMessageTraceLogs(params: MessageTraceQueryParams = {}) {
+    const query = buildQueryString(params);
+    const path = `/api/device/message-trace/page${query ? `?${query}` : ''}`;
+    return request<PageResult<DeviceMessageLog>>(path);
   },
 
   /**

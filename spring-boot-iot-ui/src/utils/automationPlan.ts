@@ -1,14 +1,203 @@
 import type {
   AutomationInitialApi,
   AutomationLocator,
+  AutomationPageCategory,
+  AutomationPageCoverageSummary,
+  AutomationPageInventoryItem,
   AutomationPlanDocument,
   AutomationPlanSuggestion,
   AutomationScenarioConfig,
   AutomationScenarioPreview,
+  AutomationScenarioScope,
+  AutomationScenarioTemplateType,
   AutomationStep
 } from '../types/automation';
+import type { MenuTreeNode } from '../types/auth';
 
 const AUTOMATION_PLAN_STORAGE_KEY = 'spring-boot-iot.automation-plan';
+const AUTOMATION_PAGE_INVENTORY_STORAGE_KEY = 'spring-boot-iot.automation-page-inventory';
+
+interface AutomationInventorySeed {
+  route: string;
+  title: string;
+  caption: string;
+  readySelector?: string;
+  matcher?: string;
+  requiresLogin?: boolean;
+  menuCode?: string;
+}
+
+const INVENTORY_SOURCE_PRIORITY: Record<string, number> = {
+  static: 1,
+  menu: 2,
+  manual: 3
+};
+
+const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
+  {
+    route: '/login',
+    title: '登录',
+    caption: '统一登录入口与会话初始化页面。',
+    readySelector: '#login-submit',
+    requiresLogin: false
+  },
+  {
+    route: '/',
+    title: '平台首页',
+    caption: '平台总览、驾驶舱和业务入口。',
+    matcher: '/api/cockpit/',
+    requiresLogin: false
+  },
+  {
+    route: '/products',
+    title: '产品模板中心',
+    caption: '产品模板建模、协议绑定与设备归属管理。',
+    readySelector: '#product-key',
+    matcher: '/api/device/product/'
+  },
+  {
+    route: '/devices',
+    title: '设备运维中心',
+    caption: '设备建档、在线状态核查与基础运维。',
+    readySelector: '#device-product-key',
+    matcher: '/api/device/'
+  },
+  {
+    route: '/reporting',
+    title: '接入验证中心',
+    caption: '模拟 HTTP 上报并校验接入链路解析结果。',
+    matcher: '/message/http/report'
+  },
+  {
+    route: '/insight',
+    title: '监测对象工作台',
+    caption: '聚合设备属性、日志与监测对象研判线索。',
+    matcher: '/api/device/'
+  },
+  {
+    route: '/file-debug',
+    title: '数据完整性校验',
+    caption: '文件类报文与固件分包的完整性核验能力。'
+  },
+  {
+    route: '/system-log',
+    title: '系统日志',
+    caption: '设备接入链路的系统异常定位与调试回看。',
+    matcher: '/api/system/audit-log/'
+  },
+  {
+    route: '/future-lab',
+    title: '演进蓝图',
+    caption: '预研能力展示与未来扩展方向说明。'
+  },
+  {
+    route: '/alarm-center',
+    title: '告警中心',
+    caption: '告警列表、详情、确认与抑制管理。',
+    matcher: '/api/alarm/'
+  },
+  {
+    route: '/event-disposal',
+    title: '事件处置',
+    caption: '事件工单派发、闭环与复盘管理。',
+    matcher: '/api/event/'
+  },
+  {
+    route: '/risk-point',
+    title: '风险点管理',
+    caption: '风险点 CRUD 与设备绑定维护。',
+    matcher: '/api/risk-point/'
+  },
+  {
+    route: '/rule-definition',
+    title: '阈值规则',
+    caption: '阈值规则定义、测试和启停管理。',
+    matcher: '/api/rule-definition/'
+  },
+  {
+    route: '/linkage-rule',
+    title: '联动规则',
+    caption: '联动触发条件与动作配置管理。',
+    matcher: '/api/linkage-rule/'
+  },
+  {
+    route: '/emergency-plan',
+    title: '应急预案',
+    caption: '应急预案维护与联动绑定管理。',
+    matcher: '/api/emergency-plan/'
+  },
+  {
+    route: '/report-analysis',
+    title: '分析报表',
+    caption: '风险趋势、告警统计、闭环与健康分析。',
+    matcher: '/api/report/'
+  },
+  {
+    route: '/risk-monitoring',
+    title: '实时监测',
+    caption: '风险监测实时列表与统一详情抽屉。',
+    matcher: '/api/risk-monitoring/'
+  },
+  {
+    route: '/risk-monitoring-gis',
+    title: 'GIS 风险态势',
+    caption: '基于 ECharts 的风险点位分布与详情联动。',
+    matcher: '/api/risk-monitoring/'
+  },
+  {
+    route: '/organization',
+    title: '组织机构',
+    caption: '组织树维护与层级管理。',
+    matcher: '/api/organization/'
+  },
+  {
+    route: '/user',
+    title: '用户管理',
+    caption: '用户档案、状态与重置密码管理。',
+    matcher: '/api/user/'
+  },
+  {
+    route: '/role',
+    title: '角色管理',
+    caption: '角色、菜单与权限绑定管理。',
+    matcher: '/api/role/'
+  },
+  {
+    route: '/menu',
+    title: '菜单管理',
+    caption: '菜单树维护与页面/按钮权限项管理。',
+    matcher: '/api/menu/'
+  },
+  {
+    route: '/region',
+    title: '区域管理',
+    caption: '行政区域树与地域配置管理。',
+    matcher: '/api/region/'
+  },
+  {
+    route: '/dict',
+    title: '字典配置',
+    caption: '字典类型与字典项维护。',
+    matcher: '/api/dict/'
+  },
+  {
+    route: '/channel',
+    title: '通知渠道',
+    caption: '通知渠道配置、启停与测试管理。',
+    matcher: '/api/system/channel/'
+  },
+  {
+    route: '/automation-test',
+    title: '自动化测试',
+    caption: '配置驱动的浏览器自动化编排、报告与测试建议中心。'
+  },
+  {
+    route: '/audit-log',
+    title: '业务日志',
+    caption: '面向业务与治理侧的关键操作审计查询。',
+    matcher: '/api/system/audit-log/'
+  }
+];
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -25,6 +214,42 @@ function cleanArray(values: string[] | undefined, fallback: string[] = []): stri
 
 export function createAutomationId(prefix = 'auto'): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeRoute(route?: string | null): string {
+  const trimmed = (route || '').trim();
+  if (!trimmed || trimmed === '/') {
+    return '/';
+  }
+  return `/${trimmed.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+}
+
+function slugifyRoute(route: string): string {
+  const normalized = normalizeRoute(route);
+  if (normalized === '/') {
+    return 'home';
+  }
+  return normalized
+    .replace(/^\//, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function buildFingerprint(...parts: Array<string | undefined>): string {
+  return parts
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+    .toLowerCase();
+}
+
+function matchKeywords(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+}
+
+function uniqueKeywords(values: string[] | undefined): string[] {
+  return Array.from(new Set(cleanArray(values, [])));
 }
 
 function createCssLocator(value = ''): AutomationLocator {
@@ -52,6 +277,12 @@ function createStep(step: Partial<AutomationStep> = {}): AutomationStep {
     value: step.value,
     matcher: step.matcher,
     optionText: step.optionText,
+    checked: step.checked,
+    filePath: step.filePath,
+    rowText: step.rowText,
+    dialogTitle: step.dialogTitle,
+    dialogAction: step.dialogAction,
+    actionText: step.actionText,
     timeout: step.timeout,
     optional: step.optional ?? false,
     action: step.action ? deepClone(step.action) : undefined,
@@ -629,6 +860,438 @@ export function buildPlanSuggestions(plan: AutomationPlanDocument): AutomationPl
   return suggestions;
 }
 
+function inferPageCategory(route: string, title: string, caption: string): AutomationPageCategory {
+  const fingerprint = buildFingerprint(route, title, caption);
+
+  if (normalizeRoute(route) === '/login' || matchKeywords(fingerprint, ['登录', 'login'])) {
+    return 'login';
+  }
+  if (normalizeRoute(route) === '/' || matchKeywords(fingerprint, ['首页', 'cockpit', '总览', '驾驶舱'])) {
+    return 'dashboard';
+  }
+  if (matchKeywords(fingerprint, ['监测', '监控', 'gis', '地图'])) {
+    return 'monitoring';
+  }
+  if (matchKeywords(fingerprint, ['报表', '分析', 'trend', '统计'])) {
+    return 'analysis';
+  }
+  if (matchKeywords(fingerprint, ['组织', '用户', '角色', '菜单', '区域', '字典', '渠道', '日志', '审计'])) {
+    return 'system';
+  }
+  if (matchKeywords(fingerprint, ['表单', '新增', '创建', '设备', '产品'])) {
+    return 'form';
+  }
+  if (matchKeywords(fingerprint, ['列表', '管理', '工作台', '中心', '处置', '预案', '规则', '详情'])) {
+    return 'list';
+  }
+  return 'workspace';
+}
+
+function inferRecommendedTemplate(
+  category: AutomationPageCategory,
+  route: string
+): AutomationScenarioTemplateType {
+  if (category === 'login' || normalizeRoute(route) === '/login') {
+    return 'login';
+  }
+  if (category === 'form') {
+    return 'formSubmit';
+  }
+  if (category === 'list' || category === 'system' || category === 'monitoring') {
+    return 'listDetail';
+  }
+  return 'pageSmoke';
+}
+
+function inferScenarioScope(route: string, title: string): AutomationScenarioScope {
+  const normalizedRoute = normalizeRoute(route);
+  const fingerprint = buildFingerprint(route, title);
+  if (
+    normalizedRoute === '/login' ||
+    normalizedRoute === '/' ||
+    normalizedRoute === '/products' ||
+    normalizedRoute === '/devices' ||
+    normalizedRoute === '/reporting' ||
+    matchKeywords(fingerprint, ['告警', '事件'])
+  ) {
+    return 'delivery';
+  }
+  return 'baseline';
+}
+
+function inferReadySelector(route: string, title: string): string {
+  const normalizedRoute = normalizeRoute(route);
+  if (normalizedRoute === '/login') {
+    return '#login-submit';
+  }
+  if (normalizedRoute === '/products') {
+    return '#product-key';
+  }
+  if (normalizedRoute === '/devices') {
+    return '#device-product-key';
+  }
+  if (matchKeywords(buildFingerprint(route, title), ['列表', '管理'])) {
+    return '.el-table, [data-testid="console-page-title"]';
+  }
+  return '[data-testid="console-page-title"]';
+}
+
+function inferApiMatcher(route: string): string {
+  const normalizedRoute = normalizeRoute(route);
+  const routeMatcherMap: Record<string, string> = {
+    '/': '/api/cockpit/',
+    '/products': '/api/device/product/',
+    '/devices': '/api/device/',
+    '/reporting': '/message/http/report',
+    '/system-log': '/api/system/audit-log/',
+    '/alarm-center': '/api/alarm/',
+    '/event-disposal': '/api/event/',
+    '/risk-point': '/api/risk-point/',
+    '/rule-definition': '/api/rule-definition/',
+    '/linkage-rule': '/api/linkage-rule/',
+    '/emergency-plan': '/api/emergency-plan/',
+    '/report-analysis': '/api/report/',
+    '/risk-monitoring': '/api/risk-monitoring/',
+    '/risk-monitoring-gis': '/api/risk-monitoring/',
+    '/organization': '/api/organization/',
+    '/user': '/api/user/',
+    '/role': '/api/role/',
+    '/menu': '/api/menu/',
+    '/region': '/api/region/',
+    '/dict': '/api/dict/',
+    '/channel': '/api/system/channel/',
+    '/audit-log': '/api/system/audit-log/'
+  };
+  return routeMatcherMap[normalizedRoute] || '';
+}
+
+function inferInventoryKeywords(
+  route: string,
+  title: string,
+  caption: string,
+  category: AutomationPageCategory
+): string[] {
+  const keywords = [route, title, category];
+
+  if (caption) {
+    caption
+      .split(/[，。、,\s]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 2 && item.length <= 8)
+      .slice(0, 4)
+      .forEach((item) => keywords.push(item));
+  }
+
+  return uniqueKeywords(keywords.filter(Boolean));
+}
+
+function normalizeInventoryItem(
+  input: Partial<AutomationPageInventoryItem> & Pick<AutomationPageInventoryItem, 'route' | 'title'>,
+  sourceFallback: AutomationPageInventoryItem['source'] = 'manual'
+): AutomationPageInventoryItem {
+  const route = normalizeRoute(input.route);
+  const title = cleanString(input.title, route === '/' ? '平台首页' : route);
+  const caption = cleanString(input.caption, `${title} 页面盘点项`);
+  const category = input.category || inferPageCategory(route, title, caption);
+  const recommendedTemplate =
+    input.recommendedTemplate || inferRecommendedTemplate(category, route);
+
+  return {
+    id: cleanString(input.id, `inventory-${slugifyRoute(route) || createAutomationId('page')}`),
+    route,
+    title,
+    caption,
+    menuCode: cleanString(input.menuCode, '') || undefined,
+    source: input.source || sourceFallback,
+    category,
+    recommendedTemplate,
+    scope: (input.scope || inferScenarioScope(route, title)) as AutomationScenarioScope,
+    requiresLogin: input.requiresLogin ?? (route !== '/login' && route !== '/'),
+    readySelector: cleanString(input.readySelector, inferReadySelector(route, title)),
+    matcher: cleanString(input.matcher, inferApiMatcher(route)) || undefined,
+    keywords: uniqueKeywords(
+      input.keywords && input.keywords.length > 0
+        ? input.keywords
+        : inferInventoryKeywords(route, title, caption, category)
+    )
+  };
+}
+
+function mergeInventoryPair(
+  current: AutomationPageInventoryItem | undefined,
+  next: AutomationPageInventoryItem
+): AutomationPageInventoryItem {
+  if (!current) {
+    return next;
+  }
+
+  const currentPriority = INVENTORY_SOURCE_PRIORITY[current.source] || 0;
+  const nextPriority = INVENTORY_SOURCE_PRIORITY[next.source] || 0;
+  const preferred = nextPriority >= currentPriority ? next : current;
+  const secondary = preferred === next ? current : next;
+
+  return {
+    ...secondary,
+    ...preferred,
+    id: preferred.id || secondary.id,
+    caption: cleanString(preferred.caption, secondary.caption),
+    readySelector: cleanString(preferred.readySelector, secondary.readySelector),
+    matcher: cleanString(preferred.matcher, secondary.matcher) || undefined,
+    keywords: uniqueKeywords([...(secondary.keywords || []), ...(preferred.keywords || [])])
+  };
+}
+
+export function buildStaticPageInventory(): AutomationPageInventoryItem[] {
+  return STATIC_PAGE_SEEDS.map((seed) =>
+    normalizeInventoryItem(
+      {
+        id: `inventory-${slugifyRoute(seed.route)}`,
+        route: seed.route,
+        title: seed.title,
+        caption: seed.caption,
+        readySelector: seed.readySelector,
+        matcher: seed.matcher,
+        requiresLogin: seed.requiresLogin,
+        menuCode: seed.menuCode,
+        source: 'static'
+      },
+      'static'
+    )
+  );
+}
+
+export function buildMenuPageInventory(menus: MenuTreeNode[]): AutomationPageInventoryItem[] {
+  const items: AutomationPageInventoryItem[] = [];
+
+  const visit = (nodes: MenuTreeNode[]) => {
+    nodes.forEach((node) => {
+      if (node.type !== 2 && node.path) {
+        items.push(
+          normalizeInventoryItem(
+            {
+              id: `menu-${node.id}`,
+              route: node.path,
+              title: node.menuName || node.path,
+              caption: node.meta?.caption || node.meta?.description || `${node.menuName || node.path} 页面`,
+              menuCode: node.menuCode,
+              source: 'menu'
+            },
+            'menu'
+          )
+        );
+      }
+
+      if (node.children?.length) {
+        visit(node.children);
+      }
+    });
+  };
+
+  visit(menus || []);
+  return mergeAutomationPageInventory(items);
+}
+
+export function mergeAutomationPageInventory(
+  ...groups: AutomationPageInventoryItem[][]
+): AutomationPageInventoryItem[] {
+  const routeMap = new Map<string, AutomationPageInventoryItem>();
+
+  groups.flat().forEach((item) => {
+    if (!item?.route) {
+      return;
+    }
+    const normalized = normalizeInventoryItem(item, item.source || 'manual');
+    const key = normalizeRoute(normalized.route);
+    routeMap.set(key, mergeInventoryPair(routeMap.get(key), normalized));
+  });
+
+  return Array.from(routeMap.values()).sort((left, right) => {
+    const leftRoute = normalizeRoute(left.route);
+    const rightRoute = normalizeRoute(right.route);
+    if (leftRoute === '/login') {
+      return -1;
+    }
+    if (rightRoute === '/login') {
+      return 1;
+    }
+    if (leftRoute === '/') {
+      return -1;
+    }
+    if (rightRoute === '/') {
+      return 1;
+    }
+    return leftRoute.localeCompare(rightRoute, 'zh-Hans-CN');
+  });
+}
+
+export function buildAutomationPageInventory(options: {
+  menus?: MenuTreeNode[];
+  manualPages?: AutomationPageInventoryItem[];
+  includeStaticFallback?: boolean;
+} = {}): AutomationPageInventoryItem[] {
+  const menuInventory = options.menus?.length ? buildMenuPageInventory(options.menus) : [];
+  const staticInventory =
+    options.includeStaticFallback || menuInventory.length === 0 ? buildStaticPageInventory() : [];
+  const manualInventory = (options.manualPages || []).map((item) =>
+    normalizeInventoryItem(item, 'manual')
+  );
+
+  return mergeAutomationPageInventory(staticInventory, menuInventory, manualInventory);
+}
+
+function buildInventoryFeaturePoints(item: AutomationPageInventoryItem): string[] {
+  switch (item.category) {
+    case 'dashboard':
+      return ['页面可达', '首屏看板稳定', '关键总览文案可见'];
+    case 'login':
+      return ['登录页可达', '登录动作可补充', '会话初始化成功'];
+    case 'monitoring':
+      return ['监测页面可达', '首屏数据正常', '关键态势信息可见'];
+    case 'analysis':
+      return ['报表页面可达', '统计区域可见', '首屏接口返回正常'];
+    case 'system':
+      return ['页面可达', '首屏列表稳定', '基础治理入口可用'];
+    case 'form':
+      return ['页面可达', '录入入口可补充', '提交流程待细化'];
+    default:
+      return ['页面可达', '首屏加载稳定', '关键文案可见'];
+  }
+}
+
+function buildInventoryBusinessFlow(item: AutomationPageInventoryItem): string {
+  switch (item.category) {
+    case 'dashboard':
+      return '打开页面、等待首屏接口、核对看板标题与关键卡片';
+    case 'login':
+      return '访问登录页、输入凭据、建立会话与进入受保护页面';
+    case 'monitoring':
+      return '进入监测页面、等待列表或地图加载、核对关键数据呈现';
+    case 'analysis':
+      return '进入报表页面、等待统计接口返回、核对图表或指标区';
+    case 'system':
+      return '进入治理页面、等待首屏列表加载、补充查询与详情动作';
+    case 'form':
+      return '进入业务页面、补充新增/编辑表单、核对提交结果';
+    default:
+      return '进入页面、等待主容器加载、核对路径与关键文案';
+  }
+}
+
+export function createScenarioFromInventory(
+  item: AutomationPageInventoryItem
+): AutomationScenarioConfig {
+  const normalizedItem = normalizeInventoryItem(item, item.source || 'manual');
+  const normalizedRoute = normalizeRoute(normalizedItem.route);
+
+  if (normalizedItem.recommendedTemplate === 'login' && normalizedRoute === '/login') {
+    const loginScenario = createLoginScenario();
+    return {
+      ...loginScenario,
+      name: `${normalizedItem.title}自动脚手架`,
+      route: normalizedRoute,
+      readySelector: normalizedItem.readySelector,
+      requiresLogin: normalizedItem.requiresLogin,
+      description: `基于${normalizedItem.source}页面盘点自动生成，建议继续补充真实登录选择器与断言。`,
+      businessFlow: buildInventoryBusinessFlow(normalizedItem),
+      featurePoints: buildInventoryFeaturePoints(normalizedItem)
+    };
+  }
+
+  const steps: AutomationStep[] = [
+    createStep({
+      label: '等待页面主区域可见',
+      type: 'waitVisible',
+      locator: createCssLocator(normalizedItem.readySelector || 'body')
+    })
+  ];
+
+  if (normalizedRoute !== '/') {
+    steps.push(
+      createStep({
+        label: '断言页面路径',
+        type: 'assertUrlIncludes',
+        value: normalizedRoute
+      })
+    );
+  }
+
+  steps.push(
+    createStep({
+      label: '断言页面关键标题',
+      type: 'assertText',
+      locator: createCssLocator('body'),
+      value: normalizedItem.title
+    })
+  );
+
+  return {
+    key: `inventory-${slugifyRoute(normalizedRoute)}`,
+    name: `${normalizedItem.title}自动脚手架`,
+    route: normalizedRoute,
+    expectedPath: normalizedRoute === '/' ? undefined : normalizedRoute,
+    scope: normalizedItem.scope,
+    readySelector: normalizedItem.readySelector,
+    requiresLogin: normalizedItem.requiresLogin,
+    description: `基于${normalizedItem.source}页面盘点自动生成的冒烟脚手架，建议继续补充真实交互步骤、接口断言与变量捕获。`,
+    businessFlow: buildInventoryBusinessFlow(normalizedItem),
+    featurePoints: buildInventoryFeaturePoints(normalizedItem),
+    initialApis: normalizedItem.matcher
+      ? [createInitialApi('页面首屏接口', normalizedItem.matcher)]
+      : [],
+    steps
+  };
+}
+
+export function collectScenarioRoutes(plan: AutomationPlanDocument): string[] {
+  return Array.from(
+    new Set(
+      (plan.scenarios || [])
+        .map((scenario) => normalizeRoute(scenario.route))
+        .filter(Boolean)
+    )
+  );
+}
+
+export function buildPageCoverageSummary(
+  plan: AutomationPlanDocument,
+  inventory: AutomationPageInventoryItem[]
+): AutomationPageCoverageSummary {
+  const coveredRoutes = new Set(collectScenarioRoutes(plan));
+  const uncoveredRoutes = inventory
+    .map((item) => normalizeRoute(item.route))
+    .filter((route) => !coveredRoutes.has(route));
+
+  return {
+    totalPages: inventory.length,
+    coveredPages: inventory.length - uncoveredRoutes.length,
+    uncoveredPages: uncoveredRoutes.length,
+    uncoveredRoutes
+  };
+}
+
+export function createManualInventoryItem(
+  input: Partial<AutomationPageInventoryItem> = {}
+): AutomationPageInventoryItem {
+  return normalizeInventoryItem(
+    {
+      id: input.id || createAutomationId('manual-page'),
+      route: input.route || '/external-page',
+      title: input.title || '外部页面',
+      caption: input.caption || '手工维护的页面盘点项。',
+      source: 'manual',
+      category: input.category || 'custom',
+      recommendedTemplate: input.recommendedTemplate || 'pageSmoke',
+      scope: input.scope || 'baseline',
+      requiresLogin: input.requiresLogin ?? true,
+      readySelector: input.readySelector || '[data-testid="console-page-title"]',
+      matcher: input.matcher,
+      menuCode: input.menuCode,
+      keywords: input.keywords || []
+    },
+    'manual'
+  );
+}
+
 export function buildAutomationCommand(planPath = 'config/automation/sample-web-smoke-plan.json'): string {
   return `node scripts/auto/run-browser-acceptance.mjs --plan=${planPath}`;
 }
@@ -656,4 +1319,31 @@ export function saveAutomationPlan(plan: AutomationPlanDocument): void {
     return;
   }
   window.localStorage.setItem(AUTOMATION_PLAN_STORAGE_KEY, JSON.stringify(normalizeAutomationPlan(plan)));
+}
+
+export function loadSavedAutomationInventory(): AutomationPageInventoryItem[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const raw = window.localStorage.getItem(AUTOMATION_PAGE_INVENTORY_STORAGE_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AutomationPageInventoryItem[];
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeInventoryItem(item, 'manual')) : [];
+  } catch {
+    window.localStorage.removeItem(AUTOMATION_PAGE_INVENTORY_STORAGE_KEY);
+    return [];
+  }
+}
+
+export function saveAutomationInventory(items: AutomationPageInventoryItem[]): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const normalized = items.map((item) => normalizeInventoryItem(item, 'manual'));
+  window.localStorage.setItem(AUTOMATION_PAGE_INVENTORY_STORAGE_KEY, JSON.stringify(normalized));
 }

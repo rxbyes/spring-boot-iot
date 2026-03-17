@@ -1,7 +1,5 @@
 package com.ghlzm.iot.system.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
@@ -11,6 +9,7 @@ import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.service.SystemErrorNotificationService;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -92,7 +91,7 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
         }
         try {
             return truncate(objectMapper.writeValueAsString(context), MAX_TEXT_CAPTURE_LENGTH);
-        } catch (JsonProcessingException ex) {
+        } catch (Exception ex) {
             return truncate(String.valueOf(context), MAX_TEXT_CAPTURE_LENGTH);
         }
     }

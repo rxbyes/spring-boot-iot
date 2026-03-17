@@ -135,6 +135,103 @@
 
     <section>
       <PanelCard
+        eyebrow="Page Discovery"
+        title="页面盘点与脚手架生成"
+        description="优先读取当前授权菜单盘点页面，可一键补齐未覆盖页面的自动化脚手架，也支持手工登记外部系统页面。"
+      >
+        <template #actions>
+          <div class="action-row action-row--wrap">
+            <el-button @click="refreshPageInventory">刷新盘点</el-button>
+            <el-button @click="selectUncoveredPages">勾选未覆盖</el-button>
+            <el-button type="primary" @click="generateSelectedInventoryScenarios">生成勾选场景</el-button>
+            <el-button @click="generateUncoveredInventoryScenarios">一键生成全部未覆盖</el-button>
+            <el-button @click="openManualPageDialog">新增自定义页面</el-button>
+          </div>
+        </template>
+
+        <div class="metric-list inventory-metric-list">
+          <div class="metric-item">
+            <strong>{{ coverageSummary.totalPages }}</strong>
+            <span>盘点页面数</span>
+          </div>
+          <div class="metric-item">
+            <strong>{{ coverageSummary.coveredPages }}</strong>
+            <span>已覆盖页面</span>
+          </div>
+          <div class="metric-item">
+            <strong>{{ coverageSummary.uncoveredPages }}</strong>
+            <span>待补齐页面</span>
+          </div>
+          <div class="metric-item">
+            <strong>{{ selectedInventoryRows.length }}</strong>
+            <span>当前勾选数</span>
+          </div>
+        </div>
+
+        <p class="inventory-caption">
+          盘点来源：{{ inventorySourceText }}。当前会按路由去重，并把“当前计划未覆盖”的页面标记出来。
+        </p>
+
+        <el-table
+          ref="inventoryTableRef"
+          :data="pageInventory"
+          row-key="id"
+          size="small"
+          border
+          @selection-change="handleInventorySelectionChange"
+        >
+          <el-table-column type="selection" width="52" reserve-selection />
+          <el-table-column prop="title" label="页面" min-width="170" />
+          <el-table-column prop="route" label="路由" min-width="170" />
+          <el-table-column label="来源" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.source === 'manual' ? 'warning' : row.source === 'menu' ? 'success' : 'info'">
+                {{ buildInventorySourceLabel(row.source) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="推荐模板" width="120">
+            <template #default="{ row }">
+              <el-tag effect="plain">{{ buildTemplateLabel(row.recommendedTemplate) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="范围" width="100">
+            <template #default="{ row }">
+              <el-tag effect="plain" type="info">{{ row.scope }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="覆盖" width="100">
+            <template #default="{ row }">
+              <el-tag :type="isRouteCovered(row.route) ? 'success' : 'warning'">
+                {{ isRouteCovered(row.route) ? '已覆盖' : '待补齐' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="readySelector" label="就绪选择器" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="matcher" label="首屏接口" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span>{{ row.matcher || '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                v-if="row.source === 'manual'"
+                text
+                type="danger"
+                @click="removeManualPage(row.id)"
+              >
+                删除
+              </el-button>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </PanelCard>
+    </section>
+
+    <section>
+      <PanelCard
         eyebrow="Scenario Builder"
         title="场景编排"
         description="先通过模板快速起步，再替换页面路由、选择器、接口匹配与断言规则。"
@@ -287,7 +384,7 @@
                   <el-switch v-model="step.optional" />
                 </label>
 
-                <template v-if="step.type !== 'sleep' && step.type !== 'assertUrlIncludes' && step.locator">
+                <template v-if="stepUsesLocator(step.type) && step.locator">
                   <label class="field-card">
                     <span>定位方式</span>
                     <el-select v-model="step.locator.type" placeholder="选择定位方式">
@@ -316,12 +413,30 @@
                   />
                 </label>
 
+                <label v-if="step.type === 'setChecked'" class="field-card field-card--switch">
+                  <span>目标状态</span>
+                  <el-switch v-model="step.checked" active-text="选中" inactive-text="取消" />
+                </label>
+
                 <label v-if="step.type === 'selectOption'" class="field-card field-card--wide">
                   <span>选项文案</span>
                   <el-input v-model="step.optionText" placeholder="请选择下拉项文案" />
                 </label>
 
-                <template v-if="step.type === 'triggerApi' && step.action">
+                <label v-if="step.type === 'uploadFile'" class="field-card field-card--wide">
+                  <span>文件路径</span>
+                  <el-input
+                    v-model="step.filePath"
+                    placeholder="相对仓库根目录或绝对路径，支持模板变量与 JSON 数组"
+                  />
+                </label>
+
+                <label v-if="step.type === 'tableRowAction'" class="field-card field-card--wide">
+                  <span>目标行文本</span>
+                  <el-input v-model="step.rowText" placeholder="用于定位表格行的关键文本" />
+                </label>
+
+                <template v-if="(step.type === 'triggerApi' || step.type === 'tableRowAction') && step.action">
                   <label class="field-card field-card--wide">
                     <span>接口 Matcher</span>
                     <el-input v-model="step.matcher" placeholder="/api/example/add" />
@@ -375,6 +490,82 @@
                     </div>
                   </div>
                 </template>
+
+                <template v-if="step.type === 'dialogAction'">
+                  <label class="field-card">
+                    <span>弹窗标题</span>
+                    <el-input v-model="step.dialogTitle" placeholder="为空时默认匹配最后一个可见弹窗" />
+                  </label>
+                  <label class="field-card">
+                    <span>弹窗动作</span>
+                    <el-select v-model="step.dialogAction">
+                      <el-option label="waitVisible" value="waitVisible" />
+                      <el-option label="confirm" value="confirm" />
+                      <el-option label="cancel" value="cancel" />
+                      <el-option label="close" value="close" />
+                      <el-option label="custom" value="custom" />
+                    </el-select>
+                  </label>
+                  <label v-if="step.dialogAction !== 'waitVisible' && step.dialogAction !== 'close'" class="field-card">
+                    <span>按钮文案</span>
+                    <el-input v-model="step.actionText" placeholder="可留空，执行器会按内置按钮文案尝试匹配" />
+                  </label>
+                  <label v-if="step.dialogAction !== 'waitVisible'" class="field-card field-card--wide">
+                    <span>接口 Matcher</span>
+                    <el-input v-model="step.matcher" placeholder="可留空，仅执行弹窗动作不等待接口" />
+                  </label>
+
+                  <template v-if="step.dialogAction === 'custom' && step.action">
+                    <label class="field-card">
+                      <span>自定义动作</span>
+                      <el-select v-model="step.action.type">
+                        <el-option label="click" value="click" />
+                        <el-option label="press" value="press" />
+                      </el-select>
+                    </label>
+                    <label class="field-card">
+                      <span>动作定位方式</span>
+                      <el-select v-model="step.action.locator.type">
+                        <el-option v-for="type in locatorTypeOptions" :key="type" :label="type" :value="type" />
+                      </el-select>
+                    </label>
+                    <label class="field-card">
+                      <span>动作定位值</span>
+                      <el-input v-model="step.action.locator.value" placeholder="按钮或输入控件定位表达式" />
+                    </label>
+                    <label v-if="step.action.locator.type === 'role'" class="field-card">
+                      <span>动作角色</span>
+                      <el-input v-model="step.action.locator.role" placeholder="button / link" />
+                    </label>
+                    <label v-if="step.action.locator.type === 'role'" class="field-card">
+                      <span>动作名称</span>
+                      <el-input v-model="step.action.locator.name" placeholder="按钮名称" />
+                    </label>
+                    <label v-if="step.action.type === 'press'" class="field-card">
+                      <span>按键值</span>
+                      <el-input v-model="step.action.value" placeholder="Enter / Escape" />
+                    </label>
+                  </template>
+
+                  <div v-if="step.dialogAction !== 'waitVisible'" class="capture-block">
+                    <div class="inline-block__header">
+                      <strong>变量捕获</strong>
+                      <el-button text @click="addCapture(step)">新增捕获</el-button>
+                    </div>
+                    <div v-if="!step.captures || step.captures.length === 0" class="empty-inline">
+                      若弹窗动作会触发接口，可在这里提取响应中的主键、编码等变量。
+                    </div>
+                    <div
+                      v-for="(capture, captureIndex) in step.captures"
+                      :key="`${step.id}-dialog-capture-${captureIndex}`"
+                      class="row-editor"
+                    >
+                      <el-input v-model="capture.variable" placeholder="变量名，如 userId" />
+                      <el-input v-model="capture.path" placeholder="响应路径，如 payload.data.id" />
+                      <el-button text type="danger" @click="step.captures?.splice(captureIndex, 1)">移除</el-button>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
           </section>
@@ -408,7 +599,14 @@
       />
     </section>
 
-    <el-dialog v-model="showImportDialog" title="导入自动化计划" width="760px">
+    <StandardFormDrawer
+      v-model="showImportDialog"
+      eyebrow="Automation Import"
+      title="导入自动化计划"
+      subtitle="统一通过右侧抽屉粘贴并导入 JSON 计划，导入后会替换当前编排内容。"
+      size="48rem"
+      @close="handleImportDialogClose"
+    >
       <el-input
         v-model="importText"
         type="textarea"
@@ -417,37 +615,120 @@
       />
       <template #footer>
         <div class="action-row">
-          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button @click="handleImportDialogClose">取消</el-button>
           <el-button type="primary" @click="applyImport">导入并替换当前计划</el-button>
         </div>
       </template>
-    </el-dialog>
+    </StandardFormDrawer>
+
+    <StandardFormDrawer
+      v-model="showManualPageDialog"
+      eyebrow="Page Inventory"
+      title="新增自定义页面"
+      subtitle="统一通过右侧抽屉补充未纳入菜单树的页面盘点信息，并生成推荐测试模板。"
+      size="46rem"
+      @close="handleManualPageDialogClose"
+    >
+      <div class="scenario-grid">
+        <label class="field-card">
+          <span>页面名称</span>
+          <el-input v-model="manualPageDraft.title" placeholder="例如：外部采购门户" />
+        </label>
+        <label class="field-card">
+          <span>页面路由</span>
+          <el-input v-model="manualPageDraft.route" placeholder="/external-dashboard" />
+        </label>
+        <label class="field-card field-card--wide">
+          <span>页面说明</span>
+          <el-input
+            v-model="manualPageDraft.caption"
+            type="textarea"
+            :rows="2"
+            placeholder="说明该页面的业务目标、页面职责或首屏特征"
+          />
+        </label>
+        <label class="field-card">
+          <span>推荐模板</span>
+          <el-select v-model="manualPageDraft.recommendedTemplate">
+            <el-option
+              v-for="type in inventoryTemplateOptions"
+              :key="type"
+              :label="buildTemplateLabel(type)"
+              :value="type"
+            />
+          </el-select>
+        </label>
+        <label class="field-card">
+          <span>执行范围</span>
+          <el-select v-model="manualPageDraft.scope">
+            <el-option v-for="scope in scopeOptions" :key="scope" :label="scope" :value="scope" />
+          </el-select>
+        </label>
+        <label class="field-card">
+          <span>就绪选择器</span>
+          <el-input v-model="manualPageDraft.readySelector" placeholder="[data-testid=&quot;console-page-title&quot;]" />
+        </label>
+        <label class="field-card">
+          <span>首屏接口 Matcher</span>
+          <el-input v-model="manualPageDraft.matcher" placeholder="/api/external/dashboard" />
+        </label>
+        <label class="field-card field-card--switch">
+          <span>需要登录</span>
+          <el-switch v-model="manualPageDraft.requiresLogin" />
+        </label>
+      </div>
+      <template #footer>
+        <div class="action-row">
+          <el-button @click="handleManualPageDialogClose">取消</el-button>
+          <el-button type="primary" @click="saveManualPage">保存并加入页面盘点</el-button>
+        </div>
+      </template>
+    </StandardFormDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
+import { usePermissionStore } from '../stores/permission';
 
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
-import type { AutomationPlanDocument, AutomationScenarioConfig, AutomationStep } from '../types/automation';
+import StandardFormDrawer from '../components/StandardFormDrawer.vue';
+import type {
+  AutomationPageInventoryItem,
+  AutomationPlanDocument,
+  AutomationScenarioConfig,
+  AutomationScenarioTemplateType,
+  AutomationStep
+} from '../types/automation';
 import {
+  buildAutomationPageInventory,
   buildAutomationCommand,
+  buildPageCoverageSummary,
   buildPlanSuggestions,
   buildScenarioPreviews,
+  collectScenarioRoutes,
+  createManualInventoryItem,
+  createScenarioFromInventory,
   createDefaultAutomationPlan,
   createFormSubmitScenario,
   createListDetailScenario,
   createPageSmokeScenario,
   createAutomationId,
   duplicateScenario,
+  loadSavedAutomationInventory,
   loadSavedAutomationPlan,
   normalizeAutomationPlan,
+  saveAutomationInventory,
   saveAutomationPlan
 } from '../utils/automationPlan';
 
 type ScenarioTemplateType = 'pageSmoke' | 'formSubmit' | 'listDetail';
+type InventoryTableInstance = {
+  clearSelection?: () => void;
+  toggleRowSelection?: (row: AutomationPageInventoryItem, selected?: boolean) => void;
+};
 
 const scopeOptions = ['delivery', 'baseline', 'regression', 'smoke'];
 const locatorTypeOptions = ['css', 'placeholder', 'role', 'text', 'label', 'testId'];
@@ -455,20 +736,54 @@ const stepTypeOptions = [
   'fill',
   'click',
   'press',
+  'setChecked',
   'selectOption',
+  'uploadFile',
   'waitVisible',
   'triggerApi',
+  'tableRowAction',
+  'dialogAction',
   'assertText',
   'assertUrlIncludes',
   'sleep'
 ];
+const inventoryTemplateOptions: AutomationScenarioTemplateType[] = [
+  'pageSmoke',
+  'formSubmit',
+  'listDetail',
+  'login'
+];
+
+const permissionStore = usePermissionStore();
 
 const plan = ref<AutomationPlanDocument>(normalizeAutomationPlan(loadSavedAutomationPlan()));
+const inventoryTableRef = ref<InventoryTableInstance | null>(null);
+const manualPages = ref<AutomationPageInventoryItem[]>(loadSavedAutomationInventory());
+const selectedInventoryRows = ref<AutomationPageInventoryItem[]>([]);
 const showImportDialog = ref(false);
+const showManualPageDialog = ref(false);
 const importText = ref('');
+const manualPageDraft = ref<AutomationPageInventoryItem>(createManualInventoryItem());
 
 const scenarioPreviews = computed(() => buildScenarioPreviews(plan.value));
 const suggestions = computed(() => buildPlanSuggestions(plan.value));
+const coveredRouteSet = computed(() => new Set(collectScenarioRoutes(plan.value)));
+const pageInventory = computed(() =>
+  buildAutomationPageInventory({
+    menus: permissionStore.menus || [],
+    manualPages: manualPages.value,
+    includeStaticFallback: !permissionStore.isLoggedIn || (permissionStore.menus || []).length === 0
+  })
+);
+const coverageSummary = computed(() => buildPageCoverageSummary(plan.value, pageInventory.value));
+const uncoveredInventoryRows = computed(() =>
+  pageInventory.value.filter((item) => !coveredRouteSet.value.has(item.route))
+);
+const inventorySourceText = computed(() =>
+  permissionStore.isLoggedIn && (permissionStore.menus || []).length > 0
+    ? '已授权菜单 + 自定义页面'
+    : '静态路由种子 + 自定义页面'
+);
 const totalSteps = computed(() =>
   plan.value.scenarios.reduce((sum, scenario) => sum + scenario.steps.length, 0)
 );
@@ -481,13 +796,13 @@ const assertedScenarios = computed(() =>
 const commandPreview = computed(() => buildAutomationCommand('config/automation/sample-web-smoke-plan.json'));
 
 function ensureStepShape(step: AutomationStep): void {
-  if (!step.locator && step.type !== 'sleep' && step.type !== 'assertUrlIncludes') {
+  if (!step.locator && stepUsesLocator(step.type)) {
     step.locator = {
       type: 'css',
       value: ''
     };
   }
-  if (step.type === 'triggerApi' && !step.action) {
+  if ((step.type === 'triggerApi' || step.type === 'tableRowAction') && !step.action) {
     step.action = {
       type: 'click',
       locator: {
@@ -496,7 +811,19 @@ function ensureStepShape(step: AutomationStep): void {
       }
     };
   }
-  if (step.type !== 'triggerApi') {
+  if (step.type === 'dialogAction') {
+    step.dialogAction = step.dialogAction || 'waitVisible';
+    if (step.dialogAction === 'custom' && !step.action) {
+      step.action = {
+        type: 'click',
+        locator: {
+          type: 'css',
+          value: ''
+        }
+      };
+    }
+  }
+  if (!stepSupportsCaptures(step.type)) {
     step.captures = [];
   }
 }
@@ -515,8 +842,155 @@ watch(
   }
 );
 
+watch(
+  manualPages,
+  (value) => {
+    saveAutomationInventory(value);
+  },
+  {
+    deep: true
+  }
+);
+
 function needsValue(stepType: string): boolean {
   return ['fill', 'press', 'assertText', 'assertUrlIncludes'].includes(stepType);
+}
+
+function stepUsesLocator(stepType: string): boolean {
+  return !['sleep', 'assertUrlIncludes', 'dialogAction'].includes(stepType);
+}
+
+function stepSupportsCaptures(stepType: string): boolean {
+  return ['triggerApi', 'tableRowAction', 'dialogAction'].includes(stepType);
+}
+
+function buildTemplateLabel(template: AutomationScenarioTemplateType): string {
+  switch (template) {
+    case 'formSubmit':
+      return '表单提交';
+    case 'listDetail':
+      return '列表详情';
+    case 'login':
+      return '登录前置';
+    default:
+      return '页面冒烟';
+  }
+}
+
+function buildInventorySourceLabel(source: AutomationPageInventoryItem['source']): string {
+  switch (source) {
+    case 'menu':
+      return '授权菜单';
+    case 'manual':
+      return '手工补充';
+    default:
+      return '静态种子';
+  }
+}
+
+function isRouteCovered(route: string): boolean {
+  return coveredRouteSet.value.has(route);
+}
+
+function handleInventorySelectionChange(rows: AutomationPageInventoryItem[]) {
+  selectedInventoryRows.value = rows;
+}
+
+async function refreshPageInventory() {
+  if (permissionStore.isLoggedIn) {
+    try {
+      await permissionStore.ensureInitialized(true);
+    } catch {
+      ElMessage.warning('菜单权限刷新失败，已保留当前本地页面盘点结果');
+    }
+  }
+  await nextTick();
+  ElMessage.success(`页面盘点已刷新，共识别 ${pageInventory.value.length} 个页面`);
+}
+
+async function selectUncoveredPages() {
+  await nextTick();
+  inventoryTableRef.value?.clearSelection?.();
+  uncoveredInventoryRows.value.forEach((item) => inventoryTableRef.value?.toggleRowSelection?.(item, true));
+
+  if (uncoveredInventoryRows.value.length === 0) {
+    ElMessage.success('当前页面盘点已全部覆盖');
+    return;
+  }
+  ElMessage.success(`已勾选 ${uncoveredInventoryRows.value.length} 个待补齐页面`);
+}
+
+function appendInventoryScenarios(items: AutomationPageInventoryItem[]) {
+  if (items.length === 0) {
+    ElMessage.warning('请先选择要生成脚手架的页面');
+    return;
+  }
+
+  const routeSet = new Set(coveredRouteSet.value);
+  let appendedCount = 0;
+  let skippedCount = 0;
+
+  items.forEach((item) => {
+    if (routeSet.has(item.route)) {
+      skippedCount += 1;
+      return;
+    }
+
+    const scenario = createScenarioFromInventory(item);
+    scenario.steps.forEach(ensureStepShape);
+    plan.value.scenarios.push(scenario);
+    routeSet.add(item.route);
+    appendedCount += 1;
+  });
+
+  if (appendedCount === 0) {
+    ElMessage.success('所选页面已全部在当前计划中覆盖');
+    return;
+  }
+
+  if (skippedCount > 0) {
+    ElMessage.success(`已新增 ${appendedCount} 个页面脚手架，跳过 ${skippedCount} 个已覆盖页面`);
+    return;
+  }
+
+  ElMessage.success(`已新增 ${appendedCount} 个页面脚手架`);
+}
+
+function generateSelectedInventoryScenarios() {
+  appendInventoryScenarios(selectedInventoryRows.value);
+}
+
+function generateUncoveredInventoryScenarios() {
+  appendInventoryScenarios(uncoveredInventoryRows.value);
+}
+
+function openManualPageDialog() {
+  manualPageDraft.value = createManualInventoryItem();
+  showManualPageDialog.value = true;
+}
+
+function saveManualPage() {
+  const nextItem = createManualInventoryItem(manualPageDraft.value);
+  const existingIndex = manualPages.value.findIndex((item) => item.route === nextItem.route);
+
+  if (existingIndex >= 0) {
+    manualPages.value.splice(existingIndex, 1, nextItem);
+    ElMessage.success('已更新自定义页面盘点项');
+  } else {
+    manualPages.value.push(nextItem);
+    ElMessage.success('已新增自定义页面盘点项');
+  }
+
+  handleManualPageDialogClose();
+}
+
+function removeManualPage(id: string) {
+  const index = manualPages.value.findIndex((item) => item.id === id);
+  if (index < 0) {
+    return;
+  }
+  manualPages.value.splice(index, 1);
+  ElMessage.success('已移除自定义页面盘点项');
 }
 
 function addScenario(type: ScenarioTemplateType) {
@@ -633,12 +1107,21 @@ function applyImport() {
     const nextPlan = normalizeAutomationPlan(JSON.parse(importText.value) as AutomationPlanDocument);
     nextPlan.scenarios.forEach((scenario) => scenario.steps.forEach(ensureStepShape));
     plan.value = nextPlan;
-    importText.value = '';
-    showImportDialog.value = false;
+    handleImportDialogClose();
     ElMessage.success('自动化计划已导入');
   } catch {
     ElMessage.error('导入失败，请检查 JSON 格式是否正确');
   }
+}
+
+function handleImportDialogClose() {
+  showImportDialog.value = false;
+  importText.value = '';
+}
+
+function handleManualPageDialogClose() {
+  showManualPageDialog.value = false;
+  manualPageDraft.value = createManualInventoryItem();
 }
 
 watch(
@@ -646,6 +1129,15 @@ watch(
   (visible) => {
     if (!visible) {
       importText.value = '';
+    }
+  }
+);
+
+watch(
+  () => showManualPageDialog.value,
+  (visible) => {
+    if (!visible) {
+      manualPageDraft.value = createManualInventoryItem();
     }
   }
 );
@@ -754,6 +1246,16 @@ watch(
 .scope-card span {
   color: var(--text-secondary);
   font-size: 0.88rem;
+}
+
+.inventory-metric-list {
+  margin-bottom: 1rem;
+}
+
+.inventory-caption {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .suggestion-list {

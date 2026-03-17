@@ -200,6 +200,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addOrganization,
   deleteOrganization,
@@ -218,17 +219,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增组织机构')
 const tableData = ref<Organization[]>([])
 const selectedRows = ref<Organization[]>([])
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const searchForm = reactive({
   orgName: '',
   orgCode: '',
   status: undefined as number | undefined
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const formData = ref<Partial<Organization>>({
@@ -298,8 +294,7 @@ const loadOrganizationPage = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取组织分页失败', error)
@@ -326,7 +321,7 @@ onMounted(() => {
 })
 
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadOrganizationPage()
 }
@@ -335,7 +330,7 @@ const handleReset = () => {
   searchForm.orgName = ''
   searchForm.orgCode = ''
   searchForm.status = undefined
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadOrganizationPage()
 }
@@ -471,13 +466,12 @@ const getOrgTypeTag = (type: string) => {
 }
 
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadOrganizationPage()
 }
 
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   loadOrganizationPage()
 }
 </script>

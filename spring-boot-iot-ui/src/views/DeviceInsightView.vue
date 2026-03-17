@@ -29,6 +29,9 @@
             <el-button class="secondary-button" @click="jumpToReporting">
               接入回放验证
             </el-button>
+            <el-button class="secondary-button" @click="goToMessageTrace">
+              消息追踪
+            </el-button>
             <el-button class="ghost-button" @click="jumpToDevices">
               查看设备运维
             </el-button>
@@ -210,12 +213,13 @@
       <PanelCard
         eyebrow="Message Logs"
         title="消息日志与审计回看"
-        description="来自 `GET /api/device/{deviceCode}/message-logs`，可快速回看 topic、payload 与最近链路行为。"
+        description="来自 `GET /api/device/{deviceCode}/message-logs`，可快速回看 topic、payload、TraceId 与最近链路行为。"
       >
         <div v-if="logs.length" class="timeline">
           <article v-for="item in logs" :key="item.id" class="timeline-item">
             <h3>{{ item.messageType || 'unknown' }}</h3>
             <p>{{ item.topic || '--' }}</p>
+            <p>TraceId：{{ item.traceId || '--' }}</p>
             <p>{{ truncateText(item.payload || '--', 160) }}</p>
             <p>{{ formatDateTime(item.reportTime || item.createTime) }}</p>
           </article>
@@ -526,6 +530,8 @@ const engineeringActions = computed(() => {
   const actions = ['回看消息日志中的 topic 与 payload，确认协议解析是否符合预期。'];
   if (!logs.value.length) {
     actions.push('当前无日志，建议先通过接入回放台发送模拟报文验证主链路。');
+  } else {
+    actions.push('可进入“消息追踪”按 TraceId 串联系统日志与消息日志，快速定位接入异常。');
   }
   actions.push('若涉及文件或固件数据，请继续进入文件与固件调试页查看 Redis 聚合结果。');
   return actions;
@@ -571,6 +577,15 @@ function jumpToDevices() {
     path: '/devices',
     query: {
       deviceCode: deviceCode.value
+    }
+  });
+}
+
+function goToMessageTrace() {
+  router.push({
+    path: '/message-trace',
+    query: {
+      deviceCode: deviceCode.value || undefined
     }
   });
 }

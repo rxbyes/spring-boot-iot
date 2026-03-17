@@ -79,6 +79,48 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = VALUES(deleted);
 
+-- 历史库中默认角色主键可能并非脚本里的预设 ID，授权关系需按 role_code 回填到真实角色 ID。
+SET @role_business_id = (
+    SELECT id
+    FROM sys_role
+    WHERE role_code = 'BUSINESS_STAFF'
+      AND deleted = 0
+    ORDER BY id
+    LIMIT 1
+);
+SET @role_management_id = (
+    SELECT id
+    FROM sys_role
+    WHERE role_code = 'MANAGEMENT_STAFF'
+      AND deleted = 0
+    ORDER BY id
+    LIMIT 1
+);
+SET @role_ops_id = (
+    SELECT id
+    FROM sys_role
+    WHERE role_code = 'OPS_STAFF'
+      AND deleted = 0
+    ORDER BY id
+    LIMIT 1
+);
+SET @role_developer_id = (
+    SELECT id
+    FROM sys_role
+    WHERE role_code = 'DEVELOPER_STAFF'
+      AND deleted = 0
+    ORDER BY id
+    LIMIT 1
+);
+SET @role_super_admin_id = (
+    SELECT id
+    FROM sys_role
+    WHERE role_code = 'SUPER_ADMIN'
+      AND deleted = 0
+    ORDER BY id
+    LIMIT 1
+);
+
 INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type, status, create_by, create_time, update_by, update_time, deleted)
 VALUES
     (93000001, 0, '设备接入', 'iot-access', '', 'Layout', 'connection', '{"description":"接入与运维","menuTitle":"设备接入与运维","menuHint":"管理产品模板、设备台账、上报回放与设备侧联调能力。"}', 10, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
@@ -139,116 +181,117 @@ ON DUPLICATE KEY UPDATE
     deleted = VALUES(deleted);
 
 DELETE FROM sys_role_menu
-WHERE role_id IN (92000001, 92000002, 92000003, 92000004, 92000005);
+WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
 
 INSERT INTO sys_role_menu (id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
 VALUES
-    (94000001, 92000001, 93000002, 1, NOW(), 1, NOW(), 0),
-    (94000002, 92000001, 93002001, 1, NOW(), 1, NOW(), 0),
-    (94000003, 92000001, 93002002, 1, NOW(), 1, NOW(), 0),
-    (94000004, 92000001, 93002003, 1, NOW(), 1, NOW(), 0),
-    (94000005, 92000001, 93002007, 1, NOW(), 1, NOW(), 0),
+    (94000001, @role_business_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (94000002, @role_business_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (94000003, @role_business_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (94000004, @role_business_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (94000005, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
 
-    (94000011, 92000002, 93000002, 1, NOW(), 1, NOW(), 0),
-    (94000012, 92000002, 93002001, 1, NOW(), 1, NOW(), 0),
-    (94000013, 92000002, 93002002, 1, NOW(), 1, NOW(), 0),
-    (94000014, 92000002, 93002003, 1, NOW(), 1, NOW(), 0),
-    (94000015, 92000002, 93002004, 1, NOW(), 1, NOW(), 0),
-    (94000016, 92000002, 93002005, 1, NOW(), 1, NOW(), 0),
-    (94000017, 92000002, 93002006, 1, NOW(), 1, NOW(), 0),
-    (94000018, 92000002, 93002007, 1, NOW(), 1, NOW(), 0),
-    (94000019, 92000002, 93000003, 1, NOW(), 1, NOW(), 0),
-    (94000020, 92000002, 93003001, 1, NOW(), 1, NOW(), 0),
-    (94000021, 92000002, 93003002, 1, NOW(), 1, NOW(), 0),
-    (94000022, 92000002, 93003003, 1, NOW(), 1, NOW(), 0),
-    (94000023, 92000002, 93003004, 1, NOW(), 1, NOW(), 0),
-    (94000024, 92000002, 93003005, 1, NOW(), 1, NOW(), 0),
-    (94000025, 92000002, 93003006, 1, NOW(), 1, NOW(), 0),
-    (94000026, 92000002, 93003007, 1, NOW(), 1, NOW(), 0),
-    (94000027, 92000002, 93003101, 1, NOW(), 1, NOW(), 0),
-    (94000028, 92000002, 93003102, 1, NOW(), 1, NOW(), 0),
-    (94000029, 92000002, 93003104, 1, NOW(), 1, NOW(), 0),
-    (94000030, 92000002, 93003201, 1, NOW(), 1, NOW(), 0),
-    (94000031, 92000002, 93003202, 1, NOW(), 1, NOW(), 0),
-    (94000032, 92000002, 93003008, 1, NOW(), 1, NOW(), 0),
+    (94000011, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (94000012, @role_management_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (94000013, @role_management_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (94000014, @role_management_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (94000015, @role_management_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (94000016, @role_management_id, 93002005, 1, NOW(), 1, NOW(), 0),
+    (94000017, @role_management_id, 93002006, 1, NOW(), 1, NOW(), 0),
+    (94000018, @role_management_id, 93002007, 1, NOW(), 1, NOW(), 0),
+    (94000019, @role_management_id, 93000003, 1, NOW(), 1, NOW(), 0),
+    (94000020, @role_management_id, 93003001, 1, NOW(), 1, NOW(), 0),
+    (94000021, @role_management_id, 93003002, 1, NOW(), 1, NOW(), 0),
+    (94000022, @role_management_id, 93003003, 1, NOW(), 1, NOW(), 0),
+    (94000023, @role_management_id, 93003004, 1, NOW(), 1, NOW(), 0),
+    (94000024, @role_management_id, 93003005, 1, NOW(), 1, NOW(), 0),
+    (94000025, @role_management_id, 93003006, 1, NOW(), 1, NOW(), 0),
+    (94000026, @role_management_id, 93003007, 1, NOW(), 1, NOW(), 0),
+    (94000027, @role_management_id, 93003101, 1, NOW(), 1, NOW(), 0),
+    (94000028, @role_management_id, 93003102, 1, NOW(), 1, NOW(), 0),
+    (94000029, @role_management_id, 93003104, 1, NOW(), 1, NOW(), 0),
+    (94000030, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
+    (94000031, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
+    (94000032, @role_management_id, 93003008, 1, NOW(), 1, NOW(), 0),
 
-    (94000041, 92000003, 93000001, 1, NOW(), 1, NOW(), 0),
-    (94000042, 92000003, 93001001, 1, NOW(), 1, NOW(), 0),
-    (94000043, 92000003, 93001002, 1, NOW(), 1, NOW(), 0),
-    (94000044, 92000003, 93001003, 1, NOW(), 1, NOW(), 0),
-    (94000045, 92000003, 93001004, 1, NOW(), 1, NOW(), 0),
-    (94000046, 92000003, 93001005, 1, NOW(), 1, NOW(), 0),
-    (94000047, 92000003, 93001006, 1, NOW(), 1, NOW(), 0),
-    (94000052, 92000003, 93001007, 1, NOW(), 1, NOW(), 0),
-    (94000048, 92000003, 93000002, 1, NOW(), 1, NOW(), 0),
-    (94000049, 92000003, 93002001, 1, NOW(), 1, NOW(), 0),
-    (94000050, 92000003, 93002002, 1, NOW(), 1, NOW(), 0),
-    (94000051, 92000003, 93002003, 1, NOW(), 1, NOW(), 0),
+    (94000041, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (94000042, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
+    (94000043, @role_ops_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (94000044, @role_ops_id, 93001003, 1, NOW(), 1, NOW(), 0),
+    (94000045, @role_ops_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (94000046, @role_ops_id, 93001005, 1, NOW(), 1, NOW(), 0),
+    (94000047, @role_ops_id, 93001006, 1, NOW(), 1, NOW(), 0),
+    (94000052, @role_ops_id, 93001007, 1, NOW(), 1, NOW(), 0),
+    (94000048, @role_ops_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (94000049, @role_ops_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (94000050, @role_ops_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (94000051, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
 
-    (94000061, 92000004, 93000001, 1, NOW(), 1, NOW(), 0),
-    (94000062, 92000004, 93001001, 1, NOW(), 1, NOW(), 0),
-    (94000063, 92000004, 93001002, 1, NOW(), 1, NOW(), 0),
-    (94000064, 92000004, 93001003, 1, NOW(), 1, NOW(), 0),
-    (94000065, 92000004, 93001004, 1, NOW(), 1, NOW(), 0),
-    (94000066, 92000004, 93001005, 1, NOW(), 1, NOW(), 0),
-    (94000067, 92000004, 93001006, 1, NOW(), 1, NOW(), 0),
-    (94000077, 92000004, 93001007, 1, NOW(), 1, NOW(), 0),
-    (94000068, 92000004, 93000002, 1, NOW(), 1, NOW(), 0),
-    (94000069, 92000004, 93002001, 1, NOW(), 1, NOW(), 0),
-    (94000070, 92000004, 93002002, 1, NOW(), 1, NOW(), 0),
-    (94000071, 92000004, 93002003, 1, NOW(), 1, NOW(), 0),
-    (94000072, 92000004, 93002004, 1, NOW(), 1, NOW(), 0),
-    (94000073, 92000004, 93002005, 1, NOW(), 1, NOW(), 0),
-    (94000074, 92000004, 93002006, 1, NOW(), 1, NOW(), 0),
-    (94000075, 92000004, 93002008, 1, NOW(), 1, NOW(), 0),
-    (94000076, 92000004, 93002009, 1, NOW(), 1, NOW(), 0),
+    (94000061, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (94000062, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
+    (94000063, @role_developer_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (94000064, @role_developer_id, 93001003, 1, NOW(), 1, NOW(), 0),
+    (94000065, @role_developer_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (94000066, @role_developer_id, 93001005, 1, NOW(), 1, NOW(), 0),
+    (94000067, @role_developer_id, 93001006, 1, NOW(), 1, NOW(), 0),
+    (94000077, @role_developer_id, 93001007, 1, NOW(), 1, NOW(), 0),
+    (94000068, @role_developer_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (94000069, @role_developer_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (94000070, @role_developer_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (94000071, @role_developer_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (94000072, @role_developer_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (94000073, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
+    (94000074, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
+    (94000075, @role_developer_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (94000076, @role_developer_id, 93002009, 1, NOW(), 1, NOW(), 0),
 
-    (94000091, 92000005, 93000001, 1, NOW(), 1, NOW(), 0),
-    (94000092, 92000005, 93000002, 1, NOW(), 1, NOW(), 0),
-    (94000093, 92000005, 93000003, 1, NOW(), 1, NOW(), 0),
-    (94000094, 92000005, 93001001, 1, NOW(), 1, NOW(), 0),
-    (94000095, 92000005, 93001002, 1, NOW(), 1, NOW(), 0),
-    (94000096, 92000005, 93001003, 1, NOW(), 1, NOW(), 0),
-    (94000097, 92000005, 93001004, 1, NOW(), 1, NOW(), 0),
-    (94000098, 92000005, 93001005, 1, NOW(), 1, NOW(), 0),
-    (94000099, 92000005, 93001006, 1, NOW(), 1, NOW(), 0),
-    (94000124, 92000005, 93001007, 1, NOW(), 1, NOW(), 0),
-    (94000100, 92000005, 93002001, 1, NOW(), 1, NOW(), 0),
-    (94000101, 92000005, 93002002, 1, NOW(), 1, NOW(), 0),
-    (94000102, 92000005, 93002003, 1, NOW(), 1, NOW(), 0),
-    (94000103, 92000005, 93002004, 1, NOW(), 1, NOW(), 0),
-    (94000104, 92000005, 93002005, 1, NOW(), 1, NOW(), 0),
-    (94000105, 92000005, 93002006, 1, NOW(), 1, NOW(), 0),
-    (94000106, 92000005, 93002007, 1, NOW(), 1, NOW(), 0),
-    (94000107, 92000005, 93002008, 1, NOW(), 1, NOW(), 0),
-    (94000108, 92000005, 93002009, 1, NOW(), 1, NOW(), 0),
-    (94000109, 92000005, 93003001, 1, NOW(), 1, NOW(), 0),
-    (94000110, 92000005, 93003002, 1, NOW(), 1, NOW(), 0),
-    (94000111, 92000005, 93003003, 1, NOW(), 1, NOW(), 0),
-    (94000112, 92000005, 93003004, 1, NOW(), 1, NOW(), 0),
-    (94000113, 92000005, 93003005, 1, NOW(), 1, NOW(), 0),
-    (94000114, 92000005, 93003006, 1, NOW(), 1, NOW(), 0),
-    (94000115, 92000005, 93003007, 1, NOW(), 1, NOW(), 0),
-    (94000116, 92000005, 93003101, 1, NOW(), 1, NOW(), 0),
-    (94000117, 92000005, 93003102, 1, NOW(), 1, NOW(), 0),
-    (94000118, 92000005, 93003103, 1, NOW(), 1, NOW(), 0),
-    (94000119, 92000005, 93003104, 1, NOW(), 1, NOW(), 0),
-    (94000120, 92000005, 93003201, 1, NOW(), 1, NOW(), 0),
-    (94000121, 92000005, 93003202, 1, NOW(), 1, NOW(), 0),
-    (94000122, 92000005, 93003203, 1, NOW(), 1, NOW(), 0),
-    (94000123, 92000005, 93003008, 1, NOW(), 1, NOW(), 0),
-    (94000124, 92000005, 93003301, 1, NOW(), 1, NOW(), 0),
-    (94000125, 92000005, 93003302, 1, NOW(), 1, NOW(), 0),
-    (94000126, 92000005, 93003303, 1, NOW(), 1, NOW(), 0);
+    (94000091, @role_super_admin_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (94000092, @role_super_admin_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (94000093, @role_super_admin_id, 93000003, 1, NOW(), 1, NOW(), 0),
+    (94000094, @role_super_admin_id, 93001001, 1, NOW(), 1, NOW(), 0),
+    (94000095, @role_super_admin_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (94000096, @role_super_admin_id, 93001003, 1, NOW(), 1, NOW(), 0),
+    (94000097, @role_super_admin_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (94000098, @role_super_admin_id, 93001005, 1, NOW(), 1, NOW(), 0),
+    (94000099, @role_super_admin_id, 93001006, 1, NOW(), 1, NOW(), 0),
+    (94000127, @role_super_admin_id, 93001007, 1, NOW(), 1, NOW(), 0),
+    (94000100, @role_super_admin_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (94000101, @role_super_admin_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (94000102, @role_super_admin_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (94000103, @role_super_admin_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (94000104, @role_super_admin_id, 93002005, 1, NOW(), 1, NOW(), 0),
+    (94000105, @role_super_admin_id, 93002006, 1, NOW(), 1, NOW(), 0),
+    (94000106, @role_super_admin_id, 93002007, 1, NOW(), 1, NOW(), 0),
+    (94000107, @role_super_admin_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (94000108, @role_super_admin_id, 93002009, 1, NOW(), 1, NOW(), 0),
+    (94000109, @role_super_admin_id, 93003001, 1, NOW(), 1, NOW(), 0),
+    (94000110, @role_super_admin_id, 93003002, 1, NOW(), 1, NOW(), 0),
+    (94000111, @role_super_admin_id, 93003003, 1, NOW(), 1, NOW(), 0),
+    (94000112, @role_super_admin_id, 93003004, 1, NOW(), 1, NOW(), 0),
+    (94000113, @role_super_admin_id, 93003005, 1, NOW(), 1, NOW(), 0),
+    (94000114, @role_super_admin_id, 93003006, 1, NOW(), 1, NOW(), 0),
+    (94000115, @role_super_admin_id, 93003007, 1, NOW(), 1, NOW(), 0),
+    (94000116, @role_super_admin_id, 93003101, 1, NOW(), 1, NOW(), 0),
+    (94000117, @role_super_admin_id, 93003102, 1, NOW(), 1, NOW(), 0),
+    (94000118, @role_super_admin_id, 93003103, 1, NOW(), 1, NOW(), 0),
+    (94000119, @role_super_admin_id, 93003104, 1, NOW(), 1, NOW(), 0),
+    (94000120, @role_super_admin_id, 93003201, 1, NOW(), 1, NOW(), 0),
+    (94000121, @role_super_admin_id, 93003202, 1, NOW(), 1, NOW(), 0),
+    (94000122, @role_super_admin_id, 93003203, 1, NOW(), 1, NOW(), 0),
+    (94000123, @role_super_admin_id, 93003008, 1, NOW(), 1, NOW(), 0),
+    (94000124, @role_super_admin_id, 93003301, 1, NOW(), 1, NOW(), 0),
+    (94000125, @role_super_admin_id, 93003302, 1, NOW(), 1, NOW(), 0),
+    (94000126, @role_super_admin_id, 93003303, 1, NOW(), 1, NOW(), 0);
 
 INSERT INTO sys_user_role (id, user_id, role_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 95000001, u.id, 92000005, 1, NOW(), 1, NOW(), 0
+SELECT 95000001, u.id, @role_super_admin_id, 1, NOW(), 1, NOW(), 0
 FROM sys_user u
 WHERE u.deleted = 0
   AND u.username = 'admin'
+  AND @role_super_admin_id IS NOT NULL
   AND NOT EXISTS (
       SELECT 1
       FROM sys_user_role ur
       WHERE ur.user_id = u.id
-        AND ur.role_id = 92000005
+        AND ur.role_id = @role_super_admin_id
   );

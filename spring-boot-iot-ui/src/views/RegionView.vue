@@ -199,6 +199,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addRegion,
   deleteRegion,
@@ -217,17 +218,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增区域')
 const tableData = ref<Region[]>([])
 const selectedRows = ref<Region[]>([])
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const searchForm = reactive({
   regionName: '',
   regionCode: '',
   regionType: undefined as string | undefined
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const formData = ref<Partial<Region>>({
@@ -294,8 +290,7 @@ const loadRegionPage = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取区域分页失败', error)
@@ -322,7 +317,7 @@ onMounted(() => {
 })
 
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadRegionPage()
 }
@@ -331,7 +326,7 @@ const handleReset = () => {
   searchForm.regionName = ''
   searchForm.regionCode = ''
   searchForm.regionType = undefined
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadRegionPage()
 }
@@ -468,13 +463,12 @@ const getRegionTypeTag = (type: string) => {
 }
 
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadRegionPage()
 }
 
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   loadRegionPage()
 }
 </script>

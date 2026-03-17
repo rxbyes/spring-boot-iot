@@ -1,6 +1,5 @@
 package com.ghlzm.iot.system.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
@@ -9,6 +8,7 @@ import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.service.NotificationChannelService;
 import com.ghlzm.iot.system.service.NotificationHttpClient;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Proxy;
 import java.time.Duration;

@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildAutomationPageInventory,
+  buildPageCoverageSummary,
   buildPlanSuggestions,
   buildScenarioPreviews,
+  createManualInventoryItem,
+  createScenarioFromInventory,
   createDefaultAutomationPlan,
   createFormSubmitScenario,
   duplicateScenario,
   normalizeAutomationPlan
 } from '../../utils/automationPlan';
+import type { MenuTreeNode } from '../../types/auth';
 
 describe('automationPlan utils', () => {
   it('creates a default plan with runnable baseline scenarios', () => {
@@ -71,5 +76,78 @@ describe('automationPlan utils', () => {
 
     expect(duplicated.key).not.toBe(plan.scenarios[1].key);
     expect(duplicated.steps[0].id).not.toBe(plan.scenarios[1].steps[0].id);
+  });
+
+  it('builds page inventory from menus and manual items', () => {
+    const menus: MenuTreeNode[] = [
+      {
+        id: 1,
+        menuName: '系统治理',
+        path: '/group',
+        type: 0,
+        children: [
+          {
+            id: 2,
+            menuName: '用户管理',
+            path: '/user',
+            menuCode: 'system:user',
+            type: 1,
+            meta: {
+              caption: '用户档案、状态与重置密码管理。'
+            },
+            children: []
+          }
+        ]
+      }
+    ];
+
+    const manualPage = createManualInventoryItem({
+      route: '/external-dashboard',
+      title: '外部大屏',
+      caption: '外部系统首页'
+    });
+
+    const inventory = buildAutomationPageInventory({
+      menus,
+      manualPages: [manualPage],
+      includeStaticFallback: false
+    });
+
+    expect(inventory.some((item: { route: string; source: string }) => item.route === '/user' && item.source === 'menu')).toBe(true);
+    expect(inventory.some((item: { route: string; source: string }) => item.route === '/external-dashboard' && item.source === 'manual')).toBe(true);
+  });
+
+  it('creates safe smoke scaffolds from discovered pages', () => {
+    const scenario = createScenarioFromInventory(
+      createManualInventoryItem({
+        route: '/report-analysis',
+        title: '分析报表',
+        matcher: '/api/report/'
+      })
+    );
+
+    expect(scenario.route).toBe('/report-analysis');
+    expect(scenario.initialApis[0].matcher).toBe('/api/report/');
+    expect(scenario.steps.some((item: { type: string }) => item.type === 'assertText')).toBe(true);
+  });
+
+  it('calculates page coverage against current plan', () => {
+    const plan = createDefaultAutomationPlan();
+    const inventory = [
+      createManualInventoryItem({
+        route: '/products',
+        title: '产品模板中心'
+      }),
+      createManualInventoryItem({
+        route: '/external-dashboard',
+        title: '外部大屏'
+      })
+    ];
+
+    const summary = buildPageCoverageSummary(plan, inventory);
+
+    expect(summary.coveredPages).toBe(1);
+    expect(summary.uncoveredPages).toBe(1);
+    expect(summary.uncoveredRoutes).toContain('/external-dashboard');
   });
 });

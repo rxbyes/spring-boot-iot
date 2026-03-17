@@ -1,7 +1,5 @@
 package com.ghlzm.iot.admin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.protocol.mqtt.Md5MqttMessageSigner;
 import com.ghlzm.iot.protocol.mqtt.MqttMessageSignerRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadDecryptorRegistry;
@@ -22,6 +20,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;

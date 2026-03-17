@@ -78,6 +78,11 @@ export interface DeviceProperty {
 
 export interface DeviceMessageLog {
   id: IdType;
+  deviceId?: number | null;
+  productId?: number | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
   messageType?: string | null;
   topic?: string | null;
   payload?: string | null;
@@ -158,13 +163,28 @@ export interface HttpReportPayload {
   tenantId?: string;
 }
 
+export interface ActivityDraft {
+  title?: string;
+  detail: string;
+  tag?: string;
+  module?: string;
+  action?: string;
+  request?: unknown;
+  response?: unknown;
+  ok?: boolean;
+  path?: string;
+}
+
 export interface ActivityEntry {
   id: string;
-  module: string;
-  action: string;
-  request: unknown;
+  title: string;
+  detail: string;
+  createdAt: string;
+  tag?: string;
+  module?: string;
+  action?: string;
+  request?: unknown;
   response?: unknown;
   ok: boolean;
-  createdAt: string;
-  detail: string;
+  path?: string;
 }

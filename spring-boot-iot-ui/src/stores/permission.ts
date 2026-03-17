@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import { getCurrentUser } from '../api/auth';
+import { canAccessSectionHome } from '../config/sectionHomes';
 import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 
 const ACCESS_TOKEN_KEY = 'spring-boot-iot.access-token';
@@ -103,6 +104,11 @@ export const usePermissionStore = defineStore('permission', () => {
       username: authContext.value.username,
       realName: authContext.value.realName,
       displayName: displayName.value,
+      phone: authContext.value.phone,
+      email: authContext.value.email,
+      accountType: authContext.value.accountType,
+      authStatus: authContext.value.authStatus,
+      loginMethods: authContext.value.loginMethods || [],
       roleNames: roleNames.value,
       roleCodes: roleCodes.value
     };
@@ -200,7 +206,7 @@ export const usePermissionStore = defineStore('permission', () => {
     if (authContext.value.superAdmin) {
       return true;
     }
-    return allowedPaths.value.includes(normalizedPath);
+    return allowedPaths.value.includes(normalizedPath) || canAccessSectionHome(normalizedPath, allowedPaths.value);
   }
 
   return {

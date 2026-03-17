@@ -28,6 +28,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/device-access',
+    name: 'device-access',
+    component: () => import('../views/SectionLandingView.vue'),
+    meta: {
+      title: '设备接入',
+      description: '设备接入分组总览与常用入口。',
+      requiresAuth: true,
+      trackTab: false
+    }
+  },
+  {
     path: '/products',
     name: 'products',
     component: () => import('../views/ProductWorkbenchView.vue'),
@@ -88,6 +99,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/message-trace',
+    name: 'message-trace',
+    component: () => import('../views/MessageTraceView.vue'),
+    meta: {
+      title: '消息追踪',
+      description: '按 TraceId、设备编码与 Topic 排查设备接入链路。',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/future-lab',
     name: 'future-lab',
     component: () => import('../views/FutureLabView.vue'),
@@ -95,6 +116,17 @@ const routes: RouteRecordRaw[] = [
       title: '演进蓝图',
       description: '预研能力展示与未来扩展方向说明。',
       requiresAuth: true
+    }
+  },
+  {
+    path: '/risk-disposal',
+    name: 'risk-disposal',
+    component: () => import('../views/SectionLandingView.vue'),
+    meta: {
+      title: '风险处置',
+      description: '风险处置分组总览与闭环入口。',
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -188,13 +220,25 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/system-management',
+    name: 'system-management',
+    component: () => import('../views/SectionLandingView.vue'),
+    meta: {
+      title: '系统管理',
+      description: '系统管理分组总览与治理入口。',
+      requiresAuth: true,
+      trackTab: false
+    }
+  },
+  {
     path: '/organization',
     name: 'organization',
     component: () => import('../views/OrganizationView.vue'),
     meta: {
       title: '组织机构',
       description: '组织树维护与层级管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -204,7 +248,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '用户管理',
       description: '用户档案、状态与重置密码管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -214,7 +259,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '角色管理',
       description: '角色、菜单与权限绑定管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -224,7 +270,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '菜单管理',
       description: '菜单树维护与页面/按钮权限项管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -234,7 +281,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '区域管理',
       description: '行政区域树与地域配置管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -244,7 +292,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '字典配置',
       description: '字典类型与字典项维护。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -254,7 +303,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '通知渠道',
       description: '通知渠道配置、启停与测试管理。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -264,7 +314,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '自动化测试',
       description: '配置驱动的浏览器自动化编排、报告与测试建议中心。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
     }
   },
   {
@@ -274,7 +325,19 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '业务日志',
       description: '面向业务与治理侧的关键操作审计查询。',
-      requiresAuth: true
+      requiresAuth: true,
+      trackTab: false
+    }
+  },
+  {
+    path: '/risk-enhance',
+    name: 'risk-enhance',
+    component: () => import('../views/SectionLandingView.vue'),
+    meta: {
+      title: '风险增强',
+      description: '风险增强分组总览与试运行入口。',
+      requiresAuth: true,
+      trackTab: false
     }
   }
 ];

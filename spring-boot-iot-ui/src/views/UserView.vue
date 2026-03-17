@@ -173,17 +173,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增用户')
 const tableData = ref<User[]>([])
 const selectedRows = ref<User[]>([])
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const searchForm = reactive({
   username: '',
   phone: '',
   email: ''
-})
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 })
 
 const formData = ref<Partial<User>>({
@@ -240,8 +235,7 @@ const loadUserPage = async () => {
       pageSize: pagination.pageSize
     })
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取用户分页失败', error)
@@ -255,7 +249,7 @@ onMounted(() => {
 })
 
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadUserPage()
 }
@@ -264,7 +258,7 @@ const handleReset = () => {
   searchForm.username = ''
   searchForm.phone = ''
   searchForm.email = ''
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   loadUserPage()
 }
@@ -382,13 +376,12 @@ const handleDialogClose = () => {
 }
 
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.pageNum = 1
+  setPageSize(size)
   loadUserPage()
 }
 
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   loadUserPage()
 }
 </script>

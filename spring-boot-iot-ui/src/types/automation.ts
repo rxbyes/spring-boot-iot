@@ -6,12 +6,18 @@ export type AutomationStepType =
   | 'fill'
   | 'click'
   | 'press'
+  | 'setChecked'
   | 'selectOption'
+  | 'uploadFile'
   | 'waitVisible'
   | 'triggerApi'
+  | 'tableRowAction'
+  | 'dialogAction'
   | 'assertText'
   | 'assertUrlIncludes'
-  | 'sleep';
+  | 'assertScreenshot'
+  | 'sleep'
+  | string;
 
 export interface AutomationLocator {
   type: AutomationLocatorType;
@@ -48,6 +54,16 @@ export interface AutomationStep {
   value?: string;
   matcher?: string;
   optionText?: string;
+  checked?: boolean;
+  filePath?: string;
+  rowText?: string;
+  dialogTitle?: string;
+  dialogAction?: 'waitVisible' | 'confirm' | 'cancel' | 'close' | 'custom';
+  actionText?: string;
+  screenshotTarget?: 'page' | 'locator';
+  baselineName?: string;
+  threshold?: number;
+  fullPage?: boolean;
   timeout?: number;
   optional?: boolean;
   action?: AutomationNestedAction;
@@ -80,6 +96,7 @@ export interface AutomationTargetConfig {
   headless: boolean;
   issueDocPath: string;
   outputPrefix: string;
+  baselineDir: string;
   scenarioScopes: string[];
   failScopes: string[];
 }
@@ -108,4 +125,42 @@ export interface AutomationScenarioPreview {
   apiCount: number;
   featureCount: number;
   hasAssertion: boolean;
+}
+
+export type AutomationScenarioTemplateType = 'pageSmoke' | 'formSubmit' | 'listDetail' | 'login';
+
+export type AutomationPageDiscoverySource = 'menu' | 'static' | 'manual';
+
+export type AutomationPageCategory =
+  | 'login'
+  | 'dashboard'
+  | 'workspace'
+  | 'list'
+  | 'form'
+  | 'analysis'
+  | 'monitoring'
+  | 'system'
+  | 'custom';
+
+export interface AutomationPageInventoryItem {
+  id: string;
+  route: string;
+  title: string;
+  caption: string;
+  menuCode?: string;
+  source: AutomationPageDiscoverySource;
+  category: AutomationPageCategory;
+  recommendedTemplate: AutomationScenarioTemplateType;
+  scope: AutomationScenarioScope;
+  requiresLogin: boolean;
+  readySelector: string;
+  matcher?: string;
+  keywords: string[];
+}
+
+export interface AutomationPageCoverageSummary {
+  totalPages: number;
+  coveredPages: number;
+  uncoveredPages: number;
+  uncoveredRoutes: string[];
 }

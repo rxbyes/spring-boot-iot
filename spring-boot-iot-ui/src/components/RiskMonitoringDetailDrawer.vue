@@ -12,26 +12,93 @@
     empty-text="暂无监测详情"
     @update:modelValue="emit('update:modelValue', $event)"
   >
+    <section class="detail-panel detail-panel--hero">
+      <div class="detail-section-header">
+        <div>
+          <h3>监测概览</h3>
+          <p>将监测状态、在线情况、当前读数与风险态势聚合到顶部，适配实时巡检和态势研判场景。</p>
+        </div>
+      </div>
+      <div class="detail-summary-grid">
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">监测状态</span>
+          <strong class="detail-summary-card__value">{{ monitorStatusText(detail?.monitorStatus) }}</strong>
+          <p class="detail-summary-card__hint">风险等级：{{ riskLevelText(detail?.riskLevel) }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">在线状态</span>
+          <strong class="detail-summary-card__value">{{ onlineStatusText(detail?.onlineStatus) }}</strong>
+          <p class="detail-summary-card__hint">最新上报：{{ formatDateTime(detail?.latestReportTime) }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">当前读数</span>
+          <strong class="detail-summary-card__value">{{ formatCurrentValue(detail?.currentValue, detail?.unit) }}</strong>
+          <p class="detail-summary-card__hint">测点：{{ detail?.metricName || detail?.metricIdentifier || '--' }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">活跃告警</span>
+          <strong class="detail-summary-card__value">{{ detail?.activeAlarmCount ?? 0 }}</strong>
+          <p class="detail-summary-card__hint">近期事件：{{ detail?.recentEventCount ?? 0 }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">监测对象</span>
+          <strong class="detail-summary-card__value">{{ detail?.riskPointName || detail?.deviceName || '--' }}</strong>
+          <p class="detail-summary-card__hint">区域：{{ detail?.regionName || '--' }}</p>
+        </article>
+      </div>
+    </section>
+
     <section class="detail-panel">
-      <h3>当前监测信息</h3>
+      <div class="detail-section-header">
+        <div>
+          <h3>监测对象</h3>
+          <p>统一展示设备、风险点、测点和地理位置，帮助快速确认当前监测绑定关系。</p>
+        </div>
+      </div>
       <div class="detail-grid">
+        <div class="detail-field"><span class="detail-field__label">绑定编号</span><strong class="detail-field__value">{{ detail?.bindingId || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">设备编码</span><strong class="detail-field__value">{{ detail?.deviceCode || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">设备名称</span><strong class="detail-field__value">{{ detail?.deviceName || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">产品名称</span><strong class="detail-field__value">{{ detail?.productName || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">区域</span><strong class="detail-field__value">{{ detail?.regionName || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">风险点</span><strong class="detail-field__value">{{ detail?.riskPointName || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">风险点编码</span><strong class="detail-field__value">{{ detail?.riskPointCode || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">测点</span><strong class="detail-field__value">{{ detail?.metricName || detail?.metricIdentifier || '--' }}</strong></div>
-        <div class="detail-field"><span class="detail-field__label">当前值</span><strong class="detail-field__value">{{ formatCurrentValue(detail?.currentValue, detail?.unit) }}</strong></div>
-        <div class="detail-field"><span class="detail-field__label">最新上报</span><strong class="detail-field__value">{{ formatDateTime(detail?.latestReportTime) }}</strong></div>
-        <div class="detail-field"><span class="detail-field__label">活跃告警</span><strong class="detail-field__value">{{ detail?.activeAlarmCount ?? 0 }}</strong></div>
-        <div class="detail-field"><span class="detail-field__label">近期事件</span><strong class="detail-field__value">{{ detail?.recentEventCount ?? 0 }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">值类型</span><strong class="detail-field__value">{{ detail?.valueType || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">经纬度</span><strong class="detail-field__value">{{ formatCoordinate(detail?.longitude, detail?.latitude) }}</strong></div>
-        <div class="detail-field"><span class="detail-field__label">位置描述</span><strong class="detail-field__value">{{ detail?.address || '--' }}</strong></div>
+        <div class="detail-field detail-field--full"><span class="detail-field__label">位置描述</span><strong class="detail-field__value">{{ detail?.address || '--' }}</strong></div>
       </div>
     </section>
 
     <section class="detail-panel">
-      <h3>最近告警</h3>
+      <div class="detail-section-header">
+        <div>
+          <h3>态势指标</h3>
+          <p>集中展示当前读数、最近上报和近端告警/事件数量，方便进行实时风险判断。</p>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><span class="detail-field__label">当前值</span><strong class="detail-field__value">{{ formatCurrentValue(detail?.currentValue, detail?.unit) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">最新上报</span><strong class="detail-field__value">{{ formatDateTime(detail?.latestReportTime) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">监测状态</span><strong class="detail-field__value">{{ monitorStatusText(detail?.monitorStatus) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">在线状态</span><strong class="detail-field__value">{{ onlineStatusText(detail?.onlineStatus) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">活跃告警</span><strong class="detail-field__value">{{ detail?.activeAlarmCount ?? 0 }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">近期事件</span><strong class="detail-field__value">{{ detail?.recentEventCount ?? 0 }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">趋势点数</span><strong class="detail-field__value">{{ detail?.trendPoints?.length ?? 0 }}</strong></div>
+      </div>
+      <div :class="['detail-notice', { 'detail-notice--danger': detail?.monitorStatus === 'ALARM' || detail?.onlineStatus !== 1 }]">
+        <span class="detail-notice__label">监测建议</span>
+        <strong class="detail-notice__value">{{ monitorAdvice }}</strong>
+      </div>
+    </section>
+
+    <section class="detail-panel">
+      <div class="detail-section-header">
+        <div>
+          <h3>最近告警</h3>
+          <p>展示最新关联告警，便于快速查看当前风险点近期是否持续触发异常。</p>
+        </div>
+      </div>
       <div v-if="recentAlarms.length" class="detail-card-list">
         <article v-for="alarm in recentAlarms" :key="alarm.id" class="detail-card">
           <div class="detail-card__header">
@@ -49,7 +116,12 @@
     </section>
 
     <section class="detail-panel">
-      <h3>最近事件</h3>
+      <div class="detail-section-header">
+        <div>
+          <h3>最近事件</h3>
+          <p>展示最近处置事件，帮助快速了解该监测对象在近期的处置活跃度与闭环情况。</p>
+        </div>
+      </div>
       <div v-if="recentEvents.length" class="detail-card-list">
         <article v-for="event in recentEvents" :key="event.id" class="detail-card">
           <div class="detail-card__header">
@@ -96,6 +168,21 @@ const detail = ref<RiskMonitoringDetail | null>(null);
 
 const recentAlarms = computed<RiskMonitoringAlarmSummary[]>(() => detail.value?.recentAlarms ?? []);
 const recentEvents = computed<RiskMonitoringEventSummary[]>(() => detail.value?.recentEvents ?? []);
+const monitorAdvice = computed(() => {
+  if (!detail.value) {
+    return '暂无监测建议';
+  }
+  if (detail.value.onlineStatus !== 1) {
+    return '当前设备离线，建议先恢复链路或确认网关在线状态，再继续判断风险点实时数据。';
+  }
+  if ((detail.value.monitorStatus || '').toUpperCase() === 'ALARM') {
+    return '当前监测对象处于告警中，建议优先查看最近告警与事件，确认是否需要立即处置。';
+  }
+  if ((detail.value.monitorStatus || '').toUpperCase() === 'NO_DATA') {
+    return '当前监测对象暂无有效数据，建议核查采集链路、测点配置与最近上报时间。';
+  }
+  return '当前监测对象状态稳定，可继续结合最近告警与事件评估风险变化趋势。';
+});
 const drawerTags = computed(() => {
   if (!detail.value) {
     return [];
@@ -103,7 +190,7 @@ const drawerTags = computed(() => {
   return [
     { label: riskLevelText(detail.value.riskLevel), type: riskLevelTagType(detail.value.riskLevel) },
     { label: monitorStatusText(detail.value.monitorStatus), type: monitorStatusTagType(detail.value.monitorStatus) },
-    { label: detail.value.onlineStatus === 1 ? '在线' : '离线', type: detail.value.onlineStatus === 1 ? 'success' : 'info' as const }
+    { label: onlineStatusText(detail.value.onlineStatus), type: detail.value.onlineStatus === 1 ? 'success' : 'info' as const }
   ];
 });
 
@@ -188,6 +275,10 @@ function monitorStatusTagType(value?: string | null): 'danger' | 'warning' | 'su
     default:
       return 'info';
   }
+}
+
+function onlineStatusText(value?: number | null) {
+  return value === 1 ? '在线' : '离线';
 }
 
 function eventStatusText(status?: number | null) {

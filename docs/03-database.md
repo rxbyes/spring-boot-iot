@@ -64,6 +64,11 @@
 ### `iot_message_log`
 原始报文日志表（或兼容视图），用于排障、审计和验收核对。
 
+当前真实环境基线要求：
+- 物理表 `iot_device_message_log` 与兼容视图 `iot_message_log` 都需暴露 `trace_id`、`device_code`、`product_key`。
+- `trace_id` 用于把 HTTP / MQTT 接入链路与 `sys_audit_log` 的系统异常记录串联起来。
+- `device_code`、`product_key` 用于在消息追踪页和 SQL 核对中快速定位设备主链路。
+
 ### `iot_alarm_record`
 告警记录表，记录告警主数据、状态流转、处理人、处理时间等。
 
@@ -105,14 +110,20 @@
 2. `20260316_phase4_real_env_schema_alignment.sql`
 3. `20260316_phase4_task10_dynamic_menu_auth.sql`
 4. `20260316_iot_message_log_view.sql`
+5. `20260317_phase4_system_governance_paging_indexes.sql`
 
 说明：
 - `sql/init.sql` 已整合当前代码基线所需核心表结构，`sql/upgrade/` 的定位是历史库增量兼容，不是新库初始化必需步骤。
 - `20260315` 系列一次性建表脚本已从日常维护口径移除；对应能力已合并到 `sql/init.sql`，历史兼容由 `20260316_phase4_real_env_schema_alignment.sql` 负责。
 - `20260316_phase4_task3_risk_monitoring_schema_sync.sql` 用于修复共享开发库的早期 Phase 4 半升级状态：补齐 `risk_point.create_by` / `update_by`，并补建 `risk_point_device`。
 - `20260316_phase4_real_env_schema_alignment.sql` 用于补齐真实库历史缺列/缺表与旧版强约束差异（含 `sys_notification_channel`、`sys_audit_log` 兼容字段，以及 `rule_code` / `plan_code` 允许 `NULL` 的兼容改造）。
+- 当前脚本也已补齐日志追踪增强字段：`sys_audit_log.trace_id/device_code/product_key/error_code/exception_class`，以及 `iot_device_message_log.trace_id/device_code/product_key`。
 - `20260316_phase4_task10_dynamic_menu_auth.sql` 用于补齐 `sys_menu.meta_json`、动态菜单树、按钮权限码以及五类默认角色授权关系；脚本已内置 `sys_menu.type/menu_type` 双字段兼容处理，可避免历史库出现 `1364 - Field 'menu_type' doesn't have a default`。
+- 当前仓库版本的 `20260316_phase4_task10_dynamic_menu_auth.sql` 还会按 `role_code` 解析真实角色主键，兼容历史库中 `SUPER_ADMIN` 等默认角色 ID 与脚本预设值不一致的场景。
+- `20260316_phase4_task10_dynamic_menu_auth.sql` 已包含设备接入分区的“消息追踪”页面菜单（`93001007` / `/message-trace`）及默认角色授权。
+- 若历史库此前已执行过旧版本 task10、但 `system:menu:add/update/delete` 未下发到真实超管角色，可补执行 `sql/upgrade/20260317_phase4_menu_button_permission_backfill.sql`，无需重置整套默认角色授权。
 - 第 4 个脚本不会替换物理表，只会补充 `iot_message_log` 兼容视图。
+- `20260317_phase4_system_governance_paging_indexes.sql` 用于为系统治理分页、树表懒加载与系统日志查询补齐历史库增量索引；`sql/init.sql` 已内置同批索引，新库无需单独执行。
 - 若真实环境已存在部分 Phase 4 表，请先核对表结构再执行，避免重复建表失败；风险监测联调前至少确认 `risk_point`、`risk_point_device` 两张表与当前脚本一致。
 
 ## 一期最小闭环涉及表
@@ -142,5 +153,8 @@
 - `sys_dict`
 - `sys_notification_channel`
 - `sys_audit_log`
+
+补充说明：
+- `sys_audit_log` 当前用于同时承载业务审计与 `system_error` 异常审计；系统异常记录需具备 `trace_id`、`device_code`、`product_key`、`error_code`、`exception_class`，便于研发、测试与运维从消息追踪页回溯。
 
 具体 SQL 核对模板见 [docs/21-business-functions-and-acceptance.md](21-business-functions-and-acceptance.md)。

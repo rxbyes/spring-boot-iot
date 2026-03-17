@@ -11,6 +11,11 @@ describe('AppHeaderTools', () => {
     headerIdentity: '系统管理员 · 超级管理员',
     headerAccountName: 'rxbyes',
     headerRoleName: '超级管理员',
+    headerAccountCode: 'rxbyes',
+    headerAccountType: '主账号',
+    headerAuthStatus: '实名认证待接入',
+    headerPrimaryContact: '手机号：138****1234',
+    headerLoginMethods: '账号登录 / 手机号登录',
     accountInitial: 'R',
     unreadNoticeCount: 0
   };
@@ -40,5 +45,23 @@ describe('AppHeaderTools', () => {
 
     expect(wrapper.emitted('toggle-notice')).toHaveLength(1);
     expect(wrapper.emitted('toggle-help')).toHaveLength(1);
+  });
+
+  it('opens account panel and emits account actions', async () => {
+    const wrapper = mount(AppHeaderTools, { props: baseProps });
+
+    await wrapper.find('.account-entry').trigger('mouseenter');
+    expect(wrapper.text()).toContain('账号中心');
+    expect(wrapper.text()).toContain('登录方式管理');
+    expect(wrapper.text()).toContain('主账号');
+    expect(wrapper.text()).toContain('手机号：138****1234');
+
+    await wrapper.find('[data-action="change-password"]').trigger('click');
+    await wrapper.find('.account-entry').trigger('mouseenter');
+    await wrapper.find('[data-action="logout"]').trigger('click');
+
+    expect(wrapper.emitted('open-account-menu')).toHaveLength(2);
+    expect(wrapper.emitted('open-change-password')).toHaveLength(1);
+    expect(wrapper.emitted('logout')).toHaveLength(1);
   });
 });

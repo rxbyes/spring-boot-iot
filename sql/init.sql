@@ -80,7 +80,8 @@ CREATE TABLE sys_user (
     PRIMARY KEY (id),
     UNIQUE KEY uk_username_tenant (tenant_id, username),
     KEY idx_phone (phone),
-    KEY idx_email (email)
+    KEY idx_email (email),
+    KEY idx_user_deleted_status_create_time (deleted, status, create_time, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户表';
 
 CREATE TABLE sys_role (
@@ -97,7 +98,8 @@ CREATE TABLE sys_role (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_role_code_tenant (tenant_id, role_code),
-    KEY idx_role_code (role_code)
+    KEY idx_role_code (role_code),
+    KEY idx_role_deleted_status_create_time (deleted, status, create_time, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
 
 CREATE TABLE sys_user_role (
@@ -142,7 +144,9 @@ CREATE TABLE sys_menu (
     PRIMARY KEY (id),
     UNIQUE KEY uk_menu_code_tenant (tenant_id, menu_code),
     KEY idx_parent_id (parent_id),
-    KEY idx_status (status)
+    KEY idx_status (status),
+    KEY idx_menu_deleted_parent_sort (deleted, parent_id, sort, id),
+    KEY idx_menu_deleted_status_sort (deleted, status, sort, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='菜单表';
 
 CREATE TABLE sys_role_menu (
@@ -182,7 +186,9 @@ CREATE TABLE sys_organization (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_org_code_tenant (tenant_id, org_code),
-    KEY idx_parent_id (parent_id)
+    KEY idx_parent_id (parent_id),
+    KEY idx_org_deleted_parent_sort (deleted, parent_id, sort_no, id),
+    KEY idx_org_deleted_status_sort (deleted, status, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='组织机构表';
 
 CREATE TABLE sys_region (
@@ -204,7 +210,9 @@ CREATE TABLE sys_region (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_region_code_tenant (tenant_id, region_code),
-    KEY idx_parent_id (parent_id)
+    KEY idx_parent_id (parent_id),
+    KEY idx_region_deleted_parent_sort (deleted, parent_id, sort_no, id),
+    KEY idx_region_deleted_type_sort (deleted, region_type, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='区域表';
 
 CREATE TABLE sys_dict (
@@ -224,7 +232,9 @@ CREATE TABLE sys_dict (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_dict_code_tenant (tenant_id, dict_code)
+    UNIQUE KEY uk_dict_code_tenant (tenant_id, dict_code),
+    KEY idx_dict_deleted_sort (deleted, sort_no, id),
+    KEY idx_dict_deleted_type_sort (deleted, dict_type, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='字典表';
 
 CREATE TABLE sys_dict_item (
@@ -263,7 +273,9 @@ CREATE TABLE sys_notification_channel (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_channel_code_tenant (tenant_id, channel_code)
+    UNIQUE KEY uk_channel_code_tenant (tenant_id, channel_code),
+    KEY idx_channel_deleted_sort (deleted, sort_no, id),
+    KEY idx_channel_deleted_type_sort (deleted, channel_type, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知渠道表';
 
 CREATE TABLE sys_audit_log (
@@ -293,7 +305,10 @@ CREATE TABLE sys_audit_log (
     PRIMARY KEY (id),
     KEY idx_operation_time (operation_time),
     KEY idx_trace_id (trace_id),
-    KEY idx_device_code (device_code)
+    KEY idx_device_code (device_code),
+    KEY idx_audit_deleted_operation_time (deleted, operation_time, create_time, id),
+    KEY idx_audit_deleted_type_time (deleted, operation_type, operation_time, create_time, id),
+    KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志表';
 
 -- =========================

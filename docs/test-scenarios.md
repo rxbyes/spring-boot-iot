@@ -64,6 +64,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 历史库：按需执行 `sql/upgrade/` 当前基线脚本
 - 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
+- 如历史库菜单管理页仍缺少超管按钮权限，可补执行 `sql/upgrade/20260317_phase4_menu_button_permission_backfill.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
 - 若本轮需要验证“系统异常自动通知”，额外设置 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`，并准备可接收请求的 webhook 渠道地址
@@ -249,12 +250,14 @@ Phase 4 统一按页面、接口、数据表三层核对：
 1. 先调用 `POST /api/system/channel/test/{channelCode}`，确认渠道测试消息可以成功送达。
 2. 使用 MQTTX 向不存在设备的 topic 发送消息，例如 `/sys/demo-product/demo-device-02/thing/property/post`。
 3. 观察应用日志中是否出现 `设备不存在: demo-device-02` 一类后台异常。
-4. 查询 `/system-log` 页面或 `sys_audit_log` 表，确认新增 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 的审计记录。
-5. 检查 webhook 接收端或群机器人，确认收到系统异常通知消息。
+4. 查询 `/system-log` 页面或 `sys_audit_log` 表，确认新增 `operation_type=system_error`、`request_method=MQTT`、`user_name=SYSTEM` 的审计记录，并检查 `trace_id`、`device_code`、`product_key`、`exception_class` 等字段。
+5. 打开 `/message-trace` 页面，带入第 4 步中的 `trace_id` 或设备编码，确认可查询到对应消息链路。
+6. 检查 webhook 接收端或群机器人，确认收到系统异常通知消息。
 
 通过标准：
 - `POST /api/system/channel/test/{channelCode}` 返回 `code=200`，且接收端收到测试通知。
 - MQTT 异常触发后，`sys_audit_log` 新增对应 `system_error` 记录。
+- `sys_audit_log.trace_id` 与 `/message-trace` 页查询到的 `iot_message_log.trace_id` 可对应起来。
 - 当渠道配置包含 `scenes:["system_error"]` 且应用开关开启时，接收端能收到自动系统异常通知。
 
 ## 9. 验收产物要求
@@ -268,7 +271,7 @@ Phase 4 统一按页面、接口、数据表三层核对：
 
 ## 10. 环境不可用时的处理原则
 - 先确认是网络、数据库、Redis、MQTT 哪一层阻塞
-- 若是 MQTT 链路异常或消息未落库，补查 `/system-log` 页面或 `sys_audit_log` 表中的 `operation_type=system_error` 记录，优先定位 topic、设备编码、协议或 Broker 连接问题
+- 若是 MQTT 链路异常或消息未落库，补查 `/system-log` 页面或 `sys_audit_log` 表中的 `operation_type=system_error` 记录，并进一步通过 `/message-trace` 或 `iot_message_log` 按 `trace_id` / 设备编码 / Topic 回溯原始消息
 - 记录具体报错、时间、影响范围
 - 可继续执行 `mvn -s .mvn/settings.xml clean package -DskipTests`、`mvn -s .mvn/settings.xml test` 作为代码回归检查
 - 不允许回退到旧 H2 验收配置、H2 内存库、旧前端自动化链路或历史验收用例来宣布“验收通过”
@@ -414,6 +417,9 @@ npm run acceptance:browser:plan
 
 能力说明：
 - 通过前端维护目标系统地址、登录信息、场景模板、页面步骤、接口 matcher、变量捕获与页面断言。
+- 支持按当前登录用户的授权菜单自动盘点页面覆盖面，并计算“已覆盖 / 待补齐”页面。
+- 支持把盘点结果一键生成页面冒烟脚手架；对外部系统可通过“新增自定义页面”补充页面清单后再生成脚手架。
+- 执行器已升级为步骤注册中心，当前内置支持 `setChecked`、`uploadFile`、`tableRowAction`、`dialogAction` 等高频复杂动作，可继续扩展更多插件式步骤。
 - 支持导出标准 JSON 计划，供 `scripts/auto/run-browser-acceptance.mjs --plan=...` 直接执行。
 - 适合把当前 IoT 平台页面巡检、外部业务系统页面验证与后续扩面场景统一纳入一套执行骨架。
 
@@ -428,5 +434,6 @@ node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web
 
 建议实践：
 1. 先在自动化测试中心整理“业务点梳理”，再细化到步骤层，避免直接写低层选择器导致后续难维护。
-2. 对关键页面至少补齐 `readySelector + triggerApi + assertText/assertUrlIncludes` 三类证据。
-3. 动态菜单环境下，新增路由授权后需重新登录，确保 `authContext.menus` 刷新后再执行浏览器巡检。
+2. 先使用“页面盘点与脚手架生成”补齐页面覆盖，再针对高价值页面继续补充真实交互步骤。
+3. 对关键页面至少补齐 `readySelector + triggerApi + assertText/assertUrlIncludes` 三类证据。
+4. 动态菜单环境下，新增路由授权后需重新登录，确保 `authContext.menus` 刷新后再执行浏览器巡检。

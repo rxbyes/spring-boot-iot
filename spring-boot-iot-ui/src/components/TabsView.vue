@@ -1,5 +1,5 @@
 <template>
-  <div class="tabs-view" aria-label="最近访问标签">
+  <div v-if="tabs.length > 1" class="tabs-view" aria-label="最近访问标签">
     <div
       v-for="tab in tabs"
       :key="tab.path"

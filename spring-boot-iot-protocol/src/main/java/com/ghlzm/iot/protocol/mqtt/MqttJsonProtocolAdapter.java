@@ -1,7 +1,5 @@
 package com.ghlzm.iot.protocol.mqtt;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
@@ -10,6 +8,8 @@ import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
 import com.ghlzm.iot.protocol.core.model.DeviceFirmwarePacket;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;

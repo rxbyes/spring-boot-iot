@@ -85,19 +85,23 @@ const emit = defineEmits<{
 <style scoped>
 .standard-detail-drawer :deep(.el-drawer) {
   background:
-    radial-gradient(circle at top right, rgba(232, 240, 255, 0.78), transparent 36%),
-    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(244, 248, 253, 0.98));
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.14), transparent 30%),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(241, 246, 252, 0.99));
+  box-shadow: -16px 0 42px rgba(32, 55, 90, 0.14);
 }
 
 .standard-detail-drawer :deep(.el-drawer__header) {
   margin-bottom: 0;
-  padding: 24px 28px 20px;
+  padding: 26px 28px 22px;
   border-bottom: 1px solid rgba(42, 63, 95, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 255, 0.86));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 248, 255, 0.9)),
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.08), transparent 28%);
 }
 
 .standard-detail-drawer :deep(.el-drawer__body) {
-  padding: 22px 28px 28px;
+  padding: 24px 28px 28px;
   background: transparent;
 }
 
@@ -110,7 +114,7 @@ const emit = defineEmits<{
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .detail-drawer__heading {
@@ -119,25 +123,29 @@ const emit = defineEmits<{
 
 .detail-drawer__eyebrow {
   margin: 0;
-  color: #70809a;
-  font-size: 13px;
+  color: #7b8ba4;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1.4;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .detail-drawer__heading h2 {
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
   color: #243448;
-  font-size: 2rem;
-  line-height: 1.2;
+  font-size: clamp(1.8rem, 2.5vw, 2.25rem);
+  line-height: 1.18;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .detail-drawer__subtitle {
-  margin: 0.65rem 0 0;
-  color: #70809a;
+  margin: 0.7rem 0 0;
+  max-width: 40rem;
+  color: #6f809b;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .detail-drawer__tags {
@@ -149,21 +157,22 @@ const emit = defineEmits<{
 
 .detail-drawer__body {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .detail-state {
-  padding: 1rem 1.2rem;
+  padding: 1.1rem 1.25rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.86);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 255, 0.92));
   color: #70809a;
+  box-shadow: 0 14px 30px rgba(32, 55, 90, 0.05);
 }
 
 .detail-state--error {
   color: #d94848;
   border-color: rgba(217, 72, 72, 0.18);
-  background: rgba(255, 246, 246, 0.96);
+  background: linear-gradient(180deg, rgba(255, 246, 246, 0.98), rgba(255, 241, 241, 0.96));
 }
 
 .detail-drawer__footer {
@@ -171,28 +180,119 @@ const emit = defineEmits<{
 }
 
 .standard-detail-drawer :deep(.detail-panel) {
+  position: relative;
+  overflow: hidden;
   padding: 1.25rem 1.35rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 14px 32px rgba(32, 55, 90, 0.06);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.9));
+  box-shadow:
+    0 16px 34px rgba(32, 55, 90, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.standard-detail-drawer :deep(.detail-panel::before) {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(79, 140, 255, 0.9), rgba(56, 189, 248, 0.82), rgba(192, 132, 252, 0.72));
+}
+
+.standard-detail-drawer :deep(.detail-panel--hero) {
+  background:
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.94));
+}
+
+.standard-detail-drawer :deep(.detail-section-header) {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.standard-detail-drawer :deep(.detail-section-header h3) {
+  margin: 0;
+  color: #243448;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .standard-detail-drawer :deep(.detail-panel > h3) {
   margin: 0 0 1rem;
   color: #243448;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.standard-detail-drawer :deep(.detail-section-header p) {
+  margin: 0.38rem 0 0;
+  color: #7a8aa4;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .standard-detail-drawer :deep(.detail-grid) {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.5rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.standard-detail-drawer :deep(.detail-summary-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+
+.standard-detail-drawer :deep(.detail-summary-card) {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(42, 63, 95, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.standard-detail-drawer :deep(.detail-summary-card__label) {
+  color: #7b8ba4;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+.standard-detail-drawer :deep(.detail-summary-card__value) {
+  color: #243448;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.standard-detail-drawer :deep(.detail-summary-card__hint) {
+  margin: 0;
+  color: #7b8ba4;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .standard-detail-drawer :deep(.detail-field) {
   min-width: 0;
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+  padding: 0.95rem 1rem 1rem;
+  border: 1px solid rgba(42, 63, 95, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
 .standard-detail-drawer :deep(.detail-field--full) {
@@ -201,48 +301,57 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-field__label) {
   display: block;
-  margin-bottom: 0.35rem;
-  color: #70809a;
-  font-size: 13px;
+  color: #7c8ca6;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.4;
+  letter-spacing: 0.02em;
 }
 
 .standard-detail-drawer :deep(.detail-field__value) {
   display: block;
   color: #243448;
-  font-size: 16px;
-  line-height: 1.6;
-  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 700;
   word-break: break-word;
 }
 
 .standard-detail-drawer :deep(.detail-field__value--plain) {
-  font-weight: 500;
+  font-weight: 600;
+  white-space: pre-wrap;
 }
 
 .standard-detail-drawer :deep(.detail-field__value--pre) {
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 14px;
-  background: #f7f9fc;
-  color: #243448;
+  margin-top: 0.1rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #0f172a, #162033);
+  color: #e7eefb;
   font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.72;
+  max-height: 300px;
+  overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 26px rgba(15, 23, 42, 0.18);
 }
 
 .standard-detail-drawer :deep(.detail-card-list) {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 
 .standard-detail-drawer :deep(.detail-card) {
   padding: 1rem 1.1rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 16px;
-  background: rgba(252, 253, 255, 0.95);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .standard-detail-drawer :deep(.detail-card__header) {
@@ -266,6 +375,48 @@ const emit = defineEmits<{
   color: #5f6f88;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.standard-detail-drawer :deep(.detail-card__meta span) {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  background: rgba(79, 111, 154, 0.08);
+}
+
+.standard-detail-drawer :deep(.detail-notice) {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(42, 63, 95, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.92));
+}
+
+.standard-detail-drawer :deep(.detail-notice--danger) {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: linear-gradient(180deg, rgba(255, 245, 245, 0.98), rgba(255, 239, 239, 0.96));
+}
+
+.standard-detail-drawer :deep(.detail-notice__label) {
+  color: #7b8ba4;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.standard-detail-drawer :deep(.detail-notice__value) {
+  color: #243448;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.standard-detail-drawer :deep(.detail-grid + .detail-notice),
+.standard-detail-drawer :deep(.detail-summary-grid + .detail-notice) {
+  margin-top: 1rem;
 }
 
 .standard-detail-drawer :deep(.detail-empty) {
@@ -293,6 +444,10 @@ const emit = defineEmits<{
 
   .standard-detail-drawer :deep(.detail-grid) {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .standard-detail-drawer :deep(.detail-field) {
+    grid-column: 1 / -1;
   }
 }
 </style>

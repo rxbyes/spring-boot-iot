@@ -6,6 +6,9 @@ export interface AuditLogRecord {
   tenantId?: number
   userId?: number
   userName?: string
+  traceId?: string
+  deviceCode?: string
+  productKey?: string
   operationModule?: string
   operationType?: string
   operationMethod?: string
@@ -16,6 +19,8 @@ export interface AuditLogRecord {
   ipAddress?: string
   operationResult?: number
   resultMessage?: string
+  errorCode?: string
+  exceptionClass?: string
   operationTime?: string
   createTime?: string
 }
@@ -26,7 +31,12 @@ export interface AuditLogQueryParams {
   operationModule?: string
   requestMethod?: string
   requestUrl?: string
+  traceId?: string
+  deviceCode?: string
+  productKey?: string
   resultMessage?: string
+  errorCode?: string
+  exceptionClass?: string
   operationResult?: number
   pageNum?: number
   pageSize?: number

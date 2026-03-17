@@ -1,9 +1,10 @@
 <template>
-  <el-dialog
+  <StandardFormDrawer
     :model-value="modelValue"
+    eyebrow="Export Columns"
     :title="dialogTitle"
-    width="520px"
-    class="sys-dialog"
+    subtitle="统一通过右侧抽屉维护导出列、模板分组与导入导出设置。"
+    size="38rem"
     @update:model-value="(value) => emit('update:modelValue', value)"
   >
     <div class="csv-column-setting">
@@ -79,14 +80,15 @@
       <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="emit('update:modelValue', false)">取消</el-button>
       <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleConfirm">确定</el-button>
     </template>
-  </el-dialog>
-  <el-dialog
-    :model-value="importPreviewDetailVisible"
+  </StandardFormDrawer>
+
+  <StandardFormDrawer
+    v-model="importPreviewDetailVisible"
+    eyebrow="Import Preview"
     title="导入预览明细"
-    width="680px"
-    class="sys-dialog"
-    @update:model-value="(value) => !value && closeImportPreviewDetail('back')"
-    @closed="handleImportPreviewDetailClosed"
+    :subtitle="`冲突策略：${resolveStrategyLabel(importPreviewDetailStrategy)}`"
+    size="44rem"
+    @close="handleImportPreviewDetailClose"
   >
     <div class="csv-import-preview">
       <div class="csv-import-preview__summary">
@@ -113,18 +115,89 @@
       </el-tabs>
     </div>
     <template #footer>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportPreviewDetail('back')">返回预览</el-button>
+      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportPreviewDetail('back')">取消导入</el-button>
       <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="closeImportPreviewDetail('confirm')">
         确认导入
       </el-button>
     </template>
-  </el-dialog>
+  </StandardFormDrawer>
+
+  <StandardFormDrawer
+    v-model="presetEditorVisible"
+    eyebrow="Preset Template"
+    :title="presetEditorTitle"
+    :subtitle="presetEditorSubtitle"
+    size="34rem"
+    @close="closePresetEditor"
+  >
+    <el-form label-width="90px" class="csv-column-setting__form">
+      <el-form-item label="模板名称">
+        <el-input
+          v-model="presetEditorInput"
+          :placeholder="presetEditorPlaceholder"
+          @keyup.enter="confirmPresetEditor"
+        />
+        <p class="csv-column-setting__hint">支持「分组/模板名」格式，例如：`运维/夜班模板`。</p>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closePresetEditor">取消</el-button>
+      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmPresetEditor">
+        {{ presetEditorConfirmText }}
+      </el-button>
+    </template>
+  </StandardFormDrawer>
+
+  <StandardFormDrawer
+    v-model="importStrategyVisible"
+    eyebrow="Conflict Strategy"
+    title="导入冲突处理"
+    :subtitle="importStrategySubtitle"
+    size="34rem"
+    @close="closeImportStrategy"
+  >
+    <div class="csv-column-setting__strategy-grid">
+      <button
+        type="button"
+        class="csv-column-setting__strategy-card"
+        :class="{ 'is-active': importStrategyValue === 'overwrite' }"
+        @click="importStrategyValue = 'overwrite'"
+      >
+        <strong>覆盖</strong>
+        <p>直接使用导入模板替换本地同名模板。</p>
+      </button>
+      <button
+        type="button"
+        class="csv-column-setting__strategy-card"
+        :class="{ 'is-active': importStrategyValue === 'skip' }"
+        @click="importStrategyValue = 'skip'"
+      >
+        <strong>跳过</strong>
+        <p>保留本地模板，忽略导入文件中的同名模板。</p>
+      </button>
+      <button
+        type="button"
+        class="csv-column-setting__strategy-card"
+        :class="{ 'is-active': importStrategyValue === 'rename' }"
+        @click="importStrategyValue = 'rename'"
+      >
+        <strong>重命名</strong>
+        <p>为导入的同名模板自动追加后缀，保留两份模板。</p>
+      </button>
+    </div>
+    <template #footer>
+      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportStrategy">取消</el-button>
+      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmImportStrategy">
+        确定策略
+      </el-button>
+    </template>
+  </StandardFormDrawer>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from '@/utils/message'
-import { ElMessageBox } from '@/utils/messageBox'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import {
   loadCsvPinnedPresetLabels,
   loadCsvRecentPresetRecords,
@@ -203,7 +276,90 @@ const filteredPresets = computed(() =>
   })
 )
 
+type ImportPreviewStrategy = 'overwrite' | 'skip' | 'rename'
+
 const dialogTitle = computed(() => props.title || '导出列设置')
+type PresetEditorMode = 'save' | 'rename'
+const presetEditorVisible = ref(false)
+const presetEditorMode = ref<PresetEditorMode>('save')
+const presetEditorInput = ref('')
+let presetEditorResolver: ((value: string | null) => void) | null = null
+const presetEditorTitle = computed(() => (presetEditorMode.value === 'save' ? '保存导出模板' : '重命名模板'))
+const presetEditorSubtitle = computed(() =>
+  presetEditorMode.value === 'save'
+    ? '统一通过右侧抽屉保存自定义导出模板。'
+    : '统一通过右侧抽屉修改模板名称和分组。'
+)
+const presetEditorPlaceholder = computed(() =>
+  presetEditorMode.value === 'save' ? '请输入模板名' : '请输入新的模板名'
+)
+const presetEditorConfirmText = computed(() => (presetEditorMode.value === 'save' ? '保存模板' : '确认重命名'))
+const importStrategyVisible = ref(false)
+const importStrategyValue = ref<ImportPreviewStrategy>('overwrite')
+const importStrategyConflictCount = ref(0)
+let importStrategyResolver: ((value: ImportPreviewStrategy) => void) | null = null
+const importStrategySubtitle = computed(
+  () => `检测到 ${importStrategyConflictCount.value} 个同名模板，请选择导入冲突处理方式。`
+)
+
+const openPresetEditor = (mode: PresetEditorMode, initialValue = '') =>
+  new Promise<string | null>((resolve) => {
+    presetEditorMode.value = mode
+    presetEditorInput.value = initialValue
+    presetEditorVisible.value = true
+    presetEditorResolver = resolve
+  })
+
+const confirmPresetEditor = () => {
+  const value = presetEditorInput.value.trim()
+  if (!value) {
+    ElMessage.warning('模板名称不能为空')
+    return
+  }
+  presetEditorVisible.value = false
+  presetEditorInput.value = ''
+  if (presetEditorResolver) {
+    const resolve = presetEditorResolver
+    presetEditorResolver = null
+    resolve(value)
+  }
+}
+
+const closePresetEditor = () => {
+  presetEditorVisible.value = false
+  presetEditorInput.value = ''
+  if (presetEditorResolver) {
+    const resolve = presetEditorResolver
+    presetEditorResolver = null
+    resolve(null)
+  }
+}
+
+const openImportStrategy = (conflictCount: number) =>
+  new Promise<ImportPreviewStrategy>((resolve) => {
+    importStrategyConflictCount.value = conflictCount
+    importStrategyValue.value = 'overwrite'
+    importStrategyVisible.value = true
+    importStrategyResolver = resolve
+  })
+
+const confirmImportStrategy = () => {
+  importStrategyVisible.value = false
+  if (importStrategyResolver) {
+    const resolve = importStrategyResolver
+    importStrategyResolver = null
+    resolve(importStrategyValue.value)
+  }
+}
+
+const closeImportStrategy = () => {
+  importStrategyVisible.value = false
+  if (importStrategyResolver) {
+    const resolve = importStrategyResolver
+    importStrategyResolver = null
+    resolve('overwrite')
+  }
+}
 
 const syncRows = () => {
   const selected = new Set(props.selectedKeys)
@@ -286,60 +442,50 @@ const handleSavePreset = async () => {
     ElMessage.warning('至少保留一个导出列后再保存模板')
     return
   }
-  try {
-    const result = await ElMessageBox.prompt('请输入模板名，支持「分组/模板名」格式（如：运维/夜班模板）', '保存导出模板', {
-      inputValue: '',
-      inputPattern: /\S+/,
-      inputErrorMessage: '模板名称不能为空'
-    })
-    const parsed = parsePresetText(result.value)
-    const label = parsed.label
-    const group = parsed.group
-    const existed = customPresets.value.some((item) => item.label === label)
-    if (!existed && customPresets.value.length >= 20) {
-      ElMessage.warning('自定义模板最多 20 个，请先删除部分模板再新增')
-      return
-    }
-    const next = customPresets.value.filter((item) => item.label !== label)
-    next.unshift({ label, group, keys: selectedKeys, lastModifiedAt: new Date().toISOString() })
-    customPresets.value = next.slice(0, 20)
-    saveCsvPresetTemplates(props.presetStorageKey, customPresets.value)
-    ElMessage.success('模板保存成功')
-  } catch {
-    // 用户取消输入
+  const result = await openPresetEditor('save')
+  if (!result) {
+    return
   }
+  const parsed = parsePresetText(result)
+  const label = parsed.label
+  const group = parsed.group
+  const existed = customPresets.value.some((item) => item.label === label)
+  if (!existed && customPresets.value.length >= 20) {
+    ElMessage.warning('自定义模板最多 20 个，请先删除部分模板再新增')
+    return
+  }
+  const next = customPresets.value.filter((item) => item.label !== label)
+  next.unshift({ label, group, keys: selectedKeys, lastModifiedAt: new Date().toISOString() })
+  customPresets.value = next.slice(0, 20)
+  saveCsvPresetTemplates(props.presetStorageKey, customPresets.value)
+  ElMessage.success('模板保存成功')
 }
 
 const handleRenamePreset = async (preset: CsvColumnPreset) => {
   if (!props.presetStorageKey) {
     return
   }
-  try {
-    const initValue = preset.group ? `${preset.group}/${preset.label}` : preset.label
-    const result = await ElMessageBox.prompt('请输入新模板名，支持「分组/模板名」格式', '重命名模板', {
-      inputValue: initValue,
-      inputPattern: /\S+/,
-      inputErrorMessage: '模板名称不能为空'
-    })
-    const parsed = parsePresetText(result.value)
-    const next = customPresets.value
-      .filter((item) => item.label !== preset.label)
-      .filter((item) => item.label !== parsed.label)
-    next.unshift({ ...preset, label: parsed.label, group: parsed.group, lastModifiedAt: new Date().toISOString() })
-    customPresets.value = next.slice(0, 20)
-    saveCsvPresetTemplates(props.presetStorageKey, customPresets.value)
-    recentPresetRecords.value = recentPresetRecords.value.map((item) =>
-      item.label === preset.label ? { ...item, label: parsed.label } : item
-    )
-    pinnedPresetLabels.value = pinnedPresetLabels.value.map((item) =>
-      item === preset.label ? parsed.label : item
-    )
-    saveCsvRecentPresetRecords(props.presetStorageKey, recentPresetRecords.value)
-    saveCsvPinnedPresetLabels(props.presetStorageKey, pinnedPresetLabels.value)
-    ElMessage.success('模板重命名成功')
-  } catch {
-    // 用户取消输入
+  const initValue = preset.group ? `${preset.group}/${preset.label}` : preset.label
+  const result = await openPresetEditor('rename', initValue)
+  if (!result) {
+    return
   }
+  const parsed = parsePresetText(result)
+  const next = customPresets.value
+    .filter((item) => item.label !== preset.label)
+    .filter((item) => item.label !== parsed.label)
+  next.unshift({ ...preset, label: parsed.label, group: parsed.group, lastModifiedAt: new Date().toISOString() })
+  customPresets.value = next.slice(0, 20)
+  saveCsvPresetTemplates(props.presetStorageKey, customPresets.value)
+  recentPresetRecords.value = recentPresetRecords.value.map((item) =>
+    item.label === preset.label ? { ...item, label: parsed.label } : item
+  )
+  pinnedPresetLabels.value = pinnedPresetLabels.value.map((item) =>
+    item === preset.label ? parsed.label : item
+  )
+  saveCsvRecentPresetRecords(props.presetStorageKey, recentPresetRecords.value)
+  saveCsvPinnedPresetLabels(props.presetStorageKey, pinnedPresetLabels.value)
+  ElMessage.success('模板重命名成功')
 }
 
 const handleDeletePreset = (label: string) => {
@@ -490,22 +636,7 @@ const resolveImportConflictStrategy = async (
   if (!conflictCount) {
     return 'overwrite'
   }
-  try {
-    const result = await ElMessageBox.prompt(
-      `检测到 ${conflictCount} 个同名模板，请输入冲突策略：覆盖 / 跳过 / 重命名`,
-      '导入冲突处理',
-      {
-        inputValue: '覆盖',
-        inputPattern: /^(覆盖|跳过|重命名)$/,
-        inputErrorMessage: '仅支持输入：覆盖 / 跳过 / 重命名'
-      }
-    )
-    if (result.value === '跳过') return 'skip'
-    if (result.value === '重命名') return 'rename'
-    return 'overwrite'
-  } catch {
-    return 'overwrite'
-  }
+  return openImportStrategy(conflictCount)
 }
 
 interface ImportPreview {
@@ -515,7 +646,6 @@ interface ImportPreview {
   skipped: string[]
 }
 
-type ImportPreviewStrategy = 'overwrite' | 'skip' | 'rename'
 type ImportPreviewTab = keyof ImportPreview
 type ImportPreviewDecision = 'back' | 'confirm'
 
@@ -570,46 +700,8 @@ const confirmImportPreview = async (
   preview: ImportPreview,
   strategy: ImportPreviewStrategy
 ): Promise<boolean> => {
-  const lines = [
-    `冲突策略：${resolveStrategyLabel(strategy)}`,
-    `新增 ${preview.added.length} 个`,
-    `覆盖 ${preview.overwritten.length} 个`,
-    `重命名 ${preview.renamed.length} 个`,
-    `跳过 ${preview.skipped.length} 个`
-  ]
-  const detail = [
-    preview.added.length ? `新增示例：${preview.added.slice(0, 3).join('、')}` : '',
-    preview.overwritten.length ? `覆盖示例：${preview.overwritten.slice(0, 3).join('、')}` : '',
-    preview.renamed.length ? `重命名示例：${preview.renamed.slice(0, 3).join('、')}` : '',
-    preview.skipped.length ? `跳过示例：${preview.skipped.slice(0, 3).join('、')}` : ''
-  ]
-    .filter(Boolean)
-    .join('\n')
-  while (true) {
-    try {
-      await ElMessageBox.confirm(
-        `${lines.join('\n')}${detail ? `\n\n${detail}` : ''}\n\n确认继续导入吗？`,
-        '导入预览',
-        {
-          confirmButtonText: '确认导入',
-          cancelButtonText: '查看明细',
-          distinguishCancelAndClose: true,
-          type: 'warning'
-        }
-      )
-      return true
-    } catch (action) {
-      const normalized = normalizeMessageBoxAction(action)
-      if (normalized === 'cancel') {
-        const decision = await openImportPreviewDetail(preview, strategy)
-        if (decision === 'confirm') {
-          return true
-        }
-        continue
-      }
-      return false
-    }
-  }
+  const decision = await openImportPreviewDetail(preview, strategy)
+  return decision === 'confirm'
 }
 
 const mergeImportedPresets = (
@@ -653,13 +745,6 @@ const resolveStrategyLabel = (strategy: ImportPreviewStrategy) => {
   return '覆盖'
 }
 
-const normalizeMessageBoxAction = (action: unknown): 'cancel' | 'close' => {
-  if (typeof action === 'string') {
-    return action === 'cancel' ? 'cancel' : 'close'
-  }
-  return 'close'
-}
-
 const openImportPreviewDetail = (preview: ImportPreview, strategy: ImportPreviewStrategy) => {
   importPreviewDetail.value = preview
   importPreviewDetailStrategy.value = strategy
@@ -679,18 +764,14 @@ const resolveDefaultImportPreviewTab = (preview: ImportPreview): ImportPreviewTa
 
 const closeImportPreviewDetail = (decision: ImportPreviewDecision) => {
   importPreviewDetailVisible.value = false
+  importPreviewDetail.value = null
   if (importPreviewDetailResolver) {
     importPreviewDetailResolver(decision)
     importPreviewDetailResolver = null
   }
 }
 
-const handleImportPreviewDetailClosed = () => {
-  if (importPreviewDetailResolver) {
-    importPreviewDetailResolver('back')
-    importPreviewDetailResolver = null
-  }
-}
+const handleImportPreviewDetailClose = () => closeImportPreviewDetail('back')
 
 const getRecentUsedAt = (label: string): string | undefined =>
   recentPresetRecords.value.find((item) => item.label === label)?.usedAt
@@ -721,9 +802,20 @@ const touchRecentPreset = (label: string) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 420px;
+  max-height: 68vh;
   overflow: auto;
   padding: 4px 2px;
+}
+
+.csv-column-setting__form {
+  padding: 0;
+}
+
+.csv-column-setting__hint {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .csv-column-setting__toolbar {
@@ -818,5 +910,46 @@ const touchRecentPreset = (label: string) => {
   gap: 4px;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.csv-column-setting__strategy-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.csv-column-setting__strategy-card {
+  width: 100%;
+  padding: 16px 18px;
+  text-align: left;
+  border: 1px solid rgba(42, 63, 95, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.csv-column-setting__strategy-card:hover {
+  border-color: rgba(64, 158, 255, 0.45);
+  box-shadow: 0 10px 24px rgba(32, 55, 90, 0.08);
+}
+
+.csv-column-setting__strategy-card.is-active {
+  border-color: #409eff;
+  box-shadow: 0 12px 28px rgba(64, 158, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.csv-column-setting__strategy-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-primary, #243448);
+  font-size: 15px;
+}
+
+.csv-column-setting__strategy-card p {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>

@@ -316,11 +316,53 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
   "msg": "success",
   "data": [
     {
+      "traceId": "20260317-abc123",
+      "deviceCode": "demo-device-01",
+      "productKey": "demo-product",
       "messageType": "property",
       "topic": "/sys/demo-product/demo-device-01/thing/property/post",
       "payload": "{\"messageType\":\"property\",\"properties\":{\"temperature\":26.5,\"humidity\":68}}"
     }
   ]
+}
+```
+
+说明：
+- 当前返回结果会补充 `traceId`、`deviceCode`、`productKey`，用于与 `/system-log`、`/message-trace` 页面联动。
+
+### 查询消息追踪分页
+`GET /api/device/message-trace/page`
+
+支持的筛选参数：
+- `deviceCode`：按设备编码精确匹配。
+- `productKey`：按产品标识精确匹配。
+- `traceId`：按链路 TraceId 精确匹配。
+- `messageType`：按消息类型精确匹配。
+- `topic`：按 Topic 模糊匹配。
+- `pageNum` / `pageSize`：分页参数。
+
+成功响应示例：
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "total": 1,
+    "pageNum": 1,
+    "pageSize": 10,
+    "records": [
+      {
+        "id": "1934862000000000001",
+        "traceId": "20260317-abc123",
+        "deviceCode": "demo-device-01",
+        "productKey": "demo-product",
+        "messageType": "property",
+        "topic": "/sys/demo-product/demo-device-01/thing/property/post",
+        "payload": "{\"messageType\":\"property\",\"properties\":{\"temperature\":26.5}}",
+        "reportTime": "2026-03-17T10:30:00"
+      }
+    ]
+  }
 }
 ```
 
@@ -578,6 +620,13 @@ Authorization: Bearer <jwt-token>
 
 成功时返回与登录响应中的 `authContext` 同结构数据，用于刷新页面后重新恢复当前用户菜单、角色和按钮权限。
 
+`authContext` 当前除 `menus`、`permissions`、`roles` 外，还补充以下账号展示字段：
+- `phone`：当前用户手机号
+- `email`：当前用户邮箱
+- `accountType`：账号类型（当前按 `SUPER_ADMIN` 口径区分主账号 / 子账号）
+- `authStatus`：实名信息状态说明
+- `loginMethods`：可用登录方式列表（如 `账号登录`、`手机号登录`）
+
 ### 角色列表
 `GET /api/role/list`
 
@@ -667,17 +716,23 @@ Authorization: Bearer <jwt-token>
 支持的筛选参数：
 - `userName`：按操作用户模糊匹配。
 - `operationType`：按操作类型精确匹配；系统日志页固定使用 `system_error`。
+- `traceId`：按链路 TraceId 精确匹配。
+- `deviceCode`：按设备编码模糊匹配。
+- `productKey`：按产品标识模糊匹配。
 - `operationModule`：按操作模块模糊匹配。
 - `requestMethod`：按请求方法/通道精确匹配，例如 `MQTT`、`SYSTEM`、`GET`、`POST`。
 - `requestUrl`：按请求 URL、topic 或生命周期目标模糊匹配。
 - `resultMessage`：按结果消息模糊匹配。
+- `errorCode`：按异常编码精确匹配。
+- `exceptionClass`：按异常类型模糊匹配。
 - `operationResult`：按结果状态精确匹配（`1` 成功、`0` 失败）。
 - `pageNum` / `pageSize`：分页参数，仅 `/page` 生效。
 - `excludeSystemError`：是否排除 `operation_type=system_error`；业务日志页建议传 `true`，系统日志页不传并固定追加 `operationType=system_error`。
 
 前端入口约定：
 - `/audit-log`：业务日志页，默认排除 `system_error`。
-- `/system-log`：系统日志页，只展示 `system_error` 后台异常记录。
+- `/system-log`：系统日志页，只展示 `system_error` 后台异常记录，并支持按 `TraceId`、设备编码、产品标识、异常编码、异常类型联查。
+- `/message-trace`：消息追踪页，查询 `iot_device_message_log` 中的链路消息，并支持回跳 `/system-log`。
 
 ### 鉴权规则
 - 以下接口免登录：
@@ -697,6 +752,7 @@ Authorization: Bearer <jwt-token>
 - 新增后台异常事件采集：MQTT 客户端启动失败、订阅失败、连接断开、消息分发失败等异步异常会写入 `sys_audit_log`。
 
 采集字段增强：
+- `traceId`：优先复用请求头 `X-Trace-Id`，若未传则由后端自动生成，并同步写入 MDC 与线程上下文。
 - `requestParams`：优先记录 query + 请求体（JSON/Form 等），不再仅记录 query string。
 - `responseResult`：记录 `HTTP 状态码` + 响应体摘要（有内容时）。
 - `operationMethod`：优先记录 `Controller#method`，无法解析时回退到匹配路由模板。
@@ -707,6 +763,9 @@ Authorization: Bearer <jwt-token>
 - `userName`：固定为 `SYSTEM`。
 - `requestMethod`：异步 MQTT 异常固定记为 `MQTT`。
 - `requestUrl`：记录 MQTT topic，或 `startup` / `subscribe` / `connection` / `shutdown` 等生命周期目标。
+- `traceId`：与同链路消息日志保持一致，用于跳转“消息追踪”页。
+- `deviceCode` / `productKey`：尽量从异常上下文中提取，便于设备维度排障。
+- `errorCode` / `exceptionClass`：补充后端异常码和异常类型，便于研发快速过滤。
 
 安全与容量控制：
 - 对 `password/token/secret/authorization/accessToken/refreshToken/clientSecret` 等敏感字段自动脱敏（`***`）。
@@ -828,3 +887,22 @@ Authorization: Bearer <jwt-token>
 兼容性说明：
 - 原有 `/list`、`/tree` 接口继续保留，用于兼容既有调用链与授权树场景。
 - `GET /api/menu/tree` 仍作为角色授权树专用接口；菜单管理页主列表已改用 `/api/menu/page` + `/api/menu/list?parentId=...`。
+
+## 账号安全接口补充（2026-03-17）
+
+### 修改当前账号密码
+`POST /api/user/change-password`
+
+请求体：
+```json
+{
+  "id": "193847562001",
+  "oldPassword": "123456",
+  "newPassword": "abc123456"
+}
+```
+
+说明：
+- `id` 为当前登录用户 ID。
+- 前端右上角头像菜单中的“修改密码”会调用该接口。
+- 修改成功后，前端会清理当前登录态并要求重新登录。

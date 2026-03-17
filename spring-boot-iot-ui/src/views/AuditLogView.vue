@@ -68,6 +68,60 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="TraceId">
+              <el-input
+                v-model="searchForm.traceId"
+                placeholder="请输入 TraceId"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="isSystemMode" :span="8">
+            <el-form-item label="设备编码">
+              <el-input
+                v-model="searchForm.deviceCode"
+                placeholder="请输入设备编码"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="isSystemMode" :span="8">
+            <el-form-item label="产品标识">
+              <el-input
+                v-model="searchForm.productKey"
+                placeholder="请输入产品标识"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row v-if="isSystemMode" :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="异常编码">
+              <el-input
+                v-model="searchForm.errorCode"
+                placeholder="请输入异常编码"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="异常类型">
+              <el-input
+                v-model="searchForm.exceptionClass"
+                placeholder="请输入异常类名"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-row>
           <el-col :span="24" class="text-right">
             <el-button @click="handleReset">重置</el-button>
@@ -89,6 +143,9 @@
           <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
         </div>
         <div class="table-action-bar__right">
+          <el-button v-if="isSystemMode" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
+            消息追踪
+          </el-button>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
@@ -116,9 +173,14 @@
           </template>
         </el-table-column>
         <el-table-column prop="operationModule" label="操作模块" width="150" />
-        <el-table-column prop="operationMethod" label="操作方法" />
-        <el-table-column prop="requestUrl" label="请求URL/目标" />
+        <el-table-column prop="operationMethod" label="操作方法" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="requestUrl" label="请求URL/目标" min-width="220" show-overflow-tooltip />
         <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
+        <el-table-column v-if="isSystemMode" prop="traceId" label="TraceId" min-width="180" show-overflow-tooltip />
+        <el-table-column v-if="isSystemMode" prop="deviceCode" label="设备编码" min-width="140" show-overflow-tooltip />
+        <el-table-column v-if="isSystemMode" prop="productKey" label="产品标识" min-width="140" show-overflow-tooltip />
+        <el-table-column v-if="isSystemMode" prop="errorCode" label="异常编码" min-width="120" show-overflow-tooltip />
+        <el-table-column v-if="isSystemMode" prop="exceptionClass" label="异常类型" min-width="180" show-overflow-tooltip />
         <el-table-column v-if="isBusinessMode" prop="userName" label="操作用户" width="120" />
         <el-table-column v-if="isBusinessMode" prop="ipAddress" label="操作IP" width="150" />
         <el-table-column v-if="isSystemMode" prop="resultMessage" label="异常摘要" min-width="220" show-overflow-tooltip />
@@ -130,9 +192,18 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" :width="isSystemMode ? 210 : 150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleDetail(row)">详情</el-button>
+            <el-button
+              v-if="isSystemMode"
+              type="primary"
+              link
+              :disabled="!canJumpToMessageTrace(row)"
+              @click="handleJumpToMessageTrace(row)"
+            >
+              追踪
+            </el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -173,12 +244,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, type AuditLogRecord } from '@/api/auditLog'
 import type { RequestError } from '@/api/request'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -190,6 +262,7 @@ import {
 type AuditLogViewMode = 'business' | 'system'
 
 const route = useRoute()
+const router = useRouter()
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
@@ -201,10 +274,13 @@ const pageDescription = computed(() =>
 )
 const viewTip = computed(() =>
   isSystemMode.value
-    ? '系统日志仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，便于研发、测试与运维快速定位链路问题。'
+    ? '系统日志仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，可结合 TraceId、设备编码与“消息追踪”页面快速串联排障。'
     : '业务日志默认排除 `system_error` 记录；如需排查设备接入或后台异常，请前往“设备接入 > 系统日志”。'
 )
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
+const canJumpFromSearch = computed(() =>
+  Boolean(searchForm.traceId || searchForm.deviceCode || searchForm.productKey || (searchForm.requestMethod === 'MQTT' && searchForm.requestUrl))
+)
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
   { label: '修改', value: 'update' },
@@ -224,28 +300,34 @@ const systemRequestMethodOptions = [
 const searchForm = reactive({
   userName: '',
   operationType: undefined as string | undefined,
+  traceId: '',
+  deviceCode: '',
+  productKey: '',
   operationModule: '',
   requestMethod: '',
-  requestUrl: ''
+  requestUrl: '',
+  errorCode: '',
+  exceptionClass: ''
 })
 
 // 分页
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
-})
 
 // 表格数据
 const tableData = ref<AuditLogRecord[]>([])
 const tableRef = ref()
 const selectedRows = ref<AuditLogRecord[]>([])
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
 const exportColumns: CsvColumn<any>[] = [
   { key: 'operationType', label: '操作类型', formatter: (value) => getOperationTypeName(String(value || '')) },
   { key: 'operationModule', label: '操作模块' },
   { key: 'operationMethod', label: '操作方法' },
   { key: 'requestUrl', label: '请求URL' },
   { key: 'requestMethod', label: '请求方法' },
+  { key: 'traceId', label: 'TraceId' },
+  { key: 'deviceCode', label: '设备编码' },
+  { key: 'productKey', label: '产品标识' },
+  { key: 'errorCode', label: '异常编码' },
+  { key: 'exceptionClass', label: '异常类型' },
   { key: 'userName', label: '操作用户' },
   { key: 'ipAddress', label: '操作IP' },
   { key: 'resultMessage', label: '结果消息' },
@@ -257,9 +339,9 @@ const exportColumnOptions = toCsvColumnOptions(exportColumns)
 const exportPresets = computed(() =>
   isSystemMode.value
     ? [
-        { label: '默认模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'resultMessage', 'operationTime', 'operationResult'] },
-        { label: '运维模板', keys: ['operationModule', 'requestUrl', 'requestMethod', 'resultMessage', 'operationTime'] },
-        { label: '研发模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'resultMessage', 'operationResult', 'operationTime'] }
+        { label: '默认模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'resultMessage', 'operationTime', 'operationResult'] },
+        { label: '运维模板', keys: ['operationModule', 'requestUrl', 'requestMethod', 'deviceCode', 'productKey', 'resultMessage', 'operationTime'] },
+        { label: '研发模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass', 'resultMessage', 'operationResult', 'operationTime'] }
       ]
     : [
         { label: '默认模板', keys: ['operationType', 'operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
@@ -288,9 +370,33 @@ const reloadExportSelection = () => {
 const resetSearchForm = () => {
   searchForm.userName = ''
   searchForm.operationType = undefined
+  searchForm.traceId = ''
+  searchForm.deviceCode = ''
+  searchForm.productKey = ''
   searchForm.operationModule = ''
   searchForm.requestMethod = ''
   searchForm.requestUrl = ''
+  searchForm.errorCode = ''
+  searchForm.exceptionClass = ''
+}
+
+const readRouteQueryValue = (key: string) => {
+  const value = route.query[key]
+  return typeof value === 'string' ? value : ''
+}
+
+const applySystemRouteQuery = () => {
+  if (!isSystemMode.value) {
+    return
+  }
+  searchForm.traceId = readRouteQueryValue('traceId')
+  searchForm.deviceCode = readRouteQueryValue('deviceCode')
+  searchForm.productKey = readRouteQueryValue('productKey')
+  searchForm.operationModule = readRouteQueryValue('operationModule')
+  searchForm.requestMethod = readRouteQueryValue('requestMethod')
+  searchForm.requestUrl = readRouteQueryValue('requestUrl')
+  searchForm.errorCode = readRouteQueryValue('errorCode')
+  searchForm.exceptionClass = readRouteQueryValue('exceptionClass')
 }
 
 // 获取审计日志列表
@@ -298,6 +404,7 @@ const getAuditLogList = async () => {
   loading.value = true
   try {
     const res = await pageLogs({
+      traceId: searchForm.traceId,
       operationModule: searchForm.operationModule,
       ...(isBusinessMode.value
         ? {
@@ -307,26 +414,30 @@ const getAuditLogList = async () => {
           }
         : {
             operationType: 'system_error',
+            deviceCode: searchForm.deviceCode,
+            productKey: searchForm.productKey,
             requestMethod: searchForm.requestMethod,
-            requestUrl: searchForm.requestUrl
+            requestUrl: searchForm.requestUrl,
+            errorCode: searchForm.errorCode,
+            exceptionClass: searchForm.exceptionClass
           }),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
     if (res.code === 200) {
-      tableData.value = res.data?.records || []
-      pagination.total = Number(res.data?.total || 0)
+      tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
     console.error('获取审计日志列表失败', error)
   } finally {
-  loading.value = false
-}
+    loading.value = false
+  }
 }
 
 // 初始化
 onMounted(() => {
   reloadExportSelection()
+  applySystemRouteQuery()
   getAuditLogList()
 })
 
@@ -336,20 +447,46 @@ watch(viewMode, (newMode, oldMode) => {
   }
   resetSearchForm()
   clearSelection()
-  pagination.pageNum = 1
-  pagination.total = 0
+  resetPage()
+  resetTotal()
   detailVisible.value = false
   detailData.value = {}
   detailLoading.value = false
   detailErrorMessage.value = ''
   exportColumnDialogVisible.value = false
   reloadExportSelection()
+  applySystemRouteQuery()
   getAuditLogList()
 })
 
+watch(
+  () => [
+    route.query.traceId,
+    route.query.deviceCode,
+    route.query.productKey,
+    route.query.operationModule,
+    route.query.requestMethod,
+    route.query.requestUrl,
+    route.query.errorCode,
+    route.query.exceptionClass
+  ],
+  (current, previous) => {
+    if (!isSystemMode.value) {
+      return
+    }
+    if (JSON.stringify(current) === JSON.stringify(previous)) {
+      return
+    }
+    applySystemRouteQuery()
+    resetPage()
+    clearSelection()
+    getAuditLogList()
+  }
+)
+
 // 处理搜索
 const handleSearch = () => {
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   getAuditLogList()
 }
@@ -357,7 +494,7 @@ const handleSearch = () => {
 // 重置搜索
 const handleReset = () => {
   resetSearchForm()
-  pagination.pageNum = 1
+  resetPage()
   clearSelection()
   getAuditLogList()
 }
@@ -374,6 +511,28 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection()
   getAuditLogList()
+}
+
+const canJumpToMessageTrace = (row?: AuditLogRecord) => {
+  const target = row || searchForm
+  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
+  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
+  return Boolean(target.traceId || target.deviceCode || target.productKey || (requestMethod === 'MQTT' && requestUrl))
+}
+
+const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
+  const target = row || searchForm
+  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
+  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
+  router.push({
+    path: '/message-trace',
+    query: {
+      traceId: target.traceId || undefined,
+      deviceCode: target.deviceCode || undefined,
+      productKey: target.productKey || undefined,
+      topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined
+    }
+  })
 }
 
 const openExportColumnSetting = () => {
@@ -397,13 +556,13 @@ const handleExportCurrent = () => {
 
 // 分页大小变化
 const handleSizeChange = (size: number) => {
-  pagination.pageSize = size
+  setPageSize(size)
   getAuditLogList()
 }
 
 // 当前页变化
 const handlePageChange = (page: number) => {
-  pagination.pageNum = page
+  setPageNum(page)
   getAuditLogList()
 }
 
