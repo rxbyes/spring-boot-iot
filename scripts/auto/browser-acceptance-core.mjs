@@ -694,25 +694,61 @@ export async function runBrowserAcceptance({
     }
   };
 
+  const normalizeApiEntries = (listApi, key) => {
+    if (!listApi) {
+      return [];
+    }
+
+    const rawEntries = Array.isArray(listApi) ? listApi : [listApi];
+    return rawEntries.map((entry, index) => {
+      if (typeof entry === 'string' || entry instanceof RegExp || typeof entry === 'function') {
+        return {
+          matcher: entry,
+          label: `${key} list ${index + 1}`,
+          optional: true
+        };
+      }
+
+      return {
+        optional: true,
+        label: entry.label || `${key} list ${index + 1}`,
+        ...entry
+      };
+    });
+  };
+
+  const resolveOverlayContainer = async (page, title, timeout = 10000) => {
+    const drawer = page
+      .locator('.el-drawer')
+      .filter({ has: page.locator('.el-drawer__header h2').filter({ hasText: title }) })
+      .last();
+    const dialog = page
+      .locator('.el-dialog')
+      .filter({ has: page.locator('.el-dialog__header').filter({ hasText: title }) })
+      .last();
+
+    try {
+      return await Promise.any([
+        drawer.waitFor({ state: 'visible', timeout }).then(() => drawer),
+        dialog.waitFor({ state: 'visible', timeout }).then(() => dialog)
+      ]);
+    } catch {
+      throw new AcceptanceError(`Form container "${title}" did not become visible within ${timeout}ms.`, {
+        title
+      });
+    }
+  };
+
   const runCreateDialogScenario = async (page, config, runtime) => {
     const listResults = await openRoute(page, {
       path: config.path,
       expectedPath: config.expectedPath,
       readySelector: config.readySelector,
-      api: config.listApi
-        ? [
-            {
-              matcher: config.listApi,
-              label: `${config.key} list`,
-              optional: true
-            }
-          ]
-        : []
+      api: normalizeApiEntries(config.listApi, config.key)
     });
 
     await page.getByRole('button', { name: config.openButton, exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: config.dialogTitle, exact: true });
-    await dialog.waitFor({ state: 'visible', timeout: 10000 });
+    const dialog = await resolveOverlayContainer(page, config.dialogTitle, config.dialogTimeout || 10000);
     await fillDialogFields(page, dialog, config.fields(runtime));
 
     const createResult = await expectApiResponse(
@@ -741,7 +777,9 @@ export async function runBrowserAcceptance({
     try {
       await expectApiResponse(
         page,
-        '/api/risk-point/list',
+        (response) =>
+          response.url().includes('/api/risk-point/list') ||
+          response.url().includes('/api/risk-point/page'),
         async () => {
           await page
             .locator('.search-form input[placeholder="请输入风险点编号"]')
@@ -784,8 +822,7 @@ export async function runBrowserAcceptance({
       };
     }
 
-    const bindDialog = page.getByRole('dialog', { name: '绑定设备', exact: true });
-    await bindDialog.waitFor({ state: 'visible', timeout: 10000 });
+    const bindDialog = await resolveOverlayContainer(page, '????');
 
     const bindableDevice =
       deviceListResult.payload?.data?.find((item) => item.id === runtime.device.id) ||
@@ -898,6 +935,7 @@ export async function runBrowserAcceptance({
     openRoute,
     login,
     fillDialogFields,
+    resolveOverlayContainer,
     runCreateDialogScenario,
     bindRiskPoint
   };
