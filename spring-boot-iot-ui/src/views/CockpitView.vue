@@ -842,9 +842,9 @@ onUnmounted(() => {
 .todo-item button {
   justify-self: start;
   min-height: 1.9rem;
-  border: 1px solid rgba(91, 136, 216, 0.22);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   background: linear-gradient(180deg, #ffffff, #f7fbff);
-  color: #2b68d3;
+  color: var(--accent-deep);
   border-radius: 999px;
   padding: 0 0.82rem;
   font-size: 0.78rem;
@@ -853,9 +853,9 @@ onUnmounted(() => {
 }
 
 .todo-item button:hover {
-  border-color: rgba(42, 121, 255, 0.28);
-  background: #edf4ff;
-  box-shadow: 0 4px 10px rgba(22, 119, 255, 0.12);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .todo-item--danger {

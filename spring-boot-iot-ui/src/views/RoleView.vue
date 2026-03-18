@@ -93,7 +93,7 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <StandardPagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
@@ -252,6 +252,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listMenuTree } from '@/api/menu';
 import { addRole, deleteRole, getRole, pageRoles, updateRole, type Role } from '@/api/role';

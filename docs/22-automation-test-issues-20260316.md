@@ -477,3 +477,212 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 14. 浏览器自动化巡检记录（2026-03-18）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-03-18 13:57:35（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260318135735.json`
+- `logs/acceptance/business-browser-results-20260318135735.json`
+- `logs/acceptance/business-browser-report-20260318135735.md`
+- `logs/acceptance/business-browser-screenshots-20260318135735/`
+
+### 本轮概览
+
+- 总场景：`21`
+- 通过：`13`
+- 失败：`8`
+- 交付范围：`11` 通过 / `8` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：Risk point create and bind device 巡检失败
+
+- 场景：`risk-point`
+- 路由：`/risk-point`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增风险点' }) }).last().getByPlaceholder('请选择风险等级', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/risk-point-fail.png`
+- 状态：待处理
+
+### 问题 2：Rule definition create 巡检失败
+
+- 场景：`rule-definition`
+- 路由：`/rule-definition`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).last().getByPlaceholder('请选择告警等级', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/rule-definition-fail.png`
+- 状态：待处理
+
+### 问题 3：Linkage rule create 巡检失败
+
+- 场景：`linkage-rule`
+- 路由：`/linkage-rule`
+- 范围：`delivery`
+- 现象：locator.fill: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).last().getByPlaceholder('请输入描述', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/linkage-rule-fail.png`
+- 状态：待处理
+
+### 问题 4：Emergency plan create 巡检失败
+
+- 场景：`emergency-plan`
+- 路由：`/emergency-plan`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增预案' }) }).last().getByLabel('警告', { exact: true })[22m [2m - locator resolved to <input checked type="radio" value="warning" name="el-id-2213-71" class="el-radio__original"/>[22m [2m - attempting click action[22m [2m - waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - <span class="el-radio__inner"></span> intercepts pointer events[22m [2m - retrying click action[22m [2m - waiting for element to be visible, enabled and stable[22m [2m - element is not stable[22m [2m - retrying click action[22m [2m - waiting 20ms[22m [2m 2 × waiting for element to be visible, enabled and stable[22m [2m - element is not stable[22m [2m - retrying click action[22m [2m - waiting 100ms[22m [2m 57 × waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - <span class="el-radio__inner"></span> intercepts pointer events[22m [2m - retrying click action[22m [2m - waiting 500ms[22m
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/emergency-plan-fail.png`
+- 状态：待处理
+
+### 问题 5：Organization create 巡检失败
+
+- 场景：`organization`
+- 路由：`/organization`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增组织机构' }) }).last().getByPlaceholder('请选择组织类型', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/organization-fail.png`
+- 状态：待处理
+
+### 问题 6：Region create 巡检失败
+
+- 场景：`region`
+- 路由：`/region`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增区域' }) }).last().getByPlaceholder('请选择区域类型', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/region-fail.png`
+- 状态：待处理
+
+### 问题 7：Dictionary create 巡检失败
+
+- 场景：`dict`
+- 路由：`/dict`
+- 范围：`delivery`
+- 现象：Form container "新增字典" did not become visible within 10000ms.
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/dict-fail.png`
+- 状态：待处理
+
+### 问题 8：Notification channel create 巡检失败
+
+- 场景：`channel`
+- 路由：`/channel`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增通知渠道' }) }).last().getByPlaceholder('请选择渠道类型', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318135735.json`；`logs/acceptance/business-browser-screenshots-20260318135735/channel-fail.png`
+- 状态：待处理
+
+## 15. 浏览器自动化巡检记录（2026-03-18）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-03-18 15:12:28（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260318151228.json`
+- `logs/acceptance/business-browser-results-20260318151228.json`
+- `logs/acceptance/business-browser-report-20260318151228.md`
+- `logs/acceptance/business-browser-screenshots-20260318151228/`
+
+### 本轮概览
+
+- 总场景：`21`
+- 通过：`13`
+- 失败：`8`
+- 交付范围：`11` 通过 / `8` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：Risk point create and bind device 巡检失败
+
+- 场景：`risk-point`
+- 路由：`/risk-point`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增风险点' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增风险点' }) }).first().locator('.el-form-item__label').filter({ hasText: '风险等级' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/risk-point-fail.png`
+- 状态：待处理
+
+### 问题 2：Rule definition create 巡检失败
+
+- 场景：`rule-definition`
+- 路由：`/rule-definition`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).first().locator('.el-form-item__label').filter({ hasText: '告警等级' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/rule-definition-fail.png`
+- 状态：待处理
+
+### 问题 3：Linkage rule create 巡检失败
+
+- 场景：`linkage-rule`
+- 路由：`/linkage-rule`
+- 范围：`delivery`
+- 现象：locator.fill: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增规则' }) }).first().locator('.el-form-item__label').filter({ hasText: '描述' }).first() }).first().locator('input:not([type="hidden"]), textarea').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/linkage-rule-fail.png`
+- 状态：待处理
+
+### 问题 4：Emergency plan create 巡检失败
+
+- 场景：`emergency-plan`
+- 路由：`/emergency-plan`
+- 范围：`delivery`
+- 现象：locator.fill: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增预案' }) }).first().getByPlaceholder('请输入描述', { exact: true })[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/emergency-plan-fail.png`
+- 状态：待处理
+
+### 问题 5：Organization create 巡检失败
+
+- 场景：`organization`
+- 路由：`/organization`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增组织机构' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增组织机构' }) }).first().locator('.el-form-item__label').filter({ hasText: '组织类型' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/organization-fail.png`
+- 状态：待处理
+
+### 问题 6：Region create 巡检失败
+
+- 场景：`region`
+- 路由：`/region`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增区域' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增区域' }) }).first().locator('.el-form-item__label').filter({ hasText: '区域类型' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/region-fail.png`
+- 状态：待处理
+
+### 问题 7：Dictionary create 巡检失败
+
+- 场景：`dict`
+- 路由：`/dict`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增字典' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增字典' }) }).first().locator('.el-form-item__label').filter({ hasText: '字典类型' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/dict-fail.png`
+- 状态：待处理
+
+### 问题 8：Notification channel create 巡检失败
+
+- 场景：`channel`
+- 路由：`/channel`
+- 范围：`delivery`
+- 现象：locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增通知渠道' }) }).first().locator('.el-form-item').filter({ has: locator('.el-drawer').filter({ has: locator('.el-drawer__header h2').filter({ hasText: '新增通知渠道' }) }).first().locator('.el-form-item__label').filter({ hasText: '渠道类型' }).first() }).first().locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/channel-fail.png`
+- 状态：待处理
+

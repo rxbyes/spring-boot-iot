@@ -112,7 +112,7 @@ textarea {
 
 .primary-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(255, 106, 0, 0.35);
+  box-shadow: 0 6px 28px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 .secondary-button {
@@ -412,7 +412,7 @@ tbody tr:hover {
   border: 1px solid var(--panel-border-strong);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
-    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
+    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 30%);
 }
 
 .hero-panel::after {
@@ -420,7 +420,7 @@ tbody tr:hover {
   position: absolute;
   inset: auto -12% -10% 42%;
   height: 12rem;
-  background: radial-gradient(circle, rgba(255, 106, 0, 0.12), transparent 65%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 65%);
   filter: blur(8px);
 }
 
@@ -789,7 +789,7 @@ tbody tr:hover {
 }
 
 .ops-filter-actions .el-button--primary {
-  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.16);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .ops-filter-actions .el-button:not(.el-button--primary) {

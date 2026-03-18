@@ -307,10 +307,10 @@ function buildBadge(label: string) {
 }
 
 .section-landing__hero-link--primary {
-  background: linear-gradient(135deg, #1677ff, #4096ff);
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 6px 16px rgba(22, 119, 255, 0.16);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .section-landing__stats {
@@ -377,8 +377,8 @@ function buildBadge(label: string) {
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 0.8rem;
-  background: rgba(22, 119, 255, 0.08);
-  color: #1677ff;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -401,7 +401,7 @@ function buildBadge(label: string) {
 }
 
 .section-landing__card small {
-  color: #1677ff;
+  color: var(--accent);
   font-size: 0.76rem;
   font-weight: 600;
 }
@@ -484,14 +484,14 @@ function buildBadge(label: string) {
   height: 1.8rem;
   padding: 0 0.7rem;
   border-radius: 999px;
-  background: rgba(22, 119, 255, 0.08);
-  color: #1677ff;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .section-landing__text-link {
-  color: #1677ff;
+  color: var(--accent);
   text-decoration: none;
   font-size: 0.8rem;
   font-weight: 600;

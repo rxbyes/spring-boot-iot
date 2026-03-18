@@ -58,6 +58,11 @@ public class AuditLogController {
             return R.ok(auditLogService.getSystemErrorStats(log));
       }
 
+      @GetMapping("/business/stats")
+      public R<Map<String, Object>> getBusinessAuditStats(AuditLog log) {
+            return R.ok(auditLogService.getBusinessAuditStats(log));
+      }
+
       /**
        * 根据ID查询审计日志
        */

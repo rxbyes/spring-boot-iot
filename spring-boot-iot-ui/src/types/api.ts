@@ -31,6 +31,17 @@ export interface SystemErrorStats {
   topErrorCodes: StatsBucket[];
 }
 
+export interface BusinessAuditStats {
+  total: number;
+  todayCount: number;
+  successCount: number;
+  failureCount: number;
+  distinctUserCount: number;
+  topModules: StatsBucket[];
+  topUsers: StatsBucket[];
+  topOperationTypes: StatsBucket[];
+}
+
 export interface Product {
   id: IdType;
   productKey: string;

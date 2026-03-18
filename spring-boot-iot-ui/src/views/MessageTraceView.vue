@@ -133,7 +133,7 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <StandardPagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
@@ -257,6 +257,7 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
 import type { DeviceMessageLog } from '@/types/api';
 import { formatDateTime, prettyJson, truncateText } from '@/utils/format';
 

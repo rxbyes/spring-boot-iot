@@ -128,6 +128,34 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     }
 
     @Override
+    public Map<String, Object> getBusinessAuditStats(AuditLog log) {
+        Set<String> columns = auditLogSchemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(log, true, columns);
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("total", 0L);
+        stats.put("todayCount", 0L);
+        stats.put("successCount", 0L);
+        stats.put("failureCount", 0L);
+        stats.put("distinctUserCount", 0L);
+        stats.put("topModules", List.of());
+        stats.put("topUsers", List.of());
+        stats.put("topOperationTypes", List.of());
+        if (querySpec.emptyResult()) {
+            return stats;
+        }
+
+        stats.put("total", queryCount(querySpec, null));
+        stats.put("todayCount", queryTodayCount(querySpec, columns));
+        stats.put("successCount", queryEqualsCount(querySpec, resolveColumn(columns, "operation_result"), 1));
+        stats.put("failureCount", queryEqualsCount(querySpec, resolveColumn(columns, "operation_result"), 0));
+        stats.put("distinctUserCount", queryDistinctCount(querySpec, resolveColumn(columns, "user_name")));
+        stats.put("topModules", queryTopBuckets(querySpec, resolveColumn(columns, "operation_module")));
+        stats.put("topUsers", queryTopBuckets(querySpec, resolveColumn(columns, "user_name")));
+        stats.put("topOperationTypes", queryTopBuckets(querySpec, resolveColumn(columns, "operation_type", LEGACY_OPERATION_TYPE_COLUMN)));
+        return stats;
+    }
+
+    @Override
     public AuditLog getById(Long id) {
         if (id == null) {
             return null;

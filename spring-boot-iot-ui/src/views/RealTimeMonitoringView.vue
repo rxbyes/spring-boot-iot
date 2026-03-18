@@ -133,7 +133,7 @@
         </el-table>
 
         <div class="ops-pagination">
-          <el-pagination
+          <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
@@ -157,6 +157,7 @@ import { ElMessage } from '@/utils/message';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
+import StandardPagination from '../components/StandardPagination.vue';
 import { getRiskMonitoringList, type RiskMonitoringListItem } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';

@@ -99,7 +99,7 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
+      <StandardPagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
@@ -181,6 +181,7 @@ import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardPagination from '@/components/StandardPagination.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 
 const router = useRouter()

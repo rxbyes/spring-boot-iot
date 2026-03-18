@@ -738,7 +738,7 @@ async function refreshAll() {
   min-width: 2.2rem;
   height: 2.2rem;
   border-radius: 0.9rem;
-  background: rgba(255, 106, 0, 0.12);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand-deep);
   font-family: var(--font-mono);
 }

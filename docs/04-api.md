@@ -708,7 +708,7 @@ Authorization: Bearer <jwt-token>
 - 存在子菜单时不允许删除。
 - 被角色授权引用的菜单不允许删除。
 
-## 审计日志查询接口补充（2026-03-17）
+## 审计日志查询接口补充（2026-03-18）
 
 ### 审计日志列表
 `GET /api/system/audit-log/list`
@@ -731,6 +731,32 @@ Authorization: Bearer <jwt-token>
 - `operationResult`：按结果状态精确匹配（`1` 成功、`0` 失败）。
 - `pageNum` / `pageSize`：分页参数，仅 `/page` 生效。
 - `excludeSystemError`：是否排除 `operation_type=system_error`；业务日志页建议传 `true`，系统日志页不传并固定追加 `operationType=system_error`。
+
+### 系统异常统计概览
+`GET /api/system/audit-log/system-error/stats`
+
+统计字段：
+- `total`：异常总量（当前筛选条件下）。
+- `todayCount`：今日异常数。
+- `mqttCount`：`requestMethod=MQTT` 的异常数。
+- `systemCount`：`requestMethod=SYSTEM` 的异常数。
+- `distinctTraceCount`：去重后的链路数（`traceId`）。
+- `distinctDeviceCount`：去重后的设备数（`deviceCode`）。
+- `topModules` / `topExceptionClasses` / `topErrorCodes`：Top5 分桶统计。
+
+### 业务审计统计概览
+`GET /api/system/audit-log/business/stats`
+
+说明：
+- 该接口固定排除 `operation_type=system_error`，用于业务审计口径统计。
+- 支持复用日志筛选参数（如 `userName`、`operationType`、`operationModule`、`traceId`、`operationResult` 等），不需要传分页参数。
+
+统计字段：
+- `total`：审计总量（当前筛选条件下）。
+- `todayCount`：今日审计数。
+- `successCount` / `failureCount`：按 `operationResult` 聚合的成功/失败数。
+- `distinctUserCount`：去重后的操作用户数（`userName`）。
+- `topModules` / `topUsers` / `topOperationTypes`：Top5 分桶统计。
 
 前端入口约定：
 - `/audit-log`：业务日志页，默认排除 `system_error`。

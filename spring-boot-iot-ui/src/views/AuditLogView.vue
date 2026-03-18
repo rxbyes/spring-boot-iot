@@ -122,6 +122,16 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="操作结果">
+              <el-select v-model="searchForm.operationResult" placeholder="请选择操作结果" clearable>
+                <el-option label="成功" :value="1" />
+                <el-option label="失败" :value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-row>
           <el-col :span="24" class="text-right">
             <el-button @click="handleReset">重置</el-button>
@@ -136,6 +146,13 @@
         :closable="false"
         show-icon
         class="view-alert"
+      />
+      <el-alert
+        :title="statsSummaryText"
+        type="success"
+        :closable="false"
+        show-icon
+        class="stats-alert"
       />
 
       <div class="table-action-bar">
@@ -210,7 +227,7 @@
       </el-table>
 
       <!-- 分页 -->
-      <el-pagination
+      <StandardPagination
         v-model:current-page="pagination.pageNum"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
@@ -246,10 +263,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { pageLogs, getAuditLogById, deleteAuditLog, type AuditLogRecord } from '@/api/auditLog'
+import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
 import type { RequestError } from '@/api/request'
+import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardPagination from '@/components/StandardPagination.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -307,7 +326,8 @@ const searchForm = reactive({
   requestMethod: '',
   requestUrl: '',
   errorCode: '',
-  exceptionClass: ''
+  exceptionClass: '',
+  operationResult: undefined as number | undefined
 })
 
 // 分页
@@ -354,6 +374,45 @@ const exportColumnDialogVisible = ref(false)
 
 // 加载状态
 const loading = ref(false)
+const statsLoading = ref(false)
+
+const createEmptySystemStats = (): SystemErrorStats => ({
+  total: 0,
+  todayCount: 0,
+  mqttCount: 0,
+  systemCount: 0,
+  distinctTraceCount: 0,
+  distinctDeviceCount: 0,
+  topModules: [],
+  topExceptionClasses: [],
+  topErrorCodes: []
+})
+
+const createEmptyBusinessStats = (): BusinessAuditStats => ({
+  total: 0,
+  todayCount: 0,
+  successCount: 0,
+  failureCount: 0,
+  distinctUserCount: 0,
+  topModules: [],
+  topUsers: [],
+  topOperationTypes: []
+})
+
+const systemStats = ref<SystemErrorStats>(createEmptySystemStats())
+const businessStats = ref<BusinessAuditStats>(createEmptyBusinessStats())
+
+const statsSummaryText = computed(() => {
+  if (statsLoading.value) {
+    return '正在加载统计概览...'
+  }
+  if (isSystemMode.value) {
+    const topModule = systemStats.value.topModules[0]?.label || '--'
+    return `异常总量 ${systemStats.value.total}，今日 ${systemStats.value.todayCount}，MQTT ${systemStats.value.mqttCount}，链路数 ${systemStats.value.distinctTraceCount}，高频模块 ${topModule}`
+  }
+  const topUser = businessStats.value.topUsers[0]?.label || '--'
+  return `审计总量 ${businessStats.value.total}，今日 ${businessStats.value.todayCount}，成功 ${businessStats.value.successCount}，失败 ${businessStats.value.failureCount}，活跃用户 ${businessStats.value.distinctUserCount}（Top 用户 ${topUser}）`
+})
 
 // 详情对话框
 const detailVisible = ref(false)
@@ -378,11 +437,20 @@ const resetSearchForm = () => {
   searchForm.requestUrl = ''
   searchForm.errorCode = ''
   searchForm.exceptionClass = ''
+  searchForm.operationResult = undefined
 }
 
 const readRouteQueryValue = (key: string) => {
   const value = route.query[key]
   return typeof value === 'string' ? value : ''
+}
+
+const parseOptionalNumber = (value: string) => {
+  if (!value) {
+    return undefined
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 const applySystemRouteQuery = () => {
@@ -397,30 +465,37 @@ const applySystemRouteQuery = () => {
   searchForm.requestUrl = readRouteQueryValue('requestUrl')
   searchForm.errorCode = readRouteQueryValue('errorCode')
   searchForm.exceptionClass = readRouteQueryValue('exceptionClass')
+  searchForm.operationResult = parseOptionalNumber(readRouteQueryValue('operationResult'))
 }
+
+// 获取审计日志查询条件
+const buildAuditLogQueryParams = () => ({
+  traceId: searchForm.traceId,
+  operationModule: searchForm.operationModule,
+  operationResult: searchForm.operationResult,
+  ...(isBusinessMode.value
+    ? {
+        userName: searchForm.userName,
+        operationType: searchForm.operationType,
+        excludeSystemError: true
+      }
+    : {
+        operationType: 'system_error',
+        deviceCode: searchForm.deviceCode,
+        productKey: searchForm.productKey,
+        requestMethod: searchForm.requestMethod,
+        requestUrl: searchForm.requestUrl,
+        errorCode: searchForm.errorCode,
+        exceptionClass: searchForm.exceptionClass
+      })
+})
 
 // 获取审计日志列表
 const getAuditLogList = async () => {
   loading.value = true
   try {
     const res = await pageLogs({
-      traceId: searchForm.traceId,
-      operationModule: searchForm.operationModule,
-      ...(isBusinessMode.value
-        ? {
-            userName: searchForm.userName,
-            operationType: searchForm.operationType,
-            excludeSystemError: true
-          }
-        : {
-            operationType: 'system_error',
-            deviceCode: searchForm.deviceCode,
-            productKey: searchForm.productKey,
-            requestMethod: searchForm.requestMethod,
-            requestUrl: searchForm.requestUrl,
-            errorCode: searchForm.errorCode,
-            exceptionClass: searchForm.exceptionClass
-          }),
+      ...buildAuditLogQueryParams(),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
@@ -434,11 +509,37 @@ const getAuditLogList = async () => {
   }
 }
 
+// 获取日志统计
+const getAuditLogStats = async () => {
+  statsLoading.value = true
+  try {
+    if (isSystemMode.value) {
+      systemStats.value = createEmptySystemStats()
+      const res = await getSystemErrorStats(buildAuditLogQueryParams())
+      if (res.code === 200 && res.data) {
+        systemStats.value = { ...createEmptySystemStats(), ...res.data }
+      }
+      return
+    }
+
+    businessStats.value = createEmptyBusinessStats()
+    const res = await getBusinessAuditStats(buildAuditLogQueryParams())
+    if (res.code === 200 && res.data) {
+      businessStats.value = { ...createEmptyBusinessStats(), ...res.data }
+    }
+  } catch (error) {
+    console.error('获取日志统计失败', error)
+  } finally {
+    statsLoading.value = false
+  }
+}
+
 // 初始化
 onMounted(() => {
   reloadExportSelection()
   applySystemRouteQuery()
   getAuditLogList()
+  getAuditLogStats()
 })
 
 watch(viewMode, (newMode, oldMode) => {
@@ -457,6 +558,7 @@ watch(viewMode, (newMode, oldMode) => {
   reloadExportSelection()
   applySystemRouteQuery()
   getAuditLogList()
+  getAuditLogStats()
 })
 
 watch(
@@ -468,7 +570,8 @@ watch(
     route.query.requestMethod,
     route.query.requestUrl,
     route.query.errorCode,
-    route.query.exceptionClass
+    route.query.exceptionClass,
+    route.query.operationResult
   ],
   (current, previous) => {
     if (!isSystemMode.value) {
@@ -481,6 +584,7 @@ watch(
     resetPage()
     clearSelection()
     getAuditLogList()
+    getAuditLogStats()
   }
 )
 
@@ -489,6 +593,7 @@ const handleSearch = () => {
   resetPage()
   clearSelection()
   getAuditLogList()
+  getAuditLogStats()
 }
 
 // 重置搜索
@@ -497,6 +602,7 @@ const handleReset = () => {
   resetPage()
   clearSelection()
   getAuditLogList()
+  getAuditLogStats()
 }
 
 const handleSelectionChange = (rows: AuditLogRecord[]) => {
@@ -511,6 +617,7 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection()
   getAuditLogList()
+  getAuditLogStats()
 }
 
 const canJumpToMessageTrace = (row?: AuditLogRecord) => {
@@ -608,6 +715,7 @@ const handleDelete = (row: AuditLogRecord) => {
         if (res.code === 200) {
           ElMessage.success('删除成功')
           getAuditLogList()
+          getAuditLogStats()
         }
       } catch (error) {
         console.error('删除失败', error)
@@ -683,6 +791,10 @@ watch(detailVisible, (visible) => {
 }
 
 .view-alert {
+  margin-bottom: 12px;
+}
+
+.stats-alert {
   margin-bottom: 12px;
 }
 

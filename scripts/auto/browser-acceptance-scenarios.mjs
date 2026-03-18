@@ -294,7 +294,7 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'risk-point',
             path: '/risk-point',
-            listApi: '/api/risk-point/list',
+            listApi: '/api/risk-point/page',
             openButton: '新增风险点',
             dialogTitle: '新增风险点',
             createApi: '/api/risk-point/add',
@@ -302,6 +302,7 @@ export function createExecutableScenarios({ runToken }) {
               { placeholder: '请输入风险点编号', value: runtime.riskPoint.code },
               { placeholder: '请输入风险点名称', value: runtime.riskPoint.name },
               { placeholder: '请输入区域名称', value: 'Browser Region' },
+              { type: 'select', label: '风险等级', option: '警告' },
               { placeholder: '请输入负责人电话', value: '13800138000' },
               { placeholder: '请输入描述', value: 'Created by browser acceptance.' }
             ],
@@ -332,7 +333,7 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'rule-definition',
             path: '/rule-definition',
-            listApi: '/api/rule-definition/list',
+            listApi: '/api/rule-definition/page',
             openButton: '新增规则',
             dialogTitle: '新增规则',
             createApi: '/api/rule-definition/add',
@@ -347,6 +348,7 @@ export function createExecutableScenarios({ runToken }) {
                 value: runtime.riskPoint?.metricName || 'Temperature'
               },
               { placeholder: '例如：value > 100', value: 'value > 20' },
+              { type: 'select', label: '告警等级', option: '警告' },
               { placeholder: '请输入描述', value: 'Browser acceptance threshold rule.' }
             ]
           },
@@ -364,13 +366,13 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'linkage-rule',
             path: '/linkage-rule',
-            listApi: '/api/linkage-rule/list',
+            listApi: '/api/linkage-rule/page',
             openButton: '新增规则',
             dialogTitle: '新增规则',
             createApi: '/api/linkage-rule/add',
             fields: () => [
               { placeholder: '请输入规则名称', value: `UI Linkage ${runToken}` },
-              { placeholder: '请输入描述', value: 'Browser acceptance linkage rule.' },
+              { label: '描述', value: 'Browser acceptance linkage rule.' },
               {
                 placeholder: '请输入触发条件（JSON格式）',
                 value: JSON.stringify([
@@ -401,12 +403,13 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'emergency-plan',
             path: '/emergency-plan',
-            listApi: '/api/emergency-plan/list',
+            listApi: '/api/emergency-plan/page',
             openButton: '新增预案',
             dialogTitle: '新增预案',
             createApi: '/api/emergency-plan/add',
             fields: () => [
               { placeholder: '请输入预案名称', value: `UI Plan ${runToken}` },
+              { type: 'radio', label: '警告' },
               { placeholder: '请输入描述', value: 'Browser acceptance emergency plan.' },
               {
                 placeholder: '请输入响应步骤（JSON格式）',
@@ -449,13 +452,14 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'organization',
             path: '/organization',
-            listApi: '/api/organization/tree',
+            listApi: '/api/organization/page',
             openButton: '新增',
             dialogTitle: '新增组织机构',
             createApi: '/api/organization',
             fields: () => [
               { placeholder: '请输入组织名称', value: `UI Org ${runToken}` },
               { placeholder: '请输入组织编码', value: `ACCEPT-ORG-${runToken}` },
+              { type: 'select', label: '组织类型', option: '部门' },
               { placeholder: '请输入负责人姓名', value: 'Ops Lead' },
               { placeholder: '请输入联系电话', value: '13800138001' },
               { placeholder: '请输入邮箱', value: `org-${runToken}@example.com` },
@@ -476,8 +480,8 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'role',
             path: '/role',
-            listApi: '/api/role/list',
-            openButton: '新增',
+            listApi: '/api/role/page',
+            openButton: '新增角色',
             dialogTitle: '新增角色',
             createApi: '/api/role/add',
             fields: () => [
@@ -506,15 +510,14 @@ export function createExecutableScenarios({ runToken }) {
           path: '/user',
           api: [
             {
-              matcher: '/api/user/list',
+              matcher: '/api/user/page',
               label: 'user list'
             }
           ]
         });
 
         await page.getByRole('button', { name: '新增', exact: true }).click();
-        const dialog = page.getByRole('dialog', { name: '新增用户', exact: true });
-        await dialog.waitFor({ state: 'visible', timeout: 10000 });
+        const dialog = await helpers.resolveOverlayContainer(page, '新增用户');
 
         const createdUser = {
           username: `accept_ui_${runToken}`,
@@ -557,13 +560,14 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'region',
             path: '/region',
-            listApi: '/api/region/tree',
+            listApi: '/api/region/page',
             openButton: '新增',
             dialogTitle: '新增区域',
             createApi: '/api/region',
             fields: () => [
               { placeholder: '请输入区域名称', value: `UI Region ${runToken}` },
               { placeholder: '请输入区域编码', value: `ACCEPT-REG-${runToken}` },
+              { type: 'select', label: '区域类型', option: '城市' },
               { placeholder: '请输入备注', value: 'Browser acceptance region.' }
             ]
           },
@@ -581,13 +585,14 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'dict',
             path: '/dict',
-            listApi: '/api/dict/list',
+            listApi: '/api/dict/page',
             openButton: '新增',
             dialogTitle: '新增字典',
             createApi: '/api/dict',
             fields: () => [
               { placeholder: '请输入字典名称', value: `UI Dict ${runToken}` },
               { placeholder: '请输入字典编码', value: `ACCEPT_DICT_${runToken}` },
+              { type: 'select', label: '字典类型', option: '文本' },
               { placeholder: '请输入备注', value: 'Browser acceptance dictionary.' }
             ]
           },
@@ -605,13 +610,23 @@ export function createExecutableScenarios({ runToken }) {
           {
             key: 'channel',
             path: '/channel',
-            listApi: '/api/system/channel/list',
+            listApi: '/api/system/channel/page',
             openButton: '新增',
             dialogTitle: '新增通知渠道',
             createApi: '/api/system/channel/add',
             fields: () => [
               { placeholder: '请输入渠道名称', value: `UI Channel ${runToken}` },
               { placeholder: '请输入渠道编码', value: `accept-webhook-${runToken}` },
+              { type: 'select', label: '渠道类型', option: 'Webhook' },
+              {
+                label: '配置 JSON',
+                value: JSON.stringify({
+                  url: 'https://example.com/iot/webhook',
+                  scenes: ['system_error'],
+                  timeoutMs: 3000,
+                  minIntervalSeconds: 300
+                })
+              },
               { placeholder: '请输入备注', value: 'Browser acceptance channel.' }
             ]
           },

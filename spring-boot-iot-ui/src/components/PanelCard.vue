@@ -28,7 +28,7 @@ defineProps<{
   border: 1px solid var(--panel-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.97)),
-    radial-gradient(circle at top left, rgba(255, 106, 0, 0.06), transparent 38%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand) 6%, transparent), transparent 38%);
   box-shadow: 0 4px 12px rgba(31, 35, 41, 0.05);
 }
 

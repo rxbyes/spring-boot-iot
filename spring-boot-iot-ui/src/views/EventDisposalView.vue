@@ -528,7 +528,7 @@ watch(detailVisible, (visible) => {
 }
 
 .event-btn--primary {
-  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.16);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .event-btn--ghost {

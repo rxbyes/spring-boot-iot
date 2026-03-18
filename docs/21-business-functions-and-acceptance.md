@@ -207,7 +207,7 @@ Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 19. 前端模板导入预览明细基线：支持在导入确认前查看新增/覆盖/重命名/跳过完整列表，并支持在明细抽屉直接确认导入
 20. 前端详情交互基线：实时监测 / GIS、告警中心、事件处置、业务日志、系统日志统一使用右侧详情抽屉；抽屉需支持统一标题区、状态标签、分组信息展示，以及加载 / 空态 / 错误态反馈；其中业务日志、系统日志、消息追踪详情默认采用“概览卡片 + 链路信息 + 深色报文块 + 结果提示卡”的日志型展示结构，告警中心、事件处置、风险监测详情默认采用“概览卡片 + 业务分区 + 说明提示卡”的业务型展示结构，且概览卡、字段卡、提示卡、最近记录卡统一保持浅色控制台式轻卡片风格
 21. 前端表单交互基线：用户、角色、菜单、组织、区域、字典、通知渠道，以及风险点、阈值规则、联动规则、应急预案的新增 / 编辑统一使用右侧表单抽屉；风险点绑定设备、事件处置的派发 / 关闭、字典项管理及其新增 / 编辑也统一使用抽屉；自动化测试中心的导入计划 / 新增自定义页面、公共导出列设置及其模板命名 / 导入冲突处理、账号中心 / 修改密码等工具型交互也统一收口为抽屉；抽屉需保留现有表单校验、提交按钮与关闭重置逻辑，其中风险点、阈值规则、联动规则、应急预案的抽屉内部统一采用“提示卡 + 分区卡 + 栅格字段”的表单内容结构
-22. 前端分页与配色基线：2026-03-18 起告警中心、事件处置、风险点管理、阈值规则、联动规则、应急预案统一使用 `StandardPagination` + `useServerPagination` 分页契约（其中告警中心、事件处置当前沿用后端 `/list` + 前端本地切片分页）；同时 `tokens.css` 与 `element-overrides.css` 的主色统一收敛到 `--brand`，壳层导航与头部高亮由 token 变量驱动
+22. 前端分页与配色基线：2026-03-18 起告警中心、事件处置、风险点管理、阈值规则、联动规则、应急预案，以及组织、用户、角色、菜单、区域、字典、通知渠道、业务日志、系统日志、消息追踪、实时监测统一使用 `StandardPagination` + `useServerPagination` 分页契约（其中告警中心、事件处置当前沿用后端 `/list` + 前端本地切片分页）；同时 `tokens.css` 与 `element-overrides.css` 的主色统一收敛到 `--brand`，壳层导航与头部高亮由 token 变量驱动
 
 ## 3. 验收标准
 
@@ -879,3 +879,10 @@ WHERE deleted = 0;
 1. 补齐共享库缺表/缺列与默认值兼容（`risk_point_device`、`sys_notification_channel`、`sys_dict`、`sys_audit_log` 等）。
 2. 调整旧唯一索引相关字段兼容：`rule_definition.rule_code`、`linkage_rule.rule_code`、`emergency_plan.plan_code` 允许 `NULL`，规避空串默认值导致的重复冲突。
 3. 真实环境当前验收结论以上述第二轮结果为准；第一轮失败记录仅保留为问题追踪历史。
+## 2026-03-18 Frontend UI Unification Progress
+
+- Pagination baseline: view-level list pages have completed migration to shared `StandardPagination` + `useServerPagination`.
+- Color baseline: shared shell/components/pages now avoid raw brand/accent literals and use theme tokens (`var(--brand|--accent)`) with `color-mix(...)`.
+- Validation snapshot:
+  - `rg -n "<el-pagination" spring-boot-iot-ui/src/views` => no matches.
+  - `rg -n "#1677ff|#4096ff|#ff6a00|#ff8833|rgba\\(22, 119, 255|rgba\\(255, 106, 0" spring-boot-iot-ui/src` => only `src/styles/tokens.css` token source definitions remain.

@@ -6,6 +6,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-ResponseText {
+    param([object]$Content)
+
+    if ($Content -is [byte[]]) {
+        return [System.Text.Encoding]::UTF8.GetString($Content)
+    }
+
+    return [string]$Content
+}
+
 $workspace = 'E:\idea\ghatg\spring-boot-iot\spring-boot-iot-ui'
 $env:npm_config_cache = Join-Path $workspace '.npm-cache'
 $env:IOT_ACCEPTANCE_FRONTEND_URL = $FrontendUrl
@@ -22,11 +32,12 @@ try {
 
 try {
     $health = Invoke-WebRequest "$BackendUrl/actuator/health" -UseBasicParsing -TimeoutSec 5
-    if (-not ($health.Content -match '"status"\s*:\s*"UP"')) {
-        throw "Backend health endpoint did not report UP: $($health.Content)"
+    $healthText = Get-ResponseText -Content $health.Content
+    if (-not ($healthText -match '"status"\s*:\s*"UP"')) {
+        throw "Backend health endpoint did not report UP: $healthText"
     }
 } catch {
-    throw "Backend is not reachable at $BackendUrl. Start it first with scripts/start-backend-acceptance.ps1 or mvn spring-boot:run."
+    throw "Backend health check failed at $BackendUrl/actuator/health. Start it first with scripts/start-backend-acceptance.ps1 or mvn spring-boot:run. Detail: $($_.Exception.Message)"
 }
 
 npm.cmd run acceptance:browser

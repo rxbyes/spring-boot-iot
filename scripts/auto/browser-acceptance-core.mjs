@@ -677,16 +677,45 @@ export async function runBrowserAcceptance({
     }
   };
 
+  const findLabeledFormItem = (dialog, label) =>
+    dialog
+      .locator('.el-form-item')
+      .filter({ has: dialog.locator('.el-form-item__label', { hasText: label }).first() })
+      .first();
+
   const fillDialogFields = async (page, dialog, fields) => {
     for (const field of fields) {
       if (field.type === 'select') {
-        await dialog.getByPlaceholder(field.placeholder, { exact: true }).click();
-        await page.locator('.el-select-dropdown__item', { hasText: field.option }).first().click();
+        if (field.label) {
+          await findLabeledFormItem(dialog, field.label)
+            .locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select')
+            .first()
+            .click({ force: true });
+        } else {
+          await dialog.getByPlaceholder(field.placeholder, { exact: true }).click({ force: true });
+        }
+        await page
+          .locator('.el-select-dropdown:visible .el-select-dropdown__item', { hasText: field.option })
+          .first()
+          .click({ force: true });
         continue;
       }
 
       if (field.type === 'radio') {
-        await dialog.getByLabel(field.label, { exact: true }).click();
+        const radio = dialog.locator('.el-radio').filter({ hasText: field.label }).first();
+        try {
+          await radio.locator('.el-radio__label').first().click({ force: true });
+        } catch {
+          await radio.click({ force: true });
+        }
+        continue;
+      }
+
+      if (field.label) {
+        await findLabeledFormItem(dialog, field.label)
+          .locator('input:not([type="hidden"]), textarea')
+          .first()
+          .fill(field.value);
         continue;
       }
 
@@ -718,25 +747,37 @@ export async function runBrowserAcceptance({
   };
 
   const resolveOverlayContainer = async (page, title, timeout = 10000) => {
-    const drawer = page
+    const drawers = page
       .locator('.el-drawer')
-      .filter({ has: page.locator('.el-drawer__header h2').filter({ hasText: title }) })
-      .last();
-    const dialog = page
+      .filter({ has: page.locator('.el-drawer__header h2').filter({ hasText: title }) });
+    const dialogs = page
       .locator('.el-dialog')
-      .filter({ has: page.locator('.el-dialog__header').filter({ hasText: title }) })
-      .last();
+      .filter({ has: page.locator('.el-dialog__header').filter({ hasText: title }) });
 
-    try {
-      return await Promise.any([
-        drawer.waitFor({ state: 'visible', timeout }).then(() => drawer),
-        dialog.waitFor({ state: 'visible', timeout }).then(() => dialog)
-      ]);
-    } catch {
-      throw new AcceptanceError(`Form container "${title}" did not become visible within ${timeout}ms.`, {
-        title
-      });
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const drawerCount = await drawers.count();
+      for (let index = drawerCount - 1; index >= 0; index -= 1) {
+        const candidate = drawers.nth(index);
+        if (await candidate.isVisible().catch(() => false)) {
+          return candidate;
+        }
+      }
+
+      const dialogCount = await dialogs.count();
+      for (let index = dialogCount - 1; index >= 0; index -= 1) {
+        const candidate = dialogs.nth(index);
+        if (await candidate.isVisible().catch(() => false)) {
+          return candidate;
+        }
+      }
+
+      await page.waitForTimeout(200);
     }
+
+    throw new AcceptanceError(`Form container "${title}" did not become visible within ${timeout}ms.`, {
+      title
+    });
   };
 
   const runCreateDialogScenario = async (page, config, runtime) => {
@@ -822,7 +863,7 @@ export async function runBrowserAcceptance({
       };
     }
 
-    const bindDialog = await resolveOverlayContainer(page, '????');
+    const bindDialog = await resolveOverlayContainer(page, '绑定设备');
 
     const bindableDevice =
       deviceListResult.payload?.data?.find((item) => item.id === runtime.device.id) ||

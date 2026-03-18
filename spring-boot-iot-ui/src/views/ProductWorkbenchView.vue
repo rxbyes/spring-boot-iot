@@ -248,7 +248,7 @@ async function handleQueryProduct() {
   inset: auto -6rem -7rem auto;
   width: 16rem;
   height: 16rem;
-  background: radial-gradient(circle, rgba(255, 106, 0, 0.12), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 62%);
   pointer-events: none;
 }
 
