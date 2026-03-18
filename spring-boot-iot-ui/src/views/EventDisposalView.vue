@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ops-workbench event-disposal-view">
     <PanelCard
       eyebrow="Event Workflow"
@@ -85,7 +85,7 @@
       <div v-if="loading" class="ops-state">正在加载事件列表...</div>
       <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
       <template v-else>
-        <el-table ref="tableRef" :data="eventList" border stripe @selection-change="handleSelectionChange">
+        <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="48" />
           <el-table-column prop="eventCode" label="事件编号" width="180" show-overflow-tooltip />
           <el-table-column prop="eventTitle" label="事件标题" min-width="220" show-overflow-tooltip />
@@ -115,12 +115,10 @@
         </el-table>
 
         <div class="ops-pagination">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.size"
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -199,12 +197,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -273,13 +273,10 @@ const filters = reactive({
   status: ''
 });
 
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-});
+const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
 
 const eventListAdvice = '优先推进待派发和处理中事件';
+const pagedEventList = computed(() => applyLocalRecords(eventList.value));
 
 const dispatchForm = reactive({
   dispatchUserName: '系统管理员',
@@ -363,7 +360,7 @@ const loadEventList = async () => {
     const res = await getEventList(params);
     if (res.code === 200) {
       eventList.value = res.data || [];
-      pagination.total = eventList.value.length;
+      setTotal(eventList.value.length);
       stats.value.pendingEvents = eventList.value.filter((e) => e.status === 0).length;
       stats.value.dispatchedEvents = eventList.value.filter((e) => e.status === 1).length;
       stats.value.processingEvents = eventList.value.filter((e) => e.status === 2).length;
@@ -377,7 +374,7 @@ const loadEventList = async () => {
 };
 
 const handleSearch = () => {
-  pagination.page = 1;
+  resetPage();
   void loadEventList();
 };
 
@@ -385,7 +382,7 @@ const handleReset = () => {
   filters.deviceCode = '';
   filters.riskLevel = '';
   filters.status = '';
-  pagination.page = 1;
+  resetPage();
   void loadEventList();
 };
 
@@ -422,12 +419,12 @@ const handleExportCurrent = () => {
   downloadRowsAsCsv('事件处置-当前结果.csv', eventList.value, getResolvedExportColumns());
 };
 
-const handleSizeChange = () => {
-  void loadEventList();
+const handleSizeChange = (size: number) => {
+  setPageSize(size);
 };
 
-const handlePageChange = () => {
-  void loadEventList();
+const handlePageChange = (page: number) => {
+  setPageNum(page);
 };
 
 const handleViewDetail = async (row: EventRecord) => {
@@ -545,3 +542,6 @@ watch(detailVisible, (visible) => {
   width: 100%;
 }
 </style>
+
+
+

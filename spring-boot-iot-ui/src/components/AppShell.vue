@@ -206,7 +206,7 @@
 
           <template #footer>
             <el-button @click="openRealNameAuth">实名认证</el-button>
-            <el-button @click="openLoginMethods">登录方式管理</el-button>
+            <el-button @click="openLoginMethods">登录方式</el-button>
             <el-button @click="openChangePasswordDialog">修改密码</el-button>
             <el-button type="primary" @click="closeAccountDialog">关闭</el-button>
           </template>
@@ -250,7 +250,7 @@
         <StandardFormDrawer
           v-model="showLoginMethodsDialog"
           eyebrow="Login Methods"
-          title="登录方式管理"
+          title="登录方式"
           subtitle="展示当前账号可用的登录方式与联系信息，后续再补独立绑定流程。"
           size="30rem"
           @close="closeLoginMethodsDialog"
@@ -936,7 +936,7 @@ onBeforeUnmount(() => {
   z-index: 120;
   padding: 0.7rem 1rem;
   border-radius: 0.5rem;
-  background: #ff6a00;
+  background: var(--brand);
   color: #fff;
 }
 
@@ -997,9 +997,9 @@ onBeforeUnmount(() => {
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 0.45rem;
-  background: linear-gradient(145deg, #ff6a00, #ff9b42);
+  background: linear-gradient(145deg, var(--brand), var(--brand-bright));
   position: relative;
-  box-shadow: 0 6px 14px rgba(255, 106, 0, 0.26);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--brand) 26%, transparent);
 }
 
 .cloud-brand__logo::before {
@@ -1032,9 +1032,9 @@ onBeforeUnmount(() => {
 }
 
 .header-search:focus-within {
-  border-color: #bfd2f2;
+  border-color: color-mix(in srgb, var(--brand) 24%, white);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .header-search__icon {
@@ -1083,8 +1083,8 @@ onBeforeUnmount(() => {
   height: 100%;
   margin: 0.12rem;
   padding: 0 0.72rem;
-  background: #edf4ff;
-  color: #1677ff;
+  background: color-mix(in srgb, var(--brand) 12%, white);
+  color: var(--brand);
   font-size: 0.76rem;
   font-weight: 600;
 }
@@ -1131,13 +1131,13 @@ onBeforeUnmount(() => {
 }
 
 .section-tab:hover {
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.06);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .section-tab--active {
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.08);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .section-tab--active::after {
@@ -1148,7 +1148,7 @@ onBeforeUnmount(() => {
   bottom: -0.35rem;
   height: 2px;
   border-radius: 2px;
-  background: #1677ff;
+  background: var(--brand);
 }
 
 .cloud-layout {
@@ -1229,7 +1229,7 @@ onBeforeUnmount(() => {
   width: 3px;
   height: 1.2rem;
   border-radius: 999px;
-  background: #1677ff;
+  background: var(--brand);
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 160ms ease;
@@ -1262,18 +1262,18 @@ onBeforeUnmount(() => {
 
 .side-menu__item:hover {
   border-color: #d6deeb;
-  background: rgba(22, 119, 255, 0.05);
+  background: color-mix(in srgb, var(--brand) 5%, transparent);
   transform: translateX(1px);
 }
 
 .side-menu__item:hover .side-menu__marker {
-  background: rgba(22, 119, 255, 0.45);
+  background: color-mix(in srgb, var(--brand) 45%, transparent);
 }
 
 .side-menu__item--active {
   border-color: #d8e7ff;
   background: linear-gradient(180deg, #eff5ff 0%, #e9f2ff 100%);
-  box-shadow: inset 0 0 0 1px rgba(22, 119, 255, 0.05);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 5%, transparent);
 }
 
 .side-menu__item--active::before {
@@ -1281,11 +1281,11 @@ onBeforeUnmount(() => {
 }
 
 .side-menu__item--active .side-menu__marker {
-  background: #1677ff;
+  background: var(--brand);
 }
 
 .side-menu__item--active .side-menu__content strong {
-  color: #1677ff;
+  color: var(--brand);
 }
 
 .cloud-shell--collapsed .sidebar-context {
@@ -1303,18 +1303,18 @@ onBeforeUnmount(() => {
   height: 1.6rem;
   border-radius: 6px;
   font-size: 0.72rem;
-  color: #8b5a00;
-  background: rgba(255, 106, 0, 0.12);
+  color: var(--brand-deep);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .cloud-shell--collapsed .side-menu__item:hover .side-menu__marker {
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.12);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .cloud-shell--collapsed .side-menu__item--active .side-menu__marker {
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.12);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .cloud-shell--collapsed .side-menu__content {
@@ -1469,8 +1469,8 @@ onBeforeUnmount(() => {
 
 .toolbar-input:focus {
   outline: none;
-  border-color: rgba(255, 106, 0, 0.48);
-  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
+  border-color: color-mix(in srgb, var(--brand) 48%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .toolbar-button {
@@ -1498,8 +1498,8 @@ onBeforeUnmount(() => {
 
 .toolbar-button:focus-visible {
   outline: none;
-  border-color: rgba(255, 106, 0, 0.48);
-  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.14);
+  border-color: color-mix(in srgb, var(--brand) 48%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
 }
 
 .toolbar-button:active {
@@ -1508,13 +1508,13 @@ onBeforeUnmount(() => {
 
 .toolbar-button--primary {
   border-color: transparent;
-  background: linear-gradient(135deg, #ff6a00, #ff9030);
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
   color: #fff;
 }
 
 .toolbar-button--primary:hover {
   border-color: transparent;
-  background: linear-gradient(135deg, #f47216, #ff9638);
+  background: linear-gradient(135deg, var(--brand-deep), var(--brand-bright));
 }
 
 .toolbar-button--success {
@@ -1589,7 +1589,7 @@ onBeforeUnmount(() => {
   font-size: 1rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(160deg, #4d8bff, #2f66da);
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
 }
 
 .account-dialog__hero-content strong {

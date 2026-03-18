@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+﻿import { reactive } from 'vue'
 import type { PageResult } from '@/types/api'
 
 export interface ServerPaginationState {
@@ -21,6 +21,25 @@ export function useServerPagination(initialPageSize = 10) {
     return pageResult?.records || []
   }
 
+  const setTotal = (total: number) => {
+    pagination.total = Number.isFinite(total) ? Math.max(0, total) : 0
+  }
+
+  const applyLocalRecords = <T>(records?: T[] | null): T[] => {
+    const source = records || []
+    setTotal(source.length)
+    if (pagination.total <= 0) {
+      pagination.pageNum = 1
+      return []
+    }
+    const maxPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+    if (pagination.pageNum > maxPage) {
+      pagination.pageNum = maxPage
+    }
+    const start = (pagination.pageNum - 1) * pagination.pageSize
+    return source.slice(start, start + pagination.pageSize)
+  }
+
   const resetPage = () => {
     pagination.pageNum = 1
   }
@@ -41,9 +60,11 @@ export function useServerPagination(initialPageSize = 10) {
   return {
     pagination,
     applyPageResult,
+    applyLocalRecords,
     resetPage,
     setPageSize,
     setPageNum,
+    setTotal,
     resetTotal
   }
 }

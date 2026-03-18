@@ -6,12 +6,17 @@
   --font-body: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
 
-  /* 阿里云配色方案 */
-  /* 主色 - 阿里云橙 */
-  --brand: #ff6a00;
-  --brand-bright: #ff8833;
-  --brand-deep: #e65c00;
-  --brand-light: rgba(255, 106, 0, 0.1);
+  /* 主视觉色 */
+  --primary: #ff6a00;
+  --primary-bright: #ff8833;
+  --primary-deep: #e65c00;
+  --primary-light: rgba(255, 106, 0, 0.1);
+
+  /* 品牌色与组件主色保持一致 */
+  --brand: var(--primary);
+  --brand-bright: var(--primary-bright);
+  --brand-deep: var(--primary-deep);
+  --brand-light: var(--primary-light);
 
   /* 辅助色 - 科技蓝 */
   --accent: #1e80ff;
@@ -45,8 +50,8 @@
 
   /* 边框色 */
   --panel-border: #e6eaf0;
-  --panel-border-strong: rgba(255, 106, 0, 0.35);
-  --panel-border-hover: rgba(255, 106, 0, 0.5);
+  --panel-border-strong: color-mix(in srgb, var(--brand) 35%, transparent);
+  --panel-border-hover: color-mix(in srgb, var(--brand) 50%, transparent);
 
   /* 圆角 */
   --radius-lg: 8px;
@@ -59,7 +64,7 @@
   --shadow-md: 0 6px 16px rgba(31, 35, 41, 0.1);
   --shadow-lg: 0 10px 28px rgba(31, 35, 41, 0.12);
   --shadow-panel: 0 4px 14px rgba(31, 35, 41, 0.08);
-  --shadow-brand: 0 4px 14px rgba(255, 106, 0, 0.22);
+  --shadow-brand: 0 4px 14px color-mix(in srgb, var(--brand) 22%, transparent);
 
   /* 间距 */
   --spacing-xs: 4px;

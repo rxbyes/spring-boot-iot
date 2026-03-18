@@ -82,7 +82,7 @@
               <small>查看认证状态与后续接入说明</small>
             </button>
             <button type="button" class="account-panel__action" data-action="login-methods" @click="emitAction('open-login-methods')">
-              <span>登录方式管理</span>
+              <span>登录方式</span>
               <small>查看账号登录与手机号登录说明</small>
             </button>
           </div>
@@ -250,7 +250,7 @@ onBeforeUnmount(() => {
 }
 
 .tool-text--notice .tool-text__label::before {
-  background: rgba(22, 119, 255, 0.55);
+  background: color-mix(in srgb, var(--brand) 55%, transparent);
 }
 
 .tool-text--help .tool-text__label::before {
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(160deg, #4d8bff, #2f66da);
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
 }
 
 .account-chip__avatar {
@@ -412,8 +412,8 @@ onBeforeUnmount(() => {
 }
 
 .account-panel__tag--accent {
-  background: rgba(22, 119, 255, 0.1);
-  color: #1677ff;
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--brand);
 }
 
 .account-panel__hint {

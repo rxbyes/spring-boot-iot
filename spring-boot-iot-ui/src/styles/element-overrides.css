@@ -1,9 +1,9 @@
 :root {
-  --el-color-primary: #1677ff;
-  --el-color-primary-light-3: color-mix(in srgb, #1677ff 72%, white);
-  --el-color-primary-light-5: color-mix(in srgb, #1677ff 56%, white);
-  --el-color-primary-light-7: color-mix(in srgb, #1677ff 38%, white);
-  --el-color-primary-dark-2: color-mix(in srgb, #1677ff 86%, black);
+  --el-color-primary: var(--brand);
+  --el-color-primary-light-3: color-mix(in srgb, var(--brand) 72%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--brand) 56%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--brand) 38%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--brand) 86%, black);
   --el-bg-color: #ffffff;
   --el-bg-color-page: transparent;
   --el-fill-color-blank: #ffffff;
@@ -43,8 +43,8 @@
 .el-textarea__inner:focus,
 .el-select__wrapper.is-focused {
   box-shadow:
-    0 0 0 1px rgba(22, 119, 255, 0.5) inset,
-    0 0 0 2px rgba(22, 119, 255, 0.12);
+    0 0 0 1px color-mix(in srgb, var(--brand) 50%, transparent) inset,
+    0 0 0 2px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .el-button {
@@ -52,10 +52,10 @@
 }
 
 .el-button--primary {
-  --el-button-bg-color: #1677ff;
+  --el-button-bg-color: var(--brand);
   --el-button-border-color: transparent;
   --el-button-text-color: var(--ink-strong);
-  background: linear-gradient(120deg, #1677ff, #4096ff);
+  background: linear-gradient(120deg, var(--brand), var(--brand-bright));
 }
 
 .el-table {
@@ -74,4 +74,16 @@
 
 .el-tag {
   border-radius: 999px;
+}
+
+.standard-pagination {
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: var(--brand);
+}
+
+.standard-pagination .el-pager li.is-active {
+  color: var(--ink-strong);
+  border-color: transparent;
+  background: linear-gradient(120deg, var(--brand), var(--brand-bright));
+  box-shadow: var(--shadow-brand);
 }

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ops-workbench risk-point-view">
     <PanelCard
       eyebrow="Risk Point Workspace"
@@ -117,12 +117,10 @@
         </el-table>
 
         <div class="ops-pagination">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.size"
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -259,6 +257,8 @@ import { ElMessageBox } from '@/utils/messageBox';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
@@ -279,11 +279,7 @@ const filters = reactive({
   status: '' as '' | number
 });
 
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-});
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const formRef = ref();
 const formTitle = computed(() => (form.id ? '编辑风险点' : '新增风险点'));
@@ -401,14 +397,11 @@ const loadRiskPointList = async () => {
       riskPointCode: filters.riskPointCode || undefined,
       riskLevel: filters.riskLevel || undefined,
       status: filters.status === '' ? undefined : Number(filters.status),
-      pageNum: pagination.page,
-      pageSize: pagination.size
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
     });
     if (res.code === 200) {
-      riskPointList.value = res.data?.records || [];
-      pagination.total = res.data?.total || 0;
-      pagination.page = res.data?.pageNum || pagination.page;
-      pagination.size = res.data?.pageSize || pagination.size;
+      riskPointList.value = applyPageResult(res.data);
     }
   } catch (error) {
     console.error('查询风险点列表失败', error);
@@ -418,7 +411,7 @@ const loadRiskPointList = async () => {
 };
 
 const handleSearch = () => {
-  pagination.page = 1;
+  resetPage();
   void loadRiskPointList();
 };
 
@@ -426,15 +419,17 @@ const handleReset = () => {
   filters.riskPointCode = '';
   filters.riskLevel = '';
   filters.status = '';
-  pagination.page = 1;
+  resetPage();
   void loadRiskPointList();
 };
 
-const handleSizeChange = () => {
+const handleSizeChange = (size: number) => {
+  setPageSize(size);
   void loadRiskPointList();
 };
 
-const handlePageChange = () => {
+const handlePageChange = (page: number) => {
+  setPageNum(page);
   void loadRiskPointList();
 };
 
@@ -619,3 +614,4 @@ onMounted(() => {
   border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>
+

@@ -52,7 +52,7 @@ describe('AppHeaderTools', () => {
 
     await wrapper.find('.account-entry').trigger('mouseenter');
     expect(wrapper.text()).toContain('账号中心');
-    expect(wrapper.text()).toContain('登录方式管理');
+    expect(wrapper.text()).toContain('登录方式');
     expect(wrapper.text()).toContain('主账号');
     expect(wrapper.text()).toContain('手机号：138****1234');
 

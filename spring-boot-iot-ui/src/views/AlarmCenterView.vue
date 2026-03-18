@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ops-workbench alarm-center-view">
     <PanelCard
       eyebrow="Alarm Command"
@@ -84,7 +84,7 @@
       <div v-if="loading" class="ops-state">正在加载告警列表...</div>
       <div v-else-if="alarmList.length === 0" class="ops-state">暂无符合条件的告警记录</div>
       <template v-else>
-        <el-table ref="tableRef" :data="alarmList" border stripe @selection-change="handleSelectionChange">
+        <el-table ref="tableRef" :data="pagedAlarmList" border stripe @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="48" />
           <el-table-column prop="alarmCode" label="告警编号" width="180" show-overflow-tooltip />
           <el-table-column prop="alarmTitle" label="告警标题" min-width="220" show-overflow-tooltip />
@@ -116,12 +116,10 @@
         </el-table>
 
         <div class="ops-pagination">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.size"
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -149,13 +147,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { ElMessageBox } from '@/utils/messageBox';
 import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -219,13 +219,10 @@ const filters = reactive({
   status: '' as '' | number
 });
 
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-});
+const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
 
 const alarmListAdvice = '优先处理未确认与严重告警';
+const pagedAlarmList = computed(() => applyLocalRecords(alarmList.value));
 
 const getAlarmLevelType = (level: string) => {
   switch (level) {
@@ -295,7 +292,7 @@ const loadAlarmList = async () => {
 
     if (res.code === 200) {
       alarmList.value = res.data || [];
-      pagination.total = alarmList.value.length;
+      setTotal(alarmList.value.length);
       stats.value.todayAlarms = alarmList.value.length;
       stats.value.unconfirmedAlarms = alarmList.value.filter((a) => a.status === 0).length;
       stats.value.confirmedAlarms = alarmList.value.filter((a) => a.status === 1).length;
@@ -309,7 +306,7 @@ const loadAlarmList = async () => {
 };
 
 const handleSearch = () => {
-  pagination.page = 1;
+  resetPage();
   void loadAlarmList();
 };
 
@@ -317,7 +314,7 @@ const handleReset = () => {
   filters.deviceCode = '';
   filters.alarmLevel = '';
   filters.status = '';
-  pagination.page = 1;
+  resetPage();
   void loadAlarmList();
 };
 
@@ -354,12 +351,12 @@ const handleExportCurrent = () => {
   downloadRowsAsCsv('告警中心-当前结果.csv', alarmList.value, getResolvedExportColumns());
 };
 
-const handleSizeChange = () => {
-  void loadAlarmList();
+const handleSizeChange = (size: number) => {
+  setPageSize(size);
 };
 
-const handlePageChange = () => {
-  void loadAlarmList();
+const handlePageChange = (page: number) => {
+  setPageNum(page);
 };
 
 const handleViewDetail = async (row: AlarmRecord) => {
@@ -441,3 +438,6 @@ watch(detailVisible, (visible) => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 </style>
+
+
+
