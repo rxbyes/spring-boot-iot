@@ -77,9 +77,16 @@ public class PermissionServiceImpl implements PermissionService {
 
         List<Menu> activeMenus = listActiveMenus();
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
-        Set<Long> grantedMenuIds = superAdmin
-                ? new LinkedHashSet<>(menuMap.keySet())
-                : expandWithAncestors(roleMenuMapper.selectMenuIdsByRoleIds(extractRoleIds(roles)), menuMap);
+        Set<Long> grantedMenuIds;
+        if (superAdmin) {
+            grantedMenuIds = new LinkedHashSet<>(menuMap.keySet());
+        } else {
+            List<Long> roleIds = extractRoleIds(roles);
+            List<Long> roleMenuIds = CollectionUtils.isEmpty(roleIds)
+                    ? Collections.emptyList()
+                    : roleMenuMapper.selectMenuIdsByRoleIds(roleIds);
+            grantedMenuIds = expandWithAncestors(roleMenuIds, menuMap);
+        }
 
         List<Menu> authorizedMenus = activeMenus.stream()
                 .filter(menu -> superAdmin || grantedMenuIds.contains(menu.getId()))

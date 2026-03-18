@@ -603,6 +603,7 @@ MQTT 上行不提供额外 HTTP API，设备消息直接通过 Broker 进入：
 - `authContext.menus` 为当前用户已授权的导航树；前端不再内置固定角色菜单。
 - `authContext.permissions` 为当前用户按钮级权限码，当前用于 `v-permission`。
 - 当前系统治理页已接入的按钮权限码包括：`system:user:add`、`system:user:update`、`system:user:delete`、`system:user:reset-password`、`system:role:add`、`system:role:update`、`system:role:delete`、`system:menu:add`、`system:menu:update`、`system:menu:delete`。
+- 当用户未绑定任何启用角色时，登录接口仍返回 `code=200`；`authContext.roles`、`authContext.roleCodes`、`authContext.menus`、`authContext.permissions` 为空数组，`homePath` 回退为 `/`。
 
 ### 当前登录用户
 `GET /api/auth/me`

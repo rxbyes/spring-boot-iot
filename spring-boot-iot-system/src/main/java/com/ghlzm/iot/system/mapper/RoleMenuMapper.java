@@ -25,10 +25,17 @@ public interface RoleMenuMapper {
             <script>
             SELECT DISTINCT menu_id
             FROM sys_role_menu
-            WHERE role_id IN
-            <foreach collection="roleIds" item="roleId" open="(" separator="," close=")">
-                #{roleId}
-            </foreach>
+            <where>
+                <if test="roleIds != null and roleIds.size > 0">
+                    role_id IN
+                    <foreach collection="roleIds" item="roleId" open="(" separator="," close=")">
+                        #{roleId}
+                    </foreach>
+                </if>
+                <if test="roleIds == null or roleIds.size == 0">
+                    1 = 0
+                </if>
+            </where>
             ORDER BY menu_id
             </script>
             """)

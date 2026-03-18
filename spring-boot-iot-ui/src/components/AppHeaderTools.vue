@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
 .header-tools {
@@ -206,30 +206,31 @@ onBeforeUnmount(() => {
 }
 
 .tool-text {
-  min-height: 1.7rem;
-  padding: 0 0.58rem;
+  min-height: 2rem;
+  padding: 0 0.72rem;
   border-radius: var(--radius-pill);
-  border: 1px solid #e8edf5;
-  background: var(--surface-raised);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
   color: var(--text-secondary);
-  font-size: 0.74rem;
-  font-weight: 500;
+  font-size: 0.76rem;
+  font-weight: 600;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  box-shadow: var(--shadow-xs);
 }
 
 .tool-text:hover {
-  border-color: var(--line-brand-soft);
-  color: var(--accent);
-  background: #f6f9fe;
+  border-color: color-mix(in srgb, var(--brand) 22%, white);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
 .tool-text--active {
-  border-color: var(--line-brand-mid);
-  color: var(--accent);
-  background: var(--bg-active);
+  border-color: color-mix(in srgb, var(--brand) 24%, white);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, white);
 }
 
 .tool-text__label {
@@ -278,12 +279,13 @@ onBeforeUnmount(() => {
 .account-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
-  min-height: 1.9rem;
-  padding: 0.2rem 0.46rem 0.2rem 0.28rem;
+  gap: 0.5rem;
+  min-height: 2.1rem;
+  padding: 0.24rem 0.58rem 0.24rem 0.32rem;
   border-radius: var(--radius-pill);
-  border: 1px solid #e8edf5;
-  background: var(--surface-raised);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  box-shadow: var(--shadow-xs);
 }
 
 .account-chip__avatar,
@@ -351,7 +353,7 @@ onBeforeUnmount(() => {
   top: calc(100% + 0.45rem);
   right: 0;
   width: 18.5rem;
-  border-radius: 0.95rem;
+  border-radius: 1rem;
   border: 1px solid #dbe4f2;
   background: var(--bg-card);
   box-shadow: var(--shadow-popover);

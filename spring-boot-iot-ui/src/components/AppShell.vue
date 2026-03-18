@@ -140,7 +140,7 @@
             <RouterLink
               :to="item.to"
               class="side-menu__item"
-              :class="{ 'side-menu__item--active': route.path === item.to }"
+              :class="{ 'side-menu__item--active': currentRoutePath === item.to }"
               :title="item.caption ? `${item.label}：${item.caption}` : item.label"
               :aria-label="item.caption ? `${item.label}，${item.caption}` : item.label"
             >
@@ -372,6 +372,7 @@ import { usePermissionStore } from '../stores/permission';
 import { visitedTabs } from '../stores/tabs';
 import type { MenuTreeNode } from '../types/auth';
 import { formatDateTime } from '../utils/format';
+import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
 import AppHeaderTools from './AppHeaderTools.vue';
 import HeaderPopoverPanel from './HeaderPopoverPanel.vue';
 import StandardFormDrawer from './StandardFormDrawer.vue';
@@ -502,8 +503,8 @@ function appendNavItem(items: NavItem[], node: MenuTreeNode, pathSet: Set<string
   if (node.type === 2) {
     return;
   }
-  const path = (node.path || '').trim();
-  if (path.startsWith('/') && !pathSet.has(path)) {
+  const path = normalizeOptionalRoutePath(node.path);
+  if (path && !pathSet.has(path)) {
     pathSet.add(path);
     items.push({
       to: path,
@@ -572,13 +573,14 @@ const navigationGroups = computed<NavGroup[]>(() => {
 });
 
 const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
+const currentRoutePath = computed(() => normalizeRoutePath(route.path));
 
 const activeGroup = computed(() => {
-  const matchedGroup = navigationGroups.value.find((group) => group.items.some((item) => item.to === route.path));
+  const matchedGroup = navigationGroups.value.find((group) => group.items.some((item) => item.to === currentRoutePath.value));
   return matchedGroup || navigationGroups.value[0] || guestGroup;
 });
 
-const activeMenuItem = computed(() => flattenedItems.value.find((item) => item.to === route.path) || null);
+const activeMenuItem = computed(() => flattenedItems.value.find((item) => item.to === currentRoutePath.value) || null);
 
 watch(
   () => route.path,
@@ -595,8 +597,8 @@ watch(
   }
 );
 
-const activeGroupHomePath = computed(() => activeGroup.value.items[0]?.to || '/');
-const showSidebarContext = computed(() => route.path === activeGroupHomePath.value);
+const activeGroupHomePath = computed(() => normalizeRoutePath(activeGroup.value.items[0]?.to || '/'));
+const showSidebarContext = computed(() => currentRoutePath.value === activeGroupHomePath.value);
 const activeTitle = computed(() => {
   if (showSidebarContext.value) {
     return String(route.meta.title || activeGroup.value.label || '平台首页');
@@ -611,7 +613,7 @@ const activeDescription = computed(() => {
 });
 const toolbarDescription = computed(() => activeDescription.value);
 const toolbarModeLabel = computed(() => (showSidebarContext.value ? '分组总览' : '功能页面'));
-const showOverviewShortcut = computed(() => !showSidebarContext.value && activeGroupHomePath.value !== route.path);
+const showOverviewShortcut = computed(() => !showSidebarContext.value && activeGroupHomePath.value !== currentRoutePath.value);
 const toolbarMetricItems = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return [
@@ -736,7 +738,7 @@ function switchGroup(groupKey: string) {
     return;
   }
 
-  if (!group.items.some((item) => item.to === route.path)) {
+  if (!group.items.some((item) => item.to === currentRoutePath.value)) {
     router.push(group.items[0].to);
   }
 }
@@ -1196,6 +1198,10 @@ onBeforeUnmount(() => {
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0;
+}
+
+.cloud-header__sections::-webkit-scrollbar {
+  display: none;
 }
 
 .header-pop-enter-active,
@@ -1800,7 +1806,7 @@ onBeforeUnmount(() => {
   gap: 0.85rem;
   padding: 1rem;
   border-radius: 0.85rem;
-  background: linear-gradient(180deg, #f8fbff 0%, var(--bg-card)fff 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, var(--bg-card) 100%);
   border: 1px solid #e2eaf5;
 }
 
@@ -1874,7 +1880,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1400px) {
   .cloud-header__main {
-    grid-template-columns: auto auto minmax(200px, 360px) auto;
+    grid-template-columns: auto minmax(150px, 220px) minmax(260px, 1fr) auto;
   }
 }
 
@@ -1903,12 +1909,17 @@ onBeforeUnmount(() => {
     padding: 0.92rem;
   }
 
+  .cloud-header__sections-wrap {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
   .console-toolbar {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .console-toolbar__summary {
-    justify-items: start;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .console-toolbar__actions {
@@ -1918,21 +1929,29 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .cloud-header__main {
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .header-search {
     grid-column: 1 / -1;
     order: 5;
+    width: 100%;
   }
 
-  .cloud-header__sections {
-    overflow-x: auto;
-    flex-wrap: nowrap;
+  .cloud-header__sections-label {
+    display: none;
   }
 
   .section-tab {
-    min-width: 8.2rem;
+    min-width: 7.4rem;
+  }
+
+  .console-toolbar__title-row {
+    align-items: flex-start;
+  }
+
+  .console-toolbar__summary {
+    grid-template-columns: 1fr;
   }
 
   .console-settings__content {

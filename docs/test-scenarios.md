@@ -340,6 +340,19 @@ curl -X POST http://localhost:9999/api/auth/login \
 - 响应体 `code = 200`
 - 响应体返回当前用户 `authContext`
 
+### 步骤 2.1：无角色账号登录边界校验
+```bash
+curl -X POST http://localhost:9999/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"no-role-user","password":"123456"}'
+```
+
+通过标准：
+- HTTP 状态码为 `200`
+- 响应体 `code = 200`
+- `data.authContext.roles`、`data.authContext.roleCodes`、`data.authContext.menus`、`data.authContext.permissions` 为空数组
+- 后端日志不应出现 `RoleMenuMapper.selectMenuIdsByRoleIds` 的 SQL 语法错误（`WHERE role_id IN ORDER BY`）
+
 ### 步骤 4.1：验证菜单树接口
 ```bash
 curl http://localhost:9999/api/menu/tree \
