@@ -15,8 +15,9 @@ This page should become the core risk point workbench for field use.
 Read only what is needed from:
 - `README.md`
 - `AGENTS.md`
-- `docs/04-api.md`
-- `docs/13-frontend-debug-console.md`
+- `docs/03-接口规范与接口清单.md`
+- `docs/06-前端开发与CSS规范.md`
+- `docs/15-frontend-optimization-plan.md`
 - `spring-boot-iot-ui/src/views/DeviceInsightView.vue`
 - `spring-boot-iot-ui/src/components/PropertyTrendPanel.vue`
 - `spring-boot-iot-ui/src/api/iot.ts`
@@ -25,7 +26,8 @@ Read only what is needed from:
 ## Documentation Sync Rule
 
 When risk workbench changes affect page behavior, route meaning, workflow guidance, API usage explanation, or product positioning:
-- update the existing file `docs/13-frontend-debug-console.md`
+- update the existing file `docs/06-前端开发与CSS规范.md`
+- update `docs/15-frontend-optimization-plan.md` when shared frontend rules or style-governance records change
 - update matching docs under `docs/` if frontend behavior now reflects changed backend/API meaning
 - review `README.md` and `AGENTS.md` and update them when their wording becomes stale
 
@@ -110,7 +112,8 @@ Do not block the page redesign waiting for new backend APIs.
 5. preserve existing data tables/log trace
 6. update route meaning if needed
 7. update existing docs in place:
-   - `docs/13-frontend-debug-console.md`
+   - `docs/06-前端开发与CSS规范.md`
+   - `docs/15-frontend-optimization-plan.md` when shared frontend rules change
    - related files under `docs/` if API/workflow meaning changed
    - `README.md` and `AGENTS.md` when needed
 8. run frontend build

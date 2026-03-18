@@ -18,12 +18,12 @@ This skill is for frontend productization work, not backend feature implementati
 Before editing, read only what is needed from:
 - `AGENTS.md`
 - `README.md`
-- `docs/01-architecture.md`
-- `docs/02-module-structure.md`
-- `docs/04-api.md`
+- `docs/01-系统概览与架构说明.md`
+- `docs/02-业务功能与流程说明.md`
+- `docs/03-接口规范与接口清单.md`
+- `docs/06-前端开发与CSS规范.md`
 - `docs/05-protocol.md`
-- `docs/07-message-flow.md`
-- `docs/13-frontend-debug-console.md`
+- `docs/15-frontend-optimization-plan.md`
 
 Then inspect the current frontend files that are directly related to the requested page:
 - `spring-boot-iot-ui/src/router/index.ts`
@@ -69,7 +69,8 @@ Always preserve these constraints:
 If code changes affect behavior, routes, APIs, workflows, startup commands, testing flow, navigation, product positioning, or page meaning, you must update the existing documentation files in place.
 
 Default documentation targets:
-- `docs/13-frontend-debug-console.md` for frontend structure and page semantics
+- `docs/06-前端开发与CSS规范.md` for frontend structure, page semantics, and shared UI rules
+- `docs/15-frontend-optimization-plan.md` for frontend optimization constraints and governance notes
 - matching files under `docs/` when backend/API/protocol behavior changed
 - `README.md` when usage, startup, validation, or product scope changed
 - `AGENTS.md` when development rules, required reading, or workflow assumptions changed
@@ -310,7 +311,8 @@ For each requested page:
 5. add only lightweight computed interpretation on the frontend if needed
 6. update route title / description if the page meaning changed
 7. update the existing docs in place:
-   - `docs/13-frontend-debug-console.md`
+   - `docs/06-前端开发与CSS规范.md`
+   - `docs/15-frontend-optimization-plan.md` when shared frontend rules change
    - related files under `docs/` if behavior changed
    - `README.md` and `AGENTS.md` when their content is affected
 8. run frontend build

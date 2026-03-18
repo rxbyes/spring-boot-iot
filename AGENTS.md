@@ -78,6 +78,13 @@ When environment access is blocked, report the environment blocker explicitly. D
 - Do not create duplicate replacement docs such as `README-v2.md`, `api-new.md`, `new-frontend-doc.md`, or similar files.
 - This rule applies to all coding agents and coding models, including Codex, Qwen Code, and others.
 
+## Workspace path compatibility rule
+- The shared Windows 10 environment may use `E:\idea\ghatg\spring-boot-iot` as the workspace root.
+- Other environments may use different absolute paths.
+- Do not hardcode one absolute workspace path back into scripts or docs as the only valid path.
+- Prefer deriving the repository root from the current script location, current working directory, or environment-specific configuration.
+- When documentation needs an absolute-path example, explicitly label `E:\idea\ghatg\spring-boot-iot` as a Windows shared-environment example, not as a universal fixed path.
+
 ## Frontend encoding and consistency rule
 - Any page or style change in `spring-boot-iot-ui` must preserve UTF-8 readability. Do not paste terminal-garbled text into `.vue`, `.ts`, `.css`, `.json`, or `.md` files.
 - Before editing frontend files on Windows terminals, prefer UTF-8 viewing/verification (for example `chcp 65001` plus `Get-Content -Encoding UTF8`) so displayed text matches file contents.
@@ -86,26 +93,21 @@ When environment access is blocked, report the environment blocker explicitly. D
 - If a frontend change introduces or reveals style drift, duplicated list layouts, or inconsistent pagination behavior, record the issue and the prevention rule in `docs/15-frontend-optimization-plan.md` before closing the task.
 
 ## Always read before coding
+### Minimum set for all tasks
 - README.md
-- docs/00-overview.md
-- docs/01-architecture.md
-- docs/02-module-structure.md
-- docs/03-database.md
-- docs/04-api.md
-- docs/05-protocol.md
-- docs/07-message-flow.md
-- docs/11-codex-tasking.md
-- docs/14-mqttx-live-runbook.md
-- docs/15-frontend-optimization-plan.md
-- docs/16-phase3-roadmap.md
-- docs/18-phase4-risk-platform-roadmap.md
-- docs/19-phase4-progress.md
-- docs/20-phase5-roadmap.md
-- docs/21-business-functions-and-acceptance.md
-- docs/codex-roadmap-phase1.md
-- docs/codex-roadmap-phase2.md
-- docs/codex-workflow.md
-- docs/test-scenarios.md
+- docs/README.md
+- docs/01-系统概览与架构说明.md
+- docs/02-业务功能与流程说明.md
+- docs/03-接口规范与接口清单.md
+- docs/04-数据库设计与初始化数据.md
+- docs/07-部署运行与配置说明.md
+- docs/08-变更记录与技术债清单.md
+
+### Read additionally when relevant
+- tests / acceptance / regression: docs/05-自动化测试与质量保障.md, docs/test-scenarios.md, docs/21-business-functions-and-acceptance.md
+- frontend work: docs/06-前端开发与CSS规范.md, docs/15-frontend-optimization-plan.md
+- MQTT / protocol / payload parsing: docs/05-protocol.md, docs/14-mqttx-live-runbook.md
+- Phase 4 scope or delivery boundary: docs/19-phase4-progress.md, docs/21-business-functions-and-acceptance.md
 
 ## Hard constraints
 - Project name must remain: spring-boot-iot

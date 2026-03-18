@@ -15,7 +15,8 @@ This skill is only for the cockpit page, not for all frontend pages.
 Read only what is needed from:
 - `README.md`
 - `AGENTS.md`
-- `docs/13-frontend-debug-console.md`
+- `docs/06-前端开发与CSS规范.md`
+- `docs/15-frontend-optimization-plan.md`
 - `spring-boot-iot-ui/src/router/index.ts`
 - `spring-boot-iot-ui/src/components/AppShell.vue`
 - `spring-boot-iot-ui/src/views/CockpitView.vue`
@@ -24,7 +25,8 @@ Read only what is needed from:
 ## Documentation Sync Rule
 
 When cockpit changes affect navigation, homepage meaning, product positioning, startup understanding, or frontend information architecture:
-- update the existing file `docs/13-frontend-debug-console.md`
+- update the existing file `docs/06-前端开发与CSS规范.md`
+- update `docs/15-frontend-optimization-plan.md` when shared frontend structure or optimization rules change
 - review and update `README.md` if visible product structure or usage guidance changed
 - review and update `AGENTS.md` if workflow expectations or required references changed
 
@@ -110,7 +112,8 @@ Good homepage content sources:
 4. ensure role navigation is visible
 5. keep current routes working
 6. update existing docs in place:
-   - `docs/13-frontend-debug-console.md`
+   - `docs/06-前端开发与CSS规范.md`
+   - `docs/15-frontend-optimization-plan.md` when shared frontend structure changes
    - `README.md` if product structure or usage changed
    - `AGENTS.md` if workflow rules changed
 7. run frontend build

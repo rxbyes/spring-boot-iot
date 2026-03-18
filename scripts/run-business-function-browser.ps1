@@ -16,7 +16,16 @@ function Get-ResponseText {
     return [string]$Content
 }
 
-$workspace = 'E:\idea\ghatg\spring-boot-iot\spring-boot-iot-ui'
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+$workspace = Join-Path $repoRoot 'spring-boot-iot-ui'
+$npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $npmCmd) {
+    $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
+}
+if (-not $npmCmd) {
+    throw 'npm executable was not found in PATH.'
+}
 $env:npm_config_cache = Join-Path $workspace '.npm-cache'
 $env:IOT_ACCEPTANCE_FRONTEND_URL = $FrontendUrl
 $env:IOT_ACCEPTANCE_BACKEND_URL = $BackendUrl
@@ -40,4 +49,4 @@ try {
     throw "Backend health check failed at $BackendUrl/actuator/health. Start it first with scripts/start-backend-acceptance.ps1 or mvn spring-boot:run. Detail: $($_.Exception.Message)"
 }
 
-npm.cmd run acceptance:browser
+& $npmCmd run acceptance:browser

@@ -1,6 +1,7 @@
 ﻿$ErrorActionPreference = 'Stop'
 
-$workspace = 'E:\idea\ghatg\spring-boot-iot'
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$workspace = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 $logFile = Join-Path $workspace 'logs\backend-acceptance.log'
 $jarFile = Join-Path $workspace 'spring-boot-iot-admin\target\spring-boot-iot-admin-1.0.0-SNAPSHOT.jar'
 $mvnSettings = Join-Path $workspace '.mvn\settings.xml'

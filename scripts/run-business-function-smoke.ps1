@@ -6,7 +6,9 @@ $ErrorActionPreference = 'Stop'
 
 $baseUrl = $BaseUrl.TrimEnd('/')
 $stamp = Get-Date -Format 'yyyyMMddHHmmss'
-$outDir = 'E:\idea\ghatg\spring-boot-iot\logs\acceptance'
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+$outDir = Join-Path $repoRoot 'logs\acceptance'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 $script:authHeaders = @{}
 
@@ -735,4 +737,3 @@ Write-Output "REPORT_SUMMARY=$summaryPath"
 Write-Output "REPORT_MD=$mdPath"
 Write-Output "TOTAL_CASES=$($results.Count)"
 Write-Output "TOTAL_FAILED=$($failed.Count)"
-

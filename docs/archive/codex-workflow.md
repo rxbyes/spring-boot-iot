@@ -7,10 +7,10 @@ Task:
 <要实现的目标>
 
 Context:
-- docs/01-architecture.md
-- docs/03-database.md
+- docs/01-系统概览与架构说明.md
+- docs/04-数据库设计与初始化数据.md
 - docs/05-protocol.md
-- docs/07-message-flow.md
+- docs/02-业务功能与流程说明.md
 
 Constraints:
 - keep module boundaries
@@ -27,4 +27,4 @@ Output:
 2. 再执行 codex-roadmap 的单个任务
 3. 每次只做一个小阶段
 4. 变更后审查 diff
-5. 合并后更新 change-log 和 todo
+5. 合并后更新核心文档与技术债台账

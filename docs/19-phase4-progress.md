@@ -167,7 +167,7 @@
 - 构建：`mvn -s .mvn/settings.xml clean package -DskipTests`
 - 后端运行：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
 - 前端运行：`cd spring-boot-iot-ui && npm install && npm run acceptance:dev`
-- 真实环境验收参考：`docs/test-scenarios.md`、`docs/14-mqttx-live-runbook.md`、`docs/04-api.md`
+- 真实环境验收参考：`docs/test-scenarios.md`、`docs/14-mqttx-live-runbook.md`、`docs/03-接口规范与接口清单.md`
 
 ## 8. 更新记录
 
