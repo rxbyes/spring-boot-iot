@@ -536,6 +536,14 @@ function buildDynamicGroups(menus: MenuTreeNode[]): NavGroup[] {
     .filter((group) => group.items.length > 0);
 }
 
+function resolveGroupLandingPath(group: NavGroup): string {
+  const sectionHomeItem = createSectionHomeNavItem(group.key, group.label);
+  if (sectionHomeItem && permissionStore.hasRoutePermission(sectionHomeItem.to)) {
+    return normalizeRoutePath(sectionHomeItem.to);
+  }
+  return normalizeRoutePath(group.items[0]?.to || '/');
+}
+
 const searchKeyword = ref('');
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
@@ -565,11 +573,22 @@ const navigationGroups = computed<NavGroup[]>(() => {
   if (dynamicGroups.length > 0) {
     return dynamicGroups;
   }
-  // 共享环境菜单未初始化时使用临时兜底，避免登录后无导航可用。
-  return staticNavigationGroups.map((group) => ({
-    ...group,
-    items: prependSectionHomeItem(group.key, group.label, group.items)
-  }));
+  // 动态菜单缺失时，兜底菜单也必须按当前路由权限过滤，避免“可见但不可点”。
+  const filteredFallbackGroups = staticNavigationGroups
+    .map((group) => {
+      const mergedItems = prependSectionHomeItem(group.key, group.label, group.items);
+      const allowedItems = mergedItems.filter((item) => permissionStore.hasRoutePermission(item.to));
+      return {
+        ...group,
+        items: allowedItems
+      };
+    })
+    .filter((group) => group.items.length > 0);
+
+  if (filteredFallbackGroups.length > 0) {
+    return filteredFallbackGroups;
+  }
+  return [guestGroup];
 });
 
 const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
@@ -597,7 +616,7 @@ watch(
   }
 );
 
-const activeGroupHomePath = computed(() => normalizeRoutePath(activeGroup.value.items[0]?.to || '/'));
+const activeGroupHomePath = computed(() => resolveGroupLandingPath(activeGroup.value));
 const showSidebarContext = computed(() => currentRoutePath.value === activeGroupHomePath.value);
 const activeTitle = computed(() => {
   if (showSidebarContext.value) {
@@ -738,8 +757,9 @@ function switchGroup(groupKey: string) {
     return;
   }
 
-  if (!group.items.some((item) => item.to === currentRoutePath.value)) {
-    router.push(group.items[0].to);
+  const targetPath = resolveGroupLandingPath(group);
+  if (targetPath !== currentRoutePath.value) {
+    router.push(targetPath);
   }
 }
 
