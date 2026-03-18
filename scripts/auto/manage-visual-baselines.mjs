@@ -1,6 +1,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import {
   collectVisualAssertionRecords,
@@ -44,6 +45,10 @@ function parseCsv(value, fallback = []) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseJsonText(raw) {
+  return JSON.parse(String(raw || '').replace(/^\uFEFF/, ''));
 }
 
 function parseArgs(argv) {
@@ -221,7 +226,7 @@ export async function runBaselineManager(argv = process.argv.slice(2)) {
   const workspaceRoot = process.cwd();
   const inputAbsolutePath = path.isAbsolute(args.input) ? args.input : path.resolve(workspaceRoot, args.input);
   const raw = await readFile(inputAbsolutePath, 'utf8');
-  const payload = JSON.parse(raw);
+  const payload = parseJsonText(raw);
   const visualRecords = normalizeVisualRecords(payload);
   const selectedRecords = filterRecords(visualRecords, args);
   const runTimestamp = formatTimestamp(new Date());
@@ -312,7 +317,7 @@ export async function runBaselineManager(argv = process.argv.slice(2)) {
   };
 }
 
-if (path.resolve(process.argv[1] || '') === path.resolve(new URL(import.meta.url).pathname)) {
+if (path.resolve(process.argv[1] || '') === path.resolve(fileURLToPath(import.meta.url))) {
   try {
     const result = await runBaselineManager();
     process.exitCode = result.exitCode || 0;

@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
+import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,6 +48,14 @@ public class AuditLogController {
             payload.put("pageSize", page.getPageSize());
             payload.put("records", page.getRecords());
             return R.ok(payload);
+      }
+
+      /**
+       * 查询 system_error 统计概览
+       */
+      @GetMapping("/system-error/stats")
+      public R<SystemErrorStatsVO> getSystemErrorStats(AuditLog log) {
+            return R.ok(auditLogService.getSystemErrorStats(log));
       }
 
       /**

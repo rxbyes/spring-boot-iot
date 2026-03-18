@@ -13,6 +13,24 @@ export interface PageResult<T> {
   records: T[];
 }
 
+export interface StatsBucket {
+  label: string;
+  value: string;
+  count: number;
+}
+
+export interface SystemErrorStats {
+  total: number;
+  todayCount: number;
+  mqttCount: number;
+  systemCount: number;
+  distinctTraceCount: number;
+  distinctDeviceCount: number;
+  topModules: StatsBucket[];
+  topExceptionClasses: StatsBucket[];
+  topErrorCodes: StatsBucket[];
+}
+
 export interface Product {
   id: IdType;
   productKey: string;
@@ -87,6 +105,31 @@ export interface DeviceMessageLog {
   topic?: string | null;
   payload?: string | null;
   reportTime?: string | null;
+  createTime?: string | null;
+}
+
+export interface DeviceAccessErrorLog {
+  id: IdType;
+  tenantId?: number | null;
+  traceId?: string | null;
+  protocolCode?: string | null;
+  requestMethod?: string | null;
+  failureStage?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  gatewayDeviceCode?: string | null;
+  subDeviceCode?: string | null;
+  topicRouteType?: string | null;
+  messageType?: string | null;
+  topic?: string | null;
+  clientId?: string | null;
+  payloadSize?: number | null;
+  payloadEncoding?: string | null;
+  payloadTruncated?: number | null;
+  rawPayload?: string | null;
+  errorCode?: string | null;
+  exceptionClass?: string | null;
+  errorMessage?: string | null;
   createTime?: string | null;
 }
 

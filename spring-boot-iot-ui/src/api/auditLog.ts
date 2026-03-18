@@ -1,5 +1,5 @@
 import { request } from './request'
-import type { ApiEnvelope, IdType, PageResult } from '../types/api'
+import type { ApiEnvelope, IdType, PageResult, SystemErrorStats } from '../types/api'
 
 export interface AuditLogRecord {
   id: IdType
@@ -63,6 +63,12 @@ export function pageLogs(params: AuditLogQueryParams = {}): Promise<ApiEnvelope<
   const query = toQueryString(params)
   const path = `/api/system/audit-log/page${query ? `?${query}` : ''}`
   return request<PageResult<AuditLogRecord>>(path, { method: 'GET' })
+}
+
+export function getSystemErrorStats(params: AuditLogQueryParams = {}): Promise<ApiEnvelope<SystemErrorStats>> {
+  const query = toQueryString(params)
+  const path = `/api/system/audit-log/system-error/stats${query ? `?${query}` : ''}`
+  return request<SystemErrorStats>(path, { method: 'GET' })
 }
 
 export function getAuditLogById(id: IdType): Promise<ApiEnvelope<AuditLogRecord>> {

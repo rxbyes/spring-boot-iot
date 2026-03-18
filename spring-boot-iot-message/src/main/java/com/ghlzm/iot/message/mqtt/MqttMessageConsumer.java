@@ -153,7 +153,12 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             deviceSessionService.refreshLastSeen(resolvedDeviceCode, resolvedClientId, topic);
             mqttConnectionListener.onDeviceSessionRefreshed(resolvedDeviceCode, resolvedClientId, topic);
         } catch (Exception ex) {
-            mqttConnectionListener.onMessageDispatchFailed(topic, rawDeviceMessage, ex);
+            mqttConnectionListener.onMessageDispatchFailed(
+                    topic,
+                    message == null ? null : message.getPayload(),
+                    rawDeviceMessage,
+                    ex
+            );
         } finally {
             TraceContextHolder.clear();
         }

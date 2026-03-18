@@ -6,6 +6,8 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.mapper.AuditLogMapper;
 import com.ghlzm.iot.system.service.AuditLogService;
+import com.ghlzm.iot.system.vo.AuditLogStatsBucketVO;
+import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,6 +107,27 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     }
 
     @Override
+    public SystemErrorStatsVO getSystemErrorStats(AuditLog log) {
+        Set<String> columns = auditLogSchemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(log), false, columns);
+        if (querySpec.emptyResult()) {
+            return new SystemErrorStatsVO();
+        }
+
+        SystemErrorStatsVO stats = new SystemErrorStatsVO();
+        stats.setTotal(queryCount(querySpec, null));
+        stats.setTodayCount(queryTodayCount(querySpec, columns));
+        stats.setMqttCount(queryEqualsCount(querySpec, resolveColumn(columns, "request_method"), "MQTT"));
+        stats.setSystemCount(queryEqualsCount(querySpec, resolveColumn(columns, "request_method"), "SYSTEM"));
+        stats.setDistinctTraceCount(queryDistinctCount(querySpec, resolveColumn(columns, "trace_id")));
+        stats.setDistinctDeviceCount(queryDistinctCount(querySpec, resolveColumn(columns, "device_code")));
+        stats.setTopModules(queryTopBuckets(querySpec, resolveColumn(columns, "operation_module")));
+        stats.setTopExceptionClasses(queryTopBuckets(querySpec, resolveColumn(columns, "exception_class")));
+        stats.setTopErrorCodes(queryTopBuckets(querySpec, resolveColumn(columns, "error_code")));
+        return stats;
+    }
+
+    @Override
     public AuditLog getById(Long id) {
         if (id == null) {
             return null;
@@ -157,6 +180,101 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
             params.add(offset == null ? 0L : offset);
         }
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapRow(rs, columns), params.toArray());
+    }
+
+    private AuditLog normalizeSystemErrorFilter(AuditLog log) {
+        AuditLog target = new AuditLog();
+        if (log != null) {
+            target.setTenantId(log.getTenantId());
+            target.setUserId(log.getUserId());
+            target.setTraceId(log.getTraceId());
+            target.setDeviceCode(log.getDeviceCode());
+            target.setProductKey(log.getProductKey());
+            target.setOperationModule(log.getOperationModule());
+            target.setRequestMethod(log.getRequestMethod());
+            target.setRequestUrl(log.getRequestUrl());
+            target.setResultMessage(log.getResultMessage());
+            target.setErrorCode(log.getErrorCode());
+            target.setExceptionClass(log.getExceptionClass());
+            target.setOperationResult(log.getOperationResult());
+        }
+        target.setOperationType(SYSTEM_ERROR_TYPE);
+        return target;
+    }
+
+    private Long queryCount(QuerySpec querySpec, String extraCondition, Object... extraParams) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ")
+                .append(TABLE_NAME)
+                .append(querySpec.whereClause());
+        List<Object> params = new ArrayList<>(querySpec.params());
+        appendExtraCondition(sql, params, extraCondition, extraParams);
+        Long value = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return value == null ? 0L : value;
+    }
+
+    private Long queryTodayCount(QuerySpec querySpec, Set<String> columns) {
+        String timeColumn = resolveColumn(columns, "operation_time", "create_time");
+        if (timeColumn == null) {
+            return 0L;
+        }
+        return queryCount(
+                querySpec,
+                " AND " + timeColumn + " >= CURDATE() AND " + timeColumn + " < DATE_ADD(CURDATE(), INTERVAL 1 DAY)"
+        );
+    }
+
+    private Long queryEqualsCount(QuerySpec querySpec, String column, Object value) {
+        if (column == null || value == null) {
+            return 0L;
+        }
+        return queryCount(querySpec, " AND " + column + " = ?", value);
+    }
+
+    private Long queryDistinctCount(QuerySpec querySpec, String column) {
+        if (column == null) {
+            return 0L;
+        }
+        String sql = "SELECT COUNT(DISTINCT " + column + ") FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''";
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, querySpec.params().toArray());
+        return value == null ? 0L : value;
+    }
+
+    private List<AuditLogStatsBucketVO> queryTopBuckets(QuerySpec querySpec, String column) {
+        if (column == null) {
+            return List.of();
+        }
+        String bucketExpression = "TRIM(" + column + ")";
+        String sql = "SELECT " + bucketExpression + " AS bucket_value, COUNT(1) AS bucket_count"
+                + " FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''"
+                + " GROUP BY " + bucketExpression
+                + " ORDER BY bucket_count DESC, bucket_value ASC"
+                + " LIMIT 5";
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new AuditLogStatsBucketVO(
+                        rs.getString("bucket_value"),
+                        rs.getString("bucket_value"),
+                        rs.getLong("bucket_count")
+                ),
+                querySpec.params().toArray()
+        );
+    }
+
+    private void appendExtraCondition(StringBuilder sql, List<Object> params, String extraCondition, Object... extraParams) {
+        if (!StringUtils.hasText(extraCondition)) {
+            return;
+        }
+        sql.append(extraCondition);
+        if (extraParams == null || extraParams.length == 0) {
+            return;
+        }
+        for (Object extraParam : extraParams) {
+            params.add(extraParam);
+        }
     }
 
     private QuerySpec buildQuerySpec(AuditLog log, Boolean excludeSystemError, Set<String> columns) {

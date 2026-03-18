@@ -138,36 +138,63 @@
       size="42rem"
       @close="handleFormClose"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="风险点编号" prop="riskPointCode">
-          <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
-        </el-form-item>
-        <el-form-item label="风险点名称" prop="riskPointName">
-          <el-input v-model="form.riskPointName" placeholder="请输入风险点名称" />
-        </el-form-item>
-        <el-form-item label="区域" prop="regionName">
-          <el-input v-model="form.regionName" placeholder="请输入区域名称" />
-        </el-form-item>
-        <el-form-item label="风险等级" prop="riskLevel">
-          <el-select v-model="form.riskLevel" placeholder="请选择风险等级" style="width: 100%">
-            <el-option label="严重" value="critical" />
-            <el-option label="警告" value="warning" />
-            <el-option label="提醒" value="info" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="负责人电话" prop="responsiblePhone">
-          <el-input v-model="form.responsiblePhone" placeholder="请输入负责人电话" />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :value="0">启用</el-radio>
-            <el-radio :value="1">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
-        </el-form-item>
-      </el-form>
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>配置提示</strong>
+          <span>风险点编号、等级和状态会直接影响监测绑定、告警展示和处置优先级，建议按现场对象口径统一命名。</span>
+        </div>
+        <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>基础信息</h3>
+                <p>维护风险点主档、归属区域与风险等级，为后续监测和处置流程提供统一标识。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="风险点编号" prop="riskPointCode">
+                <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
+              </el-form-item>
+              <el-form-item label="风险点名称" prop="riskPointName">
+                <el-input v-model="form.riskPointName" placeholder="请输入风险点名称" />
+              </el-form-item>
+              <el-form-item label="区域" prop="regionName">
+                <el-input v-model="form.regionName" placeholder="请输入区域名称" />
+              </el-form-item>
+              <el-form-item label="风险等级" prop="riskLevel">
+                <el-select v-model="form.riskLevel" placeholder="请选择风险等级">
+                  <el-option label="严重" value="critical" />
+                  <el-option label="警告" value="warning" />
+                  <el-option label="提醒" value="info" />
+                </el-select>
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>治理信息</h3>
+                <p>补齐责任电话、启停状态和风险说明，便于值班与治理人员快速确认风险点责任归属。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="负责人电话" prop="responsiblePhone">
+                <el-input v-model="form.responsiblePhone" placeholder="请输入负责人电话" />
+              </el-form-item>
+              <el-form-item label="状态" prop="status">
+                <el-radio-group v-model="form.status">
+                  <el-radio :value="0">启用</el-radio>
+                  <el-radio :value="1">停用</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="描述" prop="description" class="ops-drawer-grid__full">
+                <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入风险点描述、场景说明或治理备注" />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
@@ -182,25 +209,41 @@
       size="42rem"
       @close="handleBindDrawerClose"
     >
-      <el-form :model="bindForm" label-width="100px">
-        <el-form-item label="风险点">
-          <el-input v-model="bindForm.riskPointName" disabled />
-        </el-form-item>
-        <el-form-item label="设备">
-          <el-select v-model="bindForm.deviceId" placeholder="请选择设备" style="width: 100%">
-            <el-option v-for="device in deviceList" :key="device.id" :label="device.deviceName" :value="device.id">
-              {{ device.deviceCode }} - {{ device.deviceName }}
-            </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="测点">
-          <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点" style="width: 100%">
-            <el-option v-for="metric in metricList" :key="metric.identifier" :label="metric.name" :value="metric.identifier">
-              {{ metric.name }}
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </el-form>
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>绑定提示</strong>
+          <span>绑定完成后，风险点会直接联动实时监测、阈值规则和告警处置，请确认设备与测点归属关系准确。</span>
+        </div>
+        <el-form :model="bindForm" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>绑定对象</h3>
+                <p>确认当前风险点并选择要关联的设备、测点，形成后续监测链路。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="风险点" class="ops-drawer-grid__full ops-drawer-readonly">
+                <el-input v-model="bindForm.riskPointName" disabled />
+              </el-form-item>
+              <el-form-item label="设备">
+                <el-select v-model="bindForm.deviceId" placeholder="请选择设备">
+                  <el-option v-for="device in deviceList" :key="device.id" :label="device.deviceName" :value="device.id">
+                    {{ device.deviceCode }} - {{ device.deviceName }}
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="测点">
+                <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点">
+                  <el-option v-for="metric in metricList" :key="metric.identifier" :label="metric.name" :value="metric.identifier">
+                    {{ metric.name }}
+                  </el-option>
+                </el-select>
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="bindDeviceVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleBindSubmit">确定</el-button>

@@ -11,6 +11,8 @@
     "acceptance:dev": "vite --host 0.0.0.0",
     "acceptance:browser": "node ./scripts/business-browser-acceptance.mjs",
     "acceptance:browser:plan": "node ./scripts/business-browser-acceptance.mjs --dry-run",
+    "acceptance:browser:update-baseline": "node ./scripts/business-browser-acceptance.mjs --update-baseline",
+    "acceptance:browser:baseline:manage": "node ../scripts/auto/manage-visual-baselines.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",

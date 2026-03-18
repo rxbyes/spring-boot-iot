@@ -517,24 +517,26 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .event-disposal-view {
-  padding: 20px;
+  padding: 18px;
   border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
+  border: 1px solid rgba(41, 60, 92, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .event-btn {
   border-radius: 999px;
-  padding-inline: 12px;
+  min-height: 2rem;
+  padding-inline: 14px;
 }
 
 .event-btn--primary {
-  box-shadow: var(--shadow-brand);
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.16);
 }
 
 .event-btn--ghost {
   border: 1px solid var(--panel-border);
-  background: linear-gradient(130deg, #fff, #f6f9ff);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   color: var(--text-secondary);
 }
 

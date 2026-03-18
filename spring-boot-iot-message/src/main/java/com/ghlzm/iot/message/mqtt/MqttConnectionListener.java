@@ -1,5 +1,6 @@
 package com.ghlzm.iot.message.mqtt;
 
+import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
@@ -25,9 +26,12 @@ public class MqttConnectionListener {
     private static final String MQTT_METHOD = "MQTT";
 
     private final ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider;
+    private final ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider;
 
-    public MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider) {
+    public MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
+                                  ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider) {
         this.backendExceptionRecorderProvider = backendExceptionRecorderProvider;
+        this.deviceAccessErrorLogServiceProvider = deviceAccessErrorLogServiceProvider;
     }
 
     public void onConnectComplete(boolean reconnect, String serverUri) {
@@ -93,11 +97,13 @@ public class MqttConnectionListener {
         );
     }
 
-    public void onMessageDispatchFailed(String topic, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
+    public void onMessageDispatchFailed(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
         log.error("MQTT 消息分发失败, topic={}", topic, throwable);
+        String failureStage = resolveFailureStage(rawDeviceMessage, throwable);
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("event", "messageDispatchFailed");
         context.put("topic", topic);
+        context.put("failureStage", failureStage);
         if (rawDeviceMessage != null) {
             putIfHasText(context, "traceId", rawDeviceMessage.getTraceId());
             putIfHasText(context, "deviceCode", rawDeviceMessage.getDeviceCode());
@@ -105,6 +111,7 @@ public class MqttConnectionListener {
             putIfHasText(context, "messageType", rawDeviceMessage.getMessageType());
             putIfHasText(context, "topicRouteType", rawDeviceMessage.getTopicRouteType());
         }
+        archiveAccessFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
         recordBackendException(
                 "MqttMessageConsumer#messageArrived",
                 topic,
@@ -115,6 +122,22 @@ public class MqttConnectionListener {
 
     public void onDeviceSessionRefreshed(String deviceCode, String clientId, String topic) {
         log.debug("MQTT 设备会话已刷新, deviceCode={}, clientId={}, topic={}", deviceCode, clientId, topic);
+    }
+
+    private void archiveAccessFailure(String topic,
+                                      byte[] payload,
+                                      RawDeviceMessage rawDeviceMessage,
+                                      String failureStage,
+                                      Throwable throwable) {
+        DeviceAccessErrorLogService service = deviceAccessErrorLogServiceProvider.getIfAvailable();
+        if (service == null || throwable == null) {
+            return;
+        }
+        try {
+            service.archiveMqttFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
+        } catch (Exception ex) {
+            log.warn("归档失败报文失败, topic={}, error={}", topic, ex.getMessage());
+        }
     }
 
     private void recordBackendException(String operationMethod,
@@ -150,5 +173,20 @@ public class MqttConnectionListener {
         if (context != null && StringUtils.hasText(value)) {
             context.put(key, value.trim());
         }
+    }
+
+    private String resolveFailureStage(RawDeviceMessage rawDeviceMessage, Throwable throwable) {
+        // 简单按路由/解码/设备校验/后续分发四段区分失败阶段，方便测试与研发联动排障。
+        if (rawDeviceMessage == null) {
+            return "topic_route";
+        }
+        String errorText = throwable == null ? "" : ((throwable.getClass().getName() + " " + throwable.getMessage()).toLowerCase());
+        if (errorText.contains("协议解析") || errorText.contains("decode")) {
+            return "protocol_decode";
+        }
+        if (errorText.contains("设备不存在") || errorText.contains("协议不匹配") || errorText.contains("产品不匹配")) {
+            return "device_validate";
+        }
+        return "message_dispatch";
     }
 }

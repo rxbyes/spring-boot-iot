@@ -96,6 +96,7 @@
 说明：
 - `sys_menu.meta_json` 用于承载前端一级导航、二级导航、提示文案等 UI 元数据。
 - `sys_menu.type = 2` 代表按钮权限，`menu_code` 作为前端 `v-permission` 与后端授权判断的统一权限码。
+- 当前运行时代码在菜单新增/更新时会动态识别并写入 `sys_menu` 的历史别名列：`type/menu_type`、`menu_code/permission`、`path/route_path`、`sort/sort_no`；即使共享开发库尚未完全统一结构，角色授权链路也不应再因菜单落库失败而中断。
 - `20260316_phase4_task10_dynamic_menu_auth.sql` 会初始化五类基础角色：`业务人员`、`管理人员`、`运维人员`、`开发人员`、`超级管理人员`。
 
 ## 初始化与升级顺序
@@ -119,6 +120,7 @@
 - `20260316_phase4_real_env_schema_alignment.sql` 用于补齐真实库历史缺列/缺表与旧版强约束差异（含 `sys_notification_channel`、`sys_audit_log` 兼容字段，以及 `rule_code` / `plan_code` 允许 `NULL` 的兼容改造）。
 - 当前脚本也已补齐日志追踪增强字段：`sys_audit_log.trace_id/device_code/product_key/error_code/exception_class`，以及 `iot_device_message_log.trace_id/device_code/product_key`。
 - `20260316_phase4_task10_dynamic_menu_auth.sql` 用于补齐 `sys_menu.meta_json`、动态菜单树、按钮权限码以及五类默认角色授权关系；脚本已内置 `sys_menu.type/menu_type` 双字段兼容处理，可避免历史库出现 `1364 - Field 'menu_type' doesn't have a default`。
+- 除脚本兼容外，当前后台运行时代码也会在菜单新增/更新时动态写入 `sys_menu` 的同义列，兼容历史库仍保留 `permission`、`route_path`、`sort_no`、`menu_type` 的场景；但为保持查询、索引与后续运维口径一致，仍建议按当前基线逐步统一表结构。
 - 当前仓库版本的 `20260316_phase4_task10_dynamic_menu_auth.sql` 还会按 `role_code` 解析真实角色主键，兼容历史库中 `SUPER_ADMIN` 等默认角色 ID 与脚本预设值不一致的场景。
 - `20260316_phase4_task10_dynamic_menu_auth.sql` 已包含设备接入分区的“消息追踪”页面菜单（`93001007` / `/message-trace`）及默认角色授权。
 - 若历史库此前已执行过旧版本 task10、但 `system:menu:add/update/delete` 未下发到真实超管角色，可补执行 `sql/upgrade/20260317_phase4_menu_button_permission_backfill.sql`，无需重置整套默认角色授权。

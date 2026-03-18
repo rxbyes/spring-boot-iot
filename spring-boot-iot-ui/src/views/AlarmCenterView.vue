@@ -434,9 +434,10 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .alarm-center-view {
-  padding: 20px;
+  padding: 18px;
   border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
+  border: 1px solid rgba(41, 60, 92, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 </style>

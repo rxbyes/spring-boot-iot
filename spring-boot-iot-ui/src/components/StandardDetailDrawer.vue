@@ -85,10 +85,10 @@ const emit = defineEmits<{
 <style scoped>
 .standard-detail-drawer :deep(.el-drawer) {
   background:
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.14), transparent 30%),
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 24%),
-    linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(241, 246, 252, 0.99));
-  box-shadow: -16px 0 42px rgba(32, 55, 90, 0.14);
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.1), transparent 30%),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.07), transparent 22%),
+    linear-gradient(180deg, rgba(250, 252, 255, 0.99), rgba(244, 248, 253, 0.99));
+  box-shadow: -12px 0 32px rgba(32, 55, 90, 0.1);
 }
 
 .standard-detail-drawer :deep(.el-drawer__header) {
@@ -96,8 +96,8 @@ const emit = defineEmits<{
   padding: 26px 28px 22px;
   border-bottom: 1px solid rgba(42, 63, 95, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 248, 255, 0.9)),
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.08), transparent 28%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 249, 255, 0.92)),
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.06), transparent 28%);
 }
 
 .standard-detail-drawer :deep(.el-drawer__body) {
@@ -134,8 +134,8 @@ const emit = defineEmits<{
 .detail-drawer__heading h2 {
   margin: 0.45rem 0 0;
   color: #243448;
-  font-size: clamp(1.8rem, 2.5vw, 2.25rem);
-  line-height: 1.18;
+  font-size: clamp(1.65rem, 2.2vw, 2.05rem);
+  line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -155,6 +155,13 @@ const emit = defineEmits<{
   gap: 0.6rem;
 }
 
+.detail-drawer__tags :deep(.el-tag) {
+  min-height: 1.8rem;
+  border-radius: 999px;
+  padding-inline: 0.7rem;
+  border-color: rgba(79, 111, 154, 0.1);
+}
+
 .detail-drawer__body {
   display: grid;
   gap: 1.1rem;
@@ -163,10 +170,10 @@ const emit = defineEmits<{
 .detail-state {
   padding: 1.1rem 1.25rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 255, 0.92));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   color: #70809a;
-  box-shadow: 0 14px 30px rgba(32, 55, 90, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .detail-state--error {
@@ -184,10 +191,10 @@ const emit = defineEmits<{
   overflow: hidden;
   padding: 1.25rem 1.35rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.9));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 250, 255, 0.91));
   box-shadow:
-    0 16px 34px rgba(32, 55, 90, 0.06),
+    0 6px 18px rgba(32, 55, 90, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
@@ -195,14 +202,14 @@ const emit = defineEmits<{
   content: '';
   position: absolute;
   inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(79, 140, 255, 0.9), rgba(56, 189, 248, 0.82), rgba(192, 132, 252, 0.72));
+  height: 2px;
+  background: linear-gradient(90deg, rgba(79, 140, 255, 0.72), rgba(56, 189, 248, 0.5), rgba(192, 132, 252, 0.34));
 }
 
 .standard-detail-drawer :deep(.detail-panel--hero) {
   background:
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.94));
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.06), transparent 34%),
+    linear-gradient(180deg, rgba(242, 247, 255, 0.95), rgba(255, 255, 255, 0.94));
 }
 
 .standard-detail-drawer :deep(.detail-section-header) {
@@ -254,7 +261,7 @@ const emit = defineEmits<{
   min-width: 0;
   padding: 1rem 1.05rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 18px;
+  border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -290,7 +297,7 @@ const emit = defineEmits<{
   gap: 0.38rem;
   padding: 0.95rem 1rem 1rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 18px;
+  border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
@@ -349,7 +356,7 @@ const emit = defineEmits<{
 .standard-detail-drawer :deep(.detail-card) {
   padding: 1rem 1.1rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 18px;
+  border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -380,9 +387,11 @@ const emit = defineEmits<{
 .standard-detail-drawer :deep(.detail-card__meta span) {
   display: inline-flex;
   align-items: center;
-  padding: 0.28rem 0.58rem;
+  min-height: 1.7rem;
+  padding: 0.26rem 0.62rem;
   border-radius: 999px;
-  background: rgba(79, 111, 154, 0.08);
+  border: 1px solid rgba(79, 111, 154, 0.08);
+  background: rgba(247, 250, 255, 0.96);
 }
 
 .standard-detail-drawer :deep(.detail-notice) {
@@ -390,8 +399,9 @@ const emit = defineEmits<{
   gap: 0.4rem;
   padding: 1rem 1.05rem;
   border: 1px solid rgba(42, 63, 95, 0.08);
-  border-radius: 18px;
+  border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .standard-detail-drawer :deep(.detail-notice--danger) {
@@ -420,6 +430,10 @@ const emit = defineEmits<{
 }
 
 .standard-detail-drawer :deep(.detail-empty) {
+  padding: 0.95rem 1rem;
+  border: 1px dashed rgba(42, 63, 95, 0.16);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   color: #70809a;
   font-size: 14px;
   line-height: 1.6;

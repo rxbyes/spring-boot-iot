@@ -145,52 +145,90 @@
       size="44rem"
       @close="handleFormClose"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="规则名称" prop="ruleName">
-          <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
-        </el-form-item>
-        <el-form-item label="测点标识符" prop="metricIdentifier">
-          <el-input v-model="form.metricIdentifier" placeholder="请输入测点标识符" />
-        </el-form-item>
-        <el-form-item label="测点名称" prop="metricName">
-          <el-input v-model="form.metricName" placeholder="请输入测点名称" />
-        </el-form-item>
-        <el-form-item label="表达式" prop="expression">
-          <el-input v-model="form.expression" placeholder="例如：value > 100" />
-        </el-form-item>
-        <el-form-item label="持续时间(秒)" prop="duration">
-          <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时间" />
-        </el-form-item>
-        <el-form-item label="告警等级" prop="alarmLevel">
-          <el-select v-model="form.alarmLevel" placeholder="请选择告警等级" style="width: 100%">
-            <el-option label="严重" value="critical" />
-            <el-option label="警告" value="warning" />
-            <el-option label="提醒" value="info" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="通知方式">
-          <el-checkbox-group v-model="form.notificationMethods">
-            <el-checkbox label="email">邮件</el-checkbox>
-            <el-checkbox label="sms">短信</el-checkbox>
-            <el-checkbox label="wechat">微信</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="转事件">
-          <el-radio-group v-model="form.convertToEvent">
-            <el-radio :value="0">否</el-radio>
-            <el-radio :value="1">是</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :value="0">启用</el-radio>
-            <el-radio :value="1">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入描述" />
-        </el-form-item>
-      </el-form>
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>配置提示</strong>
+          <span>建议先确认测点标识、阈值表达式和持续时间，再决定是否转事件，以保持告警触发和处置链路的一致性。</span>
+        </div>
+        <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>规则基础信息</h3>
+                <p>先确认规则名称、测点标识和阈值表达式，保证同类策略具备清晰可读的维护口径。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="规则名称" prop="ruleName">
+                <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
+              </el-form-item>
+              <el-form-item label="测点标识符" prop="metricIdentifier">
+                <el-input v-model="form.metricIdentifier" placeholder="请输入测点标识符" />
+              </el-form-item>
+              <el-form-item label="测点名称" prop="metricName">
+                <el-input v-model="form.metricName" placeholder="请输入测点名称" />
+              </el-form-item>
+              <el-form-item label="表达式" prop="expression">
+                <el-input v-model="form.expression" placeholder="例如：value > 100" />
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>触发策略</h3>
+                <p>统一配置触发持续时间、告警等级与转事件开关，确保告警策略与处置闭环匹配。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="持续时间(秒)" prop="duration">
+                <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时间" />
+              </el-form-item>
+              <el-form-item label="告警等级" prop="alarmLevel">
+                <el-select v-model="form.alarmLevel" placeholder="请选择告警等级">
+                  <el-option label="严重" value="critical" />
+                  <el-option label="警告" value="warning" />
+                  <el-option label="提醒" value="info" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="转事件">
+                <el-radio-group v-model="form.convertToEvent">
+                  <el-radio :value="0">否</el-radio>
+                  <el-radio :value="1">是</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="状态" prop="status">
+                <el-radio-group v-model="form.status">
+                  <el-radio :value="0">启用</el-radio>
+                  <el-radio :value="1">停用</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>通知与说明</h3>
+                <p>维护通知通道和补充说明，便于后续排障、回顾和跨岗位协同。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="通知方式" class="ops-drawer-grid__full">
+                <el-checkbox-group v-model="form.notificationMethods">
+                  <el-checkbox label="email">邮件</el-checkbox>
+                  <el-checkbox label="sms">短信</el-checkbox>
+                  <el-checkbox label="wechat">微信</el-checkbox>
+                </el-checkbox-group>
+              </el-form-item>
+              <el-form-item label="描述" prop="remark" class="ops-drawer-grid__full">
+                <el-input v-model="form.remark" type="textarea" :rows="4" placeholder="请输入规则说明、适用范围或维护备注" />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
       <template #footer>
         <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
         <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>

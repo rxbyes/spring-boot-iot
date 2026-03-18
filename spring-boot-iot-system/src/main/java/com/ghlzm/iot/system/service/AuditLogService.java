@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 
 import java.util.List;
 
@@ -25,6 +26,11 @@ public interface AuditLogService extends IService<AuditLog> {
        * 分页查询审计日志
        */
       PageResult<AuditLog> pageLogs(AuditLog log, Boolean excludeSystemError, Integer pageNum, Integer pageSize);
+
+      /**
+       * 查询 system_error 统计概览。
+       */
+      SystemErrorStatsVO getSystemErrorStats(AuditLog log);
 
       /**
        * 根据ID查询审计日志

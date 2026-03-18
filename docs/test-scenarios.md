@@ -407,6 +407,9 @@ npm run acceptance:browser:plan
 - 统一输出 `logs/acceptance/business-browser-results-<timestamp>.json`
 - 统一输出 `logs/acceptance/business-browser-report-<timestamp>.md`
 - 统一输出 `logs/acceptance/business-browser-screenshots-<timestamp>/`
+- 配置驱动视觉断言额外输出 `logs/acceptance/config-browser-visual-manifest-<timestamp>.json`
+- 配置驱动视觉断言额外输出 `logs/acceptance/config-browser-visual-index-<timestamp>.html`
+- 配置驱动视觉断言额外输出 `logs/acceptance/config-browser-visual-failures-<timestamp>.html`
 - 视觉回归失败时，报告会附带 baseline / actual / diff 图片路径、差异像素与差异比例，便于排查页面变更与样式回归。
 
 问题记录规则：
@@ -426,6 +429,7 @@ npm run acceptance:browser:plan
 - 支持把盘点结果一键生成页面冒烟脚手架；对外部系统可通过“新增自定义页面”补充页面清单后再生成脚手架。
 - 执行器已升级为步骤注册中心，当前内置支持 `setChecked`、`uploadFile`、`tableRowAction`、`dialogAction` 等高频复杂动作，可继续扩展更多插件式步骤。
 - 计划目标已支持维护 `baselineDir`，步骤已支持 `assertScreenshot`、`screenshotTarget`、`baselineName`、`threshold`、`fullPage`，可直接在前端完成视觉基线编排。
+- 示例计划 `config/automation/sample-web-smoke-plan.json` 已内置 `device-assert-visual-page` 截图断言，可直接作为首个页面基线样例。
 - 支持导出标准 JSON 计划，供 `scripts/auto/run-browser-acceptance.mjs --plan=...` 直接执行。
 - 适合把当前 IoT 平台页面巡检、外部业务系统页面验证与后续扩面场景统一纳入一套执行骨架。
 
@@ -437,6 +441,8 @@ npm run acceptance:browser:plan
 node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web-smoke-plan.json --dry-run
 node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web-smoke-plan.json --update-baseline
 node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web-smoke-plan.json
+node scripts/auto/manage-visual-baselines.mjs --input=logs/acceptance/config-browser-visual-manifest-<timestamp>.json
+node scripts/auto/manage-visual-baselines.mjs --input=logs/acceptance/config-browser-visual-manifest-<timestamp>.json --mode=promote --status=missing,mismatch --apply
 ```
 
 建议实践：
@@ -452,4 +458,14 @@ node scripts/auto/run-browser-acceptance.mjs --plan=config/automation/sample-web
 - `assertScreenshot` 支持两类目标：`page` 用于整页基线，`locator` 用于表格、图表、卡片等局部区域基线。
 - 若未找到基线且未开启 `--update-baseline`，执行器会把该步骤标记为失败，并在报告中提示缺失基线。
 - 若存在基线，执行器会输出 baseline / actual / diff 三类图片路径，并在 Markdown 报告中汇总视觉断言通过数、失败数、刷新数与缺失数。
+- 每轮执行还会生成 visual manifest JSON、diff 图片索引页和失败截图明细页，便于测试、产品、设计协同查看视觉差异。
 - 推荐将关键页面首屏、复杂表格、图表看板、弹窗结果页纳入视觉断言，和文本/API 断言形成互补证据链。
+
+### 13.3 视觉基线治理命令
+
+- `scripts/auto/manage-visual-baselines.mjs` 支持读取两类输入：配置驱动执行输出的 visual manifest JSON，或完整的 browser results JSON。
+- 默认 `--mode=audit` 会按筛选条件输出治理 JSON 与 Markdown 报告，便于先做离线审计，再决定是否提升基线。
+- `--status=passed,mismatch,missing,updated` 支持按视觉断言状态过滤；若不传且使用 `--mode=promote`，默认治理 `missing,mismatch`。
+- `--scenario=...` 与 `--label=...` 可进一步按场景、步骤名称缩小治理范围，适合对单页或单组件做定向基线维护。
+- 仅在明确评审通过后才执行 `--mode=promote --apply`，脚本会把 actual 图片复制为 baseline，并输出本轮提升记录。
+- 前端工作目录已补充快捷命令：`cd spring-boot-iot-ui && npm run acceptance:browser:baseline:manage -- --input=../logs/acceptance/config-browser-visual-manifest-<timestamp>.json`

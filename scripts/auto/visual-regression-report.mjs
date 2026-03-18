@@ -50,7 +50,7 @@ export function resolveVisualRecordCategory(record) {
   if (record.baselineUpdated) {
     return 'updated';
   }
-  if (record.stepStatus === 'failed') {
+  if (record.stepStatus === 'failed' || record.status === 'failed') {
     return 'mismatch';
   }
   return 'passed';

@@ -138,6 +138,14 @@ function handleClose() {
   box-shadow: 0 14px 32px rgba(32, 55, 90, 0.05);
 }
 
+.standard-form-drawer :deep(.el-form.ops-drawer-form) {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .standard-form-drawer :deep(.el-form-item:last-child) {
   margin-bottom: 0;
 }
