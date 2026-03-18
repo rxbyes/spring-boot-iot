@@ -21,6 +21,7 @@ import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,9 @@ import java.util.stream.Collectors;
 public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceMessageServiceImpl.class);
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UNKNOWN_DEVICE_ID = 0L;
+    private static final String DISPATCH_FAILED_MESSAGE_TYPE = "dispatch_failed";
     private static final List<String> COMMAND_ID_ALIASES = List.of("commandId", "messageId");
     private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
 
@@ -130,6 +135,35 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         updateDeviceOnlineStatus(device, upMessage);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordDispatchFailureTrace(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage) {
+        String traceId = rawDeviceMessage == null ? null : rawDeviceMessage.getTraceId();
+        if (!hasText(traceId)) {
+            traceId = TraceContextHolder.currentOrCreate();
+        }
+
+        String deviceCode = rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode();
+        String productKey = rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey();
+        Device device = hasText(deviceCode) ? findDeviceByCode(deviceCode) : null;
+        Product product = hasText(productKey) ? findProductByKey(productKey) : null;
+
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setTenantId(resolveTenantId(rawDeviceMessage, device));
+        // 前置校验失败时设备可能不存在，使用 0 作为占位，保证轨迹记录可落库可检索。
+        logRecord.setDeviceId(device == null ? UNKNOWN_DEVICE_ID : device.getId());
+        logRecord.setProductId(resolveProductId(device, product));
+        logRecord.setTraceId(traceId);
+        logRecord.setDeviceCode(deviceCode);
+        logRecord.setProductKey(productKey);
+        logRecord.setMessageType(DISPATCH_FAILED_MESSAGE_TYPE);
+        logRecord.setTopic(topic);
+        logRecord.setPayload(resolvePayloadText(payload));
+        logRecord.setReportTime(LocalDateTime.now());
+        logRecord.setCreateTime(LocalDateTime.now());
+        deviceMessageLogMapper.insert(logRecord);
+    }
+
     private Device findDeviceByCode(String deviceCode) {
         return deviceMapper.selectOne(
                 new LambdaQueryWrapper<Device>()
@@ -137,6 +171,43 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                         .eq(Device::getDeleted, 0)
                         .last("limit 1")
         );
+    }
+
+    private Product findProductByKey(String productKey) {
+        return productMapper.selectOne(
+                new LambdaQueryWrapper<Product>()
+                        .eq(Product::getProductKey, productKey)
+                        .eq(Product::getDeleted, 0)
+                        .last("limit 1")
+        );
+    }
+
+    private Long resolveTenantId(RawDeviceMessage rawDeviceMessage, Device device) {
+        if (device != null && device.getTenantId() != null) {
+            return device.getTenantId();
+        }
+        if (rawDeviceMessage == null || !hasText(rawDeviceMessage.getTenantId())) {
+            return DEFAULT_TENANT_ID;
+        }
+        try {
+            return Long.parseLong(rawDeviceMessage.getTenantId().trim());
+        } catch (NumberFormatException ex) {
+            return DEFAULT_TENANT_ID;
+        }
+    }
+
+    private Long resolveProductId(Device device, Product product) {
+        if (device != null && device.getProductId() != null) {
+            return device.getProductId();
+        }
+        return product == null ? null : product.getId();
+    }
+
+    private String resolvePayloadText(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return null;
+        }
+        return new String(payload, StandardCharsets.UTF_8);
     }
 
     private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query) {

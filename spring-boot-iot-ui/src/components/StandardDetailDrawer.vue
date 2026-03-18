@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-drawer
     :model-value="modelValue"
     :size="size"
@@ -88,7 +88,7 @@ const emit = defineEmits<{
     radial-gradient(circle at top right, rgba(79, 140, 255, 0.1), transparent 30%),
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.07), transparent 22%),
     linear-gradient(180deg, rgba(250, 252, 255, 0.99), rgba(244, 248, 253, 0.99));
-  box-shadow: -12px 0 32px rgba(32, 55, 90, 0.1);
+  box-shadow: var(--shadow-drawer);
 }
 
 .standard-detail-drawer :deep(.el-drawer__header) {
@@ -157,7 +157,7 @@ const emit = defineEmits<{
 
 .detail-drawer__tags :deep(.el-tag) {
   min-height: 1.8rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding-inline: 0.7rem;
   border-color: rgba(79, 111, 154, 0.1);
 }
@@ -333,7 +333,7 @@ const emit = defineEmits<{
   margin-top: 0.1rem;
   padding: 1rem 1.05rem;
   border: 1px solid rgba(15, 23, 42, 0.16);
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
   background: linear-gradient(180deg, #0f172a, #162033);
   color: #e7eefb;
   font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
@@ -389,7 +389,7 @@ const emit = defineEmits<{
   align-items: center;
   min-height: 1.7rem;
   padding: 0.26rem 0.62rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(79, 111, 154, 0.08);
   background: rgba(247, 250, 255, 0.96);
 }
@@ -465,3 +465,4 @@ const emit = defineEmits<{
   }
 }
 </style>
+

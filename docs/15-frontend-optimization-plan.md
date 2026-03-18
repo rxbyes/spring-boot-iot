@@ -810,3 +810,44 @@ const response = await getDeviceProperties('demo-device-01');
   - `src/views/DeviceInsightView.vue`
   - `src/views/EventDisposalView.vue`
 - Hardcoded color scan baseline (brand/accent literals) now remains only in `src/styles/tokens.css` as source token definitions.
+
+## 2026-03-18 Stage 1 + Stage 2
+
+- Stage 1 (theme baseline) completed:
+  - `src/stores/theme.ts` is now token-driven.
+  - Default theme colors are aligned with brand tokens (`#ff6a00` / `#ff8833`) instead of legacy blue defaults.
+  - `applyTheme` now updates `--primary/--brand` token variables first, then keeps Element Plus variables aligned to the same token source.
+  - `loadSystemPreference` keeps a stable light-mode acceptance baseline to avoid runtime color drift.
+- Stage 2 (page skeleton unification) completed:
+  - `PanelCard` now supports a `#header` slot so legacy page headers can be migrated without changing business structure.
+  - Root list/workbench cards in system/governance/report pages have been migrated from direct `el-card` usage to `PanelCard`.
+  - Current `views` status: `PanelCard` used by 27/28 pages; the only remaining `el-card` usage in `views` is KPI sub-cards inside `ReportAnalysisView` (non-root card fragments).
+- Follow-up plan:
+  - Stage 3 and Stage 4 are intentionally deferred for manual acceptance feedback before rollout.
+
+## 2026-03-18 Stage 3 列表与分页统一
+
+- 设备接入一级目录与系统治理一级目录的高频列表页已补齐统一列表容器 `standard-list-view`，列表外边距、筛选卡、表格区和分页区改为同一套全局规范。
+- `MessageTraceView` 已切换为复用 `StandardPagination + useServerPagination`，与系统治理分页契约保持一致，不再单页维护独立分页状态。
+- `MenuView` 已对齐系统治理列表模板：筛选区改用标准 `search-form`，补齐统一操作条和刷新入口，分页样式改用公共 `pagination` 区域。
+- 已清理组织、用户、角色、区域、字典、通知渠道、系统日志、消息追踪等页面内重复的局部列表样式，避免同目录页面因局部 `scoped` 样式出现间距和观感漂移。
+- 2026-03-18 起，组织、用户、角色、区域、字典、通知渠道、菜单及字典项子表统一启用表格单元格单行省略；超出列宽的内容默认悬停展示完整值，不再在列表中自动换行，交互与业务日志页保持一致。
+
+## 2026-03-18 Frontend 修改问题沉淀
+
+### 本次暴露的问题
+- 在页面统一过程中，个别新增文案曾被错误编码写入 `MenuView.vue`，表现为按钮与统计文案出现 `褰撳墠缁撴灉`、`鍒锋柊鍒楄〃` 一类乱码。
+- 列表页统一前，不同一级目录下同时存在全局样式、目录级样式和页面局部 `scoped` 样式三套口径，容易在新页面优化时继续复制出新的分页/列表差异。
+- 构建校验阶段发现，页面优化任务之外的文件也可能阻塞前端整体构建，因此页面改造完成后不能只看局部页面效果，还要补做至少一次构建或类型校验。
+
+### 原因分析
+- Windows 终端在非 UTF-8 口径下查看或复制中文内容时，容易把显示乱码误当成真实文本再次写回文件。
+- 页面列表结构长期以“局部修补”为主，部分页面虽然已切换到 `PanelCard` 和 `StandardPagination`，但仍保留旧的局部样式覆盖，导致统一规范难以稳定收口。
+- 缺少前端任务结束前的固定检查清单，导致编码、样式漂移、分页契约不一致等问题容易在新窗口重复出现。
+
+### 后续防呆规则
+- 前端文件编辑前后统一按 UTF-8 口径核对内容；在 Windows 终端中至少执行一次 UTF-8 方式查看文件，确认中文文案显示正常后再继续修改。
+- 禁止把终端中显示异常的中文直接复制回源码；发现 `鍒�`、`褰�`、`璇�`、`鐢�`、`缁�` 一类字符串时，视为必须修复的问题，不能带着结束任务。
+- 新的列表页或分页优化，必须优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、`standard-list-view` 与现有 design tokens；不再新增另一套页面私有列表骨架，除非文档中明确说明例外原因。
+- 页面或样式改造完成后，至少补做一次 `git diff` 自检和一次前端构建/类型校验；若被其他现存文件阻塞，也要把阻塞文件和原因写入结果说明。
+- 今后无论是否在新的对话窗口继续优化页面，只要涉及 `spring-boot-iot-ui` 的页面结构、列表样式、分页逻辑或中文文案，都必须先遵守本节规则，再开始编码。

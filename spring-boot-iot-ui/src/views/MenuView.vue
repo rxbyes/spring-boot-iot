@@ -1,6 +1,6 @@
 <template>
-  <div class="menu-view">
-    <el-card>
+  <div class="menu-view sys-mgmt-view standard-list-view">
+    <PanelCard class="box-card">
       <template #header>
         <div class="menu-view__header">
           <div class="menu-view__header-content">
@@ -14,7 +14,7 @@
         </div>
       </template>
 
-      <el-form :model="filters" label-width="90px" class="menu-view__filters">
+      <el-form :model="filters" label-width="90px" class="search-form menu-view__filters">
         <el-row :gutter="16">
           <el-col :span="6">
             <el-form-item label="菜单名称">
@@ -61,11 +61,21 @@
         class="menu-view__alert"
       />
 
+      <div class="table-action-bar">
+        <div class="table-action-bar__left">
+          <span class="table-action-bar__meta">当前结果 {{ pagination.total }} 条</span>
+        </div>
+        <div class="table-action-bar__right">
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </div>
+      </div>
+
       <el-table
         v-loading="loading"
         :data="tableData"
         border
         stripe
+        show-overflow-tooltip
         row-key="id"
         :lazy="!isFilterMode"
         :load="loadChildren"
@@ -90,7 +100,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="sort" label="排序" width="80" />
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button v-permission="'system:menu:update'" type="primary" link @click="openEdit(row.id)">编辑</el-button>
             <el-button v-permission="'system:menu:add'" type="primary" link @click="openAddChild(row.id)">新增子级</el-button>
@@ -105,11 +115,11 @@
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
-        class="menu-view__pagination"
+        class="pagination menu-view__pagination"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
-    </el-card>
+    </PanelCard>
 
     <StandardFormDrawer
       v-model="dialogVisible"
@@ -180,6 +190,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
+import PanelCard from '@/components/PanelCard.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -292,6 +303,10 @@ function handleReset() {
   filters.menuCode = ''
   filters.type = undefined
   resetPage()
+  loadMenuPage()
+}
+
+function handleRefresh() {
   loadMenuPage()
 }
 
@@ -410,17 +425,4 @@ onMounted(() => {
   gap: 12px;
 }
 
-.menu-view__filters {
-  margin-bottom: 12px;
-}
-
-.menu-view__alert {
-  margin-bottom: 12px;
-}
-
-.menu-view__pagination {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
-}
 </style>

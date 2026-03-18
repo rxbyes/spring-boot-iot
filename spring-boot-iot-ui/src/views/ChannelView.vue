@@ -1,6 +1,6 @@
 <template>
-  <div class="channel-view sys-mgmt-view">
-    <el-card class="box-card">
+  <div class="channel-view sys-mgmt-view standard-list-view">
+    <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
           <span>通知渠道</span>
@@ -56,6 +56,7 @@
         border
         stripe
         style="width: 100%"
+        show-overflow-tooltip
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
@@ -75,7 +76,7 @@
         </el-table-column>
         <el-table-column prop="sortNo" label="排序" width="80" />
         <el-table-column prop="remark" label="备注" />
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="success" link :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">
@@ -153,7 +154,7 @@
         :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
-    </el-card>
+    </PanelCard>
   </div>
 </template>
 
@@ -162,6 +163,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import PanelCard from '@/components/PanelCard.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
@@ -449,30 +451,6 @@ const handlePageChange = (page: number) => {
 </script>
 
 <style scoped>
-.channel-view {
-  padding: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.search-form {
-  margin-bottom: 12px;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.pagination {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .form-tip {
   margin-top: 8px;
   color: var(--el-text-color-secondary);

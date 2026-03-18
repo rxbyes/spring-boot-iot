@@ -78,6 +78,13 @@ When environment access is blocked, report the environment blocker explicitly. D
 - Do not create duplicate replacement docs such as `README-v2.md`, `api-new.md`, `new-frontend-doc.md`, or similar files.
 - This rule applies to all coding agents and coding models, including Codex, Qwen Code, and others.
 
+## Frontend encoding and consistency rule
+- Any page or style change in `spring-boot-iot-ui` must preserve UTF-8 readability. Do not paste terminal-garbled text into `.vue`, `.ts`, `.css`, `.json`, or `.md` files.
+- Before editing frontend files on Windows terminals, prefer UTF-8 viewing/verification (for example `chcp 65001` plus `Get-Content -Encoding UTF8`) so displayed text matches file contents.
+- After editing frontend text content, labels, placeholders, comments, or documentation, always self-check for mojibake such as `鍒�`, `褰�`, `璇�`, `鐢�` and fix it before ending the task.
+- New page optimization work must reuse the existing shared page patterns first: `PanelCard`, `StandardPagination`, `useServerPagination`, shared global list styles, and existing design tokens. Do not add another page-local list/pagination style when an existing standard pattern already fits.
+- If a frontend change introduces or reveals style drift, duplicated list layouts, or inconsistent pagination behavior, record the issue and the prevention rule in `docs/15-frontend-optimization-plan.md` before closing the task.
+
 ## Always read before coding
 - README.md
 - docs/00-overview.md

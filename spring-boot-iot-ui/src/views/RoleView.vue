@@ -1,6 +1,6 @@
 <template>
-  <div class="role-view sys-mgmt-view">
-    <el-card class="box-card">
+  <div class="role-view sys-mgmt-view standard-list-view">
+    <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
           <div class="card-header__content">
@@ -70,6 +70,7 @@
         border
         stripe
         style="width: 100%"
+        show-overflow-tooltip
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
@@ -85,7 +86,7 @@
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column prop="updateTime" label="更新时间" width="180" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button v-permission="'system:role:update'" type="primary" link @click="handleEdit(row)">编辑/授权</el-button>
             <el-button v-permission="'system:role:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
@@ -242,7 +243,7 @@
         :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
-    </el-card>
+    </PanelCard>
   </div>
 </template>
 
@@ -251,6 +252,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
@@ -654,10 +656,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.role-view {
-  padding: 12px;
-}
-
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -673,20 +671,6 @@ onMounted(async () => {
 .card-header__content small {
   color: var(--el-text-color-secondary);
   line-height: 1.5;
-}
-
-.search-form {
-  margin-bottom: 12px;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.pagination {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .role-form-layout {

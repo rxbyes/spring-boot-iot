@@ -680,7 +680,7 @@ export async function runBrowserAcceptance({
   const findLabeledFormItem = (dialog, label) =>
     dialog
       .locator('.el-form-item')
-      .filter({ has: dialog.locator('.el-form-item__label', { hasText: label }).first() })
+      .filter({ hasText: label })
       .first();
 
   const fillDialogFields = async (page, dialog, fields) => {
@@ -688,7 +688,7 @@ export async function runBrowserAcceptance({
       if (field.type === 'select') {
         if (field.label) {
           await findLabeledFormItem(dialog, field.label)
-            .locator('.el-select .el-select__wrapper, .el-select .el-input__wrapper, .el-select')
+            .locator('.el-select__wrapper, .el-input__wrapper')
             .first()
             .click({ force: true });
         } else {

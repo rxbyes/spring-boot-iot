@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="header-status">
     <div class="header-tools" aria-label="系统工具">
       <button
@@ -52,7 +52,7 @@
       </button>
 
       <transition name="account-pop">
-        <div v-if="accountMenuOpen" class="account-panel" role="menu" aria-label="账号菜单">
+        <div v-if="accountMenuOpen" class="account-panel" role="menu" aria-label="账户菜单">
           <div class="account-panel__summary">
             <div class="account-panel__identity">
               <span class="account-panel__avatar">{{ accountInitial }}</span>
@@ -208,9 +208,9 @@ onBeforeUnmount(() => {
 .tool-text {
   min-height: 1.7rem;
   padding: 0 0.58rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid #e8edf5;
-  background: #fbfcfe;
+  background: var(--surface-raised);
   color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 500;
@@ -221,15 +221,15 @@ onBeforeUnmount(() => {
 }
 
 .tool-text:hover {
-  border-color: #d3dff2;
+  border-color: var(--line-brand-soft);
   color: var(--accent);
   background: #f6f9fe;
 }
 
 .tool-text--active {
-  border-color: #a8c4ef;
+  border-color: var(--line-brand-mid);
   color: var(--accent);
-  background: #edf4ff;
+  background: var(--bg-active);
 }
 
 .tool-text__label {
@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
   top: 50%;
   width: 0.42rem;
   height: 0.42rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transform: translateY(-50%);
   background: rgba(126, 142, 166, 0.55);
 }
@@ -260,13 +260,13 @@ onBeforeUnmount(() => {
 .tool-text__badge {
   min-width: 1.04rem;
   height: 1.04rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0 0.24rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--danger);
-  color: #fff;
+  color: var(--bg-card);
   font-size: 0.64rem;
   font-weight: 700;
 }
@@ -281,9 +281,9 @@ onBeforeUnmount(() => {
   gap: 0.42rem;
   min-height: 1.9rem;
   padding: 0.2rem 0.46rem 0.2rem 0.28rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid #e8edf5;
-  background: #fbfcfe;
+  background: var(--surface-raised);
 }
 
 .account-chip__avatar,
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: #fff;
+  color: var(--bg-card);
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
 }
 
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
 .account-chip__meta strong {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #1f3558;
+  color: var(--text-heading);
 }
 
 .account-chip__sr {
@@ -353,16 +353,16 @@ onBeforeUnmount(() => {
   width: 18.5rem;
   border-radius: 0.95rem;
   border: 1px solid #dbe4f2;
-  background: #fff;
-  box-shadow: 0 18px 48px rgba(20, 32, 56, 0.16);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-popover);
   overflow: hidden;
   z-index: 25;
 }
 
 .account-panel__summary {
   padding: 0.95rem 1rem 0.85rem;
-  border-bottom: 1px solid #edf1f7;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #f8fbff 0%, var(--bg-card) 100%);
 }
 
 .account-panel__identity {
@@ -384,12 +384,12 @@ onBeforeUnmount(() => {
 .account-panel__meta strong {
   display: block;
   font-size: 0.96rem;
-  color: #1f3558;
+  color: var(--text-heading);
 }
 
 .account-panel__meta p {
   margin: 0.18rem 0 0;
-  color: #6a7c97;
+  color: var(--text-caption-2);
   font-size: 0.75rem;
 }
 
@@ -405,7 +405,7 @@ onBeforeUnmount(() => {
   align-items: center;
   min-height: 1.4rem;
   padding: 0 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #eef3fb;
   color: #3a557f;
   font-size: 0.7rem;
@@ -423,7 +423,7 @@ onBeforeUnmount(() => {
 }
 
 .account-panel__group + .account-panel__group {
-  border-top: 1px solid #edf1f7;
+  border-top: 1px solid var(--line-soft);
 }
 
 .account-panel__action {
@@ -433,17 +433,17 @@ onBeforeUnmount(() => {
   gap: 0.22rem;
   text-align: left;
   border: none;
-  background: #fff;
+  background: var(--bg-card);
 }
 
 .account-panel__action span {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #1f3558;
+  color: var(--text-heading);
 }
 
 .account-panel__action small {
-  color: #6a7c97;
+  color: var(--text-caption-2);
   font-size: 0.71rem;
 }
 
@@ -487,3 +487,5 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+

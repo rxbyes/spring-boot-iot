@@ -1,8 +1,12 @@
 import { defineStore } from 'pinia';
 
-/**
- * 主题状态
- */
+const DEFAULT_LIGHT_THEME = {
+  primaryColor: '#ff6a00',
+  secondaryColor: '#ff8833',
+  backgroundColor: '#f5f7fa',
+  textColor: '#1f2329'
+} as const;
+
 export interface ThemeState {
   mode: 'light' | 'dark';
   primaryColor: string;
@@ -11,25 +15,16 @@ export interface ThemeState {
   textColor: string;
 }
 
-/**
- * 主题状态管理
- */
 export const useThemeStore = defineStore('theme', {
   state: (): ThemeState => ({
     mode: 'light',
-    primaryColor: '#409EFF',
-    secondaryColor: '#66B1FF',
-    backgroundColor: '#F5F7FA',
-    textColor: '#303133'
+    primaryColor: DEFAULT_LIGHT_THEME.primaryColor,
+    secondaryColor: DEFAULT_LIGHT_THEME.secondaryColor,
+    backgroundColor: DEFAULT_LIGHT_THEME.backgroundColor,
+    textColor: DEFAULT_LIGHT_THEME.textColor
   }),
   getters: {
-    /**
-     * 获取主题模式
-     */
     themeMode: (state) => state.mode,
-    /**
-     * 获取主题配置
-     */
     themeConfig: (state) => ({
       mode: state.mode,
       colors: {
@@ -41,55 +36,57 @@ export const useThemeStore = defineStore('theme', {
     })
   },
   actions: {
-    /**
-     * 切换主题模式
-     */
     toggleMode() {
       this.mode = this.mode === 'light' ? 'dark' : 'light';
     },
-    /**
-     * 设置主题模式
-     */
     setMode(mode: 'light' | 'dark') {
       this.mode = mode;
     },
-    /**
-     * 设置主题颜色
-     */
     setColors(colors: Partial<ThemeState>) {
       Object.assign(this, colors);
     },
-    /**
-     * 应用主题到文档
-     */
     applyTheme() {
       const root = document.documentElement;
       const { mode, primaryColor, secondaryColor, backgroundColor, textColor } = this;
 
-      if (mode === 'dark') {
-        root.style.setProperty('--el-bg-color', '#0a0a0a');
-        root.style.setProperty('--el-bg-color-page', '#1a1a1a');
-        root.style.setProperty('--el-text-color-primary', '#ffffff');
-        root.style.setProperty('--el-text-color-regular', '#cccccc');
-        root.style.setProperty('--el-border-color', '#333333');
-        root.style.setProperty('--el-fill-color', '#2a2a2a');
-      } else {
-        root.style.setProperty('--el-bg-color', backgroundColor);
-        root.style.setProperty('--el-text-color-primary', textColor);
-        root.style.setProperty('--el-text-color-regular', '#666666');
-        root.style.setProperty('--el-border-color', '#dcdfe6');
-        root.style.setProperty('--el-fill-color', '#f5f7fa');
-      }
+      // Use token variables as the single source of truth.
+      root.style.setProperty('--primary', primaryColor);
+      root.style.setProperty('--primary-bright', secondaryColor);
+      root.style.setProperty('--primary-deep', 'color-mix(in srgb, var(--primary) 88%, black)');
+      root.style.setProperty('--primary-light', 'color-mix(in srgb, var(--primary) 10%, transparent)');
+      root.style.setProperty('--brand', 'var(--primary)');
+      root.style.setProperty('--brand-bright', 'var(--primary-bright)');
+      root.style.setProperty('--brand-deep', 'var(--primary-deep)');
+      root.style.setProperty('--brand-light', 'var(--primary-light)');
+      root.style.setProperty('--bg', backgroundColor);
+      root.style.setProperty('--text-primary', textColor);
 
-      root.style.setProperty('--el-color-primary', primaryColor);
-      root.style.setProperty('--el-color-primary-light-3', secondaryColor);
+      // Keep Element Plus colors aligned to the same tokens.
+      root.style.setProperty('--el-color-primary', 'var(--brand)');
+      root.style.setProperty('--el-color-primary-light-3', 'color-mix(in srgb, var(--brand) 72%, white)');
+      root.style.setProperty('--el-color-primary-light-5', 'color-mix(in srgb, var(--brand) 56%, white)');
+      root.style.setProperty('--el-color-primary-light-7', 'color-mix(in srgb, var(--brand) 38%, white)');
+      root.style.setProperty('--el-color-primary-dark-2', 'color-mix(in srgb, var(--brand) 86%, black)');
+
+      if (mode === 'dark') {
+        root.style.setProperty('--el-bg-color', '#111827');
+        root.style.setProperty('--el-bg-color-page', '#0f172a');
+        root.style.setProperty('--el-text-color-primary', '#f8fafc');
+        root.style.setProperty('--el-text-color-regular', '#cbd5e1');
+        root.style.setProperty('--el-border-color', '#334155');
+        root.style.setProperty('--el-fill-color', '#1e293b');
+      } else {
+        root.style.setProperty('--el-bg-color', 'var(--bg-card)');
+        root.style.setProperty('--el-bg-color-page', 'var(--bg)');
+        root.style.setProperty('--el-text-color-primary', 'var(--text-primary)');
+        root.style.setProperty('--el-text-color-regular', 'var(--text-secondary)');
+        root.style.setProperty('--el-border-color', 'var(--panel-border)');
+        root.style.setProperty('--el-fill-color', 'var(--bg-hover)');
+      }
     },
-    /**
-     * 从系统偏好设置加载主题
-     */
     loadSystemPreference() {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      this.mode = prefersDark ? 'dark' : 'light';
+      // Keep a stable light baseline for unified UI acceptance.
+      this.mode = 'light';
     }
   }
 });

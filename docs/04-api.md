@@ -935,3 +935,8 @@ Authorization: Bearer <jwt-token>
 - `id` 为当前登录用户 ID。
 - 前端右上角头像菜单中的“修改密码”会调用该接口。
 - 修改成功后，前端会清理当前登录态并要求重新登录。
+
+## 消息追踪补充（2026-03-18）
+- 当 MQTT 上行消息在前置校验阶段失败（如设备不存在、产品不匹配）时，后端会额外补写一条 `iot_device_message_log` 记录。
+- 补写记录的 `messageType=dispatch_failed`，用于将 `sys_audit_log` 的 `system_error` 与 `/api/device/message-trace/page` 通过同一 `traceId` 进行链路关联。
+- 设备不存在场景允许 `deviceId=0` 占位，并保留 `traceId/deviceCode/productKey/topic/payload` 供审计与排障。

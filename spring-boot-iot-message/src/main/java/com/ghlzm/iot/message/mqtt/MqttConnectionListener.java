@@ -1,6 +1,7 @@
 package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
+import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
@@ -8,6 +9,7 @@ import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -27,11 +29,20 @@ public class MqttConnectionListener {
 
     private final ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider;
     private final ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider;
+    private final ObjectProvider<DeviceMessageService> deviceMessageServiceProvider;
 
+    @Autowired
     public MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
-                                  ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider) {
+                                  ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider,
+                                  ObjectProvider<DeviceMessageService> deviceMessageServiceProvider) {
         this.backendExceptionRecorderProvider = backendExceptionRecorderProvider;
         this.deviceAccessErrorLogServiceProvider = deviceAccessErrorLogServiceProvider;
+        this.deviceMessageServiceProvider = deviceMessageServiceProvider;
+    }
+
+    MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
+                           ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider) {
+        this(backendExceptionRecorderProvider, deviceAccessErrorLogServiceProvider, null);
     }
 
     public void onConnectComplete(boolean reconnect, String serverUri) {
@@ -111,6 +122,7 @@ public class MqttConnectionListener {
             putIfHasText(context, "messageType", rawDeviceMessage.getMessageType());
             putIfHasText(context, "topicRouteType", rawDeviceMessage.getTopicRouteType());
         }
+        archiveFailureTrace(topic, payload, rawDeviceMessage);
         archiveAccessFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
         recordBackendException(
                 "MqttMessageConsumer#messageArrived",
@@ -137,6 +149,21 @@ public class MqttConnectionListener {
             service.archiveMqttFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
         } catch (Exception ex) {
             log.warn("归档失败报文失败, topic={}, error={}", topic, ex.getMessage());
+        }
+    }
+
+    private void archiveFailureTrace(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage) {
+        if (deviceMessageServiceProvider == null) {
+            return;
+        }
+        DeviceMessageService service = deviceMessageServiceProvider.getIfAvailable();
+        if (service == null) {
+            return;
+        }
+        try {
+            service.recordDispatchFailureTrace(topic, payload, rawDeviceMessage);
+        } catch (Exception ex) {
+            log.warn("写入失败轨迹日志失败, topic={}, error={}", topic, ex.getMessage());
         }
     }
 

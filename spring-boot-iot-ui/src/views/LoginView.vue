@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-page">
     <div class="login-page__glow login-page__glow--warm" />
     <div class="login-page__glow login-page__glow--cool" />
@@ -127,7 +127,6 @@
     </main>
   </div>
 </template>
-
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
@@ -324,13 +323,12 @@ function finderOrigins(size: number) {
   ];
 }
 </script>
-
 <style scoped>
 .login-page {
   --panel-bg: rgba(255, 255, 255, 0.82);
   --line-color: rgba(95, 118, 158, 0.2);
   --text-main: #1f2d46;
-  --text-subtle: #607594;
+  --text-subtle: var(--text-caption);
   --brand-blue: #1f6df0;
 
   position: relative;
@@ -477,7 +475,7 @@ function finderOrigins(size: number) {
   margin-top: 1.35rem;
   padding: 0.95rem;
   border: 1px solid rgba(81, 109, 149, 0.16);
-  background: #fff;
+  background: var(--bg-card);
 }
 
 .qr-stage__scanner {
@@ -588,7 +586,7 @@ function finderOrigins(size: number) {
 
 .auth-form__tip {
   margin: 0.15rem 0 0;
-  color: #607594;
+  color: var(--text-caption);
   font-size: 1.02rem;
 }
 
@@ -699,3 +697,4 @@ function finderOrigins(size: number) {
   }
 }
 </style>
+

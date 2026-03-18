@@ -196,7 +196,7 @@ Phase 4 当前进度口径（参考 `docs/19-phase4-progress.md`）：
 8. 业务日志：`/api/system/audit-log`（前端业务日志页默认排除 `system_error`）
 9. 系统日志：设备接入分区复用 `/api/system/audit-log`，固定查看 `operation_type=system_error`
 10. 消息追踪：`/api/device/message-trace/page`，支持按 `TraceId`、设备编码、产品标识、消息类型、Topic 分页检索接入消息日志
-11. 前端列表交互基线：组织、用户、角色、区域、字典、通知渠道、业务日志，以及告警中心、事件处置、风险点管理、阈值规则、联动规则、应急预案、实时监测、GIS 风险态势统一采用“KPI 概览卡 + 筛选卡 + 列表卡 / 资源卡”工作台结构；其中列表页支持“已选项计数 / 清空选中 / 刷新列表”等操作栏，GIS 未定位对象使用资源卡收拢展示
+11. 前端列表交互基线：组织、用户、角色、区域、字典、通知渠道、菜单、业务日志，以及告警中心、事件处置、风险点管理、阈值规则、联动规则、应急预案、实时监测、GIS 风险态势统一采用“KPI 概览卡 + 筛选卡 + 列表卡 / 资源卡”工作台结构；其中列表页支持“已选项计数 / 清空选中 / 刷新列表”等操作栏，系统治理列表默认对超长单元格内容执行单行省略并在悬停时展示完整值，不再在列表内自动换行，GIS 未定位对象使用资源卡收拢展示
 12. 前端列表导出基线：上述页面均支持“导出选中”与“导出当前结果”CSV（本地导出，不依赖新增后端接口），并包含中文列头与关键状态文案映射
 13. 前端导出设置基线：支持“导出列设置”（列勾选 + 顺序调整），导出配置按页面本地持久化
 14. 前端导出模板基线：支持默认/运维/管理导出模板，快速切换导出列配置
@@ -886,3 +886,7 @@ WHERE deleted = 0;
 - Validation snapshot:
   - `rg -n "<el-pagination" spring-boot-iot-ui/src/views` => no matches.
   - `rg -n "#1677ff|#4096ff|#ff6a00|#ff8833|rgba\\(22, 119, 255|rgba\\(255, 106, 0" spring-boot-iot-ui/src` => only `src/styles/tokens.css` token source definitions remain.
+
+## 日志链路补充（2026-03-18）
+- 系统日志（system_error）与消息追踪链路新增最小兜底：当 MQTT 消息在分发前置校验失败时，iot_device_message_log 会补写 messageType=dispatch_failed 记录。
+- 验收时应核对同一 traceId 在 sys_audit_log 与 /api/device/message-trace/page 可对应命中；设备不存在场景允许 device_id=0 占位。

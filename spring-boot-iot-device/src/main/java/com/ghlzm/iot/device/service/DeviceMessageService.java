@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 
 import java.util.List;
 
@@ -26,4 +27,6 @@ public interface DeviceMessageService {
      * 处理设备上行消息。
      */
     void handleUpMessage(DeviceUpMessage upMessage);
+
+    void recordDispatchFailureTrace(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage);
 }

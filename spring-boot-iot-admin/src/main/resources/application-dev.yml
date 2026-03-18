@@ -59,8 +59,9 @@ iot:
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
     broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
-    username: ${IOT_MQTT_USERNAME:emqx}
+    username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
     default-subscribe-topics:
 #      - $dp

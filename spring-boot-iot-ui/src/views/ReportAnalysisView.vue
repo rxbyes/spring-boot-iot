@@ -1,6 +1,6 @@
 <template>
   <div class="report-analysis-view">
-    <el-card class="box-card">
+    <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
           <span>分析报表</span>
@@ -98,7 +98,7 @@
         </div>
       </div>
       <el-empty v-else description="暂无设备健康数据" />
-    </el-card>
+    </PanelCard>
   </div>
 </template>
 
@@ -116,6 +116,7 @@ import {
   getEventClosureAnalysis,
   getDeviceHealthAnalysis
 } from '@/api/report'
+import PanelCard from '@/components/PanelCard.vue'
 
 echarts.use([
   LineChart,

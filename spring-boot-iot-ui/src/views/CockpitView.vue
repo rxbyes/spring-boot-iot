@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="cockpit-page">
     <section class="cockpit-hero">
       <div class="cockpit-hero__main">
@@ -131,7 +131,6 @@
     </section>
   </div>
 </template>
-
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -241,7 +240,7 @@ const rolePresets: RolePreset[] = [
   {
     key: 'ops',
     label: '运维人员',
-    caption: '稳定性、规则质量与SLA',
+    caption: '稳定性、规则质量与 SLA',
     emphasis: '关注系统稳定、规则有效和跨班协同效率，保证处置链路连续。',
     kpis: [
       { label: '设备在线率', value: '94.6%', badge: { label: '目标 95%', tone: 'warning' } },
@@ -250,13 +249,13 @@ const rolePresets: RolePreset[] = [
       { label: 'SLA 违约事件', value: '2', badge: { label: '需督办', tone: 'danger' } }
     ],
     focusDimensions: [
-      { title: '设备可用性', value: '1,284 / 1,358', description: '当前在线设备与离线设备分布。', trend: '+0.7%', trendTone: 'up' },
+      { title: '设备可用率', value: '1,284 / 1,358', description: '当前在线设备与离线设备分布。', trend: '+0.7%', trendTone: 'up' },
       { title: '规则误报比例', value: '7.8%', description: '需复盘阈值配置与告警抑制规则。', trend: '-0.9%', trendTone: 'up' },
       { title: '工单超时率', value: '4.2%', description: '超时工单比例，反映协同效率。', trend: '-0.5%', trendTone: 'up' },
       { title: '处置回填完整率', value: '91%', description: '工单回填字段完整度。', trend: '+1.6%', trendTone: 'up' }
     ],
     queues: [
-      { label: '离线设备排查', value: '74', hint: '按区域聚合处理', percent: 68, tag: '重点', tone: 'warning' },
+      { label: '离线设备排查', value: '74', hint: '按区域聚合处置', percent: 68, tag: '重点', tone: 'warning' },
       { label: '规则复核队列', value: '9', hint: '误报偏高规则', percent: 46, tag: '优化', tone: 'brand' },
       { label: 'SLA 违约队列', value: '2', hint: '跨班督办', percent: 24, tag: '风险', tone: 'danger' }
     ],
@@ -279,7 +278,7 @@ const rolePresets: RolePreset[] = [
     ],
     focusDimensions: [
       { title: '风险趋势', value: '近 7 日波动 +5%', description: '风险告警总量短期上升，需关注季节性因素。', trend: '+5%', trendTone: 'down' },
-      { title: '事件闭环效率', value: '87%', description: '超 24 小时未闭环比例处于可控区间。', trend: '+3%', trendTone: 'up' },
+      { title: '事件闭环效率', value: '87%', description: '近 24 小时未闭环比例处于可控区间。', trend: '+3%', trendTone: 'up' },
       { title: '跨组织协同得分', value: '81', description: '组织与区域协同质量评分。', trend: '+2', trendTone: 'up' },
       { title: '报告覆盖率', value: '90%', description: '日报/周报生成与审核覆盖程度。', trend: '稳定', trendTone: 'stable' }
     ],
@@ -303,7 +302,7 @@ const rolePresets: RolePreset[] = [
       { label: '上报成功率', value: '99.2%', badge: { label: '稳定', tone: 'success' } },
       { label: '协议解析异常', value: '6', badge: { label: '待排查', tone: 'warning' } },
       { label: '接口 5xx 告警', value: '1', badge: { label: '紧急', tone: 'danger' } },
-      { label: '发布稳定分', value: '86', badge: { label: '可提升', tone: 'brand' } }
+      { label: '发布稳定性', value: '86', badge: { label: '可提升', tone: 'brand' } }
     ],
     focusDimensions: [
       { title: '接入主链路健康度', value: '98.9%', description: 'HTTP/MQTT 主链路端到端可用性。', trend: '稳定', trendTone: 'stable' },
@@ -354,7 +353,7 @@ const dataSourceHint = computed(() => {
     return '数据源状态：正在加载真实统计数据...';
   }
   if (dataSourceState.value === 'live') {
-    return `数据源状态：真实报表聚合（最近同步 ${dashboardUpdatedAt.value || '--'}）`;
+    return `数据源状态：真实报表聚合（最近同步：${dashboardUpdatedAt.value || '--'}）`;
   }
   return '数据源状态：真实接口不可用，当前显示稳定兜底口径';
 });
@@ -380,7 +379,7 @@ function switchRole(role: RoleKey) {
 function navigate(path: string) {
   recordActivity({
     title: `驾驶舱跳转 · ${path}`,
-    detail: `从${activePreset.value.label}视角进入 ${path}`,
+    detail: `${activePreset.value.label}视角进入 ${path}`,
     tag: 'cockpit'
   });
   router.push(path);
@@ -499,9 +498,9 @@ function applyLiveMetrics(payload: {
     rd.kpis[1].value = formatInteger(alarmCritical + alarmHigh);
     rd.kpis[1].badge = { label: '高优告警', tone: 'warning' };
     rd.kpis[2].value = formatInteger(Math.max(0, alarmTrendDelta + eventTrendDelta));
-    rd.kpis[2].badge = { label: '波动项', tone: 'danger' };
+    rd.kpis[2].badge = { label: '波动值', tone: 'danger' };
     rd.kpis[3].value = formatInteger(stabilityScore);
-    rd.kpis[3].badge = { label: '稳定分', tone: stabilityScore >= 85 ? 'success' : 'warning' };
+    rd.kpis[3].badge = { label: '稳定性', tone: stabilityScore >= 85 ? 'success' : 'warning' };
 
     rd.queues[0].value = formatInteger(alarmCritical + alarmHigh);
     rd.queues[1].value = formatInteger(Math.max(0, alarmTrendDelta + eventTrendDelta));
@@ -554,7 +553,6 @@ onUnmounted(() => {
   }
 });
 </script>
-
 <style scoped>
 .cockpit-page {
   --dash-text: #1f2d43;
@@ -688,7 +686,7 @@ onUnmounted(() => {
   border-radius: calc(var(--radius-md) + 2px);
   padding: 0.9rem;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .focus-card span {
@@ -705,7 +703,7 @@ onUnmounted(() => {
 
 .focus-card p {
   margin: 0.5rem 0 0;
-  color: #607594;
+  color: var(--text-caption);
   line-height: 1.65;
   font-size: 0.88rem;
 }
@@ -715,7 +713,7 @@ onUnmounted(() => {
   margin-top: 0.5rem;
   font-size: 0.8rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .trend--up {
@@ -743,7 +741,7 @@ onUnmounted(() => {
   border-radius: calc(var(--radius-md) + 2px);
   padding: 0.85rem;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .queue-item__head {
@@ -753,7 +751,7 @@ onUnmounted(() => {
 }
 
 .badge {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   padding: 0.17rem 0.48rem;
 }
@@ -799,14 +797,14 @@ onUnmounted(() => {
   margin-top: 0.6rem;
   height: 6px;
   background: rgba(142, 166, 200, 0.18);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .queue-item__bar i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, #2f77ff, #6ca7ff);
 }
 
@@ -822,7 +820,7 @@ onUnmounted(() => {
   padding: 0.85rem;
   display: grid;
   gap: 0.5rem;
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .todo-item__meta {
@@ -834,7 +832,7 @@ onUnmounted(() => {
 
 .todo-item p {
   margin: 0;
-  color: #607594;
+  color: var(--text-caption);
   line-height: 1.65;
   font-size: 0.88rem;
 }
@@ -843,9 +841,9 @@ onUnmounted(() => {
   justify-self: start;
   min-height: 1.9rem;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  background: linear-gradient(180deg, var(--bg-card), #f7fbff);
   color: var(--accent-deep);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0 0.82rem;
   font-size: 0.78rem;
   font-weight: 600;
@@ -854,7 +852,7 @@ onUnmounted(() => {
 
 .todo-item button:hover {
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
   box-shadow: 0 4px 10px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
@@ -886,7 +884,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.9);
   padding: 0.82rem;
   text-align: left;
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
   transition: all 160ms ease;
 }
 
@@ -961,3 +959,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

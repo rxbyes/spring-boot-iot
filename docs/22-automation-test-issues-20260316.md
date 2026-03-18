@@ -686,3 +686,29 @@
 - 证据：`logs/acceptance/business-browser-results-20260318151228.json`；`logs/acceptance/business-browser-screenshots-20260318151228/channel-fail.png`
 - 状态：待处理
 
+## 16. 浏览器自动化巡检记录（2026-03-18）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-03-18 15:29:00（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/business-browser-summary-20260318152900.json`
+- `logs/acceptance/business-browser-results-20260318152900.json`
+- `logs/acceptance/business-browser-report-20260318152900.md`
+- `logs/acceptance/business-browser-screenshots-20260318152900/`
+
+### 本轮概览
+
+- 总场景：`21`
+- 通过：`21`
+- 失败：`0`
+- 交付范围：`19` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

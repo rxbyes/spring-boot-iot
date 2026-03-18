@@ -304,7 +304,7 @@ export function createExecutableScenarios({ runToken }) {
               { placeholder: '请输入区域名称', value: 'Browser Region' },
               { type: 'select', label: '风险等级', option: '警告' },
               { placeholder: '请输入负责人电话', value: '13800138000' },
-              { placeholder: '请输入描述', value: 'Created by browser acceptance.' }
+              { label: '描述', value: 'Created by browser acceptance.' }
             ],
             onCreated: () => runtime.riskPoint
           },
@@ -349,7 +349,7 @@ export function createExecutableScenarios({ runToken }) {
               },
               { placeholder: '例如：value > 100', value: 'value > 20' },
               { type: 'select', label: '告警等级', option: '警告' },
-              { placeholder: '请输入描述', value: 'Browser acceptance threshold rule.' }
+              { label: '描述', value: 'Browser acceptance threshold rule.' }
             ]
           },
           runtime
@@ -410,7 +410,7 @@ export function createExecutableScenarios({ runToken }) {
             fields: () => [
               { placeholder: '请输入预案名称', value: `UI Plan ${runToken}` },
               { type: 'radio', label: '警告' },
-              { placeholder: '请输入描述', value: 'Browser acceptance emergency plan.' },
+              { label: '描述', value: 'Browser acceptance emergency plan.' },
               {
                 placeholder: '请输入响应步骤（JSON格式）',
                 value: JSON.stringify([{ step: 1, action: 'notify operator' }])

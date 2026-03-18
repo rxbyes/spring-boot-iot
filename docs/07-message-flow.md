@@ -57,3 +57,8 @@
 - 接入方式可以变化，但业务主链路保持稳定
 - 网关 / 子设备场景优先在 topic 解析层预留结构，不提前侵入设备业务层
 - Phase 2 以“真实 MQTT 上下行可运行”为边界，不提前实现 ACK、拓扑和规则联动
+
+## 失败链路补充（2026-03-18）
+- 当 MQTT 上行消息在 DeviceMessageServiceImpl.handleUpMessage 的前置校验阶段失败（如设备不存在、产品不匹配）时，除写入 sys_audit_log 的 system_error 外，还会补写一条 iot_device_message_log 记录。
+- 该补写记录的 messageType=dispatch_failed，用于保障 /system-log 到 /message-trace 的 trace 串联排障。
+- 对于设备不存在场景，记录采用占位 device_id=0，并保留 traceId/deviceCode/productKey/topic/payload 供检索。

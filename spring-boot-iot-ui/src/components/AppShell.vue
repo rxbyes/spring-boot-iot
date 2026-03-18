@@ -17,7 +17,10 @@
 
         <RouterLink class="cloud-brand" to="/">
           <span class="cloud-brand__logo" aria-hidden="true"></span>
-          <span class="cloud-brand__name">监测预警平台</span>
+          <span class="cloud-brand__text">
+            <span class="cloud-brand__name">监测预警平台</span>
+            <span class="cloud-brand__caption">IoT Risk Console</span>
+          </span>
         </RouterLink>
 
         <label class="header-search" for="global-search">
@@ -26,7 +29,7 @@
             id="global-search"
             v-model="searchKeyword"
             type="search"
-            placeholder="搜索模块"
+            placeholder="搜索菜单、设备或规则"
             @keydown.enter="handleSearch"
           />
           <button type="button" @click="handleSearch">搜索</button>
@@ -58,25 +61,32 @@
         />
       </div>
 
-      <nav class="cloud-header__sections" aria-label="一级导航">
-        <el-tooltip
-          v-for="group in navigationGroups"
-          :key="group.key"
-          placement="bottom"
-          effect="light"
-          :content="group.description"
-        >
-          <button
-            type="button"
-            class="section-tab"
-            :class="{ 'section-tab--active': activeGroup.key === group.key }"
-            :aria-label="`${group.label}，${group.description}`"
-            @click="switchGroup(group.key)"
+      <div class="cloud-header__sections-wrap">
+        <div class="cloud-header__sections-label">
+          <span>业务分区</span>
+          <small>{{ activeGroup.description }}</small>
+        </div>
+
+        <nav class="cloud-header__sections" aria-label="一级导航">
+          <el-tooltip
+            v-for="group in navigationGroups"
+            :key="group.key"
+            placement="bottom"
+            effect="light"
+            :content="group.description"
           >
-            <span>{{ group.label }}</span>
-          </button>
-        </el-tooltip>
-      </nav>
+            <button
+              type="button"
+              class="section-tab"
+              :class="{ 'section-tab--active': activeGroup.key === group.key }"
+              :aria-label="`${group.label}，${group.description}`"
+              @click="switchGroup(group.key)"
+            >
+              <span>{{ group.label }}</span>
+            </button>
+          </el-tooltip>
+        </nav>
+      </div>
 
       <transition name="header-pop">
         <HeaderPopoverPanel
@@ -106,10 +116,17 @@
 
     <div class="cloud-layout">
       <aside class="cloud-sidebar" :aria-hidden="isMobile && !mobileMenuOpen">
-        <div v-if="showSidebarContext" class="sidebar-context">
+        <div class="sidebar-context">
           <p class="sidebar-context__eyebrow">{{ activeGroup.label }}</p>
-          <h2>{{ activeGroup.menuTitle }}</h2>
-          <p>{{ activeGroup.menuHint }}</p>
+          <div class="sidebar-context__title-row">
+            <h2>{{ activeGroup.menuTitle }}</h2>
+            <span class="sidebar-context__count">{{ activeGroup.items.length }}</span>
+          </div>
+          <p class="sidebar-context__hint">{{ activeGroup.menuHint }}</p>
+          <div class="sidebar-context__meta">
+            <span>{{ toolbarModeLabel }}</span>
+            <span>标准二级导航</span>
+          </div>
         </div>
 
         <nav class="side-menu" aria-label="二级导航">
@@ -139,9 +156,32 @@
       <section class="cloud-content">
         <section class="console-toolbar" :class="{ 'console-toolbar--home': showSidebarContext }">
           <div class="console-toolbar__heading">
-            <p v-if="toolbarEyebrow" class="toolbar-eyebrow">{{ toolbarEyebrow }}</p>
-            <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
+            <nav class="toolbar-breadcrumb" aria-label="当前位置">
+              <span class="toolbar-breadcrumb__item">{{ activeGroup.label }}</span>
+              <span v-if="!showSidebarContext" class="toolbar-breadcrumb__separator">/</span>
+              <span v-if="!showSidebarContext" class="toolbar-breadcrumb__item toolbar-breadcrumb__item--current">{{ activeTitle }}</span>
+            </nav>
+            <div class="console-toolbar__title-row">
+              <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
+              <span class="console-toolbar__mode">{{ toolbarModeLabel }}</span>
+            </div>
             <p v-if="toolbarDescription">{{ toolbarDescription }}</p>
+            <div v-if="showOverviewShortcut" class="console-toolbar__actions">
+              <RouterLink :to="activeGroupHomePath" class="console-toolbar__link">
+                返回{{ activeGroup.label }}概览
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="console-toolbar__summary">
+            <div
+              v-for="item in toolbarMetricItems"
+              :key="item.label"
+              class="console-toolbar__summary-card"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </div>
           </div>
         </section>
 
@@ -555,23 +595,38 @@ watch(
   }
 );
 
-const activeTitle = computed(() => activeMenuItem.value?.label || String(route.meta.title || '平台首页'));
-const activeDescription = computed(() => {
-  return activeMenuItem.value?.caption || String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。');
-});
 const activeGroupHomePath = computed(() => activeGroup.value.items[0]?.to || '/');
 const showSidebarContext = computed(() => route.path === activeGroupHomePath.value);
-const toolbarEyebrow = computed(() => {
+const activeTitle = computed(() => {
   if (showSidebarContext.value) {
-    return '';
+    return String(route.meta.title || activeGroup.value.label || '平台首页');
   }
-  const groupLabel = activeGroup.value.label?.trim();
-  if (!groupLabel || groupLabel === activeTitle.value) {
-    return '';
-  }
-  return groupLabel;
+  return activeMenuItem.value?.label || String(route.meta.title || '平台首页');
 });
-const toolbarDescription = computed(() => (showSidebarContext.value ? '' : activeDescription.value));
+const activeDescription = computed(() => {
+  if (showSidebarContext.value) {
+    return String(route.meta.description || activeGroup.value.menuHint || '按当前业务分区查看核心能力与常用入口。');
+  }
+  return activeMenuItem.value?.caption || String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。');
+});
+const toolbarDescription = computed(() => activeDescription.value);
+const toolbarModeLabel = computed(() => (showSidebarContext.value ? '分组总览' : '功能页面'));
+const showOverviewShortcut = computed(() => !showSidebarContext.value && activeGroupHomePath.value !== route.path);
+const toolbarMetricItems = computed(() => {
+  if (!permissionStore.isLoggedIn) {
+    return [
+      { label: '当前状态', value: '访客模式' },
+      { label: '开放入口', value: '首页预览' },
+      { label: '导航范围', value: '1 项' }
+    ];
+  }
+
+  return [
+    { label: '当前分区', value: activeGroup.value.label || '平台首页' },
+    { label: '页面类型', value: toolbarModeLabel.value },
+    { label: '可见菜单', value: `${activeGroup.value.items.length} 项` }
+  ];
+});
 const showTabsView = computed(() => route.meta.trackTab !== false && visitedTabs.value.length > 1);
 const headerIdentity = computed(() => {
   if (!permissionStore.isLoggedIn) {
@@ -923,10 +978,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .cloud-shell {
   --shell-max-width: 1760px;
-  --shell-gutter: clamp(12px, 2vw, 32px);
+  --shell-gutter: clamp(16px, 2vw, 28px);
   min-height: 100vh;
-  color: #1f2329;
-  background: #f5f7fa;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at top right, rgba(255, 106, 0, 0.08), transparent 20rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 12rem);
 }
 
 .skip-link {
@@ -937,7 +994,7 @@ onBeforeUnmount(() => {
   padding: 0.7rem 1rem;
   border-radius: 0.5rem;
   background: var(--brand);
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .skip-link:focus {
@@ -948,98 +1005,112 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   z-index: 90;
-  border-bottom: 1px solid #e6eaf0;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(31, 35, 41, 0.08);
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
 }
 
 .cloud-header__main {
   display: grid;
-  grid-template-columns: auto auto minmax(240px, 420px) auto;
+  grid-template-columns: auto minmax(180px, 240px) minmax(320px, 1fr) auto;
   align-items: center;
-  gap: 0.6rem;
+  gap: 1rem;
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
   margin: 0 auto;
-  padding: 0.42rem 0;
+  padding: 0.8rem 0 0.55rem;
 }
 
 .menu-trigger {
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   padding: 0;
   display: inline-flex;
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-  border: 1px solid #d8dfeb;
-  border-radius: 4px;
-  background: #fafbfc;
+  border: 1px solid var(--line-panel);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  box-shadow: var(--shadow-xs);
 }
 
 .menu-trigger span {
-  width: 0.95rem;
+  width: 1rem;
   height: 2px;
   margin: 0 auto;
-  border-radius: 999px;
-  background: #45556f;
+  border-radius: var(--radius-pill);
+  background: #526378;
 }
 
 .cloud-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #1f2329;
+  gap: 0.75rem;
+  color: var(--text-primary);
   text-decoration: none;
-  min-width: 10.5rem;
+  min-width: 13rem;
 }
 
 .cloud-brand__logo {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.45rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
   background: linear-gradient(145deg, var(--brand), var(--brand-bright));
   position: relative;
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--brand) 26%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand) 24%, transparent);
 }
 
 .cloud-brand__logo::before {
   content: '';
   position: absolute;
-  inset: 4px;
-  border-radius: 0.3rem;
+  inset: 5px;
+  border-radius: 0.42rem;
   border: 2px solid rgba(255, 255, 255, 0.72);
 }
 
+.cloud-brand__text {
+  display: grid;
+  gap: 0.08rem;
+}
+
 .cloud-brand__name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-heading);
+}
+
+.cloud-brand__caption {
+  font-size: 0.72rem;
+  color: var(--text-caption-2);
 }
 
 .header-search {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-self: center;
-  width: min(100%, 420px);
-  height: 1.9rem;
+  justify-self: stretch;
+  width: min(100%, 28rem);
+  height: 2.5rem;
+  margin-left: auto;
   min-width: 0;
-  border: 1px solid #e3e8f1;
-  border-radius: 999px;
-  background: #fbfcfe;
+  border: 1px solid var(--line-panel-2);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(248, 249, 251, 0.96), rgba(245, 247, 250, 0.98));
   overflow: hidden;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .header-search:focus-within {
-  border-color: color-mix(in srgb, var(--brand) 24%, white);
-  background: #fff;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 26%, white);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .header-search__icon {
   position: relative;
-  width: 1.6rem;
+  width: 2.1rem;
   height: 100%;
   display: inline-flex;
   align-items: center;
@@ -1060,16 +1131,16 @@ onBeforeUnmount(() => {
   width: 0.3rem;
   height: 1.6px;
   background: #8ea0ba;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transform: translate(0.26rem, 0.28rem) rotate(45deg);
 }
 
 .header-search input {
   border: none;
   background: transparent;
-  padding: 0.35rem 0.15rem 0.35rem 0;
+  padding: 0.35rem 0.2rem 0.35rem 0;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
 }
 
 .header-search input:focus {
@@ -1078,25 +1149,52 @@ onBeforeUnmount(() => {
 
 .header-search button {
   border: none;
-  border-left: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 100%;
-  margin: 0.12rem;
-  padding: 0 0.72rem;
+  margin: 0.18rem;
+  padding: 0 1rem;
   background: color-mix(in srgb, var(--brand) 12%, white);
   color: var(--brand);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cloud-header__sections-wrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
+  margin: 0 auto;
+  padding: 0 0 0.7rem;
+}
+
+.cloud-header__sections-label {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 7rem;
+}
+
+.cloud-header__sections-label span {
+  color: var(--text-heading);
   font-size: 0.76rem;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.cloud-header__sections-label small {
+  color: var(--text-caption-2);
+  font-size: 0.72rem;
 }
 
 .cloud-header__sections {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
-  margin: 0 auto;
+  justify-content: flex-start;
+  gap: 0.28rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
   padding: 0;
 }
 
@@ -1113,10 +1211,11 @@ onBeforeUnmount(() => {
 
 .section-tab {
   border: none;
-  border-radius: 999px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: transparent;
   color: #3f4653;
-  padding: 0.45rem 0.95rem;
+  min-height: 2.3rem;
+  padding: 0.5rem 1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1126,37 +1225,37 @@ onBeforeUnmount(() => {
 }
 
 .section-tab span {
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .section-tab:hover {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 6%, transparent);
+  background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
 .section-tab--active {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, white);
 }
 
 .section-tab--active::after {
   content: '';
   position: absolute;
-  left: 0.9rem;
-  right: 0.9rem;
-  bottom: -0.35rem;
-  height: 2px;
-  border-radius: 2px;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.18rem;
+  height: 3px;
+  border-radius: var(--radius-2xs);
   background: var(--brand);
 }
 
 .cloud-layout {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
   margin: 0 auto;
-  min-height: calc(100vh - 104px);
+  min-height: calc(100vh - 122px);
 }
 
 .cloud-shell--collapsed .cloud-layout {
@@ -1164,44 +1263,84 @@ onBeforeUnmount(() => {
 }
 
 .cloud-sidebar {
-  border-right: 1px solid #e6eaf0;
-  padding: 0.7rem 0.5rem;
-  background: #fff;
+  border-right: 1px solid var(--panel-border);
+  padding: 1rem 0.7rem 1.15rem;
+  background: linear-gradient(180deg, rgba(250, 251, 253, 0.98), rgba(246, 248, 251, 0.98));
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .sidebar-context {
-  padding: 0.7rem 0.65rem;
-  border-radius: 4px;
-  border: 1px solid #e9edf3;
-  background: #fafbfd;
+  padding: 0 0 0.88rem;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .sidebar-context__eyebrow {
   margin: 0;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #8490a5;
+  letter-spacing: 0.08em;
+  color: var(--brand);
+}
+
+.sidebar-context__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.38rem;
 }
 
 .sidebar-context h2 {
-  margin: 0.35rem 0;
-  font-size: 0.92rem;
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--text-heading);
 }
 
-.sidebar-context p {
+.sidebar-context__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.7rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sidebar-context__hint {
   margin: 0;
+  margin-top: 0.55rem;
   color: #637084;
   line-height: 1.6;
   font-size: 0.78rem;
 }
 
+.sidebar-context__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.sidebar-context__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0 0.56rem;
+  border-radius: var(--radius-pill);
+  background: rgba(78, 89, 105, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
 .side-menu {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.2rem;
   overflow-y: auto;
   padding-right: 0.15rem;
 }
@@ -1214,38 +1353,37 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: #334155;
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 0.62rem 0.68rem;
+  border-radius: var(--radius-lg);
+  padding: 0.68rem 0.8rem 0.68rem 0.72rem;
   transition: all 160ms ease;
   position: relative;
-  min-height: 2.7rem;
+  min-height: 2.8rem;
 }
 
 .side-menu__item::before {
   content: '';
   position: absolute;
-  left: -0.1rem;
-  top: 50%;
+  left: -0.7rem;
+  top: 0.55rem;
+  bottom: 0.55rem;
   width: 3px;
-  height: 1.2rem;
-  border-radius: 999px;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   background: var(--brand);
   opacity: 0;
-  transform: translateY(-50%);
   transition: opacity 160ms ease;
 }
 
 .side-menu__marker {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0;
   font-weight: 600;
   color: transparent;
-  background: rgba(148, 163, 184, 0.45);
+  background: rgba(148, 163, 184, 0.55);
   flex-shrink: 0;
 }
 
@@ -1255,25 +1393,25 @@ onBeforeUnmount(() => {
 
 .side-menu__content strong {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   line-height: 1.45;
   font-weight: 600;
 }
 
 .side-menu__item:hover {
-  border-color: #d6deeb;
-  background: color-mix(in srgb, var(--brand) 5%, transparent);
-  transform: translateX(1px);
+  border-color: #dfe5ee;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .side-menu__item:hover .side-menu__marker {
-  background: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand) 42%, transparent);
 }
 
 .side-menu__item--active {
-  border-color: #d8e7ff;
-  background: linear-gradient(180deg, #eff5ff 0%, #e9f2ff 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 5%, transparent);
+  border-color: rgba(255, 106, 0, 0.16);
+  background: linear-gradient(90deg, rgba(255, 106, 0, 0.1), rgba(255, 255, 255, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.04);
 }
 
 .side-menu__item--active::before {
@@ -1295,13 +1433,13 @@ onBeforeUnmount(() => {
 .cloud-shell--collapsed .side-menu__item {
   grid-template-columns: 1fr;
   justify-items: center;
-  padding: 0.6rem 0.45rem;
+  padding: 0.62rem 0.45rem;
 }
 
 .cloud-shell--collapsed .side-menu__marker {
   width: 1.6rem;
   height: 1.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 0.72rem;
   color: var(--brand-deep);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
@@ -1326,77 +1464,164 @@ onBeforeUnmount(() => {
 }
 
 .cloud-content {
-  padding: 0.55rem 0.85rem 1rem;
+  padding: 1rem 1.15rem 1.2rem;
   min-width: 0;
 }
 
 .console-toolbar {
-  padding: 0.15rem 0.12rem 0.45rem;
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid rgba(230, 234, 240, 0.85);
-  background: transparent;
-  box-shadow: none;
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  padding: 1rem 1.1rem;
+  border-radius: calc(var(--radius-xl) + 2px);
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 30%);
+  box-shadow: var(--shadow-card-soft);
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(16rem, 0.92fr);
   gap: 1rem;
-  align-items: center;
+  align-items: stretch;
+}
+
+.console-toolbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--brand), color-mix(in srgb, var(--brand) 16%, white));
 }
 
 .console-toolbar--home {
-  padding-bottom: 0.2rem;
-  border-bottom: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.98)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32%);
 }
 
 .console-toolbar__heading {
   display: grid;
-  gap: 0.22rem;
-  max-width: 42rem;
+  gap: 0.48rem;
+  max-width: 44rem;
 }
 
-.toolbar-eyebrow {
+.toolbar-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.42rem;
   margin: 0;
-  color: #8a97aa;
-  letter-spacing: 0.08em;
-  font-size: 0.68rem;
+  color: var(--text-muted-3);
+  font-size: 0.76rem;
   font-weight: 600;
+}
+
+.toolbar-breadcrumb__item--current {
+  color: var(--text-heading);
+}
+
+.toolbar-breadcrumb__separator {
+  color: #b0bac8;
+}
+
+.console-toolbar__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .console-toolbar__heading h1 {
   margin: 0;
-  color: #1f2a3d;
-  font-size: clamp(1rem, 1.35vw, 1.24rem);
-  font-weight: 600;
+  color: var(--text-heading);
+  font-size: clamp(1.22rem, 1.45vw, 1.5rem);
+  font-weight: 700;
+}
+
+.console-toolbar__mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .console-toolbar__heading p {
   margin: 0;
-  color: #69778c;
-  line-height: 1.55;
-  font-size: 0.78rem;
-  max-width: 34rem;
+  color: #637084;
+  line-height: 1.65;
+  font-size: 0.84rem;
+  max-width: 38rem;
 }
 
 .console-toolbar__summary {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
-  justify-items: end;
+  align-content: stretch;
+}
+
+.console-toolbar__summary-card {
+  display: grid;
+  gap: 0.25rem;
+  align-content: center;
+  padding: 0.88rem 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+}
+
+.console-toolbar__summary-card span {
+  color: var(--text-caption-2);
+  font-size: 0.72rem;
+}
+
+.console-toolbar__summary-card strong {
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  font-weight: 700;
 }
 
 .console-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 0.6rem;
   align-items: center;
+}
+
+.console-toolbar__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.88rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.console-toolbar__link:hover {
+  border-color: color-mix(in srgb, var(--brand) 24%, white);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
 .console-settings {
   margin-top: 0.9rem;
   padding: 0.85rem;
-  border-radius: 6px;
-  border: 1px solid #e6eaf0;
-  background: #fff;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: var(--bg-card);
   box-shadow: none;
 }
 
@@ -1407,7 +1632,7 @@ onBeforeUnmount(() => {
 
 .console-settings__intro p {
   margin: 0;
-  color: #8290a6;
+  color: var(--text-muted-1);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 0.7rem;
@@ -1416,7 +1641,7 @@ onBeforeUnmount(() => {
 .console-settings__intro h2 {
   margin: 0;
   font-size: 1.05rem;
-  color: #1f2a3d;
+  color: var(--text-ink);
 }
 
 .console-settings__intro span {
@@ -1446,17 +1671,17 @@ onBeforeUnmount(() => {
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #8490a5;
+  color: var(--text-muted-2);
 }
 
 .toolbar-input {
   width: 100%;
   min-height: 2.2rem;
   padding: 0.52rem 0.68rem;
-  border: 1px solid #dcdfe6;
-  border-radius: 2px;
-  background: #fff;
-  color: #1f2a3d;
+  border: 1px solid var(--line-muted);
+  border-radius: var(--radius-2xs);
+  background: var(--bg-card);
+  color: var(--text-ink);
   font-size: 0.84rem;
   transition:
     border-color 160ms ease,
@@ -1476,9 +1701,9 @@ onBeforeUnmount(() => {
 .toolbar-button {
   min-height: 2.2rem;
   padding: 0.5rem 0.82rem;
-  border: 1px solid #dcdfe6;
-  border-radius: 2px;
-  background: #fff;
+  border: 1px solid var(--line-muted);
+  border-radius: var(--radius-2xs);
+  background: var(--bg-card);
   color: #43556d;
   font-weight: 600;
   font-size: 0.82rem;
@@ -1492,7 +1717,7 @@ onBeforeUnmount(() => {
 
 .toolbar-button:hover {
   border-color: #c9d2e3;
-  background: #f5f9ff;
+  background: var(--bg-hover);
   box-shadow: none;
 }
 
@@ -1509,7 +1734,7 @@ onBeforeUnmount(() => {
 .toolbar-button--primary {
   border-color: transparent;
   background: linear-gradient(135deg, var(--brand), var(--brand-bright));
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .toolbar-button--primary:hover {
@@ -1520,7 +1745,7 @@ onBeforeUnmount(() => {
 .toolbar-button--success {
   border-color: transparent;
   background: linear-gradient(135deg, #1fa46d, #34c88d);
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .toolbar-button--success:hover {
@@ -1533,15 +1758,15 @@ onBeforeUnmount(() => {
   gap: 0.18rem;
   min-height: 2.5rem;
   padding: 0.8rem 0.9rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid #e3e7ee;
-  background: #fafbfd;
+  background: var(--surface-soft);
   color: #445671;
 }
 
 .logged-user-card strong {
   font-size: 0.92rem;
-  color: #1f2a3d;
+  color: var(--text-ink);
 }
 
 .logged-user-card span {
@@ -1575,7 +1800,7 @@ onBeforeUnmount(() => {
   gap: 0.85rem;
   padding: 1rem;
   border-radius: 0.85rem;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, var(--bg-card)fff 100%);
   border: 1px solid #e2eaf5;
 }
 
@@ -1588,13 +1813,13 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--bg-card);
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
 }
 
 .account-dialog__hero-content strong {
   display: block;
-  color: #1f3558;
+  color: var(--text-heading);
   font-size: 1rem;
 }
 
@@ -1615,7 +1840,7 @@ onBeforeUnmount(() => {
   gap: 0.22rem;
   padding: 0.9rem 1rem;
   border-radius: 0.8rem;
-  background: #f7f9fc;
+  background: var(--surface-muted);
   border: 1px solid #e8edf5;
 }
 
@@ -1626,7 +1851,7 @@ onBeforeUnmount(() => {
 
 .account-dialog__list dd {
   margin: 0;
-  color: #1f3558;
+  color: var(--text-heading);
   font-size: 0.86rem;
   font-weight: 500;
 }
@@ -1636,7 +1861,7 @@ onBeforeUnmount(() => {
 }
 
 .content-frame {
-  margin-top: 0.55rem;
+  margin-top: 0.95rem;
 }
 
 .sidebar-mask {
@@ -1667,7 +1892,7 @@ onBeforeUnmount(() => {
     z-index: 80;
     transform: translateX(-102%);
     transition: transform 220ms ease;
-    box-shadow: 12px 0 24px rgba(16, 29, 57, 0.18);
+    box-shadow: var(--shadow-side-panel);
   }
 
   .cloud-shell--mobile-open .cloud-sidebar {

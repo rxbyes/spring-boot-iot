@@ -1,6 +1,6 @@
 <template>
-  <div class="organization-view sys-mgmt-view">
-    <el-card class="box-card">
+  <div class="organization-view sys-mgmt-view standard-list-view">
+    <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
           <span>组织机构管理</span>
@@ -74,6 +74,7 @@
         border
         stripe
         style="width: 100%"
+        show-overflow-tooltip
         row-key="id"
         :lazy="!isFilterMode"
         :load="loadChildren"
@@ -102,7 +103,7 @@
         </el-table-column>
         <el-table-column prop="sortNo" label="排序" width="80" />
         <el-table-column prop="remark" label="备注" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="primary" link @click="handleAddSub(row)">新增子级</el-button>
@@ -183,7 +184,7 @@
         :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
-    </el-card>
+    </PanelCard>
   </div>
 </template>
 
@@ -192,6 +193,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import PanelCard from '@/components/PanelCard.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
@@ -476,33 +478,3 @@ const handlePageChange = (page: number) => {
   loadOrganizationPage()
 }
 </script>
-
-<style scoped>
-.organization-view {
-  padding: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.search-form {
-  margin-bottom: 12px;
-}
-
-.view-alert {
-  margin-bottom: 12px;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.pagination {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
-}
-</style>

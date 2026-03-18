@@ -1,6 +1,6 @@
 <template>
-  <div class="message-trace-view">
-    <el-card class="box-card">
+  <div class="message-trace-view standard-list-view">
+    <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
           <div>
@@ -246,7 +246,7 @@
           </div>
         </section>
       </StandardDetailDrawer>
-    </el-card>
+    </PanelCard>
   </div>
 </template>
 
@@ -256,8 +256,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceMessageLog } from '@/types/api';
 import { formatDateTime, prettyJson, truncateText } from '@/utils/format';
 
@@ -279,11 +281,7 @@ const searchForm = reactive({
   topic: ''
 });
 
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
-});
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 
 const loading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
@@ -351,12 +349,11 @@ async function loadTableData() {
   try {
     const response = await messageApi.pageMessageTraceLogs(buildQueryParams());
     if (response.code === 200) {
-      tableData.value = response.data?.records || [];
-      pagination.total = Number(response.data?.total || 0);
+      tableData.value = applyPageResult(response.data);
     }
   } catch (error) {
     tableData.value = [];
-    pagination.total = 0;
+    resetTotal();
     ElMessage.error(error instanceof Error ? error.message : '获取消息追踪失败');
   } finally {
     loading.value = false;
@@ -372,13 +369,13 @@ function resetSearchForm() {
 }
 
 function handleSearch() {
-  pagination.pageNum = 1;
+  resetPage();
   loadTableData();
 }
 
 function handleReset() {
   resetSearchForm();
-  pagination.pageNum = 1;
+  resetPage();
   loadTableData();
 }
 
@@ -387,12 +384,12 @@ function handleRefresh() {
 }
 
 function handleSizeChange(size: number) {
-  pagination.pageSize = size;
+  setPageSize(size);
   loadTableData();
 }
 
 function handlePageChange(page: number) {
-  pagination.pageNum = page;
+  setPageNum(page);
   loadTableData();
 }
 
@@ -454,7 +451,7 @@ watch(
       return;
     }
     applyRouteQuery();
-    pagination.pageNum = 1;
+    resetPage();
     loadTableData();
   }
 );
@@ -472,50 +469,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.message-trace-view {
-  padding: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .page-description {
   margin: 6px 0 0;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-}
-
-.search-form {
-  margin-bottom: 12px;
-}
-
-.view-alert {
-  margin-bottom: 12px;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.table-action-bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.table-action-bar__meta {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.pagination {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

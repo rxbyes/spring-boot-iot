@@ -499,3 +499,8 @@ node scripts/auto/manage-visual-baselines.mjs --input=logs/acceptance/config-bro
 - `--scenario=...` 与 `--label=...` 可进一步按场景、步骤名称缩小治理范围，适合对单页或单组件做定向基线维护。
 - 仅在明确评审通过后才执行 `--mode=promote --apply`，脚本会把 actual 图片复制为 baseline，并输出本轮提升记录。
 - 前端工作目录已补充快捷命令：`cd spring-boot-iot-ui && npm run acceptance:browser:baseline:manage -- --input=../logs/acceptance/config-browser-visual-manifest-<timestamp>.json`
+
+## 8.2 补充说明（2026-03-18）
+- 验证 MQTT 分发前置校验失败场景（如产品不匹配、设备不存在）时，除 `sys_audit_log` 需出现 `system_error` 外，还应在 `iot_device_message_log` 查到 `messageType=dispatch_failed`。
+- 以同一 `traceId` 联查 `/api/system/audit-log/page` 与 `/api/device/message-trace/page`，两侧都命中即视为通过。
+- 设备不存在场景允许 `deviceId=0`。
