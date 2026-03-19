@@ -61,15 +61,18 @@ function handleClose() {
 <style scoped>
 .standard-form-drawer :deep(.el-drawer) {
   background:
-    radial-gradient(circle at top right, rgba(230, 238, 255, 0.82), transparent 36%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 36%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 7%, transparent), transparent 28%),
     linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(244, 248, 253, 0.99));
 }
 
 .standard-form-drawer :deep(.el-drawer__header) {
   margin-bottom: 0;
   padding: 22px 26px 18px;
-  border-bottom: 1px solid rgba(42, 63, 95, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 248, 255, 0.86));
+  border-bottom: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.88)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 30%);
 }
 
 .standard-form-drawer :deep(.el-drawer__body) {
@@ -95,7 +98,7 @@ function handleClose() {
 
 .form-drawer__eyebrow {
   margin: 0;
-  color: #70809a;
+  color: var(--text-caption);
   font-size: 13px;
   line-height: 1.4;
   letter-spacing: 0.02em;
@@ -103,7 +106,7 @@ function handleClose() {
 
 .form-drawer__heading h2 {
   margin: 0.35rem 0 0;
-  color: #243448;
+  color: var(--text-heading);
   font-size: 1.8rem;
   line-height: 1.2;
   font-weight: 700;
@@ -111,7 +114,7 @@ function handleClose() {
 
 .form-drawer__subtitle {
   margin: 0.65rem 0 0;
-  color: #70809a;
+  color: var(--text-caption);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -126,13 +129,13 @@ function handleClose() {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 14px 26px 22px;
-  border-top: 1px solid rgba(42, 63, 95, 0.08);
+  border-top: 1px solid var(--panel-border);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.92), rgba(246, 249, 255, 0.96));
 }
 
 .standard-form-drawer :deep(.el-form) {
   padding: 1.15rem 1.2rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 14px 32px rgba(32, 55, 90, 0.05);
@@ -151,7 +154,7 @@ function handleClose() {
 }
 
 .standard-form-drawer :deep(.el-form-item__label) {
-  color: #4f617e;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 

@@ -99,7 +99,7 @@
       <div class="detail-section-header">
         <div>
           <h3>链路信息</h3>
-          <p>统一展示请求入口、设备标识与 TraceId，方便与消息追踪和系统日志联动排查。</p>
+          <p>统一展示请求入口、设备标识与 TraceId，方便与链路追踪台和异常观测台联动排查。</p>
         </div>
       </div>
       <div class="detail-grid">

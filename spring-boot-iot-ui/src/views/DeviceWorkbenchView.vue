@@ -12,10 +12,10 @@
             快速刷新设备状态
           </el-button>
           <el-button class="secondary-button" @click="jumpToInsight">
-            进入风险点工作台
+            进入对象洞察台
           </el-button>
           <el-button class="ghost-button" @click="jumpToReporting">
-            前往接入回放台
+            前往链路验证中心
           </el-button>
         </div>
 
@@ -108,14 +108,14 @@
             <label for="metadata">扩展元数据</label>
             <el-input id="metadata" v-model="deviceForm.metadataJson" name="metadata_json" type="textarea" :rows="5" spellcheck="false" />
           </div>
-          <div class="button-row" style="grid-column: 1 / -1;">
+          <StandardActionGroup full-width>
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
               {{ isCreating ? '创建设备中...' : '提交设备建档' }}
             </el-button>
             <el-button class="secondary-button" @click="resetForm">
               恢复演示数据
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
       </PanelCard>
 
@@ -134,49 +134,20 @@
             <el-input id="query-device-code" v-model="queryCode" name="query_device_code" autocomplete="off" spellcheck="false" placeholder="例如 demo-device-01..." clearable />
           </div>
         </div>
-        <div class="button-row" style="margin-top: 1rem;">
+        <StandardActionGroup margin-top="sm">
           <el-button class="primary-button" type="primary" :loading="isQueryingId" @click="handleQueryById">
             {{ isQueryingId ? '查询中...' : '按 ID 查询' }}
           </el-button>
           <el-button class="secondary-button" :loading="isQueryingCode" @click="handleQueryByCode">
             {{ isQueryingCode ? '查询中...' : '按编码查询' }}
           </el-button>
-        </div>
+        </StandardActionGroup>
 
-        <div v-if="currentDevice" class="info-grid" style="margin-top: 1rem;">
-          <div class="info-chip">
-            <span>设备名称</span>
-            <strong>{{ currentDevice.deviceName }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>设备编码</span>
-            <strong>{{ currentDevice.deviceCode }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>在线状态</span>
-            <strong>{{ statusLabel(currentDevice.onlineStatus) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>接入协议</span>
-            <strong>{{ currentDevice.protocolCode || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近上报</span>
-            <strong>{{ formatDateTime(currentDevice.lastReportTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近离线</span>
-            <strong>{{ formatDateTime(currentDevice.lastOfflineTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>固件版本</span>
-            <strong>{{ currentDevice.firmwareVersion || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>部署位置</span>
-            <strong>{{ currentDevice.address || '--' }}</strong>
-          </div>
-        </div>
+        <StandardInfoGrid
+          v-if="currentDevice"
+          :items="currentDeviceInfoItems"
+          style="margin-top: 1rem;"
+        />
       </PanelCard>
     </section>
 
@@ -259,6 +230,8 @@ import { addDevice, getDeviceByCode, getDeviceById } from '../api/iot';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
+import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import { recordActivity } from '../stores/activity';
 import type { Device, DeviceAddPayload } from '../types/api';
 import { formatDateTime, statusLabel } from '../utils/format';
@@ -428,6 +401,55 @@ const overviewMetrics = computed(() => [
   }
 ]);
 
+const currentDeviceInfoItems = computed(() => {
+  if (!currentDevice.value) {
+    return [];
+  }
+
+  return [
+    {
+      key: 'device-name',
+      label: '设备名称',
+      value: currentDevice.value.deviceName
+    },
+    {
+      key: 'device-code',
+      label: '设备编码',
+      value: currentDevice.value.deviceCode
+    },
+    {
+      key: 'online-status',
+      label: '在线状态',
+      value: statusLabel(currentDevice.value.onlineStatus)
+    },
+    {
+      key: 'protocol-code',
+      label: '接入协议',
+      value: currentDevice.value.protocolCode
+    },
+    {
+      key: 'last-report-time',
+      label: '最近上报',
+      value: formatDateTime(currentDevice.value.lastReportTime)
+    },
+    {
+      key: 'last-offline-time',
+      label: '最近离线',
+      value: formatDateTime(currentDevice.value.lastOfflineTime)
+    },
+    {
+      key: 'firmware-version',
+      label: '固件版本',
+      value: currentDevice.value.firmwareVersion
+    },
+    {
+      key: 'address',
+      label: '部署位置',
+      value: currentDevice.value.address
+    }
+  ];
+});
+
 const maintenanceActions = computed(() => {
   const actions = ['先通过设备编码查询，确认当前在线状态和最近上报时间。'];
   if (currentDevice.value?.onlineStatus !== 1) {
@@ -489,7 +511,7 @@ async function handleCreateDevice() {
     queryCode.value = response.data.deviceCode;
     ElMessage.success(`设备 ${response.data.deviceCode} 创建成功`);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '新增设备',
       request: lastRequest.value,
       response,
@@ -501,7 +523,7 @@ async function handleCreateDevice() {
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '新增设备',
       request: lastRequest.value,
       response: { message: errorMessage.value },
@@ -525,7 +547,7 @@ async function handleQueryById() {
     queryCode.value = response.data.deviceCode;
     ElMessage.success(`已查询到设备 ${response.data.deviceCode}`);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '按 ID 查询设备',
       request: lastRequest.value,
       response,
@@ -537,7 +559,7 @@ async function handleQueryById() {
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '按 ID 查询设备',
       request: lastRequest.value,
       response: { message: errorMessage.value },
@@ -561,7 +583,7 @@ async function handleQueryByCode() {
     queryId.value = response.data?.id ? String(response.data.id) : queryId.value;
     ElMessage.success(`已查询到设备 ${response.data.deviceCode}`);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '按编码查询设备',
       request: lastRequest.value,
       response,
@@ -573,7 +595,7 @@ async function handleQueryByCode() {
     lastResponse.value = { ok: false, message: errorMessage.value };
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: '设备运维中心',
+      module: '设备资产中心',
       action: '按编码查询设备',
       request: lastRequest.value,
       response: { message: errorMessage.value },
@@ -599,8 +621,8 @@ async function handleQueryByCode() {
   align-items: center;
   padding: 1rem 1.1rem;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(30, 128, 255, 0.22);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 255, 0.95));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 6%, white));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.52);
 }
 
@@ -641,19 +663,19 @@ async function handleQueryByCode() {
 }
 
 .ops-status--red {
-  border-color: rgba(255, 77, 79, 0.32);
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
 }
 
 .ops-status--orange {
-  border-color: rgba(250, 140, 22, 0.32);
+  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
 }
 
 .ops-status--yellow {
-  border-color: rgba(250, 173, 20, 0.32);
+  border-color: color-mix(in srgb, #faad14 32%, transparent);
 }
 
 .ops-status--blue {
-  border-color: rgba(30, 128, 255, 0.32);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 .focus-list,
@@ -667,7 +689,7 @@ async function handleQueryByCode() {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95));
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
   box-shadow: var(--shadow-sm);
 }
 

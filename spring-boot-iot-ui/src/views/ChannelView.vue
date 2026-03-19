@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>通知渠道</span>
+          <span>通知编排</span>
           <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
@@ -36,18 +36,15 @@
         </el-row>
       </el-form>
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         ref="tableRef"
@@ -56,12 +53,11 @@
         border
         stripe
         style="width: 100%"
-        show-overflow-tooltip
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="channelCode" label="渠道编码" width="150" />
-        <el-table-column prop="channelName" label="渠道名称" width="200" />
+        <StandardTableTextColumn prop="channelCode" label="渠道编码" :width="150" />
+        <StandardTableTextColumn prop="channelName" label="渠道名称" :width="200" />
         <el-table-column prop="channelType" label="渠道类型" width="120">
           <template #default="{ row }">
             <el-tag>{{ getChannelTypeName(row.channelType) }}</el-tag>
@@ -74,8 +70,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" label="排序" width="80" />
-        <el-table-column prop="remark" label="备注" />
+        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -102,7 +98,7 @@
         v-model="dialogVisible"
         eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护通知渠道与配置 JSON。"
+        subtitle="统一通过右侧抽屉维护通知编排与配置 JSON。"
         size="44rem"
         @close="handleDialogClose"
       >
@@ -138,16 +134,17 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
-            确定
-          </el-button>
+          <StandardDrawerFooter
+            :confirm-loading="submitLoading"
+            @cancel="dialogVisible = false"
+            @confirm="handleSubmit"
+          />
         </template>
       </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
-        title="通知渠道导出列设置"
+        title="通知编排导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
         :preset-storage-key="exportColumnStorageKey"
@@ -160,12 +157,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -173,6 +173,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { useServerPagination } from '@/composables/useServerPagination'
 import {
   CHANNEL_TYPES,
@@ -190,7 +191,7 @@ const tableRef = ref()
 const loading = ref(false)
 const submitLoading = ref(false)
 const dialogVisible = ref(false)
-const dialogTitle = ref('新增通知渠道')
+const dialogTitle = ref('新增通知编排')
 const tableData = ref<ChannelRecord[]>([])
 const selectedRows = ref<ChannelRecord[]>([])
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
@@ -348,11 +349,11 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('通知渠道-选中项.csv', selectedRows.value, getResolvedExportColumns())
+  downloadRowsAsCsv('通知编排-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('通知渠道-当前结果.csv', tableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv('通知编排-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
 const resetFormData = (channel?: Partial<ChannelRecord>) => {
@@ -369,13 +370,13 @@ const resetFormData = (channel?: Partial<ChannelRecord>) => {
 }
 
 const handleAdd = () => {
-  dialogTitle.value = '新增通知渠道'
+  dialogTitle.value = '新增通知编排'
   resetFormData()
   dialogVisible.value = true
 }
 
 const handleEdit = async (row: ChannelRecord) => {
-  dialogTitle.value = '编辑通知渠道'
+  dialogTitle.value = '编辑通知编排'
   const res = await getChannelByCode(row.channelCode)
   if (res.code === 200 && res.data) {
     resetFormData(res.data)
@@ -383,14 +384,18 @@ const handleEdit = async (row: ChannelRecord) => {
   }
 }
 
-const handleDelete = (row: ChannelRecord) => {
-  ElMessageBox.confirm(`确定要删除渠道“${row.channelName}”吗？`, '警告', { type: 'warning' })
-    .then(async () => {
-      await deleteChannel(row.id)
-      ElMessage.success('删除成功')
-      loadChannelPage()
-    })
-    .catch(() => {})
+const handleDelete = async (row: ChannelRecord) => {
+  try {
+    await confirmDelete('渠道', row.channelName)
+    await deleteChannel(row.id)
+    ElMessage.success('删除成功')
+    loadChannelPage()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除通知渠道失败', error)
+  }
 }
 
 const handleTest = async (row: ChannelRecord) => {

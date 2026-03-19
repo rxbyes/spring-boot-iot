@@ -39,71 +39,123 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
--- admin / 123456（BCrypt）
+-- 初始化演示账号默认密码：123456（BCrypt）
 INSERT INTO sys_user (
     id, tenant_id, username, password, nickname, real_name, phone, email, status, is_admin,
-    create_by, create_time, update_by, update_time, deleted
-) VALUES (
-    1, 1, 'admin', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-    '管理员', '系统管理员', '13800000000', 'admin@ghlzm.com', 1, 1,
-    1, NOW(), 1, NOW(), 0
-)
+    remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (1, 1, 'admin', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '平台总控官', '超级管理员', '13800000000', 'admin@ghlzm.com', 1, 1,
+     '超级管理员演示账号，默认查看平台治理与全量菜单。', 1, NOW(), 1, NOW(), 0),
+    (2, 1, 'biz_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '风险运营专员', '业务演示账号', '13800000001', 'biz_demo@ghlzm.com', 1, 0,
+     '业务人员演示账号，默认进入风险运营工作台。', 1, NOW(), 1, NOW(), 0),
+    (3, 1, 'manager_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '运营管理负责人', '管理演示账号', '13800000002', 'manager_demo@ghlzm.com', 1, 0,
+     '管理人员演示账号，默认进入风险运营并覆盖风险策略、平台治理。', 1, NOW(), 1, NOW(), 0),
+    (4, 1, 'ops_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '接入运维工程师', '运维演示账号', '13800000003', 'ops_demo@ghlzm.com', 1, 0,
+     '运维人员演示账号，默认进入接入智维工作台。', 1, NOW(), 1, NOW(), 0),
+    (5, 1, 'dev_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '平台开发工程师', '开发演示账号', '13800000004', 'dev_demo@ghlzm.com', 1, 0,
+     '开发人员演示账号，默认进入接入智维并开放质量工场。', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    nickname = VALUES(nickname),
     real_name = VALUES(real_name),
     phone = VALUES(phone),
     email = VALUES(email),
     status = VALUES(status),
     is_admin = VALUES(is_admin),
+    remark = VALUES(remark),
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
 
+SET @user_admin_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'admin' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @user_business_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'biz_demo' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @user_management_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'manager_demo' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @user_ops_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'ops_demo' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @user_developer_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'dev_demo' AND deleted = 0 ORDER BY id LIMIT 1);
+
+SET @role_business_id = (SELECT id FROM sys_role WHERE role_code = 'BUSINESS_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @role_management_id = (SELECT id FROM sys_role WHERE role_code = 'MANAGEMENT_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @role_ops_id = (SELECT id FROM sys_role WHERE role_code = 'OPS_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @role_developer_id = (SELECT id FROM sys_role WHERE role_code = 'DEVELOPER_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @role_super_admin_id = (SELECT id FROM sys_role WHERE role_code = 'SUPER_ADMIN' AND deleted = 0 ORDER BY id LIMIT 1);
+
+DELETE FROM sys_user_role
+WHERE tenant_id = 1
+  AND user_id IN (@user_admin_id, @user_business_demo_id, @user_management_demo_id, @user_ops_demo_id, @user_developer_demo_id);
+
+SET @user_role_seed := COALESCE((SELECT MAX(id) FROM sys_user_role), 0);
+
 INSERT INTO sys_user_role (
     id, tenant_id, user_id, role_id, create_by, create_time, update_by, update_time, deleted
-) VALUES (
-    1, 1, 1, 92000005, 1, NOW(), 1, NOW(), 0
 )
-ON DUPLICATE KEY UPDATE
-    role_id = VALUES(role_id),
-    update_by = 1,
-    update_time = NOW(),
-    deleted = 0;
+SELECT
+    (@user_role_seed := @user_role_seed + 1),
+    1,
+    t.user_id,
+    t.role_id,
+    1,
+    NOW(),
+    1,
+    NOW(),
+    0
+FROM (
+    SELECT 1 AS sort_no, @user_admin_id AS user_id, @role_super_admin_id AS role_id
+    UNION ALL
+    SELECT 2, @user_business_demo_id, @role_business_id
+    UNION ALL
+    SELECT 3, @user_management_demo_id, @role_management_id
+    UNION ALL
+    SELECT 4, @user_ops_demo_id, @role_ops_id
+    UNION ALL
+    SELECT 5, @user_developer_demo_id, @role_developer_id
+) t
+WHERE t.user_id IS NOT NULL
+  AND t.role_id IS NOT NULL
+ORDER BY t.sort_no;
 
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
     route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (93000001, 1, 0, '设备接入', 'iot-access', '', 'Layout', 'connection', '{"description":"接入与运维","menuTitle":"设备接入与运维"}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000002, 1, 0, '预警处置', 'risk-ops', '', 'Layout', 'warning', '{"description":"闭环与复盘","menuTitle":"风险处置闭环"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000003, 1, 0, '系统治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织与业务治理","menuTitle":"组织治理与业务日志"}', 30, 0, 0, '', 'system-governance', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000001, 1, 0, '接入智维', 'iot-access', '', 'Layout', 'connection', '{"description":"资产、链路与异常观测","menuTitle":"接入智维","menuHint":"覆盖产品定义、设备资产、链路验证、异常观测与数据校验。"}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001001, 1, 93000001, '产品模板中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模板建模、协议绑定与设备归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001002, 1, 93000001, '设备运维中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态核查与基础运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001003, 1, 93000001, '接入回放台', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001004, 1, 93000001, '风险点工作台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索"}', 14, 1, 1, '/insight', 'iot:insight', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001005, 1, 93000001, '文件与固件校验', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验"}', 15, 1, 1, '/file-debug', 'iot:file-debug', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001006, 1, 93000001, '系统日志', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 16, 1, 1, '/system-log', 'iot:system-log', 16, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001007, 1, 93000001, '消息追踪', 'iot:message-trace', '/message-trace', 'MessageTraceView', 'tickets', '{"caption":"按 TraceId、设备编码与 Topic 排查设备接入链路"}', 17, 1, 1, '/message-trace', 'iot:message-trace', 17, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模型、协议绑定与设备归属基线"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001006, 1, 93000001, '异常观测台', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 14, 1, 1, '/system-log', 'iot:system-log', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001007, 1, 93000001, '链路追踪台', 'iot:message-trace', '/message-trace', 'MessageTraceView', 'tickets', '{"caption":"按 TraceId、设备编码与 Topic 排查设备接入链路"}', 15, 1, 1, '/message-trace', 'iot:message-trace', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001005, 1, 93000001, '数据校验台', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验"}', 16, 1, 1, '/file-debug', 'iot:file-debug', 16, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93002001, 1, 93000002, '告警中心', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭"}', 21, 1, 1, '/alarm-center', 'risk:alarm', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002002, 1, 93000002, '事件处置', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环"}', 22, 1, 1, '/event-disposal', 'risk:event', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002003, 1, 93000002, '风险点管理', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"风险点建档、设备绑定与等级治理"}', 23, 1, 1, '/risk-point', 'risk:point', 23, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002004, 1, 93000002, '阈值规则配置', 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"阈值规则维护与触发条件治理"}', 24, 1, 1, '/rule-definition', 'risk:rule-definition', 24, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002005, 1, 93000002, '联动规则', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"触发条件与联动动作编排"}', 25, 1, 1, '/linkage-rule', 'risk:linkage-rule', 25, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002006, 1, 93000002, '应急预案', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"预案维护、步骤编排与响应协同"}', 26, 1, 1, '/emergency-plan', 'risk:emergency-plan', 26, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002007, 1, 93000002, '分析报表', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"风险趋势、告警统计与设备健康复盘"}', 27, 1, 1, '/report-analysis', 'risk:report', 27, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002008, 1, 93000002, '实时监测', 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"风险监测列表、筛选与详情抽屉"}', 28, 1, 1, '/risk-monitoring', 'risk:monitoring', 28, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002009, 1, 93000002, 'GIS 风险态势', 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"点位态势、未定位风险点与地图联动"}', 29, 1, 1, '/risk-monitoring-gis', 'risk:monitoring-gis', 29, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002008, 1, 93000002, '实时监测台', 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"风险监测列表、筛选与详情抽屉"}', 21, 1, 1, '/risk-monitoring', 'risk:monitoring', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002009, 1, 93000002, 'GIS态势图', 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"点位态势、未定位风险点与地图联动"}', 22, 1, 1, '/risk-monitoring-gis', 'risk:monitoring-gis', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002001, 1, 93000002, '告警运营台', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭"}', 23, 1, 1, '/alarm-center', 'risk:alarm', 23, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002002, 1, 93000002, '事件协同台', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环"}', 24, 1, 1, '/event-disposal', 'risk:event', 24, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001004, 1, 93000002, '对象洞察台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索"}', 25, 1, 1, '/insight', 'iot:insight', 25, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002007, 1, 93000002, '运营分析中心', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"风险趋势、告警统计与设备健康复盘"}', 26, 1, 1, '/report-analysis', 'risk:report', 26, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003001, 1, 93000003, '组织机构', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"组织树维护与责任主体管理"}', 31, 1, 1, '/organization', 'system:organization', 31, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003002, 1, 93000003, '用户管理', 'system:user', '/user', 'UserView', 'user', '{"caption":"用户维护、状态管理与密码重置"}', 32, 1, 1, '/user', 'system:user', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003003, 1, 93000003, '角色管理', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"角色维护与菜单授权管理"}', 33, 1, 1, '/role', 'system:role', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003004, 1, 93000003, '区域管理', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护"}', 34, 1, 1, '/region', 'system:region', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003005, 1, 93000003, '字典配置', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置"}', 35, 1, 1, '/dict', 'system:dict', 35, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003006, 1, 93000003, '通知渠道', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 36, 1, 1, '/channel', 'system:channel', 36, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '业务日志', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 37, 1, 1, '/audit-log', 'system:audit', 37, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003008, 1, 93000003, '菜单管理', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护"}', 38, 1, 1, '/menu', 'system:menu', 38, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003009, 1, 93000003, '自动化测试', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 39, 1, 1, '/automation-test', 'system:automation-test', 39, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002003, 1, 93000004, '风险对象中心', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"风险对象建档、设备绑定与等级治理"}', 31, 1, 1, '/risk-point', 'risk:point', 31, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002004, 1, 93000004, '阈值策略', 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"阈值规则维护与触发条件治理"}', 32, 1, 1, '/rule-definition', 'risk:rule-definition', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002005, 1, 93000004, '联动编排', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"触发条件与联动动作编排"}', 33, 1, 1, '/linkage-rule', 'risk:linkage-rule', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002006, 1, 93000004, '应急预案库', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"预案维护、步骤编排与响应协同"}', 34, 1, 1, '/emergency-plan', 'risk:emergency-plan', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
+
+    (93003001, 1, 93000003, '组织架构', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"组织树维护与责任主体管理"}', 41, 1, 1, '/organization', 'system:organization', 41, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003002, 1, 93000003, '账号中心', 'system:user', '/user', 'UserView', 'user', '{"caption":"账号维护、状态管理与密码重置"}', 42, 1, 1, '/user', 'system:user', 42, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003003, 1, 93000003, '角色权限', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"角色维护与菜单授权管理"}', 43, 1, 1, '/role', 'system:role', 43, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003008, 1, 93000003, '导航编排', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护"}', 44, 1, 1, '/menu', 'system:menu', 44, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003004, 1, 93000003, '区域版图', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护"}', 45, 1, 1, '/region', 'system:region', 45, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003005, 1, 93000003, '数据字典', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置"}', 46, 1, 1, '/dict', 'system:dict', 46, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003006, 1, 93000003, '通知编排', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 48, 1, 1, '/audit-log', 'system:audit', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
+
+    (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 51, 1, 1, '/automation-test', 'system:automation-test', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003101, 1, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限"}', 3201, 2, 2, '', 'system:user:add', 3201, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003102, 1, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限"}', 3202, 2, 2, '', 'system:user:update', 3202, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -136,13 +188,87 @@ ON DUPLICATE KEY UPDATE
     deleted = VALUES(deleted);
 
 DELETE FROM sys_role_menu
-WHERE role_id = 92000005;
+WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
 
-SET @role_menu_id := 96000000;
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@role_menu_id := @role_menu_id + 1), 1, 92000005, m.id, 1, NOW(), 1, NOW(), 0
+VALUES
+    (96010001, 1, @role_business_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (96010002, 1, @role_business_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (96010003, 1, @role_business_id, 93002009, 1, NOW(), 1, NOW(), 0),
+    (96010004, 1, @role_business_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (96010005, 1, @role_business_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
+
+    (96010021, 1, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (96010022, 1, @role_management_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (96010023, 1, @role_management_id, 93002009, 1, NOW(), 1, NOW(), 0),
+    (96010024, 1, @role_management_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (96010025, 1, @role_management_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (96010026, 1, @role_management_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (96010027, 1, @role_management_id, 93002007, 1, NOW(), 1, NOW(), 0),
+    (96010028, 1, @role_management_id, 93000004, 1, NOW(), 1, NOW(), 0),
+    (96010029, 1, @role_management_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (96010030, 1, @role_management_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (96010031, 1, @role_management_id, 93002005, 1, NOW(), 1, NOW(), 0),
+    (96010032, 1, @role_management_id, 93002006, 1, NOW(), 1, NOW(), 0),
+    (96010033, 1, @role_management_id, 93000003, 1, NOW(), 1, NOW(), 0),
+    (96010034, 1, @role_management_id, 93003001, 1, NOW(), 1, NOW(), 0),
+    (96010035, 1, @role_management_id, 93003002, 1, NOW(), 1, NOW(), 0),
+    (96010036, 1, @role_management_id, 93003003, 1, NOW(), 1, NOW(), 0),
+    (96010037, 1, @role_management_id, 93003004, 1, NOW(), 1, NOW(), 0),
+    (96010038, 1, @role_management_id, 93003005, 1, NOW(), 1, NOW(), 0),
+    (96010039, 1, @role_management_id, 93003006, 1, NOW(), 1, NOW(), 0),
+    (96010040, 1, @role_management_id, 93003007, 1, NOW(), 1, NOW(), 0),
+    (96010041, 1, @role_management_id, 93003101, 1, NOW(), 1, NOW(), 0),
+    (96010042, 1, @role_management_id, 93003102, 1, NOW(), 1, NOW(), 0),
+    (96010043, 1, @role_management_id, 93003104, 1, NOW(), 1, NOW(), 0),
+    (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
+    (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
+
+    (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
+    (96010063, 1, @role_ops_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (96010064, 1, @role_ops_id, 93001003, 1, NOW(), 1, NOW(), 0),
+    (96010065, 1, @role_ops_id, 93001006, 1, NOW(), 1, NOW(), 0),
+    (96010066, 1, @role_ops_id, 93001007, 1, NOW(), 1, NOW(), 0),
+    (96010067, 1, @role_ops_id, 93001005, 1, NOW(), 1, NOW(), 0),
+    (96010068, 1, @role_ops_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (96010069, 1, @role_ops_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (96010070, 1, @role_ops_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (96010071, 1, @role_ops_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (96010072, 1, @role_ops_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (96010073, 1, @role_ops_id, 93000004, 1, NOW(), 1, NOW(), 0),
+    (96010074, 1, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (96010075, 1, @role_ops_id, 93002004, 1, NOW(), 1, NOW(), 0),
+
+    (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
+    (96010093, 1, @role_developer_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (96010094, 1, @role_developer_id, 93001003, 1, NOW(), 1, NOW(), 0),
+    (96010095, 1, @role_developer_id, 93001006, 1, NOW(), 1, NOW(), 0),
+    (96010096, 1, @role_developer_id, 93001007, 1, NOW(), 1, NOW(), 0),
+    (96010097, 1, @role_developer_id, 93001005, 1, NOW(), 1, NOW(), 0),
+    (96010098, 1, @role_developer_id, 93000002, 1, NOW(), 1, NOW(), 0),
+    (96010099, 1, @role_developer_id, 93002008, 1, NOW(), 1, NOW(), 0),
+    (96010100, 1, @role_developer_id, 93002009, 1, NOW(), 1, NOW(), 0),
+    (96010101, 1, @role_developer_id, 93002001, 1, NOW(), 1, NOW(), 0),
+    (96010102, 1, @role_developer_id, 93002002, 1, NOW(), 1, NOW(), 0),
+    (96010103, 1, @role_developer_id, 93001004, 1, NOW(), 1, NOW(), 0),
+    (96010104, 1, @role_developer_id, 93000004, 1, NOW(), 1, NOW(), 0),
+    (96010105, 1, @role_developer_id, 93002003, 1, NOW(), 1, NOW(), 0),
+    (96010106, 1, @role_developer_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
+    (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
+    (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0);
+
+SET @role_menu_id := 96010900;
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_id := @role_menu_id + 1), 1, @role_super_admin_id, m.id, 1, NOW(), 1, NOW(), 0
 FROM sys_menu m
 WHERE m.deleted = 0
+  AND @role_super_admin_id IS NOT NULL
 ORDER BY m.sort, m.id;
 
 -- =========================

@@ -4,8 +4,8 @@
       <template #header>
         <div class="menu-view__header">
           <div class="menu-view__header-content">
-            <span>菜单管理</span>
-            <small>菜单页负责维护树结构与元数据，角色菜单范围请在角色管理页授权。</small>
+            <span>导航编排</span>
+            <small>导航编排页负责维护树结构与元数据，角色菜单范围请在角色权限页授权。</small>
           </div>
           <div class="menu-view__header-actions">
             <el-button v-permission="'system:role:update'" @click="goToRolePage">前往角色授权</el-button>
@@ -61,14 +61,11 @@
         class="menu-view__alert"
       />
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">当前结果 {{ pagination.total }} 条</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
+        <template #right>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         v-loading="loading"
@@ -81,10 +78,10 @@
         :load="loadChildren"
         :tree-props="treeProps"
       >
-        <el-table-column prop="menuName" label="菜单名称" min-width="160" />
-        <el-table-column prop="menuCode" label="菜单编码" min-width="180" />
-        <el-table-column prop="path" label="路由路径" min-width="160" />
-        <el-table-column prop="component" label="组件" min-width="140" />
+        <StandardTableTextColumn prop="menuName" label="菜单名称" :min-width="160" />
+        <StandardTableTextColumn prop="menuCode" label="菜单编码" :min-width="180" />
+        <StandardTableTextColumn prop="path" label="路由路径" :min-width="160" />
+        <StandardTableTextColumn prop="component" label="组件" :min-width="140" />
         <el-table-column prop="type" label="类型" width="90">
           <template #default="{ row }">
             <el-tag :type="row.type === 2 ? 'warning' : row.type === 1 ? 'success' : 'info'">
@@ -169,16 +166,27 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-        <el-button
-          v-permission="dialogMode === 'edit' ? 'system:menu:update' : 'system:menu:add'"
-          type="primary"
-          class="sys-dialog__btn sys-dialog__btn--primary"
-          :loading="submitLoading"
-          @click="submitForm"
+        <StandardDrawerFooter
+          :confirm-text="dialogMode === 'edit' ? '确认保存' : '确认新增'"
+          :confirm-loading="submitLoading"
+          @cancel="dialogVisible = false"
+          @confirm="submitForm"
         >
-          确定
-        </el-button>
+          <template #default>
+            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
+              取消
+            </el-button>
+            <el-button
+              v-permission="dialogMode === 'edit' ? 'system:menu:update' : 'system:menu:add'"
+              type="primary"
+              class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+              :loading="submitLoading"
+              @click="submitForm"
+            >
+              {{ dialogMode === 'edit' ? '确认保存' : '确认新增' }}
+            </el-button>
+          </template>
+        </StandardDrawerFooter>
       </template>
     </StandardFormDrawer>
   </div>
@@ -186,14 +194,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 
 const router = useRouter()
 const loading = ref(false)
@@ -370,12 +382,13 @@ async function submitForm() {
 
 async function removeMenu(id: number | string) {
   try {
-    await ElMessageBox.confirm('确认删除该菜单吗？', '删除菜单', { type: 'warning' })
+    const target = tableData.value.find(item => String(item.id) === String(id))
+    await confirmDelete('菜单', target?.menuName)
     await deleteMenu(id)
     ElMessage.success('删除成功')
     loadMenuPage()
   } catch (error) {
-    if ((error as Error).message === 'cancel') {
+    if (isConfirmCancelled(error)) {
       return
     }
     console.error('删除菜单失败', error)

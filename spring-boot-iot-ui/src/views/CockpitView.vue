@@ -3,9 +3,9 @@
     <section class="cockpit-hero">
       <div class="cockpit-hero__main">
         <p class="cockpit-hero__eyebrow">Risk Data Cockpit</p>
-        <h1>监测预警驾驶舱</h1>
+        <h1>风险运营驾驶舱</h1>
         <p class="cockpit-hero__desc">
-          首页聚焦关键风险指标、处置效率和系统运行状态；事务工作台入口下沉为执行层，避免“首页即工作台”的信息噪音。
+          首页聚焦关键风险指标、处置效率和系统运行状态；执行动作下沉到 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大工作台，避免“首页即操作台”的信息噪音。
         </p>
       </div>
       <div class="cockpit-hero__clock">
@@ -232,9 +232,9 @@ const rolePresets: RolePreset[] = [
       { label: '巡检异常队列', value: '5', hint: '未完成复核', percent: 36, tag: '跟进', tone: 'brand' }
     ],
     todos: [
-      { id: 'fl-1', priority: 'P1', window: '立即处理', title: '确认 3 条一级告警', detail: '涉及 2 个高风险点，需先确认并判定是否派单。', actionLabel: '进入告警中心', tone: 'danger', path: '/alarm-center' },
-      { id: 'fl-2', priority: 'P2', window: '30 分钟内', title: '完成事件工单接力', detail: '夜班遗留 2 条事件等待接收与开始。', actionLabel: '进入事件处置', tone: 'warning', path: '/event-disposal' },
-      { id: 'fl-3', priority: 'P3', window: '本班次内', title: '核对重点风险点状态', detail: '检查离线设备是否存在持续上报中断。', actionLabel: '进入风险点管理', tone: 'brand', path: '/risk-point' }
+      { id: 'fl-1', priority: 'P1', window: '立即处理', title: '确认 3 条一级告警', detail: '涉及 2 个高风险点，需先确认并判定是否派单。', actionLabel: '进入告警运营台', tone: 'danger', path: '/alarm-center' },
+      { id: 'fl-2', priority: 'P2', window: '30 分钟内', title: '完成事件工单接力', detail: '夜班遗留 2 条事件等待接收与开始。', actionLabel: '进入事件协同台', tone: 'warning', path: '/event-disposal' },
+      { id: 'fl-3', priority: 'P3', window: '本班次内', title: '核对重点风险点状态', detail: '检查离线设备是否存在持续上报中断。', actionLabel: '进入风险对象中心', tone: 'brand', path: '/risk-point' }
     ]
   },
   {
@@ -260,9 +260,9 @@ const rolePresets: RolePreset[] = [
       { label: 'SLA 违约队列', value: '2', hint: '跨班督办', percent: 24, tag: '风险', tone: 'danger' }
     ],
     todos: [
-      { id: 'ops-1', priority: 'P1', window: '今天', title: '排查离线设备聚集区域', detail: '东区出现 16 台设备离线，需确认网络与电源。', actionLabel: '进入设备运维中心', tone: 'warning', path: '/devices' },
-      { id: 'ops-2', priority: 'P2', window: '今天', title: '复核高误报阈值规则', detail: '3 条阈值规则命中频率异常偏高。', actionLabel: '进入阈值规则', tone: 'brand', path: '/rule-definition' },
-      { id: 'ops-3', priority: 'P2', window: '48 小时', title: '督办超时工单闭环', detail: '2 条事件工单接近 SLA 红线。', actionLabel: '进入事件处置', tone: 'danger', path: '/event-disposal' }
+      { id: 'ops-1', priority: 'P1', window: '今天', title: '排查离线设备聚集区域', detail: '东区出现 16 台设备离线，需确认网络与电源。', actionLabel: '进入设备资产中心', tone: 'warning', path: '/devices' },
+      { id: 'ops-2', priority: 'P2', window: '今天', title: '复核高误报阈值策略', detail: '3 条阈值策略命中频率异常偏高。', actionLabel: '进入阈值策略', tone: 'brand', path: '/rule-definition' },
+      { id: 'ops-3', priority: 'P2', window: '48 小时', title: '督办超时工单闭环', detail: '2 条事件工单接近 SLA 红线。', actionLabel: '进入事件协同台', tone: 'danger', path: '/event-disposal' }
     ]
   },
   {
@@ -288,9 +288,9 @@ const rolePresets: RolePreset[] = [
       { label: '本周复盘事项', value: '6', hint: '纳入经营复盘', percent: 33, tag: '复盘', tone: 'brand' }
     ],
     todos: [
-      { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '查看高风险区域态势', detail: '确认重点区域告警攀升原因与资源分配。', actionLabel: '进入分析报表', tone: 'danger', path: '/report-analysis' },
-      { id: 'mg-2', priority: 'P2', window: '今日', title: '审阅跨部门协同事件', detail: '对超时事件给出协调决策。', actionLabel: '进入事件处置', tone: 'warning', path: '/event-disposal' },
-      { id: 'mg-3', priority: 'P3', window: '本周', title: '复核治理执行情况', detail: '关注业务日志和组织执行情况。', actionLabel: '进入业务日志', tone: 'brand', path: '/audit-log' }
+      { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '查看高风险区域态势', detail: '确认重点区域告警攀升原因与资源分配。', actionLabel: '进入运营分析中心', tone: 'danger', path: '/report-analysis' },
+      { id: 'mg-2', priority: 'P2', window: '今日', title: '审阅跨部门协同事件', detail: '对超时事件给出协调决策。', actionLabel: '进入事件协同台', tone: 'warning', path: '/event-disposal' },
+      { id: 'mg-3', priority: 'P3', window: '本周', title: '复核治理执行情况', detail: '关注审计记录和组织执行情况。', actionLabel: '进入审计中心', tone: 'brand', path: '/audit-log' }
     ]
   },
   {
@@ -316,20 +316,20 @@ const rolePresets: RolePreset[] = [
       { label: '发布后观察项', value: '8', hint: '灰度监控', percent: 58, tag: '观察', tone: 'brand' }
     ],
     todos: [
-      { id: 'rd-1', priority: 'P1', window: '立即', title: '定位 1 条接口 5xx 告警', detail: '优先核查认证、接入与风险监测链路的系统日志。', actionLabel: '进入系统日志', tone: 'danger', path: '/system-log' },
-      { id: 'rd-2', priority: 'P2', window: '今天', title: '复盘协议解析异常样本', detail: '检查 legacy 报文兼容解析和安全校验。', actionLabel: '进入接入验证中心', tone: 'warning', path: '/reporting' },
-      { id: 'rd-3', priority: 'P3', window: '本周', title: '回归关键业务流程', detail: '覆盖告警、事件、规则、报表与登录链路。', actionLabel: '进入监测对象工作台', tone: 'brand', path: '/insight' }
+      { id: 'rd-1', priority: 'P1', window: '立即', title: '定位 1 条接口 5xx 告警', detail: '优先核查认证、接入与风险监测链路的系统日志。', actionLabel: '进入异常观测台', tone: 'danger', path: '/system-log' },
+      { id: 'rd-2', priority: 'P2', window: '今天', title: '复盘协议解析异常样本', detail: '检查 legacy 报文兼容解析和安全校验。', actionLabel: '进入链路验证中心', tone: 'warning', path: '/reporting' },
+      { id: 'rd-3', priority: 'P3', window: '本周', title: '回归关键业务流程', detail: '覆盖告警、事件、规则、报表与登录链路。', actionLabel: '进入对象洞察台', tone: 'brand', path: '/insight' }
     ]
   }
 ];
 
 const workbenchEntries = [
-  { title: '告警中心', description: '告警确认、抑制与关闭处理。', caption: '预警处置', path: '/alarm-center' },
-  { title: '事件处置', description: '工单派发、接收、闭环与反馈。', caption: '事件闭环', path: '/event-disposal' },
-  { title: '风险点管理', description: '风险点台账、设备绑定与等级维护。', caption: '风险配置', path: '/risk-point' },
-  { title: '分析报表', description: '风险趋势、告警统计和设备健康分析。', caption: '经营分析', path: '/report-analysis' },
-  { title: '设备运维中心', description: '设备建档、在线态与基础运维。', caption: '实施支撑', path: '/devices' },
-  { title: '接入验证中心', description: 'HTTP 上报链路与协议联调。', caption: '研发联调', path: '/reporting' }
+  { title: '告警运营台', description: '告警确认、抑制与关闭处理。', caption: '风险运营', path: '/alarm-center' },
+  { title: '事件协同台', description: '工单派发、接收、闭环与反馈。', caption: '事件闭环', path: '/event-disposal' },
+  { title: '风险对象中心', description: '风险点台账、设备绑定与等级维护。', caption: '风险策略', path: '/risk-point' },
+  { title: '运营分析中心', description: '风险趋势、告警统计和设备健康分析。', caption: '经营分析', path: '/report-analysis' },
+  { title: '设备资产中心', description: '设备建档、在线态与基础运维。', caption: '实施支撑', path: '/devices' },
+  { title: '链路验证中心', description: 'HTTP 上报链路与协议联调。', caption: '研发联调', path: '/reporting' }
 ];
 
 const roleOptions = computed(() => rolePresets.map(({ key, label, caption }) => ({ key, label, caption })));

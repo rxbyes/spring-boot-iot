@@ -69,7 +69,7 @@
 ## 五、当前交付边界
 
 - Phase 1~3 主链路已是稳定基线：产品、设备、HTTP 上报、MQTT 上下行、协议解析、消息日志、属性更新、在线状态
-- Phase 4 核心能力当前可用：告警中心、事件处置、风险点、阈值规则、联动规则、应急预案、报表分析、组织/用户/角色/菜单/区域/字典/通知渠道/审计日志
+- Phase 4 核心能力当前可用：告警运营台、事件协同台、风险对象中心、阈值策略、联动编排、应急预案库、运营分析中心、组织架构/账号中心/角色权限/导航编排/区域版图/数据字典/通知编排/审计中心
 - `/risk-monitoring`、`/risk-monitoring-gis` 已有代码基线，但是否计入已交付范围，以 `docs/19-phase4-progress.md` 为准
 
 ## 六、本次任务
@@ -127,7 +127,8 @@
 
 前端约束：
 - 保持 UTF-8 可读，不能写入乱码中文
-- 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、共享列表样式和现有 design tokens
+- 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享列表样式和现有 design tokens
+- 分组概览、工作台、抽屉和确认弹窗必须保持统一 brand/accent token 体系，不要再给单页单独发明另一套主色
 - 如发现样式漂移、分页不统一或新的前端治理问题，请同步更新 `docs/15-frontend-optimization-plan.md`
 ```
 
@@ -367,7 +368,8 @@
 
 前端约束：
 - 保持 UTF-8 可读，不能写入乱码中文
-- 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、共享列表样式和现有 design tokens
+- 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享列表样式和现有 design tokens
+- 分组概览、工作台、抽屉和确认弹窗必须保持统一 brand/accent token 体系，不要再给单页单独发明另一套主色
 - 不要新增一套页面本地分页/列表规范
 - 如发现样式漂移、分页不统一、列表重复建设或新的治理问题，必须同步更新 `docs/15-frontend-optimization-plan.md`
 - 不要破坏现有后端 API 契约

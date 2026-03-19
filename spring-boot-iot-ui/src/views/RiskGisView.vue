@@ -2,7 +2,7 @@
   <div class="ops-workbench risk-gis-view">
     <PanelCard
       eyebrow="GIS Situation"
-      title="GIS 风险态势"
+      title="GIS态势图"
       description="统一呈现风险点空间分布、定位质量与监测入口，帮助值班人员快速掌握 GIS 风险态势。"
       class="ops-hero-card"
     >
@@ -51,32 +51,29 @@
       :description="`已定位 ${locatedPoints.length} 个点位，可直接联动查看监测详情。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已定位 {{ locatedPoints.length }} 个</span>
-          <span class="table-action-bar__meta">活跃告警 {{ activeAlarmTotal }} 条</span>
-          <span class="table-action-bar__meta">在线设备 {{ onlineDeviceTotal }} 台</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`已定位 ${locatedPoints.length} 个`, `活跃告警 ${activeAlarmTotal} 条`, `在线设备 ${onlineDeviceTotal} 台`]"
+      >
+        <template #right>
           <el-button link @click="loadPoints">刷新点位</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <div v-if="loading" class="ops-state">正在加载 GIS 点位...</div>
       <div v-else-if="locatedPoints.length === 0" class="ops-state">暂无可渲染的经纬度点位</div>
       <el-table v-else :data="locatedPoints" border stripe>
-        <el-table-column prop="riskPointName" label="风险点" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="regionName" label="区域" min-width="120" show-overflow-tooltip />
+        <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="160" />
+        <StandardTableTextColumn prop="regionName" label="区域" :min-width="120" />
         <el-table-column label="风险等级" width="100">
           <template #default="{ row }">
             <el-tag :type="riskLevelTagType(row.riskLevel)" round>{{ riskLevelText(row.riskLevel) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="经纬度" min-width="220" show-overflow-tooltip>
+        <StandardTableTextColumn label="经纬度" :min-width="220">
           <template #default="{ row }">
             {{ formatCoordinate(row.longitude, row.latitude) }}
           </template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <el-table-column label="活跃告警" width="100">
           <template #default="{ row }">{{ row.activeAlarmCount ?? 0 }}</template>
         </el-table-column>
@@ -129,6 +126,8 @@ import { ElMessage } from '@/utils/message';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
+import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import { getRiskMonitoringGisPoints, getRiskMonitoringList, type RiskMonitoringGisPoint } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';

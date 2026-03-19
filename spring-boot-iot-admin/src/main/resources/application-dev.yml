@@ -48,6 +48,8 @@ logging:
     com.ghlzm.iot: debug
 
 iot:
+  security:
+    token-expire-seconds: ${IOT_SECURITY_TOKEN_EXPIRE_SECONDS:86400}
   cors:
     # 允许本机与常见内网网段的 Vite 开发地址直连，避免通过局域网 IP 访问前端时登录被 CORS 拦截。
     allowed-origin-patterns:

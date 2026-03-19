@@ -12,8 +12,8 @@
 
     <main class="login-stage">
       <section class="login-hero">
-        <h1>风险监测预警处置平台</h1>
-        <p>预判风险、协同处置、提升服务品质</p>
+        <h1>监测预警运营平台</h1>
+        <p>接入智维、风险运营、策略编排、平台治理一体协同</p>
       </section>
 
       <section class="auth-panel">

@@ -101,13 +101,13 @@ describe('automationPlan utils', () => {
     const menus: MenuTreeNode[] = [
       {
         id: 1,
-        menuName: '系统治理',
+        menuName: '平台治理',
         path: '/group',
         type: 0,
         children: [
           {
             id: 2,
-            menuName: '用户管理',
+            menuName: '账号中心',
             path: '/user',
             menuCode: 'system:user',
             type: 1,

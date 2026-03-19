@@ -366,7 +366,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 
 import { changePassword } from '../api/user';
-import { createSectionHomeNavItem } from '../config/sectionHomes';
+import { createSectionHomeNavItem } from '../utils/sectionWorkspaces';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { visitedTabs } from '../stores/tabs';
@@ -410,64 +410,73 @@ const guestGroup: NavGroup = {
 
 const docFallbackGroups: NavGroup[] = [
   {
-    key: 'iot-core',
-    label: '设备接入',
-    description: '接入与数据校验',
-    menuTitle: '设备接入与运维',
-    menuHint: '覆盖产品建模、设备建档、接入验证与数据洞察。',
+    key: 'iot-access',
+    label: '接入智维',
+    description: '资产、链路与异常观测',
+    menuTitle: '接入智维',
+    menuHint: '覆盖产品定义、设备资产、链路验证、异常观测与数据校验。',
     items: [
-      { to: '/products', label: '产品模板中心', caption: '产品模板建模与协议绑定', short: '产' },
-      { to: '/devices', label: '设备运维中心', caption: '设备建档、在线状态与运维管理', short: '设' },
-      { to: '/reporting', label: '接入验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
-      { to: '/insight', label: '监测对象工作台', caption: '设备属性、日志与研判线索', short: '洞' },
-      { to: '/system-log', label: '系统日志', caption: '研发测试定位系统异常与接入问题', short: '统' },
-      { to: '/message-trace', label: '消息追踪', caption: '按 TraceId、设备编码与 Topic 串联接入链路', short: '追' },
-      { to: '/file-debug', label: '数据完整性校验', caption: '文件快照与固件聚合调试', short: '校' }
+      { to: '/products', label: '产品定义中心', caption: '产品模型、协议绑定与设备归属基线', short: '产' },
+      { to: '/devices', label: '设备资产中心', caption: '设备建档、在线状态与资产运维', short: '设' },
+      { to: '/reporting', label: '链路验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
+      { to: '/system-log', label: '异常观测台', caption: '研发测试定位系统异常与接入问题', short: '观' },
+      { to: '/message-trace', label: '链路追踪台', caption: '按 TraceId、设备编码与 Topic 串联接入链路', short: '追' },
+      { to: '/file-debug', label: '数据校验台', caption: '文件快照与固件聚合调试', short: '校' }
     ]
   },
   {
-    key: 'risk-core',
-    label: '风险处置',
-    description: '告警、事件、规则与报表',
-    menuTitle: '风险预警与处置',
-    menuHint: '覆盖告警中心、事件闭环、风险配置与分析报表。',
+    key: 'risk-ops',
+    label: '风险运营',
+    description: '态势、告警与协同闭环',
+    menuTitle: '风险运营',
+    menuHint: '覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。',
     items: [
-      { to: '/alarm-center', label: '告警中心', caption: '告警列表、详情、确认、抑制、关闭', short: '告' },
-      { to: '/event-disposal', label: '事件处置', caption: '事件派发、工单流转与闭环', short: '事' },
-      { to: '/risk-point', label: '风险点管理', caption: '风险点 CRUD 与设备绑定', short: '险' },
-      { to: '/rule-definition', label: '阈值规则', caption: '阈值规则定义与启停管理', short: '阈' },
-      { to: '/linkage-rule', label: '联动规则', caption: '联动触发条件与动作配置', short: '联' },
-      { to: '/emergency-plan', label: '应急预案', caption: '应急预案维护与执行准备', short: '预' },
-      { to: '/report-analysis', label: '分析报表', caption: '风险趋势、告警统计与事件闭环', short: '报' }
+      { to: '/risk-monitoring', label: '实时监测台', caption: '监测列表、统一详情与风险筛选', short: '监' },
+      { to: '/risk-monitoring-gis', label: 'GIS态势图', caption: '风险点位态势与详情联动', short: '图' },
+      { to: '/alarm-center', label: '告警运营台', caption: '告警列表、详情、确认、抑制、关闭', short: '告' },
+      { to: '/event-disposal', label: '事件协同台', caption: '事件派发、工单流转与闭环', short: '事' },
+      { to: '/insight', label: '对象洞察台', caption: '设备属性、日志与研判线索', short: '洞' },
+      { to: '/report-analysis', label: '运营分析中心', caption: '风险趋势、告警统计与事件闭环', short: '析' }
     ]
   },
   {
-    key: 'system-core',
-    label: '系统管理',
-    description: '组织与权限治理',
-    menuTitle: '系统治理与权限',
-    menuHint: '覆盖组织、用户、角色、菜单、区域、字典、通知与业务日志。',
+    key: 'risk-config',
+    label: '风险策略',
+    description: '对象、阈值与联动配置',
+    menuTitle: '风险策略',
+    menuHint: '覆盖风险对象、阈值策略、联动编排与应急预案库。',
     items: [
-      { to: '/organization', label: '组织管理', caption: '组织树维护与层级治理', short: '组' },
-      { to: '/user', label: '用户管理', caption: '用户档案、状态与角色分配', short: '用' },
-      { to: '/role', label: '角色管理', caption: '角色与菜单权限授权', short: '角' },
-      { to: '/menu', label: '菜单管理', caption: '菜单树结构与页面权限项维护', short: '菜' },
-      { to: '/automation-test', label: '自动化测试', caption: '配置驱动场景编排、执行计划与报告导出', short: '测' },
-      { to: '/region', label: '区域管理', caption: '区域树维护与引用配置', short: '区' },
-      { to: '/dict', label: '字典配置', caption: '字典分类维护与编码查询', short: '字' },
-      { to: '/channel', label: '通知渠道', caption: '通知渠道增删改查', short: '通' },
-      { to: '/audit-log', label: '业务日志', caption: '客户与治理侧业务操作审计', short: '业' }
+      { to: '/risk-point', label: '风险对象中心', caption: '风险对象台账、设备绑定与监测范围', short: '险' },
+      { to: '/rule-definition', label: '阈值策略', caption: '阈值策略设计、测试与启停管理', short: '阈' },
+      { to: '/linkage-rule', label: '联动编排', caption: '联动触发条件与动作配置', short: '联' },
+      { to: '/emergency-plan', label: '应急预案库', caption: '应急预案维护与执行准备', short: '预' }
     ]
   },
   {
-    key: 'risk-enhance',
-    label: '风险增强',
-    description: '实时监测与 GIS',
-    menuTitle: '风险监测增强能力',
-    menuHint: '实时监测与 GIS 态势页面，按阶段逐步纳入验收。',
+    key: 'system-governance',
+    label: '平台治理',
+    description: '组织、权限与审计治理',
+    menuTitle: '平台治理',
+    menuHint: '覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。',
     items: [
-      { to: '/risk-monitoring', label: '实时监测', caption: '监测列表与统一详情抽屉', short: '实' },
-      { to: '/risk-monitoring-gis', label: 'GIS 风险态势', caption: '风险点位态势与详情联动', short: '图' }
+      { to: '/organization', label: '组织架构', caption: '组织树维护与层级治理', short: '组' },
+      { to: '/user', label: '账号中心', caption: '账号档案、状态与角色分配', short: '账' },
+      { to: '/role', label: '角色权限', caption: '角色与菜单权限授权', short: '角' },
+      { to: '/menu', label: '导航编排', caption: '菜单树结构与页面权限项维护', short: '导' },
+      { to: '/region', label: '区域版图', caption: '区域树维护与引用配置', short: '区' },
+      { to: '/dict', label: '数据字典', caption: '字典分类维护与编码查询', short: '字' },
+      { to: '/channel', label: '通知编排', caption: '通知配置、启停与测试', short: '通' },
+      { to: '/audit-log', label: '审计中心', caption: '客户与治理侧业务操作审计', short: '审' }
+    ]
+  },
+  {
+    key: 'quality-workbench',
+    label: '质量工场',
+    description: '自动化与质量基线',
+    menuTitle: '质量工场',
+    menuHint: '覆盖自动化编排、回归计划与质量巡检资产。',
+    items: [
+      { to: '/automation-test', label: '自动化工场', caption: '配置驱动场景编排、执行计划与报告导出', short: '测' }
     ]
   }
 ];
@@ -729,9 +738,9 @@ const unreadNoticeCount = computed(() => {
 });
 const helpItems = [
   { label: '平台首页', caption: '查看系统总览和业务入口', path: '/' },
-  { label: '接入验证中心', caption: '验证 HTTP 上报与链路解析', path: '/reporting' },
-  { label: '演进蓝图', caption: '查看规划能力与后续路线', path: '/future-lab' },
-  { label: '系统角色管理', caption: '维护角色与权限关系', path: '/role' }
+  { label: '链路验证中心', caption: '验证 HTTP 上报与链路解析', path: '/reporting' },
+  { label: '风险策略', caption: '进入对象、阈值与联动配置总览', path: '/risk-config' },
+  { label: '角色权限', caption: '维护角色与权限关系', path: '/role' }
 ];
 const helpPopoverItems = computed(() =>
   helpItems.map((item, index) => ({

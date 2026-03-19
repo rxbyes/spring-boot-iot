@@ -2,7 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import { getCurrentUser } from '../api/auth';
-import { canAccessSectionHome, listSectionHomeConfigs } from '../config/sectionHomes';
+import { canAccessSectionHome, listSectionHomeConfigs } from '../utils/sectionWorkspaces';
 import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
 

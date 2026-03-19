@@ -2,7 +2,7 @@
   <div class="ops-workbench linkage-rule-view">
     <PanelCard
       eyebrow="Linkage Workflow"
-      title="联动规则"
+      title="联动编排"
       description="统一维护联动触发条件与动作编排，让阈值告警、通知与应急处置能够在同一工作台中连贯配置。"
       class="ops-hero-card"
     >
@@ -16,14 +16,14 @@
         <MetricCard label="已配动作列表" :value="String(actionConfiguredCount)" :badge="{ label: '执行动作', tone: 'danger' }" />
       </div>
       <div class="ops-inline-note">
-        联动规则负责把告警触发、动作执行和通知联动串起来，当前列表页已与其他风险平台页面统一为同一套工作台视觉骨架。
+        联动编排负责把告警触发、动作执行和通知联动串起来，当前列表页已与其他风险平台页面统一为同一套工作台视觉骨架。
       </div>
     </PanelCard>
 
     <PanelCard
       eyebrow="Linkage Filters"
       title="筛选条件"
-      description="优先检查启用中的联动规则和动作编排完整性，避免触发后无法执行后续动作。"
+      description="优先检查启用中的联动编排和动作编排完整性，避免触发后无法执行后续动作。"
       class="ops-filter-card"
     >
       <el-form :model="filters" label-position="top" class="ops-filter-form">
@@ -56,24 +56,21 @@
 
     <PanelCard
       eyebrow="Linkage List"
-      title="联动规则列表"
-      :description="`当前 ${pagination.total} 条联动规则，支持动作编排与启停管理。`"
+      title="联动编排列表"
+      :description="`当前 ${pagination.total} 条联动编排，支持动作编排与启停管理。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
-          <span class="table-action-bar__meta">已配动作 {{ actionConfiguredCount }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `已配动作 ${actionConfiguredCount} 项`]"
+      >
+        <template #right>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
-      <div v-if="loading" class="ops-state">正在加载联动规则列表...</div>
-      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的联动规则</div>
+      <div v-if="loading" class="ops-state">正在加载联动编排列表...</div>
+      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的联动编排</div>
       <template v-else>
         <el-table
           ref="tableRef"
@@ -83,24 +80,24 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="ruleName" label="规则名称" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
-          <el-table-column label="触发条件" min-width="180" show-overflow-tooltip>
+          <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+          <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
+          <StandardTableTextColumn label="触发条件" :min-width="180">
             <template #default="{ row }">
               {{ row.triggerCondition || '--' }}
             </template>
-          </el-table-column>
-          <el-table-column label="动作列表" min-width="180" show-overflow-tooltip>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn label="动作列表" :min-width="180">
             <template #default="{ row }">
               {{ row.actionList || '--' }}
             </template>
-          </el-table-column>
+          </StandardTableTextColumn>
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -125,14 +122,14 @@
       v-model="formVisible"
       eyebrow="Risk Platform Form"
       :title="formTitle"
-      subtitle="统一通过右侧抽屉维护联动规则与动作编排。"
+      subtitle="统一通过右侧抽屉维护联动编排与动作编排。"
       size="44rem"
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>编排提示</strong>
-          <span>联动规则建议先定义清晰的触发条件，再补齐动作列表；如果采用 JSON 结构，请保持字段口径稳定，便于后续联调与复用。</span>
+          <span>联动编排建议先定义清晰的触发条件，再补齐动作列表；如果采用 JSON 结构，请保持字段口径稳定，便于后续联调与复用。</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
@@ -177,8 +174,11 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
       </template>
     </StandardFormDrawer>
   </div>
@@ -187,12 +187,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/linkageRule';
 import type { LinkageRule } from '../api/linkageRule';
 
@@ -336,15 +339,16 @@ const handleEdit = (row: LinkageRule) => {
 
 const handleDelete = async (row: LinkageRule) => {
   try {
-    await ElMessageBox.confirm('确定要删除该规则吗？', '删除规则', {
-      type: 'warning'
-    });
+    await confirmDelete('联动编排', row.ruleName);
     const res = await deleteRule(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
       void loadRuleList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除规则失败', error);
   }
 };

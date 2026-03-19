@@ -1,7 +1,7 @@
 import { ElMessage } from '@/utils/message';
 
 import router from '../router';
-import { clearStoredAuth, getStoredAccessToken, usePermissionStore } from '../stores/permission';
+import { getStoredAccessToken, usePermissionStore } from '../stores/permission';
 import { createRequestError } from './request';
 import { interceptorManager } from './request';
 import type { RequestInterceptor, ResponseInterceptor } from './request';
@@ -16,6 +16,41 @@ const ERROR_CODE_MAP: Record<number, string> = {
   503: '服务不可用',
   504: '网关超时'
 };
+
+let authRedirectPromise: Promise<void> | null = null;
+
+function buildLoginRedirectQuery() {
+  const currentRoute = router.currentRoute.value;
+  if (!currentRoute?.path || currentRoute.path === '/login') {
+    return undefined;
+  }
+  return {
+    redirect: currentRoute.fullPath
+  };
+}
+
+async function redirectToLogin() {
+  if (router.currentRoute.value.path === '/login') {
+    return;
+  }
+  if (!authRedirectPromise) {
+    authRedirectPromise = router
+      .replace({
+        path: '/login',
+        query: buildLoginRedirectQuery()
+      })
+      .finally(() => {
+        authRedirectPromise = null;
+      });
+  }
+  await authRedirectPromise;
+}
+
+async function handleUnauthorized() {
+  const permissionStore = usePermissionStore();
+  permissionStore.logout();
+  await redirectToLogin();
+}
 
 export const authRequestInterceptor: RequestInterceptor = {
   async onRequest(options) {
@@ -36,21 +71,12 @@ export const loadingRequestInterceptor: RequestInterceptor = {
 export const errorResponseInterceptor: ResponseInterceptor = {
   async onsuccess(data) {
     if (data.code !== 200) {
-      if (data.code === 401) {
-        // 会话失效后清理鉴权状态并回到登录页，避免停留在受保护页面
-        const permissionStore = usePermissionStore();
-        permissionStore.logout();
-        clearStoredAuth();
-        if (router.currentRoute.value.path !== '/login') {
-          await router.push({
-            path: '/login',
-            query: {
-              redirect: router.currentRoute.value.fullPath
-            }
-          });
-        }
-      }
       const message = data.msg || ERROR_CODE_MAP[data.code] || '请求失败';
+      if (data.code === 401) {
+        // 会话失效后统一清理鉴权状态并跳回登录页，避免页面停留在受保护路由或展示原始 401 JSON。
+        await handleUnauthorized();
+        throw createRequestError(message, true);
+      }
       ElMessage.error(message);
       throw createRequestError(message, true);
     }

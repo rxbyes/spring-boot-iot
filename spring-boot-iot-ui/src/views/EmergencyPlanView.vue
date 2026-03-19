@@ -2,7 +2,7 @@
   <div class="ops-workbench emergency-plan-view">
     <PanelCard
       eyebrow="Emergency Plans"
-      title="应急预案"
+      title="应急预案库"
       description="统一维护风险等级、响应步骤和联系人信息，支撑风险事件在告警触发后的快速响应与闭环执行。"
       class="ops-hero-card"
     >
@@ -16,7 +16,7 @@
         <MetricCard label="警告风险预案" :value="String(warningCount)" :badge="{ label: '常用预案', tone: 'warning' }" />
       </div>
       <div class="ops-inline-note">
-        应急预案与联动规则、阈值规则共同构成风险闭环，当前页面已统一为工作台样式，方便查看、维护和版本化治理。
+        应急预案库与联动编排、阈值策略共同构成风险闭环，当前页面已统一为工作台样式，方便查看、维护和版本化治理。
       </div>
     </PanelCard>
 
@@ -69,17 +69,14 @@
       :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
-          <span class="table-action-bar__meta">严重 {{ criticalCount }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+      >
+        <template #right>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <div v-if="loading" class="ops-state">正在加载应急预案列表...</div>
       <div v-else-if="planList.length === 0" class="ops-state">暂无符合条件的应急预案</div>
@@ -92,19 +89,19 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="planName" label="预案名称" min-width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="planName" label="预案名称" :min-width="180" />
           <el-table-column prop="riskLevel" label="风险等级" width="100">
             <template #default="{ row }">
               <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
+          <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -188,8 +185,11 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
       </template>
     </StandardFormDrawer>
   </div>
@@ -198,12 +198,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
@@ -379,15 +382,16 @@ const handleEdit = (row: EmergencyPlan) => {
 
 const handleDelete = async (row: EmergencyPlan) => {
   try {
-    await ElMessageBox.confirm('确定要删除该预案吗？', '删除预案', {
-      type: 'warning'
-    });
+    await confirmDelete('预案', row.planName);
     const res = await deletePlan(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
       void loadPlanList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除预案失败', error);
   }
 };

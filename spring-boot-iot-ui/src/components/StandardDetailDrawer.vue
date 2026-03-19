@@ -85,8 +85,8 @@ const emit = defineEmits<{
 <style scoped>
 .standard-detail-drawer :deep(.el-drawer) {
   background:
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.1), transparent 30%),
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.07), transparent 22%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 30%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 22%),
     linear-gradient(180deg, rgba(250, 252, 255, 0.99), rgba(244, 248, 253, 0.99));
   box-shadow: var(--shadow-drawer);
 }
@@ -94,10 +94,10 @@ const emit = defineEmits<{
 .standard-detail-drawer :deep(.el-drawer__header) {
   margin-bottom: 0;
   padding: 26px 28px 22px;
-  border-bottom: 1px solid rgba(42, 63, 95, 0.08);
+  border-bottom: 1px solid var(--panel-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 249, 255, 0.92)),
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.06), transparent 28%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 28%);
 }
 
 .standard-detail-drawer :deep(.el-drawer__body) {
@@ -123,7 +123,7 @@ const emit = defineEmits<{
 
 .detail-drawer__eyebrow {
   margin: 0;
-  color: #7b8ba4;
+  color: var(--text-caption-2);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
@@ -133,7 +133,7 @@ const emit = defineEmits<{
 
 .detail-drawer__heading h2 {
   margin: 0.45rem 0 0;
-  color: #243448;
+  color: var(--text-heading);
   font-size: clamp(1.65rem, 2.2vw, 2.05rem);
   line-height: 1.2;
   font-weight: 700;
@@ -143,7 +143,7 @@ const emit = defineEmits<{
 .detail-drawer__subtitle {
   margin: 0.7rem 0 0;
   max-width: 40rem;
-  color: #6f809b;
+  color: var(--text-caption);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -159,7 +159,7 @@ const emit = defineEmits<{
   min-height: 1.8rem;
   border-radius: var(--radius-pill);
   padding-inline: 0.7rem;
-  border-color: rgba(79, 111, 154, 0.1);
+  border-color: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .detail-drawer__body {
@@ -169,16 +169,16 @@ const emit = defineEmits<{
 
 .detail-state {
   padding: 1.1rem 1.25rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
-  color: #70809a;
+  color: var(--text-caption);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .detail-state--error {
-  color: #d94848;
-  border-color: rgba(217, 72, 72, 0.18);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
   background: linear-gradient(180deg, rgba(255, 246, 246, 0.98), rgba(255, 241, 241, 0.96));
 }
 
@@ -190,7 +190,7 @@ const emit = defineEmits<{
   position: relative;
   overflow: hidden;
   padding: 1.25rem 1.35rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 250, 255, 0.91));
   box-shadow:
@@ -203,12 +203,17 @@ const emit = defineEmits<{
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, rgba(79, 140, 255, 0.72), rgba(56, 189, 248, 0.5), rgba(192, 132, 252, 0.34));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand) 82%, white),
+    color-mix(in srgb, var(--accent) 62%, white),
+    color-mix(in srgb, var(--brand-bright) 58%, white)
+  );
 }
 
 .standard-detail-drawer :deep(.detail-panel--hero) {
   background:
-    radial-gradient(circle at top right, rgba(79, 140, 255, 0.06), transparent 34%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 34%),
     linear-gradient(180deg, rgba(242, 247, 255, 0.95), rgba(255, 255, 255, 0.94));
 }
 
@@ -222,7 +227,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-section-header h3) {
   margin: 0;
-  color: #243448;
+  color: var(--text-heading);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -230,7 +235,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-panel > h3) {
   margin: 0 0 1rem;
-  color: #243448;
+  color: var(--text-heading);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -238,7 +243,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-section-header p) {
   margin: 0.38rem 0 0;
-  color: #7a8aa4;
+  color: var(--text-caption-2);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -260,14 +265,14 @@ const emit = defineEmits<{
   gap: 0.38rem;
   min-width: 0;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .standard-detail-drawer :deep(.detail-summary-card__label) {
-  color: #7b8ba4;
+  color: var(--text-caption-2);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
@@ -275,7 +280,7 @@ const emit = defineEmits<{
 }
 
 .standard-detail-drawer :deep(.detail-summary-card__value) {
-  color: #243448;
+  color: var(--text-heading);
   font-size: 1.05rem;
   line-height: 1.4;
   font-weight: 700;
@@ -284,7 +289,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-summary-card__hint) {
   margin: 0;
-  color: #7b8ba4;
+  color: var(--text-caption-2);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -296,7 +301,7 @@ const emit = defineEmits<{
   flex-direction: column;
   gap: 0.38rem;
   padding: 0.95rem 1rem 1rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
@@ -308,7 +313,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-field__label) {
   display: block;
-  color: #7c8ca6;
+  color: var(--text-caption-2);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
@@ -317,7 +322,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-field__value) {
   display: block;
-  color: #243448;
+  color: var(--text-heading);
   font-size: 15px;
   line-height: 1.65;
   font-weight: 700;
@@ -355,7 +360,7 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-card) {
   padding: 1rem 1.1rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
@@ -369,7 +374,7 @@ const emit = defineEmits<{
 }
 
 .standard-detail-drawer :deep(.detail-card__header strong) {
-  color: #243448;
+  color: var(--text-heading);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -379,7 +384,7 @@ const emit = defineEmits<{
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  color: #5f6f88;
+  color: var(--text-caption);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -390,7 +395,7 @@ const emit = defineEmits<{
   min-height: 1.7rem;
   padding: 0.26rem 0.62rem;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(79, 111, 154, 0.08);
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
   background: rgba(247, 250, 255, 0.96);
 }
 
@@ -398,26 +403,26 @@ const emit = defineEmits<{
   display: grid;
   gap: 0.4rem;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(42, 63, 95, 0.08);
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .standard-detail-drawer :deep(.detail-notice--danger) {
-  border-color: rgba(239, 68, 68, 0.2);
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
   background: linear-gradient(180deg, rgba(255, 245, 245, 0.98), rgba(255, 239, 239, 0.96));
 }
 
 .standard-detail-drawer :deep(.detail-notice__label) {
-  color: #7b8ba4;
+  color: var(--text-caption-2);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .standard-detail-drawer :deep(.detail-notice__value) {
-  color: #243448;
+  color: var(--text-heading);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.65;
@@ -431,10 +436,10 @@ const emit = defineEmits<{
 
 .standard-detail-drawer :deep(.detail-empty) {
   padding: 0.95rem 1rem;
-  border: 1px dashed rgba(42, 63, 95, 0.16);
+  border: 1px dashed color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
-  color: #70809a;
+  color: var(--text-caption);
   font-size: 14px;
   line-height: 1.6;
 }

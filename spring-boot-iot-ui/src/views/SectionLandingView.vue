@@ -135,7 +135,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import EmptyState from '../components/EmptyState.vue';
 import PanelCard from '../components/PanelCard.vue';
-import { getSectionHomeConfigByPath, matchSectionCardActivity, pickSectionActivities } from '../config/sectionHomes';
+import { getSectionHomeConfigByPath, matchSectionCardActivity, pickSectionActivities } from '../utils/sectionWorkspaces';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { formatDateTime } from '../utils/format';
@@ -249,7 +249,7 @@ function buildBadge(label: string) {
 
 .section-landing__hero-intro {
   margin: 0;
-  color: #5d6f89;
+  color: var(--text-caption);
   line-height: 1.75;
 }
 
@@ -265,18 +265,20 @@ function buildBadge(label: string) {
   min-width: 6.8rem;
   padding: 0.8rem 0.95rem;
   border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(241, 246, 255, 0.96));
-  border: 1px solid #e4ecf8;
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.97)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .section-landing__hero-tag small {
-  color: #7f8fa8;
+  color: var(--text-caption-2);
   font-size: 0.72rem;
 }
 
 .section-landing__hero-tag strong {
-  color: #1f3558;
+  color: var(--text-heading);
   font-size: 0.92rem;
 }
 
@@ -293,24 +295,25 @@ function buildBadge(label: string) {
   min-height: 2.5rem;
   padding: 0 0.92rem;
   border-radius: 999px;
-  border: 1px solid #d7e3f7;
-  color: #35527a;
-  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  border: 1px solid var(--panel-border);
+  color: var(--text-secondary);
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
   text-decoration: none;
   font-weight: 600;
   transition: all 160ms ease;
 }
 
 .section-landing__hero-link:hover {
-  border-color: #bfd2f2;
-  background: #edf4ff;
+  border-color: color-mix(in srgb, var(--brand) 20%, white);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
 .section-landing__hero-link--primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: var(--shadow-brand);
 }
 
 .section-landing__stats {
@@ -323,23 +326,25 @@ function buildBadge(label: string) {
   gap: 0.3rem;
   padding: 1rem;
   border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(241, 246, 255, 0.96));
-  border: 1px solid #e3ebf8;
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.97)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 7%, transparent), transparent 34%);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .section-landing__stat span {
-  color: #7b8ba3;
+  color: var(--text-caption-2);
   font-size: 0.76rem;
 }
 
 .section-landing__stat strong {
-  color: #1f3558;
+  color: var(--text-heading);
   font-size: 1.3rem;
 }
 
 .section-landing__stat small {
-  color: #5d6f89;
+  color: var(--text-caption);
   line-height: 1.5;
   font-size: 0.78rem;
 }
@@ -357,16 +362,16 @@ function buildBadge(label: string) {
   gap: 0.8rem;
   padding: 1.05rem 1.1rem;
   border-radius: calc(var(--radius-lg) + 2px);
-  border: 1px solid #e3eaf5;
+  border: 1px solid var(--panel-border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
   color: inherit;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(31, 35, 41, 0.05);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .section-landing__card:hover {
-  border-color: #c8d7ef;
-  box-shadow: 0 8px 18px rgba(31, 35, 41, 0.08);
+  border-color: color-mix(in srgb, var(--brand) 20%, white);
+  box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }
 
@@ -377,8 +382,8 @@ function buildBadge(label: string) {
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -389,19 +394,19 @@ function buildBadge(label: string) {
 }
 
 .section-landing__card strong {
-  color: #1f3558;
+  color: var(--text-heading);
   font-size: 0.94rem;
 }
 
 .section-landing__card p {
   margin: 0;
-  color: #5d6f89;
+  color: var(--text-caption);
   line-height: 1.6;
   font-size: 0.8rem;
 }
 
 .section-landing__card small {
-  color: var(--accent);
+  color: var(--brand);
   font-size: 0.76rem;
   font-weight: 600;
 }
@@ -425,11 +430,11 @@ function buildBadge(label: string) {
   gap: 0.35rem;
   padding: 0.95rem 1rem;
   border-radius: calc(var(--radius-lg) + 2px);
-  border: 1px solid #e7edf7;
+  border: 1px solid var(--panel-border);
   text-decoration: none;
   color: inherit;
   background: #fff;
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .section-landing__recent-item {
@@ -447,20 +452,20 @@ function buildBadge(label: string) {
 .section-landing__recent-item strong,
 .section-landing__recommend-item strong,
 .section-landing__capability-item strong {
-  color: #1f3558;
+  color: var(--text-heading);
 }
 
 .section-landing__recent-item p,
 .section-landing__recommend-item p,
 .section-landing__capability-item span {
   margin: 0;
-  color: #5d6f89;
+  color: var(--text-caption);
   line-height: 1.6;
   font-size: 0.8rem;
 }
 
 .section-landing__recent-item small {
-  color: #7f8fa8;
+  color: var(--text-caption-2);
   white-space: nowrap;
 }
 
@@ -471,9 +476,9 @@ function buildBadge(label: string) {
   align-items: start;
   padding: 0.95rem 1rem;
   border-radius: calc(var(--radius-lg) + 2px);
-  border: 1px solid #e7edf7;
+  border: 1px solid var(--panel-border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
-  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.04);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .section-landing__recommend-stage {
@@ -484,14 +489,14 @@ function buildBadge(label: string) {
   height: 1.8rem;
   padding: 0 0.7rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .section-landing__text-link {
-  color: var(--accent);
+  color: var(--brand);
   text-decoration: none;
   font-size: 0.8rem;
   font-weight: 600;

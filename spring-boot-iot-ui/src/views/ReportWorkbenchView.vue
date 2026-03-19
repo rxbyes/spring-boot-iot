@@ -7,7 +7,7 @@
         title="模拟设备上报"
         description="这里直接对应 `POST /message/http/report`，是当前 Phase 1 最关键的联调入口。"
       >
-        <div class="button-row report-template-row" style="margin-bottom: 1rem;">
+        <StandardActionGroup margin-bottom="sm" gap="sm">
           <el-button
             v-for="template in templates"
             :key="template.name"
@@ -16,7 +16,7 @@
           >
             {{ template.name }}
           </el-button>
-        </div>
+        </StandardActionGroup>
 
         <form class="form-grid" @submit.prevent="handleSendReport">
           <div class="field-group">
@@ -65,14 +65,14 @@
             <label for="payload">Payload</label>
             <el-input id="payload" v-model="reportForm.payload" name="report_payload" type="textarea" :rows="9" spellcheck="false" />
           </div>
-          <div class="button-row" style="grid-column: 1 / -1;">
+          <StandardActionGroup full-width>
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending">
               {{ isSending ? '发送中...' : '发送上报' }}
             </el-button>
             <el-button class="secondary-button" @click="syncTopic">
               用推荐 Topic 覆盖
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
       </PanelCard>
 
@@ -82,24 +82,7 @@
         title="报文预演"
         description="在真正调用接口前，先看 topic、messageType 和 curl 命令是否合理。"
       >
-        <div class="info-grid">
-          <div class="info-chip">
-            <span>推荐 Topic</span>
-            <strong>{{ recommendedTopic }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>messageType</span>
-            <strong>{{ inferredMessageType }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>Payload 状态</span>
-            <strong>{{ parsedPayload ? 'JSON 有效' : 'JSON 无法解析' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>模拟入口</span>
-            <strong>POST /message/http/report</strong>
-          </div>
-        </div>
+        <StandardInfoGrid :items="previewInfoItems" />
         <div class="empty-state report-preview" style="margin-top: 1rem;">
           当前 curl 预览：
           <pre class="report-preview__code">{{ curlPreview }}</pre>
@@ -130,15 +113,7 @@
       title="发送后建议检查"
       description="按照文档推荐的 Phase 1 验证顺序，确认报文已进入主链路并更新设备状态。"
     >
-      <div class="flow-rail">
-        <div v-for="step in followUpSteps" :key="step.title" class="flow-rail__item">
-          <span class="flow-rail__index">{{ step.index }}</span>
-          <div>
-            <strong>{{ step.title }}</strong>
-            <span>{{ step.description }}</span>
-          </div>
-        </div>
-      </div>
+      <StandardFlowRail :items="followUpSteps" />
     </PanelCard>
   </div>
 </template>
@@ -148,8 +123,11 @@ import { computed, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 
 import { reportByHttp } from '../api/iot';
+import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardFlowRail from '../components/StandardFlowRail.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
+import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import { recordActivity } from '../stores/activity';
 import type { HttpReportPayload } from '../types/api';
 import { parseJsonSafely, prettyJson } from '../utils/format';
@@ -234,6 +212,29 @@ const recommendedTopic = computed(() => {
   return `/sys/${reportForm.productKey}/${reportForm.deviceCode}/${suffix}`;
 });
 
+const previewInfoItems = computed(() => [
+  {
+    key: 'recommended-topic',
+    label: '推荐 Topic',
+    value: recommendedTopic.value
+  },
+  {
+    key: 'message-type',
+    label: 'messageType',
+    value: inferredMessageType.value
+  },
+  {
+    key: 'payload-status',
+    label: 'Payload 状态',
+    value: parsedPayload.value ? 'JSON 有效' : 'JSON 无法解析'
+  },
+  {
+    key: 'request-path',
+    label: '模拟入口',
+    value: 'POST /message/http/report'
+  }
+]);
+
 const curlPreview = computed(() => {
   const body = JSON.stringify(
     {
@@ -309,19 +310,14 @@ async function handleSendReport() {
   inset: -8rem -7rem auto auto;
   width: 16rem;
   height: 16rem;
-  background: radial-gradient(circle, rgba(30, 128, 255, 0.14), transparent 65%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 65%);
   pointer-events: none;
-}
-
-.report-template-row {
-  flex-wrap: wrap;
-  gap: 0.6rem;
 }
 
 .report-template-btn {
   border-radius: 999px;
   border: 1px solid var(--panel-border);
-  background: linear-gradient(130deg, #fff, #f6f9ff);
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
   color: var(--text-secondary);
 }
 
@@ -333,15 +329,15 @@ async function handleSendReport() {
 .report-preview {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 5%, white));
 }
 
 .report-preview__code {
   margin: 0.75rem 0 0;
   padding: 0.85rem 0.95rem;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(30, 128, 255, 0.18);
-  background: rgba(30, 128, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
+  background: color-mix(in srgb, var(--brand) 6%, white);
   white-space: pre-wrap;
   color: var(--text-secondary);
 }

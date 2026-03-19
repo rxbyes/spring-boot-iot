@@ -50,38 +50,38 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
   },
   {
     route: '/products',
-    title: '产品模板中心',
-    caption: '产品模板建模、协议绑定与设备归属管理。',
+    title: '产品定义中心',
+    caption: '产品模型建模、协议绑定与设备归属管理。',
     readySelector: '#product-key',
     matcher: '/api/device/product/'
   },
   {
     route: '/devices',
-    title: '设备运维中心',
-    caption: '设备建档、在线状态核查与基础运维。',
+    title: '设备资产中心',
+    caption: '设备建档、在线状态核查与资产运维。',
     readySelector: '#device-product-key',
     matcher: '/api/device/'
   },
   {
     route: '/reporting',
-    title: '接入验证中心',
+    title: '链路验证中心',
     caption: '模拟 HTTP 上报并校验接入链路解析结果。',
     matcher: '/message/http/report'
   },
   {
     route: '/insight',
-    title: '监测对象工作台',
+    title: '对象洞察台',
     caption: '聚合设备属性、日志与监测对象研判线索。',
     matcher: '/api/device/'
   },
   {
     route: '/file-debug',
-    title: '数据完整性校验',
+    title: '数据校验台',
     caption: '文件类报文与固件分包的完整性核验能力。'
   },
   {
     route: '/system-log',
-    title: '系统日志',
+    title: '异常观测台',
     caption: '设备接入链路的系统异常定位与调试回看。',
     matcher: '/api/system/audit-log/'
   },
@@ -92,108 +92,108 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
   },
   {
     route: '/alarm-center',
-    title: '告警中心',
+    title: '告警运营台',
     caption: '告警列表、详情、确认与抑制管理。',
     matcher: '/api/alarm/'
   },
   {
     route: '/event-disposal',
-    title: '事件处置',
+    title: '事件协同台',
     caption: '事件工单派发、闭环与复盘管理。',
     matcher: '/api/event/'
   },
   {
     route: '/risk-point',
-    title: '风险点管理',
+    title: '风险对象中心',
     caption: '风险点 CRUD 与设备绑定维护。',
     matcher: '/api/risk-point/'
   },
   {
     route: '/rule-definition',
-    title: '阈值规则',
-    caption: '阈值规则定义、测试和启停管理。',
+    title: '阈值策略',
+    caption: '阈值策略设计、测试和启停管理。',
     matcher: '/api/rule-definition/'
   },
   {
     route: '/linkage-rule',
-    title: '联动规则',
+    title: '联动编排',
     caption: '联动触发条件与动作配置管理。',
     matcher: '/api/linkage-rule/'
   },
   {
     route: '/emergency-plan',
-    title: '应急预案',
+    title: '应急预案库',
     caption: '应急预案维护与联动绑定管理。',
     matcher: '/api/emergency-plan/'
   },
   {
     route: '/report-analysis',
-    title: '分析报表',
+    title: '运营分析中心',
     caption: '风险趋势、告警统计、闭环与健康分析。',
     matcher: '/api/report/'
   },
   {
     route: '/risk-monitoring',
-    title: '实时监测',
+    title: '实时监测台',
     caption: '风险监测实时列表与统一详情抽屉。',
     matcher: '/api/risk-monitoring/'
   },
   {
     route: '/risk-monitoring-gis',
-    title: 'GIS 风险态势',
+    title: 'GIS态势图',
     caption: '基于 ECharts 的风险点位分布与详情联动。',
     matcher: '/api/risk-monitoring/'
   },
   {
     route: '/organization',
-    title: '组织机构',
+    title: '组织架构',
     caption: '组织树维护与层级管理。',
     matcher: '/api/organization/'
   },
   {
     route: '/user',
-    title: '用户管理',
+    title: '账号中心',
     caption: '用户档案、状态与重置密码管理。',
     matcher: '/api/user/'
   },
   {
     route: '/role',
-    title: '角色管理',
+    title: '角色权限',
     caption: '角色、菜单与权限绑定管理。',
     matcher: '/api/role/'
   },
   {
     route: '/menu',
-    title: '菜单管理',
+    title: '导航编排',
     caption: '菜单树维护与页面/按钮权限项管理。',
     matcher: '/api/menu/'
   },
   {
     route: '/region',
-    title: '区域管理',
+    title: '区域版图',
     caption: '行政区域树与地域配置管理。',
     matcher: '/api/region/'
   },
   {
     route: '/dict',
-    title: '字典配置',
+    title: '数据字典',
     caption: '字典类型与字典项维护。',
     matcher: '/api/dict/'
   },
   {
     route: '/channel',
-    title: '通知渠道',
-    caption: '通知渠道配置、启停与测试管理。',
+    title: '通知编排',
+    caption: '通知编排配置、启停与测试管理。',
     matcher: '/api/system/channel/'
   },
   {
     route: '/automation-test',
-    title: '自动化测试',
+    title: '自动化工场',
     caption: '配置驱动的浏览器自动化编排、报告与测试建议中心。'
   },
   {
     route: '/audit-log',
-    title: '业务日志',
+    title: '审计中心',
     caption: '面向业务与治理侧的关键操作审计查询。',
     matcher: '/api/system/audit-log/'
   }
@@ -440,7 +440,7 @@ function createProductScenario(): AutomationScenarioConfig {
         label: '断言当前位于产品页',
         type: 'assertText',
         locator: createCssLocator('[data-testid="console-page-title"]'),
-        value: '产品模板中心'
+        value: '产品定义中心'
       })
     ]
   };
@@ -577,7 +577,7 @@ function createDeviceScenario(): AutomationScenarioConfig {
         label: '断言当前位于设备页',
         type: 'assertText',
         locator: createCssLocator('[data-testid="console-page-title"]'),
-        value: '设备运维中心'
+        value: '设备资产中心'
       })
     ]
   };

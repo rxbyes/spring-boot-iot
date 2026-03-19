@@ -2,7 +2,7 @@
   <div class="ops-workbench risk-monitoring-view">
     <PanelCard
       eyebrow="Real-Time Monitoring"
-      title="实时监测"
+      title="实时监测台"
       description="统一汇总当前监测项的在线状态、告警风险与详情入口，帮助值班人员快速完成筛选与研判。"
       class="ops-hero-card"
     >
@@ -75,44 +75,41 @@
       :description="`当前 ${pagination.total} 条监测记录，详情统一从右侧抽屉展开。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">当前页 {{ displayedCount }} 项</span>
-          <span class="table-action-bar__meta">告警 {{ alarmCount }} 项</span>
-          <span class="table-action-bar__meta">无数据 {{ noDataCount }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`当前页 ${displayedCount} 项`, `告警 ${alarmCount} 项`, `无数据 ${noDataCount} 项`]"
+      >
+        <template #right>
           <el-button link @click="handleReset">重置筛选</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <div v-if="loading" class="ops-state">正在加载实时监测数据...</div>
       <div v-else-if="rows.length === 0" class="ops-state">暂无符合条件的监测记录</div>
       <template v-else>
         <el-table :data="rows" border stripe>
-          <el-table-column prop="deviceCode" label="设备编码" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="deviceName" label="设备名称" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="productName" label="产品名称" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="riskPointName" label="风险点" min-width="140" show-overflow-tooltip />
-          <el-table-column label="测点" min-width="150" show-overflow-tooltip>
+          <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+          <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="150" />
+          <StandardTableTextColumn prop="productName" label="产品名称" :min-width="150" />
+          <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="140" />
+          <StandardTableTextColumn label="测点" :min-width="150">
             <template #default="{ row }">
               {{ row.metricName || row.metricIdentifier || '--' }}
             </template>
-          </el-table-column>
-          <el-table-column label="当前值" min-width="120" show-overflow-tooltip>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn prop="currentValue" label="当前值" :min-width="120">
             <template #default="{ row }">
               {{ formatCurrentValue(row.currentValue, row.unit) }}
             </template>
-          </el-table-column>
+          </StandardTableTextColumn>
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
               <el-tag :type="monitorStatusTagType(row.monitorStatus)" round>{{ monitorStatusText(row.monitorStatus) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最新上报时间" min-width="180" show-overflow-tooltip>
+          <StandardTableTextColumn prop="latestReportTime" label="最新上报时间" :min-width="180">
             <template #default="{ row }">{{ formatDateTime(row.latestReportTime) }}</template>
-          </el-table-column>
+          </StandardTableTextColumn>
           <el-table-column label="风险等级" width="100">
             <template #default="{ row }">
               <el-tag :type="riskLevelTagType(row.riskLevel)" round>{{ riskLevelText(row.riskLevel) }}</el-tag>
@@ -158,6 +155,9 @@ import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import StandardPagination from '../components/StandardPagination.vue';
+import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '../components/StandardTableToolbar.vue';
+import { useServerPagination } from '../composables/useServerPagination';
 import { getRiskMonitoringList, type RiskMonitoringListItem } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
@@ -173,6 +173,7 @@ const rows = ref<RiskMonitoringListItem[]>([]);
 const riskPoints = ref<RiskPoint[]>([]);
 const detailVisible = ref(false);
 const activeBindingId = ref<number | null>(null);
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 
 const filters = reactive<{
   regionId?: number;
@@ -186,12 +187,6 @@ const filters = reactive<{
   deviceCode: '',
   riskLevel: '',
   onlineStatus: undefined
-});
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
 });
 
 const regionOptions = ref<SelectOption[]>([]);
@@ -241,13 +236,10 @@ async function loadList() {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     });
-    rows.value = response.data.records || [];
-    pagination.total = response.data.total || 0;
-    pagination.pageNum = response.data.pageNum || pagination.pageNum;
-    pagination.pageSize = response.data.pageSize || pagination.pageSize;
+    rows.value = applyPageResult(response.data);
   } catch (error) {
     rows.value = [];
-    pagination.total = 0;
+    resetTotal();
     ElMessage.error(error instanceof Error ? error.message : '实时监测列表加载失败');
   } finally {
     loading.value = false;
@@ -255,7 +247,7 @@ async function loadList() {
 }
 
 function handleSearch() {
-  pagination.pageNum = 1;
+  resetPage();
   void loadList();
 }
 
@@ -265,8 +257,7 @@ function handleReset() {
   filters.deviceCode = '';
   filters.riskLevel = '';
   filters.onlineStatus = undefined;
-  pagination.pageNum = 1;
-  pagination.pageSize = 10;
+  setPageSize(10);
   void loadList();
 }
 
@@ -274,12 +265,13 @@ function handleRefresh() {
   void loadList();
 }
 
-function handlePageChange() {
+function handlePageChange(page: number) {
+  setPageNum(page);
   void loadList();
 }
 
-function handlePageSizeChange() {
-  pagination.pageNum = 1;
+function handlePageSizeChange(size: number) {
+  setPageSize(size);
   void loadList();
 }
 

@@ -2,7 +2,7 @@
   <div class="ops-workbench event-disposal-view">
     <PanelCard
       eyebrow="Event Workflow"
-      title="事件处置"
+      title="事件协同台"
       description="聚合派发、处理与关闭状态，统一通过筛选卡和列表卡管理事件闭环。"
       class="ops-hero-card"
     >
@@ -69,42 +69,38 @@
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-          <span class="table-action-bar__meta">处理中 {{ stats.processingEvents }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
       <div v-if="loading" class="ops-state">正在加载事件列表...</div>
       <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
       <template v-else>
         <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="eventCode" label="事件编号" width="180" show-overflow-tooltip />
-          <el-table-column prop="eventTitle" label="事件标题" min-width="220" show-overflow-tooltip />
+          <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
+          <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
           <el-table-column prop="riskLevel" label="风险等级" width="100">
             <template #default="{ row }">
               <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="regionName" label="区域" width="120" show-overflow-tooltip />
-          <el-table-column prop="riskPointName" label="风险点" width="150" show-overflow-tooltip />
-          <el-table-column prop="deviceName" label="设备名称" width="150" show-overflow-tooltip />
-          <el-table-column prop="metricName" label="测点名称" width="150" show-overflow-tooltip />
-          <el-table-column prop="currentValue" label="当前值" width="120" show-overflow-tooltip />
+          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
+          <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
+          <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+          <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
+          <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="triggerTime" label="触发时间" width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
           <el-table-column label="操作" width="250" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
@@ -160,8 +156,11 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="event-btn event-btn--ghost" @click="closeDispatchDialog">取消</el-button>
-        <el-button type="primary" class="event-btn event-btn--primary" @click="handleDispatchConfirm">确定</el-button>
+        <StandardDrawerFooter
+          confirm-text="确认派发"
+          @cancel="closeDispatchDialog"
+          @confirm="handleDispatchConfirm"
+        />
       </template>
     </StandardFormDrawer>
 
@@ -179,14 +178,19 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="event-btn event-btn--ghost" @click="closeCloseDialog">取消</el-button>
-        <el-button type="primary" class="event-btn event-btn--primary" @click="handleCloseConfirm">确定</el-button>
+        <StandardDrawerFooter
+          confirm-text="确认关闭"
+          confirm-type="danger"
+          danger
+          @cancel="closeCloseDialog"
+          @confirm="handleCloseConfirm"
+        />
       </template>
     </StandardFormDrawer>
 
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
-      title="事件处置导出列设置"
+      title="事件协同台导出列设置"
       :options="exportColumnOptions"
       :selected-keys="selectedExportColumnKeys"
       :preset-storage-key="exportColumnStorageKey"
@@ -203,7 +207,10 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
@@ -213,8 +220,8 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns';
+import { confirmAction, isConfirmCancelled } from '@/utils/confirm';
 
-import { ElMessageBox } from '@/utils/messageBox';
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
 import type { EventRecord } from '../api/alarm';
 
@@ -412,11 +419,11 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value);
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('事件处置-选中项.csv', selectedRows.value, getResolvedExportColumns());
+  downloadRowsAsCsv('事件协同台-选中项.csv', selectedRows.value, getResolvedExportColumns());
 };
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('事件处置-当前结果.csv', eventList.value, getResolvedExportColumns());
+  downloadRowsAsCsv('事件协同台-当前结果.csv', eventList.value, getResolvedExportColumns());
 };
 
 const handleSizeChange = (size: number) => {
@@ -476,7 +483,12 @@ const handleCloseConfirm = async () => {
     return;
   }
   try {
-    await ElMessageBox.confirm('确定要关闭该事件吗？', '关闭事件', { type: 'warning' });
+    await confirmAction({
+      title: '关闭事件',
+      message: '确认关闭该事件吗？关闭后将结束当前处置流程。',
+      type: 'warning',
+      confirmButtonText: '确认关闭'
+    });
     const res = await closeEvent(closeTarget.value.id, 1, closeForm.closeReason);
     if (res.code === 200) {
       ElMessage.success('关闭成功');
@@ -484,6 +496,9 @@ const handleCloseConfirm = async () => {
       void loadEventList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('关闭事件失败', error);
   }
 };
@@ -514,27 +529,10 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .event-disposal-view {
-  padding: 18px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
-  border: 1px solid rgba(41, 60, 92, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-}
-
-.event-btn {
-  border-radius: 999px;
-  min-height: 2rem;
-  padding-inline: 14px;
-}
-
-.event-btn--primary {
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 16%, transparent);
-}
-
-.event-btn--ghost {
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
-  color: var(--text-secondary);
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .event-drawer-form :deep(.el-select),

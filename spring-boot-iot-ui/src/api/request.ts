@@ -132,18 +132,25 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const bodyText = rawText.trim();
     const payload = parseApiEnvelope<T>(bodyText);
 
+    if (payload) {
+      const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
+      if (!response.ok) {
+        const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
+        const message = processedPayload.msg || bodyText || `请求失败: ${statusMessage}`;
+        throw createRequestError(message);
+      }
+      return processedPayload;
+    }
+
     if (!response.ok) {
       const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
-      const message = payload?.msg || bodyText || `请求失败: ${statusMessage}`;
+      const message = bodyText || `请求失败: ${statusMessage}`;
       throw createRequestError(message);
     }
 
     if (!payload) {
       throw createRequestError('服务端返回格式无效，请检查后端日志');
     }
-
-    const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
-    return processedPayload;
   } catch (error) {
     if (error instanceof Error) {
       if (errorHandler) {

@@ -12,14 +12,7 @@
         eyebrow="Planned Capability"
         :title="card.title"
       >
-        <div class="flow-rail">
-          <div v-for="point in card.contracts" :key="point.title" class="flow-rail__item">
-            <span class="flow-rail__index">{{ point.index }}</span>
-            <div>
-              <strong>{{ point.title }}</strong>
-            </div>
-          </div>
-        </div>
+        <StandardFlowRail :items="card.contracts" :show-description="false" />
       </PanelCard>
     </section>
 
@@ -40,26 +33,7 @@
         eyebrow="Roadmap Bridge"
         title="与项目文档的衔接"
       >
-        <div class="flow-rail">
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T1</span>
-            <div>
-              <strong>Telemetry</strong>
-            </div>
-          </div>
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T2</span>
-            <div>
-              <strong>Gateway</strong>
-            </div>
-          </div>
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T3</span>
-            <div>
-              <strong>Rule / Alarm / OTA</strong>
-            </div>
-          </div>
-        </div>
+        <StandardFlowRail :items="roadmapBridgeItems" :show-description="false" />
       </PanelCard>
     </section>
   </div>
@@ -67,6 +41,7 @@
 
 <script setup lang="ts">
 import PanelCard from '../components/PanelCard.vue';
+import StandardFlowRail from '../components/StandardFlowRail.vue';
 
 const futureCards = [
   {
@@ -96,6 +71,12 @@ const futureCards = [
       { index: '03', title: '链路追踪', description: '结合 message log 做报文路径回溯。' }
     ]
   }
+];
+
+const roadmapBridgeItems = [
+  { index: 'T1', title: 'Telemetry' },
+  { index: 'T2', title: 'Gateway' },
+  { index: 'T3', title: 'Rule / Alarm / OTA' }
 ];
 </script>
 

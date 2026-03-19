@@ -2,7 +2,7 @@
   <div class="ops-workbench risk-point-view">
     <PanelCard
       eyebrow="Risk Point Workspace"
-      title="风险点管理"
+      title="风险对象中心"
       description="统一管理风险点档案、风险等级、启停状态与设备绑定，支撑后续监测、阈值和联动配置。"
       class="ops-hero-card"
     >
@@ -69,17 +69,14 @@
       :description="`当前 ${pagination.total} 条风险点记录，支持档案维护和设备绑定。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
-          <span class="table-action-bar__meta">严重 {{ criticalCount }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+      >
+        <template #right>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <div v-if="loading" class="ops-state">正在加载风险点列表...</div>
       <div v-else-if="riskPointList.length === 0" class="ops-state">暂无符合条件的风险点记录</div>
@@ -92,21 +89,21 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="riskPointCode" label="风险点编号" width="150" show-overflow-tooltip />
-          <el-table-column prop="riskPointName" label="风险点名称" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="regionName" label="区域" width="120" show-overflow-tooltip />
+          <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
+          <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180" />
+          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
           <el-table-column prop="riskLevel" label="风险等级" width="100">
             <template #default="{ row }">
               <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="responsiblePhone" label="负责人电话" width="140" show-overflow-tooltip />
+          <StandardTableTextColumn prop="responsiblePhone" label="负责人电话" :width="140" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -194,8 +191,11 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
       </template>
     </StandardFormDrawer>
 
@@ -210,7 +210,7 @@
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>绑定提示</strong>
-          <span>绑定完成后，风险点会直接联动实时监测、阈值规则和告警处置，请确认设备与测点归属关系准确。</span>
+          <span>绑定完成后，风险对象会直接联动实时监测台、阈值策略和告警运营台，请确认设备与测点归属关系准确。</span>
         </div>
         <el-form :model="bindForm" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
@@ -243,8 +243,11 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="bindDeviceVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleBindSubmit">确定</el-button>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="bindDeviceVisible = false"
+          @confirm="handleBindSubmit"
+        />
       </template>
     </StandardFormDrawer>
   </div>
@@ -253,14 +256,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
 
@@ -492,15 +498,16 @@ const handleEdit = (row: RiskPoint) => {
 
 const handleDelete = async (row: RiskPoint) => {
   try {
-    await ElMessageBox.confirm('确定要删除该风险点吗？', '删除风险点', {
-      type: 'warning'
-    });
+    await confirmDelete('风险点', row.riskPointName);
     const res = await deleteRiskPoint(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
       void loadRiskPointList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除风险点失败', error);
   }
 };

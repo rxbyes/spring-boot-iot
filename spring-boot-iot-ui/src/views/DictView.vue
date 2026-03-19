@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>字典配置</span>
+          <span>数据字典</span>
           <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
@@ -39,18 +39,15 @@
         </el-row>
       </el-form>
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         ref="tableRef"
@@ -59,12 +56,11 @@
         border
         stripe
         style="width: 100%"
-        show-overflow-tooltip
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="dictCode" label="字典编码" width="150" />
-        <el-table-column prop="dictName" label="字典名称" width="200" />
+        <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
+        <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
         <el-table-column prop="dictType" label="字典类型" width="120">
           <template #default="{ row }">
             <el-tag :type="getDictTypeTag(row.dictType)">
@@ -79,8 +75,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" label="排序" width="80" />
-        <el-table-column prop="remark" label="备注" />
+        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -138,10 +134,11 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
-            确定
-          </el-button>
+          <StandardDrawerFooter
+            :confirm-loading="submitLoading"
+            @cancel="dialogVisible = false"
+            @confirm="handleSubmit"
+          />
         </template>
       </StandardFormDrawer>
 
@@ -153,19 +150,16 @@
         size="58rem"
         @close="handleItemsDialogClose"
       >
-        <div class="table-action-bar">
-          <div class="table-action-bar__left">
-            <span class="table-action-bar__meta">已选 {{ selectedItemRows.length }} 项</span>
-          </div>
-          <div class="table-action-bar__right">
+        <StandardTableToolbar :meta-items="[ `已选 ${selectedItemRows.length} 项` ]">
+          <template #right>
+            <el-button link @click="handleAddItem">新增字典项</el-button>
             <el-button link @click="openItemExportColumnSetting">导出列设置</el-button>
             <el-button link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</el-button>
             <el-button link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</el-button>
             <el-button link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</el-button>
             <el-button link @click="handleRefreshItems">刷新列表</el-button>
-          </div>
-        </div>
-        <el-button type="primary" style="margin-bottom: 10px" @click="handleAddItem">新增字典项</el-button>
+          </template>
+        </StandardTableToolbar>
         <el-table
           ref="itemsTableRef"
           v-loading="itemsLoading"
@@ -173,12 +167,11 @@
           border
           stripe
           style="width: 100%"
-          show-overflow-tooltip
           @selection-change="handleItemSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="itemName" label="项名称" width="150" />
-          <el-table-column prop="itemValue" label="项值" width="150" />
+          <StandardTableTextColumn prop="itemName" label="项名称" :width="150" />
+          <StandardTableTextColumn prop="itemValue" label="项值" :width="150" />
           <el-table-column prop="itemType" label="项类型" width="120">
             <template #default="{ row }">
               <el-tag>{{ row.itemType || 'string' }}</el-tag>
@@ -191,7 +184,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="sortNo" label="排序" width="80" />
+          <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
           <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleEditItem(row)">编辑</el-button>
@@ -200,7 +193,11 @@
           </el-table-column>
         </el-table>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleItemsDialogClose">关闭</el-button>
+          <StandardDrawerFooter
+            :show-cancel="false"
+            confirm-text="关闭"
+            @confirm="handleItemsDialogClose"
+          />
         </template>
       </StandardFormDrawer>
 
@@ -221,16 +218,17 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleItemDialogClose">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="itemSubmitLoading" @click="handleItemSubmit">
-            确定
-          </el-button>
+          <StandardDrawerFooter
+            :confirm-loading="itemSubmitLoading"
+            @cancel="handleItemDialogClose"
+            @confirm="handleItemSubmit"
+          />
         </template>
       </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
-        title="字典配置导出列设置"
+        title="数据字典导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
         :preset-storage-key="exportColumnStorageKey"
@@ -253,12 +251,15 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -266,6 +267,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addDict,
@@ -452,11 +454,11 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('字典配置-选中项.csv', selectedRows.value, getResolvedExportColumns())
+  downloadRowsAsCsv('数据字典-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('字典配置-当前结果.csv', tableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv('数据字典-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
 const resetFormData = (dict?: Partial<Dict>) => {
@@ -499,14 +501,18 @@ const handleEdit = async (row: Dict) => {
   }
 }
 
-const handleDelete = (row: Dict) => {
-  ElMessageBox.confirm(`确定要删除字典“${row.dictName}”吗？`, '警告', { type: 'warning' })
-    .then(async () => {
-      await deleteDict(row.id)
-      ElMessage.success('删除成功')
-      loadDictPage()
-    })
-    .catch(() => {})
+const handleDelete = async (row: Dict) => {
+  try {
+    await confirmDelete('字典', row.dictName)
+    await deleteDict(row.id)
+    ElMessage.success('删除成功')
+    loadDictPage()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除字典失败', error)
+  }
 }
 
 const handleItems = (row: Dict) => {
@@ -589,18 +595,20 @@ const handleEditItem = (row: DictItem) => {
   itemDialogVisible.value = true
 }
 
-const handleDeleteItem = (row: DictItem) => {
-  ElMessageBox.confirm('确定要删除该字典项吗？', '警告', {
-    type: 'warning'
-  })
-    .then(async () => {
-      await deleteDictItem(row.id)
-      ElMessage.success('删除成功')
-      if (currentDictId.value !== undefined) {
-        getDictItems(currentDictId.value)
-      }
-    })
-    .catch(() => {})
+const handleDeleteItem = async (row: DictItem) => {
+  try {
+    await confirmDelete('字典项', row.itemName)
+    await deleteDictItem(row.id)
+    ElMessage.success('删除成功')
+    if (currentDictId.value !== undefined) {
+      getDictItems(currentDictId.value)
+    }
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除字典项失败', error)
+  }
 }
 
 const handleSubmit = async () => {

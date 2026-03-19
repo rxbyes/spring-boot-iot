@@ -206,7 +206,7 @@ const emit = defineEmits<{
 }>();
 
 const drawerTitle = computed(() => props.detail?.eventTitle || props.detail?.eventCode || '事件详情');
-const drawerSubtitle = computed(() => (props.detail?.eventCode ? `事件编号：${props.detail.eventCode}` : '查看事件处置全流程详情'));
+const drawerSubtitle = computed(() => (props.detail?.eventCode ? `事件编号：${props.detail.eventCode}` : '查看事件协同全流程详情'));
 const timeLimitSummary = computed(() => {
   if (!props.detail) {
     return '--';

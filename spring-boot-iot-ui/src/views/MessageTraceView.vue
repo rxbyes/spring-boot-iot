@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <div>
-            <span>消息追踪</span>
+            <span>链路追踪台</span>
             <p class="page-description">按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。</p>
           </div>
         </div>
@@ -76,28 +76,25 @@
       </el-form>
 
       <el-alert
-        title="消息追踪基于 `iot_device_message_log` 分页查询，可与系统日志页通过 TraceId、设备编码和 Topic 联动排查。"
+        title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
         type="info"
         :closable="false"
         show-icon
         class="view-alert"
       />
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">当前结果 {{ pagination.total }} 条</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
+        <template #right>
           <el-button
             link
             :disabled="!canJumpWithSearch"
             @click="jumpToSystemLog()"
           >
-            跳转系统日志
+            跳转异常观测台
           </el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         v-loading="loading"
@@ -106,20 +103,20 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="traceId" label="TraceId" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="deviceCode" label="设备编码" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="productKey" label="产品标识" min-width="140" show-overflow-tooltip />
+        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+        <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
         <el-table-column label="消息类型" width="120">
           <template #default="{ row }">
             {{ getMessageTypeLabel(row.messageType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="topic" label="Topic" min-width="220" show-overflow-tooltip />
-        <el-table-column label="Payload 摘要" min-width="260" show-overflow-tooltip>
+        <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
+        <StandardTableTextColumn label="Payload 摘要" :min-width="260">
           <template #default="{ row }">
             {{ truncateText(row.payload || '--', 120) }}
           </template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <el-table-column label="上报时间" width="180">
           <template #default="{ row }">
             {{ formatDateTime(row.reportTime || row.createTime) }}
@@ -128,7 +125,7 @@
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDetail(row)">详情</el-button>
-            <el-button type="primary" link :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">系统日志</el-button>
+            <el-button type="primary" link :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">异常观测台</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -178,7 +175,7 @@
             <article class="detail-summary-card">
               <span class="detail-summary-card__label">TraceId</span>
               <strong class="detail-summary-card__value">{{ formatValue(detailData.traceId) }}</strong>
-              <p class="detail-summary-card__hint">可与系统日志联动排查</p>
+              <p class="detail-summary-card__hint">可与异常观测台联动排查</p>
             </article>
             <article class="detail-summary-card">
               <span class="detail-summary-card__label">Topic 节点</span>
@@ -192,7 +189,7 @@
           <div class="detail-section-header">
             <div>
               <h3>链路信息</h3>
-              <p>统一展示日志主键、TraceId、设备与 Topic，便于与系统日志、设备接入页面联动定位。</p>
+              <p>统一展示日志主键、TraceId、设备与 Topic，便于与异常观测台、接入智维页面联动定位。</p>
             </div>
           </div>
           <div class="detail-grid">
@@ -259,6 +256,8 @@ import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceMessageLog } from '@/types/api';
 import { formatDateTime, prettyJson, truncateText } from '@/utils/format';
@@ -289,7 +288,7 @@ const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
-const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '消息追踪详情');
+const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
 const detailSubtitle = computed(() => detailData.value.topic || '查看接入消息详情');
 const detailDisplayTime = computed(() => formatDateTime(detailData.value.reportTime || detailData.value.createTime));
 const detailPayload = computed(() => prettyJson(detailData.value.payload || '--'));
@@ -301,12 +300,12 @@ const detailTopicSegments = computed(() => {
 });
 const detailRouteAdvice = computed(() => {
   if (detailData.value.traceId) {
-    return `可携带当前 TraceId（${detailData.value.traceId}）跳转系统日志，继续联动排查消息链路。`;
+    return `可携带当前 TraceId（${detailData.value.traceId}）跳转异常观测台，继续联动排查消息链路。`;
   }
   if (detailData.value.topic) {
-    return '可根据当前 Topic 跳转系统日志，继续联动排查接入链路。';
+    return '可根据当前 Topic 跳转异常观测台，继续联动排查接入链路。';
   }
-  return '可结合设备编码与产品标识继续检索系统日志。';
+  return '可结合设备编码与产品标识继续检索异常观测台。';
 });
 const detailTags = computed(() => {
   if (!hasDetail.value) {
@@ -354,7 +353,7 @@ async function loadTableData() {
   } catch (error) {
     tableData.value = [];
     resetTotal();
-    ElMessage.error(error instanceof Error ? error.message : '获取消息追踪失败');
+    ElMessage.error(error instanceof Error ? error.message : '获取链路追踪失败');
   } finally {
     loading.value = false;
   }

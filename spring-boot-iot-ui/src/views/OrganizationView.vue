@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>组织机构管理</span>
+          <span>组织架构</span>
           <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
@@ -54,18 +54,15 @@
         class="view-alert"
       />
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         ref="tableRef"
@@ -74,7 +71,6 @@
         border
         stripe
         style="width: 100%"
-        show-overflow-tooltip
         row-key="id"
         :lazy="!isFilterMode"
         :load="loadChildren"
@@ -82,8 +78,8 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="orgCode" label="组织编码" width="150" />
-        <el-table-column prop="orgName" label="组织名称" width="200" />
+        <StandardTableTextColumn prop="orgCode" label="组织编码" :width="150" />
+        <StandardTableTextColumn prop="orgName" label="组织名称" :width="200" />
         <el-table-column prop="orgType" label="组织类型" width="120">
           <template #default="{ row }">
             <el-tag :type="getOrgTypeTag(row.orgType)">
@@ -91,9 +87,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="leaderName" label="负责人" width="120" />
-        <el-table-column prop="phone" label="联系电话" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
+        <StandardTableTextColumn prop="leaderName" label="负责人" :width="120" />
+        <StandardTableTextColumn prop="phone" label="联系电话" :width="150" />
+        <StandardTableTextColumn prop="email" label="邮箱" :width="200" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -101,8 +97,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" label="排序" width="80" />
-        <el-table-column prop="remark" label="备注" />
+        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -168,10 +164,11 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
-            确定
-          </el-button>
+          <StandardDrawerFooter
+            :confirm-loading="submitLoading"
+            @cancel="dialogVisible = false"
+            @confirm="handleSubmit"
+          />
         </template>
       </StandardFormDrawer>
 
@@ -190,12 +187,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -203,6 +203,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addOrganization,
@@ -412,14 +413,18 @@ const handleEdit = async (row: Organization) => {
   }
 }
 
-const handleDelete = (row: Organization) => {
-  ElMessageBox.confirm(`确定要删除组织“${row.orgName}”吗？`, '警告', { type: 'warning' })
-    .then(async () => {
-      await deleteOrganization(row.id)
-      ElMessage.success('删除成功')
-      loadOrganizationPage()
-    })
-    .catch(() => {})
+const handleDelete = async (row: Organization) => {
+  try {
+    await confirmDelete('组织', row.orgName)
+    await deleteOrganization(row.id)
+    ElMessage.success('删除成功')
+    loadOrganizationPage()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除组织失败', error)
+  }
 }
 
 const handleSubmit = async () => {

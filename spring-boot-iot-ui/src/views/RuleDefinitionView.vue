@@ -2,7 +2,7 @@
   <div class="ops-workbench rule-definition-view">
     <PanelCard
       eyebrow="Threshold Rules"
-      title="阈值规则配置"
+      title="阈值策略"
       description="统一维护告警阈值、持续时间和转事件策略，支撑风险监测的告警触发与处置闭环。"
       class="ops-hero-card"
     >
@@ -16,7 +16,7 @@
         <MetricCard label="严重告警规则" :value="String(criticalRuleCount)" :badge="{ label: '重点策略', tone: 'danger' }" />
       </div>
       <div class="ops-inline-note">
-        阈值规则与告警等级、通知方式、转事件开关集中呈现，支持通过同一套抽屉表单完成策略维护，减少配置分散感。
+        阈值策略与告警等级、通知方式、转事件开关集中呈现，支持通过同一套抽屉表单完成策略维护，减少配置分散感。
       </div>
     </PanelCard>
 
@@ -65,24 +65,21 @@
 
     <PanelCard
       eyebrow="Rule List"
-      title="阈值规则列表"
-      :description="`当前 ${pagination.total} 条阈值规则，支持告警触发和转事件配置。`"
+      title="阈值策略列表"
+      :description="`当前 ${pagination.total} 条阈值策略，支持告警触发和转事件配置。`"
       class="ops-table-card"
     >
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-          <span class="table-action-bar__meta">启用 {{ enabledCount }} 项</span>
-          <span class="table-action-bar__meta">转事件 {{ convertToEventCount }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
+      >
+        <template #right>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
-      <div v-if="loading" class="ops-state">正在加载阈值规则列表...</div>
-      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的阈值规则</div>
+      <div v-if="loading" class="ops-state">正在加载阈值策略列表...</div>
+      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的阈值策略</div>
       <template v-else>
         <el-table
           ref="tableRef"
@@ -92,10 +89,10 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <el-table-column prop="ruleName" label="规则名称" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="metricIdentifier" label="测点标识符" width="160" show-overflow-tooltip />
-          <el-table-column prop="metricName" label="测点名称" width="140" show-overflow-tooltip />
-          <el-table-column prop="expression" label="表达式" min-width="220" show-overflow-tooltip />
+          <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+          <StandardTableTextColumn prop="metricIdentifier" label="测点标识符" :width="160" />
+          <StandardTableTextColumn prop="metricName" label="测点名称" :width="140" />
+          <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
           <el-table-column prop="duration" label="持续时间(秒)" width="120" />
           <el-table-column prop="alarmLevel" label="告警等级" width="100">
             <template #default="{ row }">
@@ -114,7 +111,7 @@
               <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" width="180" show-overflow-tooltip />
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -139,7 +136,7 @@
       v-model="formVisible"
       eyebrow="Risk Platform Form"
       :title="formTitle"
-      subtitle="统一通过右侧抽屉维护阈值规则与告警配置。"
+      subtitle="统一通过右侧抽屉维护阈值策略与告警配置。"
       size="44rem"
       @close="handleFormClose"
     >
@@ -228,8 +225,11 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="formVisible = false">取消</el-button>
-        <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
       </template>
     </StandardFormDrawer>
   </div>
@@ -238,12 +238,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
 import type { RuleDefinition } from '../api/ruleDefinition';
 
@@ -434,15 +437,16 @@ const handleEdit = (row: RuleDefinition) => {
 
 const handleDelete = async (row: RuleDefinition) => {
   try {
-    await ElMessageBox.confirm('确定要删除该规则吗？', '删除规则', {
-      type: 'warning'
-    });
+    await confirmDelete('规则', row.ruleName);
     const res = await deleteRule(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
       void loadRuleList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除规则失败', error);
   }
 };

@@ -42,7 +42,21 @@ import java.util.stream.Collectors;
 @Service
 public class PermissionServiceImpl implements PermissionService {
 
+    private static final String BUSINESS_ROLE_CODE = "BUSINESS_STAFF";
+    private static final String MANAGEMENT_ROLE_CODE = "MANAGEMENT_STAFF";
+    private static final String OPS_ROLE_CODE = "OPS_STAFF";
+    private static final String DEVELOPER_ROLE_CODE = "DEVELOPER_STAFF";
     private static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";
+    private static final String IOT_ACCESS_MENU_CODE = "iot-access";
+    private static final String RISK_OPS_MENU_CODE = "risk-ops";
+    private static final String SYSTEM_GOVERNANCE_MENU_CODE = "system-governance";
+    private static final List<RoleHomePreference> ROLE_HOME_PREFERENCES = List.of(
+            new RoleHomePreference(SUPER_ADMIN_ROLE_CODE, SYSTEM_GOVERNANCE_MENU_CODE, "/system-management"),
+            new RoleHomePreference(MANAGEMENT_ROLE_CODE, RISK_OPS_MENU_CODE, "/risk-disposal"),
+            new RoleHomePreference(BUSINESS_ROLE_CODE, RISK_OPS_MENU_CODE, "/risk-disposal"),
+            new RoleHomePreference(OPS_ROLE_CODE, IOT_ACCESS_MENU_CODE, "/device-access"),
+            new RoleHomePreference(DEVELOPER_ROLE_CODE, IOT_ACCESS_MENU_CODE, "/device-access")
+    );
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
@@ -108,7 +122,7 @@ public class PermissionServiceImpl implements PermissionService {
         context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
         context.setLoginMethods(buildLoginMethods(user));
         context.setSuperAdmin(superAdmin);
-        context.setHomePath(resolveHomePath(navigationMenus));
+        context.setHomePath(resolveHomePath(roles, navigationMenus));
         context.setRoles(roles.stream().map(this::toRoleSummary).toList());
         context.setRoleCodes(roles.stream().map(Role::getRoleCode).filter(StringUtils::hasText).toList());
         context.setPermissions(authorizedMenus.stream()
@@ -346,7 +360,29 @@ public class PermissionServiceImpl implements PermissionService {
         return Integer.valueOf(2).equals(menu.getType());
     }
 
-    private String resolveHomePath(List<MenuTreeNodeVO> menus) {
+    private String resolveHomePath(List<Role> roles, List<MenuTreeNodeVO> menus) {
+        Set<String> roleCodes = roles.stream()
+                .map(Role::getRoleCode)
+                .map(this::normalizeCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> rootMenuCodes = menus.stream()
+                .map(MenuTreeNodeVO::getMenuCode)
+                .map(this::normalizeCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        for (RoleHomePreference preference : ROLE_HOME_PREFERENCES) {
+            if (roleCodes.contains(normalizeCode(preference.roleCode()))
+                    && rootMenuCodes.contains(normalizeCode(preference.menuCode()))) {
+                return preference.landingPath();
+            }
+        }
+
+        return resolveFirstMenuPath(menus);
+    }
+
+    private String resolveFirstMenuPath(List<MenuTreeNodeVO> menus) {
         for (MenuTreeNodeVO menu : menus) {
             String path = resolveMenuPath(menu);
             if (StringUtils.hasText(path)) {
@@ -375,5 +411,12 @@ public class PermissionServiceImpl implements PermissionService {
     private Comparator<Menu> menuComparator() {
         return Comparator.comparing(Menu::getSort, Comparator.nullsLast(Integer::compareTo))
                 .thenComparing(Menu::getId, Comparator.nullsLast(Long::compareTo));
+    }
+
+    private String normalizeCode(String value) {
+        return StringUtils.hasText(value) ? value.trim().toUpperCase() : "";
+    }
+
+    private record RoleHomePreference(String roleCode, String menuCode, String landingPath) {
     }
 }

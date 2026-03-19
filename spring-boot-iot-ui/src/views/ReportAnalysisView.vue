@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>分析报表</span>
+          <span>运营分析中心</span>
           <el-date-picker
             v-model="dateRange"
             type="daterange"
@@ -16,40 +16,16 @@
       </template>
 
       <!-- KPI 指标卡片 -->
-      <el-row :gutter="20" class="kpi-row">
-        <el-col :span="6">
-          <el-card shadow="never" class="kpi-card">
-            <div class="kpi-content">
-              <div class="kpi-value">{{ alarmStatistics?.total || 0 }}</div>
-              <div class="kpi-label">告警总数</div>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card shadow="never" class="kpi-card">
-            <div class="kpi-content">
-              <div class="kpi-value">{{ eventStatistics?.total || 0 }}</div>
-              <div class="kpi-label">事件总数</div>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card shadow="never" class="kpi-card">
-            <div class="kpi-content">
-              <div class="kpi-value">{{ eventStatistics?.closed || 0 }}</div>
-              <div class="kpi-label">已关闭事件</div>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card shadow="never" class="kpi-card">
-            <div class="kpi-content">
-              <div class="kpi-value">{{ deviceHealthStatistics?.onlineRate || 0 }}%</div>
-              <div class="kpi-label">设备在线率</div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+      <section class="quad-grid report-analysis-kpis">
+        <MetricCard
+          v-for="metric in overviewMetrics"
+          :key="metric.label"
+          class="report-analysis-kpis__card"
+          :label="metric.label"
+          :value="metric.value"
+          :badge="metric.badge"
+        />
+      </section>
 
       <!-- 风险趋势分析 -->
       <div class="section-title">风险趋势分析</div>
@@ -103,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
+import { computed, ref, reactive, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts/core'
 import type { ECharts } from 'echarts/core'
 import { LineChart, BarChart, PieChart } from 'echarts/charts'
@@ -116,6 +92,7 @@ import {
   getEventClosureAnalysis,
   getDeviceHealthAnalysis
 } from '@/api/report'
+import MetricCard from '@/components/MetricCard.vue'
 import PanelCard from '@/components/PanelCard.vue'
 
 echarts.use([
@@ -159,6 +136,29 @@ const chartElements = reactive<Record<string, HTMLElement | null>>({
   deviceHealth: null
 })
 let visibilityObserver: IntersectionObserver | null = null
+
+const overviewMetrics = computed(() => [
+  {
+    label: '告警总数',
+    value: String(alarmStatistics.value?.total || 0),
+    badge: { label: 'Alarm', tone: 'warning' as const }
+  },
+  {
+    label: '事件总数',
+    value: String(eventStatistics.value?.total || 0),
+    badge: { label: 'Event', tone: 'brand' as const }
+  },
+  {
+    label: '已关闭事件',
+    value: String(eventStatistics.value?.closed || 0),
+    badge: { label: 'Closed', tone: 'success' as const }
+  },
+  {
+    label: '设备在线率',
+    value: `${deviceHealthStatistics.value?.onlineRate || 0}%`,
+    badge: { label: 'Device', tone: 'danger' as const }
+  }
+])
 
 const ensureChart = (container: HTMLDivElement | null, chartRef: { value: ECharts | null }) => {
   if (!container) return null
@@ -517,26 +517,12 @@ onBeforeUnmount(() => {
     }
   }
 
-  .kpi-row {
+  .report-analysis-kpis {
     margin-bottom: 20px;
+  }
 
-    .kpi-card {
-      .kpi-content {
-        text-align: center;
-
-        .kpi-value {
-          font-size: 24px;
-          font-weight: bold;
-          color: #303133;
-        }
-
-        .kpi-label {
-          font-size: 14px;
-          color: #606266;
-          margin-top: 8px;
-        }
-      }
-    }
+  .report-analysis-kpis__card {
+    min-height: 8.5rem;
   }
 
   .section-title {

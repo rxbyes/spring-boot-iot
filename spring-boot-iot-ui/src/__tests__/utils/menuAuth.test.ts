@@ -6,14 +6,14 @@ import { buildMenuNodeMap, resolveRoleCheckedMenuIds, resolveRoleMenuSummary } f
 const menuTree: MenuTreeNode[] = [
   {
     id: 1,
-    menuName: '系统治理',
+    menuName: '平台治理',
     menuCode: 'system-governance',
     type: 0,
     children: [
       {
         id: 2,
         parentId: 1,
-        menuName: '角色管理',
+        menuName: '角色权限',
         menuCode: 'system:role',
         path: '/role',
         type: 1,
@@ -31,7 +31,7 @@ const menuTree: MenuTreeNode[] = [
       {
         id: 4,
         parentId: 1,
-        menuName: '菜单管理',
+        menuName: '导航编排',
         menuCode: 'system:menu',
         path: '/menu',
         type: 1,
@@ -44,7 +44,7 @@ const menuTree: MenuTreeNode[] = [
 describe('menuAuth utils', () => {
   it('builds a flattened node map from tree data', () => {
     const nodeMap = buildMenuNodeMap(menuTree);
-    expect(nodeMap.get(2)?.menuName).toBe('角色管理');
+    expect(nodeMap.get(2)?.menuName).toBe('角色权限');
     expect(nodeMap.get(3)?.menuCode).toBe('system:role:add');
   });
 
@@ -53,6 +53,6 @@ describe('menuAuth utils', () => {
   });
 
   it('keeps menu summary in tree order and limits size', () => {
-    expect(resolveRoleMenuSummary(menuTree, [1, 2, 3, 4], 2)).toEqual(['角色管理', '新增角色']);
+    expect(resolveRoleMenuSummary(menuTree, [1, 2, 3, 4], 2)).toEqual(['角色权限', '新增角色']);
   });
 });

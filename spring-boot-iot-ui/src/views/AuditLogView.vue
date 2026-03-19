@@ -155,21 +155,18 @@
         class="stats-alert"
       />
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button v-if="isSystemMode" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
-            消息追踪
+            链路追踪台
           </el-button>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <!-- 表格 -->
       <el-table
@@ -189,19 +186,19 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operationModule" label="操作模块" width="150" />
-        <el-table-column prop="operationMethod" label="操作方法" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="requestUrl" label="请求URL/目标" min-width="220" show-overflow-tooltip />
+        <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
+        <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
+        <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
         <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
-        <el-table-column v-if="isSystemMode" prop="traceId" label="TraceId" min-width="180" show-overflow-tooltip />
-        <el-table-column v-if="isSystemMode" prop="deviceCode" label="设备编码" min-width="140" show-overflow-tooltip />
-        <el-table-column v-if="isSystemMode" prop="productKey" label="产品标识" min-width="140" show-overflow-tooltip />
-        <el-table-column v-if="isSystemMode" prop="errorCode" label="异常编码" min-width="120" show-overflow-tooltip />
-        <el-table-column v-if="isSystemMode" prop="exceptionClass" label="异常类型" min-width="180" show-overflow-tooltip />
-        <el-table-column v-if="isBusinessMode" prop="userName" label="操作用户" width="120" />
-        <el-table-column v-if="isBusinessMode" prop="ipAddress" label="操作IP" width="150" />
-        <el-table-column v-if="isSystemMode" prop="resultMessage" label="异常摘要" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="operationTime" label="操作时间" width="180" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="traceId" label="TraceId" :min-width="180" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="deviceCode" label="设备编码" :min-width="140" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="productKey" label="产品标识" :min-width="140" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="errorCode" label="异常编码" :min-width="120" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="exceptionClass" label="异常类型" :min-width="180" />
+        <StandardTableTextColumn v-if="isBusinessMode" prop="userName" label="操作用户" :width="120" />
+        <StandardTableTextColumn v-if="isBusinessMode" prop="ipAddress" label="操作IP" :width="150" />
+        <StandardTableTextColumn v-if="isSystemMode" prop="resultMessage" label="异常摘要" :min-width="220" />
+        <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
         <el-table-column prop="operationResult" label="操作结果" width="100">
           <template #default="{ row }">
             <el-tag :type="row.operationResult === 1 ? 'success' : 'danger'">
@@ -262,7 +259,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
 import type { RequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
@@ -270,6 +267,8 @@ import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -278,6 +277,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 
 type AuditLogViewMode = 'business' | 'system'
 
@@ -286,16 +286,16 @@ const router = useRouter()
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
-const pageTitle = computed(() => (isSystemMode.value ? '系统日志' : '业务日志'))
+const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
 const pageDescription = computed(() =>
   isSystemMode.value
-    ? '面向研发、测试与运维的系统异常排查台，聚焦设备接入与后台链路问题。'
-    : '面向客户与治理侧的业务操作留痕，默认不展示后台系统异常记录。'
+    ? '面向研发、测试与运维的异常观测工作台，聚焦设备接入与后台链路问题。'
+    : '面向客户与治理侧的审计留痕中心，默认不展示后台系统异常记录。'
 )
 const viewTip = computed(() =>
   isSystemMode.value
-    ? '系统日志仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，可结合 TraceId、设备编码与“消息追踪”页面快速串联排障。'
-    : '业务日志默认排除 `system_error` 记录；如需排查设备接入或后台异常，请前往“设备接入 > 系统日志”。'
+    ? '异常观测台仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，可结合 TraceId、设备编码与“链路追踪台”页面快速串联排障。'
+    : '审计中心默认排除 `system_error` 记录；如需排查设备接入或后台异常，请前往“接入智维 > 异常观测台”。'
 )
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
 const canJumpFromSearch = computed(() =>
@@ -706,23 +706,26 @@ const handleDetail = async (row: AuditLogRecord) => {
 }
 
 // 删除
-const handleDelete = (row: AuditLogRecord) => {
-  ElMessageBox.confirm(`确定要删除该${pageTitle.value}吗？`, '警告', {
-    type: 'warning'
-  })
-    .then(async () => {
-      try {
-        const res = await deleteAuditLog(String(row.id))
-        if (res.code === 200) {
-          ElMessage.success('删除成功')
-          getAuditLogList()
-          getAuditLogStats()
-        }
-      } catch (error) {
-        console.error('删除失败', error)
-      }
+const handleDelete = async (row: AuditLogRecord) => {
+  try {
+    await confirmAction({
+      title: `删除${pageTitle.value}`,
+      message: `确认删除当前${pageTitle.value}吗？删除后不可恢复。`,
+      type: 'warning',
+      confirmButtonText: '确认删除'
     })
-    .catch(() => {})
+    const res = await deleteAuditLog(String(row.id))
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      getAuditLogList()
+      getAuditLogStats()
+    }
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除失败', error)
+  }
 }
 
 // 获取操作类型名称

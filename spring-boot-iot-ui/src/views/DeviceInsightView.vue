@@ -22,20 +22,20 @@
               />
             </div>
           </div>
-          <div class="button-row" style="margin-top: 1rem;">
+          <StandardActionGroup margin-top="sm">
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
-              {{ isLoading ? '刷新中...' : '刷新风险点工作台' }}
+              {{ isLoading ? '刷新中...' : '刷新对象洞察' }}
             </el-button>
             <el-button class="secondary-button" @click="jumpToReporting">
-              接入回放验证
+              进入链路验证中心
             </el-button>
             <el-button class="secondary-button" @click="goToMessageTrace">
-              消息追踪
+              链路追踪台
             </el-button>
             <el-button class="ghost-button" @click="jumpToDevices">
-              查看设备运维
+              查看设备资产
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
 
         <div class="risk-banner" :class="`risk-banner--${riskSummary.tone}`">
@@ -193,21 +193,21 @@
         description="来自 `GET /api/device/{deviceCode}/properties`，既可服务业务判断，也可服务调试核查。"
       >
         <el-table v-if="properties.length" :data="properties" stripe>
-          <el-table-column prop="identifier" label="标识符" min-width="140" />
-          <el-table-column prop="propertyName" label="属性名" min-width="140">
+          <StandardTableTextColumn prop="identifier" label="标识符" :min-width="140" />
+          <StandardTableTextColumn prop="propertyName" label="属性名" :min-width="140">
             <template #default="{ row }">{{ row.propertyName || '--' }}</template>
-          </el-table-column>
-          <el-table-column prop="propertyValue" label="值" min-width="120">
+          </StandardTableTextColumn>
+          <StandardTableTextColumn prop="propertyValue" label="值" :min-width="140">
             <template #default="{ row }">{{ row.propertyValue || '--' }}</template>
-          </el-table-column>
-          <el-table-column prop="valueType" label="类型" min-width="100">
+          </StandardTableTextColumn>
+          <StandardTableTextColumn prop="valueType" label="类型" :min-width="120">
             <template #default="{ row }">{{ row.valueType || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="更新时间" min-width="180">
+          </StandardTableTextColumn>
+          <StandardTableTextColumn label="更新时间" :min-width="180">
             <template #default="{ row }">{{ formatDateTime(row.updateTime || row.reportTime) }}</template>
-          </el-table-column>
+          </StandardTableTextColumn>
         </el-table>
-        <el-empty v-else description="还没有属性数据。先去“接入回放台”发送一条属性报文。" />
+        <el-empty v-else description="还没有属性数据。先去“链路验证中心”发送一条属性报文。" />
       </PanelCard>
 
       <PanelCard
@@ -239,6 +239,8 @@ import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '../a
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import PropertyTrendPanel from '../components/PropertyTrendPanel.vue';
+import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import { recordActivity } from '../stores/activity';
 import type { Device, DeviceMessageLog, DeviceProperty } from '../types/api';
 import { formatDateTime, statusLabel, truncateText } from '../utils/format';
@@ -529,9 +531,9 @@ const operationActions = computed(() => {
 const engineeringActions = computed(() => {
   const actions = ['回看消息日志中的 topic 与 payload，确认协议解析是否符合预期。'];
   if (!logs.value.length) {
-    actions.push('当前无日志，建议先通过接入回放台发送模拟报文验证主链路。');
+    actions.push('当前无日志，建议先通过链路验证中心发送模拟报文验证主链路。');
   } else {
-    actions.push('可进入“消息追踪”按 TraceId 串联系统日志与消息日志，快速定位接入异常。');
+    actions.push('可进入“链路追踪台”按 TraceId 串联异常观测台与消息日志，快速定位接入异常。');
   }
   actions.push('若涉及文件或固件数据，请继续进入文件与固件调试页查看 Redis 聚合结果。');
   return actions;
@@ -649,8 +651,8 @@ async function refreshAll() {
   align-items: center;
   padding: 1rem 1.1rem;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(30, 128, 255, 0.22);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 255, 0.95));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 6%, white));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.52);
 }
 
@@ -691,19 +693,19 @@ async function refreshAll() {
 }
 
 .risk-banner--red {
-  border-color: rgba(255, 77, 79, 0.32);
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
 }
 
 .risk-banner--orange {
-  border-color: rgba(250, 140, 22, 0.32);
+  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
 }
 
 .risk-banner--yellow {
-  border-color: rgba(250, 173, 20, 0.32);
+  border-color: color-mix(in srgb, #faad14 32%, transparent);
 }
 
 .risk-banner--blue {
-  border-color: rgba(30, 128, 255, 0.32);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 .focus-list,
@@ -720,7 +722,7 @@ async function refreshAll() {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.95));
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
   box-shadow: var(--shadow-sm);
 }
 

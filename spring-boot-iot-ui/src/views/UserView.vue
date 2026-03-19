@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>用户管理</span>
+          <span>账号中心</span>
           <el-button v-permission="'system:user:add'" type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
@@ -34,18 +34,15 @@
         </el-row>
       </el-form>
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         ref="tableRef"
@@ -54,14 +51,13 @@
         border
         stripe
         style="width: 100%"
-        show-overflow-tooltip
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="username" label="用户名" width="150" />
-        <el-table-column prop="realName" label="真实姓名" width="120" />
-        <el-table-column prop="phone" label="手机号" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
+        <StandardTableTextColumn prop="username" label="用户名" :width="150" />
+        <StandardTableTextColumn prop="realName" label="真实姓名" :width="120" />
+        <StandardTableTextColumn prop="phone" label="手机号" :width="150" />
+        <StandardTableTextColumn prop="email" label="邮箱" :width="200" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -69,9 +65,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastLoginTime" label="最后登录时间" width="180" />
-        <el-table-column prop="lastLoginIp" label="最后登录 IP" width="150" />
-        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <StandardTableTextColumn prop="lastLoginTime" label="最后登录时间" :width="180" />
+        <StandardTableTextColumn prop="lastLoginIp" label="最后登录 IP" :width="150" />
+        <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button v-permission="'system:user:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -124,22 +120,26 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button
-            v-permission="formData.id ? 'system:user:update' : 'system:user:add'"
-            type="primary"
-            class="sys-dialog__btn sys-dialog__btn--primary"
-            :loading="submitLoading"
-            @click="handleSubmit"
-          >
-            确定
-          </el-button>
+          <StandardDrawerFooter @cancel="dialogVisible = false">
+            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
+              取消
+            </el-button>
+            <el-button
+              v-permission="formData.id ? 'system:user:update' : 'system:user:add'"
+              type="primary"
+              class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+              :loading="submitLoading"
+              @click="handleSubmit"
+            >
+              确定
+            </el-button>
+          </StandardDrawerFooter>
         </template>
       </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
-        title="用户管理导出列设置"
+        title="账号中心导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
         :preset-storage-key="exportColumnStorageKey"
@@ -152,12 +152,15 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -166,6 +169,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { addUser, deleteUser, getUser, pageUsers, resetPassword, updateUser, type User } from '@/api/user'
 
 const formRef = ref()
@@ -292,11 +296,11 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('用户管理-选中项.csv', selectedRows.value, getResolvedExportColumns())
+  downloadRowsAsCsv('账号中心-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv('用户管理-当前结果.csv', tableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv('账号中心-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
 const resetFormData = (parent?: Partial<User>) => {
@@ -327,27 +331,36 @@ const handleEdit = async (row: User) => {
   }
 }
 
-const handleDelete = (row: User) => {
-  ElMessageBox.confirm(`确定要删除用户“${row.username}”吗？`, '警告', {
-    type: 'warning'
-  })
-    .then(async () => {
-      await deleteUser(row.id as string | number)
-      ElMessage.success('删除成功')
-      loadUserPage()
-    })
-    .catch(() => {})
+const handleDelete = async (row: User) => {
+  try {
+    await confirmDelete('用户', row.username)
+    await deleteUser(row.id as string | number)
+    ElMessage.success('删除成功')
+    loadUserPage()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除用户失败', error)
+  }
 }
 
-const handleResetPassword = (row: User) => {
-  ElMessageBox.confirm(`确定要重置用户“${row.username}”的密码吗？`, '警告', {
-    type: 'warning'
-  })
-    .then(async () => {
-      await resetPassword(row.id as string | number)
-      ElMessage.success('密码已重置为 123456')
+const handleResetPassword = async (row: User) => {
+  try {
+    await confirmAction({
+      title: '重置密码',
+      message: `确认重置用户“${row.username}”的密码吗？重置后默认密码为 123456。`,
+      type: 'warning',
+      confirmButtonText: '确认重置'
     })
-    .catch(() => {})
+    await resetPassword(row.id as string | number)
+    ElMessage.success('密码已重置为 123456')
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('重置用户密码失败', error)
+  }
 }
 
 const handleSubmit = async () => {

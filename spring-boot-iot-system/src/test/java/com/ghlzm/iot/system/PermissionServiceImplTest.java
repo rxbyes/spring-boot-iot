@@ -2,6 +2,7 @@ package com.ghlzm.iot.system;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.entity.Role;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.MenuMapper;
 import com.ghlzm.iot.system.mapper.RoleMapper;
@@ -87,5 +88,87 @@ class PermissionServiceImplTest {
         assertTrue(context.getMenus().isEmpty());
         assertEquals("/", context.getHomePath());
         verify(roleMenuMapper, never()).selectMenuIdsByRoleIds(any());
+    }
+
+    @Test
+    void shouldReturnRoleWorkspaceHomeWhenPreferredMenuRootExists() {
+        Long userId = 1002L;
+        User user = new User();
+        user.setId(userId);
+        user.setUsername("business-user");
+        user.setDeleted(0);
+
+        Role role = new Role();
+        role.setId(3001L);
+        role.setRoleCode("BUSINESS_STAFF");
+        role.setRoleName("业务人员");
+
+        Menu riskRoot = new Menu();
+        riskRoot.setId(93000002L);
+        riskRoot.setParentId(0L);
+        riskRoot.setMenuName("风险运营");
+        riskRoot.setMenuCode("risk-ops");
+        riskRoot.setType(0);
+        riskRoot.setSort(20);
+
+        Menu alarmMenu = new Menu();
+        alarmMenu.setId(93002001L);
+        alarmMenu.setParentId(93000002L);
+        alarmMenu.setMenuName("告警运营台");
+        alarmMenu.setMenuCode("risk:alarm");
+        alarmMenu.setType(1);
+        alarmMenu.setSort(21);
+        alarmMenu.setPath("/alarm-center");
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
+        when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(riskRoot, alarmMenu));
+        when(roleMenuMapper.selectMenuIdsByRoleIds(List.of(role.getId()))).thenReturn(List.of(alarmMenu.getId()));
+
+        UserAuthContextVO context = permissionService.getUserAuthContext(userId);
+
+        assertEquals("/risk-disposal", context.getHomePath());
+    }
+
+    @Test
+    void shouldFallbackToFirstAuthorizedPageWhenPreferredWorkspaceMissing() {
+        Long userId = 1003L;
+        User user = new User();
+        user.setId(userId);
+        user.setUsername("developer-user");
+        user.setDeleted(0);
+
+        Role role = new Role();
+        role.setId(3002L);
+        role.setRoleCode("DEVELOPER_STAFF");
+        role.setRoleName("开发人员");
+
+        Menu riskRoot = new Menu();
+        riskRoot.setId(93000002L);
+        riskRoot.setParentId(0L);
+        riskRoot.setMenuName("风险运营");
+        riskRoot.setMenuCode("risk-ops");
+        riskRoot.setType(0);
+        riskRoot.setSort(20);
+
+        Menu alarmMenu = new Menu();
+        alarmMenu.setId(93002001L);
+        alarmMenu.setParentId(93000002L);
+        alarmMenu.setMenuName("告警运营台");
+        alarmMenu.setMenuCode("risk:alarm");
+        alarmMenu.setType(1);
+        alarmMenu.setSort(21);
+        alarmMenu.setPath("/alarm-center");
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
+        when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(riskRoot, alarmMenu));
+        when(roleMenuMapper.selectMenuIdsByRoleIds(List.of(role.getId()))).thenReturn(List.of(alarmMenu.getId()));
+
+        UserAuthContextVO context = permissionService.getUserAuthContext(userId);
+
+        assertEquals("/alarm-center", context.getHomePath());
     }
 }

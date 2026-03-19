@@ -57,14 +57,14 @@
             <label for="description">说明</label>
             <el-input id="description" v-model="productForm.description" type="textarea" :rows="5" />
           </div>
-          <div class="button-row" style="grid-column: 1 / -1;">
+          <StandardActionGroup full-width>
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
               {{ isCreating ? '创建中...' : '提交产品' }}
             </el-button>
             <el-button class="secondary-button" @click="resetForm">
               恢复演示数据
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
       </PanelCard>
 
@@ -81,31 +81,18 @@
               <el-input id="query-product-id" v-model="queryId" name="query_product_id" inputmode="numeric" placeholder="例如 2001..." clearable />
             </div>
           </div>
-          <div class="button-row" style="margin-top: 1rem;">
+          <StandardActionGroup margin-top="sm">
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isQuerying">
               {{ isQuerying ? '查询中...' : '查询产品' }}
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
 
-        <div v-if="queryProduct" class="info-grid product-info-grid" style="margin-top: 1rem;">
-          <div class="info-chip">
-            <span>产品 Key</span>
-            <strong>{{ queryProduct.productKey }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>协议</span>
-            <strong>{{ queryProduct.protocolCode }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>节点类型</span>
-            <strong>{{ queryProduct.nodeType }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>厂商</span>
-            <strong>{{ queryProduct.manufacturer || '--' }}</strong>
-          </div>
-        </div>
+        <StandardInfoGrid
+          v-if="queryProduct"
+          :items="queryProductInfoItems"
+          style="margin-top: 1rem;"
+        />
       </PanelCard>
     </section>
 
@@ -129,12 +116,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 
 import { addProduct, getProductById } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
+import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import { recordActivity } from '../stores/activity';
 import type { Product, ProductAddPayload } from '../types/api';
 
@@ -157,6 +146,35 @@ const errorMessage = ref('');
 const queryProduct = ref<Product | null>(null);
 const lastRequest = ref<unknown>({ tip: '提交或查询后会显示请求体。' });
 const lastResponse = ref<unknown>({ tip: '接口响应会出现在这里。' });
+
+const queryProductInfoItems = computed(() => {
+  if (!queryProduct.value) {
+    return []
+  }
+
+  return [
+    {
+      key: 'product-key',
+      label: '产品 Key',
+      value: queryProduct.value.productKey
+    },
+    {
+      key: 'protocol-code',
+      label: '协议',
+      value: queryProduct.value.protocolCode
+    },
+    {
+      key: 'node-type',
+      label: '节点类型',
+      value: queryProduct.value.nodeType
+    },
+    {
+      key: 'manufacturer',
+      label: '厂商',
+      value: queryProduct.value.manufacturer
+    }
+  ]
+})
 
 function resetForm() {
   Object.assign(productForm, createDemoProduct());
@@ -250,13 +268,5 @@ async function handleQueryProduct() {
   height: 16rem;
   background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 62%);
   pointer-events: none;
-}
-
-.product-info-grid .info-chip {
-  box-shadow: var(--shadow-sm);
-}
-
-.product-info-grid .info-chip strong {
-  color: var(--text-primary);
 }
 </style>

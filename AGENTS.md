@@ -89,7 +89,8 @@ When environment access is blocked, report the environment blocker explicitly. D
 - Any page or style change in `spring-boot-iot-ui` must preserve UTF-8 readability. Do not paste terminal-garbled text into `.vue`, `.ts`, `.css`, `.json`, or `.md` files.
 - Before editing frontend files on Windows terminals, prefer UTF-8 viewing/verification (for example `chcp 65001` plus `Get-Content -Encoding UTF8`) so displayed text matches file contents.
 - After editing frontend text content, labels, placeholders, comments, or documentation, always self-check for mojibake such as `鍒�`, `褰�`, `璇�`, `鐢�` and fix it before ending the task.
-- New page optimization work must reuse the existing shared page patterns first: `PanelCard`, `StandardPagination`, `useServerPagination`, shared global list styles, and existing design tokens. Do not add another page-local list/pagination style when an existing standard pattern already fits.
+- New page optimization work must reuse the existing shared page patterns first: `PanelCard`, `StandardPagination`, `useServerPagination`, `StandardTableToolbar`, `StandardTableTextColumn`, `StandardDetailDrawer`, `StandardFormDrawer`, `StandardDrawerFooter`, `confirmAction`, shared global list styles, and existing design tokens. Do not add another page-local list/pagination/detail-dialog style when an existing standard pattern already fits.
+- Overview, workbench, drawer, and confirmation interactions must stay on the unified brand/accent token system. Do not introduce another page-local blue/orange/purple palette unless the product requirement explicitly documents that exception.
 - If a frontend change introduces or reveals style drift, duplicated list layouts, or inconsistent pagination behavior, record the issue and the prevention rule in `docs/15-frontend-optimization-plan.md` before closing the task.
 
 ## Always read before coding

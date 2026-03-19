@@ -3,7 +3,7 @@
     <PanelCard class="box-card">
       <template #header>
         <div class="card-header">
-          <span>区域管理</span>
+          <span>区域版图</span>
           <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
         </div>
       </template>
@@ -56,18 +56,15 @@
         class="view-alert"
       />
 
-      <div class="table-action-bar">
-        <div class="table-action-bar__left">
-          <span class="table-action-bar__meta">已选 {{ selectedRows.length }} 项</span>
-        </div>
-        <div class="table-action-bar__right">
+      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <template #right>
           <el-button link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
           <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
           <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
           <el-button link @click="handleRefresh">刷新列表</el-button>
-        </div>
-      </div>
+        </template>
+      </StandardTableToolbar>
 
       <el-table
         ref="tableRef"
@@ -76,7 +73,6 @@
         border
         stripe
         style="width: 100%"
-        show-overflow-tooltip
         row-key="id"
         :lazy="!isFilterMode"
         :load="loadChildren"
@@ -84,8 +80,8 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="regionCode" label="区域编码" width="150" />
-        <el-table-column prop="regionName" label="区域名称" width="200" />
+        <StandardTableTextColumn prop="regionCode" label="区域编码" :width="150" />
+        <StandardTableTextColumn prop="regionName" label="区域名称" :width="200" />
         <el-table-column prop="regionType" label="区域类型" width="120">
           <template #default="{ row }">
             <el-tag :type="getRegionTypeTag(row.regionType)">
@@ -93,8 +89,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="longitude" label="经度" width="120" />
-        <el-table-column prop="latitude" label="纬度" width="120" />
+        <StandardTableTextColumn prop="longitude" label="经度" :width="120" />
+        <StandardTableTextColumn prop="latitude" label="纬度" :width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -102,8 +98,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" label="排序" width="80" />
-        <el-table-column prop="remark" label="备注" />
+        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -167,16 +163,17 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" :loading="submitLoading" @click="handleSubmit">
-            确定
-          </el-button>
+          <StandardDrawerFooter
+            :confirm-loading="submitLoading"
+            @cancel="dialogVisible = false"
+            @confirm="handleSubmit"
+          />
         </template>
       </StandardFormDrawer>
 
       <CsvColumnSettingDialog
         v-model="exportColumnDialogVisible"
-        title="区域管理导出列设置"
+        title="区域版图导出列设置"
         :options="exportColumnOptions"
         :selected-keys="selectedExportColumnKeys"
         :preset-storage-key="exportColumnStorageKey"
@@ -189,12 +186,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -202,6 +202,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addRegion,
@@ -360,7 +361,7 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv('区域管理-选中项.csv', selectedRows.value, getResolvedExportColumns())
+  downloadRowsAsCsv('区域版图-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
 const flattenTreeRows = (rows: Region[]): Region[] =>
@@ -368,7 +369,7 @@ const flattenTreeRows = (rows: Region[]): Region[] =>
 
 const handleExportCurrent = () => {
   const rows = isFilterMode.value ? tableData.value : flattenTreeRows(tableData.value)
-  downloadRowsAsCsv('区域管理-当前结果.csv', rows, getResolvedExportColumns())
+  downloadRowsAsCsv('区域版图-当前结果.csv', rows, getResolvedExportColumns())
 }
 
 const resetFormData = (region?: Partial<Region>) => {
@@ -407,14 +408,18 @@ const handleEdit = async (row: Region) => {
   }
 }
 
-const handleDelete = (row: Region) => {
-  ElMessageBox.confirm(`确定要删除区域“${row.regionName}”吗？`, '警告', { type: 'warning' })
-    .then(async () => {
-      await deleteRegion(row.id)
-      ElMessage.success('删除成功')
-      loadRegionPage()
-    })
-    .catch(() => {})
+const handleDelete = async (row: Region) => {
+  try {
+    await confirmDelete('区域', row.regionName)
+    await deleteRegion(row.id)
+    ElMessage.success('删除成功')
+    loadRegionPage()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('删除区域失败', error)
+  }
 }
 
 const handleSubmit = async () => {
