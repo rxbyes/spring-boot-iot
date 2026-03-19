@@ -149,15 +149,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5174,
       proxy: {
-        '/api': {
-          target: proxyTarget,
-          changeOrigin: true
-        },
-        '/device': {
-          target: proxyTarget,
-          changeOrigin: true
-        },
-        '/message': {
+        '^/api(?:/|$)': {
           target: proxyTarget,
           changeOrigin: true
         }

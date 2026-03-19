@@ -48,7 +48,7 @@ export function getDeviceMetricOptions(deviceId: string | number) {
 }
 
 export function reportByHttp(payload: HttpReportPayload) {
-  return request<null>('/message/http/report', {
+  return request<null>('/api/message/http/report', {
     method: 'POST',
     body: payload
   });

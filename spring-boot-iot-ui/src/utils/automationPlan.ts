@@ -66,7 +66,7 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
     route: '/reporting',
     title: '链路验证中心',
     caption: '模拟 HTTP 上报并校验接入链路解析结果。',
-    matcher: '/message/http/report'
+    matcher: '/api/message/http/report'
   },
   {
     route: '/insight',
@@ -449,13 +449,13 @@ function createProductScenario(): AutomationScenarioConfig {
 function createDeviceScenario(): AutomationScenarioConfig {
   return {
     key: 'device-workbench',
-    name: '设备建档与查询',
+    name: '设备资产建档与库存校验',
     route: '/devices',
     scope: 'baseline',
     readySelector: '#device-product-key',
     description: '示例场景：在设备资产列表打开抽屉建档，并通过列表筛选验证设备已成功入库。',
     businessFlow: '设备建档、列表筛选与库存校验',
-    featurePoints: ['设备创建', '按 ID 查询', '按编码查询'],
+    featurePoints: ['设备创建', '列表筛选', '库存校验'],
     initialApis: [],
     steps: [
       createStep({
@@ -990,7 +990,7 @@ function inferApiMatcher(route: string): string {
     '/': '/api/cockpit/',
     '/products': '/api/device/product/',
     '/devices': '/api/device/',
-    '/reporting': '/message/http/report',
+    '/reporting': '/api/message/http/report',
     '/system-log': '/api/system/audit-log/',
     '/alarm-center': '/api/alarm/',
     '/event-disposal': '/api/event/',

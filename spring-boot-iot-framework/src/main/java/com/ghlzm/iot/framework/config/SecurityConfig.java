@@ -26,7 +26,7 @@ public class SecurityConfig {
 
     private static final RegexRequestMatcher SPA_SHELL_ROUTE_MATCHER =
             new RegexRequestMatcher(
-                    "^/(?:$|(?!api(?:/|$)|message(?:/|$)|actuator(?:/|$)|swagger-ui(?:/|$)|v3(?:/|$)|error(?:/|$)|assets(?:/|$)|doc\\.html$)(?!.*\\.[^/]+$).+)$",
+                    "^/(?:$|(?!api(?:/|$)|actuator(?:/|$)|swagger-ui(?:/|$)|v3(?:/|$)|error(?:/|$)|assets(?:/|$)|doc\\.html$)(?!.*\\.[^/]+$).+)$",
                     HttpMethod.GET.name());
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -63,8 +63,7 @@ public class SecurityConfig {
                         // 仅保留登录、调试与运维白名单，其余接口默认要求 JWT 认证。
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/auth/login",
-                                "/message/http/report",
+                                "/api/message/http/report",
                                 "/actuator/**",
                                 "/error",
                                 "/doc.html",

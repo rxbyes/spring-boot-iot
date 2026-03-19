@@ -36,7 +36,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     matchLabels: ['设备接入'],
     cards: [
       { path: '/products', label: '产品模板中心', description: '维护产品模板、协议绑定与设备归属基线。', keywords: ['产品工作台', '产品模板', '产品建模'] },
-      { path: '/devices', label: '设备运维中心', description: '维护设备主数据、在线状态与认证字段。', keywords: ['设备运维中心', '设备运维', '设备档案'] },
+      { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', keywords: ['设备资产中心', '设备资产', '设备档案'] },
       { path: '/reporting', label: '接入验证中心', description: '发起 HTTP 上报并核验主链路解析结果。', keywords: ['HTTP 上报实验台', '模拟上报', '接入验证'] },
       { path: '/insight', label: '监测对象工作台', description: '查看属性、日志与研判线索的聚合结果。', keywords: ['风险点工作台', '监测对象工作台', '属性查看'] },
       { path: '/message-trace', label: '消息追踪', description: '按 TraceId、设备编码和 Topic 串联接入链路。', keywords: ['消息追踪', 'TraceId', 'Topic'] },

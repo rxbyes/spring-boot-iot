@@ -161,8 +161,9 @@ When environment access is blocked, report the environment blocker explicitly. D
 6. mention which docs were updated, including any updates to `README.md` and `AGENTS.md`
 
 ## Preferred commands
-- build: `mvn -s .mvn/settings.xml clean package -DskipTests`
-- run app: `mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
+- build: `mvn -s .mvn/settings.xml clean install -DskipTests`
+- run app (macOS/Linux, Windows CMD): `mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`
+- run app (Windows PowerShell): `mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run "-Dspring-boot.run.profiles=dev"`
 - backend acceptance: `powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1`
 - frontend acceptance: `powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1`
 - test: `mvn -s .mvn/settings.xml test`

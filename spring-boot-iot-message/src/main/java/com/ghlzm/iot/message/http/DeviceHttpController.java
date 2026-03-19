@@ -23,7 +23,7 @@ public class DeviceHttpController {
         this.upMessageDispatcher = upMessageDispatcher;
     }
 
-    @PostMapping("/message/http/report")
+    @PostMapping({"/api/message/http/report", "/message/http/report"})
     public R<?> report(@RequestBody @Valid DeviceReportRequest request) {
         RawDeviceMessage raw = new RawDeviceMessage();
         raw.setProtocolCode(request.getProtocolCode());

@@ -52,6 +52,9 @@ export interface Product {
   manufacturer?: string | null;
   description?: string | null;
   status?: number | null;
+  deviceCount?: number | null;
+  onlineDeviceCount?: number | null;
+  lastReportTime?: string | null;
   createTime?: string | null;
   updateTime?: string | null;
 }
@@ -193,6 +196,7 @@ export interface ProductAddPayload {
   dataFormat?: string;
   manufacturer?: string;
   description?: string;
+  status?: number;
 }
 
 export interface DeviceAddPayload {

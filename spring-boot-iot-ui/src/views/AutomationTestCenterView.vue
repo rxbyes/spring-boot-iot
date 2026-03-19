@@ -286,93 +286,18 @@
       />
     </section>
 
-    <StandardFormDrawer
+    <AutomationPlanImportDrawer
       v-model="showImportDialog"
-      eyebrow="Automation Import"
-      title="导入自动化计划"
-      subtitle="统一通过右侧抽屉粘贴并导入 JSON 计划，导入后会替换当前编排内容。"
-      size="48rem"
-      @close="handleImportDialogClose"
-    >
-      <el-input
-        v-model="importText"
-        type="textarea"
-        :rows="18"
-        placeholder="请粘贴导出的 JSON 计划"
-      />
-      <template #footer>
-        <StandardDrawerFooter
-          confirm-text="导入并替换当前计划"
-          @cancel="handleImportDialogClose"
-          @confirm="applyImport"
-        />
-      </template>
-    </StandardFormDrawer>
+      @confirm="applyImport"
+    />
 
-    <StandardFormDrawer
+    <AutomationManualPageDrawer
       v-model="showManualPageDialog"
-      eyebrow="Page Inventory"
-      title="新增自定义页面"
-      subtitle="统一通过右侧抽屉补充未纳入菜单树的页面盘点信息，并生成推荐测试模板。"
-      size="46rem"
-      @close="handleManualPageDialogClose"
-    >
-      <div class="scenario-grid">
-        <label class="field-card">
-          <span>页面名称</span>
-          <el-input v-model="manualPageDraft.title" placeholder="例如：外部采购门户" />
-        </label>
-        <label class="field-card">
-          <span>页面路由</span>
-          <el-input v-model="manualPageDraft.route" placeholder="/external-dashboard" />
-        </label>
-        <label class="field-card field-card--wide">
-          <span>页面说明</span>
-          <el-input
-            v-model="manualPageDraft.caption"
-            type="textarea"
-            :rows="2"
-            placeholder="说明该页面的业务目标、页面职责或首屏特征"
-          />
-        </label>
-        <label class="field-card">
-          <span>推荐模板</span>
-          <el-select v-model="manualPageDraft.recommendedTemplate">
-            <el-option
-              v-for="type in inventoryTemplateOptions"
-              :key="type"
-              :label="buildTemplateLabel(type)"
-              :value="type"
-            />
-          </el-select>
-        </label>
-        <label class="field-card">
-          <span>执行范围</span>
-          <el-select v-model="manualPageDraft.scope">
-            <el-option v-for="scope in scopeOptions" :key="scope" :label="scope" :value="scope" />
-          </el-select>
-        </label>
-        <label class="field-card">
-          <span>就绪选择器</span>
-          <el-input v-model="manualPageDraft.readySelector" placeholder="[data-testid=&quot;console-page-title&quot;]" />
-        </label>
-        <label class="field-card">
-          <span>首屏接口 Matcher</span>
-          <el-input v-model="manualPageDraft.matcher" placeholder="/api/external/dashboard" />
-        </label>
-        <label class="field-card field-card--switch">
-          <span>需要登录</span>
-          <el-switch v-model="manualPageDraft.requiresLogin" />
-        </label>
-      </div>
-      <template #footer>
-        <StandardDrawerFooter
-          confirm-text="保存并加入页面盘点"
-          @cancel="handleManualPageDialogClose"
-          @confirm="saveManualPage"
-        />
-      </template>
-    </StandardFormDrawer>
+      :scope-options="scopeOptions"
+      :template-options="inventoryTemplateOptions"
+      :build-template-label="buildTemplateLabel"
+      @save="saveManualPage"
+    />
   </div>
 </template>
 
@@ -381,13 +306,13 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { usePermissionStore } from '../stores/permission';
 
+import AutomationManualPageDrawer from '../components/AutomationManualPageDrawer.vue';
+import AutomationPlanImportDrawer from '../components/AutomationPlanImportDrawer.vue';
 import AutomationScenarioEditor from '../components/AutomationScenarioEditor.vue';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
-import StandardDrawerFooter from '../components/StandardDrawerFooter.vue';
-import StandardFormDrawer from '../components/StandardFormDrawer.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import type {
   AutomationPageInventoryItem,
@@ -403,7 +328,6 @@ import {
   buildPlanSuggestions,
   buildScenarioPreviews,
   collectScenarioRoutes,
-  createManualInventoryItem,
   createScenarioFromInventory,
   createDefaultAutomationPlan,
   createFormSubmitScenario,
@@ -457,8 +381,6 @@ const manualPages = ref<AutomationPageInventoryItem[]>(loadSavedAutomationInvent
 const selectedInventoryRows = ref<AutomationPageInventoryItem[]>([]);
 const showImportDialog = ref(false);
 const showManualPageDialog = ref(false);
-const importText = ref('');
-const manualPageDraft = ref<AutomationPageInventoryItem>(createManualInventoryItem());
 
 const scenarioPreviews = computed(() => buildScenarioPreviews(plan.value));
 const suggestions = computed(() => buildPlanSuggestions(plan.value));
@@ -715,12 +637,10 @@ function generateUncoveredInventoryScenarios() {
 }
 
 function openManualPageDialog() {
-  manualPageDraft.value = createManualInventoryItem();
   showManualPageDialog.value = true;
 }
 
-function saveManualPage() {
-  const nextItem = createManualInventoryItem(manualPageDraft.value);
+function saveManualPage(nextItem: AutomationPageInventoryItem) {
   const existingIndex = manualPages.value.findIndex((item) => item.route === nextItem.route);
 
   if (existingIndex >= 0) {
@@ -731,7 +651,7 @@ function saveManualPage() {
     ElMessage.success('已新增自定义页面盘点项');
   }
 
-  handleManualPageDialogClose();
+  showManualPageDialog.value = false;
 }
 
 function removeManualPage(id: string) {
@@ -860,45 +780,17 @@ function resetPlan() {
   ElMessage.success('已恢复默认计划模板');
 }
 
-function applyImport() {
+function applyImport(importText: string) {
   try {
-    const nextPlan = normalizeAutomationPlan(JSON.parse(importText.value) as AutomationPlanDocument);
+    const nextPlan = normalizeAutomationPlan(JSON.parse(importText) as AutomationPlanDocument);
     nextPlan.scenarios.forEach((scenario) => scenario.steps.forEach(ensureStepShape));
     plan.value = nextPlan;
-    handleImportDialogClose();
+    showImportDialog.value = false;
     ElMessage.success('自动化计划已导入');
   } catch {
     ElMessage.error('导入失败，请检查 JSON 格式是否正确');
   }
 }
-
-function handleImportDialogClose() {
-  showImportDialog.value = false;
-  importText.value = '';
-}
-
-function handleManualPageDialogClose() {
-  showManualPageDialog.value = false;
-  manualPageDraft.value = createManualInventoryItem();
-}
-
-watch(
-  () => showImportDialog.value,
-  (visible) => {
-    if (!visible) {
-      importText.value = '';
-    }
-  }
-);
-
-watch(
-  () => showManualPageDialog.value,
-  (visible) => {
-    if (!visible) {
-      manualPageDraft.value = createManualInventoryItem();
-    }
-  }
-);
 </script>
 
 <style scoped>
@@ -1035,31 +927,6 @@ watch(
   border-color: color-mix(in srgb, var(--success) 22%, transparent);
 }
 
-.scenario-grid {
-  display: grid;
-  gap: 0.85rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.field-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.field-card span {
-  color: var(--text-secondary);
-  font-size: 0.86rem;
-}
-
-.field-card--wide {
-  grid-column: 1 / -1;
-}
-
-.field-card--switch {
-  justify-content: flex-end;
-}
-
 .empty-block {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
@@ -1070,8 +937,7 @@ watch(
 @media (max-width: 1024px) {
   .automation-plan-metrics,
   .inventory-metrics,
-  .scope-grid,
-  .scenario-grid {
+  .scope-grid {
     grid-template-columns: 1fr;
   }
 

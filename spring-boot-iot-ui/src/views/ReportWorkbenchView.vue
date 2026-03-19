@@ -5,7 +5,7 @@
         class="report-card"
         eyebrow="HTTP Simulator"
         title="模拟设备上报"
-        description="这里直接对应 `POST /message/http/report`，是当前 Phase 1 最关键的联调入口。"
+        description="这里直接对应 `POST /api/message/http/report`，是当前 Phase 1 最关键的联调入口。"
       >
         <StandardActionGroup margin-bottom="sm" gap="sm">
           <el-button
@@ -231,7 +231,7 @@ const previewInfoItems = computed(() => [
   {
     key: 'request-path',
     label: '模拟入口',
-    value: 'POST /message/http/report'
+    value: 'POST /api/message/http/report'
   }
 ]);
 
@@ -245,7 +245,7 @@ const curlPreview = computed(() => {
     2
   );
 
-  return `curl -X POST http://localhost:9999/message/http/report \\
+  return `curl -X POST http://localhost:9999/api/message/http/report \\
   -H "Content-Type: application/json" \\
   -d '${body}'`;
 });

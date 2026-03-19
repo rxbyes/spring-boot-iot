@@ -24,7 +24,7 @@ export const messageApi = {
    * HTTP模拟上报
    */
   reportByHttp(payload: HttpReportPayload) {
-    return request<null>('/message/http/report', {
+    return request<null>('/api/message/http/report', {
       method: 'POST',
       body: payload
     });
@@ -50,14 +50,14 @@ export const messageApi = {
    * 查询消息日志详情
    */
   getMessageLogById(id: string | number) {
-    return request<DeviceMessageLog>(`/message/log/${id}`);
+    return request<DeviceMessageLog>(`/api/message/log/${id}`);
   },
 
   /**
    * 删除消息日志
    */
   deleteMessageLog(id: string | number) {
-    return request<null>(`/message/log/${id}`, {
+    return request<null>(`/api/message/log/${id}`, {
       method: 'DELETE'
     });
   }

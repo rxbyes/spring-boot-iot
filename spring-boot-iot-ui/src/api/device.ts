@@ -85,7 +85,7 @@ export function getDeviceMessageLogs(deviceCode: string): Promise<ApiEnvelope<De
 }
 
 export function reportByHttp(payload: HttpReportPayload): Promise<ApiEnvelope<null>> {
-  return request<null>('/message/http/report', {
+  return request<null>('/api/message/http/report', {
     method: 'POST',
     body: payload
   })

@@ -4,6 +4,7 @@ import type { ApiEnvelope, IdType } from '../types/api';
 
 const API_PREFIX_CANDIDATES = [
   '/device',
+  '/message',
   '/auth',
   '/menu',
   '/user',
@@ -28,12 +29,8 @@ function normalizeLegacyApiPath(path: string): string {
     return path;
   }
 
-  if (path.startsWith('/message/') || path.startsWith('/actuator/') || path.startsWith('/v3/')) {
-    return path;
-  }
-
   if (API_PREFIX_CANDIDATES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-    // 兼容历史调用（/device/**），统一归一到当前鉴权基线（/api/**）
+    // 兼容历史调用（/device/**、/message/**），统一归一到当前鉴权基线（/api/**）
     return `/api${path}`;
   }
 
