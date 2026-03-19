@@ -117,16 +117,8 @@
     <div class="cloud-layout">
       <aside class="cloud-sidebar" :aria-hidden="isMobile && !mobileMenuOpen">
         <div class="sidebar-context">
-          <p class="sidebar-context__eyebrow">{{ activeGroup.label }}</p>
-          <div class="sidebar-context__title-row">
-            <h2>{{ activeGroup.menuTitle }}</h2>
-            <span class="sidebar-context__count">{{ activeGroup.items.length }}</span>
-          </div>
-          <p class="sidebar-context__hint">{{ activeGroup.menuHint }}</p>
-          <div class="sidebar-context__meta">
-            <span>{{ toolbarModeLabel }}</span>
-            <span>标准二级导航</span>
-          </div>
+          <p class="sidebar-context__eyebrow">当前工作台</p>
+          <h2>{{ activeGroup.label }}</h2>
         </div>
 
         <nav class="side-menu" aria-label="二级导航">
@@ -154,38 +146,13 @@
       </aside>
 
       <section class="cloud-content">
-        <section class="console-toolbar" :class="{ 'console-toolbar--home': showSidebarContext }">
-          <div class="console-toolbar__heading">
-            <nav class="toolbar-breadcrumb" aria-label="当前位置">
-              <span class="toolbar-breadcrumb__item">{{ activeGroup.label }}</span>
-              <span v-if="!showSidebarContext" class="toolbar-breadcrumb__separator">/</span>
-              <span v-if="!showSidebarContext" class="toolbar-breadcrumb__item toolbar-breadcrumb__item--current">{{ activeTitle }}</span>
-            </nav>
-            <div class="console-toolbar__title-row">
-              <h1 data-testid="console-page-title">{{ activeTitle }}</h1>
-              <span class="console-toolbar__mode">{{ toolbarModeLabel }}</span>
-            </div>
-            <p v-if="toolbarDescription">{{ toolbarDescription }}</p>
-            <div v-if="showOverviewShortcut" class="console-toolbar__actions">
-              <RouterLink :to="activeGroupHomePath" class="console-toolbar__link">
-                返回{{ activeGroup.label }}概览
-              </RouterLink>
-            </div>
-          </div>
-
-          <div class="console-toolbar__summary">
-            <div
-              v-for="item in toolbarMetricItems"
-              :key="item.label"
-              class="console-toolbar__summary-card"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </div>
-          </div>
+        <section v-if="!showSidebarContext" class="console-toolbar">
+          <nav class="toolbar-breadcrumb" aria-label="当前位置">
+            <span class="toolbar-breadcrumb__item">{{ activeGroup.label }}</span>
+            <span class="toolbar-breadcrumb__separator">/</span>
+            <span class="toolbar-breadcrumb__item toolbar-breadcrumb__item--current">{{ activeTitle }}</span>
+          </nav>
         </section>
-
-        <TabsView v-if="showTabsView" />
 
         <main id="main-content" class="content-frame">
           <RouterView />
@@ -369,14 +336,12 @@ import { changePassword } from '../api/user';
 import { createSectionHomeNavItem } from '../utils/sectionWorkspaces';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
-import { visitedTabs } from '../stores/tabs';
 import type { MenuTreeNode } from '../types/auth';
 import { formatDateTime } from '../utils/format';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
 import AppHeaderTools from './AppHeaderTools.vue';
 import HeaderPopoverPanel from './HeaderPopoverPanel.vue';
 import StandardFormDrawer from './StandardFormDrawer.vue';
-import TabsView from './TabsView.vue';
 
 interface NavItem {
   to: string;
@@ -633,31 +598,6 @@ const activeTitle = computed(() => {
   }
   return activeMenuItem.value?.label || String(route.meta.title || '平台首页');
 });
-const activeDescription = computed(() => {
-  if (showSidebarContext.value) {
-    return String(route.meta.description || activeGroup.value.menuHint || '按当前业务分区查看核心能力与常用入口。');
-  }
-  return activeMenuItem.value?.caption || String(route.meta.description || '围绕告警、事件、风险点和设备健康组织平台能力。');
-});
-const toolbarDescription = computed(() => activeDescription.value);
-const toolbarModeLabel = computed(() => (showSidebarContext.value ? '分组总览' : '功能页面'));
-const showOverviewShortcut = computed(() => !showSidebarContext.value && activeGroupHomePath.value !== currentRoutePath.value);
-const toolbarMetricItems = computed(() => {
-  if (!permissionStore.isLoggedIn) {
-    return [
-      { label: '当前状态', value: '访客模式' },
-      { label: '开放入口', value: '首页预览' },
-      { label: '导航范围', value: '1 项' }
-    ];
-  }
-
-  return [
-    { label: '当前分区', value: activeGroup.value.label || '平台首页' },
-    { label: '页面类型', value: toolbarModeLabel.value },
-    { label: '可见菜单', value: `${activeGroup.value.items.length} 项` }
-  ];
-});
-const showTabsView = computed(() => route.meta.trackTab !== false && visitedTabs.value.length > 1);
 const headerIdentity = computed(() => {
   if (!permissionStore.isLoggedIn) {
     return '访客模式';
@@ -1307,7 +1247,7 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-context {
-  padding: 0 0 0.88rem;
+  padding: 0.05rem 0.1rem 0.72rem;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -1316,66 +1256,19 @@ onBeforeUnmount(() => {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--brand);
-}
-
-.sidebar-context__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.38rem;
+  color: var(--text-caption-2);
 }
 
 .sidebar-context h2 {
-  margin: 0;
-  font-size: 0.98rem;
+  margin: 0.34rem 0 0;
+  font-size: 0.94rem;
   color: var(--text-heading);
-}
-
-.sidebar-context__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2rem;
-  height: 1.7rem;
-  padding: 0 0.45rem;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 10%, white);
-  color: var(--brand);
-  font-size: 0.78rem;
   font-weight: 700;
-}
-
-.sidebar-context__hint {
-  margin: 0;
-  margin-top: 0.55rem;
-  color: #637084;
-  line-height: 1.6;
-  font-size: 0.78rem;
-}
-
-.sidebar-context__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.65rem;
-}
-
-.sidebar-context__meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.65rem;
-  padding: 0 0.56rem;
-  border-radius: var(--radius-pill);
-  background: rgba(78, 89, 105, 0.08);
-  color: var(--text-secondary);
-  font-size: 0.72rem;
 }
 
 .side-menu {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.12rem;
   overflow-y: auto;
   padding-right: 0.15rem;
 }
@@ -1383,16 +1276,16 @@ onBeforeUnmount(() => {
 .side-menu__item {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.72rem;
+  gap: 0.62rem;
   align-items: center;
   text-decoration: none;
   color: #334155;
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  padding: 0.68rem 0.8rem 0.68rem 0.72rem;
+  border-radius: var(--radius-md);
+  padding: 0.58rem 0.72rem 0.58rem 0.64rem;
   transition: all 160ms ease;
   position: relative;
-  min-height: 2.8rem;
+  min-height: 2.45rem;
 }
 
 .side-menu__item::before {
@@ -1428,7 +1321,7 @@ onBeforeUnmount(() => {
 
 .side-menu__content strong {
   display: block;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   line-height: 1.45;
   font-weight: 600;
 }
@@ -1504,39 +1397,10 @@ onBeforeUnmount(() => {
 }
 
 .console-toolbar {
-  position: relative;
-  overflow: hidden;
-  padding: 1rem 1.1rem;
-  border-radius: calc(var(--radius-xl) + 2px);
-  border: 1px solid var(--panel-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.98)),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 30%);
-  box-shadow: var(--shadow-card-soft);
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(16rem, 0.92fr);
-  gap: 1rem;
-  align-items: stretch;
-}
-
-.console-toolbar::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: linear-gradient(180deg, var(--brand), color-mix(in srgb, var(--brand) 16%, white));
-}
-
-.console-toolbar--home {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.98)),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32%);
-}
-
-.console-toolbar__heading {
-  display: grid;
-  gap: 0.48rem;
-  max-width: 44rem;
+  padding: 0.05rem 0.1rem 0.55rem;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .toolbar-breadcrumb {
@@ -1556,99 +1420,6 @@ onBeforeUnmount(() => {
 
 .toolbar-breadcrumb__separator {
   color: #b0bac8;
-}
-
-.console-toolbar__title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.console-toolbar__heading h1 {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: clamp(1.22rem, 1.45vw, 1.5rem);
-  font-weight: 700;
-}
-
-.console-toolbar__mode {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.8rem;
-  padding: 0 0.75rem;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 10%, white);
-  color: var(--brand);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.console-toolbar__heading p {
-  margin: 0;
-  color: #637084;
-  line-height: 1.65;
-  font-size: 0.84rem;
-  max-width: 38rem;
-}
-
-.console-toolbar__summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
-  align-content: stretch;
-}
-
-.console-toolbar__summary-card {
-  display: grid;
-  gap: 0.25rem;
-  align-content: center;
-  padding: 0.88rem 0.95rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
-}
-
-.console-toolbar__summary-card span {
-  color: var(--text-caption-2);
-  font-size: 0.72rem;
-}
-
-.console-toolbar__summary-card strong {
-  color: var(--text-heading);
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.console-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.console-toolbar__link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0 0.88rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background 160ms ease;
-}
-
-.console-toolbar__link:hover {
-  border-color: color-mix(in srgb, var(--brand) 24%, white);
-  color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
 .console-settings {
@@ -1899,6 +1670,10 @@ onBeforeUnmount(() => {
   margin-top: 0.95rem;
 }
 
+.cloud-content > .content-frame:first-child {
+  margin-top: 0.2rem;
+}
+
 .sidebar-mask {
   position: fixed;
   inset: 0;
@@ -1944,15 +1719,7 @@ onBeforeUnmount(() => {
   }
 
   .console-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .console-toolbar__summary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .console-toolbar__actions {
-    justify-content: flex-start;
+    padding-bottom: 0.45rem;
   }
 }
 
@@ -1973,14 +1740,6 @@ onBeforeUnmount(() => {
 
   .section-tab {
     min-width: 7.4rem;
-  }
-
-  .console-toolbar__title-row {
-    align-items: flex-start;
-  }
-
-  .console-toolbar__summary {
-    grid-template-columns: 1fr;
   }
 
   .console-settings__content {

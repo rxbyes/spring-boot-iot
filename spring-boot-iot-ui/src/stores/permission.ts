@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import { getCurrentUser } from '../api/auth';
+import type { RequestError } from '../api/request';
 import { canAccessSectionHome, listSectionHomeConfigs } from '../utils/sectionWorkspaces';
 import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
@@ -88,7 +89,7 @@ export function clearStoredAuth(): void {
 export const usePermissionStore = defineStore('permission', () => {
   const token = ref<string>(getStoredAccessToken());
   const authContext = ref<UserAuthContext | null>(parseStoredAuthContext());
-  const initialized = ref<boolean>(!token.value);
+  const initialized = ref<boolean>(!token.value || Boolean(authContext.value));
   let initPromise: Promise<UserAuthContext | null> | null = null;
 
   const isLoggedIn = computed(() => Boolean(token.value));
@@ -177,7 +178,7 @@ export const usePermissionStore = defineStore('permission', () => {
       return null;
     }
 
-    if (!force && initialized.value && authContext.value) {
+    if (!force && initialized.value) {
       return authContext.value;
     }
 
@@ -187,7 +188,12 @@ export const usePermissionStore = defineStore('permission', () => {
 
     initPromise = fetchCurrentUser()
       .catch((error) => {
-        logout();
+        const requestError = error as RequestError | undefined;
+        if (requestError?.status === 401 || !authContext.value) {
+          logout();
+        } else {
+          initialized.value = true;
+        }
         throw error;
       })
       .finally(() => {

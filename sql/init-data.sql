@@ -199,6 +199,9 @@ VALUES
     (96010005, 1, @role_business_id, 93002002, 1, NOW(), 1, NOW(), 0),
     (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
     (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
+    (96010008, 1, @role_business_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010009, 1, @role_business_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (96010010, 1, @role_business_id, 93001104, 1, NOW(), 1, NOW(), 0),
 
     (96010021, 1, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
     (96010022, 1, @role_management_id, 93002008, 1, NOW(), 1, NOW(), 0),
@@ -225,6 +228,12 @@ VALUES
     (96010043, 1, @role_management_id, 93003104, 1, NOW(), 1, NOW(), 0),
     (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
     (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
+    (96010046, 1, @role_management_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010047, 1, @role_management_id, 93001002, 1, NOW(), 1, NOW(), 0),
+    (96010048, 1, @role_management_id, 93001101, 1, NOW(), 1, NOW(), 0),
+    (96010049, 1, @role_management_id, 93001102, 1, NOW(), 1, NOW(), 0),
+    (96010050, 1, @role_management_id, 93001103, 1, NOW(), 1, NOW(), 0),
+    (96010051, 1, @role_management_id, 93001104, 1, NOW(), 1, NOW(), 0),
 
     (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -241,6 +250,10 @@ VALUES
     (96010073, 1, @role_ops_id, 93000004, 1, NOW(), 1, NOW(), 0),
     (96010074, 1, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
     (96010075, 1, @role_ops_id, 93002004, 1, NOW(), 1, NOW(), 0),
+    (96010076, 1, @role_ops_id, 93001101, 1, NOW(), 1, NOW(), 0),
+    (96010077, 1, @role_ops_id, 93001102, 1, NOW(), 1, NOW(), 0),
+    (96010078, 1, @role_ops_id, 93001103, 1, NOW(), 1, NOW(), 0),
+    (96010079, 1, @role_ops_id, 93001104, 1, NOW(), 1, NOW(), 0),
 
     (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -261,7 +274,11 @@ VALUES
     (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
     (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0);
+    (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0),
+    (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
+    (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
+    (96010113, 1, @role_developer_id, 93001103, 1, NOW(), 1, NOW(), 0),
+    (96010114, 1, @role_developer_id, 93001104, 1, NOW(), 1, NOW(), 0);
 
 SET @role_menu_id := 96010900;
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)

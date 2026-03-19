@@ -4,7 +4,7 @@ import router from '../router';
 import { getStoredAccessToken, usePermissionStore } from '../stores/permission';
 import { createRequestError } from './request';
 import { interceptorManager } from './request';
-import type { RequestInterceptor, ResponseInterceptor } from './request';
+import type { RequestError, RequestInterceptor, ResponseInterceptor } from './request';
 
 const ERROR_CODE_MAP: Record<number, string> = {
   400: '请求参数错误',
@@ -75,12 +75,20 @@ export const errorResponseInterceptor: ResponseInterceptor = {
       if (data.code === 401) {
         // 会话失效后统一清理鉴权状态并跳回登录页，避免页面停留在受保护路由或展示原始 401 JSON。
         await handleUnauthorized();
-        throw createRequestError(message, true);
+        throw createRequestError(message, true, 401);
       }
       ElMessage.error(message);
-      throw createRequestError(message, true);
+      throw createRequestError(message, true, data.code);
     }
     return data;
+  },
+  async onerror(error) {
+    const requestError = error as RequestError;
+    if (requestError.status === 401 && !requestError.handled) {
+      await handleUnauthorized();
+      requestError.handled = true;
+    }
+    return requestError;
   }
 };
 

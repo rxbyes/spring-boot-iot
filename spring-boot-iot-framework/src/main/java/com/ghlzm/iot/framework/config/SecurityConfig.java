@@ -26,7 +26,7 @@ public class SecurityConfig {
 
     private static final RegexRequestMatcher SPA_SHELL_ROUTE_MATCHER =
             new RegexRequestMatcher(
-                    "^/(?:$|(?!api(?:/|$)|message(?:/|$)|actuator(?:/|$)|swagger-ui(?:/|$)|v3(?:/|$)|error$|doc\\.html$)[^.?#/]+)$",
+                    "^/(?:$|(?!api(?:/|$)|message(?:/|$)|actuator(?:/|$)|swagger-ui(?:/|$)|v3(?:/|$)|error(?:/|$)|assets(?:/|$)|doc\\.html$)(?!.*\\.[^/]+$).+)$",
                     HttpMethod.GET.name());
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

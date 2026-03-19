@@ -59,6 +59,8 @@ export interface Product {
 export interface Device {
   id: IdType;
   productId?: number | null;
+  productKey?: string | null;
+  productName?: string | null;
   deviceName: string;
   deviceCode: string;
   deviceSecret?: string | null;
@@ -201,6 +203,8 @@ export interface DeviceAddPayload {
   clientId?: string;
   username?: string;
   password?: string;
+  activateStatus?: number;
+  deviceStatus?: number;
   firmwareVersion?: string;
   ipAddress?: string;
   address?: string;

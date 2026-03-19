@@ -344,243 +344,20 @@
                 <el-button text @click="addStep(scenario)">新增步骤</el-button>
               </template>
             </StandardInlineSectionHeader>
-            <div v-for="(step, stepIndex) in scenario.steps" :key="step.id" class="step-editor">
-              <StandardInlineSectionHeader :title="`步骤 ${stepIndex + 1}`">
-                <template #actions>
-                  <el-button text @click="moveStep(scenario, stepIndex, -1)" :disabled="stepIndex === 0">上移</el-button>
-                  <el-button text @click="moveStep(scenario, stepIndex, 1)" :disabled="stepIndex === scenario.steps.length - 1">下移</el-button>
-                  <el-button text type="danger" @click="scenario.steps.splice(stepIndex, 1)">删除</el-button>
-                </template>
-              </StandardInlineSectionHeader>
-
-              <div class="step-grid">
-                <label class="field-card">
-                  <span>步骤名称</span>
-                  <el-input v-model="step.label" placeholder="请输入步骤名称" />
-                </label>
-                <label class="field-card">
-                  <span>步骤类型</span>
-                  <el-select v-model="step.type" placeholder="选择步骤类型" @change="handleStepTypeChange(step)">
-                    <el-option v-for="type in stepTypeOptions" :key="type" :label="type" :value="type" />
-                  </el-select>
-                </label>
-                <label class="field-card">
-                  <span>超时(ms)</span>
-                  <el-input-number v-model="step.timeout" :min="0" :step="1000" />
-                </label>
-                <label class="field-card field-card--switch">
-                  <span>可选步骤</span>
-                  <el-switch v-model="step.optional" />
-                </label>
-
-                <template v-if="stepUsesLocator(step) && step.locator">
-                  <label class="field-card">
-                    <span>定位方式</span>
-                    <el-select v-model="step.locator.type" placeholder="选择定位方式">
-                      <el-option v-for="type in locatorTypeOptions" :key="type" :label="type" :value="type" />
-                    </el-select>
-                  </label>
-                  <label class="field-card">
-                    <span>定位值</span>
-                    <el-input v-model="step.locator.value" placeholder="#id / 请输入占位符 / 关键文本" />
-                  </label>
-                  <label v-if="step.locator.type === 'role'" class="field-card">
-                    <span>角色</span>
-                    <el-input v-model="step.locator.role" placeholder="button / textbox / link" />
-                  </label>
-                  <label v-if="step.locator.type === 'role'" class="field-card">
-                    <span>角色名称</span>
-                    <el-input v-model="step.locator.name" placeholder="按钮文案或角色名称" />
-                  </label>
-                </template>
-
-                <label v-if="needsValue(step.type)" class="field-card field-card--wide">
-                  <span>{{ step.type === 'press' ? '按键值' : step.type === 'assertUrlIncludes' ? 'URL 片段' : '输入/断言值' }}</span>
-                  <el-input
-                    v-model="step.value"
-                    :placeholder="step.type === 'press' ? 'Enter' : '支持模板变量，如 ${runToken} / ${variables.productId}'"
-                  />
-                </label>
-
-                <label v-if="step.type === 'setChecked'" class="field-card field-card--switch">
-                  <span>目标状态</span>
-                  <el-switch v-model="step.checked" active-text="选中" inactive-text="取消" />
-                </label>
-
-                <label v-if="step.type === 'selectOption'" class="field-card field-card--wide">
-                  <span>选项文案</span>
-                  <el-input v-model="step.optionText" placeholder="请选择下拉项文案" />
-                </label>
-
-                <label v-if="step.type === 'uploadFile'" class="field-card field-card--wide">
-                  <span>文件路径</span>
-                  <el-input
-                    v-model="step.filePath"
-                    placeholder="相对仓库根目录或绝对路径，支持模板变量与 JSON 数组"
-                  />
-                </label>
-
-                <template v-if="step.type === 'assertScreenshot'">
-                  <label class="field-card">
-                    <span>截图目标</span>
-                    <el-select v-model="step.screenshotTarget" @change="handleScreenshotTargetChange(step)">
-                      <el-option label="page" value="page" />
-                      <el-option label="locator" value="locator" />
-                    </el-select>
-                  </label>
-                  <label class="field-card">
-                    <span>基线名称</span>
-                    <el-input v-model="step.baselineName" placeholder="留空时默认使用步骤名称" />
-                  </label>
-                  <label class="field-card">
-                    <span>差异阈值</span>
-                    <el-input-number v-model="step.threshold" :min="0" :max="1" :step="0.001" :precision="4" />
-                  </label>
-                  <label class="field-card field-card--switch">
-                    <span>整页截图</span>
-                    <el-switch v-model="step.fullPage" :disabled="step.screenshotTarget === 'locator'" />
-                  </label>
-                </template>
-
-                <label v-if="step.type === 'tableRowAction'" class="field-card field-card--wide">
-                  <span>目标行文本</span>
-                  <el-input v-model="step.rowText" placeholder="用于定位表格行的关键文本" />
-                </label>
-
-                <template v-if="(step.type === 'triggerApi' || step.type === 'tableRowAction') && step.action">
-                  <label class="field-card field-card--wide">
-                    <span>接口 Matcher</span>
-                    <el-input v-model="step.matcher" placeholder="/api/example/add" />
-                  </label>
-                  <label class="field-card">
-                    <span>触发动作</span>
-                    <el-select v-model="step.action.type">
-                      <el-option label="click" value="click" />
-                      <el-option label="press" value="press" />
-                    </el-select>
-                  </label>
-                  <label class="field-card">
-                    <span>动作定位方式</span>
-                    <el-select v-model="step.action.locator.type">
-                      <el-option v-for="type in locatorTypeOptions" :key="type" :label="type" :value="type" />
-                    </el-select>
-                  </label>
-                  <label class="field-card">
-                    <span>动作定位值</span>
-                    <el-input v-model="step.action.locator.value" placeholder="#submit-button / 提交按钮文案" />
-                  </label>
-                  <label v-if="step.action.locator.type === 'role'" class="field-card">
-                    <span>动作角色</span>
-                    <el-input v-model="step.action.locator.role" placeholder="button / link" />
-                  </label>
-                  <label v-if="step.action.locator.type === 'role'" class="field-card">
-                    <span>动作名称</span>
-                    <el-input v-model="step.action.locator.name" placeholder="按钮名称" />
-                  </label>
-                  <label v-if="step.action.type === 'press'" class="field-card">
-                    <span>按键值</span>
-                    <el-input v-model="step.action.value" placeholder="Enter / Tab" />
-                  </label>
-
-                  <div class="capture-block">
-                    <StandardInlineSectionHeader title="变量捕获">
-                      <template #actions>
-                        <el-button text @click="addCapture(step)">新增捕获</el-button>
-                      </template>
-                    </StandardInlineSectionHeader>
-                    <div v-if="!step.captures || step.captures.length === 0" class="empty-inline">
-                      可从接口响应中提取主键、编码等变量，供后续步骤引用。
-                    </div>
-                    <div
-                      v-for="(capture, captureIndex) in step.captures"
-                      :key="`${step.id}-capture-${captureIndex}`"
-                      class="row-editor"
-                    >
-                      <el-input v-model="capture.variable" placeholder="变量名，如 productId" />
-                      <el-input v-model="capture.path" placeholder="响应路径，如 payload.data.id" />
-                      <el-button text type="danger" @click="step.captures?.splice(captureIndex, 1)">移除</el-button>
-                    </div>
-                  </div>
-                </template>
-
-                <template v-if="step.type === 'dialogAction'">
-                  <label class="field-card">
-                    <span>弹窗标题</span>
-                    <el-input v-model="step.dialogTitle" placeholder="为空时默认匹配最后一个可见弹窗" />
-                  </label>
-                  <label class="field-card">
-                    <span>弹窗动作</span>
-                    <el-select v-model="step.dialogAction">
-                      <el-option label="waitVisible" value="waitVisible" />
-                      <el-option label="confirm" value="confirm" />
-                      <el-option label="cancel" value="cancel" />
-                      <el-option label="close" value="close" />
-                      <el-option label="custom" value="custom" />
-                    </el-select>
-                  </label>
-                  <label v-if="step.dialogAction !== 'waitVisible' && step.dialogAction !== 'close'" class="field-card">
-                    <span>按钮文案</span>
-                    <el-input v-model="step.actionText" placeholder="可留空，执行器会按内置按钮文案尝试匹配" />
-                  </label>
-                  <label v-if="step.dialogAction !== 'waitVisible'" class="field-card field-card--wide">
-                    <span>接口 Matcher</span>
-                    <el-input v-model="step.matcher" placeholder="可留空，仅执行弹窗动作不等待接口" />
-                  </label>
-
-                  <template v-if="step.dialogAction === 'custom' && step.action">
-                    <label class="field-card">
-                      <span>自定义动作</span>
-                      <el-select v-model="step.action.type">
-                        <el-option label="click" value="click" />
-                        <el-option label="press" value="press" />
-                      </el-select>
-                    </label>
-                    <label class="field-card">
-                      <span>动作定位方式</span>
-                      <el-select v-model="step.action.locator.type">
-                        <el-option v-for="type in locatorTypeOptions" :key="type" :label="type" :value="type" />
-                      </el-select>
-                    </label>
-                    <label class="field-card">
-                      <span>动作定位值</span>
-                      <el-input v-model="step.action.locator.value" placeholder="按钮或输入控件定位表达式" />
-                    </label>
-                    <label v-if="step.action.locator.type === 'role'" class="field-card">
-                      <span>动作角色</span>
-                      <el-input v-model="step.action.locator.role" placeholder="button / link" />
-                    </label>
-                    <label v-if="step.action.locator.type === 'role'" class="field-card">
-                      <span>动作名称</span>
-                      <el-input v-model="step.action.locator.name" placeholder="按钮名称" />
-                    </label>
-                    <label v-if="step.action.type === 'press'" class="field-card">
-                      <span>按键值</span>
-                      <el-input v-model="step.action.value" placeholder="Enter / Escape" />
-                    </label>
-                  </template>
-
-                  <div v-if="step.dialogAction !== 'waitVisible'" class="capture-block">
-                    <StandardInlineSectionHeader title="变量捕获">
-                      <template #actions>
-                        <el-button text @click="addCapture(step)">新增捕获</el-button>
-                      </template>
-                    </StandardInlineSectionHeader>
-                    <div v-if="!step.captures || step.captures.length === 0" class="empty-inline">
-                      若弹窗动作会触发接口，可在这里提取响应中的主键、编码等变量。
-                    </div>
-                    <div
-                      v-for="(capture, captureIndex) in step.captures"
-                      :key="`${step.id}-dialog-capture-${captureIndex}`"
-                      class="row-editor"
-                    >
-                      <el-input v-model="capture.variable" placeholder="变量名，如 userId" />
-                      <el-input v-model="capture.path" placeholder="响应路径，如 payload.data.id" />
-                      <el-button text type="danger" @click="step.captures?.splice(captureIndex, 1)">移除</el-button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
+            <AutomationStepEditor
+              v-for="(step, stepIndex) in scenario.steps"
+              :key="step.id"
+              :step="step"
+              :step-index="stepIndex"
+              :step-count="scenario.steps.length"
+              :locator-type-options="locatorTypeOptions"
+              :step-type-options="stepTypeOptions"
+              @move="moveStep(scenario, stepIndex, $event)"
+              @remove="scenario.steps.splice(stepIndex, 1)"
+              @change-type="handleStepTypeChange(step)"
+              @change-screenshot-target="handleScreenshotTargetChange(step)"
+              @add-capture="addCapture(step)"
+            />
           </section>
         </article>
       </PanelCard>
@@ -707,6 +484,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { usePermissionStore } from '../stores/permission';
 
+import AutomationStepEditor from '../components/AutomationStepEditor.vue';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
@@ -927,10 +705,6 @@ watch(
     deep: true
   }
 );
-
-function needsValue(stepType: string): boolean {
-  return ['fill', 'press', 'assertText', 'assertUrlIncludes'].includes(stepType);
-}
 
 function stepUsesLocator(step: AutomationStep | string): boolean {
   const stepType = typeof step === 'string' ? step : step.type;
@@ -1388,8 +1162,7 @@ watch(
   margin-top: 0.35rem;
 }
 
-.scenario-grid,
-.step-grid {
+.scenario-grid {
   display: grid;
   gap: 0.85rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1406,8 +1179,7 @@ watch(
   font-size: 0.86rem;
 }
 
-.field-card--wide,
-.capture-block {
+.field-card--wide {
   grid-column: 1 / -1;
 }
 
@@ -1438,17 +1210,6 @@ watch(
   margin-top: 0.65rem;
 }
 
-.step-editor {
-  padding: 0.9rem;
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--panel-border) 92%, var(--brand));
-  background: color-mix(in srgb, var(--brand) 3%, white);
-}
-
-.step-editor + .step-editor {
-  margin-top: 0.85rem;
-}
-
 .empty-block,
 .empty-inline {
   padding: 0.9rem 1rem;
@@ -1462,7 +1223,6 @@ watch(
   .inventory-metrics,
   .scope-grid,
   .scenario-grid,
-  .step-grid,
   .api-editor {
     grid-template-columns: 1fr;
   }

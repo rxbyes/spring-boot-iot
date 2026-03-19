@@ -19,14 +19,16 @@ export interface ResponseInterceptor<T = unknown> {
 
 export interface RequestError extends Error {
   handled?: boolean;
+  status?: number;
 }
 
 const UNSAFE_ID_JSON_FIELD_PATTERN =
   /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
 
-export function createRequestError(message: string, handled = false): RequestError {
+export function createRequestError(message: string, handled = false, status?: number): RequestError {
   const error = new Error(message) as RequestError;
   error.handled = handled;
+  error.status = status;
   return error;
 }
 
@@ -137,7 +139,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       if (!response.ok) {
         const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
         const message = processedPayload.msg || bodyText || `请求失败: ${statusMessage}`;
-        throw createRequestError(message);
+        throw createRequestError(message, false, response.status);
       }
       return processedPayload;
     }
@@ -145,7 +147,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (!response.ok) {
       const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
       const message = bodyText || `请求失败: ${statusMessage}`;
-      throw createRequestError(message);
+      throw createRequestError(message, false, response.status);
     }
 
     if (!payload) {

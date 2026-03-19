@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   AutomationInitialApi,
   AutomationLocator,
   AutomationPageCategory,
@@ -453,17 +453,28 @@ function createDeviceScenario(): AutomationScenarioConfig {
     route: '/devices',
     scope: 'baseline',
     readySelector: '#device-product-key',
-    description: '示例场景：基于产品编码建设设备档案并执行详情查询。',
-    businessFlow: '设备建档、编码检索与详情验证',
+    description: '示例场景：在设备资产列表打开抽屉建档，并通过列表筛选验证设备已成功入库。',
+    businessFlow: '设备建档、列表筛选与库存校验',
     featurePoints: ['设备创建', '按 ID 查询', '按编码查询'],
     initialApis: [],
     steps: [
       createStep({
-        id: 'device-fill-product',
-        label: '填写产品编码',
-        type: 'fill',
-        locator: createCssLocator('#device-product-key'),
-        value: 'autotest-product-${runToken}'
+        id: 'device-open-create-drawer',
+        label: '打开新增设备抽屉',
+        type: 'click',
+        locator: {
+          type: 'role',
+          role: 'button',
+          name: '新增设备',
+          exact: true
+        }
+      }),
+      createStep({
+        id: 'device-select-product',
+        label: '选择产品',
+        type: 'selectOption',
+        locator: createCssLocator('#device-form-product-key'),
+        optionText: 'autotest-product-${runToken}'
       }),
       createStep({
         id: 'device-fill-name',
@@ -530,7 +541,7 @@ function createDeviceScenario(): AutomationScenarioConfig {
       }),
       createStep({
         id: 'device-fill-query-id',
-        label: '填写设备主键',
+        label: '填写设备主键筛选',
         type: 'fill',
         locator: createCssLocator('#query-device-id'),
         value: '${variables.deviceId}'
@@ -539,20 +550,27 @@ function createDeviceScenario(): AutomationScenarioConfig {
         id: 'device-query-by-id',
         label: '按 ID 查询设备',
         type: 'triggerApi',
-        matcher: '/api/device/${variables.deviceId}',
+        matcher: '/api/device/page?deviceId=${variables.deviceId}',
         action: {
           type: 'click',
           locator: {
             type: 'role',
             role: 'button',
-            name: '按 ID 查询',
+            name: '查询',
             exact: true
           }
         }
       }),
       createStep({
+        id: 'device-clear-query-id',
+        label: '清空设备主键筛选',
+        type: 'fill',
+        locator: createCssLocator('#query-device-id'),
+        value: ''
+      }),
+      createStep({
         id: 'device-fill-query-code',
-        label: '填写设备编码',
+        label: '填写设备编码筛选',
         type: 'fill',
         locator: createCssLocator('#query-device-code'),
         value: 'autotest-device-${runToken}'
@@ -561,16 +579,23 @@ function createDeviceScenario(): AutomationScenarioConfig {
         id: 'device-query-by-code',
         label: '按编码查询设备',
         type: 'triggerApi',
-        matcher: '/api/device/code/autotest-device-${runToken}',
+        matcher: '/api/device/page?deviceCode=autotest-device-${runToken}',
         action: {
           type: 'click',
           locator: {
             type: 'role',
             role: 'button',
-            name: '按编码查询',
+            name: '查询',
             exact: true
           }
         }
+      }),
+      createStep({
+        id: 'device-assert-code',
+        label: '断言列表出现设备编码',
+        type: 'assertText',
+        locator: createCssLocator('body'),
+        value: 'autotest-device-${runToken}'
       }),
       createStep({
         id: 'device-assert-title',
@@ -1370,3 +1395,4 @@ export function saveAutomationInventory(items: AutomationPageInventoryItem[]): v
   const normalized = items.map((item) => normalizeInventoryItem(item, 'manual'));
   window.localStorage.setItem(AUTOMATION_PAGE_INVENTORY_STORAGE_KEY, JSON.stringify(normalized));
 }
+

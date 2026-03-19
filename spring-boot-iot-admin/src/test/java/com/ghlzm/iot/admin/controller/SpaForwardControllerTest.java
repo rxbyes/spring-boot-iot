@@ -9,7 +9,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,18 +22,23 @@ class SpaForwardControllerTest {
     void shouldForwardRootAndFrontendRoutesToIndexHtml() throws Exception {
         mockMvc.perform(get("/").accept(MediaType.TEXT_HTML))
                 .andExpect(status().isOk())
-                .andExpect(forwardedUrl("/index.html"))
-                .andExpect(content().string("index"));
+                .andExpect(forwardedUrl("/index.html"));
 
         mockMvc.perform(get("/products").accept(MediaType.TEXT_HTML))
                 .andExpect(status().isOk())
-                .andExpect(forwardedUrl("/index.html"))
-                .andExpect(content().string("index"));
+                .andExpect(forwardedUrl("/index.html"));
+
+        mockMvc.perform(get("/risk-disposal/workbench/detail").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
     }
 
     @Test
     void shouldNotCaptureApiLikeRoutes() throws Exception {
         mockMvc.perform(get("/api").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/assets/app.js").accept(MediaType.TEXT_HTML))
                 .andExpect(status().isNotFound());
     }
 

@@ -10,9 +10,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaForwardController {
 
+    private static final String FRONTEND_FIRST_SEGMENT_PATTERN =
+            "^(?!api$|message$|actuator$|swagger-ui$|v3$|error$|assets$|doc\\\\.html$)[^.]+";
+
     @GetMapping({
             "/",
-            "/{path:^(?!api$|message$|actuator$|swagger-ui$|v3$|error$|doc\\.html$)[^.]+}"
+            "/{path:" + FRONTEND_FIRST_SEGMENT_PATTERN + "}",
+            "/{path:" + FRONTEND_FIRST_SEGMENT_PATTERN + "}/**/{subPath:[^.]+}"
     })
     public String forwardToIndex() {
         return "forward:/index.html";
