@@ -237,129 +237,26 @@
           当前暂无场景，请先选择一个模板开始编排。
         </div>
 
-        <article
+        <AutomationScenarioEditor
           v-for="(scenario, scenarioIndex) in plan.scenarios"
           :key="scenario.key"
-          class="scenario-card"
-        >
-          <StandardInlineSectionHeader
-            class="scenario-card__section-header"
-            :title="scenario.name || `场景 ${scenarioIndex + 1}`"
-            :description="scenario.businessFlow || '请补充该场景的业务主线。'"
-          >
-            <template #actions>
-              <el-button text @click="moveScenario(scenarioIndex, -1)" :disabled="scenarioIndex === 0">上移</el-button>
-              <el-button text @click="moveScenario(scenarioIndex, 1)" :disabled="scenarioIndex === plan.scenarios.length - 1">下移</el-button>
-              <el-button text @click="copyScenario(scenarioIndex)">复制</el-button>
-              <el-button text type="danger" @click="removeScenario(scenarioIndex)">删除</el-button>
-            </template>
-          </StandardInlineSectionHeader>
-
-          <div class="scenario-grid">
-            <label class="field-card">
-              <span>场景编码</span>
-              <el-input v-model="scenario.key" placeholder="scenario-key" />
-            </label>
-            <label class="field-card">
-              <span>场景名称</span>
-              <el-input v-model="scenario.name" placeholder="请输入场景名称" />
-            </label>
-            <label class="field-card">
-              <span>页面路由</span>
-              <el-input v-model="scenario.route" placeholder="/replace-me" />
-            </label>
-            <label class="field-card">
-              <span>期望路径</span>
-              <el-input v-model="scenario.expectedPath" placeholder="可留空，默认跟随页面路由" />
-            </label>
-            <label class="field-card">
-              <span>场景范围</span>
-              <el-select v-model="scenario.scope" placeholder="选择范围">
-                <el-option v-for="scope in scopeOptions" :key="scope" :label="scope" :value="scope" />
-              </el-select>
-            </label>
-            <label class="field-card">
-              <span>就绪选择器</span>
-              <el-input v-model="scenario.readySelector" placeholder="#app / .page-title" />
-            </label>
-            <label class="field-card field-card--wide">
-              <span>业务主线</span>
-              <el-input v-model="scenario.businessFlow" placeholder="例如：页面打开 -> 新增 -> 查询 -> 详情核验" />
-            </label>
-            <label class="field-card field-card--wide">
-              <span>场景描述</span>
-              <el-input
-                v-model="scenario.description"
-                type="textarea"
-                :rows="2"
-                placeholder="补充该场景服务的业务目标、前置条件和注意事项"
-              />
-            </label>
-          </div>
-
-          <section class="inline-block">
-            <StandardInlineSectionHeader title="业务点梳理">
-              <template #actions>
-                <el-button text @click="scenario.featurePoints.push('')">新增业务点</el-button>
-              </template>
-            </StandardInlineSectionHeader>
-            <div v-if="scenario.featurePoints.length === 0" class="empty-inline">暂无业务点，建议至少整理 2-3 个关键功能点。</div>
-            <div v-for="(point, pointIndex) in scenario.featurePoints" :key="`${scenario.key}-point-${pointIndex}`" class="row-editor">
-              <el-input v-model="scenario.featurePoints[pointIndex]" placeholder="例如：新增、查询、详情、导出、状态切换" />
-              <el-button text type="danger" @click="scenario.featurePoints.splice(pointIndex, 1)">移除</el-button>
-            </div>
-          </section>
-
-          <section class="inline-block">
-            <StandardInlineSectionHeader title="首屏接口">
-              <template #actions>
-                <el-button text @click="addInitialApi(scenario)">新增接口</el-button>
-              </template>
-            </StandardInlineSectionHeader>
-            <div v-if="scenario.initialApis.length === 0" class="empty-inline">若页面打开即触发接口，建议在这里补充 matcher 作为首屏证据。</div>
-            <div v-for="(api, apiIndex) in scenario.initialApis" :key="`${scenario.key}-api-${apiIndex}`" class="api-editor">
-              <label class="field-card">
-                <span>接口说明</span>
-                <el-input v-model="api.label" placeholder="例如：列表查询接口" />
-              </label>
-              <label class="field-card">
-                <span>Matcher</span>
-                <el-input v-model="api.matcher" placeholder="/api/example/list" />
-              </label>
-              <label class="field-card">
-                <span>超时(ms)</span>
-                <el-input-number v-model="api.timeout" :min="1000" :step="1000" />
-              </label>
-              <label class="field-card field-card--switch">
-                <span>可选接口</span>
-                <el-switch v-model="api.optional" />
-              </label>
-              <el-button text type="danger" @click="scenario.initialApis.splice(apiIndex, 1)">移除</el-button>
-            </div>
-          </section>
-
-          <section class="inline-block">
-            <StandardInlineSectionHeader title="步骤编排">
-              <template #actions>
-                <el-button text @click="addStep(scenario)">新增步骤</el-button>
-              </template>
-            </StandardInlineSectionHeader>
-            <AutomationStepEditor
-              v-for="(step, stepIndex) in scenario.steps"
-              :key="step.id"
-              :step="step"
-              :step-index="stepIndex"
-              :step-count="scenario.steps.length"
-              :locator-type-options="locatorTypeOptions"
-              :step-type-options="stepTypeOptions"
-              @move="moveStep(scenario, stepIndex, $event)"
-              @remove="scenario.steps.splice(stepIndex, 1)"
-              @change-type="handleStepTypeChange(step)"
-              @change-screenshot-target="handleScreenshotTargetChange(step)"
-              @add-capture="addCapture(step)"
-            />
-          </section>
-        </article>
+          :scenario="scenario"
+          :scenario-index="scenarioIndex"
+          :scenario-count="plan.scenarios.length"
+          :scope-options="scopeOptions"
+          :locator-type-options="locatorTypeOptions"
+          :step-type-options="stepTypeOptions"
+          @move-scenario="moveScenario(scenarioIndex, $event)"
+          @copy-scenario="copyScenario(scenarioIndex)"
+          @remove-scenario="removeScenario(scenarioIndex)"
+          @add-initial-api="addInitialApi(scenario)"
+          @add-step="addStep(scenario)"
+          @move-step="moveStep(scenario, $event.stepIndex, $event.offset)"
+          @remove-step="scenario.steps.splice($event.stepIndex, 1)"
+          @change-step-type="handleStepTypeChange($event.step)"
+          @change-screenshot-target="handleScreenshotTargetChange($event.step)"
+          @add-capture="addCapture($event.step)"
+        />
       </PanelCard>
     </section>
 
@@ -484,14 +381,13 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import { usePermissionStore } from '../stores/permission';
 
-import AutomationStepEditor from '../components/AutomationStepEditor.vue';
+import AutomationScenarioEditor from '../components/AutomationScenarioEditor.vue';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardDrawerFooter from '../components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '../components/StandardFormDrawer.vue';
-import StandardInlineSectionHeader from '../components/StandardInlineSectionHeader.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import type {
   AutomationPageInventoryItem,
@@ -1139,29 +1035,6 @@ watch(
   border-color: color-mix(in srgb, var(--success) 22%, transparent);
 }
 
-.scenario-card {
-  padding: 1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
-}
-
-.scenario-card + .scenario-card {
-  margin-top: 1rem;
-}
-
-.scenario-card__section-header {
-  margin-bottom: 1rem;
-}
-
-.scenario-card__section-header :deep(.standard-inline-section-header__main strong) {
-  font-size: 1.05rem;
-}
-
-.scenario-card__section-header :deep(.standard-inline-section-header__main p) {
-  margin-top: 0.35rem;
-}
-
 .scenario-grid {
   display: grid;
   gap: 0.85rem;
@@ -1187,31 +1060,7 @@ watch(
   justify-content: flex-end;
 }
 
-.inline-block {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px dashed color-mix(in srgb, var(--panel-border) 88%, var(--text-tertiary));
-}
-
-.row-editor,
-.api-editor {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-}
-
-.api-editor {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-}
-
-.row-editor + .row-editor,
-.api-editor + .api-editor {
-  margin-top: 0.65rem;
-}
-
-.empty-block,
-.empty-inline {
+.empty-block {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
@@ -1222,8 +1071,7 @@ watch(
   .automation-plan-metrics,
   .inventory-metrics,
   .scope-grid,
-  .scenario-grid,
-  .api-editor {
+  .scenario-grid {
     grid-template-columns: 1fr;
   }
 

@@ -112,6 +112,6 @@
 ## 7. 已知问题与技术债
 
 - `RealTimeMonitoringView`、`UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView`、`AutomationTestCenterView`、`DeviceInsightView`、`ProductWorkbenchView`、`DeviceWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`FutureLabView` 已完成当前批次的统一组件化迁移。
-- 当前剩余债务主要集中在自动化测试中心场景/步骤编辑器中的少量页内局部操作布局，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
+- 当前剩余债务主要集中在自动化测试中心少量页内配置布局的继续收口，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
 - `【待确认】` 前端是否已建立强制 lint/style 检查门禁；仓库中未见明确质量闸门说明。
 - `【文档缺失】` 缺少“前端组件分层与命名规则”正式文档（如 atoms/molecules/templates 级别约定）。

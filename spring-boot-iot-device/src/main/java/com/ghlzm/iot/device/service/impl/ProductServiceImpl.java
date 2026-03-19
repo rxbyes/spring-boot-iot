@@ -6,6 +6,7 @@ import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.ProductService;
+import java.util.List;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,16 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             throw new BizException("产品不存在: " + id);
         }
         return product;
+    }
+
+    @Override
+    public List<Product> listAvailableProducts() {
+        // 设备资产中心的产品下拉框依赖该列表接口，只返回未删除产品并保持新建优先排序。
+        return lambdaQuery()
+                .eq(Product::getDeleted, 0)
+                .orderByDesc(Product::getCreateTime)
+                .orderByDesc(Product::getId)
+                .list();
     }
 
     @Override

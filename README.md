@@ -159,6 +159,7 @@ spring-boot-iot 是一个基于 Spring Boot 4 + Java 17 的模块化单体 IoT �
 ## 当前核心接口
 ### IoT 基础
 - `POST /api/device/product/add`
+- `GET /api/device/product/list`
 - `GET /api/device/product/{id}`
 - `POST /api/device/add`
 - `GET /api/device/{id}`
