@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
@@ -85,6 +86,7 @@ class DeviceMessageServiceImplTest {
         Product product = new Product();
         product.setId(1001L);
         product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
 
         ProductModel propertyModel = new ProductModel();
         propertyModel.setIdentifier("temperature");
@@ -132,6 +134,7 @@ class DeviceMessageServiceImplTest {
         Product product = new Product();
         product.setId(1001L);
         product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
 
         DeviceProperty existing = new DeviceProperty();
         existing.setId(1L);
@@ -157,7 +160,7 @@ class DeviceMessageServiceImplTest {
         ArgumentCaptor<DeviceProperty> propertyCaptor = ArgumentCaptor.forClass(DeviceProperty.class);
         verify(devicePropertyMapper).updateById(propertyCaptor.capture());
         assertEquals("humidity", propertyCaptor.getValue().getPropertyName());
-        assertEquals("integer", propertyCaptor.getValue().getValueType());
+        assertEquals("int", propertyCaptor.getValue().getValueType());
         assertEquals("68", propertyCaptor.getValue().getPropertyValue());
     }
 
@@ -191,6 +194,31 @@ class DeviceMessageServiceImplTest {
     }
 
     @Test
+    void handleUpMessageShouldThrowWhenProductDisabled() {
+        Device device = new Device();
+        device.setId(2005L);
+        device.setTenantId(1L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-05");
+        device.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.DISABLED.getCode());
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+
+        DeviceUpMessage upMessage = buildMessage("mqtt-json", "demo-product", "demo-device-05",
+                Map.of("temperature", 25), "property", "/sys/demo-product/demo-device-05/thing/property/post");
+
+        BizException ex = assertThrows(BizException.class, () -> deviceMessageService.handleUpMessage(upMessage));
+        assertEquals("产品已停用，拒绝设备接入: demo-product", ex.getMessage());
+        verifyNoInteractions(productModelMapper, deviceMessageLogMapper, devicePropertyMapper, deviceFileService);
+    }
+
+    @Test
     void handleUpMessageShouldFillCommandStatusWhenReplyArrives() {
         Device device = new Device();
         device.setId(2004L);
@@ -202,6 +230,7 @@ class DeviceMessageServiceImplTest {
         Product product = new Product();
         product.setId(1001L);
         product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
 
         when(deviceMapper.selectOne(any())).thenReturn(device);
         when(productMapper.selectById(1001L)).thenReturn(product);

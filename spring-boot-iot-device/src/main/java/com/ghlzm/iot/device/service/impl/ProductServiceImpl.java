@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.enums.DeviceStatusEnum;
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
@@ -103,6 +105,13 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
         boolean protocolChanged = !product.getProtocolCode().equals(normalizeRequired(dto.getProtocolCode(), "协议编码"));
         boolean nodeTypeChanged = !product.getNodeType().equals(dto.getNodeType());
+        Integer targetStatus = resolveProductStatus(dto.getStatus());
+        if (shouldDisableProduct(product.getStatus(), targetStatus)) {
+            long activeDeviceCount = countActiveRelatedDevices(id);
+            if (activeDeviceCount > 0) {
+                throw new BizException("产品下仍有 " + activeDeviceCount + " 台启用设备，请先核查库存设备是否仍在使用后再停用");
+            }
+        }
 
         applyEditableFields(product, dto);
         updateById(product);
@@ -121,14 +130,16 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (deviceCount > 0) {
             throw new BizException("产品下仍存在 " + deviceCount + " 台设备，请先处理库存设备后再删除");
         }
-        product.setDeleted(1);
-        updateById(product);
+        if (!removeById(id)) {
+            throw new BizException("产品删除失败，请稍后重试");
+        }
     }
 
     @Override
     public List<Product> listAvailableProducts() {
         return lambdaQuery()
                 .eq(Product::getDeleted, 0)
+                .eq(Product::getStatus, ProductStatusEnum.ENABLED.getCode())
                 .orderByDesc(Product::getStatus)
                 .orderByDesc(Product::getCreateTime)
                 .orderByDesc(Product::getId)
@@ -167,7 +178,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setDataFormat(resolveOptionalText(dto.getDataFormat(), "JSON"));
         product.setManufacturer(resolveOptionalText(dto.getManufacturer(), null));
         product.setDescription(resolveOptionalText(dto.getDescription(), null));
-        product.setStatus(dto.getStatus() == null ? 1 : dto.getStatus());
+        product.setStatus(resolveProductStatus(dto.getStatus()));
     }
 
     private LambdaQueryWrapper<Product> buildProductQueryWrapper(String productKey,
@@ -215,6 +226,25 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                         .eq(Device::getDeleted, 0)
         );
         return count == null ? 0L : count;
+    }
+
+    private long countActiveRelatedDevices(Long productId) {
+        Long count = deviceMapper.selectCount(
+                new LambdaQueryWrapper<Device>()
+                        .eq(Device::getProductId, productId)
+                        .eq(Device::getDeleted, 0)
+                        .eq(Device::getDeviceStatus, DeviceStatusEnum.ENABLED.getCode())
+        );
+        return count == null ? 0L : count;
+    }
+
+    private Integer resolveProductStatus(Integer status) {
+        return status == null ? ProductStatusEnum.ENABLED.getCode() : status;
+    }
+
+    private boolean shouldDisableProduct(Integer currentStatus, Integer targetStatus) {
+        return !ProductStatusEnum.DISABLED.getCode().equals(currentStatus)
+                && ProductStatusEnum.DISABLED.getCode().equals(targetStatus);
     }
 
     private Map<Long, ProductDeviceStat> loadProductDeviceStatMap(List<Long> productIds) {

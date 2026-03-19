@@ -15,7 +15,7 @@ public class TraceContextFilterConfig {
     public FilterRegistrationBean<TraceContextFilter> traceContextFilterRegistration() {
         FilterRegistrationBean<TraceContextFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new TraceContextFilter());
-        registration.addUrlPatterns("/api/*", "/message/*");
+        registration.addUrlPatterns("/api/*");
         registration.setOrder(5);
         registration.setName("traceContextFilter");
         return registration;

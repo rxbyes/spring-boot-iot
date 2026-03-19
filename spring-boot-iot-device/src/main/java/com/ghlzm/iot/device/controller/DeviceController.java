@@ -3,12 +3,16 @@ package com.ghlzm.iot.device.controller;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceBatchAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchDeleteDTO;
+import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
+import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +41,11 @@ public class DeviceController {
     public R<DeviceDetailVO> add(@RequestBody @Valid DeviceAddDTO dto) {
         // 设备创建逻辑放在服务层，控制层仅做参数接收。
         return R.ok(deviceService.addDevice(dto));
+    }
+
+    @PostMapping("/api/device/batch-add")
+    public R<DeviceBatchAddResultVO> batchAdd(@RequestBody @Valid DeviceBatchAddDTO dto) {
+        return R.ok(deviceService.batchAddDevices(dto.getItems()));
     }
 
     @GetMapping("/api/device/{id}")
@@ -75,6 +84,11 @@ public class DeviceController {
     @PutMapping("/api/device/{id}")
     public R<DeviceDetailVO> update(@PathVariable("id") Long id, @RequestBody @Valid DeviceAddDTO dto) {
         return R.ok(deviceService.updateDevice(id, dto));
+    }
+
+    @PostMapping("/api/device/{id}/replace")
+    public R<DeviceReplaceResultVO> replace(@PathVariable("id") Long id, @RequestBody @Valid DeviceReplaceDTO dto) {
+        return R.ok(deviceService.replaceDevice(id, dto));
     }
 
     @DeleteMapping("/api/device/{id}")

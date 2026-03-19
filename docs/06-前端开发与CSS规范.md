@@ -1,4 +1,4 @@
-# 06 前端开发与 CSS 规范
+﻿# 06 前端开发与 CSS 规范
 
 更新时间：2026-03-19
 
@@ -39,7 +39,7 @@
 根据现有共享能力，新增页面优先复用以下标准件：
 
 1. `PanelCard`：卡片容器与页内分区。
-2. `MetricCard`：统一概览页、报表页、工作台概况区的 KPI 卡片。
+2. `MetricCard`：统一概览页、报表页、工作台概况区的 KPI 卡片；当页面首屏需要压缩高度时，优先复用紧凑规格而不是另写一套私有统计卡。
 3. `StandardPagination`：统一分页组件。
 4. `useServerPagination`：统一分页状态与翻页行为。
 5. `StandardTableToolbar`：统一列表操作条与统计信息展示。
@@ -74,11 +74,14 @@
 ### 4.3 列表页约定
 
 - 结构：筛选区 -> 操作栏 -> 表格区 -> 分页区。
+- 共享壳层统一采用“顶部一级导航固定 + 左侧二级菜单固定 + 右侧内容区独立滚动”布局；当正文超过一屏时，只允许 `AppShell` 的 `cloud-content` 承接纵向滚动，不再让 `body/window` 与左侧菜单一起滚动。
+- 页面根容器应继续复用 `.page-stack`、`.standard-list-view`、`.ops-workbench`、`.section-landing`、`.report-analysis-view` 等共享基线，并保持 `min-width: 0`、不声明页面级 `100vh`/整页 `overflow-y: auto`，避免共享壳层切换为内容区滚动后再次出现局部外溢或双滚动。
 - 五个一级工作台下的功能页顶部导航统一为仅保留阿里云式面包屑的极简结构；不得再重复渲染最近访问标签栏、主标题、同组横向切换，以及 `当前分区`、`页面类型`、`可见菜单`、`返回概览` 这类说明性文案。
 - 页面说明文案只在分组首页、空态页或确有必要的引导场景保留；普通功能页默认不再展示“列表/筛选/详情抽屉”一类低信息密度说明。
+- 当筛选项超过 3 个时，优先采用“常用条件 + 更多条件”的可展开筛选结构；收起后仍需通过已启用条件数、状态提示或标签，让用户感知隐藏筛选仍在生效。
 - 长文本默认通过 `StandardTableTextColumn` 单行省略，悬浮显示完整内容。
 - 表格操作和导出行为保持统一入口。
-- 概览页、报表页、工作台概况区的 KPI 卡优先通过 `MetricCard` 统一数值层级、徽标和卡片密度。
+- 概览页、报表页、工作台概况区的 KPI 卡优先通过 `MetricCard` 统一数值层级、徽标和卡片密度；普通列表页首屏如需降低视觉高度，优先切换到紧凑规格，不再新增页面私有 mini-card。
 - 查询结果、协议预演、只读摘要卡优先通过 `StandardInfoGrid` 统一信息密度、对齐和长值展示策略。
 - 流程导引、发送后检查、路线桥接等步骤型内容优先通过 `StandardFlowRail` 统一索引、标题和说明布局；不再在页面内重复手写 `flow-rail` 模板。
 - 工作台、表单和编排页中的按钮组优先通过 `StandardActionGroup` 统一，不再继续保留 `button-row + 内联 style`、`action-row + 局部样式` 的双轨实现。
@@ -108,10 +111,12 @@
 7. 视觉 Token 是否复用，无页面级“临时色值漂移”。
 8. 共享组件替换后，页面私有结构类和失效 scoped CSS 是否已同步清理。
 9. 功能页顶部是否仍残留最近访问标签栏、主标题、同组横向导航或“当前分区 / 页面类型 / 可见菜单 / 返回概览”等重复说明文案；若有，必须在交付前删除。
+10. 页面超长时是否只有右侧内容区滚动，左侧二级菜单与顶部一级导航是否保持固定；若仍出现整页滚动，必须优先修正共享壳层或页面内异常高度样式。
+11. 当筛选区存在“更多条件”折叠层时，默认态、展开态和已命中隐藏条件时的提示是否一致可感知；不得出现“高级条件已生效但页面无提示”的状态。
 
 ## 7. 已知问题与技术债
 
 - `RealTimeMonitoringView`、`UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView`、`AutomationTestCenterView`、`DeviceInsightView`、`ProductWorkbenchView`、`DeviceWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`FutureLabView` 已完成当前批次的统一组件化迁移。
-- 当前剩余债务主要集中在自动化测试中心执行配置与页面盘点的父级状态编排继续收口，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
+- 当前剩余债务主要集中在自动化测试中心个别展示块是否继续拆成更细粒度组件，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
 - `【待确认】` 前端是否已建立强制 lint/style 检查门禁；仓库中未见明确质量闸门说明。
 - `【文档缺失】` 缺少“前端组件分层与命名规则”正式文档（如 atoms/molecules/templates 级别约定）。

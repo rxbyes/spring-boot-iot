@@ -51,8 +51,8 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
   {
     route: '/products',
     title: '产品定义中心',
-    caption: '产品模型建模、协议绑定与设备归属管理。',
-    readySelector: '#product-key',
+    caption: '产品台账、协议基线与库存归属管理。',
+    readySelector: '#query-product-key',
     matcher: '/api/device/product/'
   },
   {
@@ -363,15 +363,26 @@ function createLoginScenario(): AutomationScenarioConfig {
 function createProductScenario(): AutomationScenarioConfig {
   return {
     key: 'product-workbench',
-    name: '产品创建与查询',
+    name: '产品定义与库存校验',
     route: '/products',
     scope: 'delivery',
-    readySelector: '#product-key',
-    description: '示例场景：创建产品并基于返回主键查询详情。',
-    businessFlow: '产品模板建模、接口回写与主键查询',
-    featurePoints: ['产品创建', '返回主键捕获', '按 ID 查询产品详情'],
+    readySelector: '#query-product-key',
+    description: '示例场景：在产品台账页打开抽屉创建产品，并通过列表筛选验证产品已成功入库。',
+    businessFlow: '产品定义、接口回写与台账筛选校验',
+    featurePoints: ['产品创建', '返回主键捕获', '按产品 Key 筛选产品台账'],
     initialApis: [],
     steps: [
+      createStep({
+        id: 'product-open-create-drawer',
+        label: '打开新增产品抽屉',
+        type: 'click',
+        locator: {
+          type: 'role',
+          role: 'button',
+          name: '新增产品',
+          exact: true
+        }
+      }),
       createStep({
         id: 'product-fill-key',
         label: '填写产品编码',
@@ -406,9 +417,13 @@ function createProductScenario(): AutomationScenarioConfig {
         type: 'triggerApi',
         matcher: '/api/device/product/add',
         action: {
-          type: 'press',
-          locator: createCssLocator('#data-format'),
-          value: 'Enter'
+          type: 'click',
+          locator: {
+            type: 'role',
+            role: 'button',
+            name: '提交产品定义',
+            exact: true
+          }
         },
         captures: [
           {
@@ -418,21 +433,25 @@ function createProductScenario(): AutomationScenarioConfig {
         ]
       }),
       createStep({
-        id: 'product-fill-query-id',
-        label: '填写产品查询主键',
+        id: 'product-fill-query-key',
+        label: '填写产品 Key 筛选',
         type: 'fill',
-        locator: createCssLocator('#query-product-id'),
-        value: '${variables.productId}'
+        locator: createCssLocator('#query-product-key'),
+        value: 'autotest-product-${runToken}'
       }),
       createStep({
         id: 'product-query',
-        label: '按主键查询产品',
+        label: '按产品 Key 查询台账',
         type: 'triggerApi',
-        matcher: '/api/device/product/${variables.productId}',
+        matcher: '/api/device/product/page?productKey=autotest-product-${runToken}',
         action: {
-          type: 'press',
-          locator: createCssLocator('#query-product-id'),
-          value: 'Enter'
+          type: 'click',
+          locator: {
+            type: 'role',
+            role: 'button',
+            name: '查询',
+            exact: true
+          }
         }
       }),
       createStep({

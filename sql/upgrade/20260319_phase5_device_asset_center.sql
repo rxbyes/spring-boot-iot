@@ -2,8 +2,8 @@ USE rm_iot;
 
 SET NAMES utf8mb4;
 
--- 设备资产中心首个可用闭环：补齐按钮权限与角色授权。
--- 适用场景：历史库已具备五工作台菜单，但 /devices 尚未具备新增/编辑/删除/导出按钮权限。
+-- 设备资产中心第二轮增强：补齐批量导入与设备更换按钮权限及角色授权。
+-- 适用场景：历史库已具备五工作台菜单与首轮设备资产按钮，但 /devices 尚未具备批量导入/设备更换权限。
 
 SET @role_business_id = (
     SELECT id
@@ -54,7 +54,9 @@ VALUES
     (93001101, 93001002, '新增设备', 'iot:devices:add', '', '', '', '{"caption":"设备资产中心新增设备按钮权限","shortLabel":"增"}', 1201, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
     (93001102, 93001002, '编辑设备', 'iot:devices:update', '', '', '', '{"caption":"设备资产中心编辑设备按钮权限","shortLabel":"编"}', 1202, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
     (93001103, 93001002, '删除设备', 'iot:devices:delete', '', '', '', '{"caption":"设备资产中心删除设备按钮权限","shortLabel":"删"}', 1203, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
-    (93001104, 93001002, '导出设备', 'iot:devices:export', '', '', '', '{"caption":"设备资产中心导出设备按钮权限","shortLabel":"导"}', 1204, 2, 2, 1, 1, NOW(), 1, NOW(), 0)
+    (93001104, 93001002, '导出设备', 'iot:devices:export', '', '', '', '{"caption":"设备资产中心导出设备按钮权限","shortLabel":"导"}', 1204, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93001105, 93001002, '批量导入设备', 'iot:devices:import', '', '', '', '{"caption":"设备资产中心批量导入设备按钮权限","shortLabel":"导入"}', 1205, 2, 2, 1, 1, NOW(), 1, NOW(), 0),
+    (93001106, 93001002, '更换设备', 'iot:devices:replace', '', '', '', '{"caption":"设备资产中心更换设备按钮权限","shortLabel":"换"}', 1206, 2, 2, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -73,7 +75,7 @@ ON DUPLICATE KEY UPDATE
 
 DELETE FROM sys_role_menu
 WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id)
-  AND menu_id IN (93000001, 93001002, 93001101, 93001102, 93001103, 93001104);
+  AND menu_id IN (93000001, 93001002, 93001101, 93001102, 93001103, 93001104, 93001105, 93001106);
 
 SET @role_menu_id = COALESCE((SELECT MAX(id) FROM sys_role_menu), 96000000);
 
@@ -90,6 +92,8 @@ FROM (
     UNION ALL SELECT @role_management_id, 93001102
     UNION ALL SELECT @role_management_id, 93001103
     UNION ALL SELECT @role_management_id, 93001104
+    UNION ALL SELECT @role_management_id, 93001105
+    UNION ALL SELECT @role_management_id, 93001106
 
     UNION ALL SELECT @role_ops_id, 93000001
     UNION ALL SELECT @role_ops_id, 93001002
@@ -97,6 +101,8 @@ FROM (
     UNION ALL SELECT @role_ops_id, 93001102
     UNION ALL SELECT @role_ops_id, 93001103
     UNION ALL SELECT @role_ops_id, 93001104
+    UNION ALL SELECT @role_ops_id, 93001105
+    UNION ALL SELECT @role_ops_id, 93001106
 
     UNION ALL SELECT @role_developer_id, 93000001
     UNION ALL SELECT @role_developer_id, 93001002
@@ -104,6 +110,8 @@ FROM (
     UNION ALL SELECT @role_developer_id, 93001102
     UNION ALL SELECT @role_developer_id, 93001103
     UNION ALL SELECT @role_developer_id, 93001104
+    UNION ALL SELECT @role_developer_id, 93001105
+    UNION ALL SELECT @role_developer_id, 93001106
 
     UNION ALL SELECT @role_super_admin_id, 93000001
     UNION ALL SELECT @role_super_admin_id, 93001002
@@ -111,5 +119,7 @@ FROM (
     UNION ALL SELECT @role_super_admin_id, 93001102
     UNION ALL SELECT @role_super_admin_id, 93001103
     UNION ALL SELECT @role_super_admin_id, 93001104
+    UNION ALL SELECT @role_super_admin_id, 93001105
+    UNION ALL SELECT @role_super_admin_id, 93001106
 ) seed
 WHERE seed.role_id IS NOT NULL;

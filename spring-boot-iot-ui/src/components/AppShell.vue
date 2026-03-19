@@ -1,5 +1,9 @@
 ﻿<template>
-  <div class="cloud-shell" :class="{ 'cloud-shell--collapsed': sidebarCollapsed, 'cloud-shell--mobile-open': mobileMenuOpen }">
+  <div
+    class="cloud-shell"
+    :class="{ 'cloud-shell--collapsed': sidebarCollapsed, 'cloud-shell--mobile-open': mobileMenuOpen }"
+    :style="shellViewportStyle"
+  >
     <a class="skip-link" href="#main-content">跳到主内容</a>
 
     <header ref="headerRef" class="cloud-header">
@@ -363,6 +367,8 @@ const route = useRoute();
 const router = useRouter();
 const permissionStore = usePermissionStore();
 const headerRef = ref<HTMLElement | null>(null);
+const headerHeight = ref(122);
+let headerResizeObserver: ResizeObserver | null = null;
 
 const guestGroup: NavGroup = {
   key: 'guest-overview',
@@ -381,7 +387,7 @@ const docFallbackGroups: NavGroup[] = [
     menuTitle: '接入智维',
     menuHint: '覆盖产品定义、设备资产、链路验证、异常观测与数据校验。',
     items: [
-      { to: '/products', label: '产品定义中心', caption: '产品模型、协议绑定与设备归属基线', short: '产' },
+      { to: '/products', label: '产品定义中心', caption: '产品台账、协议基线与库存归属', short: '产' },
       { to: '/devices', label: '设备资产中心', caption: '设备建档、在线状态与资产运维', short: '设' },
       { to: '/reporting', label: '链路验证中心', caption: 'HTTP 上报与主链路验证', short: '验' },
       { to: '/system-log', label: '异常观测台', caption: '研发测试定位系统异常与接入问题', short: '观' },
@@ -567,6 +573,9 @@ const navigationGroups = computed<NavGroup[]>(() => {
 
 const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
 const currentRoutePath = computed(() => normalizeRoutePath(route.path));
+const shellViewportStyle = computed(() => ({
+  '--shell-header-height': `${Math.max(headerHeight.value, 96)}px`
+}));
 
 const activeGroup = computed(() => {
   const matchedGroup = navigationGroups.value.find((group) => group.items.some((item) => item.to === currentRoutePath.value));
@@ -818,10 +827,18 @@ function updateViewportState() {
   isMobile.value = window.matchMedia('(max-width: 1200px)').matches;
   if (isMobile.value) {
     sidebarCollapsed.value = false;
-    return;
+  } else {
+    mobileMenuOpen.value = false;
   }
 
-  mobileMenuOpen.value = false;
+  syncHeaderHeight();
+}
+
+function syncHeaderHeight() {
+  if (!headerRef.value) {
+    return;
+  }
+  headerHeight.value = Math.max(96, Math.ceil(headerRef.value.getBoundingClientRect().height));
 }
 
 function toggleSidebar() {
@@ -934,12 +951,19 @@ function handleLogout() {
 
 onMounted(() => {
   updateViewportState();
+  syncHeaderHeight();
+  if (typeof ResizeObserver !== 'undefined' && headerRef.value) {
+    headerResizeObserver = new ResizeObserver(() => syncHeaderHeight());
+    headerResizeObserver.observe(headerRef.value);
+  }
   window.addEventListener('resize', updateViewportState);
   document.addEventListener('pointerdown', handleDocumentPointerDown);
   document.addEventListener('keydown', handleDocumentKeydown);
 });
 
 onBeforeUnmount(() => {
+  headerResizeObserver?.disconnect();
+  headerResizeObserver = null;
   window.removeEventListener('resize', updateViewportState);
   document.removeEventListener('pointerdown', handleDocumentPointerDown);
   document.removeEventListener('keydown', handleDocumentKeydown);
@@ -950,7 +974,12 @@ onBeforeUnmount(() => {
 .cloud-shell {
   --shell-max-width: 1760px;
   --shell-gutter: clamp(16px, 2vw, 28px);
+  --shell-header-height: 122px;
   min-height: 100vh;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   color: var(--text-primary);
   background:
     radial-gradient(circle at top right, rgba(255, 106, 0, 0.08), transparent 20rem),
@@ -1230,7 +1259,9 @@ onBeforeUnmount(() => {
   grid-template-columns: 252px minmax(0, 1fr);
   width: min(var(--shell-max-width), calc(100vw - var(--shell-gutter) * 2));
   margin: 0 auto;
-  min-height: calc(100vh - 122px);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .cloud-shell--collapsed .cloud-layout {
@@ -1244,6 +1275,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .sidebar-context {
@@ -1267,10 +1301,14 @@ onBeforeUnmount(() => {
 }
 
 .side-menu {
+  flex: 1 1 auto;
   display: grid;
+  align-content: start;
   gap: 0.12rem;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.15rem;
+  overscroll-behavior: contain;
 }
 
 .side-menu__item {
@@ -1394,6 +1432,10 @@ onBeforeUnmount(() => {
 .cloud-content {
   padding: 1rem 1.15rem 1.2rem;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .console-toolbar {
@@ -1691,14 +1733,15 @@ onBeforeUnmount(() => {
 @media (max-width: 1200px) {
   .cloud-layout {
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .cloud-sidebar {
     position: fixed;
-    top: 0;
+    top: var(--shell-header-height);
     left: 0;
     width: min(78vw, 320px);
-    height: 100vh;
+    height: calc(100vh - var(--shell-header-height));
     z-index: 80;
     transform: translateX(-102%);
     transition: transform 220ms ease;

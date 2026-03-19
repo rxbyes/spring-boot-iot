@@ -103,7 +103,7 @@ curl -X POST http://localhost:9999/api/device/add \
 
 ### 步骤 3：发送 HTTP 上报
 ```bash
-curl -X POST http://localhost:9999/message/http/report \
+curl -X POST http://localhost:9999/api/message/http/report \
   -H "Content-Type: application/json" \
   -d '{
     "protocolCode":"mqtt-json",
@@ -197,7 +197,7 @@ Payload：
 
 ### 步骤 2：调用下行发布接口
 ```bash
-curl -X POST http://localhost:9999/message/mqtt/down/publish \
+curl -X POST http://localhost:9999/api/message/mqtt/down/publish \
   -H "Content-Type: application/json" \
   -d '{
     "productKey":"accept-http-product-01",

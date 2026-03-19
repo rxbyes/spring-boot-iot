@@ -7,7 +7,10 @@
       class="ops-hero-card"
     >
       <template #actions>
-        <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
+        <div class="ops-hero-actions">
+          <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
+          <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
+        </div>
       </template>
       <div class="ops-kpi-grid">
         <MetricCard label="设备总数" :value="String(pagination.total)" :badge="{ label: 'Asset', tone: 'brand' }" />
@@ -16,7 +19,7 @@
         <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: 'Review', tone: 'warning' }" />
       </div>
       <div class="ops-inline-note">
-        当前交付先完成设备资产台账、详情查看、增改删、批量删除与列表导出闭环；批量导入、更换设备、远程控制、维修工单等能力先纳入规划并记录在文档中。
+        当前交付已完成设备资产台账、详情查看、增改删、批量删除、批量导入、设备更换与列表导出闭环；远程控制、维修工单联动等能力继续保留在后续规划中。
       </div>
     </PanelCard>
 
@@ -83,7 +86,7 @@
     <PanelCard
       eyebrow="Device Inventory"
       title="设备资产列表"
-      :description="`当前共 ${pagination.total} 条设备资产记录，支持详情、编辑、删除、批量删除和导出。`"
+      :description="`当前共 ${pagination.total} 条设备资产记录，支持详情、编辑、更换、删除、批量删除、批量导入和导出。`"
       class="ops-table-card"
     >
       <StandardTableToolbar
@@ -134,10 +137,11 @@
         <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
           <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
         </StandardTableTextColumn>
-        <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column label="操作" width="320" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
             <el-button v-permission="'iot:devices:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'iot:devices:replace'" type="primary" link @click="handleOpenReplace(row)">更换</el-button>
             <el-button type="primary" link @click="handleJumpToInsight(row)">洞察</el-button>
             <el-button v-permission="'iot:devices:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
@@ -473,6 +477,22 @@
       </template>
     </StandardFormDrawer>
 
+    <DeviceBatchImportDrawer
+      v-model="batchImportVisible"
+      :submitting="batchImportSubmitting"
+      :result="batchImportResult"
+      @submit="handleBatchImportSubmit"
+    />
+
+    <DeviceReplaceDrawer
+      v-model="replaceVisible"
+      :device="replacingDevice"
+      :product-options="productOptions"
+      :product-loading="productLoading"
+      :submitting="replaceSubmitting"
+      @submit="handleReplaceSubmit"
+    />
+
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
       title="设备资产中心导出列设置"
@@ -490,6 +510,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
+import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -501,7 +523,14 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
-import type { Device, DeviceAddPayload, Product } from '@/types/api'
+import type {
+  Device,
+  DeviceAddPayload,
+  DeviceBatchAddPayload,
+  DeviceBatchAddResult,
+  DeviceReplacePayload,
+  Product
+} from '@/types/api'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -534,6 +563,10 @@ const submitLoading = ref(false)
 const productLoading = ref(false)
 const formVisible = ref(false)
 const detailVisible = ref(false)
+const batchImportVisible = ref(false)
+const batchImportSubmitting = ref(false)
+const replaceVisible = ref(false)
+const replaceSubmitting = ref(false)
 const detailLoading = ref(false)
 const detailErrorMessage = ref('')
 const editingDeviceId = ref<string | number | null>(null)
@@ -542,6 +575,8 @@ const tableData = ref<Device[]>([])
 const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const detailData = ref<Device | null>(null)
+const batchImportResult = ref<DeviceBatchAddResult | null>(null)
+const replacingDevice = ref<Device | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -823,6 +858,11 @@ function handleRefresh() {
   void loadDevicePage()
 }
 
+function handleOpenBatchImport() {
+  batchImportResult.value = null
+  batchImportVisible.value = true
+}
+
 function handleAdd() {
   editingDeviceId.value = null
   resetFormData()
@@ -845,6 +885,24 @@ async function handleEdit(row: Device) {
 
 function handleOpenDetail(row: Device) {
   void openDetail(row.id)
+}
+
+async function handleOpenReplace(row: Device) {
+  try {
+    if (productOptions.value.length === 0) {
+      await loadProducts()
+    }
+    const res = await deviceApi.getDeviceById(row.id)
+    if (res.code === 200 && res.data) {
+      replacingDevice.value = res.data
+      replaceVisible.value = true
+      return
+    }
+    ElMessage.error(res.msg || '加载待更换设备失败')
+  } catch (error) {
+    console.error('加载待更换设备失败', error)
+    ElMessage.error('加载待更换设备失败')
+  }
 }
 
 function handleJumpToInsight(row?: Device | null) {
@@ -904,6 +962,72 @@ async function handleBatchDelete() {
   }
 }
 
+async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
+  batchImportSubmitting.value = true
+  try {
+    const res = await deviceApi.batchAddDevices(payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '批量导入设备失败')
+      return
+    }
+    batchImportResult.value = res.data
+    if (res.data.successCount > 0) {
+      resetPage()
+      clearSelection()
+      await loadDevicePage()
+    }
+    if (res.data.failureCount === 0) {
+      ElMessage.success(`批量导入完成，共新增 ${res.data.successCount} 台设备`)
+      return
+    }
+    if (res.data.successCount === 0) {
+      ElMessage.warning(`本次导入未成功写入设备，共 ${res.data.failureCount} 条失败`)
+      return
+    }
+    ElMessage.warning(`批量导入完成，成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`)
+  } catch (error) {
+    console.error('批量导入设备失败', error)
+    ElMessage.error('批量导入设备失败')
+  } finally {
+    batchImportSubmitting.value = false
+  }
+}
+
+async function handleReplaceSubmit(payload: DeviceReplacePayload) {
+  if (!replacingDevice.value) {
+    return
+  }
+  try {
+    await confirmAction({
+      title: '确认更换设备',
+      message: `确认将设备“${replacingDevice.value.deviceCode}”更换为新设备“${payload.deviceCode}”吗？提交后旧设备会自动停用并记录替换关系。`,
+      type: 'warning',
+      confirmButtonText: '确认更换'
+    })
+    replaceSubmitting.value = true
+    const res = await deviceApi.replaceDevice(replacingDevice.value.id, payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '设备更换失败')
+      return
+    }
+    ElMessage.success(`设备更换成功，新设备编码：${res.data.targetDeviceCode}`)
+    replaceVisible.value = false
+    replacingDevice.value = null
+    resetPage()
+    clearSelection()
+    await loadDevicePage()
+    await openDetail(res.data.targetDeviceId)
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('设备更换失败', error)
+    ElMessage.error('设备更换失败')
+  } finally {
+    replaceSubmitting.value = false
+  }
+}
+
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) {
@@ -958,6 +1082,18 @@ watch(
   }
 )
 
+watch(batchImportVisible, (value) => {
+  if (!value) {
+    batchImportResult.value = null
+  }
+})
+
+watch(replaceVisible, (value) => {
+  if (!value) {
+    replacingDevice.value = null
+  }
+})
+
 onMounted(async () => {
   applyRouteQueryToFilters()
   await loadProducts()
@@ -978,6 +1114,12 @@ onMounted(async () => {
 .ops-kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ops-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 

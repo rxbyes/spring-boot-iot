@@ -140,6 +140,13 @@ textarea {
 .page-stack {
   display: grid;
   gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.section-landing,
+.report-analysis-view {
+  min-width: 0;
+  width: 100%;
 }
 
 .hero-grid,
@@ -641,6 +648,8 @@ tbody tr:hover {
 
 .standard-list-view,
 .sys-mgmt-view {
+  min-width: 0;
+  width: 100%;
   padding: 0;
   border: none;
   background: transparent;
@@ -846,6 +855,7 @@ tbody tr:hover {
 .ops-workbench {
   display: grid;
   gap: 0.95rem;
+  min-width: 0;
 }
 
 .ops-kpi-grid {

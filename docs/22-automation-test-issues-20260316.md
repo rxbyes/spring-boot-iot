@@ -29,17 +29,17 @@
 ### 问题 1：MQTT 下发接口在冒烟脚本中未带 JWT，导致 401
 
 - 用例：`MQTT-DOWN / publish-down`
-- 请求：`POST /message/mqtt/down/publish`
+- 请求：`POST /api/message/mqtt/down/publish`
 - 现象：返回 `HTTP 401`，业务返回 `code=401`，`msg=未认证或登录已过期`
 - 复现证据：`/tmp/business-function-smoke-20260316213412.json` 中该用例状态 `FAIL`
 - 根因判断：当前鉴权基线要求该接口携带 Bearer token；自动化脚本按“公共接口”方式调用，未附带 `Authorization`
 
 补充验证（同一时段）：
-- 携带 JWT 后重试 `POST /message/mqtt/down/publish`，返回 `code=200`，说明服务功能可用，失败点在自动化脚本鉴权策略而非业务实现。
+- 携带 JWT 后重试 `POST /api/message/mqtt/down/publish`，返回 `code=200`，说明服务功能可用，失败点在自动化脚本鉴权策略而非业务实现。
 
 ## 4. 建议处理
 
-1. 修正 `scripts/run-business-function-smoke.ps1`：`/message/mqtt/down/publish` 改为携带登录后 token。
+1. 修正 `scripts/run-business-function-smoke.ps1`：统一改为通过 `/api/message/mqtt/down/publish` 携带登录后 token 访问。
 2. 在脚本中为“公共接口白名单”增加显式注释，避免后续鉴权策略变化后出现同类误判。
 3. 保留本次结果文件，后续以修正版脚本复跑一次，确认 `MQTT-DOWN` 从 `FAIL` 转为 `PASS`。
 

@@ -1,7 +1,7 @@
 # 设备模拟器说明
 
 ## HTTP 上报接口
-POST /message/http/report
+POST /api/message/http/report
 
 ## 示例请求
 ```json
@@ -18,7 +18,7 @@ POST /message/http/report
 
 ## curl 示例
 ```bash
-curl -X POST http://localhost:9999/message/http/report \
+curl -X POST http://localhost:9999/api/message/http/report \
   -H "Content-Type: application/json" \
   -d '{
     "protocolCode":"mqtt-json",

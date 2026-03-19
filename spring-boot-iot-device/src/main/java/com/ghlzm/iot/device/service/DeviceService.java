@@ -3,12 +3,15 @@ package com.ghlzm.iot.device.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
+import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
 
 import java.util.List;
 
@@ -59,6 +62,16 @@ public interface DeviceService extends IService<Device> {
      * 更新设备主数据。
      */
     DeviceDetailVO updateDevice(Long id, DeviceAddDTO dto);
+
+    /**
+     * 批量新增设备。
+     */
+    DeviceBatchAddResultVO batchAddDevices(List<DeviceAddDTO> items);
+
+    /**
+     * 更换设备。
+     */
+    DeviceReplaceResultVO replaceDevice(Long id, DeviceReplaceDTO dto);
 
     /**
      * 删除单个设备。

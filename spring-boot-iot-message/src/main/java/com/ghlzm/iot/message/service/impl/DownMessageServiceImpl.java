@@ -1,5 +1,6 @@
 package com.ghlzm.iot.message.service.impl;
 
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.CommandRecord;
 import com.ghlzm.iot.device.entity.Device;
@@ -56,6 +57,7 @@ public class DownMessageServiceImpl implements DownMessageService {
 
         Device device = deviceService.getRequiredByCode(command.getDeviceCode());
         Product product = productService.getRequiredById(device.getProductId());
+        ensureProductEnabledForDownlink(product);
 
         String actualProductKey = hasText(command.getProductKey()) ? command.getProductKey() : product.getProductKey();
         if (!product.getProductKey().equalsIgnoreCase(actualProductKey)) {
@@ -118,6 +120,12 @@ public class DownMessageServiceImpl implements DownMessageService {
                 actualProductKey,
                 actualCommandType
         );
+    }
+
+    private void ensureProductEnabledForDownlink(Product product) {
+        if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
+            throw new BizException("产品已停用，拒绝设备下发: " + product.getProductKey());
+        }
     }
 
     private CommandRecord buildCommandRecord(Device device,

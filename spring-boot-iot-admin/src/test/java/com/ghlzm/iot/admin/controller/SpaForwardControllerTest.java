@@ -31,11 +31,22 @@ class SpaForwardControllerTest {
         mockMvc.perform(get("/risk-disposal/workbench/detail").accept(MediaType.TEXT_HTML))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+
+        mockMvc.perform(get("/message/http/report").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+
+        mockMvc.perform(get("/message/mqtt/down/publish").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
     }
 
     @Test
     void shouldNotCaptureApiLikeRoutes() throws Exception {
         mockMvc.perform(get("/api").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/message/http/report").accept(MediaType.TEXT_HTML))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(get("/assets/app.js").accept(MediaType.TEXT_HTML))

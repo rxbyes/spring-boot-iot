@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class SpaForwardController {
 
     private static final String FRONTEND_FIRST_SEGMENT_PATTERN =
-            "^(?!api$|message$|actuator$|swagger-ui$|v3$|error$|assets$|doc\\\\.html$)[^.]+";
+            "^(?!api$|actuator$|swagger-ui$|v3$|error$|assets$|doc\\\\.html$)[^.]+";
 
     @GetMapping({
             "/",

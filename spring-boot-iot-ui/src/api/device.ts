@@ -3,10 +3,14 @@ import type {
   ApiEnvelope,
   Device,
   DeviceAddPayload,
+  DeviceBatchAddPayload,
+  DeviceBatchAddResult,
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
   DeviceProperty,
+  DeviceReplacePayload,
+  DeviceReplaceResult,
   HttpReportPayload,
   IdType,
   PageResult
@@ -63,6 +67,20 @@ export function updateDevice(id: IdType, payload: DeviceAddPayload): Promise<Api
   })
 }
 
+export function batchAddDevices(payload: DeviceBatchAddPayload): Promise<ApiEnvelope<DeviceBatchAddResult>> {
+  return request<DeviceBatchAddResult>('/api/device/batch-add', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function replaceDevice(id: IdType, payload: DeviceReplacePayload): Promise<ApiEnvelope<DeviceReplaceResult>> {
+  return request<DeviceReplaceResult>(`/api/device/${id}/replace`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
 export function deleteDevice(id: IdType): Promise<ApiEnvelope<void>> {
   return request<void>(`/api/device/${id}`, {
     method: 'DELETE'
@@ -105,6 +123,8 @@ export const deviceApi = {
   getDeviceByCode,
   pageDevices,
   updateDevice,
+  batchAddDevices,
+  replaceDevice,
   deleteDevice,
   batchDeleteDevices,
   getDeviceProperties,

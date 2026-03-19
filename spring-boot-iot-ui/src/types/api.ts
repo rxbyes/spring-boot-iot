@@ -215,6 +215,49 @@ export interface DeviceAddPayload {
   metadataJson?: string;
 }
 
+export interface DeviceBatchAddPayload {
+  items: DeviceAddPayload[];
+}
+
+export interface DeviceBatchAddError {
+  rowNo: number;
+  deviceCode?: string | null;
+  message: string;
+}
+
+export interface DeviceBatchAddResult {
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  createdDeviceCodes?: string[] | null;
+  errors: DeviceBatchAddError[];
+}
+
+export interface DeviceReplacePayload {
+  productKey?: string;
+  deviceName: string;
+  deviceCode: string;
+  deviceSecret?: string;
+  clientId?: string;
+  username?: string;
+  password?: string;
+  activateStatus?: number;
+  deviceStatus?: number;
+  firmwareVersion?: string;
+  ipAddress?: string;
+  address?: string;
+  metadataJson?: string;
+}
+
+export interface DeviceReplaceResult {
+  sourceDeviceId: IdType;
+  sourceDeviceCode: string;
+  sourceDeviceName: string;
+  targetDeviceId: IdType;
+  targetDeviceCode: string;
+  targetDeviceName: string;
+}
+
 export interface HttpReportPayload {
   protocolCode: string;
   productKey: string;

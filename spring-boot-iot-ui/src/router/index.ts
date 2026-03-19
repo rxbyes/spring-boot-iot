@@ -44,7 +44,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/ProductWorkbenchView.vue'),
     meta: {
       title: '产品定义中心',
-      description: '产品模型建模、协议绑定与设备归属管理。',
+      description: '产品台账、协议基线、库存归属与状态维护。',
       requiresAuth: true
     }
   },

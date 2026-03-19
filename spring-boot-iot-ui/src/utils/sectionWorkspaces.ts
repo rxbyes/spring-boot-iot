@@ -35,14 +35,14 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     matchKeys: ['iot-access', 'device-access', 'iot-core'],
     matchLabels: ['接入智维', '设备接入'],
     cards: [
-      { path: '/products', label: '产品定义中心', description: '维护产品模型、协议绑定与设备归属基线。', keywords: ['产品定义中心', '产品建模', '产品模型'] },
+      { path: '/products', label: '产品定义中心', description: '维护产品台账、接入协议与设备归属基线。', keywords: ['产品定义中心', '产品台账', '产品建档'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', keywords: ['设备资产中心', '设备资产', '设备档案'] },
       { path: '/reporting', label: '链路验证中心', description: '发起 HTTP 上报并核验主链路解析结果。', keywords: ['链路验证中心', '模拟上报', '接入验证'] },
       { path: '/system-log', label: '异常观测台', description: '排查 `system_error`、MQTT 异常和后台链路问题。', keywords: ['异常观测台', 'system_error', '异常排查'] },
       { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路。', keywords: ['链路追踪台', 'TraceId', 'Topic'] },
       { path: '/file-debug', label: '数据校验台', description: '查看文件快照与固件聚合调试结果。', keywords: ['数据校验台', '文件校验', '固件调试'] }
     ],
-    steps: ['先完成产品定义与协议绑定。', '再维护设备资产与认证信息。', '通过链路验证、链路追踪和异常观测完成接入排障。']
+    steps: ['先完成产品建档与接入基线维护。', '再维护设备资产与认证信息。', '通过链路验证、链路追踪和异常观测完成接入排障。']
   },
   {
     key: 'risk-ops',

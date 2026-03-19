@@ -30,12 +30,12 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看设备接入分组能力与常用入口',
     navShort: '概',
     title: '设备接入',
-    description: '围绕产品建模、设备运维、接入验证和链路排障组织设备接入能力。',
-    intro: '建议先完成产品模板与设备建档，再进入接入验证、消息追踪和系统日志做链路排查。',
+    description: '围绕产品台账、设备运维、接入验证和链路排障组织设备接入能力。',
+    intro: '建议先完成产品建档与设备建档，再进入接入验证、消息追踪和系统日志做链路排查。',
     matchKeys: ['iot-core', 'device-access', 'iot-access'],
     matchLabels: ['设备接入'],
     cards: [
-      { path: '/products', label: '产品模板中心', description: '维护产品模板、协议绑定与设备归属基线。', keywords: ['产品工作台', '产品模板', '产品建模'] },
+      { path: '/products', label: '产品定义中心', description: '维护产品台账、接入协议与设备归属基线。', keywords: ['产品定义中心', '产品台账', '产品建档'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', keywords: ['设备资产中心', '设备资产', '设备档案'] },
       { path: '/reporting', label: '接入验证中心', description: '发起 HTTP 上报并核验主链路解析结果。', keywords: ['HTTP 上报实验台', '模拟上报', '接入验证'] },
       { path: '/insight', label: '监测对象工作台', description: '查看属性、日志与研判线索的聚合结果。', keywords: ['风险点工作台', '监测对象工作台', '属性查看'] },
@@ -43,7 +43,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/system-log', label: '系统日志', description: '排查 `system_error`、MQTT 异常和后台链路问题。', keywords: ['系统日志', 'system_error', '异常排查'] },
       { path: '/file-debug', label: '数据完整性校验', description: '查看文件快照与固件聚合调试结果。', keywords: ['数据完整性校验', '文件校验', '固件调试'] }
     ],
-    steps: ['先完成产品模板建模与协议绑定。', '再维护设备档案与认证信息。', '通过接入验证、消息追踪和系统日志完成链路排查。']
+    steps: ['先完成产品建档与接入基线维护。', '再维护设备档案与认证信息。', '通过接入验证、消息追踪和系统日志完成链路排查。']
   },
   {
     key: 'risk-core',

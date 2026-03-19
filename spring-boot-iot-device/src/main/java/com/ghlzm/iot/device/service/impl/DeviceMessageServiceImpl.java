@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
@@ -113,7 +114,9 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             throw new BizException("设备协议不匹配: " + upMessage.getDeviceCode());
         }
 
-        String productKey = fetchProductKey(device);
+        Product product = getRequiredProduct(device);
+        ensureProductEnabledForAccess(product);
+        String productKey = product.getProductKey();
         if (!hasText(upMessage.getProductKey())) {
             upMessage.setProductKey(productKey);
         }
@@ -162,6 +165,23 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         logRecord.setReportTime(LocalDateTime.now());
         logRecord.setCreateTime(LocalDateTime.now());
         deviceMessageLogMapper.insert(logRecord);
+    }
+
+    private Product getRequiredProduct(Device device) {
+        if (device.getProductId() == null) {
+            throw new BizException("设备未绑定产品: " + device.getDeviceCode());
+        }
+        Product product = productMapper.selectById(device.getProductId());
+        if (product == null || Integer.valueOf(1).equals(product.getDeleted())) {
+            throw new BizException("设备所属产品不存在: " + device.getDeviceCode());
+        }
+        return product;
+    }
+
+    private void ensureProductEnabledForAccess(Product product) {
+        if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
+            throw new BizException("产品已停用，拒绝设备接入: " + product.getProductKey());
+        }
     }
 
     private Device findDeviceByCode(String deviceCode) {
@@ -372,11 +392,6 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             return "bool";
         }
         return "string";
-    }
-
-    private String fetchProductKey(Device device) {
-        Product product = productMapper.selectById(device.getProductId());
-        return product == null ? null : product.getProductKey();
     }
 
     private Map<String, Object> parseReplyPayload(String rawPayload) {

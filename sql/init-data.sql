@@ -127,7 +127,7 @@ INSERT INTO sys_menu (
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模型、协议绑定与设备归属基线"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001006, 1, 93000001, '异常观测台', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 14, 1, 1, '/system-log', 'iot:system-log', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -156,10 +156,16 @@ INSERT INTO sys_menu (
     (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 48, 1, 1, '/audit-log', 'system:audit', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 51, 1, 1, '/automation-test', 'system:automation-test', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001014, 1, 93001001, '导出产品', 'iot:products:export', '', '', '', '{"caption":"产品定义中心导出产品按钮权限"}', 1104, 2, 2, '', 'iot:products:export', 1104, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001101, 1, 93001002, '新增设备', 'iot:devices:add', '', '', '', '{"caption":"设备资产中心新增设备按钮权限"}', 1201, 2, 2, '', 'iot:devices:add', 1201, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001102, 1, 93001002, '编辑设备', 'iot:devices:update', '', '', '', '{"caption":"设备资产中心编辑设备按钮权限"}', 1202, 2, 2, '', 'iot:devices:update', 1202, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001103, 1, 93001002, '删除设备', 'iot:devices:delete', '', '', '', '{"caption":"设备资产中心删除设备按钮权限"}', 1203, 2, 2, '', 'iot:devices:delete', 1203, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001104, 1, 93001002, '导出设备', 'iot:devices:export', '', '', '', '{"caption":"设备资产中心导出设备按钮权限"}', 1204, 2, 2, '', 'iot:devices:export', 1204, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001105, 1, 93001002, '批量导入设备', 'iot:devices:import', '', '', '', '{"caption":"设备资产中心批量导入设备按钮权限"}', 1205, 2, 2, '', 'iot:devices:import', 1205, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001106, 1, 93001002, '更换设备', 'iot:devices:replace', '', '', '', '{"caption":"设备资产中心更换设备按钮权限"}', 1206, 2, 2, '', 'iot:devices:replace', 1206, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003101, 1, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限"}', 3201, 2, 2, '', 'system:user:add', 3201, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003102, 1, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限"}', 3202, 2, 2, '', 'system:user:update', 3202, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -204,8 +210,10 @@ VALUES
     (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
     (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
     (96010008, 1, @role_business_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010011, 1, @role_business_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010009, 1, @role_business_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010010, 1, @role_business_id, 93001104, 1, NOW(), 1, NOW(), 0),
+    (96010012, 1, @role_business_id, 93001014, 1, NOW(), 1, NOW(), 0),
 
     (96010021, 1, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
     (96010022, 1, @role_management_id, 93002008, 1, NOW(), 1, NOW(), 0),
@@ -233,11 +241,18 @@ VALUES
     (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
     (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
     (96010046, 1, @role_management_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010052, 1, @role_management_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010047, 1, @role_management_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010048, 1, @role_management_id, 93001101, 1, NOW(), 1, NOW(), 0),
     (96010049, 1, @role_management_id, 93001102, 1, NOW(), 1, NOW(), 0),
     (96010050, 1, @role_management_id, 93001103, 1, NOW(), 1, NOW(), 0),
     (96010051, 1, @role_management_id, 93001104, 1, NOW(), 1, NOW(), 0),
+    (96010057, 1, @role_management_id, 93001105, 1, NOW(), 1, NOW(), 0),
+    (96010058, 1, @role_management_id, 93001106, 1, NOW(), 1, NOW(), 0),
+    (96010053, 1, @role_management_id, 93001011, 1, NOW(), 1, NOW(), 0),
+    (96010054, 1, @role_management_id, 93001012, 1, NOW(), 1, NOW(), 0),
+    (96010055, 1, @role_management_id, 93001013, 1, NOW(), 1, NOW(), 0),
+    (96010056, 1, @role_management_id, 93001014, 1, NOW(), 1, NOW(), 0),
 
     (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -258,6 +273,12 @@ VALUES
     (96010077, 1, @role_ops_id, 93001102, 1, NOW(), 1, NOW(), 0),
     (96010078, 1, @role_ops_id, 93001103, 1, NOW(), 1, NOW(), 0),
     (96010079, 1, @role_ops_id, 93001104, 1, NOW(), 1, NOW(), 0),
+    (96010084, 1, @role_ops_id, 93001105, 1, NOW(), 1, NOW(), 0),
+    (96010085, 1, @role_ops_id, 93001106, 1, NOW(), 1, NOW(), 0),
+    (96010080, 1, @role_ops_id, 93001011, 1, NOW(), 1, NOW(), 0),
+    (96010081, 1, @role_ops_id, 93001012, 1, NOW(), 1, NOW(), 0),
+    (96010082, 1, @role_ops_id, 93001013, 1, NOW(), 1, NOW(), 0),
+    (96010083, 1, @role_ops_id, 93001014, 1, NOW(), 1, NOW(), 0),
 
     (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -282,7 +303,13 @@ VALUES
     (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
     (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
     (96010113, 1, @role_developer_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010114, 1, @role_developer_id, 93001104, 1, NOW(), 1, NOW(), 0);
+    (96010114, 1, @role_developer_id, 93001104, 1, NOW(), 1, NOW(), 0),
+    (96010119, 1, @role_developer_id, 93001105, 1, NOW(), 1, NOW(), 0),
+    (96010120, 1, @role_developer_id, 93001106, 1, NOW(), 1, NOW(), 0),
+    (96010115, 1, @role_developer_id, 93001011, 1, NOW(), 1, NOW(), 0),
+    (96010116, 1, @role_developer_id, 93001012, 1, NOW(), 1, NOW(), 0),
+    (96010117, 1, @role_developer_id, 93001013, 1, NOW(), 1, NOW(), 0),
+    (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0);
 
 SET @role_menu_id := 96010900;
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)

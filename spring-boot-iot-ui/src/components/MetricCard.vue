@@ -1,5 +1,5 @@
 <template>
-  <article class="metric-card">
+  <article :class="['metric-card', `metric-card--${size}`]">
     <p class="metric-card__label">{{ label }}</p>
     <div class="metric-card__value-row">
       <strong class="metric-card__value">{{ value }}</strong>
@@ -11,14 +11,20 @@
 <script setup lang="ts">
 import SignalBadge from './SignalBadge.vue';
 
-defineProps<{
-  label: string;
-  value: string;
-  badge?: {
+withDefaults(
+  defineProps<{
     label: string;
-    tone: 'success' | 'warning' | 'danger' | 'muted' | 'brand';
-  };
-}>();
+    value: string;
+    badge?: {
+      label: string;
+      tone: 'success' | 'warning' | 'danger' | 'muted' | 'brand';
+    };
+    size?: 'default' | 'compact';
+  }>(),
+  {
+    size: 'default'
+  }
+);
 </script>
 
 <style scoped>
@@ -35,6 +41,11 @@ defineProps<{
   min-height: 10rem;
 }
 
+.metric-card--compact {
+  min-height: 7.4rem;
+  padding: 0.92rem 1rem;
+}
+
 .metric-card::after {
   content: '';
   position: absolute;
@@ -43,6 +54,11 @@ defineProps<{
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--brand-bright));
   opacity: 0.7;
+}
+
+.metric-card--compact::after {
+  inset: auto 1rem 0.85rem auto;
+  width: 2.6rem;
 }
 
 .metric-card__label {
@@ -65,6 +81,15 @@ defineProps<{
   font-family: var(--font-display);
   font-size: clamp(2rem, 2.8vw, 3rem);
   line-height: 1;
+}
+
+.metric-card--compact .metric-card__value-row {
+  margin-top: 0.78rem;
+  align-items: flex-end;
+}
+
+.metric-card--compact .metric-card__value {
+  font-size: clamp(1.7rem, 2.2vw, 2.2rem);
 }
 
 </style>

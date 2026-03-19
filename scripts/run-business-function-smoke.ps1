@@ -133,10 +133,6 @@ function Try-Login {
 
 $loginResp = Try-Login -Path '/api/auth/login'
 $loginPath = '/api/auth/login'
-if ($null -eq $loginResp) {
-    $loginResp = Try-Login -Path '/auth/login'
-    $loginPath = '/auth/login'
-}
 if ($loginResp -and $loginResp.code -eq 200 -and $loginResp.data -and $loginResp.data.token) {
     $script:authHeaders = @{ Authorization = "Bearer $($loginResp.data.token)" }
     Add-Result -Point 'ENV' -Case 'login-token' -Method 'POST' -Path $loginPath -Status 'PASS' -Detail 'login succeeded'
@@ -153,7 +149,7 @@ if ($loginResp -and $loginResp.code -eq 200 -and $loginResp.data -and $loginResp
         Add-Result -Point 'ENV' -Case 'token-check' -Method 'GET' -Path '/api/auth/me' -Status 'FAIL' -Detail (Trim-Text $raw)
     }
 } else {
-    Add-Result -Point 'ENV' -Case 'login-token' -Method 'POST' -Path '/api/auth/login|/auth/login' -Status 'FAIL' -Detail 'login failed or token missing'
+    Add-Result -Point 'ENV' -Case 'login-token' -Method 'POST' -Path '/api/auth/login' -Status 'FAIL' -Detail 'login failed or token missing'
 }
 
 # 0) environment
@@ -194,7 +190,7 @@ if ($deviceId) {
     Skip-Step -Point 'IOT-DEVICE' -Case 'get-device-by-code' -Method 'GET' -Path '/api/device/code/{code}' -Reason 'deviceId missing'
 }
 
-Invoke-Step -Point 'INGEST-HTTP' -Case 'http-report' -Method 'POST' -Path '/message/http/report' -Body @{
+Invoke-Step -Point 'INGEST-HTTP' -Case 'http-report' -Method 'POST' -Path '/api/message/http/report' -Body @{
     protocolCode = 'mqtt-json'
     productKey   = $productKey
     deviceCode   = $deviceCode
@@ -206,7 +202,7 @@ Invoke-Step -Point 'INGEST-HTTP' -Case 'http-report' -Method 'POST' -Path '/mess
 Invoke-Step -Point 'INGEST-HTTP' -Case 'get-properties' -Method 'GET' -Path "/api/device/$deviceCode/properties" | Out-Null
 Invoke-Step -Point 'INGEST-HTTP' -Case 'get-message-logs' -Method 'GET' -Path "/api/device/$deviceCode/message-logs" | Out-Null
 
-Invoke-Step -Point 'MQTT-DOWN' -Case 'publish-down' -Method 'POST' -Path '/message/mqtt/down/publish' -Body @{
+Invoke-Step -Point 'MQTT-DOWN' -Case 'publish-down' -Method 'POST' -Path '/api/message/mqtt/down/publish' -Body @{
     productKey  = $productKey
     deviceCode  = $deviceCode
     qos         = 1

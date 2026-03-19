@@ -51,7 +51,7 @@ VALUES
     (93000003, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。"}', 40, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
     (93000005, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001001, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品模型、协议绑定与设备归属基线","shortLabel":"产"}', 11, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属","shortLabel":"产"}', 11, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维","shortLabel":"设"}', 12, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调","shortLabel":"验"}', 13, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001006, 93000001, '异常观测台', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题","shortLabel":"观"}', 14, 1, 1, 1, 1, NOW(), 1, NOW(), 0),
