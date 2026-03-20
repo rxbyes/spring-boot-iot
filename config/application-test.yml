@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: ${IOT_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/rm_iot_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          username: ${IOT_MYSQL_USERNAME:root}
+          password: ${IOT_MYSQL_PASSWORD:root}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: ${IOT_REDIS_HOST:127.0.0.1}
+      port: ${IOT_REDIS_PORT:6379}
+      password: ${IOT_REDIS_PASSWORD:}
+      database: ${IOT_REDIS_DATABASE:2}
+      timeout: 10s
+
+logging:
+  level:
+    root: info
+    com.ghlzm.iot: info
+
+iot:
+  mqtt:
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://127.0.0.1:1883}
+    username: ${IOT_MQTT_USERNAME:admin}
+    password: ${IOT_MQTT_PASSWORD:public}
+
+  telemetry:
+    storage-type: mysql
+
+  rule:
+    enabled: true

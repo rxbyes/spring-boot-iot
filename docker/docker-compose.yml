@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: spring-boot-iot-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: rm_iot
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      - ../sql:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7
+    container_name: spring-boot-iot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./redis-data:/data
+
+  emqx:
+    image: emqx/emqx:5
+    container_name: spring-boot-iot-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "8084:8084"
+      - "18083:18083"
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+
+networks:
+  default:
+    name: spring-boot-iot-network
