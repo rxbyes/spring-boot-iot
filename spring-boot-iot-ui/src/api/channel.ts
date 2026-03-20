@@ -1,5 +1,5 @@
 import { request } from './request'
-import type { ApiEnvelope, IdType, PageResult } from '../types/api'
+import type { ApiEnvelope, IdType, PageResult } from '@/types/api'
 
 export const CHANNEL_TYPES = [
   { value: 'email', label: '邮件' },

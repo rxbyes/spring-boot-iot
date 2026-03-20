@@ -62,8 +62,14 @@ export interface Product {
 export interface Device {
   id: IdType;
   productId?: number | null;
+  gatewayId?: IdType | null;
+  parentDeviceId?: IdType | null;
   productKey?: string | null;
   productName?: string | null;
+  gatewayDeviceCode?: string | null;
+  gatewayDeviceName?: string | null;
+  parentDeviceCode?: string | null;
+  parentDeviceName?: string | null;
   deviceName: string;
   deviceCode: string;
   deviceSecret?: string | null;
@@ -89,9 +95,15 @@ export interface Device {
 export interface DeviceOption {
   id: IdType;
   productId?: number | null;
+  gatewayId?: IdType | null;
+  parentDeviceId?: IdType | null;
+  productKey?: string | null;
+  productName?: string | null;
   deviceCode: string;
   deviceName: string;
+  nodeType?: number | null;
   onlineStatus?: number | null;
+  deviceStatus?: number | null;
 }
 
 export interface DeviceMetricOption {
@@ -203,6 +215,8 @@ export interface DeviceAddPayload {
   productKey: string;
   deviceName: string;
   deviceCode: string;
+  parentDeviceId?: IdType | null;
+  parentDeviceCode?: string | null;
   deviceSecret?: string;
   clientId?: string;
   username?: string;
@@ -237,6 +251,8 @@ export interface DeviceReplacePayload {
   productKey?: string;
   deviceName: string;
   deviceCode: string;
+  parentDeviceId?: IdType | null;
+  parentDeviceCode?: string | null;
   deviceSecret?: string;
   clientId?: string;
   username?: string;

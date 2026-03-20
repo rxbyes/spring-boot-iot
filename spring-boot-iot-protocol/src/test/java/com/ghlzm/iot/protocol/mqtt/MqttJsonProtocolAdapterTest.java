@@ -8,25 +8,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MqttJsonProtocolAdapterTest {
 
-    private final MqttJsonProtocolAdapter adapter = new MqttJsonProtocolAdapter(
-            new MqttPayloadDecryptorRegistry(List.of()),
-            new MqttPayloadFrameParser(),
-            new MqttPayloadSecurityValidator(
-                    new IotProperties(),
-                    new MqttMessageSignerRegistry(List.of()),
-                    new DefaultListableBeanFactory().getBeanProvider(org.springframework.data.redis.core.StringRedisTemplate.class)
-            ),
-            new MqttFirmwarePacketParser()
-    );
+    private final MqttJsonProtocolAdapter adapter = newAdapter(new IotProperties());
 
     @Test
     void shouldDecodeLegacyNestedPlaintextPayload() {
@@ -72,6 +66,38 @@ class MqttJsonProtocolAdapterTest {
         assertEquals("484021", message.getDeviceCode());
         assertEquals("10.9", String.valueOf(message.getProperties().get("L1_LF_1")));
         assertEquals("36.5", String.valueOf(message.getProperties().get("L4_NW_1")));
+    }
+
+    @Test
+    void shouldSplitConfiguredSubDevicesFromLegacyDeepDisplacementPayload() {
+        IotProperties properties = new IotProperties();
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        Map<String, String> baseStationMappings = new LinkedHashMap<>();
+        baseStationMappings.put("L1_SW_1", "84330701");
+        baseStationMappings.put("L1_SW_2", "84330695");
+        deviceConfig.setSubDeviceMappings(Map.of("SK00FB0D1310195", baseStationMappings));
+        properties.setDevice(deviceConfig);
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00FB0D1310195":{"L1_SW_1":{"2026-03-20T06:24:02.000Z":{"dispsX":-0.0445,"dispsY":0.0293}},"L1_SW_2":{"2026-03-20T06:24:02.000Z":{"dispsX":-0.0293,"dispsY":0.0330}}}}
+                """), context);
+
+        assertEquals("SK00FB0D1310195", message.getDeviceCode());
+        assertEquals("property", message.getMessageType());
+        assertNotNull(message.getChildMessages());
+        assertEquals(2, message.getChildMessages().size());
+        assertEquals("84330701", message.getChildMessages().get(0).getDeviceCode());
+        assertEquals(-0.0445, message.getChildMessages().get(0).getProperties().get("dispsX"));
+        assertEquals(0.0293, message.getChildMessages().get(0).getProperties().get("dispsY"));
+        assertEquals("84330695", message.getChildMessages().get(1).getDeviceCode());
+        assertEquals(-0.0293, message.getChildMessages().get(1).getProperties().get("dispsX"));
+        assertEquals(0.0330, message.getChildMessages().get(1).getProperties().get("dispsY"));
+        assertTrue(message.getProperties() == null || message.getProperties().isEmpty());
     }
 
     @Test
@@ -159,5 +185,19 @@ class MqttJsonProtocolAdapterTest {
         packet[md5LengthIndex + 1] = (byte) (md5Bytes.length & 0xFF);
         System.arraycopy(md5Bytes, 0, packet, md5LengthIndex + 2, md5Bytes.length);
         return packet;
+    }
+
+    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties) {
+        return new MqttJsonProtocolAdapter(
+                new MqttPayloadDecryptorRegistry(List.of()),
+                new MqttPayloadFrameParser(),
+                new MqttPayloadSecurityValidator(
+                        iotProperties,
+                        new MqttMessageSignerRegistry(List.of()),
+                        new DefaultListableBeanFactory().getBeanProvider(org.springframework.data.redis.core.StringRedisTemplate.class)
+                ),
+                new MqttFirmwarePacketParser(),
+                iotProperties
+        );
     }
 }

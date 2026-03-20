@@ -1,9 +1,10 @@
 package com.ghlzm.iot.protocol.core.model;
 
-import java.util.Map;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 统一设备上行消息模型。
@@ -42,6 +43,12 @@ public class DeviceUpMessage {
      * 事件类上报统一放入 events。
      */
     private Map<String, Object> events;
+
+    /**
+     * 历史“基准站一包多子设备”上报拆分后的子消息集合。
+     * device 模块会按这里的 deviceCode 再分别落库。
+     */
+    private List<DeviceUpMessage> childMessages;
 
     /**
      * 文件/固件类上报的统一协议模型。

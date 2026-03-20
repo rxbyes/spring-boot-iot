@@ -21,7 +21,8 @@ import {
   resolveDevicePageLoadStrategy,
   replaceSelectedDeviceSnapshot,
   serializeDeviceDetailCacheEntries,
-  serializeDevicePageCacheEntries
+  serializeDevicePageCacheEntries,
+  shouldRefreshDeviceDetail
 } from '@/views/deviceWorkbenchState'
 
 function createDevice(overrides: Partial<Device> = {}): Device {
@@ -197,6 +198,58 @@ describe('deviceWorkbenchState', () => {
 
     expect(restored.map((item) => item.key)).toEqual(['2002', '2001'])
     expect(restored[0]?.detail.deviceName).toBe('device-b')
+  })
+
+  it('refreshes device detail when row version changes or cached detail lacks archive fields', () => {
+    const row = createDevice({
+      id: '5001',
+      updateTime: '2026-03-20 10:10:00'
+    })
+
+    expect(shouldRefreshDeviceDetail(row, null)).toBe(true)
+
+    expect(
+      shouldRefreshDeviceDetail(
+        row,
+        createDevice({
+          id: '5001',
+          updateTime: '2026-03-20 10:10:00'
+        })
+      )
+    ).toBe(false)
+
+    expect(
+      shouldRefreshDeviceDetail(
+        row,
+        createDevice({
+          id: '5001',
+          updateTime: '2026-03-20 10:12:00'
+        })
+      )
+    ).toBe(true)
+
+    expect(
+      shouldRefreshDeviceDetail(
+        createDevice({
+          id: '5002',
+          updateTime: '',
+          clientId: '',
+          username: '',
+          password: '',
+          deviceSecret: '',
+          metadataJson: ''
+        }),
+        createDevice({
+          id: '5002',
+          updateTime: '',
+          clientId: '',
+          username: '',
+          password: '',
+          deviceSecret: '',
+          metadataJson: ''
+        })
+      )
+    ).toBe(true)
   })
 
   it('drops stale or invalid device page cache entries when restoring session cache', () => {

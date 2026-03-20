@@ -39,8 +39,13 @@ export function getDeviceByCode(deviceCode: string) {
   return request<Device>(`/api/device/code/${deviceCode}`);
 }
 
-export function listDeviceOptions() {
-  return request<DeviceOption[]>('/api/device/list');
+export function listDeviceOptions(params: { includeDisabled?: boolean } = {}) {
+  const query = new URLSearchParams();
+  if (params.includeDisabled !== undefined) {
+    query.set('includeDisabled', String(params.includeDisabled));
+  }
+  const suffix = query.toString();
+  return request<DeviceOption[]>(`/api/device/list${suffix ? `?${suffix}` : ''}`);
 }
 
 export function getDeviceMetricOptions(deviceId: string | number) {

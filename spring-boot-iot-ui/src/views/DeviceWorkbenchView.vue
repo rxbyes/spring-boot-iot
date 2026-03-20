@@ -3,7 +3,7 @@
     <PanelCard
       eyebrow="设备资产台账"
       title="设备资产中心"
-      description="聚焦设备台账维护，支持筛选、查看、编辑、更换、导入导出和设备洞察跳转。"
+      description="聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。"
       class="ops-hero-card"
     >
       <template #actions>
@@ -19,7 +19,7 @@
         <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: '停用', tone: 'warning' }" />
       </div>
       <div class="ops-inline-note">
-        当前交付已覆盖设备台账、详情查看、增改删、批量导入、设备更换和导出闭环；本轮优先继续优化列表恢复速度与查询操作体验。
+        当前交付已覆盖设备台账、详情查看、父子设备关系维护、增改删、批量导入、设备更换和导出闭环；本轮优先继续优化列表恢复速度与查询操作体验。
       </div>
     </PanelCard>
 
@@ -250,6 +250,14 @@
                     <strong>{{ formatTextValue(row.productName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
+                    <span>父设备</span>
+                    <strong>{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
+                  </div>
+                  <div class="device-mobile-card__field">
+                    <span>网关设备</span>
+                    <strong>{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
+                  </div>
+                  <div class="device-mobile-card__field">
                     <span>接入协议</span>
                     <strong>{{ formatTextValue(row.protocolCode) }}</strong>
                   </div>
@@ -293,6 +301,14 @@
             <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
+            <el-table-column label="父子关系" :min-width="220">
+              <template #default="{ row }">
+                <div class="device-relation-cell">
+                  <strong>{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
+                  <span>网关：{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</span>
+                </div>
+              </template>
+            </el-table-column>
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
@@ -355,13 +371,23 @@
       v-model="detailVisible"
       eyebrow="设备资产详情"
       :title="detailTitle"
-      subtitle="统一查看设备资产主档、维护状态、认证字段与扩展元数据。"
+      subtitle="统一查看设备资产主档、父子拓扑、维护状态、认证字段与扩展元数据。"
       :tags="detailTags"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
       :empty="!detailData"
     >
       <div v-if="detailData" class="device-detail-stack">
+        <div
+          v-if="detailRefreshing || detailRefreshErrorMessage"
+          :class="[
+            'device-detail-inline-state',
+            { 'device-detail-inline-state--error': Boolean(detailRefreshErrorMessage) }
+          ]"
+        >
+          {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
+        </div>
+
         <section class="detail-panel detail-panel--hero">
           <div class="detail-section-header">
             <div>
@@ -432,6 +458,33 @@
             <div class="detail-field detail-field--full">
               <span class="detail-field__label">部署位置</span>
               <strong class="detail-field__value detail-field__value--plain">{{ detailData.address || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>拓扑关系</h3>
+              <p>统一展示父设备和网关归属，便于资产中心直接识别设备是否已纳入父子拓扑。</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-field__label">父设备</span>
+              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.parentDeviceName, detailData.parentDeviceCode) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">网关设备</span>
+              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.gatewayDeviceName, detailData.gatewayDeviceCode) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">父设备主键</span>
+              <strong class="detail-field__value">{{ formatTextValue(detailData.parentDeviceId) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">网关主键</span>
+              <strong class="detail-field__value">{{ formatTextValue(detailData.gatewayId) }}</strong>
             </div>
           </div>
         </section>
@@ -529,7 +582,7 @@
       v-model="formVisible"
       eyebrow="设备台账表单"
       :title="formTitle"
-      subtitle="统一通过右侧抽屉维护设备主数据、状态、认证字段和部署信息。"
+      subtitle="统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。"
       size="44rem"
       @close="handleFormClose"
     >
@@ -537,6 +590,18 @@
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
           <span>设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。</span>
+        </div>
+        <div
+          v-if="formRefreshing || formRefreshMessage"
+          :class="[
+            'device-form-inline-state',
+            {
+              'device-form-inline-state--warning': formRefreshState === 'warning',
+              'device-form-inline-state--error': formRefreshState === 'error'
+            }
+          ]"
+        >
+          {{ formRefreshMessage || '已先填入当前摘要，正在补全最新设备档案。' }}
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
@@ -564,6 +629,43 @@
               <el-form-item label="设备编码" prop="deviceCode">
                 <el-input id="device-code" v-model="formData.deviceCode" placeholder="请输入设备编码" />
               </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>父子拓扑</h3>
+                <p>{{ formRelationHint }}</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="父设备" prop="parentDeviceId" class="ops-drawer-grid__full">
+                <el-select
+                  v-model="formData.parentDeviceId"
+                  filterable
+                  clearable
+                  placeholder="请选择父设备（选填）"
+                  :loading="deviceOptionsLoading"
+                >
+                  <el-option
+                    v-for="option in formParentOptions"
+                    :key="String(option.id)"
+                    :label="formatDeviceOptionLabel(option)"
+                    :value="option.id"
+                  />
+                </el-select>
+              </el-form-item>
+            </div>
+            <div class="device-form-relation-summary">
+              <div class="device-form-relation-card">
+                <span>当前父设备</span>
+                <strong>{{ formatDeviceRelationValue(selectedFormParentOption?.deviceName, selectedFormParentOption?.deviceCode) }}</strong>
+              </div>
+              <div class="device-form-relation-card">
+                <span>自动关联网关</span>
+                <strong>{{ formGatewayPreview }}</strong>
+              </div>
             </div>
           </section>
 
@@ -678,7 +780,9 @@
       v-model="replaceVisible"
       :device="replacingDevice"
       :product-options="productOptions"
+      :device-options="replaceParentOptions"
       :product-loading="productLoading"
+      :device-options-loading="deviceOptionsLoading"
       :submitting="replaceSubmitting"
       @submit="handleReplaceSubmit"
     />
@@ -720,21 +824,36 @@ import type {
   DeviceAddPayload,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceOption,
   DeviceReplacePayload,
+  DeviceReplaceResult,
   Product
 } from '@/types/api'
 import {
   buildDevicePageCacheKey,
+  cloneDeviceDetailCacheEntry,
   cloneDevicePageCacheEntry,
+  createDeviceDetailCacheEntry,
   createDevicePageCacheEntry,
+  deserializeDeviceDetailCacheEntries,
   deserializeDevicePageCacheEntries,
   getDeviceRowKey,
   getNextDevicePageQuery,
+  isDeviceDetailCacheFresh,
   isDevicePageCacheFresh,
+  matchesDeviceFilters,
+  mergeLocalDeviceRow,
+  prependLocalDeviceRow,
+  removeLocalDeviceRow,
+  removeSelectedDeviceSnapshot,
+  replaceSelectedDeviceSnapshot,
+  type DeviceDetailCacheEntry,
   type DevicePageCacheEntry,
   type DevicePageQuerySnapshot,
   resolveDevicePageLoadStrategy,
-  serializeDevicePageCacheEntries
+  serializeDeviceDetailCacheEntries,
+  serializeDevicePageCacheEntries,
+  shouldRefreshDeviceDetail
 } from '@/views/deviceWorkbenchState'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -774,21 +893,28 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const submitLoading = ref(false)
 const productLoading = ref(false)
+const deviceOptionsLoading = ref(false)
 const formVisible = ref(false)
+const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
 const replaceSubmitting = ref(false)
 const detailLoading = ref(false)
+const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
+const detailRefreshErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
+const formRefreshMessage = ref('')
+const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const editingDeviceId = ref<string | number | null>(null)
 
 const tableData = ref<Device[]>([])
 const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
+const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
@@ -798,14 +924,26 @@ const exportColumnStorageKey = 'device-asset-view'
 const defaultPageSize = 10
 const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'activateStatus', 'deviceStatus']
 let latestListRequestId = 0
+let latestDetailRequestId = 0
+let latestEditRequestId = 0
 let listAbortController: AbortController | null = null
 let listPrefetchAbortController: AbortController | null = null
 let detailAbortController: AbortController | null = null
+let editAbortController: AbortController | null = null
+let productLoadPromise: Promise<void> | null = null
+let deviceOptionLoadPromise: Promise<void> | null = null
 let routeLoadOptions: DevicePageLoadOptions | null = null
+const deviceDetailCache = new Map<string, DeviceDetailCacheEntry>()
 const devicePageCache = new Map<string, DevicePageCacheEntry>()
+const deviceDetailCacheTtlMs = 5 * 60_000
+const deviceDetailCacheLimit = 12
+const deviceDetailCacheSessionStorageKey = 'iot.devices.detail-cache'
 const devicePageCacheTtlMs = 30_000
 const devicePageCacheLimit = 8
 const devicePageCacheSessionStorageKey = 'iot.devices.page-cache'
+let activeEditSessionId = 0
+let formDirtySinceOpen = false
+let suppressFormDirtyTracking = false
 
 const searchForm = reactive<DeviceSearchForm>({
   deviceId: '',
@@ -831,6 +969,8 @@ const createDefaultFormData = (): DeviceFormState => ({
   productKey: '',
   deviceName: '',
   deviceCode: '',
+  parentDeviceId: null,
+  parentDeviceCode: '',
   deviceSecret: '',
   clientId: '',
   username: '',
@@ -845,7 +985,7 @@ const createDefaultFormData = (): DeviceFormState => ({
 
 const formData = reactive<DeviceFormState>(createDefaultFormData())
 
-const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination(defaultPageSize)
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
 const formTitle = computed(() => (editingDeviceId.value ? '编辑设备' : '新增设备'))
 const submitPermission = computed(() => (editingDeviceId.value ? 'iot:devices:update' : 'iot:devices:add'))
@@ -854,6 +994,33 @@ const onlineCount = computed(() => tableData.value.filter((item) => item.onlineS
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
 const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
 const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
+const deviceOptionMap = computed(() => new Map(deviceOptions.value.map((option) => [normalizeIdKey(option.id), option])))
+const selectedFormProduct = computed(() => productOptions.value.find((product) => product.productKey === formData.productKey) ?? null)
+const selectedFormNodeType = computed(() => selectedFormProduct.value?.nodeType ?? null)
+const selectedFormParentOption = computed(() => deviceOptionMap.value.get(normalizeIdKey(formData.parentDeviceId)))
+const formParentOptions = computed(() => {
+  const currentId = normalizeIdKey(editingDeviceId.value)
+  return deviceOptions.value.filter((option) => {
+    const optionId = normalizeIdKey(option.id)
+    if (!currentId) {
+      return true
+    }
+    if (optionId === currentId) {
+      return false
+    }
+    return !isDescendantOption(option, currentId)
+  })
+})
+const replaceParentOptions = computed(() => {
+  const currentId = normalizeIdKey(replacingDevice.value?.id)
+  return deviceOptions.value.filter((option) => normalizeIdKey(option.id) !== currentId)
+})
+const formRelationHint = computed(() =>
+  selectedFormNodeType.value === 3
+    ? '当前产品为网关子设备，选择父设备后会自动继承所属网关；如需解除关系，可直接清空。'
+    : '如需维护父子资产结构，可在这里指定上级设备；未选择时表示当前设备独立建档。'
+)
+const formGatewayPreview = computed(() => resolveGatewayPreviewText(selectedFormParentOption.value, selectedFormNodeType.value))
 const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) => getDeviceRowKey(item)).filter(Boolean)))
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
@@ -940,6 +1107,10 @@ const exportColumns: CsvColumn<Device>[] = [
   { key: 'id', label: '设备 ID' },
   { key: 'deviceCode', label: '设备编码' },
   { key: 'deviceName', label: '设备名称' },
+  { key: 'parentDeviceCode', label: '父设备编码' },
+  { key: 'parentDeviceName', label: '父设备名称' },
+  { key: 'gatewayDeviceCode', label: '网关设备编码' },
+  { key: 'gatewayDeviceName', label: '网关设备名称' },
   { key: 'productKey', label: '产品 Key' },
   { key: 'productName', label: '产品名称' },
   { key: 'protocolCode', label: '接入协议' },
@@ -986,6 +1157,9 @@ function getNodeTypeText(value?: number | null) {
   if (value === 2) {
     return '网关设备'
   }
+  if (value === 3) {
+    return '网关子设备'
+  }
   return '--'
 }
 
@@ -994,6 +1168,61 @@ function formatTextValue(value?: string | number | null) {
     return '--'
   }
   return String(value)
+}
+
+function normalizeIdKey(value?: string | number | null) {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+  return String(value)
+}
+
+function formatDeviceRelationValue(name?: string | null, code?: string | null) {
+  if (name && code) {
+    return `${name} (${code})`
+  }
+  return name || code || '--'
+}
+
+function formatDeviceOptionLabel(option: DeviceOption) {
+  const relationLabel = formatDeviceRelationValue(option.deviceName, option.deviceCode)
+  const suffix = [option.productKey, getNodeTypeText(option.nodeType), option.deviceStatus === 0 ? '禁用' : '启用']
+    .filter(Boolean)
+    .join(' / ')
+  return suffix ? `${relationLabel} - ${suffix}` : relationLabel
+}
+
+function isDescendantOption(option: DeviceOption, currentId: string) {
+  let parentId = normalizeIdKey(option.parentDeviceId)
+  const visited = new Set<string>()
+  while (parentId) {
+    if (parentId === currentId) {
+      return true
+    }
+    if (visited.has(parentId)) {
+      return false
+    }
+    visited.add(parentId)
+    parentId = normalizeIdKey(deviceOptionMap.value.get(parentId)?.parentDeviceId)
+  }
+  return false
+}
+
+function resolveGatewayPreviewText(parentOption?: DeviceOption | null, nodeType?: number | null) {
+  if (nodeType !== 3) {
+    return '当前产品不是网关子设备'
+  }
+  if (!parentOption) {
+    return '请选择父设备后自动带出'
+  }
+  if (parentOption.nodeType === 2) {
+    return formatDeviceRelationValue(parentOption.deviceName, parentOption.deviceCode)
+  }
+  const gatewayOption = deviceOptionMap.value.get(normalizeIdKey(parentOption.gatewayId))
+  if (gatewayOption) {
+    return formatDeviceRelationValue(gatewayOption.deviceName, gatewayOption.deviceCode)
+  }
+  return '父设备链路中暂未识别到网关设备'
 }
 
 function hasFilledFilter(filters: DeviceSearchForm, key: DeviceFilterKey) {
@@ -1023,6 +1252,8 @@ function resetFormData(source?: Partial<Device>) {
     productKey: source?.productKey || '',
     deviceName: source?.deviceName || '',
     deviceCode: source?.deviceCode || '',
+    parentDeviceId: source?.parentDeviceId ?? null,
+    parentDeviceCode: '',
     deviceSecret: source?.deviceSecret || '',
     clientId: source?.clientId || '',
     username: source?.username || '',
@@ -1036,9 +1267,106 @@ function resetFormData(source?: Partial<Device>) {
   })
 }
 
+function applyFormDataWithoutDirty(source?: Partial<Device>) {
+  suppressFormDirtyTracking = true
+  try {
+    resetFormData(source)
+  } finally {
+    suppressFormDirtyTracking = false
+  }
+}
+
 function clearSelection() {
   tableRef.value?.clearSelection()
   selectedRows.value = []
+}
+
+function matchesCurrentFilters(device: Device) {
+  return matchesDeviceFilters(device, {
+    deviceId: appliedFilters.deviceId,
+    productKey: appliedFilters.productKey,
+    deviceCode: appliedFilters.deviceCode,
+    deviceName: appliedFilters.deviceName,
+    onlineStatus: appliedFilters.onlineStatus,
+    activateStatus: appliedFilters.activateStatus,
+    deviceStatus: appliedFilters.deviceStatus
+  })
+}
+
+function replaceSelectedRowSnapshot(device: Device) {
+  selectedRows.value = replaceSelectedDeviceSnapshot(selectedRows.value, device)
+}
+
+function removeSelectedRowSnapshot(row?: Partial<Device> | null) {
+  selectedRows.value = removeSelectedDeviceSnapshot(selectedRows.value, row)
+}
+
+function cacheVisibleDevicePage() {
+  cacheDevicePage(buildCurrentDevicePageQuery(), {
+    total: pagination.total,
+    pageNum: pagination.pageNum,
+    pageSize: pagination.pageSize,
+    records: tableData.value
+  })
+}
+
+function rebuildVisibleDevicePageCache() {
+  clearDevicePageCache()
+  if (pagination.total <= 0 || tableData.value.length === 0) {
+    return
+  }
+  cacheVisibleDevicePage()
+}
+
+function mergeLocalTableRow(device: Device) {
+  const nextRows = mergeLocalDeviceRow(tableData.value, device)
+  if (!nextRows) {
+    return false
+  }
+
+  tableData.value = nextRows
+  cacheVisibleDevicePage()
+  replaceSelectedRowSnapshot(device)
+  void syncTableSelection()
+  return true
+}
+
+function prependLocalTableRow(device: Device) {
+  tableData.value = prependLocalDeviceRow(tableData.value, device, pagination.pageSize)
+  cacheVisibleDevicePage()
+  replaceSelectedRowSnapshot(device)
+  void syncTableSelection()
+}
+
+function removeLocalTableRow(row?: Partial<Device> | null) {
+  const nextRows = removeLocalDeviceRow(tableData.value, row)
+  if (!nextRows) {
+    return false
+  }
+
+  tableData.value = nextRows
+  cacheVisibleDevicePage()
+  removeSelectedRowSnapshot(row)
+  void syncTableSelection()
+  return true
+}
+
+function removeLocalTableRows(rows: Array<Partial<Device> | null | undefined>) {
+  const deletingKeys = new Set(rows.map((item) => getDeviceRowKey(item)).filter(Boolean))
+  if (deletingKeys.size === 0) {
+    return 0
+  }
+
+  const nextRows = tableData.value.filter((item) => !deletingKeys.has(getDeviceRowKey(item)))
+  const removedCount = tableData.value.length - nextRows.length
+  if (removedCount === 0) {
+    return 0
+  }
+
+  tableData.value = nextRows
+  selectedRows.value = selectedRows.value.filter((item) => !deletingKeys.has(getDeviceRowKey(item)))
+  void syncTableSelection()
+  return removedCount
 }
 
 function handleSelectionChange(rows: Device[]) {
@@ -1102,6 +1430,12 @@ function clearSearchForm() {
 function clearListRefreshState() {
   listRefreshMessage.value = ''
   listRefreshState.value = ''
+}
+
+function clearFormRefreshState() {
+  formRefreshing.value = false
+  formRefreshMessage.value = ''
+  formRefreshState.value = ''
 }
 
 function toggleAdvancedFilters() {
@@ -1215,18 +1549,61 @@ async function syncListRouteQuery(options: DevicePageLoadOptions = {}) {
 }
 
 async function loadProducts() {
-  productLoading.value = true
-  try {
-    const res = await productApi.getAllProducts()
-    if (res.code === 200) {
-      productOptions.value = res.data || []
-    }
-  } catch (error) {
-    console.error('加载产品列表失败', error)
-    ElMessage.error('加载产品列表失败')
-  } finally {
-    productLoading.value = false
+  if (productOptions.value.length > 0) {
+    return
   }
+  if (productLoadPromise) {
+    await productLoadPromise
+    return
+  }
+
+  productLoading.value = true
+  productLoadPromise = (async () => {
+    try {
+      const res = await productApi.getAllProducts()
+      if (res.code === 200) {
+        productOptions.value = res.data || []
+        return
+      }
+      ElMessage.error(res.msg || '加载产品列表失败')
+    } catch (error) {
+      console.error('加载产品列表失败', error)
+      ElMessage.error('加载产品列表失败')
+    } finally {
+      productLoading.value = false
+      productLoadPromise = null
+    }
+  })()
+  await productLoadPromise
+}
+
+async function loadDeviceOptions() {
+  if (deviceOptions.value.length > 0) {
+    return
+  }
+  if (deviceOptionLoadPromise) {
+    await deviceOptionLoadPromise
+    return
+  }
+
+  deviceOptionsLoading.value = true
+  deviceOptionLoadPromise = (async () => {
+    try {
+      const res = await deviceApi.listDeviceOptions({ includeDisabled: true })
+      if (res.code === 200) {
+        deviceOptions.value = res.data || []
+        return
+      }
+      ElMessage.error(res.msg || '加载父设备选项失败')
+    } catch (error) {
+      console.error('加载父设备选项失败', error)
+      ElMessage.error('加载父设备选项失败')
+    } finally {
+      deviceOptionsLoading.value = false
+      deviceOptionLoadPromise = null
+    }
+  })()
+  await deviceOptionLoadPromise
 }
 
 function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
@@ -1240,6 +1617,13 @@ function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
     deviceStatus: searchForm.deviceStatus,
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
+  }
+}
+
+function buildDetailPreview(row: Device) {
+  return {
+    ...row,
+    metadataJson: row.metadataJson ?? null
   }
 }
 
@@ -1276,6 +1660,32 @@ function hydrateDevicePageCache() {
   }
 }
 
+function hydrateDeviceDetailCache() {
+  const storage = getDevicePageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  const entries = deserializeDeviceDetailCacheEntries(
+    storage.getItem(deviceDetailCacheSessionStorageKey),
+    deviceDetailCacheTtlMs,
+    deviceDetailCacheLimit
+  )
+
+  deviceDetailCache.clear()
+  entries.forEach((entry) => {
+    deviceDetailCache.set(entry.key, entry)
+  })
+
+  if (entries.length === 0) {
+    try {
+      storage.removeItem(deviceDetailCacheSessionStorageKey)
+    } catch {
+      // 忽略浏览器存储异常，避免阻断详情主流程
+    }
+  }
+}
+
 function persistDevicePageCache() {
   const storage = getDevicePageSessionStorage()
   if (!storage) {
@@ -1297,9 +1707,91 @@ function persistDevicePageCache() {
   }
 }
 
+function persistDeviceDetailCache() {
+  const storage = getDevicePageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  try {
+    if (deviceDetailCache.size === 0) {
+      storage.removeItem(deviceDetailCacheSessionStorageKey)
+      return
+    }
+
+    storage.setItem(
+      deviceDetailCacheSessionStorageKey,
+      serializeDeviceDetailCacheEntries(deviceDetailCache.values(), deviceDetailCacheLimit)
+    )
+  } catch {
+    // 忽略浏览器存储异常，避免阻断详情主流程
+  }
+}
+
 function getCachedDevicePage(query: DevicePageQuerySnapshot) {
   const cacheKey = buildDevicePageCacheKey(query)
   return cloneDevicePageCacheEntry(devicePageCache.get(cacheKey))
+}
+
+function getDeviceDetailCacheKey(row?: Partial<Device> | null) {
+  return getDeviceRowKey(row)
+}
+
+function getCachedDeviceDetail(row?: Partial<Device> | null) {
+  const cacheKey = getDeviceDetailCacheKey(row)
+  if (!cacheKey) {
+    return null
+  }
+  const entry = cloneDeviceDetailCacheEntry(deviceDetailCache.get(cacheKey))
+  if (!entry) {
+    return null
+  }
+  if (!isDeviceDetailCacheFresh(entry, deviceDetailCacheTtlMs)) {
+    deviceDetailCache.delete(cacheKey)
+    persistDeviceDetailCache()
+    return null
+  }
+  return { ...entry.detail }
+}
+
+function cacheDeviceDetail(device?: Device | null) {
+  const cacheKey = getDeviceDetailCacheKey(device)
+  if (!cacheKey || !device) {
+    return
+  }
+  const entry = createDeviceDetailCacheEntry(device)
+  deviceDetailCache.delete(cacheKey)
+  deviceDetailCache.set(cacheKey, entry)
+
+  while (deviceDetailCache.size > deviceDetailCacheLimit) {
+    const oldestKey = deviceDetailCache.keys().next().value
+    if (!oldestKey) {
+      break
+    }
+    deviceDetailCache.delete(oldestKey)
+  }
+
+  persistDeviceDetailCache()
+}
+
+function removeCachedDeviceDetail(row?: Partial<Device> | null) {
+  const cacheKey = getDeviceDetailCacheKey(row)
+  if (!cacheKey) {
+    return
+  }
+  deviceDetailCache.delete(cacheKey)
+  persistDeviceDetailCache()
+}
+
+function resolveDetailSnapshot(row: Device, cachedDetail: Device | null) {
+  if (cachedDetail) {
+    return {
+      ...cachedDetail,
+      ...row,
+      metadataJson: cachedDetail.metadataJson ?? row.metadataJson ?? null
+    }
+  }
+  return buildDetailPreview(row)
 }
 
 function cacheDevicePage(query: DevicePageQuerySnapshot, pageResult: {
@@ -1353,6 +1845,11 @@ function abortListPrefetchRequest() {
 function abortDetailRequest() {
   detailAbortController?.abort()
   detailAbortController = null
+}
+
+function abortEditRequest() {
+  editAbortController?.abort()
+  editAbortController = null
 }
 
 function isAbortError(error: unknown) {
@@ -1493,38 +1990,125 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
   }
 }
 
-async function openDetail(id: string | number) {
+async function openDetail(target: Device | string | number) {
+  const requestId = ++latestDetailRequestId
+  const row = typeof target === 'object' ? target : null
+  const detailId = row ? row.id : target
+  const cachedDetail = row ? getCachedDeviceDetail(row) : null
+  const detailSnapshot = row ? resolveDetailSnapshot(row, cachedDetail) : null
+
   abortDetailRequest()
+  detailVisible.value = true
+  detailErrorMessage.value = ''
+  detailRefreshErrorMessage.value = ''
+  detailData.value = detailSnapshot
+  detailLoading.value = !detailSnapshot
+
+  if (row && detailSnapshot && !shouldRefreshDeviceDetail(row, cachedDetail)) {
+    detailRefreshing.value = false
+    return
+  }
+
   const controller = new AbortController()
   detailAbortController = controller
-  detailVisible.value = true
-  detailLoading.value = true
-  detailErrorMessage.value = ''
-  detailData.value = null
+  detailRefreshing.value = Boolean(detailSnapshot)
+
   try {
-    const res = await deviceApi.getDeviceById(id, {
+    const res = await deviceApi.getDeviceById(detailId, {
       signal: controller.signal
     })
-    if (res.code === 200) {
-      detailData.value = res.data
+    if (requestId !== latestDetailRequestId) {
+      return
     }
+    if (res.code === 200 && res.data) {
+      detailData.value = res.data
+      cacheDeviceDetail(res.data)
+      detailErrorMessage.value = ''
+      return
+    }
+    if (!detailSnapshot) {
+      detailErrorMessage.value = res.msg || '加载设备详情失败'
+      return
+    }
+    detailRefreshErrorMessage.value = res.msg || '完整详情补充失败，当前先展示列表摘要。'
   } catch (error) {
-    if (isAbortError(error)) {
+    if (requestId !== latestDetailRequestId || isAbortError(error)) {
+      return
+    }
+    if (detailSnapshot) {
+      detailRefreshErrorMessage.value = error instanceof Error ? error.message : '完整详情补充失败，当前先展示列表摘要。'
       return
     }
     detailErrorMessage.value = error instanceof Error ? error.message : '加载设备详情失败'
   } finally {
-    if (detailAbortController === controller) {
+    if (requestId === latestDetailRequestId) {
       detailLoading.value = false
+      detailRefreshing.value = false
+    }
+    if (detailAbortController === controller) {
       detailAbortController = null
     }
   }
 }
 
-async function loadEditableDetail(id: string | number) {
-  const res = await deviceApi.getDeviceById(id)
-  if (res.code === 200 && res.data) {
-    resetFormData(res.data)
+async function refreshEditableDetail(row: Device, editSessionId: number, cachedDetail: Device | null) {
+  if (!shouldRefreshDeviceDetail(row, cachedDetail)) {
+    clearFormRefreshState()
+    return
+  }
+
+  const requestId = ++latestEditRequestId
+  abortEditRequest()
+  const controller = new AbortController()
+  editAbortController = controller
+  formRefreshing.value = true
+  formRefreshState.value = 'info'
+  formRefreshMessage.value = ''
+
+  try {
+    const res = await deviceApi.getDeviceById(row.id, {
+      signal: controller.signal
+    })
+    if (
+      requestId !== latestEditRequestId ||
+      editSessionId !== activeEditSessionId ||
+      editingDeviceId.value !== row.id
+    ) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      cacheDeviceDetail(res.data)
+      if (!formDirtySinceOpen) {
+        applyFormDataWithoutDirty(res.data)
+        formRef.value?.clearValidate()
+        clearFormRefreshState()
+      } else {
+        formRefreshState.value = 'warning'
+        formRefreshMessage.value = '最新设备档案已取回；你已开始编辑，当前未自动覆盖表单。'
+      }
+      return
+    }
+    formRefreshState.value = 'error'
+    formRefreshMessage.value = res.msg || '最新设备档案补充失败，当前先保留已填入内容。'
+  } catch (error) {
+    if (
+      requestId !== latestEditRequestId ||
+      editSessionId !== activeEditSessionId ||
+      editingDeviceId.value !== row.id ||
+      isAbortError(error)
+    ) {
+      return
+    }
+    formRefreshState.value = 'error'
+    formRefreshMessage.value =
+      error instanceof Error ? `最新设备档案补充失败：${error.message}` : '最新设备档案补充失败，当前先保留已填入内容。'
+  } finally {
+    if (requestId === latestEditRequestId) {
+      formRefreshing.value = false
+    }
+    if (editAbortController === controller) {
+      editAbortController = null
+    }
   }
 }
 
@@ -1588,31 +2172,100 @@ function handleOpenBatchImport() {
   batchImportVisible.value = true
 }
 
-async function handleAdd() {
-  if (productOptions.value.length === 0) {
-    await loadProducts()
-  }
+function handleAdd() {
+  activeEditSessionId += 1
+  abortEditRequest()
   editingDeviceId.value = null
-  resetFormData()
+  formDirtySinceOpen = false
+  clearFormRefreshState()
+  applyFormDataWithoutDirty()
   formVisible.value = true
+  formRef.value?.clearValidate()
+  void loadProducts()
+  void loadDeviceOptions()
 }
 
-async function handleEdit(row: Device) {
-  try {
-    if (productOptions.value.length === 0) {
-      await loadProducts()
-    }
-    editingDeviceId.value = row.id
-    await loadEditableDetail(row.id)
-    formVisible.value = true
-  } catch (error) {
-    console.error('加载设备编辑详情失败', error)
-    ElMessage.error('加载设备详情失败')
-  }
+function handleEdit(row: Device) {
+  const cachedDetail = getCachedDeviceDetail(row)
+  const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
+
+  activeEditSessionId += 1
+  const editSessionId = activeEditSessionId
+  abortEditRequest()
+  editingDeviceId.value = row.id
+  formDirtySinceOpen = false
+  clearFormRefreshState()
+  applyFormDataWithoutDirty(editSnapshot)
+  formVisible.value = true
+  formRef.value?.clearValidate()
+  void loadProducts()
+  void loadDeviceOptions()
+  void refreshEditableDetail(row, editSessionId, cachedDetail)
 }
 
 function handleOpenDetail(row: Device) {
-  void openDetail(row.id)
+  void openDetail(row)
+}
+
+function buildReplacementSourceSnapshot(source: Device) {
+  return {
+    ...source,
+    onlineStatus: 0,
+    deviceStatus: 0
+  }
+}
+
+function buildReplacementTargetSnapshot(source: Device, payload: DeviceReplacePayload, result: DeviceReplaceResult): Device {
+  const targetProductKey = payload.productKey || source.productKey
+  const matchedProduct = productOptions.value.find((item) => item.productKey === targetProductKey)
+
+  return {
+    ...source,
+    id: result.targetDeviceId,
+    productId: matchedProduct?.id ?? source.productId,
+    gatewayId: payload.parentDeviceId
+      ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
+        ? payload.parentDeviceId
+        : deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId ?? null
+      : null,
+    parentDeviceId: payload.parentDeviceId ?? null,
+    productKey: targetProductKey,
+    productName: matchedProduct?.productName || source.productName,
+    gatewayDeviceCode: payload.parentDeviceId
+      ? formatTextValue(
+          deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
+            ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceCode
+            : deviceOptionMap.value.get(normalizeIdKey(deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId))?.deviceCode
+        )
+      : null,
+    gatewayDeviceName: payload.parentDeviceId
+      ? formatTextValue(
+          deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
+            ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceName
+            : deviceOptionMap.value.get(normalizeIdKey(deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId))?.deviceName
+        )
+      : null,
+    parentDeviceCode: deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceCode ?? null,
+    parentDeviceName: deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceName ?? null,
+    deviceName: result.targetDeviceName || payload.deviceName,
+    deviceCode: result.targetDeviceCode || payload.deviceCode,
+    deviceSecret: payload.deviceSecret || '',
+    clientId: payload.clientId || '',
+    username: payload.username || '',
+    password: payload.password || '',
+    onlineStatus: 0,
+    activateStatus: payload.activateStatus ?? source.activateStatus ?? 1,
+    deviceStatus: payload.deviceStatus ?? 1,
+    firmwareVersion: payload.firmwareVersion || '',
+    ipAddress: payload.ipAddress || '',
+    address: payload.address || '',
+    metadataJson: payload.metadataJson || '',
+    lastOnlineTime: '',
+    lastOfflineTime: '',
+    lastReportTime: '',
+    createTime: '',
+    updateTime: ''
+  }
 }
 
 async function handleOpenReplace(row: Device) {
@@ -1620,8 +2273,10 @@ async function handleOpenReplace(row: Device) {
     if (productOptions.value.length === 0) {
       await loadProducts()
     }
+    void loadDeviceOptions()
     const res = await deviceApi.getDeviceById(row.id)
     if (res.code === 200 && res.data) {
+      cacheDeviceDetail(res.data)
       replacingDevice.value = res.data
       replaceVisible.value = true
       return
@@ -1664,12 +2319,23 @@ async function handleDelete(row: Device) {
     await confirmDelete('设备', row.deviceName || row.deviceCode)
     await deviceApi.deleteDevice(row.id)
     ElMessage.success('删除成功')
-    clearSelection()
-    clearDevicePageCache()
-    if (tableData.value.length === 1 && pagination.pageNum > 1) {
-      setPageNum(pagination.pageNum - 1)
+    removeCachedDeviceDetail(row)
+    const shouldGoPrevPage = tableData.value.length === 1 && pagination.pageNum > 1
+    const removedCount = removeLocalTableRows([row])
+    if (removedCount > 0) {
+      setTotal(pagination.total - removedCount)
+      rebuildVisibleDevicePageCache()
     }
-    await syncListRouteQuery({
+    if (shouldGoPrevPage) {
+      setPageNum(pagination.pageNum - 1)
+      await syncListRouteQuery({
+        silent: true,
+        force: true,
+        silentMessage: '已删除设备，正在后台刷新列表。'
+      })
+      return
+    }
+    void loadDevicePage({
       silent: true,
       force: true,
       silentMessage: '已删除设备，正在后台刷新列表。'
@@ -1687,6 +2353,7 @@ async function handleBatchDelete() {
     return
   }
   const deletingCount = selectedRows.value.length
+  const deletingRows = [...selectedRows.value]
   try {
     await confirmAction({
       title: '批量删除设备',
@@ -1696,12 +2363,23 @@ async function handleBatchDelete() {
     })
     await deviceApi.batchDeleteDevices(selectedRows.value.map((item) => item.id))
     ElMessage.success('批量删除成功')
-    clearSelection()
-    clearDevicePageCache()
-    if (deletingCount === tableData.value.length && pagination.pageNum > 1) {
-      setPageNum(pagination.pageNum - 1)
+    deletingRows.forEach((item) => removeCachedDeviceDetail(item))
+    const shouldGoPrevPage = deletingCount === tableData.value.length && pagination.pageNum > 1
+    const removedCount = removeLocalTableRows(deletingRows)
+    if (removedCount > 0) {
+      setTotal(pagination.total - removedCount)
+      rebuildVisibleDevicePageCache()
     }
-    await syncListRouteQuery({
+    if (shouldGoPrevPage) {
+      setPageNum(pagination.pageNum - 1)
+      await syncListRouteQuery({
+        silent: true,
+        force: true,
+        silentMessage: '已删除选中设备，正在后台刷新列表。'
+      })
+      return
+    }
+    void loadDevicePage({
       silent: true,
       force: true,
       silentMessage: '已删除选中设备，正在后台刷新列表。'
@@ -1768,17 +2446,33 @@ async function handleReplaceSubmit(payload: DeviceReplacePayload) {
       return
     }
     ElMessage.success(`设备更换成功，新设备编码：${res.data.targetDeviceCode}`)
+    const sourceSnapshot = buildReplacementSourceSnapshot(replacingDevice.value)
+    const targetSnapshot = buildReplacementTargetSnapshot(replacingDevice.value, payload, res.data)
+    const sourceStillMatches = matchesCurrentFilters(sourceSnapshot)
+    const targetMatches = matchesCurrentFilters(targetSnapshot)
+    const totalDelta = (sourceStillMatches ? 0 : -1) + (targetMatches ? 1 : 0)
+
+    setTotal(pagination.total + totalDelta)
+    if (sourceStillMatches) {
+      mergeLocalTableRow(sourceSnapshot)
+      cacheDeviceDetail(sourceSnapshot)
+    } else {
+      removeLocalTableRow(sourceSnapshot)
+      removeCachedDeviceDetail(replacingDevice.value)
+    }
+    if (targetMatches && pagination.pageNum === 1) {
+      prependLocalTableRow(targetSnapshot)
+    }
+    cacheDeviceDetail(targetSnapshot)
     replaceVisible.value = false
     replacingDevice.value = null
-    clearDevicePageCache()
-    resetPage()
-    clearSelection()
-    await syncListRouteQuery({
+    rebuildVisibleDevicePageCache()
+    void loadDevicePage({
       silent: true,
       force: true,
       silentMessage: '已提交设备更换，正在后台刷新列表。'
     })
-    await openDetail(res.data.targetDeviceId)
+    await openDetail(targetSnapshot)
   } catch (error) {
     if (isConfirmCancelled(error)) {
       return
@@ -1798,21 +2492,40 @@ async function handleSubmit() {
 
   submitLoading.value = true
   try {
-    if (editingDeviceId.value) {
-      await deviceApi.updateDevice(editingDeviceId.value, formData)
+    const isEditing = Boolean(editingDeviceId.value)
+    if (isEditing) {
+      const res = await deviceApi.updateDevice(editingDeviceId.value as string | number, { ...formData })
+      cacheDeviceDetail(res.data)
+      if (matchesCurrentFilters(res.data)) {
+        mergeLocalTableRow(res.data)
+      } else {
+        if (removeLocalTableRow(res.data)) {
+          setTotal(pagination.total - 1)
+        }
+      }
+      rebuildVisibleDevicePageCache()
       ElMessage.success('更新成功')
     } else {
-      await deviceApi.addDevice(formData)
+      const res = await deviceApi.addDevice({ ...formData })
+      cacheDeviceDetail(res.data)
+      clearSelection()
+      if (matchesCurrentFilters(res.data)) {
+        setTotal(pagination.total + 1)
+        if (pagination.pageNum === 1) {
+          prependLocalTableRow(res.data)
+        } else {
+          rebuildVisibleDevicePageCache()
+        }
+      } else {
+        rebuildVisibleDevicePageCache()
+      }
       ElMessage.success('新增成功')
     }
     formVisible.value = false
-    clearSelection()
-    clearDevicePageCache()
-    resetPage()
-    await syncListRouteQuery({
+    void loadDevicePage({
       silent: true,
       force: true,
-      silentMessage: editingDeviceId.value ? '已提交设备更新，正在后台刷新列表。' : '已新增设备，正在后台刷新列表。'
+      silentMessage: isEditing ? '已提交设备更新，正在后台刷新列表。' : '已新增设备，正在后台刷新列表。'
     })
   } catch (error) {
     console.error('提交设备失败', error)
@@ -1823,8 +2536,12 @@ async function handleSubmit() {
 }
 
 function handleFormClose() {
+  activeEditSessionId += 1
+  abortEditRequest()
   formRef.value?.clearValidate()
-  resetFormData()
+  clearFormRefreshState()
+  formDirtySinceOpen = false
+  applyFormDataWithoutDirty()
   editingDeviceId.value = null
 }
 
@@ -1866,11 +2583,25 @@ watch(detailVisible, (visible) => {
   if (visible) {
     return
   }
+  latestDetailRequestId += 1
   abortDetailRequest()
   detailLoading.value = false
+  detailRefreshing.value = false
   detailErrorMessage.value = ''
+  detailRefreshErrorMessage.value = ''
   detailData.value = null
 })
+
+watch(
+  formData,
+  () => {
+    if (!formVisible.value || !editingDeviceId.value || suppressFormDirtyTracking) {
+      return
+    }
+    formDirtySinceOpen = true
+  },
+  { deep: true, flush: 'sync' }
+)
 
 watch(batchImportVisible, (value) => {
   if (!value) {
@@ -1888,9 +2619,11 @@ onBeforeUnmount(() => {
   abortListRequest()
   abortListPrefetchRequest()
   abortDetailRequest()
+  abortEditRequest()
 })
 
 onMounted(async () => {
+  hydrateDeviceDetailCache()
   hydrateDevicePageCache()
   applyRouteQueryToFilters()
   await loadDevicePage()
@@ -2355,6 +3088,25 @@ onMounted(async () => {
   gap: 16px;
 }
 
+.device-detail-inline-state {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--brand) 4%, white);
+  color: var(--brand);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.device-detail-inline-state--error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 4%, white);
+}
+
 .ops-drawer-stack {
   display: grid;
   gap: 16px;
@@ -2380,6 +3132,31 @@ onMounted(async () => {
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.7;
+}
+
+.device-form-inline-state {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--brand) 4%, white);
+  color: var(--brand);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.device-form-inline-state--warning {
+  border-color: #d48806;
+  color: #d48806;
+  background: color-mix(in srgb, #d48806 4%, white);
+}
+
+.device-form-inline-state--error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .ops-drawer-section {

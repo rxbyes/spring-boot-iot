@@ -1,6 +1,6 @@
 # 真实环境测试与验收手册
 
-更新时间：2026-03-18
+更新时间：2026-03-20
 
 ## 1. 当前测试策略
 当前项目统一采用“自动化回归 + 真实环境验收”双轨策略：
@@ -64,6 +64,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 历史库：按需执行 `sql/upgrade/` 当前基线脚本
 - 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
+- 如本轮要联调南方测绘深部位移基准站 `SK00FB0D1310195`，额外执行 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`，并确认 `application-dev.yml` 已配置 `iot.device.sub-device-mappings`
 - 如历史库菜单管理页仍缺少超管按钮权限，可补执行 `sql/upgrade/20260317_phase4_menu_button_permission_backfill.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
@@ -181,11 +182,33 @@ Payload：
 ### 6.3 加密包裹 JSON
 按 [docs/05-protocol.md](05-protocol.md) 中 `header.appId + bodies.body` 格式发送，`appId` 使用 `62000001`。
 
+### 6.4 深部位移基准站拆分验收
+适用数据：
+- 基准站 `device_code = SK00FB0D1310195`
+- 逻辑测点 `L1_SW_1` ~ `L1_SW_8`
+- 映射后子设备 `device_code`：
+  - `84330701`
+  - `84330695`
+  - `84330697`
+  - `84330699`
+  - `84330686`
+  - `84330687`
+  - `84330691`
+  - `84330696`
+
+检查点：
+- 解密后的首字节应为 `2`
+- 第 2~3 字节按大端序解释正文长度
+- 基准站保留 `$dp` 原始日志
+- 子设备按真实 `device_code` 分别写入 `iot_device_property`
+- 查询接口应使用子设备编码，而不是 `L1_SW_1` 这类逻辑测点编码
+
 ### 通过标准
 - `$dp` 报文可进入主链路
 - `iot_message_log` 新增 `$dp` 记录
 - 拍平后的属性进入 `iot_device_property`
 - 设备在线状态刷新
+- 深部位移基准站场景下，8 个子设备都能查到 `dispsX` / `dispsY`
 - AES / DES / 3DES 兼容问题优先通过协议测试和运行日志定位
 
 ## 7. MQTT 下行最小发布验收

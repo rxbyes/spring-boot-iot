@@ -110,9 +110,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (device == null) {
             throw new BizException("设备不存在: " + upMessage.getDeviceCode());
         }
-        if (device.getProtocolCode() == null || !device.getProtocolCode().equals(upMessage.getProtocolCode())) {
+        String actualProtocolCode = hasText(upMessage.getProtocolCode()) ? upMessage.getProtocolCode() : device.getProtocolCode();
+        if (!hasText(actualProtocolCode) || device.getProtocolCode() == null || !device.getProtocolCode().equals(actualProtocolCode)) {
             throw new BizException("设备协议不匹配: " + upMessage.getDeviceCode());
         }
+        upMessage.setProtocolCode(actualProtocolCode);
 
         Product product = getRequiredProduct(device);
         ensureProductEnabledForAccess(product);
@@ -129,6 +131,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (isCommandReply(upMessage)) {
             handleCommandReply(device, upMessage);
             updateDeviceOnlineStatus(device, upMessage);
+            handleChildMessages(upMessage);
             return;
         }
 
@@ -136,6 +139,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         deviceFileService.handleFilePayload(device, upMessage);
         updateLatestProperties(device, upMessage);
         updateDeviceOnlineStatus(device, upMessage);
+        handleChildMessages(upMessage);
     }
 
     @Override
@@ -362,6 +366,43 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             update.setActivateStatus(1);
         }
         deviceMapper.updateById(update);
+    }
+
+    private void handleChildMessages(DeviceUpMessage parentMessage) {
+        if (parentMessage == null || parentMessage.getChildMessages() == null || parentMessage.getChildMessages().isEmpty()) {
+            return;
+        }
+        for (DeviceUpMessage childMessage : parentMessage.getChildMessages()) {
+            if (childMessage == null || !hasText(childMessage.getDeviceCode())) {
+                continue;
+            }
+            normalizeChildMessage(parentMessage, childMessage);
+            handleUpMessage(childMessage);
+        }
+    }
+
+    private void normalizeChildMessage(DeviceUpMessage parentMessage, DeviceUpMessage childMessage) {
+        if (!hasText(childMessage.getTenantId())) {
+            childMessage.setTenantId(parentMessage.getTenantId());
+        }
+        if (!hasText(childMessage.getProtocolCode())) {
+            childMessage.setProtocolCode(parentMessage.getProtocolCode());
+        }
+        if (!hasText(childMessage.getTraceId())) {
+            childMessage.setTraceId(parentMessage.getTraceId());
+        }
+        if (!hasText(childMessage.getMessageType())) {
+            childMessage.setMessageType(parentMessage.getMessageType());
+        }
+        if (!hasText(childMessage.getTopic())) {
+            childMessage.setTopic(parentMessage.getTopic());
+        }
+        if (childMessage.getTimestamp() == null) {
+            childMessage.setTimestamp(parentMessage.getTimestamp());
+        }
+        if (!hasText(childMessage.getRawPayload())) {
+            childMessage.setRawPayload(parentMessage.getRawPayload());
+        }
     }
 
     private Map<String, ProductModel> listPropertyModels(Long productId) {

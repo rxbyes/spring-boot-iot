@@ -15,6 +15,16 @@ public class DeviceAddDTO {
     @NotBlank
     private String deviceCode;
 
+    /**
+     * 父设备主键，前端表单优先走该字段。
+     */
+    private Long parentDeviceId;
+
+    /**
+     * 父设备编码，批量导入优先走该字段。
+     */
+    private String parentDeviceCode;
+
     private String deviceSecret;
 
     private String clientId;

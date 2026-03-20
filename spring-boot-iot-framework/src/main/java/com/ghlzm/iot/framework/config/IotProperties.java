@@ -153,6 +153,11 @@ public class IotProperties {
     public static class Device {
         private Integer onlineTimeoutSeconds = 120;
         private Boolean activateDefault = Boolean.TRUE;
+        /**
+         * 基准站设备编码 -> 逻辑子设备编码 -> 实际子设备 deviceCode。
+         * 当前用于兼容“基准站一包多测点”的历史上报场景。
+         */
+        private Map<String, Map<String, String>> subDeviceMappings = new LinkedHashMap<>();
     }
 
     @Data

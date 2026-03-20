@@ -23,6 +23,10 @@ mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ## 3. 准备测试数据
 先创建产品和设备，确保产品协议为 `mqtt-json`。
 
+若本轮联调的是南方测绘深部位移基准站 `SK00FB0D1310195`，还需要额外确认：
+- `application-dev.yml` 已配置 `iot.device.sub-device-mappings.SK00FB0D1310195`
+- 若共享库里还没有 8 个子设备与初始风险点，可先执行 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`
+
 产品示例：
 
 ```json
@@ -93,6 +97,53 @@ Payload：
 - 插入 1 条 topic 为 `$dp` 的 `iot_message_log`
 - 更新属性值
 - 刷新设备在线状态
+
+### 6.1 南方测绘深部位移类型 2 联调
+
+适用场景：
+- Topic 固定为 `$dp`
+- 外层可能是 AES 包裹：`{"header":{"appId":"62000001"},"bodies":{"body":"..."}}`
+- 解密后的真实负载遵循“类型字节 + 大端长度 + JSON 正文”格式
+- 当前这台设备只走类型 `2`
+
+解密后帧头示例：
+- `[2, 1, 10, ...]`
+- 第 1 字节 `2`：数据格式类型 2
+- 第 2~3 字节 `0x01 0x0A`：正文长度 `266`
+- 从第 4 字节开始按 UTF-8 读取 JSON 正文
+
+明文结构示例：
+
+```json
+{
+  "SK00FB0D1310195": {
+    "L1_SW_1": {
+      "2026-03-20T06:24:02.000Z": {
+        "dispsX": -0.0445,
+        "dispsY": 0.0293
+      }
+    }
+  }
+}
+```
+
+当前兼容结果：
+- 基准站 `SK00FB0D1310195` 继续保留 `$dp` 原始日志和在线状态刷新
+- `L1_SW_1` ~ `L1_SW_8` 会按 `iot.device.sub-device-mappings` 映射成真实子设备编码
+- 子设备最新属性会按 `dispsX`、`dispsY` 写入 `iot_device_property`
+- 平台查询时应直接用子设备 `device_code`，例如 `84330701`
+
+建议核对：
+- `GET /api/device/84330701/properties`
+- `GET /api/device/84330701/message-logs`
+- `GET /api/device/code/84330701`
+- `GET /api/device/code/SK00FB0D1310195`
+
+通过标准：
+- 基准站存在 `$dp` 消息日志
+- 8 个子设备分别可查到 `dispsX` / `dispsY` 最新值
+- 8 个子设备 `online_status`、`last_report_time` 被刷新
+- 若已执行初始化脚本，可在风险点绑定中查到 8 个子设备与 `dispsX` / `dispsY`
 
 ## 7. HTTP / 数据验证
 

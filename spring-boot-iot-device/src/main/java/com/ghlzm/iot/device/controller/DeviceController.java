@@ -104,8 +104,8 @@ public class DeviceController {
     }
 
     @GetMapping("/api/device/list")
-    public R<List<DeviceOptionVO>> listDeviceOptions() {
-        return R.ok(deviceService.listDeviceOptions());
+    public R<List<DeviceOptionVO>> listDeviceOptions(@RequestParam(defaultValue = "false") boolean includeDisabled) {
+        return R.ok(deviceService.listDeviceOptions(includeDisabled));
     }
 
     @GetMapping("/api/device/{deviceId}/metrics")

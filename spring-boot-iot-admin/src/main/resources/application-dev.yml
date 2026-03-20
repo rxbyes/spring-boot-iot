@@ -76,6 +76,18 @@ iot:
   telemetry:
     storage-type: mysql
 
+  device:
+    sub-device-mappings:
+      SK00FB0D1310195:
+        L1_SW_1: 84330701
+        L1_SW_2: 84330695
+        L1_SW_3: 84330697
+        L1_SW_4: 84330699
+        L1_SW_5: 84330686
+        L1_SW_6: 84330687
+        L1_SW_7: 84330691
+        L1_SW_8: 84330696
+
   rule:
     enabled: false
 

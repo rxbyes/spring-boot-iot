@@ -20,6 +20,16 @@ public class DeviceReplaceDTO {
     @NotBlank(message = "请输入新设备编码")
     private String deviceCode;
 
+    /**
+     * 父设备主键，前端表单优先走该字段。
+     */
+    private Long parentDeviceId;
+
+    /**
+     * 父设备编码，批量替换或外部系统对接时可直接传编码。
+     */
+    private String parentDeviceCode;
+
     private String deviceSecret;
 
     private String clientId;

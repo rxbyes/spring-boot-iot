@@ -1,6 +1,7 @@
 package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
@@ -63,15 +64,18 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private final MqttPayloadFrameParser mqttPayloadFrameParser;
     private final MqttPayloadSecurityValidator mqttPayloadSecurityValidator;
     private final MqttFirmwarePacketParser mqttFirmwarePacketParser;
+    private final IotProperties iotProperties;
 
     public MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry,
                                    MqttPayloadFrameParser mqttPayloadFrameParser,
                                    MqttPayloadSecurityValidator mqttPayloadSecurityValidator,
-                                   MqttFirmwarePacketParser mqttFirmwarePacketParser) {
+                                   MqttFirmwarePacketParser mqttFirmwarePacketParser,
+                                   IotProperties iotProperties) {
         this.mqttPayloadDecryptorRegistry = mqttPayloadDecryptorRegistry;
         this.mqttPayloadFrameParser = mqttPayloadFrameParser;
         this.mqttPayloadSecurityValidator = mqttPayloadSecurityValidator;
         this.mqttFirmwarePacketParser = mqttFirmwarePacketParser;
+        this.iotProperties = iotProperties;
     }
 
     @Override
@@ -95,6 +99,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             String payloadMessageType = stringValue(map.get("messageType"));
             message.setMessageType(resolveMessageType(context, payloadMessageType, map, resolvedDeviceCode, decodedPayload.dataFormatType()));
             message.setTopic(context.getTopic());
+            LocalDateTime resolvedTimestamp = resolveTimestamp(map, resolvedDeviceCode);
+            message.setTimestamp(resolvedTimestamp);
 
             if (decodedPayload.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3) {
                 // 表 C.3 / C.4 属于文件或升级分包类消息，当前先收口到事件元数据，
@@ -103,6 +109,19 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                 message.setEvents(buildFileEvents(map));
             } else {
                 Map<String, Object> properties = resolveProperties(map, resolvedDeviceCode);
+                ConfiguredChildMessages configuredChildMessages = buildConfiguredChildMessages(
+                        map,
+                        resolvedDeviceCode,
+                        message.getTenantId(),
+                        message.getProductKey(),
+                        message.getMessageType(),
+                        message.getTopic(),
+                        resolvedTimestamp
+                );
+                if (!configuredChildMessages.messages().isEmpty()) {
+                    properties = removeChildLogicalProperties(properties, configuredChildMessages.logicalCodes());
+                    message.setChildMessages(configuredChildMessages.messages());
+                }
                 if (!properties.isEmpty()) {
                     message.setProperties(properties);
                 }
@@ -113,7 +132,6 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                 message.setEvents((Map<String, Object>) events);
             }
 
-            message.setTimestamp(resolveTimestamp(map, resolvedDeviceCode));
             message.setRawPayload(decodedPayload.rawPayload());
             return message;
         } catch (BizException ex) {
@@ -357,6 +375,180 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return false;
     }
 
+    private ConfiguredChildMessages buildConfiguredChildMessages(Map<String, Object> payload,
+                                                                 String baseDeviceCode,
+                                                                 String tenantId,
+                                                                 String productKey,
+                                                                 String messageType,
+                                                                 String topic,
+                                                                 LocalDateTime fallbackTimestamp) {
+        Map<String, String> subDeviceMappings = resolveSubDeviceMappings(baseDeviceCode);
+        if (subDeviceMappings.isEmpty()) {
+            return ConfiguredChildMessages.empty();
+        }
+        Object basePayload = baseDeviceCode == null ? null : payload.get(baseDeviceCode);
+        if (!(basePayload instanceof Map<?, ?> basePayloadMap)) {
+            return ConfiguredChildMessages.empty();
+        }
+
+        List<DeviceUpMessage> childMessages = new ArrayList<>();
+        List<String> logicalCodes = new ArrayList<>();
+        for (Map.Entry<String, String> entry : subDeviceMappings.entrySet()) {
+            String logicalCode = entry.getKey();
+            String childDeviceCode = entry.getValue();
+            if (logicalCode == null || logicalCode.isBlank() || childDeviceCode == null || childDeviceCode.isBlank()) {
+                continue;
+            }
+
+            LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(logicalCode, basePayloadMap.get(logicalCode));
+            if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
+                continue;
+            }
+
+            DeviceUpMessage childMessage = new DeviceUpMessage();
+            childMessage.setTenantId(tenantId);
+            childMessage.setProductKey(productKey);
+            childMessage.setDeviceCode(childDeviceCode);
+            childMessage.setMessageType(messageType);
+            childMessage.setTopic(topic);
+            childMessage.setTimestamp(latestLogicalPayload.timestamp() == null ? fallbackTimestamp : latestLogicalPayload.timestamp());
+            childMessage.setProperties(latestLogicalPayload.properties());
+            childMessage.setRawPayload(latestLogicalPayload.rawPayload());
+            childMessages.add(childMessage);
+            logicalCodes.add(logicalCode);
+        }
+        return new ConfiguredChildMessages(childMessages, logicalCodes);
+    }
+
+    private Map<String, String> resolveSubDeviceMappings(String baseDeviceCode) {
+        if (baseDeviceCode == null || baseDeviceCode.isBlank() || iotProperties.getDevice() == null
+                || iotProperties.getDevice().getSubDeviceMappings() == null) {
+            return Map.of();
+        }
+        Map<String, String> configuredMappings = iotProperties.getDevice().getSubDeviceMappings().get(baseDeviceCode);
+        return configuredMappings == null || configuredMappings.isEmpty() ? Map.of() : configuredMappings;
+    }
+
+    private LatestLogicalPayload extractLatestLogicalPayload(String logicalCode, Object logicalPayload) {
+        if (logicalPayload == null) {
+            return null;
+        }
+
+        LocalDateTime logicalTimestamp = null;
+        Object latestValue = logicalPayload;
+        String rawPayload = writeLogicalRawPayload(logicalCode, logicalPayload);
+        if (logicalPayload instanceof Map<?, ?> logicalMap && isTimestampContainer(logicalMap)) {
+            TimestampedValue latestEntry = selectLatestTimestampValue(logicalMap);
+            if (latestEntry == null) {
+                return null;
+            }
+            logicalTimestamp = latestEntry.timestamp();
+            latestValue = latestEntry.value();
+            Map<String, Object> latestPayload = new LinkedHashMap<>();
+            latestPayload.put(latestEntry.key(), latestEntry.value());
+            rawPayload = writeLogicalRawPayload(logicalCode, latestPayload);
+        }
+
+        Map<String, Object> properties = toLogicalProperties(logicalCode, latestValue);
+        return properties.isEmpty() ? null : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload);
+    }
+
+    private TimestampedValue selectLatestTimestampValue(Map<?, ?> source) {
+        List<TimestampedValue> timestampedValues = new ArrayList<>();
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (!(entry.getKey() instanceof String key)) {
+                continue;
+            }
+            LocalDateTime timestamp = parseTimestamp(key);
+            if (timestamp != null) {
+                timestampedValues.add(new TimestampedValue(key, timestamp, entry.getValue()));
+            }
+        }
+        if (timestampedValues.isEmpty()) {
+            return null;
+        }
+        timestampedValues.sort(Comparator.comparing(TimestampedValue::timestamp).thenComparing(TimestampedValue::key));
+        return timestampedValues.get(timestampedValues.size() - 1);
+    }
+
+    private Map<String, Object> toLogicalProperties(String logicalCode, Object value) {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        if (value instanceof Map<?, ?> mapValue) {
+            flattenChildProperties("", mapValue, properties);
+            return properties;
+        }
+        if (value != null) {
+            properties.put(logicalCode, value);
+        }
+        return properties;
+    }
+
+    private void flattenChildProperties(String prefix, Map<?, ?> source, Map<String, Object> target) {
+        if (isTimestampContainer(source)) {
+            TimestampedValue latestEntry = selectLatestTimestampValue(source);
+            if (latestEntry == null) {
+                return;
+            }
+            Object latestValue = latestEntry.value();
+            if (latestValue instanceof Map<?, ?> latestMap) {
+                flattenChildProperties(prefix, latestMap, target);
+            } else if (prefix != null && !prefix.isBlank()) {
+                target.put(prefix, latestValue);
+            }
+            return;
+        }
+
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (!(entry.getKey() instanceof String key)) {
+                continue;
+            }
+            String field = prefix == null || prefix.isBlank() ? key : prefix + "." + key;
+            Object value = entry.getValue();
+            if (value instanceof Map<?, ?> nestedMap) {
+                flattenChildProperties(field, nestedMap, target);
+                continue;
+            }
+            target.put(field, value);
+        }
+    }
+
+    private String writeLogicalRawPayload(String logicalCode, Object logicalPayload) {
+        try {
+            Map<String, Object> rawPayload = new LinkedHashMap<>();
+            rawPayload.put(logicalCode, logicalPayload);
+            return objectMapper.writeValueAsString(rawPayload);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private Map<String, Object> removeChildLogicalProperties(Map<String, Object> properties, List<String> logicalCodes) {
+        if (properties == null || properties.isEmpty() || logicalCodes == null || logicalCodes.isEmpty()) {
+            return properties;
+        }
+        Map<String, Object> filteredProperties = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
+            if (isChildLogicalProperty(entry.getKey(), logicalCodes)) {
+                continue;
+            }
+            filteredProperties.put(entry.getKey(), entry.getValue());
+        }
+        return filteredProperties;
+    }
+
+    private boolean isChildLogicalProperty(String propertyKey, List<String> logicalCodes) {
+        if (propertyKey == null || propertyKey.isBlank()) {
+            return false;
+        }
+        for (String logicalCode : logicalCodes) {
+            if (logicalCode != null && !logicalCode.isBlank()
+                    && (propertyKey.equals(logicalCode) || propertyKey.startsWith(logicalCode + "."))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private List<String> topLevelDataKeys(Map<String, Object> payload) {
         List<String> keys = new ArrayList<>();
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
@@ -576,5 +768,23 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                                   String rawPayload,
                                   MqttDataFormatType dataFormatType,
                                   DeviceFilePayload filePayload) {
+    }
+
+    private record LatestLogicalPayload(LocalDateTime timestamp,
+                                        Map<String, Object> properties,
+                                        String rawPayload) {
+    }
+
+    private record TimestampedValue(String key,
+                                    LocalDateTime timestamp,
+                                    Object value) {
+    }
+
+    private record ConfiguredChildMessages(List<DeviceUpMessage> messages,
+                                           List<String> logicalCodes) {
+
+        private static ConfiguredChildMessages empty() {
+            return new ConfiguredChildMessages(List.of(), List.of());
+        }
     }
 }

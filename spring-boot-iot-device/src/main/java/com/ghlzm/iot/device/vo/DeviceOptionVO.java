@@ -10,7 +10,13 @@ public class DeviceOptionVO {
 
     private Long id;
     private Long productId;
+    private Long gatewayId;
+    private Long parentDeviceId;
+    private String productKey;
+    private String productName;
     private String deviceCode;
     private String deviceName;
+    private Integer nodeType;
     private Integer onlineStatus;
+    private Integer deviceStatus;
 }

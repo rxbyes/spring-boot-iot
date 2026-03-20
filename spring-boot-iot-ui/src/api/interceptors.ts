@@ -1,7 +1,7 @@
 import { ElMessage } from '@/utils/message';
 
 import router from '../router';
-import { getStoredAccessToken, usePermissionStore } from '../stores/permission';
+import { getStoredAccessToken, usePermissionStore } from '@/stores/permission';
 import { createRequestError } from './request';
 import { interceptorManager } from './request';
 import type { RequestError, RequestInterceptor, ResponseInterceptor } from './request';

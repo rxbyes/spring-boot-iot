@@ -91,7 +91,7 @@ public interface DeviceService extends IService<Device> {
     /**
      * 查询可用于绑定风险点的设备选项。
      */
-    List<DeviceOptionVO> listDeviceOptions();
+    List<DeviceOptionVO> listDeviceOptions(boolean includeDisabled);
 
     /**
      * 查询指定设备的测点选项。

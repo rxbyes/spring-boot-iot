@@ -10,7 +10,7 @@
     <div class="device-import-stack">
       <div class="device-import-note">
         <strong>导入说明</strong>
-        <span>CSV 首行请使用模板字段名。必填字段是 <code>productKey</code>、<code>deviceName</code>、<code>deviceCode</code>，其余字段按需补录。</span>
+        <span>CSV 首行请使用模板字段名。必填字段是 <code>productKey</code>、<code>deviceName</code>、<code>deviceCode</code>；如需一次性建父子设备关系，可额外填写 <code>parentDeviceCode</code>。</span>
       </div>
 
       <section class="device-import-section">
@@ -35,7 +35,7 @@
           v-model="csvText"
           type="textarea"
           :rows="12"
-          placeholder="请粘贴 CSV 内容，例如：&#10;productKey,deviceName,deviceCode,deviceSecret,clientId,username,password,activateStatus,deviceStatus,firmwareVersion,ipAddress,address,metadataJson"
+          placeholder="请粘贴 CSV 内容，例如：&#10;productKey,deviceName,deviceCode,parentDeviceCode,deviceSecret,clientId,username,password,activateStatus,deviceStatus,firmwareVersion,ipAddress,address,metadataJson"
         />
       </section>
 
@@ -43,13 +43,17 @@
         <div class="device-import-section__header">
           <div>
             <h3>字段约定</h3>
-            <p><code>activateStatus</code> 和 <code>deviceStatus</code> 仅支持 <code>1</code> 或 <code>0</code>；<code>metadataJson</code> 请输入合法 JSON。</p>
+            <p><code>parentDeviceCode</code> 选填，填写已存在父设备编码即可建立父子关系；<code>activateStatus</code> 和 <code>deviceStatus</code> 仅支持 <code>1</code> 或 <code>0</code>；<code>metadataJson</code> 请输入合法 JSON。</p>
           </div>
         </div>
         <div class="device-import-rule-grid">
           <div class="device-import-rule-card">
             <span>必填</span>
             <strong>productKey / deviceName / deviceCode</strong>
+          </div>
+          <div class="device-import-rule-card">
+            <span>父子关系</span>
+            <strong>parentDeviceCode 选填且需已存在</strong>
           </div>
           <div class="device-import-rule-card">
             <span>状态字段</span>
@@ -96,6 +100,7 @@
           <el-table-column prop="productKey" label="产品 Key" min-width="160" />
           <el-table-column prop="deviceName" label="设备名称" min-width="150" />
           <el-table-column prop="deviceCode" label="设备编码" min-width="170" />
+          <el-table-column prop="parentDeviceCode" label="父设备编码" min-width="170" />
           <el-table-column prop="activateStatus" label="激活状态" width="96">
             <template #default="{ row }">{{ row.activateStatus === 0 ? '未激活' : '已激活' }}</template>
           </el-table-column>
@@ -190,6 +195,7 @@ interface DeviceImportPreviewRow {
   productKey: string
   deviceName: string
   deviceCode: string
+  parentDeviceCode?: string
   deviceSecret?: string
   clientId?: string
   username?: string
@@ -237,6 +243,7 @@ const templateColumns: CsvColumn<Record<string, string>>[] = [
   { key: 'productKey', label: 'productKey' },
   { key: 'deviceName', label: 'deviceName' },
   { key: 'deviceCode', label: 'deviceCode' },
+  { key: 'parentDeviceCode', label: 'parentDeviceCode' },
   { key: 'deviceSecret', label: 'deviceSecret' },
   { key: 'clientId', label: 'clientId' },
   { key: 'username', label: 'username' },
@@ -386,6 +393,7 @@ function parseCsvText(text: string): ParseState {
       productKey: readCell('productKey').trim(),
       deviceName: readCell('deviceName').trim(),
       deviceCode: readCell('deviceCode').trim(),
+      parentDeviceCode: normalizeCellValue(readCell('parentDeviceCode')),
       deviceSecret: normalizeCellValue(readCell('deviceSecret')),
       clientId: normalizeCellValue(readCell('clientId')),
       username: normalizeCellValue(readCell('username')),
@@ -402,6 +410,7 @@ function parseCsvText(text: string): ParseState {
       !item.productKey &&
       !item.deviceName &&
       !item.deviceCode &&
+      !item.parentDeviceCode &&
       !item.deviceSecret &&
       !item.clientId &&
       !item.username &&
@@ -438,6 +447,7 @@ function downloadTemplate() {
         productKey: 'accept-http-product-01',
         deviceName: '北坡监测点-01',
         deviceCode: 'accept-http-device-02',
+        parentDeviceCode: 'accept-http-gateway-01',
         deviceSecret: 'device-secret-02',
         clientId: 'client-device-02',
         username: 'device-user-02',

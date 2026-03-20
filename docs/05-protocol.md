@@ -131,6 +131,11 @@
   - 协议层会从最外层 key 提取 `deviceCode`
   - 设备状态、GNSS、倾角仪、加速度等嵌套数据会被拍平成属性
   - 属性标识形如 `L1_QJ_1.X`、`L1_JS_1.gY`、`S1_ZT_1.ext_power_volt`
+  - 若配置了 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}`，协议层会把“基准站一包多测点”报文拆成多个 `childMessages`：
+    - 父消息继续保留原始密文/明文日志与在线状态更新
+    - 子消息按映射后的真实 `deviceCode` 分别进入 `device` 模块落库
+    - 当逻辑测点值为 `时间戳 -> 对象` 结构时，子消息属性会写成对象内字段，例如 `dispsX`、`dispsY`
+    - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性会回落为该逻辑测点自身
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
@@ -237,6 +242,11 @@
   - 帧头与 C.1 一致
   - JSON 内部允许 `时间戳 -> 值` 结构
   - 协议层默认取最新时间点的值写入统一 `DeviceUpMessage.properties`
+  - 深部位移设备当前已验证的报文示例中，解密后的字节前缀可能为 `[2, 1, 10, ...]`：
+    - 第 1 字节 `2` 表示数据格式类型 2
+    - 第 2~3 字节 `0x01 0x0A` 表示 JSON 正文长度 `266`
+    - 长度值按大端序解释，从第 4 字节开始读取 JSON 正文
+  - 对于南方测绘“基准站 + 8 个子设备”深部位移场景，当前已支持在类型 2 解密后按配置把 `L1_SW_1` ~ `L1_SW_8` 拆分映射为独立子设备上报
 - 类型 3：已按表 C.3 落地
   - Byte 1：数据格式类型 3
   - Byte 2~3：文件描述 JSON 长度，大端序

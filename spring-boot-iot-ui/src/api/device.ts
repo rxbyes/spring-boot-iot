@@ -8,6 +8,7 @@ import type {
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
+  DeviceOption,
   DeviceProperty,
   DeviceReplacePayload,
   DeviceReplaceResult,
@@ -26,6 +27,10 @@ export interface DevicePageQueryParams {
   deviceStatus?: number
   pageNum?: number
   pageSize?: number
+}
+
+export interface DeviceOptionQueryParams {
+  includeDisabled?: boolean
 }
 
 type DeviceRequestOptions = Pick<RequestOptions, 'signal'>
@@ -102,6 +107,17 @@ export function batchDeleteDevices(ids: IdType[]): Promise<ApiEnvelope<void>> {
   })
 }
 
+export function listDeviceOptions(
+  params: DeviceOptionQueryParams = {},
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<DeviceOption[]>> {
+  const query = buildQuery(params)
+  return request<DeviceOption[]>(`/api/device/list${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
 export function getDeviceProperties(deviceCode: string): Promise<ApiEnvelope<DeviceProperty[]>> {
   return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`)
 }
@@ -135,6 +151,7 @@ export const deviceApi = {
   replaceDevice,
   deleteDevice,
   batchDeleteDevices,
+  listDeviceOptions,
   getDeviceProperties,
   getDeviceMessageLogs,
   reportByHttp,

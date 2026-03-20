@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -253,6 +255,96 @@ class DeviceMessageServiceImplTest {
         verify(devicePropertyMapper, never()).updateById(any(DeviceProperty.class));
     }
 
+    @Test
+    void handleUpMessageShouldFanOutChildMessagesByDeviceCode() {
+        Device baseDevice = new Device();
+        baseDevice.setId(3001L);
+        baseDevice.setTenantId(1L);
+        baseDevice.setProductId(1001L);
+        baseDevice.setDeviceCode("SK00FB0D1310195");
+        baseDevice.setProtocolCode("mqtt-json");
+
+        Device childDevice1 = new Device();
+        childDevice1.setId(3002L);
+        childDevice1.setTenantId(1L);
+        childDevice1.setProductId(1001L);
+        childDevice1.setDeviceCode("84330701");
+        childDevice1.setProtocolCode("mqtt-json");
+
+        Device childDevice2 = new Device();
+        childDevice2.setId(3003L);
+        childDevice2.setTenantId(1L);
+        childDevice2.setProductId(1001L);
+        childDevice2.setDeviceCode("84330695");
+        childDevice2.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        ProductModel dispsX = new ProductModel();
+        dispsX.setIdentifier("dispsX");
+        dispsX.setModelName("dispsX");
+        dispsX.setDataType("double");
+
+        ProductModel dispsY = new ProductModel();
+        dispsY.setIdentifier("dispsY");
+        dispsY.setModelName("dispsY");
+        dispsY.setDataType("double");
+
+        when(deviceMapper.selectOne(any())).thenReturn(baseDevice, childDevice1, childDevice2);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(dispsX, dispsY));
+        when(devicePropertyMapper.selectOne(any())).thenReturn(null);
+
+        DeviceUpMessage upMessage = buildMessage("mqtt-json", "demo-product", "SK00FB0D1310195",
+                Map.of(), "property", "$dp");
+        upMessage.setRawPayload("""
+                {"SK00FB0D1310195":{"L1_SW_1":{"2026-03-20T06:24:02.000Z":{"dispsX":-0.0445,"dispsY":0.0293}},"L1_SW_2":{"2026-03-20T06:24:02.000Z":{"dispsX":-0.0293,"dispsY":0.0330}}}}
+                """);
+
+        DeviceUpMessage childMessage1 = new DeviceUpMessage();
+        childMessage1.setDeviceCode("84330701");
+        childMessage1.setTimestamp(upMessage.getTimestamp());
+        childMessage1.setProperties(buildProperties(-0.0445, 0.0293));
+
+        DeviceUpMessage childMessage2 = new DeviceUpMessage();
+        childMessage2.setDeviceCode("84330695");
+        childMessage2.setTimestamp(upMessage.getTimestamp());
+        childMessage2.setProperties(buildProperties(-0.0293, 0.0330));
+
+        upMessage.setChildMessages(List.of(childMessage1, childMessage2));
+
+        deviceMessageService.handleUpMessage(upMessage);
+
+        ArgumentCaptor<DeviceMessageLog> logCaptor = ArgumentCaptor.forClass(DeviceMessageLog.class);
+        verify(deviceMessageLogMapper, times(3)).insert(logCaptor.capture());
+        List<String> loggedDeviceCodes = new ArrayList<>();
+        for (DeviceMessageLog logRecord : logCaptor.getAllValues()) {
+            loggedDeviceCodes.add(logRecord.getDeviceCode());
+        }
+        assertEquals(List.of("SK00FB0D1310195", "84330701", "84330695"), loggedDeviceCodes);
+
+        ArgumentCaptor<DeviceProperty> propertyCaptor = ArgumentCaptor.forClass(DeviceProperty.class);
+        verify(devicePropertyMapper, times(4)).insert(propertyCaptor.capture());
+        List<String> propertyKeys = new ArrayList<>();
+        for (DeviceProperty property : propertyCaptor.getAllValues()) {
+            propertyKeys.add(property.getDeviceId() + ":" + property.getIdentifier() + "=" + property.getPropertyValue());
+        }
+        assertEquals(List.of(
+                "3002:dispsX=-0.0445",
+                "3002:dispsY=0.0293",
+                "3003:dispsX=-0.0293",
+                "3003:dispsY=0.033"
+        ), propertyKeys);
+
+        ArgumentCaptor<Device> deviceCaptor = ArgumentCaptor.forClass(Device.class);
+        verify(deviceMapper, times(3)).updateById(deviceCaptor.capture());
+        assertEquals(List.of(3001L, 3002L, 3003L),
+                deviceCaptor.getAllValues().stream().map(Device::getId).toList());
+    }
+
     private DeviceUpMessage buildMessage(String protocolCode,
                                          String productKey,
                                          String deviceCode,
@@ -269,5 +361,12 @@ class DeviceMessageServiceImplTest {
         upMessage.setRawPayload("{\"properties\":{}}");
         upMessage.setTimestamp(LocalDateTime.now());
         return upMessage;
+    }
+
+    private Map<String, Object> buildProperties(double dispsX, double dispsY) {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("dispsX", dispsX);
+        properties.put("dispsY", dispsY);
+        return properties;
     }
 }
