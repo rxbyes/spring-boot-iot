@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.controller;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import org.springframework.web.bind.annotation.*;
 
@@ -67,6 +68,20 @@ public class RiskPointController {
                   @RequestParam(required = false) Integer status) {
             List<RiskPoint> riskPoints = riskPointService.listRiskPoints(riskPointCode, riskLevel, status);
             return R.ok(riskPoints);
+      }
+
+      /**
+       * 分页查询风险点列表
+       */
+      @GetMapping("/page")
+      public R<PageResult<RiskPoint>> pageRiskPoints(
+                  @RequestParam(required = false) String riskPointCode,
+                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) Integer status,
+                  @RequestParam(defaultValue = "1") Long pageNum,
+                  @RequestParam(defaultValue = "10") Long pageSize) {
+            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(riskPointCode, riskLevel, status, pageNum, pageSize);
+            return R.ok(page);
       }
 
       /**

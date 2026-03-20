@@ -1,8 +1,11 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.Role;
 import com.ghlzm.iot.system.mapper.RoleMapper;
 import com.ghlzm.iot.system.service.PermissionService;
@@ -52,18 +55,14 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
       @Override
       public List<Role> listRoles(String roleName, String roleCode, Integer status) {
-            LambdaQueryWrapper<Role> queryWrapper = new LambdaQueryWrapper<>();
-            if (StringUtils.hasText(roleName)) {
-                  queryWrapper.like(Role::getRoleName, roleName.trim());
-            }
-            if (StringUtils.hasText(roleCode)) {
-                  queryWrapper.eq(Role::getRoleCode, roleCode.trim());
-            }
-            if (status != null) {
-                  queryWrapper.eq(Role::getStatus, status);
-            }
-            queryWrapper.orderByAsc(Role::getCreateTime).orderByAsc(Role::getId);
-            return list(queryWrapper);
+            return list(buildRoleQueryWrapper(roleName, roleCode, status));
+      }
+
+      @Override
+      public PageResult<Role> pageRoles(String roleName, String roleCode, Integer status, Long pageNum, Long pageSize) {
+            Page<Role> page = PageQueryUtils.buildPage(pageNum, pageSize);
+            Page<Role> result = page(page, buildRoleQueryWrapper(roleName, roleCode, status));
+            return PageQueryUtils.toPageResult(result);
       }
 
       @Override
@@ -129,5 +128,20 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
                     .orderByAsc(Role::getCreateTime)
                     .orderByAsc(Role::getId);
             return list(wrapper);
+      }
+
+      private LambdaQueryWrapper<Role> buildRoleQueryWrapper(String roleName, String roleCode, Integer status) {
+            LambdaQueryWrapper<Role> queryWrapper = new LambdaQueryWrapper<>();
+            if (StringUtils.hasText(roleName)) {
+                  queryWrapper.like(Role::getRoleName, roleName.trim());
+            }
+            if (StringUtils.hasText(roleCode)) {
+                  queryWrapper.eq(Role::getRoleCode, roleCode.trim());
+            }
+            if (status != null) {
+                  queryWrapper.eq(Role::getStatus, status);
+            }
+            queryWrapper.orderByAsc(Role::getCreateTime).orderByAsc(Role::getId);
+            return queryWrapper;
       }
 }

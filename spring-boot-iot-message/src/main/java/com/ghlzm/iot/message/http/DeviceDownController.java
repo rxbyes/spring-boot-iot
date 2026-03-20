@@ -22,7 +22,7 @@ public class DeviceDownController {
         this.downMessageService = downMessageService;
     }
 
-    @PostMapping("/message/mqtt/down/publish")
+    @PostMapping("/api/message/mqtt/down/publish")
     public R<DownMessagePublishResult> publish(@RequestBody @Valid DeviceDownPublishRequest request) {
         DownMessagePublishCommand command = new DownMessagePublishCommand();
         command.setProtocolCode(request.getProtocolCode());

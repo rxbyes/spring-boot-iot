@@ -1,9 +1,11 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -18,12 +20,19 @@ import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -31,14 +40,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Author rxbyes
- * Since 2.0
- * Date 2026/3/13 - 14:33
+ * 设备上行消息处理服务。
  */
 @Service
 public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceMessageServiceImpl.class);
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UNKNOWN_DEVICE_ID = 0L;
+    private static final String DISPATCH_FAILED_MESSAGE_TYPE = "dispatch_failed";
     private static final List<String> COMMAND_ID_ALIASES = List.of("commandId", "messageId");
     private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
 
@@ -50,7 +60,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
                                     DeviceMessageLogMapper deviceMessageLogMapper,
@@ -72,7 +82,6 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     @Override
     public List<DeviceMessageLog> listMessageLogs(String deviceCode) {
-        // 消息日志查询也统一先通过 deviceCode 定位设备，避免控制层感知主键细节。
         Device device = findDeviceByCode(deviceCode);
         if (device == null) {
             throw new BizException("设备不存在: " + deviceCode);
@@ -86,9 +95,17 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     }
 
     @Override
+    public PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize) {
+        long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
+        long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize, 100);
+        Page<DeviceMessageLog> page = new Page<>(safePageNum, safePageSize);
+        Page<DeviceMessageLog> result = deviceMessageLogMapper.selectPage(page, buildMessageTraceQueryWrapper(query));
+        return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void handleUpMessage(DeviceUpMessage upMessage) {
-        // 上报处理链路保留给后续任务使用，这里仅补充注释，不扩展业务行为。
         Device device = findDeviceByCode(upMessage.getDeviceCode());
         if (device == null) {
             throw new BizException("设备不存在: " + upMessage.getDeviceCode());
@@ -97,12 +114,14 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             throw new BizException("设备协议不匹配: " + upMessage.getDeviceCode());
         }
 
-        String productKey = fetchProductKey(device);
-        if (upMessage.getProductKey() == null || upMessage.getProductKey().isBlank()) {
-            // 历史 MQTT 主题（例如 $dp）不一定携带 productKey，这里按设备归属产品回填即可。
+        Product product = getRequiredProduct(device);
+        ensureProductEnabledForAccess(product);
+        String productKey = product.getProductKey();
+        if (!hasText(upMessage.getProductKey())) {
             upMessage.setProductKey(productKey);
         }
-        if (productKey == null || upMessage.getProductKey() == null || !upMessage.getProductKey().equalsIgnoreCase(productKey)) {
+        if (!hasText(productKey) || !hasText(upMessage.getProductKey())
+                || !upMessage.getProductKey().equalsIgnoreCase(productKey)) {
             throw new BizException("设备所属产品不匹配: " + upMessage.getDeviceCode());
         }
 
@@ -112,10 +131,57 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             updateDeviceOnlineStatus(device, upMessage);
             return;
         }
-        // 文件/固件类消息先进入最小文件服务，避免 C.3/C.4 数据被误当成普通属性处理。
+
+        // 文件/固件场景先交给文件服务处理，避免混入普通属性更新。
         deviceFileService.handleFilePayload(device, upMessage);
         updateLatestProperties(device, upMessage);
         updateDeviceOnlineStatus(device, upMessage);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordDispatchFailureTrace(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage) {
+        String traceId = rawDeviceMessage == null ? null : rawDeviceMessage.getTraceId();
+        if (!hasText(traceId)) {
+            traceId = TraceContextHolder.currentOrCreate();
+        }
+
+        String deviceCode = rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode();
+        String productKey = rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey();
+        Device device = hasText(deviceCode) ? findDeviceByCode(deviceCode) : null;
+        Product product = hasText(productKey) ? findProductByKey(productKey) : null;
+
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setTenantId(resolveTenantId(rawDeviceMessage, device));
+        // 前置校验失败时设备可能不存在，使用 0 作为占位，保证轨迹记录可落库可检索。
+        logRecord.setDeviceId(device == null ? UNKNOWN_DEVICE_ID : device.getId());
+        logRecord.setProductId(resolveProductId(device, product));
+        logRecord.setTraceId(traceId);
+        logRecord.setDeviceCode(deviceCode);
+        logRecord.setProductKey(productKey);
+        logRecord.setMessageType(DISPATCH_FAILED_MESSAGE_TYPE);
+        logRecord.setTopic(topic);
+        logRecord.setPayload(resolvePayloadText(payload));
+        logRecord.setReportTime(LocalDateTime.now());
+        logRecord.setCreateTime(LocalDateTime.now());
+        deviceMessageLogMapper.insert(logRecord);
+    }
+
+    private Product getRequiredProduct(Device device) {
+        if (device.getProductId() == null) {
+            throw new BizException("设备未绑定产品: " + device.getDeviceCode());
+        }
+        Product product = productMapper.selectById(device.getProductId());
+        if (product == null || Integer.valueOf(1).equals(product.getDeleted())) {
+            throw new BizException("设备所属产品不存在: " + device.getDeviceCode());
+        }
+        return product;
+    }
+
+    private void ensureProductEnabledForAccess(Product product) {
+        if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
+            throw new BizException("产品已停用，拒绝设备接入: " + product.getProductKey());
+        }
     }
 
     private Device findDeviceByCode(String deviceCode) {
@@ -127,18 +193,81 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         );
     }
 
+    private Product findProductByKey(String productKey) {
+        return productMapper.selectOne(
+                new LambdaQueryWrapper<Product>()
+                        .eq(Product::getProductKey, productKey)
+                        .eq(Product::getDeleted, 0)
+                        .last("limit 1")
+        );
+    }
+
+    private Long resolveTenantId(RawDeviceMessage rawDeviceMessage, Device device) {
+        if (device != null && device.getTenantId() != null) {
+            return device.getTenantId();
+        }
+        if (rawDeviceMessage == null || !hasText(rawDeviceMessage.getTenantId())) {
+            return DEFAULT_TENANT_ID;
+        }
+        try {
+            return Long.parseLong(rawDeviceMessage.getTenantId().trim());
+        } catch (NumberFormatException ex) {
+            return DEFAULT_TENANT_ID;
+        }
+    }
+
+    private Long resolveProductId(Device device, Product product) {
+        if (device != null && device.getProductId() != null) {
+            return device.getProductId();
+        }
+        return product == null ? null : product.getId();
+    }
+
+    private String resolvePayloadText(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return null;
+        }
+        return new String(payload, StandardCharsets.UTF_8);
+    }
+
+    private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query) {
+        LambdaQueryWrapper<DeviceMessageLog> queryWrapper = new LambdaQueryWrapper<>();
+        if (query != null) {
+            if (StringUtils.hasText(query.getDeviceCode())) {
+                queryWrapper.eq(DeviceMessageLog::getDeviceCode, query.getDeviceCode().trim());
+            }
+            if (StringUtils.hasText(query.getProductKey())) {
+                queryWrapper.eq(DeviceMessageLog::getProductKey, query.getProductKey().trim());
+            }
+            if (StringUtils.hasText(query.getTraceId())) {
+                queryWrapper.eq(DeviceMessageLog::getTraceId, query.getTraceId().trim());
+            }
+            if (StringUtils.hasText(query.getMessageType())) {
+                queryWrapper.eq(DeviceMessageLog::getMessageType, query.getMessageType().trim());
+            }
+            if (StringUtils.hasText(query.getTopic())) {
+                queryWrapper.like(DeviceMessageLog::getTopic, query.getTopic().trim());
+            }
+        }
+        queryWrapper.orderByDesc(DeviceMessageLog::getReportTime)
+                .orderByDesc(DeviceMessageLog::getCreateTime);
+        return queryWrapper;
+    }
+
     private void saveMessageLog(Device device, DeviceUpMessage upMessage) {
-        // 原始消息日志独立落库，方便后续排障与审计查询。
-        DeviceMessageLog log = new DeviceMessageLog();
-        log.setTenantId(device.getTenantId());
-        log.setDeviceId(device.getId());
-        log.setProductId(device.getProductId());
-        log.setMessageType(upMessage.getMessageType());
-        log.setTopic(upMessage.getTopic());
-        log.setPayload(upMessage.getRawPayload());
-        log.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
-        log.setCreateTime(LocalDateTime.now());
-        deviceMessageLogMapper.insert(log);
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setTenantId(device.getTenantId());
+        logRecord.setDeviceId(device.getId());
+        logRecord.setProductId(device.getProductId());
+        logRecord.setTraceId(hasText(upMessage.getTraceId()) ? upMessage.getTraceId() : TraceContextHolder.getTraceId());
+        logRecord.setDeviceCode(device.getDeviceCode());
+        logRecord.setProductKey(upMessage.getProductKey());
+        logRecord.setMessageType(upMessage.getMessageType());
+        logRecord.setTopic(upMessage.getTopic());
+        logRecord.setPayload(upMessage.getRawPayload());
+        logRecord.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
+        logRecord.setCreateTime(LocalDateTime.now());
+        deviceMessageLogMapper.insert(logRecord);
     }
 
     private boolean isCommandReply(DeviceUpMessage upMessage) {
@@ -183,7 +312,6 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             return;
         }
 
-        // 最新属性表只保留当前值，因此这里按标识符执行“存在则更新，不存在则新增”。
         Map<String, ProductModel> propertyModels = listPropertyModels(device.getProductId());
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             String identifier = entry.getKey();
@@ -221,7 +349,6 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     }
 
     private void updateDeviceOnlineStatus(Device device, DeviceUpMessage upMessage) {
-        // 一期先基于最近一次上报刷新在线状态和最后上报时间。
         LocalDateTime reportTime = upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp();
 
         Device update = new Device();
@@ -244,12 +371,12 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                         .eq(ProductModel::getModelType, "property")
                         .eq(ProductModel::getDeleted, 0)
         );
-        return productModels.stream().collect(Collectors.toMap(ProductModel::getIdentifier, Function.identity(), (left, right) -> left));
+        return productModels.stream()
+                .collect(Collectors.toMap(ProductModel::getIdentifier, Function.identity(), (left, right) -> left));
     }
 
     private String resolveValueType(Object value, ProductModel productModel) {
-        // 优先采用物模型中声明的数据类型，缺失时再按运行时值推断。
-        if (productModel != null && productModel.getDataType() != null && !productModel.getDataType().isBlank()) {
+        if (productModel != null && hasText(productModel.getDataType())) {
             return productModel.getDataType();
         }
         if (value == null) {
@@ -265,11 +392,6 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             return "bool";
         }
         return "string";
-    }
-
-    private String fetchProductKey(Device device) {
-        Product product = productMapper.selectById(device.getProductId());
-        return product == null ? null : product.getProductKey();
     }
 
     private Map<String, Object> parseReplyPayload(String rawPayload) {

@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,20 @@ public class RuleDefinitionController {
                   @RequestParam(required = false) Integer status) {
             List<RuleDefinition> list = ruleDefinitionService.getRuleList(metricIdentifier, alarmLevel, status);
             return R.ok(list);
+      }
+
+      /**
+       * 分页获取规则列表
+       */
+      @GetMapping("/page")
+      public R<PageResult<RuleDefinition>> pageRuleList(
+                  @RequestParam(required = false) String metricIdentifier,
+                  @RequestParam(required = false) String alarmLevel,
+                  @RequestParam(required = false) Integer status,
+                  @RequestParam(defaultValue = "1") Long pageNum,
+                  @RequestParam(defaultValue = "10") Long pageSize) {
+            PageResult<RuleDefinition> page = ruleDefinitionService.pageRuleList(metricIdentifier, alarmLevel, status, pageNum, pageSize);
+            return R.ok(page);
       }
 
       /**

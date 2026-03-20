@@ -36,6 +36,21 @@ public class AuditLog implements Serializable {
       private String userName;
 
       /**
+       * 閾捐矾 traceId
+       */
+      private String traceId;
+
+      /**
+       * 鐩稿叧璁惧缂栫爜
+       */
+      private String deviceCode;
+
+      /**
+       * 鐩稿叧浜у搧 key
+       */
+      private String productKey;
+
+      /**
        * 操作类型 insert/update/delete/select
        */
       private String operationType;
@@ -89,6 +104,16 @@ public class AuditLog implements Serializable {
        * 操作结果消息
        */
       private String resultMessage;
+
+      /**
+       * 閿欒鐮?
+       */
+      private String errorCode;
+
+      /**
+       * 寮傚父绫诲瀷
+       */
+      private String exceptionClass;
 
       /**
        * 操作时间

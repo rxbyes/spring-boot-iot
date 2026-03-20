@@ -103,4 +103,7 @@ public class Region implements Serializable {
        */
       @TableField(exist = false)
       private List<Region> children;
+
+      @TableField(exist = false)
+      private Boolean hasChildren;
 }

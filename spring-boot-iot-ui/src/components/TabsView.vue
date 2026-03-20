@@ -1,5 +1,5 @@
 <template>
-  <div class="tabs-view" aria-label="最近访问标签">
+  <div v-if="tabs.length > 1" class="tabs-view" aria-label="最近访问标签">
     <div
       v-for="tab in tabs"
       :key="tab.path"
@@ -56,14 +56,18 @@ function handleClose(path: string) {
   min-height: 2.2rem;
   padding: 0.2rem 0.3rem 0.2rem 0.36rem;
   border-radius: 0.6rem;
-  border: 1px solid #dce3ef;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 2px 8px rgba(36, 59, 102, 0.05);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.92));
+  box-shadow: var(--shadow-sm);
 }
 
 .tabs-view__item--active {
-  border-color: rgba(255, 106, 0, 0.28);
-  background: linear-gradient(120deg, rgba(255, 106, 0, 0.13), rgba(255, 106, 0, 0.04));
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--brand) 13%, transparent),
+    color-mix(in srgb, var(--brand) 4%, transparent)
+  );
 }
 
 .tabs-view__link {
@@ -71,12 +75,12 @@ function handleClose(path: string) {
   align-items: center;
   min-height: 1.8rem;
   padding: 0 0.5rem;
-  color: #4d5d74;
+  color: var(--text-secondary);
   text-decoration: none;
 }
 
 .tabs-view__item--active .tabs-view__link {
-  color: #ff6a00;
+  color: var(--brand);
 }
 
 .tabs-view__title {
@@ -93,13 +97,13 @@ function handleClose(path: string) {
   border-radius: 50%;
   border: 1px solid transparent;
   background: transparent;
-  color: #738299;
+  color: var(--text-tertiary);
 }
 
 .tabs-view__close:hover,
 .tabs-view__close:focus-visible {
-  border-color: rgba(255, 106, 0, 0.28);
-  background: rgba(255, 106, 0, 0.12);
-  color: #ff6a00;
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
 }
 </style>

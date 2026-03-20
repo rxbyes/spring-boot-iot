@@ -1,16 +1,36 @@
-<template>
-  <div class="emergency-plan-view">
-    <div class="emergency-plan-header">
-      <h1>应急预�?/h1>
-      <el-button type="primary" @click="handleAdd">新增预案</el-button>
-    </div>
+﻿<template>
+  <div class="ops-workbench emergency-plan-view">
+    <PanelCard
+      eyebrow="Emergency Plans"
+      title="应急预案库"
+      description="统一维护风险等级、响应步骤和联系人信息，支撑风险事件在告警触发后的快速响应与闭环执行。"
+      class="ops-hero-card"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleAdd">新增预案</el-button>
+      </template>
+      <div class="ops-kpi-grid">
+        <MetricCard label="预案总数" :value="String(pagination.total)" :badge="{ label: '预案库', tone: 'brand' }" />
+        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '可执行', tone: 'success' }" />
+        <MetricCard label="严重风险预案" :value="String(criticalCount)" :badge="{ label: '高优先级', tone: 'danger' }" />
+        <MetricCard label="警告风险预案" :value="String(warningCount)" :badge="{ label: '常用预案', tone: 'warning' }" />
+      </div>
+      <div class="ops-inline-note">
+        应急预案库与联动编排、阈值策略共同构成风险闭环，当前页面已统一为工作台样式，方便查看、维护和版本化治理。
+      </div>
+    </PanelCard>
 
-    <div class="emergency-plan-filters">
-      <el-form :model="filters" label-position="left">
+    <PanelCard
+      eyebrow="Plan Filters"
+      title="筛选条件"
+      description="优先关注严重风险预案和启用中的执行方案，确保关键场景下可快速调用并落实响应步骤。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="预案名称">
-              <el-input v-model="filters.planName" placeholder="请输入预案名�? clearable />
+              <el-input v-model="filters.planName" placeholder="请输入预案名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
@@ -23,125 +43,189 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状�?>
-              <el-select v-model="filters.status" placeholder="请选择状�? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
+            <el-form-item label="治理建议">
+              <el-input :model-value="planAdvice" disabled />
             </el-form-item>
           </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
-    </div>
+    </PanelCard>
 
-    <div class="emergency-plan-list">
-      <el-table :data="planList" v-loading="loading" border>
-        <el-table-column prop="planName" label="预案名称" />
-        <el-table-column prop="riskLevel" label="风险等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getRiskLevelType(row.riskLevel)">{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" />
-        <el-table-column prop="status" label="状�? width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <PanelCard
+      eyebrow="Plan List"
+      title="应急预案列表"
+      :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
+      class="ops-table-card"
+    >
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+      >
+        <template #right>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </template>
+      </StandardTableToolbar>
 
-    <div class="emergency-plan-pagination">
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </div>
+      <div v-if="loading" class="ops-state">正在加载应急预案列表...</div>
+      <div v-else-if="planList.length === 0" class="ops-state">暂无符合条件的应急预案</div>
+      <template v-else>
+        <el-table
+          ref="tableRef"
+          :data="planList"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="48" />
+          <StandardTableTextColumn prop="planName" label="预案名称" :min-width="180" />
+          <el-table-column prop="riskLevel" label="风险等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <!-- 预案表单对话�?-->
-    <el-dialog v-model="formVisible" :title="formTitle" width="600px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="预案名称" prop="planName">
-          <el-input v-model="form.planName" placeholder="请输入预案名�? />
-        </el-form-item>
-        <el-form-item label="风险等级" prop="riskLevel">
-          <el-radio-group v-model="form.riskLevel">
-            <el-radio label="critical">严重</el-radio>
-            <el-radio label="warning">警告</el-radio>
-            <el-radio label="info">提醒</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描�? />
-        </el-form-item>
-        <el-form-item label="响应步骤" prop="responseSteps">
-          <el-input v-model="form.responseSteps" type="textarea" :rows="5" placeholder="请输入响应步骤（JSON格式�? />
-        </el-form-item>
-        <el-form-item label="联系人列�? prop="contactList">
-          <el-input v-model="form.contactList" type="textarea" :rows="3" placeholder="请输入联系人列表（JSON格式�? />
-        </el-form-item>
-        <el-form-item label="状�? prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :label="0">启用</el-radio>
-            <el-radio :label="1">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <div class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
-    </el-dialog>
+    </PanelCard>
+
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Risk Platform Form"
+      :title="formTitle"
+      subtitle="统一通过右侧抽屉维护应急预案与响应步骤。"
+      size="44rem"
+      @close="handleFormClose"
+    >
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>维护提示</strong>
+          <span>建议先明确风险等级和执行状态，再补齐响应步骤与联系人列表，确保应急场景下能够直接复用预案。</span>
+        </div>
+        <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>预案基础信息</h3>
+                <p>统一维护预案名称、适用风险等级和启停状态，保证不同层级风险场景下快速选用对应预案。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="预案名称" prop="planName">
+                <el-input v-model="form.planName" placeholder="请输入预案名称" />
+              </el-form-item>
+              <el-form-item label="状态" prop="status">
+                <el-radio-group v-model="form.status">
+                  <el-radio :value="0">启用</el-radio>
+                  <el-radio :value="1">停用</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="风险等级" prop="riskLevel" class="ops-drawer-grid__full">
+                <el-radio-group v-model="form.riskLevel">
+                  <el-radio value="critical">严重</el-radio>
+                  <el-radio value="warning">警告</el-radio>
+                  <el-radio value="info">提醒</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="描述" prop="description" class="ops-drawer-grid__full">
+                <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入预案描述、适用范围或启动说明" />
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>响应编排</h3>
+                <p>统一维护步骤清单和联系人列表，便于在处置过程中直接按预案执行并找到对应责任人。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid ops-drawer-grid--single">
+              <el-form-item label="响应步骤" prop="responseSteps">
+                <el-input v-model="form.responseSteps" type="textarea" :rows="6" placeholder="请输入响应步骤（JSON格式）" />
+              </el-form-item>
+              <el-form-item label="联系人列表" prop="contactList">
+                <el-input v-model="form.contactList" type="textarea" :rows="4" placeholder="请输入联系人列表（JSON格式）" />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
+      </template>
+    </StandardFormDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
-import { getPlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
-// 状�?
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
+const tableRef = ref();
+const selectedRows = ref<EmergencyPlan[]>([]);
 
-// 查询条件
 const filters = reactive({
   planName: '',
   riskLevel: '',
-  status: ''
+  status: '' as '' | number
 });
 
-// 分页
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-});
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
-// 表单
 const formRef = ref();
-const formTitle = computed(() => form.id ? '编辑预案' : '新增预案');
+const formTitle = computed(() => (form.id ? '编辑预案' : '新增预案'));
 const form = reactive({
   id: undefined as number | undefined,
   planName: '',
@@ -153,14 +237,18 @@ const form = reactive({
 });
 
 const rules = {
-  planName: [{ required: true, message: '请输入预案名�?, trigger: 'blur' }],
+  planName: [{ required: true, message: '请输入预案名称', trigger: 'blur' }],
   riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }],
-  responseSteps: [{ required: true, message: '请输入响应步�?, trigger: 'blur' }]
+  responseSteps: [{ required: true, message: '请输入响应步骤', trigger: 'blur' }]
 };
 
 const submitLoading = ref(false);
+const planAdvice = '优先检查严重风险预案和启用中的执行方案';
 
-// 获取风险等级类型
+const enabledCount = computed(() => planList.value.filter((item) => item.status === 0).length);
+const criticalCount = computed(() => planList.value.filter((item) => item.riskLevel === 'critical').length);
+const warningCount = computed(() => planList.value.filter((item) => item.riskLevel === 'warning').length);
+
 const getRiskLevelType = (riskLevel: string) => {
   switch (riskLevel) {
     case 'critical':
@@ -174,7 +262,6 @@ const getRiskLevelType = (riskLevel: string) => {
   }
 };
 
-// 获取风险等级文本
 const getRiskLevelText = (riskLevel: string) => {
   switch (riskLevel) {
     case 'critical':
@@ -188,7 +275,6 @@ const getRiskLevelText = (riskLevel: string) => {
   }
 };
 
-// 获取状态类�?
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -200,7 +286,6 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文�?
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -212,18 +297,18 @@ const getStatusText = (status: number) => {
   }
 };
 
-// 获取预案列表
 const loadPlanList = async () => {
   loading.value = true;
   try {
-    const res = await getPlanList({
+    const res = await pagePlanList({
       planName: filters.planName || undefined,
       riskLevel: filters.riskLevel || undefined,
-      status: filters.status ? parseInt(filters.status) : undefined
+      status: filters.status === '' ? undefined : Number(filters.status),
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
     });
     if (res.code === 200) {
-      planList.value = res.data || [];
-      pagination.total = res.data?.length || 0;
+      planList.value = applyPageResult(res.data);
     }
   } catch (error) {
     console.error('查询预案列表失败', error);
@@ -232,33 +317,44 @@ const loadPlanList = async () => {
   }
 };
 
-// 处理搜索
 const handleSearch = () => {
-  pagination.page = 1;
-  loadPlanList();
+  resetPage();
+  void loadPlanList();
 };
 
-// 处理重置
 const handleReset = () => {
   filters.planName = '';
   filters.riskLevel = '';
   filters.status = '';
-  pagination.page = 1;
-  loadPlanList();
+  resetPage();
+  void loadPlanList();
 };
 
-// 处理大小变化
-const handleSizeChange = () => {
-  loadPlanList();
+const handleSizeChange = (size: number) => {
+  setPageSize(size);
+  void loadPlanList();
 };
 
-// 处理页码变化
-const handlePageChange = () => {
-  loadPlanList();
+const handlePageChange = (page: number) => {
+  setPageNum(page);
+  void loadPlanList();
 };
 
-// 新增预案
-const handleAdd = () => {
+const handleSelectionChange = (rows: EmergencyPlan[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection?.();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
+  clearSelection();
+  void loadPlanList();
+};
+
+const resetPlanForm = () => {
   form.id = undefined;
   form.planName = '';
   form.riskLevel = 'warning';
@@ -266,10 +362,13 @@ const handleAdd = () => {
   form.responseSteps = '';
   form.contactList = '';
   form.status = 0;
+};
+
+const handleAdd = () => {
+  resetPlanForm();
   formVisible.value = true;
 };
 
-// 编辑预案
 const handleEdit = (row: EmergencyPlan) => {
   form.id = row.id;
   form.planName = row.planName;
@@ -281,23 +380,22 @@ const handleEdit = (row: EmergencyPlan) => {
   formVisible.value = true;
 };
 
-// 删除预案
 const handleDelete = async (row: EmergencyPlan) => {
   try {
-    await ElMessageBox.confirm('确定要删除该预案吗？', '删除预案', {
-      type: 'warning'
-    });
+    await confirmDelete('预案', row.planName);
     const res = await deletePlan(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
-      loadPlanList();
+      void loadPlanList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除预案失败', error);
   }
 };
 
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
@@ -307,7 +405,7 @@ const handleSubmit = async () => {
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
-      loadPlanList();
+      void loadPlanList();
     }
   } catch (error) {
     console.error('提交表单失败', error);
@@ -316,44 +414,22 @@ const handleSubmit = async () => {
   }
 };
 
-// 初始�?
+const handleFormClose = () => {
+  formRef.value?.clearValidate?.();
+  resetPlanForm();
+};
+
 onMounted(() => {
-  loadPlanList();
+  void loadPlanList();
 });
 </script>
 
 <style scoped>
 .emergency-plan-view {
   padding: 20px;
-}
-
-.emergency-plan-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.emergency-plan-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.emergency-plan-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.emergency-plan-list {
-  margin-bottom: 20px;
-}
-
-.emergency-plan-pagination {
-  display: flex;
-  justify-content: flex-end;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>
 

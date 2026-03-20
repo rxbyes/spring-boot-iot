@@ -1,6 +1,8 @@
 package com.ghlzm.iot.system.controller;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.system.dto.ChangePasswordDTO;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.service.UserService;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,12 +34,21 @@ public class UserController {
       }
 
       @GetMapping("/list")
-      public R<List<User>> listUsers(
-                  @RequestParam(required = false) String username,
-                  @RequestParam(required = false) String phone,
-                  @RequestParam(required = false) String email,
-                  @RequestParam(required = false) Integer status) {
+      public R<List<User>> listUsers(@RequestParam(required = false) String username,
+                                     @RequestParam(required = false) String phone,
+                                     @RequestParam(required = false) String email,
+                                     @RequestParam(required = false) Integer status) {
             return R.ok(userService.listUsers(username, phone, email, status));
+      }
+
+      @GetMapping("/page")
+      public R<PageResult<User>> pageUsers(@RequestParam(required = false) String username,
+                                           @RequestParam(required = false) String phone,
+                                           @RequestParam(required = false) String email,
+                                           @RequestParam(required = false) Integer status,
+                                           @RequestParam(defaultValue = "1") Long pageNum,
+                                           @RequestParam(defaultValue = "10") Long pageSize) {
+            return R.ok(userService.pageUsers(username, phone, email, status, pageNum, pageSize));
       }
 
       @GetMapping("/{id}")
@@ -63,8 +74,8 @@ public class UserController {
       }
 
       @PostMapping("/change-password")
-      public R<Void> changePassword(@RequestBody User user) {
-            userService.changePassword(user.getId(), user.getPassword(), user.getPassword());
+      public R<Void> changePassword(@RequestBody ChangePasswordDTO dto) {
+            userService.changePassword(dto.getId(), dto.getOldPassword(), dto.getNewPassword());
             return R.ok();
       }
 

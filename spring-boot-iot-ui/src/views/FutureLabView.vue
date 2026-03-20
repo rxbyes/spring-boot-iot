@@ -12,14 +12,7 @@
         eyebrow="Planned Capability"
         :title="card.title"
       >
-        <div class="flow-rail">
-          <div v-for="point in card.contracts" :key="point.title" class="flow-rail__item">
-            <span class="flow-rail__index">{{ point.index }}</span>
-            <div>
-              <strong>{{ point.title }}</strong>
-            </div>
-          </div>
-        </div>
+        <StandardFlowRail :items="card.contracts" :show-description="false" />
       </PanelCard>
     </section>
 
@@ -40,26 +33,7 @@
         eyebrow="Roadmap Bridge"
         title="与项目文档的衔接"
       >
-        <div class="flow-rail">
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T1</span>
-            <div>
-              <strong>Telemetry</strong>
-            </div>
-          </div>
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T2</span>
-            <div>
-              <strong>Gateway</strong>
-            </div>
-          </div>
-          <div class="flow-rail__item">
-            <span class="flow-rail__index">T3</span>
-            <div>
-              <strong>Rule / Alarm / OTA</strong>
-            </div>
-          </div>
-        </div>
+        <StandardFlowRail :items="roadmapBridgeItems" :show-description="false" />
       </PanelCard>
     </section>
   </div>
@@ -67,13 +41,14 @@
 
 <script setup lang="ts">
 import PanelCard from '../components/PanelCard.vue';
+import StandardFlowRail from '../components/StandardFlowRail.vue';
 
 const futureCards = [
   {
     title: '点位图表中枢',
     description: '为温湿度、能耗、震动、状态点位构建同屏趋势、阈值和对比曲线。',
     contracts: [
-      { index: '01', title: '属性快照', description: '复用当前 `GET /device/{deviceCode}/properties` 做首屏摘要。' },
+      { index: '01', title: '属性快照', description: '复用当前 `GET /api/device/{deviceCode}/properties` 做首屏摘要。' },
       { index: '02', title: '时序查询', description: '后续接 telemetry 模块，补足历史趋势和时间范围检索。' },
       { index: '03', title: '异常着色', description: '按 valueType、阈值和告警等级统一上色。' }
     ]
@@ -96,6 +71,12 @@ const futureCards = [
       { index: '03', title: '链路追踪', description: '结合 message log 做报文路径回溯。' }
     ]
   }
+];
+
+const roadmapBridgeItems = [
+  { index: 'T1', title: 'Telemetry' },
+  { index: 'T2', title: 'Gateway' },
+  { index: 'T3', title: 'Rule / Alarm / OTA' }
 ];
 </script>
 

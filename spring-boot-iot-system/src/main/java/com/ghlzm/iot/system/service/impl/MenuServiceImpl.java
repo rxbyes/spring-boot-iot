@@ -1,0 +1,382 @@
+package com.ghlzm.iot.system.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.mapper.MenuMapper;
+import com.ghlzm.iot.system.mapper.RoleMenuMapper;
+import com.ghlzm.iot.system.service.MenuService;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements MenuService {
+
+      private static final String TABLE_NAME = "sys_menu";
+
+      private final RoleMenuMapper roleMenuMapper;
+      private final JdbcTemplate jdbcTemplate;
+      private final MenuSchemaSupport menuSchemaSupport;
+
+      public MenuServiceImpl(RoleMenuMapper roleMenuMapper,
+                             JdbcTemplate jdbcTemplate,
+                             MenuSchemaSupport menuSchemaSupport) {
+            this.roleMenuMapper = roleMenuMapper;
+            this.jdbcTemplate = jdbcTemplate;
+            this.menuSchemaSupport = menuSchemaSupport;
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public Menu addMenu(Menu menu) {
+            validateMenuCodeUnique(menu.getMenuCode(), null);
+            validateParent(menu.getParentId(), null);
+
+            normalizeForInsert(menu);
+            if (!insertMenuCompat(menu)) {
+                  save(menu);
+            }
+            return getById(menu.getId());
+      }
+
+      @Override
+      public List<Menu> listMenus(String menuName, String menuCode, Integer type, Integer status) {
+            List<Menu> menus = list(buildMenuQueryWrapper(menuName, menuCode, type, status, true));
+            fillHasChildren(menus);
+            return menus;
+      }
+
+      @Override
+      public List<Menu> listMenusByParentId(Long parentId) {
+            LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Menu::getParentId, parentId != null && parentId > 0 ? parentId : 0L)
+                    .orderByAsc(Menu::getSort)
+                    .orderByAsc(Menu::getId);
+            List<Menu> menus = list(wrapper);
+            fillHasChildren(menus);
+            return menus;
+      }
+
+      @Override
+      public PageResult<Menu> pageMenus(String menuName, String menuCode, Integer type, Integer status, Long pageNum, Long pageSize) {
+            Page<Menu> page = PageQueryUtils.buildPage(pageNum, pageSize);
+            Page<Menu> result = page(page, buildMenuQueryWrapper(menuName, menuCode, type, status, false));
+            List<Menu> records = result.getRecords();
+            fillHasChildren(records);
+            return PageQueryUtils.toPageResult(result);
+      }
+
+      @Override
+      public Menu getMenuById(Long id) {
+            return getById(id);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void updateMenu(Menu menu) {
+            if (menu.getId() == null) {
+                  throw new BizException("菜单ID不能为空");
+            }
+            Menu existing = getById(menu.getId());
+            if (existing == null) {
+                  throw new BizException("菜单不存在");
+            }
+
+            validateMenuCodeUnique(menu.getMenuCode(), menu.getId());
+            validateParent(menu.getParentId(), menu.getId());
+
+            normalizeForUpdate(menu, existing);
+            if (!updateMenuCompat(menu)) {
+                  updateById(menu);
+            }
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void deleteMenu(Long id) {
+            Menu existing = getById(id);
+            if (existing == null) {
+                  throw new BizException("菜单不存在");
+            }
+
+            LambdaQueryWrapper<Menu> childWrapper = new LambdaQueryWrapper<>();
+            childWrapper.eq(Menu::getParentId, id);
+            if (count(childWrapper) > 0) {
+                  throw new BizException("存在子菜单，无法删除");
+            }
+
+            if (roleMenuMapper.countByMenuId(id) > 0) {
+                  throw new BizException("菜单已被角色引用，无法删除");
+            }
+
+            removeById(id);
+      }
+
+      private LambdaQueryWrapper<Menu> buildMenuQueryWrapper(String menuName,
+                                                             String menuCode,
+                                                             Integer type,
+                                                             Integer status,
+                                                             boolean listMode) {
+            boolean filterMode = StringUtils.hasText(menuName)
+                    || StringUtils.hasText(menuCode)
+                    || type != null
+                    || status != null;
+            LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+            if (!listMode && !filterMode) {
+                  wrapper.eq(Menu::getParentId, 0L);
+            }
+            if (StringUtils.hasText(menuName)) {
+                  wrapper.like(Menu::getMenuName, menuName.trim());
+            }
+            if (StringUtils.hasText(menuCode)) {
+                  wrapper.like(Menu::getMenuCode, menuCode.trim());
+            }
+            if (type != null) {
+                  wrapper.eq(Menu::getType, type);
+            }
+            if (status != null) {
+                  wrapper.eq(Menu::getStatus, status);
+            }
+            wrapper.orderByAsc(Menu::getSort).orderByAsc(Menu::getId);
+            return wrapper;
+      }
+
+      private void fillHasChildren(List<Menu> menus) {
+            if (CollectionUtils.isEmpty(menus)) {
+                  return;
+            }
+            Set<Long> ids = menus.stream()
+                    .map(Menu::getId)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
+            if (ids.isEmpty()) {
+                  menus.forEach(item -> item.setHasChildren(Boolean.FALSE));
+                  return;
+            }
+
+            List<Menu> children = list(new LambdaQueryWrapper<Menu>()
+                    .select(Menu::getParentId)
+                    .in(Menu::getParentId, ids));
+            Set<Long> parentIds = children.stream()
+                    .map(Menu::getParentId)
+                    .filter(parentId -> parentId != null && parentId > 0)
+                    .collect(Collectors.toSet());
+            menus.forEach(item -> item.setHasChildren(parentIds.contains(item.getId())));
+      }
+
+      private void validateMenuCodeUnique(String menuCode, Long currentId) {
+            if (!StringUtils.hasText(menuCode)) {
+                  return;
+            }
+            LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Menu::getMenuCode, menuCode.trim());
+            if (currentId != null) {
+                  wrapper.ne(Menu::getId, currentId);
+            }
+            if (count(wrapper) > 0) {
+                  throw new BizException("菜单编码已存在");
+            }
+      }
+
+      private void validateParent(Long parentId, Long currentId) {
+            if (parentId == null || parentId <= 0) {
+                  return;
+            }
+            if (currentId != null && parentId.equals(currentId)) {
+                  throw new BizException("父级菜单不能是自身");
+            }
+            Menu parent = getById(parentId);
+            if (parent == null) {
+                  throw new BizException("父级菜单不存在");
+            }
+      }
+
+      private void normalizeForInsert(Menu menu) {
+            if (menu.getId() == null) {
+                  menu.setId(IdWorker.getId());
+            }
+            if (menu.getParentId() == null) {
+                  menu.setParentId(0L);
+            }
+            if (menu.getSort() == null) {
+                  menu.setSort(0);
+            }
+            if (menu.getType() == null) {
+                  menu.setType(1);
+            }
+            if (menu.getStatus() == null) {
+                  menu.setStatus(1);
+            }
+            if (menu.getCreateBy() == null) {
+                  menu.setCreateBy(1L);
+            }
+            if (menu.getCreateTime() == null) {
+                  menu.setCreateTime(new Date());
+            }
+            if (menu.getUpdateTime() == null) {
+                  menu.setUpdateTime(menu.getCreateTime());
+            }
+            if (menu.getDeleted() == null) {
+                  menu.setDeleted(0);
+            }
+      }
+
+      private void normalizeForUpdate(Menu menu, Menu existing) {
+            if (menu.getParentId() == null) {
+                  menu.setParentId(existing.getParentId());
+            }
+            if (!StringUtils.hasText(menu.getMenuName())) {
+                  menu.setMenuName(existing.getMenuName());
+            }
+            if (!StringUtils.hasText(menu.getMenuCode())) {
+                  menu.setMenuCode(existing.getMenuCode());
+            }
+            if (menu.getPath() == null) {
+                  menu.setPath(existing.getPath());
+            }
+            if (menu.getComponent() == null) {
+                  menu.setComponent(existing.getComponent());
+            }
+            if (menu.getIcon() == null) {
+                  menu.setIcon(existing.getIcon());
+            }
+            if (menu.getMetaJson() == null) {
+                  menu.setMetaJson(existing.getMetaJson());
+            }
+            if (menu.getSort() == null) {
+                  menu.setSort(existing.getSort());
+            }
+            if (menu.getType() == null) {
+                  menu.setType(existing.getType());
+            }
+            if (menu.getStatus() == null) {
+                  menu.setStatus(existing.getStatus());
+            }
+            if (menu.getUpdateBy() == null) {
+                  menu.setUpdateBy(1L);
+            }
+            if (menu.getUpdateTime() == null) {
+                  menu.setUpdateTime(new Date());
+            }
+      }
+
+      private boolean insertMenuCompat(Menu menu) {
+            Set<String> columns = menuSchemaSupport.getColumns();
+            if (columns.isEmpty()) {
+                  return false;
+            }
+
+            Map<String, Object> values = new LinkedHashMap<>();
+            putValue(values, columns, "id", menu.getId());
+            putValue(values, columns, "tenant_id", 1L);
+            putValue(values, columns, "parent_id", menu.getParentId());
+            putValue(values, columns, "menu_name", menu.getMenuName());
+            putAliasedValue(values, columns, menu.getMenuCode(), "menu_code", "permission");
+            putAliasedValue(values, columns, menu.getPath(), "path", "route_path");
+            putValue(values, columns, "component", menu.getComponent());
+            putValue(values, columns, "icon", menu.getIcon());
+            putValue(values, columns, "meta_json", menu.getMetaJson());
+            putAliasedValue(values, columns, menu.getSort(), "sort", "sort_no");
+            putValue(values, columns, "type", menu.getType());
+            putValue(values, columns, "menu_type", menu.getType());
+            putValue(values, columns, "visible", 1);
+            putValue(values, columns, "status", menu.getStatus());
+            putValue(values, columns, "create_by", menu.getCreateBy());
+            putValue(values, columns, "create_time", menu.getCreateTime());
+            putValue(values, columns, "update_by", menu.getUpdateBy());
+            putValue(values, columns, "update_time", menu.getUpdateTime());
+            putValue(values, columns, "deleted", menu.getDeleted());
+            if (values.isEmpty()) {
+                  return false;
+            }
+
+            // 兼容真实库仍保留 menu_type / permission / route_path / sort_no 的场景，插入时显式带上同义列。
+            String sql = "INSERT INTO " + TABLE_NAME + " (" + String.join(", ", values.keySet()) + ") VALUES ("
+                    + String.join(", ", values.keySet().stream().map(item -> "?").toList()) + ")";
+            jdbcTemplate.update(sql, values.values().toArray());
+            return true;
+      }
+
+      private boolean updateMenuCompat(Menu menu) {
+            Set<String> columns = menuSchemaSupport.getColumns();
+            if (columns.isEmpty()) {
+                  return false;
+            }
+
+            Map<String, Object> values = new LinkedHashMap<>();
+            putValue(values, columns, "parent_id", menu.getParentId());
+            putValue(values, columns, "menu_name", menu.getMenuName());
+            putAliasedValue(values, columns, menu.getMenuCode(), "menu_code", "permission");
+            putAliasedValue(values, columns, menu.getPath(), "path", "route_path");
+            putValue(values, columns, "component", menu.getComponent());
+            putValue(values, columns, "icon", menu.getIcon());
+            putValue(values, columns, "meta_json", menu.getMetaJson());
+            putAliasedValue(values, columns, menu.getSort(), "sort", "sort_no");
+            putValue(values, columns, "type", menu.getType());
+            putValue(values, columns, "menu_type", menu.getType());
+            putValue(values, columns, "visible", 1);
+            putValue(values, columns, "status", menu.getStatus());
+            putValue(values, columns, "update_by", menu.getUpdateBy());
+            putValue(values, columns, "update_time", menu.getUpdateTime());
+            if (values.isEmpty()) {
+                  return false;
+            }
+
+            StringBuilder sql = new StringBuilder("UPDATE ").append(TABLE_NAME).append(" SET ");
+            List<Object> params = new ArrayList<>();
+            boolean first = true;
+            for (Map.Entry<String, Object> entry : values.entrySet()) {
+                  if (!first) {
+                        sql.append(", ");
+                  }
+                  sql.append(entry.getKey()).append(" = ?");
+                  params.add(entry.getValue());
+                  first = false;
+            }
+            sql.append(" WHERE id = ?");
+            params.add(menu.getId());
+            jdbcTemplate.update(sql.toString(), params.toArray());
+            return true;
+      }
+
+      private void putValue(Map<String, Object> values, Set<String> columns, String column, Object value) {
+            if (value != null && columns.contains(column)) {
+                  values.put(column, toJdbcValue(value));
+            }
+      }
+
+      private void putAliasedValue(Map<String, Object> values, Set<String> columns, Object value, String... candidates) {
+            if (value == null) {
+                  return;
+            }
+            for (String candidate : candidates) {
+                  if (columns.contains(candidate)) {
+                        values.put(candidate, toJdbcValue(value));
+                  }
+            }
+      }
+
+      private Object toJdbcValue(Object value) {
+            if (value instanceof Date date) {
+                  return new Timestamp(date.getTime());
+            }
+            return value;
+      }
+}

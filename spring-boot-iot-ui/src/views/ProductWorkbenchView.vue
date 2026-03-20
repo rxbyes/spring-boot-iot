@@ -1,970 +1,1890 @@
 <template>
-  <div class="product-workbench-page">
-    <!-- ¶¥²¿µ¼º½À¸ -->
-    <div class="workbench-header">
-      <div class="header-left">
-        <h1 class="page-title">²úÆ·Ä£°åÖĞĞÄ</h1>
-        <span class="timestamp">{{ currentTime }}</span>
-      </div>
-      <div class="header-right">
-        <el-radio-group v-model="currentRole" size="large">
-          <el-radio-button value="field">ÑĞ·¢</el-radio-button>
-          <el-radio-button value="ops">ÔËÎ¬</el-radio-button>
-          <el-radio-button value="manager">¹ÜÀí</el-radio-button>
-        </el-radio-group>
-      </div>
-    </div>
+  <div class="product-asset-view ops-workbench standard-list-view">
+    <PanelCard class="ops-hero-card ops-table-card product-workbench-card">
+      <template #header>
+        <div class="product-hero-card__header">
+          <div class="product-hero-card__heading">
+            <h2 class="product-hero-card__title">äº§å“å®šä¹‰ä¸­å¿ƒ</h2>
+            <p class="product-hero-card__caption">èšç„¦äº§å“å°è´¦ç»´æŠ¤ï¼Œæ”¯æŒç­›é€‰ã€æŸ¥çœ‹ã€ç¼–è¾‘ã€åˆ é™¤ã€å¯¼å‡ºå’Œå…³è”è®¾å¤‡è·³è½¬ã€‚</p>
+          </div>
+          <StandardActionGroup gap="sm">
+            <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">æ–°å¢äº§å“</el-button>
+          </StandardActionGroup>
+        </div>
+      </template>
 
-    <!-- ²úÆ·×´Ì¬ºá·ù -->
-    <div class="product-banner" :class="`product-banner--${productSummary.tone}`">
-      <div class="banner-content">
-        <p class="banner-label">µ±Ç°²úÆ·×´Ì¬</p>
-        <strong class="banner-value">{{ productSummary.label }}</strong>
-        <p class="banner-desc">{{ productSummary.description }}</p>
-      </div>
-      <div class="banner-score">
-        <small>²úÆ·ÆÀ·Ö</small>
-        <strong>{{ productSummary.score }}</strong>
-      </div>
-    </div>
-
-    <!-- ¹Ø¼üÖ¸±ê¿¨Æ¬ -->
-    <div class="quad-grid">
-      <MetricCard
-        v-for="metric in roleMetrics[currentRole]"
-        :key="metric.label"
-        :label="metric.label"
-        :value="metric.value"
-        :badge="metric.badge"
-      />
-    </div>
-
-    <!-- ÖĞÑë¹¤×÷ÇøÓò -->
-    <div class="main-workarea">
-      <!-- ²úÆ·Ä£°åÇøÓò -->
-      <div class="product-template">
-        <h3 class="section-title">²úÆ·Ä£°åÅäÖÃ</h3>
-        <div class="template-grid">
-          <div class="template-card">
-            <div class="template-header">
-              <strong class="template-title">ĞÂÔö²úÆ·</strong>
-              <span class="template-tag">Provisioning</span>
+      <div class="product-workbench-card__filters">
+        <el-form :model="searchForm" class="product-inline-filter" @submit.prevent>
+          <div class="product-inline-filter__row">
+            <el-form-item class="product-inline-filter__item">
+              <el-input
+                id="query-product-name"
+                v-model="searchForm.productName"
+                placeholder="äº§å“åç§°"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item class="product-inline-filter__item">
+              <el-select v-model="searchForm.nodeType" placeholder="èŠ‚ç‚¹ç±»å‹" clearable>
+                <el-option label="ç›´è¿è®¾å¤‡" :value="1" />
+                <el-option label="ç½‘å…³è®¾å¤‡" :value="2" />
+              </el-select>
+            </el-form-item>
+            <el-form-item class="product-inline-filter__item">
+              <el-select v-model="searchForm.status" placeholder="äº§å“çŠ¶æ€" clearable>
+                <el-option label="å¯ç”¨" :value="1" />
+                <el-option label="åœç”¨" :value="0" />
+              </el-select>
+            </el-form-item>
+            <div class="product-inline-filter__actions">
+              <StandardActionGroup gap="sm">
+                <el-button type="primary" @click="handleSearch">æŸ¥è¯¢</el-button>
+                <el-button @click="handleReset">é‡ç½®</el-button>
+              </StandardActionGroup>
             </div>
-            <form class="form-grid" @submit.prevent="handleCreateProduct">
-              <div class="field-group">
-                <label for="product-key">²úÆ· Key</label>
+          </div>
+        </el-form>
+      </div>
+
+      <div v-if="hasAppliedFilters" class="product-applied-filters">
+        <span class="product-applied-filters__label">å·²ç”Ÿæ•ˆç­›é€‰</span>
+        <div class="product-applied-filters__list">
+          <el-tag
+            v-for="tag in activeFilterTags"
+            :key="tag.key"
+            closable
+            class="product-applied-filters__tag"
+            @close="removeAppliedFilter(tag.key)"
+          >
+            {{ tag.label }}
+          </el-tag>
+        </div>
+        <el-button link class="product-applied-filters__clear" @click="handleClearAppliedFilters">æ¸…ç©ºå…¨éƒ¨</el-button>
+      </div>
+
+      <StandardTableToolbar
+        :meta-items="[
+          `å·²é€‰ ${selectedRows.length} é¡¹`,
+          `å¯ç”¨ ${enabledProductCount} ä¸ª`,
+          `åœç”¨ ${disabledProductCount} ä¸ª`
+        ]"
+      >
+        <template #right>
+          <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">å¯¼å‡ºåˆ—è®¾ç½®</el-button>
+          <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
+            å¯¼å‡ºé€‰ä¸­
+          </el-button>
+          <el-button v-permission="'iot:products:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">
+            å¯¼å‡ºå½“å‰ç»“æœ
+          </el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">æ¸…ç©ºé€‰ä¸­</el-button>
+          <el-button link @click="handleRefresh">åˆ·æ–°åˆ—è¡¨</el-button>
+        </template>
+      </StandardTableToolbar>
+
+      <div
+        v-loading="loading"
+        class="product-result-panel"
+        element-loading-text="æ­£åœ¨åˆ·æ–°äº§å“åˆ—è¡¨"
+        element-loading-background="rgba(248, 250, 255, 0.78)"
+      >
+        <template v-if="hasRecords">
+          <div class="product-mobile-list">
+            <div class="product-mobile-list__grid">
+              <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
+                <div class="product-mobile-card__header">
+                  <el-checkbox
+                    :model-value="isRowSelected(row)"
+                    @change="(checked) => handleMobileSelectionChange(row, Boolean(checked))"
+                  />
+                  <div class="product-mobile-card__heading">
+                    <strong class="product-mobile-card__title">{{ row.productName || '--' }}</strong>
+                    <span class="product-mobile-card__sub">{{ row.productKey || '--' }}</span>
+                  </div>
+                  <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+                </div>
+
+                <div class="product-mobile-card__meta">
+                  <span class="product-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
+                  <span class="product-mobile-card__meta-item">{{ row.protocolCode || '--' }}</span>
+                  <span class="product-mobile-card__meta-item">{{ row.dataFormat || '--' }}</span>
+                </div>
+
+                <div class="product-mobile-card__info">
+                  <div class="product-mobile-card__field">
+                    <span>å‚å•†</span>
+                    <strong>{{ formatTextValue(row.manufacturer) }}</strong>
+                  </div>
+                  <div class="product-mobile-card__field">
+                    <span>å…³è”è®¾å¤‡</span>
+                    <strong>{{ formatCount(row.deviceCount) }}</strong>
+                  </div>
+                  <div class="product-mobile-card__field">
+                    <span>æœ€è¿‘ä¸ŠæŠ¥</span>
+                    <strong>{{ formatDateTime(row.lastReportTime) }}</strong>
+                  </div>
+                  <div class="product-mobile-card__field">
+                    <span>æ›´æ–°æ—¶é—´</span>
+                    <strong>{{ formatDateTime(row.updateTime) }}</strong>
+                  </div>
+                </div>
+
+                <div class="product-mobile-card__actions">
+                  <el-button type="primary" link @click="handleOpenDetail(row)">è¯¦æƒ…</el-button>
+                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">ç¼–è¾‘</el-button>
+                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
+                    <el-button type="primary" link>
+                      æ›´å¤š
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="devices">æŸ¥çœ‹è®¾å¤‡</el-dropdown-item>
+                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">åˆ é™¤</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <el-table
+            ref="tableRef"
+            class="product-desktop-table"
+            :data="tableData"
+            border
+            stripe
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="productKey" label="äº§å“ Key" :min-width="170" />
+            <StandardTableTextColumn prop="productName" label="äº§å“åç§°" :min-width="180" />
+            <StandardTableTextColumn prop="protocolCode" label="åè®®ç¼–ç " :width="140" />
+            <el-table-column prop="nodeType" label="èŠ‚ç‚¹ç±»å‹" width="120">
+              <template #default="{ row }">
+                <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="dataFormat" label="æ•°æ®æ ¼å¼" :width="120" />
+            <StandardTableTextColumn prop="manufacturer" label="å‚å•†" :min-width="150" />
+            <el-table-column prop="status" label="äº§å“çŠ¶æ€" width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="onlineDeviceCount" label="åœ¨çº¿è®¾å¤‡æ•°" width="110" align="center" />
+            <StandardTableTextColumn prop="lastReportTime" label="æœ€è¿‘è®¾å¤‡ä¸ŠæŠ¥" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="updateTime" label="æ›´æ–°æ—¶é—´" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+            </StandardTableTextColumn>
+            <el-table-column label="æ“ä½œ" width="180" fixed="right" :show-overflow-tooltip="false">
+              <template #default="{ row }">
+                <div class="product-table-actions">
+                  <el-button type="primary" link @click="handleOpenDetail(row)">è¯¦æƒ…</el-button>
+                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">ç¼–è¾‘</el-button>
+                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
+                    <el-button type="primary" link>
+                      æ›´å¤š
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="devices">æŸ¥çœ‹è®¾å¤‡</el-dropdown-item>
+                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">åˆ é™¤</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="product-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="product-empty-state__actions">
+            <el-button v-if="hasAppliedFilters" @click="handleClearAppliedFilters">æ¸…ç©ºç­›é€‰æ¡ä»¶</el-button>
+            <el-button v-else v-permission="'iot:products:add'" type="primary" @click="handleAdd">æ–°å¢äº§å“</el-button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="pagination.total > 0" class="ops-pagination">
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </PanelCard>
+
+    <StandardDetailDrawer
+      v-model="detailVisible"
+      class="product-detail-drawer"
+      eyebrow="äº§å“å®šä¹‰è¯¦æƒ…"
+      :title="detailTitle"
+      :subtitle="detailSubtitle"
+      :loading="detailLoading"
+      :error-message="detailErrorMessage"
+      :empty="!detailData"
+    >
+      <div v-if="detailData" class="product-detail-layout">
+        <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
+          <header class="product-detail-zone__header">
+            <span class="product-detail-zone__kicker">äº§å“æ±‡æ€»</span>
+            <p class="product-detail-zone__intro">å…ˆçœ‹çŠ¶æ€ã€è®¾å¤‡è§„æ¨¡å’Œæœ€è¿‘ä¸ŠæŠ¥ã€‚</p>
+          </header>
+
+          <div class="product-detail-overview-grid">
+            <article :class="['product-detail-overview-lead', { 'product-detail-overview-lead--danger': detailData.status === 0 }]">
+              <span class="product-detail-overview-lead__eyebrow">å½“å‰åˆ¤æ–­</span>
+              <strong class="product-detail-overview-lead__title">{{ detailOperationHeadline }}</strong>
+              <p class="product-detail-overview-lead__text">{{ detailOperationSummary }}</p>
+              <div class="product-detail-overview-progress">
+                <div class="product-detail-overview-progress__track">
+                  <span class="product-detail-overview-progress__fill" :style="{ width: `${detailOnlineRatioPercent}%` }" />
+                </div>
+                <span class="product-detail-overview-progress__caption">åœ¨çº¿è®¾å¤‡å å…³è”è®¾å¤‡çš„æ¯”ä¾‹</span>
+              </div>
+              <div class="product-detail-overview-lead__meta">
+                <span>äº§å“çŠ¶æ€ï¼š{{ getStatusText(detailData.status) }}</span>
+                <span>å½“å‰é˜¶æ®µï¼š{{ detailLifecycleStage }}</span>
+              </div>
+            </article>
+
+            <div class="product-detail-overview-metrics">
+              <article v-for="metric in detailSummaryMetrics" :key="metric.key" class="product-detail-overview-metric">
+                <span class="product-detail-overview-metric__label">{{ metric.label }}</span>
+                <strong class="product-detail-overview-metric__value">{{ metric.value }}</strong>
+                <p class="product-detail-overview-metric__hint">{{ metric.hint }}</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="product-detail-zone product-detail-zone--ledger">
+          <div class="product-detail-ledger-grid">
+            <article class="product-detail-ledger-card product-detail-ledger-card--contract">
+              <header class="product-detail-card-header">
+                <h3>æ¥å…¥å¥‘çº¦</h3>
+                <p>æ ¸å¯¹åè®®ã€èŠ‚ç‚¹ç±»å‹å’Œä¸ŠæŠ¥æ ¼å¼ã€‚</p>
+              </header>
+              <div class="product-detail-contract-list">
+                <article v-for="item in detailContractCards" :key="item.key" class="product-detail-contract-item">
+                  <span class="product-detail-contract-item__label">{{ item.label }}</span>
+                  <strong class="product-detail-contract-item__value" :title="item.value">{{ item.value }}</strong>
+                </article>
+              </div>
+            </article>
+
+            <article class="product-detail-ledger-card product-detail-ledger-card--archive">
+              <header class="product-detail-card-header">
+                <h3>äº§å“æ¡£æ¡ˆ</h3>
+                <p>æ ¸å¯¹ç¼–å·ã€Keyã€å‚å•†å’Œå»ºæ¡£æ—¶é—´ã€‚</p>
+              </header>
+              <div class="product-detail-archive-grid">
+                <article class="product-detail-archive-item product-detail-archive-item--full">
+                  <span class="product-detail-archive-item__label">äº§å“ç¼–å·</span>
+                  <strong class="product-detail-archive-item__value" :title="detailArchiveIdText">{{ detailArchiveIdText }}</strong>
+                </article>
+                <article class="product-detail-archive-item product-detail-archive-item--full">
+                  <span class="product-detail-archive-item__label">äº§å“ Key</span>
+                  <strong class="product-detail-archive-item__value" :title="detailArchiveProductKeyText">
+                    {{ detailArchiveProductKeyText }}
+                  </strong>
+                </article>
+                <article class="product-detail-archive-item">
+                  <span class="product-detail-archive-item__label">å‚å•†</span>
+                  <strong class="product-detail-archive-item__value" :title="detailArchiveManufacturerText">
+                    {{ detailArchiveManufacturerText }}
+                  </strong>
+                </article>
+                <article class="product-detail-archive-item">
+                  <span class="product-detail-archive-item__label">åˆ›å»ºæ—¶é—´</span>
+                  <strong class="product-detail-archive-item__value">{{ detailArchiveCreateDateText }}</strong>
+                </article>
+              </div>
+              <article class="product-detail-description-card">
+                <span class="product-detail-description-card__label">äº§å“è¯´æ˜</span>
+                <strong class="product-detail-description-card__value">{{ detailDescriptionText }}</strong>
+              </article>
+            </article>
+          </div>
+        </section>
+
+        <section class="product-detail-zone product-detail-zone--governance">
+          <header class="product-detail-zone__header">
+            <span class="product-detail-zone__kicker">ç»´æŠ¤ä¸æ²»ç†</span>
+            <p class="product-detail-zone__intro">å»ºè®®ã€è§„åˆ™å’Œå˜æ›´å‰æ£€æŸ¥åˆ†å±‚å±•ç¤ºã€‚</p>
+          </header>
+          <div class="product-detail-governance-grid">
+            <article
+              :class="[
+                'product-detail-governance-card',
+                'product-detail-governance-card--lead',
+                { 'product-detail-governance-card--danger': detailData.status === 0 }
+              ]"
+            >
+              <span class="product-detail-governance-card__label">å½“å‰å»ºè®®</span>
+              <strong class="product-detail-governance-card__title">{{ detailGovernanceHeadline }}</strong>
+              <p class="product-detail-governance-card__text">{{ detailGovernanceNotice }}</p>
+            </article>
+
+            <article class="product-detail-governance-card">
+              <span class="product-detail-governance-card__label">ç»´æŠ¤è§„åˆ™</span>
+              <ul class="product-detail-governance-list">
+                <li v-for="item in detailMaintenanceRules" :key="item">{{ item }}</li>
+              </ul>
+            </article>
+
+            <article class="product-detail-governance-card">
+              <span class="product-detail-governance-card__label">å˜æ›´å‰ç¡®è®¤</span>
+              <ul class="product-detail-governance-list">
+                <li v-for="item in detailChangeChecklist" :key="item">{{ item }}</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <template #footer>
+        <StandardDrawerFooter @cancel="detailVisible = false">
+          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
+            å…³é—­
+          </el-button>
+          <el-button
+            type="primary"
+            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+            :disabled="!detailData?.productKey"
+            @click="handleJumpToDevices(detailData)"
+          >
+            æŸ¥çœ‹è®¾å¤‡
+          </el-button>
+        </StandardDrawerFooter>
+      </template>
+    </StandardDetailDrawer>
+
+    <StandardFormDrawer
+      v-model="formVisible"
+      :title="formTitle"
+      size="44rem"
+      @close="handleFormClose"
+    >
+      <div class="ops-drawer-stack">
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <h3>åŸºç¡€æ¡£æ¡ˆ</h3>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="äº§å“ Key" prop="productKey">
                 <el-input
                   id="product-key"
-                  v-model="productForm.productKey"
-                  name="product_key"
-                  placeholder="ÀıÈç demo-product..."
-                  clearable
+                  v-model="formData.productKey"
+                  :disabled="Boolean(editingProductId)"
+                  placeholder="è¯·è¾“å…¥äº§å“ Keyï¼Œä¾‹å¦‚ accept-http-product-01"
                 />
-              </div>
-              <div class="field-group">
-                <label for="product-name">²úÆ·Ãû³Æ</label>
-                <el-input
-                  id="product-name"
-                  v-model="productForm.productName"
-                  name="product_name"
-                  placeholder="ÀıÈç ÑİÊ¾²úÆ·..."
-                  clearable
-                />
-              </div>
-              <div class="field-group">
-                <label for="protocol-code">Ğ­Òé±àÂë</label>
-                <el-input
-                  id="protocol-code"
-                  v-model="productForm.protocolCode"
-                  name="protocol_code"
-                  placeholder="ÀıÈç mqtt-json..."
-                  clearable
-                />
-              </div>
-              <div class="field-group">
-                <label for="node-type">½ÚµãÀàĞÍ</label>
-                <el-select id="node-type" v-model="productForm.nodeType">
-                  <el-option :value="1" label="1 - Ö±Á¬Éè±¸" />
-                  <el-option :value="2" label="2 - Íø¹ØÉè±¸" />
+              </el-form-item>
+              <el-form-item label="äº§å“åç§°" prop="productName">
+                <el-input id="product-name" v-model="formData.productName" placeholder="è¯·è¾“å…¥äº§å“åç§°" />
+              </el-form-item>
+              <el-form-item label="å‚å•†">
+                <el-input v-model="formData.manufacturer" placeholder="è¯·è¾“å…¥å‚å•†åç§°" />
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <h3>æ¥å…¥åŸºçº¿</h3>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="åè®®ç¼–ç " prop="protocolCode">
+                <el-input id="protocol-code" v-model="formData.protocolCode" placeholder="è¯·è¾“å…¥åè®®ç¼–ç ï¼Œä¾‹å¦‚ mqtt-json" />
+              </el-form-item>
+              <el-form-item label="èŠ‚ç‚¹ç±»å‹" prop="nodeType">
+                <el-select v-model="formData.nodeType" placeholder="è¯·é€‰æ‹©èŠ‚ç‚¹ç±»å‹">
+                  <el-option label="ç›´è¿è®¾å¤‡" :value="1" />
+                  <el-option label="ç½‘å…³è®¾å¤‡" :value="2" />
                 </el-select>
-              </div>
-              <div class="field-group">
-                <label for="data-format">Êı¾İ¸ñÊ½</label>
-                <el-input id="data-format" v-model="productForm.dataFormat" name="data_format" placeholder="ÀıÈç JSON..." clearable />
-              </div>
-              <div class="field-group">
-                <label for="manufacturer">³§ÉÌ</label>
-                <el-input id="manufacturer" v-model="productForm.manufacturer" name="manufacturer" placeholder="ÀıÈç spring-boot-iot..." clearable />
-              </div>
-              <div class="field-group" style="grid-column: 1 / -1;">
-                <label for="description">ËµÃ÷</label>
-                <el-input id="description" v-model="productForm.description" type="textarea" :rows="3" />
-              </div>
-              <div class="button-row" style="grid-column: 1 / -1;">
-                <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
-                  {{ isCreating ? '´´½¨ÖĞ...' : 'Ìá½»²úÆ·' }}
-                </el-button>
-                <el-button class="secondary-button" @click="resetForm">
-                  »Ö¸´ÑİÊ¾Êı¾İ
-                </el-button>
-              </div>
-            </form>
-          </div>
-
-          <div class="template-card">
-            <div class="template-header">
-              <strong class="template-title">°´ ID ²éÑ¯²úÆ·</strong>
-              <span class="template-tag">Lookup</span>
+              </el-form-item>
+              <el-form-item label="æ•°æ®æ ¼å¼">
+                <el-input id="data-format" v-model="formData.dataFormat" placeholder="è¯·è¾“å…¥æ•°æ®æ ¼å¼ï¼Œä¾‹å¦‚ JSON" />
+              </el-form-item>
+              <el-form-item label="äº§å“çŠ¶æ€">
+                <el-select v-model="formData.status" placeholder="è¯·é€‰æ‹©äº§å“çŠ¶æ€">
+                  <el-option label="å¯ç”¨" :value="1" />
+                  <el-option label="åœç”¨" :value="0" />
+                </el-select>
+              </el-form-item>
             </div>
-            <form @submit.prevent="handleQueryProduct">
-              <div class="form-grid">
-                <div class="field-group">
-                  <label for="query-product-id">²úÆ· ID</label>
-                  <el-input id="query-product-id" v-model="queryId" name="query_product_id" inputmode="numeric" placeholder="ÀıÈç 2001..." clearable />
-                </div>
-              </div>
-              <div class="button-row" style="margin-top: 1rem;">
-                <el-button class="primary-button" type="primary" native-type="submit" :loading="isQuerying">
-                  {{ isQuerying ? '²éÑ¯ÖĞ...' : '²éÑ¯²úÆ·' }}
-                </el-button>
-              </div>
-            </form>
+          </section>
 
-            <div v-if="queryProduct" class="info-grid" style="margin-top: 1rem;">
-              <div class="info-chip">
-                <span>²úÆ· Key</span>
-                <strong>{{ queryProduct.productKey }}</strong>
-              </div>
-              <div class="info-chip">
-                <span>Ğ­Òé</span>
-                <strong>{{ queryProduct.protocolCode }}</strong>
-              </div>
-              <div class="info-chip">
-                <span>½ÚµãÀàĞÍ</span>
-                <strong>{{ queryProduct.nodeType }}</strong>
-              </div>
-              <div class="info-chip">
-                <span>³§ÉÌ</span>
-                <strong>{{ queryProduct.manufacturer || '--' }}</strong>
-              </div>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <h3>è¡¥å……è¯´æ˜</h3>
             </div>
-          </div>
-        </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="è¯´æ˜" class="ops-drawer-grid__full">
+                <el-input v-model="formData.description" type="textarea" :rows="5" placeholder="è¯·è¾“å…¥äº§å“è¯´æ˜ã€æ¥å…¥çº¦æŸæˆ–é€‚ç”¨åœºæ™¯" />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
       </div>
 
-      <!-- ½ÇÉ«¿ì½İÈë¿Ú -->
-      <div class="role-quick-access">
-        <h3 class="section-title">½ÇÉ«¿ì½İÈë¿Ú</h3>
-        <div class="access-grid">
-          <div
-            v-for="action in roleActions[currentRole]"
-            :key="action.title"
-            class="action-card"
-            @click="navigateTo(action.path)"
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          :confirm-text="submitButtonText"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        >
+          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
+            å–æ¶ˆ
+          </el-button>
+          <el-button
+            id="product-submit-button"
+            v-permission="submitPermission"
+            type="primary"
+            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+            :loading="submitLoading"
+            @click="handleSubmit"
           >
-            <div class="action-icon">{{ action.icon }}</div>
-            <div class="action-content">
-              <h4 class="action-title">{{ action.title }}</h4>
-              <p class="action-desc">{{ action.desc }}</p>
-            </div>
-            <el-icon class="action-arrow"><arrow-right /></el-icon>
-          </div>
-        </div>
-      </div>
-    </div>
+            {{ submitButtonText }}
+          </el-button>
+        </StandardDrawerFooter>
+      </template>
+    </StandardFormDrawer>
 
-    <!-- µ×²¿ĞÅÏ¢ -->
-    <div class="workbench-footer">
-      <div class="footer-section">
-        <h4>µ±Ç°½¨Òé¶¯×÷</h4>
-        <div class="action-list">
-          <div
-            v-for="item in productSummary.actions"
-            :key="item"
-            class="action-item"
-          >
-            <span class="action-badge">{{ productSummary.shortLabel }}</span>
-            <p class="action-text">{{ item }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="footer-section">
-        <h4>²úÆ·»ù´¡µµ°¸</h4>
-        <div v-if="queryProduct" class="product-info-grid">
-          <div class="info-chip">
-            <span>²úÆ· Key</span>
-            <strong>{{ queryProduct.productKey }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>²úÆ·Ãû³Æ</span>
-            <strong>{{ queryProduct.productName }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>Ğ­Òé±àÂë</span>
-            <strong>{{ queryProduct.protocolCode }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>½ÚµãÀàĞÍ</span>
-            <strong>{{ queryProduct.nodeType === 1 ? 'Ö±Á¬Éè±¸' : 'Íø¹ØÉè±¸' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>Êı¾İ¸ñÊ½</span>
-            <strong>{{ queryProduct.dataFormat || 'JSON' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>³§ÉÌ</span>
-            <strong>{{ queryProduct.manufacturer || '--' }}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ¹Ø¼üÊı¾İÃæ°å -->
-    <div class="data-panels">
-      <PanelCard
-        eyebrow="Request"
-        title="×îºóÒ»´ÎÇëÇó"
-        :body="lastRequest"
-      />
-
-      <PanelCard
-        eyebrow="Response"
-        title="×îºóÒ»´ÎÏìÓ¦"
-        :body="lastResponse"
-      />
-    </div>
+    <CsvColumnSettingDialog
+      v-model="exportColumnDialogVisible"
+      title="äº§å“å¯¼å‡ºåˆ—è®¾ç½®"
+      :options="exportColumnOptions"
+      :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
+      @confirm="handleExportColumnConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElMessage } from '@/utils/message';
-import { ArrowRight } from '@element-plus/icons-vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import PanelCard from '@/components/PanelCard.vue'
+import StandardActionGroup from '@/components/StandardActionGroup.vue'
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import { productApi } from '@/api/product'
+import { useServerPagination } from '@/composables/useServerPagination'
+import type { Product, ProductAddPayload } from '@/types/api'
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { formatDateTime } from '@/utils/format'
 
-import { addProduct, getProductById } from '../api/iot';
-import MetricCard from '../components/MetricCard.vue';
-import PanelCard from '../components/PanelCard.vue';
-import { recordActivity } from '../stores/activity';
-import type { Product, ProductAddPayload } from '../types/api';
-
-interface ProductSummary {
-  score: string;
-  label: string;
-  shortLabel: string;
-  tone: 'red' | 'orange' | 'yellow' | 'blue';
-  description: string;
-  actions: string[];
+interface ProductSearchForm {
+  productName: string
+  nodeType: number | undefined
+  status: number | undefined
 }
 
-const router = useRouter();
+type ProductFilterKey = keyof ProductSearchForm
 
-// ½ÇÉ«ÇĞ»»
-const currentRole = ref<'field' | 'ops' | 'manager'>('field');
+interface ProductFormState extends ProductAddPayload {}
 
-// Ê±¼ä´Á
-const currentTime = ref('');
-const updateTime = () => {
-  const now = new Date();
-  currentTime.value = now.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-};
-setInterval(updateTime, 1000);
-updateTime();
+const route = useRoute()
+const router = useRouter()
+const tableRef = ref<TableInstance>()
+const formRef = ref<FormInstance>()
 
-// ²úÆ·±íµ¥
-const createDemoProduct = (): ProductAddPayload => ({
-  productKey: 'demo-product',
-  productName: 'ÑİÊ¾²úÆ·',
+const loading = ref(false)
+const submitLoading = ref(false)
+const formVisible = ref(false)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailErrorMessage = ref('')
+const editingProductId = ref<string | number | null>(null)
+
+const tableData = ref<Product[]>([])
+const selectedRows = ref<Product[]>([])
+const detailData = ref<Product | null>(null)
+
+const exportColumnDialogVisible = ref(false)
+const exportColumnStorageKey = 'product-definition-center'
+
+const searchForm = reactive<ProductSearchForm>({
+  productName: '',
+  nodeType: undefined,
+  status: undefined
+})
+const appliedFilters = reactive<ProductSearchForm>({
+  productName: '',
+  nodeType: undefined,
+  status: undefined
+})
+
+const createDefaultFormData = (): ProductFormState => ({
+  productKey: '',
+  productName: '',
   protocolCode: 'mqtt-json',
   nodeType: 1,
   dataFormat: 'JSON',
-  manufacturer: 'spring-boot-iot',
-  description: 'ÓÃÓÚÇ°¶Ëµ÷ÊÔÌ¨Áªµ÷µÄÄ¬ÈÏ²úÆ·Ä£°å'
-});
+  manufacturer: '',
+  description: '',
+  status: 1
+})
 
-const productForm = ref<ProductAddPayload>(createDemoProduct());
-const queryId = ref('2001');
+const formData = reactive<ProductFormState>(createDefaultFormData())
 
-const isCreating = ref(false);
-const isQuerying = ref(false);
-const errorMessage = ref('');
-const queryProduct = ref<Product | null>(null);
-const lastRequest = ref<unknown>({ tip: 'Ìá½»»ò²éÑ¯ºó»áÏÔÊ¾ÇëÇóÌå¡£' });
-const lastResponse = ref<unknown>({ tip: '½Ó¿ÚÏìÓ¦»á³öÏÖÔÚÕâÀï¡£' });
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination(10)
 
-// ²úÆ·ÕªÒª¼ÆËã
-const productSummary = computed<ProductSummary>(() => {
-  if (!queryProduct.value) {
-    return {
-      score: '--',
-      label: '´ı¼ÓÔØ',
-      shortLabel: 'NA',
-      tone: 'blue',
-      description: 'ÇëÊäÈë²úÆ· ID ²¢²éÑ¯£¬¼ÓÔØ¸Ã²úÆ·µÄÏêÏ¸ĞÅÏ¢¡£',
-      actions: ['ÊäÈë²úÆ· ID ²¢²éÑ¯²úÆ·Ä£°åÖĞĞÄ¡£']
-    };
+const formTitle = computed(() => (editingProductId.value ? 'ç¼–è¾‘äº§å“' : 'æ–°å¢äº§å“'))
+const submitButtonText = computed(() => (editingProductId.value ? 'ä¿å­˜' : 'æ–°å¢'))
+const submitPermission = computed(() => (editingProductId.value ? 'iot:products:update' : 'iot:products:add'))
+const detailTitle = computed(() => detailData.value?.productName || detailData.value?.productKey || 'äº§å“è¯¦æƒ…')
+const detailSubtitle = computed(() => 'æŒ‰æ±‡æ€»ã€æ¥å…¥æ–¹å¼ã€æ¡£æ¡ˆä¿¡æ¯å’Œç»´æŠ¤å»ºè®®å››ä¸ªæ¿å—æŸ¥çœ‹ã€‚')
+const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
+const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
+const hasRecords = computed(() => tableData.value.length > 0)
+const activeFilterTags = computed(() => {
+  const tags: Array<{ key: ProductFilterKey; label: string }> = []
+  const productName = appliedFilters.productName.trim()
+  if (productName) {
+    tags.push({ key: 'productName', label: `äº§å“åç§°ï¼š${productName}` })
   }
-
-  let score = 0;
-  const reasons: string[] = [];
-
-  if (!queryProduct.value.protocolCode) {
-    score += 25;
-    reasons.push('È±ÉÙĞ­Òé±àÂë');
+  if (appliedFilters.nodeType !== undefined) {
+    tags.push({ key: 'nodeType', label: `èŠ‚ç‚¹ç±»å‹ï¼š${getNodeTypeText(appliedFilters.nodeType)}` })
   }
-
-  if (!queryProduct.value.dataFormat) {
-    score += 15;
-    reasons.push('È±ÉÙÊı¾İ¸ñÊ½');
+  if (appliedFilters.status !== undefined) {
+    tags.push({ key: 'status', label: `äº§å“çŠ¶æ€ï¼š${getStatusText(appliedFilters.status)}` })
   }
-
-  if (!queryProduct.value.manufacturer) {
-    score += 10;
-    reasons.push('È±ÉÙ³§ÉÌĞÅÏ¢');
+  return tags
+})
+const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? 'æ²¡æœ‰ç¬¦åˆæ¡ä»¶çš„äº§å“' : 'è¿˜æ²¡æœ‰äº§å“å®šä¹‰'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? 'å·²ç”Ÿæ•ˆç­›é€‰æš‚æ—¶æ²¡æœ‰åŒ¹é…ç»“æœï¼Œå¯ä»¥è°ƒæ•´æ¡ä»¶ï¼Œæˆ–è€…ç›´æ¥æ¸…ç©ºå½“å‰ç­›é€‰ã€‚'
+    : 'å½“å‰è¿˜æ²¡æœ‰äº§å“å®šä¹‰ï¼Œå…ˆæ–°å¢äº§å“ï¼Œå†ç»§ç»­è®¾å¤‡æ¥å…¥ã€å»ºæ¡£å’Œç»´æŠ¤ã€‚'
+)
+const detailDescriptionText = computed(
+  () =>
+    detailData.value?.description?.trim() ||
+    'å½“å‰æ²¡æœ‰è¡¥å……è¯´æ˜ï¼Œå¯ç»“åˆæ¥å…¥æ–¹å¼ã€è®¾å¤‡è§„æ¨¡å’Œç»´æŠ¤å»ºè®®åˆ¤æ–­æ˜¯å¦ç»§ç»­ä½¿ç”¨ã€‚'
+)
+const detailAssociationHint = computed(() => {
+  const deviceCount = parseCount(detailData.value?.deviceCount)
+  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
+  if (deviceCount === null || deviceCount === 0) {
+    return 'å½“å‰è¿˜æ²¡æœ‰å…³è”è®¾å¤‡ã€‚'
   }
-
-  if (!queryProduct.value.description) {
-    score += 8;
-    reasons.push('È±ÉÙ²úÆ·ËµÃ÷');
+  if (onlineCount === null) {
+    return `å½“å‰æœ‰ ${deviceCount} å°å…³è”è®¾å¤‡ã€‚`
   }
-
-  score = Math.min(score, 100);
-
-  let tone: ProductSummary['tone'] = 'blue';
-  let label = 'À¶É«²úÆ·';
-  let shortLabel = 'À¶';
-  let description = 'µ±Ç°²úÆ·Ä£°åÅäÖÃÍêÕû£¬ÊÊºÏ×÷Îª¿ª·¢ºÍÁªµ÷µÄ»ù´¡Ä£°å¡£';
-
-  if (score >= 40) {
-    tone = 'yellow';
-    label = '»ÆÉ«²úÆ·';
-    shortLabel = '»Æ';
-    description = 'µ±Ç°²úÆ·Ä£°å´æÔÚ²¿·ÖÈ±Ê§£¬½¨Òé²¹³ä¹Ø¼ü×Ö¶ÎºóÔÙ½øĞĞÁªµ÷¡£';
-  } else if (score >= 10) {
-    tone = 'orange';
-    label = '³ÈÉ«²úÆ·';
-    shortLabel = '³È';
-    description = 'µ±Ç°²úÆ·Ä£°åĞèÒªÖØµã¹Ø×¢£¬½¨Òé²¹³äĞ­ÒéºÍ¸ñÊ½ÅäÖÃ¡£';
+  return `å½“å‰æœ‰ ${deviceCount} å°å…³è”è®¾å¤‡ï¼Œåœ¨çº¿ ${onlineCount} å°ã€‚`
+})
+const detailLastReportHint = computed(() =>
+  detailData.value?.lastReportTime ? 'æœ€è¿‘ä¸€æ¬¡è®¾å¤‡ä¸ŠæŠ¥æ—¶é—´ã€‚' : 'å½“å‰è¿˜æ²¡æœ‰æ”¶åˆ°è®¾å¤‡ä¸ŠæŠ¥ã€‚'
+)
+const detailOnlineRatioText = computed(() => {
+  const deviceCount = parseCount(detailData.value?.deviceCount)
+  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
+  if (deviceCount === null || deviceCount <= 0 || onlineCount === null) {
+    return '--'
   }
-
-  const actions = buildActions(tone);
-  return {
-    score: String(score),
-    label,
-    shortLabel,
-    tone,
-    description,
-    reasons,
-    actions
-  };
-});
-
-// ½ÇÉ«Ö¸±ê
-const roleMetrics = computed(() => [
+  return `${Math.round((onlineCount / deviceCount) * 100)}%`
+})
+const detailOnlineRatioPercent = computed(() => {
+  const deviceCount = parseCount(detailData.value?.deviceCount)
+  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
+  if (deviceCount === null || deviceCount <= 0 || onlineCount === null) {
+    return 0
+  }
+  return Math.min(100, Math.max(0, Math.round((onlineCount / deviceCount) * 100)))
+})
+const detailLifecycleStage = computed(() => {
+  if (!detailData.value) {
+    return '--'
+  }
+  const deviceCount = parseCount(detailData.value.deviceCount)
+  if (detailData.value.status === 0) {
+    return 'å·²åœç”¨'
+  }
+  if ((deviceCount ?? 0) > 0) {
+    return 'ç¨³å®šä½¿ç”¨ä¸­'
+  }
+  return 'æ¥å…¥è°ƒè¯•ä¸­'
+})
+const detailOperationHeadline = computed(() => {
+  if (!detailData.value) {
+    return 'æ­£åœ¨åŠ è½½äº§å“ä¿¡æ¯'
+  }
+  if (detailData.value.status === 0) {
+    return 'è¿™ä¸ªäº§å“å½“å‰å·²åœç”¨'
+  }
+  const deviceCount = parseCount(detailData.value.deviceCount)
+  const onlineCount = parseCount(detailData.value.onlineDeviceCount)
+  if ((deviceCount ?? 0) === 0) {
+    return 'è¿™ä¸ªäº§å“è¿˜åœ¨æ¥å…¥å‡†å¤‡é˜¶æ®µ'
+  }
+  if ((onlineCount ?? 0) > 0) {
+    return 'è¿™ä¸ªäº§å“ä¸‹è¿˜æœ‰è®¾å¤‡åœ¨çº¿'
+  }
+  return 'è¿™ä¸ªäº§å“ä¸‹æœ‰è®¾å¤‡ï¼Œä½†å½“å‰éƒ½ä¸åœ¨çº¿'
+})
+const detailGovernanceNotice = computed(() => {
+  if (!detailData.value) {
+    return 'å½“å‰æ²¡æœ‰ç»´æŠ¤å»ºè®®ã€‚'
+  }
+  if (detailData.value.status === 0) {
+    return 'å½“å‰äº§å“å·²åœç”¨ï¼Œæ–°å¢è®¾å¤‡ã€è®¾å¤‡æ›¿æ¢ã€è®¾å¤‡ä¸ŠæŠ¥å’ŒæŒ‡ä»¤ä¸‹å‘éƒ½ä¼šè¢«ç³»ç»Ÿæ‹¦æˆªã€‚'
+  }
+  const deviceCount = parseCount(detailData.value.deviceCount)
+  const onlineCount = parseCount(detailData.value.onlineDeviceCount)
+  if ((deviceCount ?? 0) > 0 || (onlineCount ?? 0) > 0) {
+    return 'å½“å‰å·²æœ‰ç°åœºè®¾å¤‡åœ¨ä½¿ç”¨è¿™ä¸ªäº§å“ã€‚ä¿®æ”¹åè®®ã€èŠ‚ç‚¹ç±»å‹æˆ–æ•°æ®æ ¼å¼å‰ï¼Œè¯·å…ˆç¡®è®¤å…¼å®¹æ€§ï¼Œé¿å…å½±å“ç°ç½‘è®¾å¤‡ã€‚'
+  }
+  return 'å½“å‰è¿˜æ²¡æœ‰è®¾å¤‡æ­£å¼ä½¿ç”¨ï¼Œå¯ä»¥ç»§ç»­åšæ¥å…¥è”è°ƒï¼›å¦‚éœ€è°ƒæ•´ Product Key æˆ–åè®®è§„åˆ™ï¼Œå»ºè®®å…ˆç¡®è®¤å‘½åå’Œè¾¹ç•Œã€‚'
+})
+const detailOperationSummary = computed(() => {
+  if (!detailData.value) {
+    return 'æ­£åœ¨æ•´ç†å½“å‰äº§å“çš„çŠ¶æ€ã€æ¥å…¥æ–¹å¼å’Œç»´æŠ¤ä¿¡æ¯ã€‚'
+  }
+  if (detailData.value.status === 0) {
+    return 'å…ˆç¡®è®¤æ˜¯å¦è¿˜æœ‰è®¾å¤‡åœ¨ç”¨ï¼Œå†å†³å®šè¦ä¸è¦ç»§ç»­ä¿ç•™è¿™æ¡äº§å“å®šä¹‰ã€‚'
+  }
+  const deviceCount = parseCount(detailData.value.deviceCount)
+  if ((deviceCount ?? 0) === 0) {
+    return 'å½“å‰è¿˜æ²¡æœ‰è®¾å¤‡ä½¿ç”¨ï¼Œé€‚åˆç»§ç»­åšæ¥å…¥è”è°ƒå’Œæ¨¡æ¿æ•´ç†ã€‚'
+  }
+  return 'å½“å‰å·²ç»æœ‰è®¾å¤‡åœ¨ç”¨ï¼Œå˜æ›´å‰å…ˆè¯„ä¼°å¯¹ç°åœºè®¾å¤‡çš„å½±å“ã€‚'
+})
+const detailSummaryMetrics = computed(() => [
   {
-    label: 'µ±Ç°²úÆ·×´Ì¬',
-    value: productSummary.value.label,
-    hint: productSummary.value.description,
-    badge: {
-      label: productSummary.value.shortLabel,
-      tone: productSummary.value.tone === 'red'
-        ? 'danger'
-        : productSummary.value.tone === 'orange'
-          ? 'warning'
-          : productSummary.value.tone === 'yellow'
-            ? 'warning'
-            : 'brand'
+    key: 'deviceCount',
+    label: 'å…³è”è®¾å¤‡æ•°',
+    value: formatCount(detailData.value?.deviceCount),
+    hint: detailAssociationHint.value
+  },
+  {
+    key: 'onlineDeviceCount',
+    label: 'åœ¨çº¿è®¾å¤‡æ•°',
+    value: formatCount(detailData.value?.onlineDeviceCount),
+    hint: 'å½“å‰åœ¨çº¿çš„è®¾å¤‡æ•°é‡ã€‚'
+  },
+  {
+    key: 'onlineRatio',
+    label: 'åœ¨çº¿æ¯”ä¾‹',
+    value: detailOnlineRatioText.value,
+    hint: parseCount(detailData.value?.deviceCount) ? 'åœ¨çº¿è®¾å¤‡åœ¨å…¨éƒ¨å…³è”è®¾å¤‡ä¸­çš„æ¯”ä¾‹' : 'å½“å‰æ²¡æœ‰è®¾å¤‡ï¼Œæš‚ä¸ç»Ÿè®¡'
+  },
+  {
+    key: 'lastReportTime',
+    label: 'æœ€è¿‘ä¸ŠæŠ¥',
+    value: formatDateTime(detailData.value?.lastReportTime),
+    hint: detailLastReportHint.value
+  }
+])
+const detailContractCards = computed(() => [
+  { key: 'protocolCode', label: 'åè®®ç¼–ç ', value: formatTextValue(detailData.value?.protocolCode) },
+  { key: 'nodeType', label: 'èŠ‚ç‚¹ç±»å‹', value: getNodeTypeText(detailData.value?.nodeType) },
+  { key: 'dataFormat', label: 'æ•°æ®æ ¼å¼', value: formatTextValue(detailData.value?.dataFormat) }
+])
+const detailArchiveIdText = computed(() => formatTextValue(detailData.value?.id))
+const detailArchiveProductKeyText = computed(() => formatTextValue(detailData.value?.productKey))
+const detailArchiveManufacturerText = computed(() => formatTextValue(detailData.value?.manufacturer))
+const detailArchiveCreateDateText = computed(() => formatDate(detailData.value?.createTime))
+const detailGovernanceHeadline = computed(() => {
+  if (!detailData.value) {
+    return 'æ­£åœ¨æ•´ç†ç»´æŠ¤å»ºè®®'
+  }
+  if (detailData.value.status === 0) {
+    return 'å…ˆæ ¸æŸ¥åœç”¨å¯¹ç°æœ‰è®¾å¤‡çš„å½±å“'
+  }
+  const deviceCount = parseCount(detailData.value.deviceCount)
+  if ((deviceCount ?? 0) === 0) {
+    return 'å½“å‰å¯ç»§ç»­ä½œä¸ºæ–°è®¾å¤‡æ¥å…¥æ¨¡æ¿'
+  }
+  return 'å½“å‰å·²æœ‰è®¾å¤‡åœ¨ç”¨ï¼Œå˜æ›´å‰å…ˆåšå½±å“è¯„ä¼°'
+})
+const detailMaintenanceRules = computed(() => [
+  'äº§å“ Key å»ºç«‹åå°½é‡ä¿æŒç¨³å®šï¼Œä¸å»ºè®®ç›´æ¥æ”¹åã€‚',
+  'åè®®ç¼–ç ã€èŠ‚ç‚¹ç±»å‹å’Œæ•°æ®æ ¼å¼å±äºæ¥å…¥æ ¸å¿ƒè§„åˆ™ã€‚',
+  'è°ƒæ•´æ—¶è¦å…¼é¡¾å†å²æ—¥å¿—ã€è®¾å¤‡æ›¿æ¢å’Œæ¥å…¥æ£€ç´¢çš„ä¸€è‡´æ€§ã€‚'
+])
+const detailChangeChecklist = computed(() => [
+  'å…ˆç¡®è®¤ç°åœºæ˜¯å¦å·²ç»æœ‰è®¾å¤‡åœ¨ä½¿ç”¨ã€‚',
+  'å†ç¡®è®¤åè®®æˆ–ç‰©æ¨¡å‹å˜åŒ–æ˜¯å¦éœ€è¦æ–°å»ºäº§å“ç‰ˆæœ¬ã€‚',
+  'æœ€åç¡®è®¤è°ƒæ•´åä¸ä¼šå½±å“è®¾å¤‡å»ºæ¡£å’Œä¸ŠæŠ¥é“¾è·¯ã€‚'
+])
+
+const formRules: FormRules<ProductFormState> = {
+  productKey: [{ required: true, message: 'è¯·è¾“å…¥äº§å“ Key', trigger: 'blur' }],
+  productName: [{ required: true, message: 'è¯·è¾“å…¥äº§å“åç§°', trigger: 'blur' }],
+  protocolCode: [{ required: true, message: 'è¯·è¾“å…¥åè®®ç¼–ç ', trigger: 'blur' }],
+  nodeType: [{ required: true, message: 'è¯·é€‰æ‹©èŠ‚ç‚¹ç±»å‹', trigger: 'change' }]
+}
+
+const exportColumns: CsvColumn<Product>[] = [
+  { key: 'id', label: 'äº§å“ ID' },
+  { key: 'productKey', label: 'äº§å“ Key' },
+  { key: 'productName', label: 'äº§å“åç§°' },
+  { key: 'protocolCode', label: 'åè®®ç¼–ç ' },
+  { key: 'nodeType', label: 'èŠ‚ç‚¹ç±»å‹', formatter: (value) => getNodeTypeText(Number(value)) },
+  { key: 'status', label: 'äº§å“çŠ¶æ€', formatter: (value) => getStatusText(Number(value)) },
+  { key: 'dataFormat', label: 'æ•°æ®æ ¼å¼' },
+  { key: 'manufacturer', label: 'å‚å•†' },
+  { key: 'onlineDeviceCount', label: 'åœ¨çº¿è®¾å¤‡æ•°' },
+  { key: 'lastReportTime', label: 'æœ€è¿‘è®¾å¤‡ä¸ŠæŠ¥', formatter: (value) => formatDateTime(String(value || '')) },
+  { key: 'createTime', label: 'åˆ›å»ºæ—¶é—´', formatter: (value) => formatDateTime(String(value || '')) },
+  { key: 'updateTime', label: 'æ›´æ–°æ—¶é—´', formatter: (value) => formatDateTime(String(value || '')) }
+]
+
+const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: 'é»˜è®¤æ¨¡æ¿', keys: exportColumns.map((column) => String(column.key)) },
+  { label: 'çŠ¶æ€æ ¸æŸ¥', keys: ['productKey', 'productName', 'status', 'onlineDeviceCount', 'lastReportTime'] },
+  {
+    label: 'åŸºç¡€æ¡£æ¡ˆ',
+    keys: ['id', 'productKey', 'productName', 'protocolCode', 'nodeType', 'dataFormat', 'manufacturer', 'createTime', 'updateTime']
+  }
+]
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+)
+const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) => getProductRowKey(item)).filter(Boolean)))
+
+function getNodeTypeText(value?: number | null) {
+  if (value === 1) {
+    return 'ç›´è¿è®¾å¤‡'
+  }
+  if (value === 2) {
+    return 'ç½‘å…³è®¾å¤‡'
+  }
+  return '--'
+}
+
+function getStatusText(value?: number | null) {
+  return value === 0 ? 'åœç”¨' : 'å¯ç”¨'
+}
+
+function parseCount(value?: number | null) {
+  const count = Number(value)
+  return Number.isFinite(count) ? count : null
+}
+
+function formatCount(value?: number | null) {
+  const count = parseCount(value)
+  return count === null ? '--' : String(count)
+}
+
+function formatTextValue(value?: string | number | null) {
+  if (value === undefined || value === null || value === '') {
+    return '--'
+  }
+  return String(value)
+}
+
+function formatDate(value?: string | null) {
+  if (!value) {
+    return '--'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date)
+}
+
+function getProductRowKey(row?: Partial<Product> | null) {
+  if (!row) {
+    return ''
+  }
+  if (row.id !== undefined && row.id !== null && row.id !== '') {
+    return String(row.id)
+  }
+  return row.productKey ? String(row.productKey) : ''
+}
+
+function resetFormData(source?: Partial<Product>) {
+  Object.assign(formData, createDefaultFormData(), {
+    productKey: source?.productKey || '',
+    productName: source?.productName || '',
+    protocolCode: source?.protocolCode || 'mqtt-json',
+    nodeType: source?.nodeType ?? 1,
+    dataFormat: source?.dataFormat || 'JSON',
+    manufacturer: source?.manufacturer || '',
+    description: source?.description || '',
+    status: source?.status ?? 1
+  })
+}
+
+function syncAppliedFilters() {
+  appliedFilters.productName = searchForm.productName.trim()
+  appliedFilters.nodeType = searchForm.nodeType
+  appliedFilters.status = searchForm.status
+}
+
+function clearSearchForm() {
+  searchForm.productName = ''
+  searchForm.nodeType = undefined
+  searchForm.status = undefined
+}
+
+function clearSelection() {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+async function syncTableSelection() {
+  await nextTick()
+  if (!tableRef.value) {
+    return
+  }
+  tableRef.value.clearSelection()
+  const selectedKeys = selectedRowKeySet.value
+  tableData.value.forEach((row) => {
+    if (selectedKeys.has(getProductRowKey(row))) {
+      tableRef.value?.toggleRowSelection(row, true)
     }
-  },
-  {
-    label: '²úÆ· Key',
-    value: queryProduct.value?.productKey || '--',
-    hint: queryProduct.value?.productKey ? 'µ±Ç°²úÆ·Î¨Ò»±êÊ¶·û¡£' : 'µ±Ç°Ã»ÓĞ²úÆ·Êı¾İ¡£',
-    badge: { label: 'Key', tone: 'brand' }
-  },
-  {
-    label: 'Ğ­Òé±àÂë',
-    value: queryProduct.value?.protocolCode || '--',
-    hint: queryProduct.value?.protocolCode ? 'µ±Ç°²úÆ·Ê¹ÓÃµÄĞ­Òé±àÂë¡£' : 'µ±Ç°Ã»ÓĞĞ­Òé±àÂë¡£',
-    badge: { label: 'Protocol', tone: queryProduct.value?.protocolCode ? 'success' : 'warning' }
-  },
-  {
-    label: '½ÚµãÀàĞÍ',
-    value: queryProduct.value?.nodeType === 1 ? 'Ö±Á¬Éè±¸' : queryProduct.value?.nodeType === 2 ? 'Íø¹ØÉè±¸' : '--',
-    hint: queryProduct.value?.nodeType === 1 ? 'µ±Ç°²úÆ·ÎªÖ±Á¬Éè±¸ÀàĞÍ¡£' : 'µ±Ç°²úÆ·ÎªÍø¹ØÉè±¸ÀàĞÍ¡£',
-    badge: { label: 'Type', tone: 'brand' }
+  })
+}
+
+function handleSelectionChange(rows: Product[]) {
+  selectedRows.value = rows
+}
+
+function isRowSelected(row: Product) {
+  return selectedRowKeySet.value.has(getProductRowKey(row))
+}
+
+function handleMobileSelectionChange(row: Product, checked: boolean) {
+  const rowKey = getProductRowKey(row)
+  const nextRows = checked
+    ? [...selectedRows.value.filter((item) => getProductRowKey(item) !== rowKey), row]
+    : selectedRows.value.filter((item) => getProductRowKey(item) !== rowKey)
+  selectedRows.value = tableData.value.filter((item) => nextRows.some((selected) => getProductRowKey(selected) === getProductRowKey(item)))
+  void syncTableSelection()
+}
+
+function openExportColumnSetting() {
+  exportColumnDialogVisible.value = true
+}
+
+function handleExportColumnConfirm(selectedKeys: string[]) {
+  selectedExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys)
+}
+
+function getResolvedExportColumns() {
+  return resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
+}
+
+function handleExportSelected() {
+  downloadRowsAsCsv('äº§å“å®šä¹‰ä¸­å¿ƒ-é€‰ä¸­é¡¹.csv', selectedRows.value, getResolvedExportColumns())
+}
+
+function handleExportCurrent() {
+  downloadRowsAsCsv('äº§å“å®šä¹‰ä¸­å¿ƒ-å½“å‰ç»“æœ.csv', tableData.value, getResolvedExportColumns())
+}
+
+function applyRouteQueryToFilters() {
+  searchForm.productName = typeof route.query.productName === 'string' ? route.query.productName.trim() : ''
+}
+
+async function loadProductPage() {
+  loading.value = true
+  try {
+    const res = await productApi.pageProducts({
+      productName: searchForm.productName.trim() || undefined,
+      nodeType: searchForm.nodeType,
+      status: searchForm.status,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = applyPageResult(res.data)
+      syncAppliedFilters()
+    }
+  } catch (error) {
+    console.error('è·å–äº§å“åˆ†é¡µå¤±è´¥', error)
+    ElMessage.error('è·å–äº§å“åˆ†é¡µå¤±è´¥')
+  } finally {
+    loading.value = false
   }
-]);
+}
 
-// ½ÇÉ«¿ì½İÈë¿Ú
-const roleActions = {
-  field: [
-    { icon: '??', title: 'Éè±¸ÔËÎ¬ÖĞĞÄ', desc: 'Éè±¸½¨µµÓëÔ¶³ÌÔËÎ¬', path: '/devices' },
-    { icon: '??', title: 'HTTP ÉÏ±¨ÊµÑé', desc: 'Ä£ÄâÉè±¸ÉÏ±¨²âÊÔ', path: '/reporting' },
-    { icon: '??', title: '·çÏÕµã¹¤×÷Ì¨', desc: '·çÏÕ¼à²âÓë´¦ÖÃ', path: '/insight' },
-    { icon: '??', title: 'Ç÷ÊÆÇúÏß²é¿´', desc: '·ÖÎöÊôĞÔÓëÀúÊ·Ç÷ÊÆ', path: '/insight' }
-  ],
-  ops: [
-    { icon: '??', title: 'ãĞÖµ¹ÜÀí', desc: '²ÎÊıÅäÖÃÓëÔ¶³Ìµ÷Õû', path: '/devices' },
-    { icon: '??', title: 'Éè±¸Ñ²¼ì', desc: 'ÀëÏßÓëÈõĞÅºÅÉè±¸', path: '/devices' },
-    { icon: '??', title: '¹Ì¼şµ÷ÊÔ', desc: 'ÎÄ¼şÓë¹Ì¼şÉı¼¶', path: '/file-debug' },
-    { icon: '??', title: '×¨Ìâ±¨¸æ', desc: '·çÏÕ·ÖÎöÓë´¦ÖÃ±¨¸æ', path: '/insight' }
-  ],
-  manager: [
-    { icon: '??', title: 'ÇøÓòÌ¬ÊÆ', desc: 'µãÎ»·Ö²¼Óë·çÏÕÈÈÁ¦', path: '/future-lab' },
-    { icon: '??', title: 'ÀúÊ·»ØËİ', desc: 'ÊÂ¼şÁ´Â·ÓëÉó¼Æ', path: '/reporting' },
-    { icon: '??', title: 'Êı¾İ¿´°å', desc: '¶àÎ¬¶ÈÍ³¼Æ·ÖÎö', path: '/future-lab' },
-    { icon: '??', title: '±¨¸æÉú³É', desc: 'AI¸¨ÖúÉú³É·ÖÎö±¨¸æ', path: '/insight' }
-  ]
-};
+async function openDetail(id: string | number) {
+  detailVisible.value = true
+  detailLoading.value = true
+  detailErrorMessage.value = ''
+  detailData.value = null
+  try {
+    const res = await productApi.getProductById(id)
+    if (res.code === 200) {
+      detailData.value = res.data
+    }
+  } catch (error) {
+    detailErrorMessage.value = error instanceof Error ? error.message : 'åŠ è½½äº§å“è¯¦æƒ…å¤±è´¥'
+  } finally {
+    detailLoading.value = false
+  }
+}
 
-// ¹¹½¨¶¯×÷
-function buildActions(tone: ProductSummary['tone']) {
-  const actions = ['ÏÈºË²é²úÆ·Ä£°åÅäÖÃ£¬È·ÈÏĞ­ÒéºÍ¸ñÊ½ÊÇ·ñÍêÕû¡£'];
+async function loadEditableDetail(id: string | number) {
+  const res = await productApi.getProductById(id)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+  }
+}
 
-  if (tone === 'yellow') {
-    actions.push('½¨Òé²¹³äÈ±Ê§µÄ¹Ø¼ü×Ö¶Î£¬ÈçĞ­Òé±àÂë¡¢Êı¾İ¸ñÊ½µÈ¡£');
-  } else if (tone === 'orange') {
-    actions.push('½¨ÒéÓÅÏÈ²¹³äĞ­Òé±àÂëºÍÊı¾İ¸ñÊ½ÅäÖÃ¡£');
-    actions.push('ÔËÎ¬²àÍ¬²½ºË²éÉè±¸ÊÇ·ñÄÜÕı³£½ÓÈë¡£');
+function handleSearch() {
+  searchForm.productName = searchForm.productName.trim()
+  resetPage()
+  clearSelection()
+  void loadProductPage()
+}
+
+function handleReset() {
+  clearSearchForm()
+  resetPage()
+  clearSelection()
+  void loadProductPage()
+}
+
+function removeAppliedFilter(key: ProductFilterKey) {
+  if (key === 'productName') {
+    searchForm.productName = ''
+  } else if (key === 'nodeType') {
+    searchForm.nodeType = undefined
   } else {
-    actions.push('µ±Ç°²úÆ·Ä£°åÅäÖÃÍêÕû£¬¿É¼ÌĞø½øĞĞÉè±¸Áªµ÷¡£');
+    searchForm.status = undefined
   }
-
-  return actions;
+  resetPage()
+  clearSelection()
+  void loadProductPage()
 }
 
-// µ¼º½
-const navigateTo = (path: string) => {
-  router.push(path);
-};
-
-// ÖØÖÃ±íµ¥
-function resetForm() {
-  Object.assign(productForm.value, createDemoProduct());
+function handleClearAppliedFilters() {
+  clearSearchForm()
+  resetPage()
+  clearSelection()
+  void loadProductPage()
 }
 
-// ´´½¨²úÆ·
-async function handleCreateProduct() {
-  isCreating.value = true;
-  errorMessage.value = '';
-  lastRequest.value = { method: 'POST', path: '/device/product/add', body: { ...productForm.value } };
+function handleRefresh() {
+  clearSelection()
+  void loadProductPage()
+}
 
+function handleAdd() {
+  editingProductId.value = null
+  resetFormData()
+  formVisible.value = true
+}
+
+async function handleEdit(row: Product) {
   try {
-    const response = await addProduct({ ...productForm.value });
-    queryProduct.value = response.data;
-    lastResponse.value = response;
-    if (response.data?.id) {
-      queryId.value = String(response.data.id);
+    editingProductId.value = row.id
+    await loadEditableDetail(row.id)
+    formVisible.value = true
+  } catch (error) {
+    console.error('åŠ è½½äº§å“ç¼–è¾‘è¯¦æƒ…å¤±è´¥', error)
+    ElMessage.error('åŠ è½½äº§å“è¯¦æƒ…å¤±è´¥')
+  }
+}
+
+function handleOpenDetail(row: Product) {
+  void openDetail(row.id)
+}
+
+function handleRowAction(command: string | number | object, row: Product) {
+  if (command === 'devices') {
+    handleJumpToDevices(row)
+    return
+  }
+  if (command === 'delete') {
+    void handleDelete(row)
+  }
+}
+
+function handleJumpToDevices(row?: Product | null) {
+  if (!row?.productKey) {
+    return
+  }
+  void router.push({
+    path: '/devices',
+    query: {
+      productKey: row.productKey
     }
-    ElMessage.success(`²úÆ· ${response.data.productKey} ´´½¨³É¹¦`);
-    recordActivity({
-      module: '²úÆ·Ä£°åÖĞĞÄ',
-      action: 'ĞÂÔö²úÆ·',
-      request: lastRequest.value,
-      response,
-      ok: true,
-      detail: `ÒÑ´´½¨²úÆ· ${response.data.productKey}`
-    });
-  } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
-    recordActivity({
-      module: '²úÆ·Ä£°åÖĞĞÄ',
-      action: 'ĞÂÔö²úÆ·',
-      request: lastRequest.value,
-      response: { message: errorMessage.value },
-      ok: false,
-      detail: `´´½¨Ê§°Ü£º${errorMessage.value}`
-    });
-  } finally {
-    isCreating.value = false;
-  }
+  })
 }
 
-// ²éÑ¯²úÆ·
-async function handleQueryProduct() {
-  isQuerying.value = true;
-  errorMessage.value = '';
-  lastRequest.value = { method: 'GET', path: `/device/product/${queryId.value}` };
-
+async function handleDelete(row: Product) {
   try {
-    const response = await getProductById(queryId.value);
-    queryProduct.value = response.data;
-    lastResponse.value = response;
-    ElMessage.success(`ÒÑ²éÑ¯µ½²úÆ· ${response.data.productKey}`);
-    recordActivity({
-      module: '²úÆ·Ä£°åÖĞĞÄ',
-      action: '²éÑ¯²úÆ·',
-      request: lastRequest.value,
-      response,
-      ok: true,
-      detail: `²éÑ¯µ½²úÆ· ${response.data.productKey}`
-    });
+    await confirmDelete('äº§å“', row.productName || row.productKey)
+    await productApi.deleteProduct(row.id)
+    ElMessage.success('åˆ é™¤æˆåŠŸ')
+    clearSelection()
+    if (tableData.value.length === 1 && pagination.pageNum > 1) {
+      setPageNum(pagination.pageNum - 1)
+    }
+    await loadProductPage()
   } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
-    recordActivity({
-      module: '²úÆ·Ä£°åÖĞĞÄ',
-      action: '²éÑ¯²úÆ·',
-      request: lastRequest.value,
-      response: { message: errorMessage.value },
-      ok: false,
-      detail: `²éÑ¯Ê§°Ü£º${errorMessage.value}`
-    });
-  } finally {
-    isQuerying.value = false;
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('åˆ é™¤äº§å“å¤±è´¥', error)
+    ElMessage.error(error instanceof Error ? error.message : 'åˆ é™¤äº§å“å¤±è´¥')
   }
 }
 
-// ÉúÃüÖÜÆÚ
-onMounted(() => {
-  recordActivity({
-    module: '²úÆ·Ä£°åÖĞĞÄ',
-    action: '·ÃÎÊ¹¤×÷Ì¨',
-    request: { path: '/products' },
-    ok: true,
-    detail: 'ÓÃ»§·ÃÎÊ²úÆ·Ä£°åÖĞĞÄ'
-  });
-});
+async function handleSubmit() {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
+
+  submitLoading.value = true
+  try {
+    if (editingProductId.value) {
+      await productApi.updateProduct(editingProductId.value, { ...formData })
+      ElMessage.success('æ›´æ–°æˆåŠŸ')
+    } else {
+      await productApi.addProduct({ ...formData })
+      ElMessage.success('æ–°å¢æˆåŠŸ')
+    }
+    formVisible.value = false
+    clearSelection()
+    resetPage()
+    await loadProductPage()
+  } catch (error) {
+    console.error('æäº¤äº§å“å¤±è´¥', error)
+    ElMessage.error(error instanceof Error ? error.message : 'æäº¤äº§å“å¤±è´¥')
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+function handleFormClose() {
+  formRef.value?.clearValidate()
+  resetFormData()
+  editingProductId.value = null
+}
+
+function handleSizeChange(size: number) {
+  setPageSize(size)
+  clearSelection()
+  void loadProductPage()
+}
+
+function handlePageChange(page: number) {
+  setPageNum(page)
+  clearSelection()
+  void loadProductPage()
+}
+
+watch(
+  () => route.query.productName,
+  () => {
+    applyRouteQueryToFilters()
+    resetPage()
+    clearSelection()
+    void loadProductPage()
+  }
+)
+
+onMounted(async () => {
+  applyRouteQueryToFilters()
+  await loadProductPage()
+})
 </script>
 
 <style scoped>
-.product-workbench-page {
+.product-asset-view {
+  gap: 16px;
+}
+
+:deep(.product-detail-drawer .el-drawer__header) {
+  padding: 20px 28px 16px;
+}
+
+:deep(.product-detail-drawer .el-drawer__body) {
+  padding: 12px 28px 22px;
+}
+
+:deep(.product-detail-drawer .detail-drawer__heading h2) {
+  margin-top: 0.28rem;
+  font-size: clamp(1.88rem, 2.35vw, 2.24rem);
+  letter-spacing: -0.015em;
+}
+
+:deep(.product-detail-drawer .detail-drawer__subtitle) {
+  margin-top: 0.42rem;
+  max-width: 38rem;
+  font-size: 13px;
+  line-height: 1.54;
+}
+
+.product-detail-layout {
   display: grid;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 10px;
 }
 
-/* ¶¥²¿µ¼º½À¸ */
-.workbench-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-radius: var(--radius-lg);
+.product-detail-zone {
+  position: relative;
+  overflow: hidden;
+  padding: 0.92rem 0.96rem;
   border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 6px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.92));
+  box-shadow:
+    0 6px 18px rgba(24, 45, 77, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand) 72%, white),
+    color-mix(in srgb, var(--accent) 52%, white),
+    color-mix(in srgb, var(--brand-bright) 54%, white)
+  );
+}
+
+.product-detail-zone--overview {
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
-    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 46%),
+    linear-gradient(180deg, rgba(244, 248, 255, 0.97), rgba(255, 255, 255, 0.95));
 }
 
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.product-detail-zone--ledger {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand) 6%, transparent), transparent 48%),
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(246, 249, 255, 0.94));
 }
 
-.page-title {
-  margin: 0;
-  font-size: 1.5rem;
+.product-detail-zone--governance {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 45%),
+    linear-gradient(180deg, rgba(249, 252, 255, 0.97), rgba(246, 249, 255, 0.94));
+}
+
+.product-detail-zone--danger {
+  border-color: color-mix(in srgb, var(--danger) 20%, var(--panel-border));
+}
+
+.product-detail-zone__header {
+  display: grid;
+  gap: 0.18rem;
+  margin-bottom: 0.62rem;
+}
+
+.product-detail-zone__kicker {
+  color: var(--text-heading);
+  font-size: 1.42rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  line-height: 1.34;
+  letter-spacing: -0.01em;
 }
 
-.timestamp {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--brand-bright);
+.product-detail-zone__intro {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
-/* ½ÇÉ«ÇĞ»» */
-:deep(.el-radio-group) {
-  --el-radio-button-checked-text-color: var(--brand-bright);
-  --el-radio-button-checked-bg-color: rgba(255, 106, 0, 0.1);
-  --el-radio-button-checked-border-color: var(--brand-bright);
+.product-detail-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
+  gap: 8px;
+  align-items: start;
 }
 
-:deep(.el-radio-button__inner) {
-  background: #ffffff;
-  border: 1px solid var(--panel-border);
-  border-radius: 0.75rem;
-  padding: 0.6rem 1.2rem;
-  font-weight: 500;
-  transition: all 180ms ease;
-}
-
-:deep(.el-radio-button__inner:hover) {
-  border-color: var(--brand-bright);
-  transform: translateY(-1px);
-}
-
-:deep(.el-radio-button__orig-radio:checked + .el-radio-button__inner) {
-  background: rgba(255, 106, 0, 0.1);
-  border-color: var(--brand-bright);
-  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
-}
-
-/* ²úÆ·×´Ì¬ºá·ù */
-.product-banner {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(82, 174, 255, 0.24);
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
-    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
-}
-
-.banner-content {
-  display: flex;
-  flex-direction: column;
+.product-detail-overview-lead {
+  display: grid;
   gap: 0.5rem;
-  flex: 1;
-}
-
-.banner-label {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
-}
-
-.banner-value {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.banner-desc {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.banner-score {
-  text-align: right;
-  min-width: 120px;
-}
-
-.banner-score small {
-  display: block;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
-}
-
-.banner-score strong {
-  font-family: var(--font-display);
-  font-size: 2.8rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.product-banner--red {
-  border-color: rgba(255, 109, 109, 0.28);
-}
-
-.product-banner--red .banner-value {
-  color: #ff6d6d;
-}
-
-.product-banner--orange {
-  border-color: rgba(255, 179, 71, 0.28);
-}
-
-.product-banner--orange .banner-value {
-  color: #ffb347;
-}
-
-.product-banner--yellow {
-  border-color: rgba(255, 214, 102, 0.28);
-}
-
-.product-banner--yellow .banner-value {
-  color: #ffd666;
-}
-
-.product-banner--blue {
-  border-color: rgba(82, 174, 255, 0.24);
-}
-
-.product-banner--blue .banner-value {
-  color: #52aaff;
-}
-
-/* ËÄ¹¬¸ñÖ¸±ê */
-.quad-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-/* ÖĞÑë¹¤×÷ÇøÓò */
-.main-workarea {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-}
-
-/* ²úÆ·Ä£°åÇøÓò */
-.product-template {
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
+  min-width: 0;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 5px);
   background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.94)),
-    radial-gradient(circle at top right, rgba(30, 128, 255, 0.1), transparent 52%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 12%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 8px 20px rgba(24, 55, 92, 0.05);
 }
 
-.section-title {
-  margin: 0 0 1.25rem;
-  font-size: 1.1rem;
+.product-detail-overview-lead--danger {
+  border-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--danger) 10%, transparent), transparent 46%),
+    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 243, 243, 0.95));
+}
+
+.product-detail-overview-lead__eyebrow {
+  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption-2));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+}
+
+.product-detail-overview-lead__title {
+  color: var(--text-heading);
+  font-size: clamp(1.2rem, 2vw, 1.48rem);
+  font-weight: 700;
+  line-height: 1.34;
+}
+
+.product-detail-overview-lead__text {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+.product-detail-overview-progress {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.product-detail-overview-progress__track {
+  position: relative;
+  overflow: hidden;
+  height: 0.42rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand) 12%, white);
+}
+
+.product-detail-overview-progress__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), color-mix(in srgb, var(--accent) 76%, var(--brand)));
+}
+
+.product-detail-overview-progress__caption {
+  color: var(--text-caption-2);
+  font-size: 11.5px;
+  line-height: 1.48;
+}
+
+.product-detail-overview-lead__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.36rem 0.48rem;
+}
+
+.product-detail-overview-lead__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.24rem 0.58rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-caption);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.product-detail-overview-metric {
+  display: grid;
+  gap: 0.26rem;
+  min-width: 0;
+  padding: 0.74rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+.product-detail-overview-metric__label {
+  color: var(--text-caption-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-overview-metric__value {
+  color: var(--text-heading);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.product-detail-overview-metric__hint {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.product-detail-ledger-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.76fr) minmax(0, 1.24fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.product-detail-ledger-card {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.82rem 0.86rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 5px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+.product-detail-ledger-card--contract {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 6%, transparent), transparent 44%),
+    linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(246, 250, 255, 0.93));
+}
+
+.product-detail-card-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.product-detail-card-header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.26rem;
+  font-weight: 700;
+  line-height: 1.34;
+  letter-spacing: -0.01em;
+}
+
+.product-detail-card-header p {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.48;
+}
+
+.product-detail-contract-list {
+  display: grid;
+  gap: 8px;
+}
+
+.product-detail-contract-item {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  padding: 0.74rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-contract-item__label {
+  color: var(--text-caption-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-contract-item__value {
+  color: var(--text-heading);
+  font-size: 1.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+
+.product-detail-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.product-detail-archive-item {
+  display: grid;
+  gap: 0.26rem;
+  min-width: 0;
+  padding: 0.74rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-archive-item--full {
+  grid-column: 1 / -1;
+}
+
+.product-detail-archive-item__label {
+  color: var(--text-caption-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-archive-item__value {
+  color: var(--text-heading);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.44;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-detail-description-card {
+  display: grid;
+  gap: 0.26rem;
+  margin-top: 0.22rem;
+  padding: 0.74rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-description-card__label {
+  color: var(--text-caption-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-description-card__value {
+  color: var(--text-heading);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.54;
+  word-break: break-word;
+}
+
+.product-detail-governance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.product-detail-governance-card {
+  display: grid;
+  gap: 0.36rem;
+  min-width: 0;
+  padding: 0.78rem 0.84rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-governance-card--lead {
+  border-color: color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.94));
+}
+
+.product-detail-governance-card--danger {
+  border-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--danger) 10%, transparent), transparent 46%),
+    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 243, 243, 0.95));
+}
+
+.product-detail-governance-card__label {
+  color: color-mix(in srgb, var(--brand) 42%, var(--text-caption-2));
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-detail-governance-card__title {
+  color: var(--text-heading);
+  font-size: 1.24rem;
+  font-weight: 700;
+  line-height: 1.36;
+}
+
+.product-detail-governance-card__text {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.54;
+}
+
+.product-detail-governance-list {
+  display: grid;
+  gap: 0.36rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-caption);
+  font-size: 12.5px;
+  line-height: 1.52;
+}
+
+.product-hero-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+}
+
+.product-hero-card__heading {
+  min-width: 0;
+}
+
+.product-hero-card__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.08rem;
+}
+
+.product-hero-card__caption {
+  margin: 0.35rem 0 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.product-workbench-card__filters {
+  margin-bottom: 0.72rem;
+}
+
+.product-applied-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 0.72rem;
+}
+
+.product-applied-filters__label {
+  color: var(--text-caption-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.product-applied-filters__list {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.product-applied-filters__tag {
+  margin: 0;
+}
+
+.product-applied-filters__clear {
+  margin-left: auto;
+  padding-inline: 0.08rem;
+}
+
+.product-inline-filter {
+  display: grid;
+}
+
+.product-inline-filter__row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(168px, 1fr)) auto;
+  gap: 14px 18px;
+  align-items: end;
+}
+
+.product-inline-filter__row :deep(.el-form-item) {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.product-inline-filter__item {
+  min-width: 0;
+}
+
+.product-inline-filter__actions {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 100%;
+}
+
+.product-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
+}
+
+.product-result-panel {
+  position: relative;
+  isolation: isolate;
+  min-height: 14rem;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
+}
+
+.product-result-panel :deep(.el-loading-mask) {
+  border-radius: inherit;
+  background: rgba(248, 250, 255, 0.78) !important;
+  backdrop-filter: blur(5px);
+}
+
+.product-result-panel :deep(.el-loading-spinner .el-loading-text) {
+  margin-top: 0.72rem;
+  color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
-.template-grid {
+.product-result-panel :deep(.el-loading-spinner .path) {
+  stroke: var(--brand);
+}
+
+.product-empty-state {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  justify-items: center;
+  padding: 0.4rem 0 0.2rem;
 }
 
-.template-card {
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: #f8fbff;
+.product-empty-state :deep(.empty-state) {
+  padding-block: 3.25rem 2rem;
 }
 
-.template-header {
+.product-empty-state__actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.template-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.template-tag {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-tertiary);
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(255, 106, 0, 0.08);
-  color: var(--brand-bright);
-}
-
-.template-desc {
-  margin: 0 0 1rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-/* ½ÇÉ«¿ì½İÈë¿Ú */
-.role-quick-access {
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
-    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
-}
-
-.access-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: #f8fbff;
-  cursor: pointer;
-  transition: all 180ms ease;
-}
-
-.action-card:hover {
-  border-color: var(--brand-bright);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(255, 106, 0, 0.16);
-}
-
-.action-icon {
-  width: 3rem;
-  height: 3rem;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  border-radius: 0.75rem;
-  background: rgba(255, 106, 0, 0.12);
-  font-size: 1.5rem;
 }
 
-.action-content {
-  flex: 1;
-}
-
-.action-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.action-desc {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.action-arrow {
-  color: var(--brand-bright);
-  font-size: 1.2rem;
-}
-
-/* µ×²¿ĞÅÏ¢ */
-.workbench-footer {
+.product-mobile-list__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
+  gap: 12px;
+}
+
+.product-mobile-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.92rem 0.96rem;
   border: 1px solid var(--panel-border);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 251, 255, 0.95)),
-    radial-gradient(circle at 85% 20%, rgba(255, 106, 0, 0.12), transparent 30%);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
-.footer-section h4 {
-  margin: 0 0 1rem;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-tertiary);
+.product-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
 }
 
-.action-list {
+.product-mobile-card__heading {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.product-mobile-card__title {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.product-mobile-card__sub {
+  overflow: hidden;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-mobile-card__meta {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
-.action-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: #f8fbff;
-}
-
-.action-badge {
+.product-mobile-card__meta-item {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 0.9rem;
-  background: rgba(30, 128, 255, 0.12);
-  color: var(--brand-bright);
-  font-family: var(--font-mono);
-  flex-shrink: 0;
+  min-height: 1.6rem;
+  padding: 0.2rem 0.58rem;
+  border-radius: var(--radius-pill);
+  background: rgba(78, 89, 105, 0.08);
+  color: var(--text-caption);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
-.action-text {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.product-info-grid {
+.product-mobile-card__info {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.7rem 0.9rem;
 }
 
-.info-chip {
-  padding: 0.9rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--panel-border);
-  background: #f8fbff;
-}
-
-.info-chip span {
-  display: block;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-tertiary);
-  margin-bottom: 0.25rem;
-}
-
-.info-chip strong {
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-
-/* ¹Ø¼üÊı¾İÃæ°å */
-.data-panels {
+.product-mobile-card__field {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.18rem;
+  min-width: 0;
 }
 
-/* ÏìÓ¦Ê½ */
-@media (max-width: 1400px) {
-  .main-workarea {
+.product-mobile-card__field span {
+  color: var(--text-caption-2);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.product-mobile-card__field strong {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.52;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-mobile-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  justify-content: flex-start;
+}
+
+.product-mobile-card__actions :deep(.el-button) {
+  margin-left: 0;
+  padding-inline: 0.1rem;
+}
+
+.product-desktop-table {
+  display: block;
+}
+
+.product-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  white-space: nowrap;
+}
+
+.product-table-actions :deep(.el-button) {
+  margin-left: 0;
+  padding-inline: 0.08rem;
+}
+
+@media (max-width: 1080px) {
+  .product-detail-overview-grid,
+  .product-detail-ledger-grid {
     grid-template-columns: 1fr;
   }
 
-  .workbench-footer {
-    grid-template-columns: 1fr;
+  .product-detail-overview-metrics,
+  .product-detail-governance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .data-panels {
-    grid-template-columns: 1fr;
-  }
-
-  .template-grid {
-    grid-template-columns: 1fr;
+  .product-inline-filter__row {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 12px 14px;
   }
 }
 
-@media (max-width: 768px) {
-  .workbench-header {
+@media (max-width: 720px) {
+  .product-hero-card__header {
     flex-direction: column;
-    gap: 1rem;
+    align-items: stretch;
   }
 
-  .quad-grid,
-  .access-grid {
+  .product-detail-archive-grid,
+  .product-detail-overview-metrics,
+  .product-detail-governance-grid {
     grid-template-columns: 1fr;
   }
 
-  .banner-score {
-    text-align: left;
+  .product-detail-zone {
+    padding: 0.82rem 0.84rem;
+  }
+
+  .product-detail-zone__kicker,
+  .product-detail-card-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .product-detail-contract-item__value {
+    font-size: 1.52rem;
+  }
+
+  .product-inline-filter__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .product-applied-filters {
+    align-items: flex-start;
+  }
+
+  .product-applied-filters__clear {
+    margin-left: 0;
+  }
+
+  .product-mobile-list {
+    display: block;
+  }
+
+  .product-desktop-table {
+    display: none;
+  }
+
+  .product-mobile-card__info {
+    grid-template-columns: 1fr;
   }
 }
 </style>
-
-

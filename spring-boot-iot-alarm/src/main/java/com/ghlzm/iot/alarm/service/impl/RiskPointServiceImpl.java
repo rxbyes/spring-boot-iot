@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
@@ -8,6 +9,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,19 +95,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
       @Override
       public List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status) {
-            LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
-            if (riskPointCode != null && !riskPointCode.isEmpty()) {
-                  wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
-            }
-            if (riskLevel != null && !riskLevel.isEmpty()) {
-                  wrapper.eq(RiskPoint::getRiskLevel, riskLevel);
-            }
-            if (status != null) {
-                  wrapper.eq(RiskPoint::getStatus, status);
-            }
-            wrapper.eq(RiskPoint::getDeleted, 0);
-            wrapper.orderByDesc(RiskPoint::getCreateTime);
-            return list(wrapper);
+            return list(buildRiskPointWrapper(riskPointCode, riskLevel, status));
+      }
+
+      @Override
+      public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
+            Page<RiskPoint> page = new Page<>(pageNum, pageSize);
+            Page<RiskPoint> result = page(page, buildRiskPointWrapper(riskPointCode, riskLevel, status));
+            return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
@@ -150,5 +147,21 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             wrapper.eq(RiskPointDevice::getRiskPointId, riskPointId);
             wrapper.eq(RiskPointDevice::getDeleted, 0);
             return riskPointDeviceMapper.selectList(wrapper);
+      }
+
+      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(String riskPointCode, String riskLevel, Integer status) {
+            LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
+            if (riskPointCode != null && !riskPointCode.isEmpty()) {
+                  wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
+            }
+            if (riskLevel != null && !riskLevel.isEmpty()) {
+                  wrapper.eq(RiskPoint::getRiskLevel, riskLevel);
+            }
+            if (status != null) {
+                  wrapper.eq(RiskPoint::getStatus, status);
+            }
+            wrapper.eq(RiskPoint::getDeleted, 0);
+            wrapper.orderByDesc(RiskPoint::getCreateTime);
+            return wrapper;
       }
 }

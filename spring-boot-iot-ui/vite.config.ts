@@ -1,10 +1,18 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-export default defineConfig({
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  // 默认使用 127.0.0.1，避免部分环境 localhost 解析到 IPv6 导致代理 500。
+  const proxyTarget = (env.VITE_PROXY_TARGET || 'http://127.0.0.1:9999').trim();
+
+  return {
   plugins: [
     vue(),
     Components({
@@ -21,32 +29,22 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        manualChunks(id: string) {
           if (!id.includes('node_modules')) {
             return;
           }
 
-          if (id.includes('echarts/lib/chart/line')) {
-            return 'vendor-echarts-trend';
+          // Split ECharts into stable groups to reduce single large chunk size.
+          if (id.includes('zrender')) {
+            return 'vendor-zrender';
           }
 
-          if (
-            id.includes('echarts/lib/chart/bar') ||
-            id.includes('echarts/lib/chart/pie')
-          ) {
-            return 'vendor-echarts-stat';
-          }
-
-          if (id.includes('echarts/lib/component/legend')) {
-            return 'vendor-echarts-legend';
+          if (id.includes('echarts/core')) {
+            return 'vendor-echarts-core';
           }
 
           if (id.includes('echarts')) {
-            return 'vendor-echarts-runtime';
-          }
-
-          if (id.includes('zrender')) {
-            return 'vendor-zrender';
+            return 'vendor-echarts-core';
           }
 
           if (id.includes('@element-plus/icons-vue')) {
@@ -131,6 +129,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/__tests__/setup.ts',
     include: ['./src/__tests__/**/*.test.ts'],
+    server: {
+      deps: {
+        inline: ['element-plus']
+      }
+    },
     reporters: ['verbose'],
     outputDirectory: './coverage',
     coverage: {
@@ -142,22 +145,15 @@ export default defineConfig({
       ]
     }
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5174,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
-      '/device': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
-      '/message': {
-        target: 'http://localhost:9999',
-        changeOrigin: true
-      },
+    server: {
+      host: '0.0.0.0',
+      port: 5174,
+      proxy: {
+        '^/api(?:/|$)': {
+          target: proxyTarget,
+          changeOrigin: true
+        }
+      }
     }
-  }
-} as any);
+  } as any;
+});

@@ -16,6 +16,16 @@ public class UserAuthContextVO {
 
     private String displayName;
 
+    private String phone;
+
+    private String email;
+
+    private String accountType;
+
+    private String authStatus;
+
+    private List<String> loginMethods = new ArrayList<>();
+
     private boolean superAdmin;
 
     private String homePath;

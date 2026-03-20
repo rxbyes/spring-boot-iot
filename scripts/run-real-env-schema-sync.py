@@ -134,12 +134,22 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
     ],
     "sys_audit_log": [
         ("user_name", "VARCHAR(64) DEFAULT NULL COMMENT 'user name'"),
+        ("trace_id", "VARCHAR(64) DEFAULT NULL COMMENT 'trace id'"),
+        ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
+        ("product_key", "VARCHAR(64) DEFAULT NULL COMMENT 'product key'"),
         ("request_url", "VARCHAR(255) DEFAULT NULL COMMENT 'request url'"),
         ("location", "VARCHAR(128) DEFAULT NULL COMMENT 'location'"),
         ("operation_result", "TINYINT DEFAULT NULL COMMENT 'operation result'"),
         ("result_message", "VARCHAR(500) DEFAULT NULL COMMENT 'result message'"),
+        ("error_code", "VARCHAR(64) DEFAULT NULL COMMENT 'error code'"),
+        ("exception_class", "VARCHAR(255) DEFAULT NULL COMMENT 'exception class'"),
         ("operation_time", "DATETIME DEFAULT NULL COMMENT 'operation time'"),
         ("deleted", "TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted'"),
+    ],
+    "iot_device_message_log": [
+        ("trace_id", "VARCHAR(64) DEFAULT NULL COMMENT 'trace id'"),
+        ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
+        ("product_key", "VARCHAR(64) DEFAULT NULL COMMENT 'product key'"),
     ],
 }
 

@@ -29,6 +29,11 @@ public class RawDeviceMessage {
     private String productKey;
 
     /**
+     * 鏈鎺ュ叆 traceId
+     */
+    private String traceId;
+
+    /**
      * deviceCode
      */
     private String deviceCode;

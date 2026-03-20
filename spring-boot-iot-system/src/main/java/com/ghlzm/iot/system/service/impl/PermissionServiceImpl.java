@@ -2,7 +2,6 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.dto.RoleMenuBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleBindingDTO;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,7 +42,21 @@ import java.util.stream.Collectors;
 @Service
 public class PermissionServiceImpl implements PermissionService {
 
+    private static final String BUSINESS_ROLE_CODE = "BUSINESS_STAFF";
+    private static final String MANAGEMENT_ROLE_CODE = "MANAGEMENT_STAFF";
+    private static final String OPS_ROLE_CODE = "OPS_STAFF";
+    private static final String DEVELOPER_ROLE_CODE = "DEVELOPER_STAFF";
     private static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";
+    private static final String IOT_ACCESS_MENU_CODE = "iot-access";
+    private static final String RISK_OPS_MENU_CODE = "risk-ops";
+    private static final String SYSTEM_GOVERNANCE_MENU_CODE = "system-governance";
+    private static final List<RoleHomePreference> ROLE_HOME_PREFERENCES = List.of(
+            new RoleHomePreference(SUPER_ADMIN_ROLE_CODE, SYSTEM_GOVERNANCE_MENU_CODE, "/system-management"),
+            new RoleHomePreference(MANAGEMENT_ROLE_CODE, RISK_OPS_MENU_CODE, "/risk-disposal"),
+            new RoleHomePreference(BUSINESS_ROLE_CODE, RISK_OPS_MENU_CODE, "/risk-disposal"),
+            new RoleHomePreference(OPS_ROLE_CODE, IOT_ACCESS_MENU_CODE, "/device-access"),
+            new RoleHomePreference(DEVELOPER_ROLE_CODE, IOT_ACCESS_MENU_CODE, "/device-access")
+    );
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
@@ -77,9 +91,16 @@ public class PermissionServiceImpl implements PermissionService {
 
         List<Menu> activeMenus = listActiveMenus();
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
-        Set<Long> grantedMenuIds = superAdmin
-                ? new LinkedHashSet<>(menuMap.keySet())
-                : expandWithAncestors(roleMenuMapper.selectMenuIdsByRoleIds(extractRoleIds(roles)), menuMap);
+        Set<Long> grantedMenuIds;
+        if (superAdmin) {
+            grantedMenuIds = new LinkedHashSet<>(menuMap.keySet());
+        } else {
+            List<Long> roleIds = extractRoleIds(roles);
+            List<Long> roleMenuIds = CollectionUtils.isEmpty(roleIds)
+                    ? Collections.emptyList()
+                    : roleMenuMapper.selectMenuIdsByRoleIds(roleIds);
+            grantedMenuIds = expandWithAncestors(roleMenuIds, menuMap);
+        }
 
         List<Menu> authorizedMenus = activeMenus.stream()
                 .filter(menu -> superAdmin || grantedMenuIds.contains(menu.getId()))
@@ -95,8 +116,13 @@ public class PermissionServiceImpl implements PermissionService {
         context.setUsername(user.getUsername());
         context.setRealName(user.getRealName());
         context.setDisplayName(StringUtils.hasText(user.getRealName()) ? user.getRealName() : user.getUsername());
+        context.setPhone(user.getPhone());
+        context.setEmail(user.getEmail());
+        context.setAccountType(superAdmin ? "主账号" : "子账号");
+        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
+        context.setLoginMethods(buildLoginMethods(user));
         context.setSuperAdmin(superAdmin);
-        context.setHomePath(resolveHomePath(navigationMenus));
+        context.setHomePath(resolveHomePath(roles, navigationMenus));
         context.setRoles(roles.stream().map(this::toRoleSummary).toList());
         context.setRoleCodes(roles.stream().map(Role::getRoleCode).filter(StringUtils::hasText).toList());
         context.setPermissions(authorizedMenus.stream()
@@ -227,6 +253,15 @@ public class PermissionServiceImpl implements PermissionService {
         return roles.stream().map(Role::getId).filter(Objects::nonNull).toList();
     }
 
+    private List<String> buildLoginMethods(User user) {
+        List<String> methods = new ArrayList<>();
+        methods.add("账号登录");
+        if (StringUtils.hasText(user.getPhone())) {
+            methods.add("手机号登录");
+        }
+        return methods;
+    }
+
     private Set<Long> expandWithAncestors(Collection<Long> menuIds, Map<Long, Menu> menuMap) {
         if (CollectionUtils.isEmpty(menuIds)) {
             return new LinkedHashSet<>();
@@ -325,7 +360,29 @@ public class PermissionServiceImpl implements PermissionService {
         return Integer.valueOf(2).equals(menu.getType());
     }
 
-    private String resolveHomePath(List<MenuTreeNodeVO> menus) {
+    private String resolveHomePath(List<Role> roles, List<MenuTreeNodeVO> menus) {
+        Set<String> roleCodes = roles.stream()
+                .map(Role::getRoleCode)
+                .map(this::normalizeCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> rootMenuCodes = menus.stream()
+                .map(MenuTreeNodeVO::getMenuCode)
+                .map(this::normalizeCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        for (RoleHomePreference preference : ROLE_HOME_PREFERENCES) {
+            if (roleCodes.contains(normalizeCode(preference.roleCode()))
+                    && rootMenuCodes.contains(normalizeCode(preference.menuCode()))) {
+                return preference.landingPath();
+            }
+        }
+
+        return resolveFirstMenuPath(menus);
+    }
+
+    private String resolveFirstMenuPath(List<MenuTreeNodeVO> menus) {
         for (MenuTreeNodeVO menu : menus) {
             String path = resolveMenuPath(menu);
             if (StringUtils.hasText(path)) {
@@ -354,5 +411,12 @@ public class PermissionServiceImpl implements PermissionService {
     private Comparator<Menu> menuComparator() {
         return Comparator.comparing(Menu::getSort, Comparator.nullsLast(Integer::compareTo))
                 .thenComparing(Menu::getId, Comparator.nullsLast(Long::compareTo));
+    }
+
+    private String normalizeCode(String value) {
+        return StringUtils.hasText(value) ? value.trim().toUpperCase() : "";
+    }
+
+    private record RoleHomePreference(String roleCode, String menuCode, String landingPath) {
     }
 }

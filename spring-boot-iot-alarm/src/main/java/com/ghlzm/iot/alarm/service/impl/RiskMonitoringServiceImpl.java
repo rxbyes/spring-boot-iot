@@ -1,8 +1,6 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.alarm.dto.RiskMonitoringListQuery;
 import com.ghlzm.iot.alarm.entity.AlarmRecord;
 import com.ghlzm.iot.alarm.entity.EventRecord;
@@ -31,6 +29,9 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -80,7 +81,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final ProductMapper productMapper;
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMonitoringServiceImpl(RiskPointMapper riskPointMapper,
                                      RiskPointDeviceMapper riskPointDeviceMapper,

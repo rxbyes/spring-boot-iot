@@ -46,6 +46,7 @@
         <taos-jdbcdriver.version>3.5.3</taos-jdbcdriver.version>
         <mqtt.client.version>1.2.5</mqtt.client.version>
         <netty.version>4.1.112.Final</netty.version>
+        <jackson3.version>3.0.2</jackson3.version>
 
          <ghlxk.version>2024.0.0</ghlxk.version>
     </properties>
@@ -149,6 +150,19 @@
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
+            </dependency>
+
+            <!-- Jackson 3 -->
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson3.version}</version>
             </dependency>
 
             <!-- Internal Modules -->

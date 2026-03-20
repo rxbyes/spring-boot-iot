@@ -1,4 +1,4 @@
-import { request } from './http';
+import { request } from './request';
 import type {
   Device,
   DeviceAddPayload,
@@ -14,29 +14,29 @@ import type {
 } from '../types/api';
 
 export function addProduct(payload: ProductAddPayload) {
-  return request<Product>('/device/product/add', {
+  return request<Product>('/api/device/product/add', {
     method: 'POST',
     body: payload
   });
 }
 
 export function getProductById(id: string | number) {
-  return request<Product>(`/device/product/${id}`);
+  return request<Product>(`/api/device/product/${id}`);
 }
 
 export function addDevice(payload: DeviceAddPayload) {
-  return request<Device>('/device/add', {
+  return request<Device>('/api/device/add', {
     method: 'POST',
     body: payload
   });
 }
 
 export function getDeviceById(id: string | number) {
-  return request<Device>(`/device/${id}`);
+  return request<Device>(`/api/device/${id}`);
 }
 
 export function getDeviceByCode(deviceCode: string) {
-  return request<Device>(`/device/code/${deviceCode}`);
+  return request<Device>(`/api/device/code/${deviceCode}`);
 }
 
 export function listDeviceOptions() {
@@ -48,24 +48,24 @@ export function getDeviceMetricOptions(deviceId: string | number) {
 }
 
 export function reportByHttp(payload: HttpReportPayload) {
-  return request<null>('/message/http/report', {
+  return request<null>('/api/message/http/report', {
     method: 'POST',
     body: payload
   });
 }
 
 export function getDeviceProperties(deviceCode: string) {
-  return request<DeviceProperty[]>(`/device/${deviceCode}/properties`);
+  return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`);
 }
 
 export function getDeviceMessageLogs(deviceCode: string) {
-  return request<DeviceMessageLog[]>(`/device/${deviceCode}/message-logs`);
+  return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`);
 }
 
 export function getDeviceFileSnapshots(deviceCode: string) {
-  return request<DeviceFileSnapshot[]>(`/device/${deviceCode}/file-snapshots`);
+  return request<DeviceFileSnapshot[]>(`/api/device/${deviceCode}/file-snapshots`);
 }
 
 export function getDeviceFirmwareAggregates(deviceCode: string) {
-  return request<DeviceFirmwareAggregate[]>(`/device/${deviceCode}/firmware-aggregates`);
+  return request<DeviceFirmwareAggregate[]>(`/api/device/${deviceCode}/firmware-aggregates`);
 }

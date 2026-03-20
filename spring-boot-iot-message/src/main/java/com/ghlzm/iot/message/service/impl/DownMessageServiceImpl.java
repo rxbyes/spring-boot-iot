@@ -1,7 +1,6 @@
 package com.ghlzm.iot.message.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.CommandRecord;
 import com.ghlzm.iot.device.entity.Device;
@@ -17,6 +16,9 @@ import com.ghlzm.iot.message.service.model.DownMessagePublishResult;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * MQTT 下行消息服务实现。
@@ -33,7 +35,7 @@ public class DownMessageServiceImpl implements DownMessageService {
     private final DeviceService deviceService;
     private final ProductService productService;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DownMessageServiceImpl(MqttDownMessagePublisher mqttDownMessagePublisher,
                                   CommandRecordService commandRecordService,
@@ -55,6 +57,7 @@ public class DownMessageServiceImpl implements DownMessageService {
 
         Device device = deviceService.getRequiredByCode(command.getDeviceCode());
         Product product = productService.getRequiredById(device.getProductId());
+        ensureProductEnabledForDownlink(product);
 
         String actualProductKey = hasText(command.getProductKey()) ? command.getProductKey() : product.getProductKey();
         if (!product.getProductKey().equalsIgnoreCase(actualProductKey)) {
@@ -119,6 +122,12 @@ public class DownMessageServiceImpl implements DownMessageService {
         );
     }
 
+    private void ensureProductEnabledForDownlink(Product product) {
+        if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
+            throw new BizException("产品已停用，拒绝设备下发: " + product.getProductKey());
+        }
+    }
+
     private CommandRecord buildCommandRecord(Device device,
                                              String productKey,
                                              String topic,
@@ -146,8 +155,8 @@ public class DownMessageServiceImpl implements DownMessageService {
     private String serializeRequestPayload(DeviceDownMessage downMessage) {
         try {
             return objectMapper.writeValueAsString(downMessage);
-        } catch (JsonProcessingException ex) {
-            throw new BizException("命令请求报文序列化失败: " + ex.getOriginalMessage());
+        } catch (JacksonException ex) {
+            throw new BizException("命令请求报文序列化失败: " + ex.getMessage());
         }
     }
 

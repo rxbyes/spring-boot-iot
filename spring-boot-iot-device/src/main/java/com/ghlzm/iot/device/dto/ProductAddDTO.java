@@ -29,5 +29,7 @@ public class ProductAddDTO {
     private String manufacturer;
 
     private String description;
+
+    private Integer status;
 }
 

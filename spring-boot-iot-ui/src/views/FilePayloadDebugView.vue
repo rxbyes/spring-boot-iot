@@ -3,7 +3,7 @@
     <section class="hero-grid">
       <PanelCard
         eyebrow="Integrity Check"
-        title="数据完整性校验"
+        title="数据校验台"
       >
         <form @submit.prevent="refreshAll">
           <div class="form-grid">
@@ -12,11 +12,11 @@
               <el-input id="file-debug-device-code" v-model="deviceCode" clearable placeholder="例如 demo-device-01..." />
             </div>
           </div>
-          <div class="button-row" style="margin-top: 1rem;">
+          <StandardActionGroup margin-top="sm">
             <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
               {{ isLoading ? '加载中...' : '刷新数据' }}
             </el-button>
-          </div>
+          </StandardActionGroup>
         </form>
       </PanelCard>
 
@@ -24,24 +24,7 @@
         eyebrow="Validation Summary"
         title="文件消息完整性概况"
       >
-        <div class="quad-grid">
-          <div class="info-chip">
-            <span>文件快照数量</span>
-            <strong>{{ fileSnapshots.length }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>固件聚合数量</span>
-            <strong>{{ firmwareAggregates.length }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近文件类型</span>
-            <strong>{{ fileSnapshots[0]?.fileType || firmwareAggregates[0]?.fileType || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>最近抓取时间</span>
-            <strong>{{ formatDateTime(lastFetchTime) }}</strong>
-          </div>
-        </div>
+        <StandardInfoGrid :items="validationSummaryItems" :columns="4" />
       </PanelCard>
     </section>
 
@@ -96,11 +79,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
+import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import { recordActivity } from '../stores/activity';
 import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';
@@ -111,6 +96,29 @@ const errorMessage = ref('');
 const lastFetchTime = ref<string | null>(null);
 const fileSnapshots = ref<DeviceFileSnapshot[]>([]);
 const firmwareAggregates = ref<DeviceFirmwareAggregate[]>([]);
+
+const validationSummaryItems = computed(() => [
+  {
+    key: 'file-snapshot-count',
+    label: '文件快照数量',
+    value: fileSnapshots.value.length
+  },
+  {
+    key: 'firmware-aggregate-count',
+    label: '固件聚合数量',
+    value: firmwareAggregates.value.length
+  },
+  {
+    key: 'latest-file-type',
+    label: '最近文件类型',
+    value: fileSnapshots.value[0]?.fileType || firmwareAggregates.value[0]?.fileType
+  },
+  {
+    key: 'last-fetch-time',
+    label: '最近抓取时间',
+    value: formatDateTime(lastFetchTime.value)
+  }
+]);
 
 function formatMd5(value?: boolean | null) {
   if (value === true) {
@@ -137,7 +145,7 @@ async function refreshAll() {
     lastFetchTime.value = new Date().toISOString();
 
     recordActivity({
-      module: '数据完整性校验',
+      module: '数据校验台',
       action: '刷新校验数据',
       request: { deviceCode: deviceCode.value },
       response: {
@@ -150,7 +158,7 @@ async function refreshAll() {
   } catch (error) {
     errorMessage.value = (error as Error).message;
     recordActivity({
-      module: '数据完整性校验',
+      module: '数据校验台',
       action: '刷新校验数据',
       request: { deviceCode: deviceCode.value },
       response: { message: errorMessage.value },

@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
@@ -22,6 +23,11 @@ import org.springframework.web.cors.CorsConfigurationSource;
  */
 @Configuration
 public class SecurityConfig {
+
+    private static final RegexRequestMatcher SPA_SHELL_ROUTE_MATCHER =
+            new RegexRequestMatcher(
+                    "^/(?:$|(?!api(?:/|$)|actuator(?:/|$)|swagger-ui(?:/|$)|v3(?:/|$)|error(?:/|$)|assets(?:/|$)|doc\\.html$)(?!.*\\.[^/]+$).+)$",
+                    HttpMethod.GET.name());
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
@@ -47,11 +53,17 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 放行静态资源与 SPA 壳层入口，确保浏览器强刷前端 history 路由时先回到 index.html。
+                        .requestMatchers(
+                                "/index.html",
+                                "/favicon.ico",
+                                "/assets/**")
+                        .permitAll()
+                        .requestMatchers(SPA_SHELL_ROUTE_MATCHER).permitAll()
                         // 仅保留登录、调试与运维白名单，其余接口默认要求 JWT 认证。
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/auth/login",
-                                "/message/http/report",
+                                "/api/message/http/report",
                                 "/actuator/**",
                                 "/error",
                                 "/doc.html",

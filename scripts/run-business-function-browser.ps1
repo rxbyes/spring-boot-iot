@@ -6,7 +6,26 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$workspace = 'E:\idea\ghatg\spring-boot-iot\spring-boot-iot-ui'
+function Get-ResponseText {
+    param([object]$Content)
+
+    if ($Content -is [byte[]]) {
+        return [System.Text.Encoding]::UTF8.GetString($Content)
+    }
+
+    return [string]$Content
+}
+
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+$workspace = Join-Path $repoRoot 'spring-boot-iot-ui'
+$npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $npmCmd) {
+    $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
+}
+if (-not $npmCmd) {
+    throw 'npm executable was not found in PATH.'
+}
 $env:npm_config_cache = Join-Path $workspace '.npm-cache'
 $env:IOT_ACCEPTANCE_FRONTEND_URL = $FrontendUrl
 $env:IOT_ACCEPTANCE_BACKEND_URL = $BackendUrl
@@ -22,11 +41,12 @@ try {
 
 try {
     $health = Invoke-WebRequest "$BackendUrl/actuator/health" -UseBasicParsing -TimeoutSec 5
-    if (-not ($health.Content -match '"status"\s*:\s*"UP"')) {
-        throw "Backend health endpoint did not report UP: $($health.Content)"
+    $healthText = Get-ResponseText -Content $health.Content
+    if (-not ($healthText -match '"status"\s*:\s*"UP"')) {
+        throw "Backend health endpoint did not report UP: $healthText"
     }
 } catch {
-    throw "Backend is not reachable at $BackendUrl. Start it first with scripts/start-backend-acceptance.ps1 or mvn spring-boot:run."
+    throw "Backend health check failed at $BackendUrl/actuator/health. Start it first with scripts/start-backend-acceptance.ps1 or mvn spring-boot:run. Detail: $($_.Exception.Message)"
 }
 
-npm.cmd run acceptance:browser
+& $npmCmd run acceptance:browser

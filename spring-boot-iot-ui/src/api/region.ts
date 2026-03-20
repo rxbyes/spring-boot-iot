@@ -1,59 +1,74 @@
-import { request } from './request';
-import type { ApiEnvelope } from '../types/api';
+import { request } from './request'
+import type { ApiEnvelope, IdType, PageResult } from '../types/api'
 
-/**
- * 区域管理 API
- */
-
-// 区域管理接口定义
 export interface Region {
-      id: number;
-      tenantId: number;
-      regionName: string;
-      regionCode: string;
-      parentId: number;
-      regionType: string; // province/city/district/street
-      longitude: number;
-      latitude: number;
-      status: number; // 1启用 0禁用
-      sortNo: number;
-      remark: string;
-      createBy: number;
-      createTime: string;
-      updateBy: number;
-      updateTime: string;
-      deleted: number;
-      children?: Region[];
+  id: IdType
+  tenantId: IdType
+  regionName: string
+  regionCode: string
+  parentId: IdType
+  regionType: string
+  longitude?: number
+  latitude?: number
+  status: number
+  sortNo: number
+  remark: string
+  createBy: number
+  createTime: string
+  updateBy: number
+  updateTime: string
+  deleted: number
+  children?: Region[]
+  hasChildren?: boolean
 }
 
-// 查询区域列表
-export const listRegions = (parentId?: number): Promise<ApiEnvelope<Region[]>> => {
-      const queryString = parentId ? `?parentId=${parentId}` : '';
-      const path = `/api/region/list${queryString}`;
-      return request<Region[]>(path, { method: 'GET' });
-};
+export interface RegionQueryParams {
+  regionName?: string
+  regionCode?: string
+  regionType?: string
+}
 
-// 查询区域树
+export interface RegionPageQueryParams extends RegionQueryParams {
+  pageNum?: number
+  pageSize?: number
+}
+
+function buildQuery(params: Record<string, unknown>) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.append(key, String(value))
+    }
+  })
+  return query.toString()
+}
+
+export const listRegions = (parentId?: IdType): Promise<ApiEnvelope<Region[]>> => {
+  const query = buildQuery({ parentId })
+  return request<Region[]>(`/api/region/list${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
+export const pageRegions = (params: RegionPageQueryParams = {}): Promise<ApiEnvelope<PageResult<Region>>> => {
+  const query = buildQuery(params)
+  return request<PageResult<Region>>(`/api/region/page${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
 export const listRegionTree = (): Promise<ApiEnvelope<Region[]>> => {
-      return request<Region[]>('/api/region/tree', { method: 'GET' });
-};
+  return request<Region[]>('/api/region/tree', { method: 'GET' })
+}
 
-// 根据ID查询区域
-export const getRegion = (id: number): Promise<ApiEnvelope<Region>> => {
-      return request<Region>(`/api/region/${id}`, { method: 'GET' });
-};
+export const getRegion = (id: IdType): Promise<ApiEnvelope<Region>> => {
+  return request<Region>(`/api/region/${id}`, { method: 'GET' })
+}
 
-// 添加区域
 export const addRegion = (data: Partial<Region>): Promise<ApiEnvelope<Region>> => {
-      return request<Region>('/api/region', { method: 'POST', body: data });
-};
+  return request<Region>('/api/region', { method: 'POST', body: data })
+}
 
-// 更新区域
 export const updateRegion = (data: Partial<Region>): Promise<ApiEnvelope<Region>> => {
-      return request<Region>('/api/region', { method: 'PUT', body: data });
-};
+  return request<Region>('/api/region', { method: 'PUT', body: data })
+}
 
-// 删除区域
-export const deleteRegion = (id: number): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/region/${id}`, { method: 'DELETE' });
-};
+export const deleteRegion = (id: IdType): Promise<ApiEnvelope<void>> => {
+  return request<void>(`/api/region/${id}`, { method: 'DELETE' })
+}

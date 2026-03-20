@@ -1,21 +1,41 @@
-<template>
-  <div class="rule-definition-view">
-    <div class="rule-definition-header">
-      <h1>阈值规则配�?/h1>
-      <el-button type="primary" @click="handleAdd">新增规则</el-button>
-    </div>
+﻿<template>
+  <div class="ops-workbench rule-definition-view">
+    <PanelCard
+      eyebrow="Threshold Rules"
+      title="阈值策略"
+      description="统一维护告警阈值、持续时间和转事件策略，支撑风险监测的告警触发与处置闭环。"
+      class="ops-hero-card"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleAdd">新增规则</el-button>
+      </template>
+      <div class="ops-kpi-grid">
+        <MetricCard label="规则总数" :value="String(pagination.total)" :badge="{ label: '阈值治理', tone: 'brand' }" />
+        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
+        <MetricCard label="转事件规则" :value="String(convertToEventCount)" :badge="{ label: '闭环联动', tone: 'warning' }" />
+        <MetricCard label="严重告警规则" :value="String(criticalRuleCount)" :badge="{ label: '重点策略', tone: 'danger' }" />
+      </div>
+      <div class="ops-inline-note">
+        阈值策略与告警等级、通知方式、转事件开关集中呈现，支持通过同一套抽屉表单完成策略维护，减少配置分散感。
+      </div>
+    </PanelCard>
 
-    <div class="rule-definition-filters">
-      <el-form :model="filters" label-position="left">
+    <PanelCard
+      eyebrow="Rule Filters"
+      title="筛选条件"
+      description="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
+      class="ops-filter-card"
+    >
+      <el-form :model="filters" label-position="top" class="ops-filter-form">
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="规则名称">
-              <el-input v-model="filters.ruleName" placeholder="请输入规则名�? clearable />
+              <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="测点标识�?>
-              <el-input v-model="filters.metricIdentifier" placeholder="请输入测点标识符" clearable />
+            <el-form-item label="测点标识符">
+              <el-input v-model="filters.metricIdentifier" placeholder="请输入测点标识符" clearable @keyup.enter="handleSearch" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
@@ -28,155 +48,225 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="状�?>
-              <el-select v-model="filters.status" placeholder="请选择状�? clearable>
+            <el-form-item label="状态">
+              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
-          </el-col>
         </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
       </el-form>
-    </div>
+    </PanelCard>
 
-    <div class="rule-definition-list">
-      <el-table :data="ruleList" v-loading="loading" border>
-        <el-table-column prop="ruleName" label="规则名称" />
-        <el-table-column prop="metricIdentifier" label="测点标识�? width="150" />
-        <el-table-column prop="metricName" label="测点名称" width="120" />
-        <el-table-column prop="expression" label="表达�? width="200" />
-        <el-table-column prop="duration" label="持续时间(�?" width="120" />
-        <el-table-column prop="alarmLevel" label="告警等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getAlarmLevelType(row.alarmLevel)">{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="convertToEvent" label="转事�? width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.convertToEvent === 1 ? 'success' : 'info'">
-              {{ row.convertToEvent === 1 ? '�? : '�? }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状�? width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <PanelCard
+      eyebrow="Rule List"
+      title="阈值策略列表"
+      :description="`当前 ${pagination.total} 条阈值策略，支持告警触发和转事件配置。`"
+      class="ops-table-card"
+    >
+      <StandardTableToolbar
+        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
+      >
+        <template #right>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </template>
+      </StandardTableToolbar>
 
-    <div class="rule-definition-pagination">
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </div>
+      <div v-if="loading" class="ops-state">正在加载阈值策略列表...</div>
+      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的阈值策略</div>
+      <template v-else>
+        <el-table
+          ref="tableRef"
+          :data="ruleList"
+          border
+          stripe
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="48" />
+          <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+          <StandardTableTextColumn prop="metricIdentifier" label="测点标识符" :width="160" />
+          <StandardTableTextColumn prop="metricName" label="测点名称" :width="140" />
+          <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
+          <el-table-column prop="duration" label="持续时间(秒)" width="120" />
+          <el-table-column prop="alarmLevel" label="告警等级" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="convertToEvent" label="转事件" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.convertToEvent === 1 ? 'success' : 'info'" round>
+                {{ row.convertToEvent === 1 ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <!-- 规则表单对话�?-->
-    <el-dialog v-model="formVisible" :title="formTitle" width="600px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="规则名称" prop="ruleName">
-          <el-input v-model="form.ruleName" placeholder="请输入规则名�? />
-        </el-form-item>
-        <el-form-item label="测点标识�? prop="metricIdentifier">
-          <el-input v-model="form.metricIdentifier" placeholder="请输入测点标识符" />
-        </el-form-item>
-        <el-form-item label="测点名称" prop="metricName">
-          <el-input v-model="form.metricName" placeholder="请输入测点名�? />
-        </el-form-item>
-        <el-form-item label="表达�? prop="expression">
-          <el-input v-model="form.expression" placeholder="例如：value > 100" />
-        </el-form-item>
-        <el-form-item label="持续时间(�?" prop="duration">
-          <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时�? />
-        </el-form-item>
-        <el-form-item label="告警等级" prop="alarmLevel">
-          <el-select v-model="form.alarmLevel" placeholder="请选择告警等级" style="width: 100%">
-            <el-option label="严重" value="critical" />
-            <el-option label="警告" value="warning" />
-            <el-option label="提醒" value="info" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="通知方式">
-          <el-checkbox-group v-model="form.notificationMethods">
-            <el-checkbox label="email">邮件</el-checkbox>
-            <el-checkbox label="sms">短信</el-checkbox>
-            <el-checkbox label="wechat">微信</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="转事�?>
-          <el-radio-group v-model="form.convertToEvent">
-            <el-radio :label="0">�?/el-radio>
-            <el-radio :label="1">�?/el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="状�? prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :label="0">启用</el-radio>
-            <el-radio :label="1">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入描�? />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <div class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
-    </el-dialog>
+    </PanelCard>
+
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Risk Platform Form"
+      :title="formTitle"
+      subtitle="统一通过右侧抽屉维护阈值策略与告警配置。"
+      size="44rem"
+      @close="handleFormClose"
+    >
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>配置提示</strong>
+          <span>建议先确认测点标识、阈值表达式和持续时间，再决定是否转事件，以保持告警触发和处置链路的一致性。</span>
+        </div>
+        <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>规则基础信息</h3>
+                <p>先确认规则名称、测点标识和阈值表达式，保证同类策略具备清晰可读的维护口径。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="规则名称" prop="ruleName">
+                <el-input v-model="form.ruleName" placeholder="请输入规则名称" />
+              </el-form-item>
+              <el-form-item label="测点标识符" prop="metricIdentifier">
+                <el-input v-model="form.metricIdentifier" placeholder="请输入测点标识符" />
+              </el-form-item>
+              <el-form-item label="测点名称" prop="metricName">
+                <el-input v-model="form.metricName" placeholder="请输入测点名称" />
+              </el-form-item>
+              <el-form-item label="表达式" prop="expression">
+                <el-input v-model="form.expression" placeholder="例如：value > 100" />
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>触发策略</h3>
+                <p>统一配置触发持续时间、告警等级与转事件开关，确保告警策略与处置闭环匹配。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="持续时间(秒)" prop="duration">
+                <el-input-number v-model="form.duration" :min="0" :max="3600" placeholder="请输入持续时间" />
+              </el-form-item>
+              <el-form-item label="告警等级" prop="alarmLevel">
+                <el-select v-model="form.alarmLevel" placeholder="请选择告警等级">
+                  <el-option label="严重" value="critical" />
+                  <el-option label="警告" value="warning" />
+                  <el-option label="提醒" value="info" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="转事件">
+                <el-radio-group v-model="form.convertToEvent">
+                  <el-radio :value="0">否</el-radio>
+                  <el-radio :value="1">是</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="状态" prop="status">
+                <el-radio-group v-model="form.status">
+                  <el-radio :value="0">启用</el-radio>
+                  <el-radio :value="1">停用</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>通知与说明</h3>
+                <p>维护通知通道和补充说明，便于后续排障、回顾和跨岗位协同。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="通知方式" class="ops-drawer-grid__full">
+                <el-checkbox-group v-model="form.notificationMethods">
+                  <el-checkbox label="email">邮件</el-checkbox>
+                  <el-checkbox label="sms">短信</el-checkbox>
+                  <el-checkbox label="wechat">微信</el-checkbox>
+                </el-checkbox-group>
+              </el-form-item>
+              <el-form-item label="描述" prop="remark" class="ops-drawer-grid__full">
+                <el-input v-model="form.remark" type="textarea" :rows="4" placeholder="请输入规则说明、适用范围或维护备注" />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        />
+      </template>
+    </StandardFormDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import { ElMessageBox } from '@/utils/messageBox';
-import { getRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardPagination from '@/components/StandardPagination.vue';
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import { useServerPagination } from '@/composables/useServerPagination';
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
 import type { RuleDefinition } from '../api/ruleDefinition';
 
-// 状�?
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
+const tableRef = ref();
+const selectedRows = ref<RuleDefinition[]>([]);
 
-// 查询条件
 const filters = reactive({
   ruleName: '',
   metricIdentifier: '',
   alarmLevel: '',
-  status: ''
+  status: '' as '' | number
 });
 
-// 分页
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-});
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
-// 表单
 const formRef = ref();
-const formTitle = computed(() => form.id ? '编辑规则' : '新增规则');
+const formTitle = computed(() => (form.id ? '编辑规则' : '新增规则'));
 const form = reactive({
   id: undefined as number | undefined,
   ruleName: '',
@@ -192,7 +282,7 @@ const form = reactive({
 });
 
 const rules = {
-  ruleName: [{ required: true, message: '请输入规则名�?, trigger: 'blur' }],
+  ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
   metricIdentifier: [{ required: true, message: '请输入测点标识符', trigger: 'blur' }],
   expression: [{ required: true, message: '请输入表达式', trigger: 'blur' }],
   alarmLevel: [{ required: true, message: '请选择告警等级', trigger: 'change' }]
@@ -200,7 +290,10 @@ const rules = {
 
 const submitLoading = ref(false);
 
-// 获取告警等级类型
+const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
+const convertToEventCount = computed(() => ruleList.value.filter((item) => item.convertToEvent === 1).length);
+const criticalRuleCount = computed(() => ruleList.value.filter((item) => item.alarmLevel === 'critical').length);
+
 const getAlarmLevelType = (level: string) => {
   switch (level) {
     case 'critical':
@@ -214,7 +307,6 @@ const getAlarmLevelType = (level: string) => {
   }
 };
 
-// 获取告警等级文本
 const getAlarmLevelText = (level: string) => {
   switch (level) {
     case 'critical':
@@ -228,7 +320,6 @@ const getAlarmLevelText = (level: string) => {
   }
 };
 
-// 获取状态类�?
 const getStatusType = (status: number) => {
   switch (status) {
     case 0:
@@ -240,7 +331,6 @@ const getStatusType = (status: number) => {
   }
 };
 
-// 获取状态文�?
 const getStatusText = (status: number) => {
   switch (status) {
     case 0:
@@ -252,19 +342,19 @@ const getStatusText = (status: number) => {
   }
 };
 
-// 获取规则列表
 const loadRuleList = async () => {
   loading.value = true;
   try {
-    const res = await getRuleList({
+    const res = await pageRuleList({
       ruleName: filters.ruleName || undefined,
       metricIdentifier: filters.metricIdentifier || undefined,
       alarmLevel: filters.alarmLevel || undefined,
-      status: filters.status ? parseInt(filters.status) : undefined
+      status: filters.status === '' ? undefined : Number(filters.status),
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
     });
     if (res.code === 200) {
-      ruleList.value = res.data || [];
-      pagination.total = res.data?.length || 0;
+      ruleList.value = applyPageResult(res.data);
     }
   } catch (error) {
     console.error('查询规则列表失败', error);
@@ -273,34 +363,45 @@ const loadRuleList = async () => {
   }
 };
 
-// 处理搜索
 const handleSearch = () => {
-  pagination.page = 1;
-  loadRuleList();
+  resetPage();
+  void loadRuleList();
 };
 
-// 处理重置
 const handleReset = () => {
   filters.ruleName = '';
   filters.metricIdentifier = '';
   filters.alarmLevel = '';
   filters.status = '';
-  pagination.page = 1;
-  loadRuleList();
+  resetPage();
+  void loadRuleList();
 };
 
-// 处理大小变化
-const handleSizeChange = () => {
-  loadRuleList();
+const handleSizeChange = (size: number) => {
+  setPageSize(size);
+  void loadRuleList();
 };
 
-// 处理页码变化
-const handlePageChange = () => {
-  loadRuleList();
+const handlePageChange = (page: number) => {
+  setPageNum(page);
+  void loadRuleList();
 };
 
-// 新增规则
-const handleAdd = () => {
+const handleSelectionChange = (rows: RuleDefinition[]) => {
+  selectedRows.value = rows;
+};
+
+const clearSelection = () => {
+  tableRef.value?.clearSelection?.();
+  selectedRows.value = [];
+};
+
+const handleRefresh = () => {
+  clearSelection();
+  void loadRuleList();
+};
+
+const resetRuleForm = () => {
   form.id = undefined;
   form.ruleName = '';
   form.metricIdentifier = '';
@@ -312,10 +413,13 @@ const handleAdd = () => {
   form.convertToEvent = 0;
   form.status = 0;
   form.remark = '';
+};
+
+const handleAdd = () => {
+  resetRuleForm();
   formVisible.value = true;
 };
 
-// 编辑规则
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
   form.ruleName = row.ruleName;
@@ -331,23 +435,22 @@ const handleEdit = (row: RuleDefinition) => {
   formVisible.value = true;
 };
 
-// 删除规则
 const handleDelete = async (row: RuleDefinition) => {
   try {
-    await ElMessageBox.confirm('确定要删除该规则吗？', '删除规则', {
-      type: 'warning'
-    });
+    await confirmDelete('规则', row.ruleName);
     const res = await deleteRule(row.id);
     if (res.code === 200) {
       ElMessage.success('删除成功');
-      loadRuleList();
+      void loadRuleList();
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return;
+    }
     console.error('删除规则失败', error);
   }
 };
 
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
@@ -361,7 +464,7 @@ const handleSubmit = async () => {
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
-      loadRuleList();
+      void loadRuleList();
     }
   } catch (error) {
     console.error('提交表单失败', error);
@@ -370,44 +473,22 @@ const handleSubmit = async () => {
   }
 };
 
-// 初始�?
+const handleFormClose = () => {
+  formRef.value?.clearValidate?.();
+  resetRuleForm();
+};
+
 onMounted(() => {
-  loadRuleList();
+  void loadRuleList();
 });
 </script>
 
 <style scoped>
 .rule-definition-view {
   padding: 20px;
-}
-
-.rule-definition-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.rule-definition-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.rule-definition-filters {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.rule-definition-list {
-  margin-bottom: 20px;
-}
-
-.rule-definition-pagination {
-  display: flex;
-  justify-content: flex-end;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>
 

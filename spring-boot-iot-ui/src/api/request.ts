@@ -17,6 +17,43 @@ export interface ResponseInterceptor<T = unknown> {
   onerror?: (error: Error) => Error | Promise<Error>;
 }
 
+export interface RequestError extends Error {
+  handled?: boolean;
+  status?: number;
+}
+
+const UNSAFE_ID_JSON_FIELD_PATTERN =
+  /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
+
+export function createRequestError(message: string, handled = false, status?: number): RequestError {
+  const error = new Error(message) as RequestError;
+  error.handled = handled;
+  error.status = status;
+  return error;
+}
+
+export function normalizeUnsafeIdJson(bodyText: string): string {
+  // 真实环境历史响应仍可能把雪花 Long 主键直接返回为 number，这里在 JSON.parse 前兜底转成字符串。
+  return bodyText.replace(
+    UNSAFE_ID_JSON_FIELD_PATTERN,
+    (_match, prefix: string, whitespace: string, fieldName: string, value: string) => {
+      return `${prefix}${whitespace}"${fieldName}":"${value}"`;
+    }
+  );
+}
+
+export function parseApiEnvelope<T>(bodyText: string): ApiEnvelope<T> | null {
+  if (!bodyText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(normalizeUnsafeIdJson(bodyText)) as ApiEnvelope<T>;
+  } catch {
+    return null;
+  }
+}
+
 class InterceptorManager {
   private requestInterceptors: RequestInterceptor[] = [];
   private responseInterceptors: ResponseInterceptor[] = [];
@@ -94,19 +131,28 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   try {
     const response = await fetch(url, finalOptions as RequestInit);
     const rawText = await response.text();
-    const payload = rawText ? (JSON.parse(rawText) as ApiEnvelope<T>) : null;
+    const bodyText = rawText.trim();
+    const payload = parseApiEnvelope<T>(bodyText);
 
-    if (!payload) {
-      throw new Error('服务端没有返回有效内容');
+    if (payload) {
+      const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
+      if (!response.ok) {
+        const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
+        const message = processedPayload.msg || bodyText || `请求失败: ${statusMessage}`;
+        throw createRequestError(message, false, response.status);
+      }
+      return processedPayload;
     }
-
-    const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
 
     if (!response.ok) {
-      throw new Error(processedPayload.msg || `请求失败: ${response.status}`);
+      const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
+      const message = bodyText || `请求失败: ${statusMessage}`;
+      throw createRequestError(message, false, response.status);
     }
 
-    return processedPayload;
+    if (!payload) {
+      throw createRequestError('服务端返回格式无效，请检查后端日志');
+    }
   } catch (error) {
     if (error instanceof Error) {
       if (errorHandler) {

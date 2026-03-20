@@ -1,71 +1,67 @@
 package com.ghlzm.iot.system.controller;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.Region;
 import com.ghlzm.iot.system.service.RegionService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 区域管理 Controller
- */
 @RestController
 @RequestMapping("/api/region")
 public class RegionController {
 
-      @Autowired
-      private RegionService regionService;
+      private final RegionService regionService;
 
-      /**
-       * 查询区域列表
-       */
+      public RegionController(RegionService regionService) {
+            this.regionService = regionService;
+      }
+
       @GetMapping("/list")
       public R<List<Region>> listRegions(@RequestParam(required = false) Long parentId) {
-            List<Region> regions = regionService.listRegions(parentId);
-            return R.ok(regions);
+            return R.ok(regionService.listRegions(parentId));
       }
 
-      /**
-       * 查询区域树
-       */
+      @GetMapping("/page")
+      public R<PageResult<Region>> pageRegions(@RequestParam(required = false) String regionName,
+                                               @RequestParam(required = false) String regionCode,
+                                               @RequestParam(required = false) String regionType,
+                                               @RequestParam(defaultValue = "1") Long pageNum,
+                                               @RequestParam(defaultValue = "10") Long pageSize) {
+            return R.ok(regionService.pageRegions(regionName, regionCode, regionType, pageNum, pageSize));
+      }
+
       @GetMapping("/tree")
       public R<List<Region>> listRegionTree() {
-            List<Region> regions = regionService.listRegionTree();
-            return R.ok(regions);
+            return R.ok(regionService.listRegionTree());
       }
 
-      /**
-       * 根据ID查询区域
-       */
       @GetMapping("/{id}")
       public R<Region> getById(@PathVariable Long id) {
-            Region region = regionService.getById(id);
-            return R.ok(region);
+            return R.ok(regionService.getById(id));
       }
 
-      /**
-       * 添加区域
-       */
       @PostMapping
       public R<Region> addRegion(@RequestBody Region region) {
             regionService.addRegion(region);
             return R.ok(region);
       }
 
-      /**
-       * 更新区域
-       */
       @PutMapping
       public R<Region> updateRegion(@RequestBody Region region) {
             regionService.updateRegion(region);
             return R.ok(region);
       }
 
-      /**
-       * 删除区域
-       */
       @DeleteMapping("/{id}")
       public R<Void> deleteRegion(@PathVariable Long id) {
             regionService.deleteRegion(id);

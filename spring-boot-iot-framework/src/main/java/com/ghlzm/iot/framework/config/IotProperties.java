@@ -32,6 +32,7 @@ public class IotProperties {
     private Cors cors = new Cors();
     private Rule rule = new Rule();
     private Alarm alarm = new Alarm();
+    private Observability observability = new Observability();
     private Ota ota = new Ota();
 
     @Data
@@ -199,6 +200,13 @@ public class IotProperties {
             private Boolean emailEnabled;
             private Boolean webhookEnabled;
         }
+    }
+
+    @Data
+    public static class Observability {
+        private Boolean systemErrorNotifyEnabled = Boolean.FALSE;
+        private Integer notificationTimeoutMs = 3000;
+        private Integer systemErrorNotifyCooldownSeconds = 300;
     }
 
     @Data

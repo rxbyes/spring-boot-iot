@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.service.LinkageRuleService;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,19 @@ public class LinkageRuleController {
                   @RequestParam(required = false) Integer status) {
             List<LinkageRule> list = linkageRuleService.getRuleList(ruleName, status);
             return R.ok(list);
+      }
+
+      /**
+       * 分页获取规则列表
+       */
+      @GetMapping("/page")
+      public R<PageResult<LinkageRule>> pageRuleList(
+                  @RequestParam(required = false) String ruleName,
+                  @RequestParam(required = false) Integer status,
+                  @RequestParam(defaultValue = "1") Long pageNum,
+                  @RequestParam(defaultValue = "10") Long pageSize) {
+            PageResult<LinkageRule> page = linkageRuleService.pageRuleList(ruleName, status, pageNum, pageSize);
+            return R.ok(page);
       }
 
       /**

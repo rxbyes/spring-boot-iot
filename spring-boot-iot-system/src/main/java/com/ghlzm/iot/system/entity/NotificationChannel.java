@@ -38,7 +38,7 @@ public class NotificationChannel implements Serializable {
       private String channelCode;
 
       /**
-       * 渠道类型 email/sms/wechat/feishu/dingtalk
+       * 渠道类型 email/sms/webhook/wechat/feishu/dingtalk
        */
       private String channelType;
 

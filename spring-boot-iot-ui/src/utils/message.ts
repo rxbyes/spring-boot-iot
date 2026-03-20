@@ -1,2 +1,2 @@
-import 'element-plus/es/components/message/style/css';
-export { ElMessage } from 'element-plus/es/components/message';
+import 'element-plus/theme-chalk/el-message.css';
+export { ElMessage } from 'element-plus';

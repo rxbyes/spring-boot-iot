@@ -1,96 +1,135 @@
-import { request } from './request';
+import { request } from './request'
 import type {
+  ApiEnvelope,
   Device,
   DeviceAddPayload,
+  DeviceBatchAddPayload,
+  DeviceBatchAddResult,
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
   DeviceProperty,
-  HttpReportPayload
-} from '../types/api';
+  DeviceReplacePayload,
+  DeviceReplaceResult,
+  HttpReportPayload,
+  IdType,
+  PageResult
+} from '../types/api'
 
-/**
- * 设备相关API
- */
+export interface DevicePageQueryParams {
+  deviceId?: IdType
+  productKey?: string
+  deviceCode?: string
+  deviceName?: string
+  onlineStatus?: number
+  activateStatus?: number
+  deviceStatus?: number
+  pageNum?: number
+  pageSize?: number
+}
+
+function buildQuery(params: Record<string, unknown>) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.append(key, String(value))
+    }
+  })
+  return query.toString()
+}
+
+export function addDevice(payload: DeviceAddPayload): Promise<ApiEnvelope<Device>> {
+  return request<Device>('/api/device/add', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function getDeviceById(id: IdType): Promise<ApiEnvelope<Device>> {
+  return request<Device>(`/api/device/${id}`)
+}
+
+export function getDeviceByCode(deviceCode: string): Promise<ApiEnvelope<Device>> {
+  return request<Device>(`/api/device/code/${deviceCode}`)
+}
+
+export function pageDevices(params: DevicePageQueryParams = {}): Promise<ApiEnvelope<PageResult<Device>>> {
+  const query = buildQuery(params)
+  return request<PageResult<Device>>(`/api/device/page${query ? `?${query}` : ''}`, {
+    method: 'GET'
+  })
+}
+
+export function updateDevice(id: IdType, payload: DeviceAddPayload): Promise<ApiEnvelope<Device>> {
+  return request<Device>(`/api/device/${id}`, {
+    method: 'PUT',
+    body: payload
+  })
+}
+
+export function batchAddDevices(payload: DeviceBatchAddPayload): Promise<ApiEnvelope<DeviceBatchAddResult>> {
+  return request<DeviceBatchAddResult>('/api/device/batch-add', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function replaceDevice(id: IdType, payload: DeviceReplacePayload): Promise<ApiEnvelope<DeviceReplaceResult>> {
+  return request<DeviceReplaceResult>(`/api/device/${id}/replace`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function deleteDevice(id: IdType): Promise<ApiEnvelope<void>> {
+  return request<void>(`/api/device/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function batchDeleteDevices(ids: IdType[]): Promise<ApiEnvelope<void>> {
+  return request<void>('/api/device/batch-delete', {
+    method: 'POST',
+    body: { ids }
+  })
+}
+
+export function getDeviceProperties(deviceCode: string): Promise<ApiEnvelope<DeviceProperty[]>> {
+  return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`)
+}
+
+export function getDeviceMessageLogs(deviceCode: string): Promise<ApiEnvelope<DeviceMessageLog[]>> {
+  return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`)
+}
+
+export function reportByHttp(payload: HttpReportPayload): Promise<ApiEnvelope<null>> {
+  return request<null>('/api/message/http/report', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function getDeviceFileSnapshots(deviceCode: string): Promise<ApiEnvelope<DeviceFileSnapshot[]>> {
+  return request<DeviceFileSnapshot[]>(`/api/device/${deviceCode}/file-snapshots`)
+}
+
+export function getDeviceFirmwareAggregates(deviceCode: string): Promise<ApiEnvelope<DeviceFirmwareAggregate[]>> {
+  return request<DeviceFirmwareAggregate[]>(`/api/device/${deviceCode}/firmware-aggregates`)
+}
+
 export const deviceApi = {
-  /**
-   * 新增设备
-   */
-  addDevice(payload: DeviceAddPayload) {
-    return request<Device>('/device/add', {
-      method: 'POST',
-      body: payload
-    });
-  },
-
-  /**
-   * 根据ID查询设备
-   */
-  getDeviceById(id: string | number) {
-    return request<Device>(`/device/${id}`);
-  },
-
-  /**
-   * 根据设备编码查询设备
-   */
-  getDeviceByCode(deviceCode: string) {
-    return request<Device>(`/device/code/${deviceCode}`);
-  },
-
-  /**
-   * 查询设备属性
-   */
-  getDeviceProperties(deviceCode: string) {
-    return request<DeviceProperty[]>(`/device/${deviceCode}/properties`);
-  },
-
-  /**
-   * 查询设备消息日志
-   */
-  getDeviceMessageLogs(deviceCode: string) {
-    return request<DeviceMessageLog[]>(`/device/${deviceCode}/message-logs`);
-  },
-
-  /**
-   * HTTP模拟上报
-   */
-  reportByHttp(payload: HttpReportPayload) {
-    return request<null>('/message/http/report', {
-      method: 'POST',
-      body: payload
-    });
-  },
-
-  /**
-   * 查询设备文件快照
-   */
-  getDeviceFileSnapshots(deviceCode: string) {
-    return request<DeviceFileSnapshot[]>(`/device/${deviceCode}/file-snapshots`);
-  },
-
-  /**
-   * 查询设备固件聚合结果
-   */
-  getDeviceFirmwareAggregates(deviceCode: string) {
-    return request<DeviceFirmwareAggregate[]>(`/device/${deviceCode}/firmware-aggregates`);
-  },
-
-  /**
-   * 更新设备
-   */
-  updateDevice(id: string | number, payload: Partial<DeviceAddPayload>) {
-    return request<Device>(`/device/${id}`, {
-      method: 'PUT',
-      body: payload
-    });
-  },
-
-  /**
-   * 删除设备
-   */
-  deleteDevice(id: string | number) {
-    return request<null>(`/device/${id}`, {
-      method: 'DELETE'
-    });
-  }
-};
+  addDevice,
+  getDeviceById,
+  getDeviceByCode,
+  pageDevices,
+  updateDevice,
+  batchAddDevices,
+  replaceDevice,
+  deleteDevice,
+  batchDeleteDevices,
+  getDeviceProperties,
+  getDeviceMessageLogs,
+  reportByHttp,
+  getDeviceFileSnapshots,
+  getDeviceFirmwareAggregates
+}

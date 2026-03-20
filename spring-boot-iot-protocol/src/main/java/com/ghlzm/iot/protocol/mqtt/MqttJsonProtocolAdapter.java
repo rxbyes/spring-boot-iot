@@ -1,7 +1,5 @@
 package com.ghlzm.iot.protocol.mqtt;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
@@ -10,6 +8,9 @@ import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
 import com.ghlzm.iot.protocol.core.model.DeviceFirmwarePacket;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -57,7 +58,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
      * 当前阶段协议层只需要最小 JSON 解析能力，直接在适配器内部维护 ObjectMapper，
      * 避免联调测试依赖额外的 Jackson Bean 注入条件。
      */
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry;
     private final MqttPayloadFrameParser mqttPayloadFrameParser;
     private final MqttPayloadSecurityValidator mqttPayloadSecurityValidator;

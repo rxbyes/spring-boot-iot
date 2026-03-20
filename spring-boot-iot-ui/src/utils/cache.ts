@@ -2,7 +2,7 @@
  * 请求缓存管理器
  */
 class CacheManager {
-      private cache = new Map<string, { data: unknown; timestamp: number }>();
+      private cache = new Map<string, { data: unknown; timestamp: number; ttl?: number }>();
       private defaultTTL = 30000; // 30秒
 
       /**
@@ -15,7 +15,8 @@ class CacheManager {
             const item = this.cache.get(key);
             if (!item) return null;
 
-            const effectiveTTL = ttl ?? this.defaultTTL;
+            // 过期时间优先级：读取参数 > 写入时指定 TTL > 默认 TTL
+            const effectiveTTL = ttl ?? item.ttl ?? this.defaultTTL;
             if (Date.now() - item.timestamp > effectiveTTL) {
                   this.cache.delete(key);
                   return null;
@@ -33,7 +34,8 @@ class CacheManager {
       set<T>(key: string, data: T, ttl?: number): void {
             this.cache.set(key, {
                   data,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  ttl
             });
       }
 
@@ -59,7 +61,7 @@ class CacheManager {
             const item = this.cache.get(key);
             if (!item) return false;
 
-            const effectiveTTL = ttl ?? this.defaultTTL;
+            const effectiveTTL = ttl ?? item.ttl ?? this.defaultTTL;
             return Date.now() - item.timestamp <= effectiveTTL;
       }
 

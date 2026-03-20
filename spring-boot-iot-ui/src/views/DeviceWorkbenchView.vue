@@ -1,731 +1,1226 @@
 <template>
-  <div class="page-stack">
-    <section class="hero-grid">
-      <div class="hero-panel operations-shell">
-        <p class="eyebrow">Operations Center</p>
-        <h1 class="headline">Éè±¸ÔËÎ¬ÖĞĞÄ</h1>
-        <div class="button-row" style="margin-top: 1.25rem;">
-          <el-button class="primary-button" type="primary" @click="handleQueryByCode">
-            ¿ìËÙË¢ĞÂÉè±¸×´Ì¬
-          </el-button>
-          <el-button class="secondary-button" @click="jumpToInsight">
-            ½øÈë·çÏÕµã¹¤×÷Ì¨
-          </el-button>
-          <el-button class="ghost-button" @click="jumpToReporting">
-            Ç°Íù½ÓÈë»Ø·ÅÌ¨
-          </el-button>
+  <div class="device-asset-view ops-workbench standard-list-view">
+    <PanelCard
+      eyebrow="Device Asset Workspace"
+      title="è®¾å¤‡èµ„äº§ä¸­å¿ƒ"
+      description="å›´ç»•è®¾å¤‡å°è´¦ã€å»ºæ¡£ã€ç»´æŠ¤ä¸å¯¼å‡ºç»„ç»‡ç»Ÿä¸€å…¥å£ï¼Œå¸®åŠ©ä¸šåŠ¡ã€è¿ç»´å’Œå®æ–½äººå‘˜å¿«é€Ÿç¡®è®¤å“ªäº›è®¾å¤‡å·²å…¥åº“ã€å½“å‰çŠ¶æ€å¦‚ä½•ã€ä¸‹ä¸€æ­¥è¯¥åšä»€ä¹ˆã€‚"
+      class="ops-hero-card"
+    >
+      <template #actions>
+        <div class="ops-hero-actions">
+          <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">æ–°å¢è®¾å¤‡</el-button>
+          <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">æ‰¹é‡å¯¼å…¥</el-button>
         </div>
+      </template>
+      <div class="ops-kpi-grid">
+        <MetricCard label="è®¾å¤‡æ€»æ•°" :value="String(pagination.total)" :badge="{ label: 'Asset', tone: 'brand' }" />
+        <MetricCard label="å½“å‰é¡µåœ¨çº¿" :value="String(onlineCount)" :badge="{ label: 'Online', tone: 'success' }" />
+        <MetricCard label="å½“å‰é¡µå·²æ¿€æ´»" :value="String(activatedCount)" :badge="{ label: 'Ready', tone: 'brand' }" />
+        <MetricCard label="å½“å‰é¡µåœç”¨" :value="String(disabledCount)" :badge="{ label: 'Review', tone: 'warning' }" />
+      </div>
+      <div class="ops-inline-note">
+        å½“å‰äº¤ä»˜å·²å®Œæˆè®¾å¤‡èµ„äº§å°è´¦ã€è¯¦æƒ…æŸ¥çœ‹ã€å¢æ”¹åˆ ã€æ‰¹é‡åˆ é™¤ã€æ‰¹é‡å¯¼å…¥ã€è®¾å¤‡æ›´æ¢ä¸åˆ—è¡¨å¯¼å‡ºé—­ç¯ï¼›è¿œç¨‹æ§åˆ¶ã€ç»´ä¿®å·¥å•è”åŠ¨ç­‰èƒ½åŠ›ç»§ç»­ä¿ç•™åœ¨åç»­è§„åˆ’ä¸­ã€‚
+      </div>
+    </PanelCard>
 
-        <div class="ops-status" :class="`ops-status--${healthSummary.tone}`">
-          <div>
-            <p>Éè±¸½¡¿µ×´Ì¬</p>
-            <strong>{{ healthSummary.label }}</strong>
-            <span>{{ healthSummary.description }}</span>
-          </div>
-          <div class="ops-status__score">
-            <small>ÔËÎ¬ÆÀ·Ö</small>
-            <strong>{{ healthSummary.score }}</strong>
-          </div>
+    <PanelCard
+      eyebrow="Device Filters"
+      title="ç­›é€‰æ¡ä»¶"
+      description="ä¼˜å…ˆæŒ‰è®¾å¤‡ IDã€äº§å“ Keyã€è®¾å¤‡ç¼–ç å’ŒçŠ¶æ€ç­›å‡ºéœ€è¦è¡¥å½•ã€æ ¸æŸ¥ã€åœç”¨æˆ–å¯¼å‡ºçš„è®¾å¤‡èµ„äº§ã€‚"
+      class="ops-filter-card"
+    >
+      <el-form :model="searchForm" label-position="top" class="ops-filter-form">
+        <el-row :gutter="20">
+          <el-col :span="6">
+            <el-form-item label="è®¾å¤‡ ID">
+              <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="è¯·è¾“å…¥è®¾å¤‡ ID" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="äº§å“ Key">
+              <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="è¯·è¾“å…¥äº§å“ Key" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="è®¾å¤‡ç¼–ç ">
+              <el-input id="query-device-code" v-model="searchForm.deviceCode" placeholder="è¯·è¾“å…¥è®¾å¤‡ç¼–ç " clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="è®¾å¤‡åç§°">
+              <el-input id="filter-device-name" v-model="searchForm.deviceName" placeholder="è¯·è¾“å…¥è®¾å¤‡åç§°" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="åœ¨çº¿çŠ¶æ€">
+              <el-select v-model="searchForm.onlineStatus" placeholder="è¯·é€‰æ‹©åœ¨çº¿çŠ¶æ€" clearable>
+                <el-option label="åœ¨çº¿" :value="1" />
+                <el-option label="ç¦»çº¿" :value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="æ¿€æ´»çŠ¶æ€">
+              <el-select v-model="searchForm.activateStatus" placeholder="è¯·é€‰æ‹©æ¿€æ´»çŠ¶æ€" clearable>
+                <el-option label="å·²æ¿€æ´»" :value="1" />
+                <el-option label="æœªæ¿€æ´»" :value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="è®¾å¤‡çŠ¶æ€">
+              <el-select v-model="searchForm.deviceStatus" placeholder="è¯·é€‰æ‹©è®¾å¤‡çŠ¶æ€" clearable>
+                <el-option label="å¯ç”¨" :value="1" />
+                <el-option label="ç¦ç”¨" :value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <div class="ops-filter-actions">
+          <el-button type="primary" @click="handleSearch">æŸ¥è¯¢</el-button>
+          <el-button @click="handleReset">é‡ç½®</el-button>
         </div>
+      </el-form>
+    </PanelCard>
+
+    <PanelCard
+      eyebrow="Device Inventory"
+      title="è®¾å¤‡èµ„äº§åˆ—è¡¨"
+      :description="`å½“å‰å…± ${pagination.total} æ¡è®¾å¤‡èµ„äº§è®°å½•ï¼Œæ”¯æŒè¯¦æƒ…ã€ç¼–è¾‘ã€æ›´æ¢ã€åˆ é™¤ã€æ‰¹é‡åˆ é™¤ã€æ‰¹é‡å¯¼å…¥å’Œå¯¼å‡ºã€‚`"
+      class="ops-table-card"
+    >
+      <StandardTableToolbar
+        :meta-items="[
+          `å·²é€‰ ${selectedRows.length} é¡¹`,
+          `åœ¨çº¿ ${onlineCount} å°`,
+          `å·²æ¿€æ´» ${activatedCount} å°`,
+          `åœç”¨ ${disabledCount} å°`
+        ]"
+      >
+        <template #right>
+          <el-button v-permission="'iot:devices:delete'" link :disabled="selectedRows.length === 0" @click="handleBatchDelete">æ‰¹é‡åˆ é™¤</el-button>
+          <el-button v-permission="'iot:devices:export'" link @click="openExportColumnSetting">å¯¼å‡ºåˆ—è®¾ç½®</el-button>
+          <el-button v-permission="'iot:devices:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">å¯¼å‡ºé€‰ä¸­</el-button>
+          <el-button v-permission="'iot:devices:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">å¯¼å‡ºå½“å‰ç»“æœ</el-button>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">æ¸…ç©ºé€‰ä¸­</el-button>
+          <el-button link @click="handleRefresh">åˆ·æ–°åˆ—è¡¨</el-button>
+        </template>
+      </StandardTableToolbar>
+
+      <el-table ref="tableRef" v-loading="loading" :data="tableData" border stripe @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="48" />
+        <StandardTableTextColumn prop="deviceCode" label="è®¾å¤‡ç¼–ç " :min-width="170" />
+        <StandardTableTextColumn prop="deviceName" label="è®¾å¤‡åç§°" :min-width="160" />
+        <StandardTableTextColumn prop="productKey" label="äº§å“ Key" :min-width="160" />
+        <StandardTableTextColumn prop="productName" label="äº§å“åç§°" :min-width="160" />
+        <StandardTableTextColumn prop="protocolCode" label="åè®®" :width="120" />
+        <el-table-column prop="onlineStatus" label="åœ¨çº¿çŠ¶æ€" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.onlineStatus === 1 ? 'success' : 'info'" round>{{ getOnlineStatusText(row.onlineStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="activateStatus" label="æ¿€æ´»çŠ¶æ€" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.activateStatus === 1 ? 'success' : 'warning'" round>{{ getActivateStatusText(row.activateStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="deviceStatus" label="è®¾å¤‡çŠ¶æ€" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.deviceStatus === 1 ? 'success' : 'danger'" round>{{ getDeviceStatusText(row.deviceStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <StandardTableTextColumn prop="firmwareVersion" label="å›ºä»¶ç‰ˆæœ¬" :width="130" />
+        <StandardTableTextColumn prop="lastReportTime" label="æœ€è¿‘ä¸ŠæŠ¥" :width="180">
+          <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+        </StandardTableTextColumn>
+        <StandardTableTextColumn prop="address" label="éƒ¨ç½²ä½ç½®" :min-width="180" />
+        <StandardTableTextColumn prop="createTime" label="åˆ›å»ºæ—¶é—´" :width="180">
+          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </StandardTableTextColumn>
+        <el-table-column label="æ“ä½œ" width="320" fixed="right" :show-overflow-tooltip="false">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleOpenDetail(row)">è¯¦æƒ…</el-button>
+            <el-button v-permission="'iot:devices:update'" type="primary" link @click="handleEdit(row)">ç¼–è¾‘</el-button>
+            <el-button v-permission="'iot:devices:replace'" type="primary" link @click="handleOpenReplace(row)">æ›´æ¢</el-button>
+            <el-button type="primary" link @click="handleJumpToInsight(row)">æ´å¯Ÿ</el-button>
+            <el-button v-permission="'iot:devices:delete'" type="danger" link @click="handleDelete(row)">åˆ é™¤</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="ops-pagination">
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </PanelCard>
+
+    <StandardDetailDrawer
+      v-model="detailVisible"
+      eyebrow="Device Asset Profile"
+      :title="detailTitle"
+      subtitle="ç»Ÿä¸€æŸ¥çœ‹è®¾å¤‡èµ„äº§ä¸»æ¡£ã€ç»´æŠ¤çŠ¶æ€ã€è®¤è¯å­—æ®µä¸æ‰©å±•å…ƒæ•°æ®ã€‚"
+      :tags="detailTags"
+      :loading="detailLoading"
+      :error-message="detailErrorMessage"
+      :empty="!detailData"
+    >
+      <div v-if="detailData" class="device-detail-stack">
+        <section class="detail-panel detail-panel--hero">
+          <div class="detail-section-header">
+            <div>
+              <h3>èµ„äº§æ¦‚è§ˆ</h3>
+              <p>è®¾å¤‡å°è´¦å…ˆå›ç­”â€œæ˜¯å¦å·²å…¥åº“ã€å½“å‰æ˜¯å¦åœ¨çº¿ã€æ˜¯å¦å·²æ¿€æ´»ã€æ˜¯å¦å¯ç»§ç»­è¿ç»´â€ã€‚</p>
+            </div>
+          </div>
+          <div class="detail-summary-grid">
+            <div class="detail-summary-card">
+              <span class="detail-summary-card__label">äº§å“å½’å±</span>
+              <strong class="detail-summary-card__value">{{ detailData.productName || '--' }}</strong>
+              <p class="detail-summary-card__hint">{{ detailData.productKey || '--' }}</p>
+            </div>
+            <div class="detail-summary-card">
+              <span class="detail-summary-card__label">åœ¨çº¿çŠ¶æ€</span>
+              <strong class="detail-summary-card__value">{{ getOnlineStatusText(detailData.onlineStatus) }}</strong>
+              <p class="detail-summary-card__hint">{{ formatDateTime(detailData.lastReportTime) }}</p>
+            </div>
+            <div class="detail-summary-card">
+              <span class="detail-summary-card__label">æ¿€æ´»çŠ¶æ€</span>
+              <strong class="detail-summary-card__value">{{ getActivateStatusText(detailData.activateStatus) }}</strong>
+              <p class="detail-summary-card__hint">è®¾å¤‡å¯ç”¨æ€§åŸºçº¿</p>
+            </div>
+            <div class="detail-summary-card">
+              <span class="detail-summary-card__label">è®¾å¤‡çŠ¶æ€</span>
+              <strong class="detail-summary-card__value">{{ getDeviceStatusText(detailData.deviceStatus) }}</strong>
+              <p class="detail-summary-card__hint">æ˜¯å¦å…è®¸ç»§ç»­ä½¿ç”¨</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>èµ„äº§æ¡£æ¡ˆ</h3>
+              <p>å±•ç¤ºè®¾å¤‡åŸºç¡€æ ‡è¯†ã€åè®®ã€èŠ‚ç‚¹ç±»å‹å’Œéƒ¨ç½²ä½ç½®ï¼Œæ–¹ä¾¿ä¸šåŠ¡ä¸ç°åœºæ ¸å®åº“å­˜ã€‚</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-field__label">è®¾å¤‡ ID</span>
+              <strong class="detail-field__value">{{ detailData.id }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">è®¾å¤‡ç¼–ç </span>
+              <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">è®¾å¤‡åç§°</span>
+              <strong class="detail-field__value">{{ detailData.deviceName || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">èŠ‚ç‚¹ç±»å‹</span>
+              <strong class="detail-field__value">{{ getNodeTypeText(detailData.nodeType) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">æ¥å…¥åè®®</span>
+              <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">å›ºä»¶ç‰ˆæœ¬</span>
+              <strong class="detail-field__value">{{ detailData.firmwareVersion || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">IP åœ°å€</span>
+              <strong class="detail-field__value">{{ detailData.ipAddress || '--' }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">éƒ¨ç½²ä½ç½®</span>
+              <strong class="detail-field__value detail-field__value--plain">{{ detailData.address || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>è¿ç»´ä¿¡æ¯</h3>
+              <p>å¸®åŠ©è¿ç»´ä¸å®æ–½å¿«é€Ÿåˆ¤æ–­æœ€è¿‘åœ¨çº¿ã€ç¦»çº¿å’Œä¸ŠæŠ¥æƒ…å†µï¼Œç¡®è®¤ç°åœºæ˜¯å¦éœ€è¦ä»‹å…¥ã€‚</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-field__label">æœ€è¿‘åœ¨çº¿æ—¶é—´</span>
+              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOnlineTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">æœ€è¿‘ç¦»çº¿æ—¶é—´</span>
+              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOfflineTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">æœ€è¿‘ä¸ŠæŠ¥æ—¶é—´</span>
+              <strong class="detail-field__value">{{ formatDateTime(detailData.lastReportTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">æ›´æ–°æ—¶é—´</span>
+              <strong class="detail-field__value">{{ formatDateTime(detailData.updateTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">åˆ›å»ºæ—¶é—´</span>
+              <strong class="detail-field__value">{{ formatDateTime(detailData.createTime) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>è®¤è¯ä¿¡æ¯</h3>
+              <p>é¢å‘æ¥å…¥ä¸æ’éšœåœºæ™¯å±•ç¤º MQTT åŸºç¡€è®¤è¯å­—æ®µï¼Œæ•æ„Ÿå€¼æŒ‰æ©ç å½¢å¼å±•ç¤ºã€‚</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-field__label">Client ID</span>
+              <strong class="detail-field__value">{{ detailData.clientId || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">ç”¨æˆ·å</span>
+              <strong class="detail-field__value">{{ detailData.username || '--' }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">å¯†ç </span>
+              <strong class="detail-field__value">{{ maskSecret(detailData.password) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">è®¾å¤‡å¯†é’¥</span>
+              <strong class="detail-field__value">{{ maskSecret(detailData.deviceSecret) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>æ‰©å±•å…ƒæ•°æ®</h3>
+              <p>ç”¨äºä¿å­˜åº“å­˜ã€ç«™ç‚¹ã€ç»´æŠ¤è´£ä»»ã€æ‰¹æ¬¡ç­‰å¯æ‰©å±•ä¿¡æ¯ï¼Œåç»­æ‰¹é‡å¯¼å…¥å’Œè®¾å¤‡æ›´æ¢ä¹Ÿå¯å¤ç”¨è¯¥ç»“æ„ã€‚</p>
+            </div>
+          </div>
+          <div class="detail-field detail-field--full">
+            <span class="detail-field__label">metadataJson</span>
+            <pre class="detail-field__value detail-field__value--pre">{{ metadataPreview }}</pre>
+          </div>
+        </section>
       </div>
 
-      <PanelCard
-        eyebrow="Maintenance Focus"
-        title="µ±Ç°ÔËÎ¬½¨Òé"
-      >
-        <div class="focus-list">
-          <article v-for="item in maintenanceActions" :key="item" class="focus-list__item">
-            <span class="focus-list__badge">{{ healthSummary.shortLabel }}</span>
-            <p>{{ item }}</p>
-          </article>
-        </div>
-      </PanelCard>
-    </section>
-
-    <section class="quad-grid">
-      <MetricCard
-        v-for="metric in overviewMetrics"
-        :key="metric.label"
-        :label="metric.label"
-        :value="metric.value"
-        :badge="metric.badge"
-      />
-    </section>
-
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Provisioning"
-        title="Éè±¸½¨µµ"
-      >
-        <form class="form-grid" @submit.prevent="handleCreateDevice">
-          <div class="field-group">
-            <label for="device-product-key">²úÆ· Key</label>
-            <el-input id="device-product-key" v-model="deviceForm.productKey" name="device_product_key" autocomplete="off" spellcheck="false" placeholder="ÀıÈç demo-product..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="device-name">Éè±¸Ãû³Æ</label>
-            <el-input id="device-name" v-model="deviceForm.deviceName" name="device_name" placeholder="ÀıÈç ÑİÊ¾Éè±¸-01..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="device-code">Éè±¸±àÂë</label>
-            <el-input id="device-code" v-model="deviceForm.deviceCode" name="device_code" autocomplete="off" spellcheck="false" placeholder="ÀıÈç demo-device-01..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="device-secret">Éè±¸ÃÜÔ¿</label>
-            <el-input id="device-secret" v-model="deviceForm.deviceSecret" type="password" show-password autocomplete="off" />
-          </div>
-          <div class="field-group">
-            <label for="client-id">¿Í»§¶Ë ID</label>
-            <el-input id="client-id" v-model="deviceForm.clientId" name="client_id" autocomplete="off" spellcheck="false" clearable />
-          </div>
-          <div class="field-group">
-            <label for="username">ÓÃ»§Ãû</label>
-            <el-input id="username" v-model="deviceForm.username" name="username" autocomplete="username" spellcheck="false" clearable />
-          </div>
-          <div class="field-group">
-            <label for="password">ÃÜÂë</label>
-            <el-input id="password" v-model="deviceForm.password" type="password" show-password autocomplete="off" />
-          </div>
-          <div class="field-group">
-            <label for="firmware">¹Ì¼ş°æ±¾</label>
-            <el-input id="firmware" v-model="deviceForm.firmwareVersion" name="firmware_version" autocomplete="off" spellcheck="false" placeholder="ÀıÈç 1.0.0..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="ip-address">IP µØÖ·</label>
-            <el-input id="ip-address" v-model="deviceForm.ipAddress" name="ip_address" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="ÀıÈç 127.0.0.1..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="address">²¿ÊğÎ»ÖÃ</label>
-            <el-input id="address" v-model="deviceForm.address" name="device_address" placeholder="ÀıÈç É½Ìå±±²à¼à²âµã..." clearable />
-          </div>
-          <div class="field-group" style="grid-column: 1 / -1;">
-            <label for="metadata">À©Õ¹ÔªÊı¾İ</label>
-            <el-input id="metadata" v-model="deviceForm.metadataJson" name="metadata_json" type="textarea" :rows="5" spellcheck="false" />
-          </div>
-          <div class="button-row" style="grid-column: 1 / -1;">
-            <el-button class="primary-button" type="primary" native-type="submit" :loading="isCreating">
-              {{ isCreating ? '´´½¨Éè±¸ÖĞ...' : 'Ìá½»Éè±¸½¨µµ' }}
-            </el-button>
-            <el-button class="secondary-button" @click="resetForm">
-              »Ö¸´ÑİÊ¾Êı¾İ
-            </el-button>
-          </div>
-        </form>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Lookup"
-        title="°´ ID / ±àÂë²éÑ¯Éè±¸"
-      >
-        <div class="form-grid">
-          <div class="field-group">
-            <label for="query-device-id">Éè±¸ ID</label>
-            <el-input id="query-device-id" v-model="queryId" name="query_device_id" inputmode="numeric" placeholder="ÀıÈç 2001..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="query-device-code">Éè±¸±àÂë</label>
-            <el-input id="query-device-code" v-model="queryCode" name="query_device_code" autocomplete="off" spellcheck="false" placeholder="ÀıÈç demo-device-01..." clearable />
-          </div>
-        </div>
-        <div class="button-row" style="margin-top: 1rem;">
-          <el-button class="primary-button" type="primary" :loading="isQueryingId" @click="handleQueryById">
-            {{ isQueryingId ? '²éÑ¯ÖĞ...' : '°´ ID ²éÑ¯' }}
+      <template #footer>
+        <StandardDrawerFooter @cancel="detailVisible = false">
+          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
+            å…³é—­
           </el-button>
-          <el-button class="secondary-button" :loading="isQueryingCode" @click="handleQueryByCode">
-            {{ isQueryingCode ? '²éÑ¯ÖĞ...' : '°´±àÂë²éÑ¯' }}
+          <el-button
+            type="primary"
+            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+            :disabled="!detailData?.deviceCode"
+            @click="handleJumpToInsight(detailData)"
+          >
+            è¿›å…¥å¯¹è±¡æ´å¯Ÿå°
           </el-button>
+        </StandardDrawerFooter>
+      </template>
+    </StandardDetailDrawer>
+
+    <StandardFormDrawer
+      v-model="formVisible"
+      eyebrow="Device Asset Form"
+      :title="formTitle"
+      subtitle="ç»Ÿä¸€é€šè¿‡å³ä¾§æŠ½å±‰ç»´æŠ¤è®¾å¤‡ä¸»æ•°æ®ã€çŠ¶æ€ã€è®¤è¯å­—æ®µå’Œéƒ¨ç½²ä¿¡æ¯ã€‚"
+      size="44rem"
+      @close="handleFormClose"
+    >
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>ç»´æŠ¤æç¤º</strong>
+          <span>è®¾å¤‡åˆ—è¡¨å…ˆæœåŠ¡â€œåº“å­˜å¯è§ã€è´£ä»»æ¸…æ™°ã€æ“ä½œå¯è¿½è¸ªâ€ã€‚å»ºè®®è‡³å°‘è¡¥é½äº§å“å½’å±ã€è®¾å¤‡ç¼–ç ã€æ¿€æ´»çŠ¶æ€ã€è®¾å¤‡çŠ¶æ€å’Œéƒ¨ç½²ä½ç½®ã€‚</span>
         </div>
 
-        <div v-if="currentDevice" class="info-grid" style="margin-top: 1rem;">
-          <div class="info-chip">
-            <span>Éè±¸Ãû³Æ</span>
-            <strong>{{ currentDevice.deviceName }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>Éè±¸±àÂë</span>
-            <strong>{{ currentDevice.deviceCode }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>ÔÚÏß×´Ì¬</span>
-            <strong>{{ statusLabel(currentDevice.onlineStatus) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>½ÓÈëĞ­Òé</span>
-            <strong>{{ currentDevice.protocolCode || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>×î½üÉÏ±¨</span>
-            <strong>{{ formatDateTime(currentDevice.lastReportTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>×î½üÀëÏß</span>
-            <strong>{{ formatDateTime(currentDevice.lastOfflineTime) }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>¹Ì¼ş°æ±¾</span>
-            <strong>{{ currentDevice.firmwareVersion || '--' }}</strong>
-          </div>
-          <div class="info-chip">
-            <span>²¿ÊğÎ»ÖÃ</span>
-            <strong>{{ currentDevice.address || '--' }}</strong>
-          </div>
-        </div>
-      </PanelCard>
-    </section>
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>åŸºç¡€æ¡£æ¡ˆ</h3>
+                <p>ç»´æŠ¤äº§å“å½’å±ã€è®¾å¤‡ç¼–ç ä¸å‘½åï¼Œç¡®ä¿åº“å­˜ã€é£é™©ç»‘å®šä¸é“¾è·¯è¿½è¸ªéƒ½èƒ½æ‰¾åˆ°åŒä¸€å°è®¾å¤‡ã€‚</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="äº§å“" prop="productKey">
+                <el-select id="device-form-product-key" v-model="formData.productKey" filterable placeholder="è¯·é€‰æ‹©äº§å“" :loading="productLoading">
+                  <el-option
+                    v-for="product in productOptions"
+                    :key="String(product.id)"
+                    :label="`${product.productKey} - ${product.productName}`"
+                    :value="product.productKey"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="è®¾å¤‡åç§°" prop="deviceName">
+                <el-input id="device-name" v-model="formData.deviceName" placeholder="è¯·è¾“å…¥è®¾å¤‡åç§°" />
+              </el-form-item>
+              <el-form-item label="è®¾å¤‡ç¼–ç " prop="deviceCode">
+                <el-input id="device-code" v-model="formData.deviceCode" placeholder="è¯·è¾“å…¥è®¾å¤‡ç¼–ç " />
+              </el-form-item>
+            </div>
+          </section>
 
-    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>çŠ¶æ€ä¸ç»´æŠ¤å±æ€§</h3>
+                <p>ç»Ÿä¸€ç»´æŠ¤æ¿€æ´»çŠ¶æ€ã€è®¾å¤‡çŠ¶æ€ã€å›ºä»¶ç‰ˆæœ¬å’Œéƒ¨ç½²ä¿¡æ¯ï¼Œä¸ºæ—¥å¸¸ç»´æŠ¤å’Œèµ„äº§æ ¸å¯¹æä¾›åŸºçº¿ã€‚</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="æ¿€æ´»çŠ¶æ€" prop="activateStatus">
+                <el-radio-group v-model="formData.activateStatus">
+                  <el-radio :value="1">å·²æ¿€æ´»</el-radio>
+                  <el-radio :value="0">æœªæ¿€æ´»</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="è®¾å¤‡çŠ¶æ€" prop="deviceStatus">
+                <el-radio-group v-model="formData.deviceStatus">
+                  <el-radio :value="1">å¯ç”¨</el-radio>
+                  <el-radio :value="0">ç¦ç”¨</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="å›ºä»¶ç‰ˆæœ¬" prop="firmwareVersion">
+                <el-input id="firmware" v-model="formData.firmwareVersion" placeholder="è¯·è¾“å…¥å›ºä»¶ç‰ˆæœ¬" />
+              </el-form-item>
+              <el-form-item label="IP åœ°å€" prop="ipAddress">
+                <el-input id="ip-address" v-model="formData.ipAddress" placeholder="è¯·è¾“å…¥ IP åœ°å€" />
+              </el-form-item>
+              <el-form-item label="éƒ¨ç½²ä½ç½®" prop="address" class="ops-drawer-grid__full">
+                <el-input id="address" v-model="formData.address" placeholder="è¯·è¾“å…¥éƒ¨ç½²ä½ç½®" />
+              </el-form-item>
+            </div>
+          </section>
 
-    <section class="tri-grid">
-      <PanelCard
-        eyebrow="Auth Baseline"
-        title="Éè±¸ÈÏÖ¤»ùÏß"
-      >
-        <div class="baseline-list">
-          <article class="baseline-list__item">
-            <span>clientId</span>
-            <strong>{{ currentDevice?.clientId || deviceForm.clientId || '--' }}</strong>
-          </article>
-          <article class="baseline-list__item">
-            <span>username</span>
-            <strong>{{ currentDevice?.username || deviceForm.username || '--' }}</strong>
-          </article>
-          <article class="baseline-list__item">
-            <span>password</span>
-            <strong>{{ maskSecret(currentDevice?.password || deviceForm.password) }}</strong>
-          </article>
-          <article class="baseline-list__item">
-            <span>deviceSecret</span>
-            <strong>{{ maskSecret(currentDevice?.deviceSecret || deviceForm.deviceSecret) }}</strong>
-          </article>
-        </div>
-      </PanelCard>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>è®¤è¯å­—æ®µ</h3>
+                <p>å½“å‰å…ˆç»´æŠ¤æœ€å¸¸ç”¨çš„ MQTT è®¤è¯å­—æ®µï¼Œåç»­è¿œç¨‹æ§åˆ¶ã€å‡çº§ä¸ç½‘å…³æ‹“æ‰‘ä¹Ÿå¯å¤ç”¨è¿™äº›ä¸»æ•°æ®ã€‚</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="è®¾å¤‡å¯†é’¥" prop="deviceSecret">
+                <el-input id="device-secret" v-model="formData.deviceSecret" placeholder="è¯·è¾“å…¥è®¾å¤‡å¯†é’¥" />
+              </el-form-item>
+              <el-form-item label="Client ID" prop="clientId">
+                <el-input id="client-id" v-model="formData.clientId" placeholder="è¯·è¾“å…¥ Client ID" />
+              </el-form-item>
+              <el-form-item label="ç”¨æˆ·å" prop="username">
+                <el-input id="username" v-model="formData.username" placeholder="è¯·è¾“å…¥è®¾å¤‡ç”¨æˆ·å" />
+              </el-form-item>
+              <el-form-item label="å¯†ç " prop="password">
+                <el-input id="password" v-model="formData.password" type="password" show-password placeholder="è¯·è¾“å…¥è®¾å¤‡å¯†ç " />
+              </el-form-item>
+            </div>
+          </section>
 
-      <PanelCard
-        eyebrow="Remote O&M"
-        title="Ô¶³ÌÔËÎ¬Ô¤Áô"
-      >
-        <ul class="advice-list">
-          <li>Ô¶³Ì¿ØÖÆ£ºÖØÆôÉè±¸¡¢ÏÂ·¢²ÎÊı¡¢Ğ£ÑéÅäÖÃ»ØÖ´¡£</li>
-          <li>ãĞÖµ¹ÜÀí£º°´·çÏÕµãºÍÉè±¸ÀàĞÍÅäÖÃÔ¤¾¯ãĞÖµ¡£</li>
-          <li>¹Ì¼şÉı¼¶£ºÎ§ÈÆ C.4 ·Ö°ü¡¢MD5 Ğ£ÑéºÍÉı¼¶×´Ì¬¹¹½¨ÍêÕû±Õ»·¡£</li>
-        </ul>
-      </PanelCard>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>æ‰©å±•ä¿¡æ¯</h3>
+                <p>å»ºè®®ä½¿ç”¨ JSON ä¿å­˜è®¾å¤‡æ‰¹æ¬¡ã€ç«™ç‚¹ã€è´£ä»»äººã€èµ„äº§æ ‡ç­¾ç­‰é¢å¤–å­—æ®µï¼Œä¾¿äºåç»­æ‰¹é‡ç»´æŠ¤ã€‚</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="metadataJson" prop="metadataJson" class="ops-drawer-grid__full">
+                <el-input
+                  id="metadata"
+                  v-model="formData.metadataJson"
+                  type="textarea"
+                  :rows="5"
+                  placeholder="è¯·è¾“å…¥åˆæ³• JSONï¼Œä¾‹å¦‚ {&quot;site&quot;:&quot;åŒ—å¡ç›‘æµ‹ç‚¹&quot;}"
+                />
+              </el-form-item>
+            </div>
+          </section>
+        </el-form>
+      </div>
 
-      <PanelCard
-        eyebrow="Engineering Trace"
-        title="ÑĞ·¢ÅÅÕÏÌáÊ¾"
-      >
-        <ul class="advice-list">
-          <li>Éè±¸²é²»µ½Ê±£¬ÏÈºË¶Ô²úÆ· Key¡¢Éè±¸±àÂëºÍµ±Ç°Êı¾İÔ´»·¾³¡£</li>
-          <li>Éè±¸ÀëÏßÊ±£¬ÓÅÏÈºË²é MQTT ÈÏÖ¤¡¢Redis »á»°ºÍ×î½üÏûÏ¢ÈÕÖ¾¡£</li>
-          <li>¹Ì¼ş»òÎÄ¼şÁ´Â·Òì³£Ê±£¬¼ÌĞø½øÈëÎÄ¼şÓë¹Ì¼şµ÷ÊÔÒ³²é¿´ Redis ¾ÛºÏ½á¹û¡£</li>
-        </ul>
-      </PanelCard>
-    </section>
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading"
+          :confirm-text="editingDeviceId ? 'ä¿å­˜è®¾å¤‡å˜æ›´' : 'æäº¤è®¾å¤‡å»ºæ¡£'"
+          @cancel="formVisible = false"
+          @confirm="handleSubmit"
+        >
+          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
+            å–æ¶ˆ
+          </el-button>
+          <el-button
+            v-permission="submitPermission"
+            type="primary"
+            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+            :loading="submitLoading"
+            @click="handleSubmit"
+          >
+            {{ editingDeviceId ? 'ä¿å­˜è®¾å¤‡å˜æ›´' : 'æäº¤è®¾å¤‡å»ºæ¡£' }}
+          </el-button>
+        </StandardDrawerFooter>
+      </template>
+    </StandardFormDrawer>
 
-    <section class="two-column-grid">
-      <ResponsePanel
-        eyebrow="Request"
-        title="×îºóÒ»´ÎÇëÇó"
-        :body="lastRequest"
-      />
-      <ResponsePanel
-        eyebrow="Response"
-        title="×îºóÒ»´ÎÏìÓ¦"
-        :body="lastResponse"
-      />
-    </section>
+    <DeviceBatchImportDrawer
+      v-model="batchImportVisible"
+      :submitting="batchImportSubmitting"
+      :result="batchImportResult"
+      @submit="handleBatchImportSubmit"
+    />
+
+    <DeviceReplaceDrawer
+      v-model="replaceVisible"
+      :device="replacingDevice"
+      :product-options="productOptions"
+      :product-loading="productLoading"
+      :submitting="replaceSubmitting"
+      @submit="handleReplaceSubmit"
+    />
+
+    <CsvColumnSettingDialog
+      v-model="exportColumnDialogVisible"
+      title="è®¾å¤‡èµ„äº§ä¸­å¿ƒå¯¼å‡ºåˆ—è®¾ç½®"
+      :options="exportColumnOptions"
+      :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
+      @confirm="handleExportColumnConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElMessage } from '@/utils/message';
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
+import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
+import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
+import MetricCard from '@/components/MetricCard.vue'
+import PanelCard from '@/components/PanelCard.vue'
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import { deviceApi } from '@/api/device'
+import { productApi } from '@/api/product'
+import { useServerPagination } from '@/composables/useServerPagination'
+import type {
+  Device,
+  DeviceAddPayload,
+  DeviceBatchAddPayload,
+  DeviceBatchAddResult,
+  DeviceReplacePayload,
+  Product
+} from '@/types/api'
+import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions
+} from '@/utils/csvColumns'
+import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { formatDateTime, prettyJson } from '@/utils/format'
 
-import { addDevice, getDeviceByCode, getDeviceById } from '../api/iot';
-import MetricCard from '../components/MetricCard.vue';
-import PanelCard from '../components/PanelCard.vue';
-import ResponsePanel from '../components/ResponsePanel.vue';
-import { recordActivity } from '../stores/activity';
-import type { Device, DeviceAddPayload } from '../types/api';
-import { formatDateTime, statusLabel } from '../utils/format';
-
-interface HealthSummary {
-  score: string;
-  label: string;
-  shortLabel: string;
-  tone: 'red' | 'orange' | 'yellow' | 'blue';
-  description: string;
+interface DeviceSearchForm {
+  deviceId: string
+  productKey: string
+  deviceCode: string
+  deviceName: string
+  onlineStatus: number | undefined
+  activateStatus: number | undefined
+  deviceStatus: number | undefined
 }
 
-const router = useRouter();
+interface DeviceFormState extends DeviceAddPayload {}
 
-const createDemoDevice = (): DeviceAddPayload => ({
-  productKey: 'demo-product',
-  deviceName: 'ÑİÊ¾Éè±¸-01',
-  deviceCode: 'demo-device-01',
-  deviceSecret: '123456',
-  clientId: 'demo-device-01',
-  username: 'demo-device-01',
-  password: '123456',
-  firmwareVersion: '1.0.0',
-  ipAddress: '127.0.0.1',
-  address: 'É½Ìå±±²à¼à²âµã',
-  metadataJson: JSON.stringify({ zone: 'north-slope', protocol: 'mqtt-json', owner: 'ops-center' }, null, 2)
-});
+const route = useRoute()
+const router = useRouter()
+const tableRef = ref<TableInstance>()
+const formRef = ref<FormInstance>()
 
-const deviceForm = reactive<DeviceAddPayload>(createDemoDevice());
-const queryId = ref('2001');
-const queryCode = ref('demo-device-01');
+const loading = ref(false)
+const submitLoading = ref(false)
+const productLoading = ref(false)
+const formVisible = ref(false)
+const detailVisible = ref(false)
+const batchImportVisible = ref(false)
+const batchImportSubmitting = ref(false)
+const replaceVisible = ref(false)
+const replaceSubmitting = ref(false)
+const detailLoading = ref(false)
+const detailErrorMessage = ref('')
+const editingDeviceId = ref<string | number | null>(null)
 
-const isCreating = ref(false);
-const isQueryingId = ref(false);
-const isQueryingCode = ref(false);
-const errorMessage = ref('');
-const currentDevice = ref<Device | null>(null);
-const lastRequest = ref<unknown>({ tip: '´´½¨Éè±¸»ò²éÑ¯Éè±¸ºó»áÏÔÊ¾ÇëÇóÌå¡£' });
-const lastResponse = ref<unknown>({ tip: '½Ó¿ÚÏìÓ¦»á³öÏÖÔÚÕâÀï¡£' });
+const tableData = ref<Device[]>([])
+const selectedRows = ref<Device[]>([])
+const productOptions = ref<Product[]>([])
+const detailData = ref<Device | null>(null)
+const batchImportResult = ref<DeviceBatchAddResult | null>(null)
+const replacingDevice = ref<Device | null>(null)
 
-const lastReportDate = computed(() => {
-  const value = currentDevice.value?.lastReportTime;
-  if (!value) {
-    return null;
+const exportColumnDialogVisible = ref(false)
+const exportColumnStorageKey = 'device-asset-view'
+
+const searchForm = reactive<DeviceSearchForm>({
+  deviceId: '',
+  productKey: '',
+  deviceCode: '',
+  deviceName: '',
+  onlineStatus: undefined,
+  activateStatus: undefined,
+  deviceStatus: undefined
+})
+
+const createDefaultFormData = (): DeviceFormState => ({
+  productKey: '',
+  deviceName: '',
+  deviceCode: '',
+  deviceSecret: '',
+  clientId: '',
+  username: '',
+  password: '',
+  activateStatus: 1,
+  deviceStatus: 1,
+  firmwareVersion: '',
+  ipAddress: '',
+  address: '',
+  metadataJson: ''
+})
+
+const formData = reactive<DeviceFormState>(createDefaultFormData())
+
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination(10)
+
+const formTitle = computed(() => (editingDeviceId.value ? 'ç¼–è¾‘è®¾å¤‡' : 'æ–°å¢è®¾å¤‡'))
+const submitPermission = computed(() => (editingDeviceId.value ? 'iot:devices:update' : 'iot:devices:add'))
+const detailTitle = computed(() => detailData.value?.deviceName || detailData.value?.deviceCode || 'è®¾å¤‡è¯¦æƒ…')
+const onlineCount = computed(() => tableData.value.filter((item) => item.onlineStatus === 1).length)
+const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
+const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
+const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
+
+const detailTags = computed(() => {
+  if (!detailData.value) {
+    return []
   }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-});
-
-const lastReportMinutes = computed(() => {
-  if (!lastReportDate.value) {
-    return null;
-  }
-  return Math.max(0, Math.round((Date.now() - lastReportDate.value.getTime()) / 60000));
-});
-
-const authReady = computed(() => {
-  const clientId = currentDevice.value?.clientId || deviceForm.clientId;
-  const username = currentDevice.value?.username || deviceForm.username;
-  const password = currentDevice.value?.password || deviceForm.password;
-  const secret = currentDevice.value?.deviceSecret || deviceForm.deviceSecret;
-  return Boolean(clientId && username && password && secret && clientId === username);
-});
-
-const healthSummary = computed<HealthSummary>(() => {
-  if (!currentDevice.value) {
-    return {
-      score: '--',
-      label: '´ıºË²é',
-      shortLabel: 'NA',
-      tone: 'blue',
-      description: 'ÇëÏÈ²éÑ¯Éè±¸£¬¼ÓÔØÔÚÏß×´Ì¬¡¢ÈÏÖ¤×Ö¶ÎºÍ×î½üÉÏ±¨ĞÅÏ¢¡£'
-    };
-  }
-
-  let score = 0;
-  if (currentDevice.value.onlineStatus !== 1) {
-    score += 40;
-  }
-  if (lastReportMinutes.value === null) {
-    score += 20;
-  } else if (lastReportMinutes.value > 180) {
-    score += 25;
-  } else if (lastReportMinutes.value > 60) {
-    score += 12;
-  }
-  if (!authReady.value) {
-    score += 18;
-  }
-  if (!currentDevice.value.firmwareVersion) {
-    score += 8;
-  }
-  score = Math.min(score, 100);
-
-  if (score >= 70) {
-    return {
-      score: String(score),
-      label: '¸ß·çÏÕÔËÎ¬×´Ì¬',
-      shortLabel: '¸ß',
-      tone: 'red',
-      description: 'Éè±¸µ±Ç°´æÔÚÃ÷ÏÔÔËÎ¬·çÏÕ£¬½¨ÒéÓÅÏÈÅÅ²éÔÚÏß×´Ì¬¡¢×î½üÉÏ±¨ºÍÈÏÖ¤ÅäÖÃ¡£'
-    };
-  }
-  if (score >= 40) {
-    return {
-      score: String(score),
-      label: 'ÖØµã¹Ø×¢',
-      shortLabel: 'ÖØ',
-      tone: 'orange',
-      description: 'Éè±¸µ±Ç°ĞèÒªÖØµã¸ú×Ù£¬½¨Òé¼ì²éÊ±Ğ§¡¢¹Ì¼şºÍÅäÖÃÒ»ÖÂĞÔ¡£'
-    };
-  }
-  if (score >= 18) {
-    return {
-      score: String(score),
-      label: 'Çá¶È¹Ø×¢',
-      shortLabel: 'Çá',
-      tone: 'yellow',
-      description: 'Éè±¸ÕûÌå¿ÉÓÃ£¬µ«ÈÔ´æÔÚĞèÒªÓÅ»¯µÄÔËÎ¬ĞÅÏ¢»òÊ±Ğ§ĞÔÎÊÌâ¡£'
-    };
-  }
-  return {
-    score: String(score),
-    label: 'ÔËĞĞÎÈ¶¨',
-    shortLabel: 'ÎÈ',
-    tone: 'blue',
-    description: 'µ±Ç°Éè±¸ÔÚÏß¡¢ÉÏ±¨¼°Ê±£¬ÊÊºÏ×÷ÎªÔ¶³ÌÔËÎ¬ºÍĞ­ÒéÁªµ÷µÄÎÈ¶¨Ñù±¾¡£'
-  };
-});
-
-const overviewMetrics = computed(() => {
-  const getBadgeTone = (tone: 'red' | 'orange' | 'yellow' | 'blue'): 'danger' | 'warning' | 'muted' | 'success' | 'brand' => {
-    if (tone === 'red') return 'danger';
-    if (tone === 'orange') return 'warning';
-    if (tone === 'yellow') return 'warning';
-    return 'muted';
-  };
-
   return [
-    {
-      label: 'Éè±¸ÔËÎ¬×´Ì¬',
-      value: healthSummary.value.label,
-      hint: healthSummary.value.description,
-      badge: {
-        label: healthSummary.value.shortLabel,
-        tone: getBadgeTone(healthSummary.value.tone)
-      }
-    },
-    {
-      label: 'ÔÚÏß×´Ì¬',
-      value: currentDevice.value ? statusLabel(currentDevice.value.onlineStatus) : '--',
-      hint: currentDevice.value?.onlineStatus === 1 ? 'µ±Ç°Éè±¸ÔÚÏß£¬¿É¼ÌĞø½øĞĞÔ¶³ÌÎ¬»¤ºÍÁ´Â·ÑéÖ¤¡£' : 'µ±Ç°Éè±¸ÀëÏß£¬½¨ÒéÓÅÏÈºË²é»á»°ÓëÍøÂç¡£ ',
-      badge: {
-        label: currentDevice.value?.onlineStatus === 1 ? 'ÔÚÏß' : 'ÀëÏß',
-        tone: currentDevice.value?.onlineStatus === 1 ? 'success' : 'muted'
-      }
-    },
-    {
-      label: '×î½üÉÏ±¨Ê±Ğ§',
-      value: lastReportMinutes.value === null ? '--' : `${lastReportMinutes.value} min`,
-      hint: lastReportMinutes.value === null ? 'µ±Ç°Ã»ÓĞ×î½üÉÏ±¨Ê±¼ä¡£' : 'ÓÃÓÚÅĞ¶ÏÉè±¸Á´Â·ÊÇ·ñ³¤Ê±¼äÖĞ¶Ï¡£',
-      badge: { label: 'Freshness', tone: 'brand' }
-    },
-    {
-      label: 'ÈÏÖ¤×¼±¸¶È',
-      value: authReady.value ? 'ÒÑ¾ÍĞ÷' : '´ıºË²é',
-      hint: authReady.value ? 'MQTT »ù´¡ÈÏÖ¤×Ö¶Î¿´ÆğÀ´Ò»ÖÂ¡£' : 'ÇëÖØµãºË¶Ô clientId¡¢username¡¢password¡¢deviceSecret¡£',
-      badge: { label: 'MQTT', tone: authReady.value ? 'success' : 'warning' }
-    }
-  ] as const;
-});
+    { label: getOnlineStatusText(detailData.value.onlineStatus), type: detailData.value.onlineStatus === 1 ? 'success' : 'info' as const },
+    { label: getActivateStatusText(detailData.value.activateStatus), type: detailData.value.activateStatus === 1 ? 'success' : 'warning' as const },
+    { label: getDeviceStatusText(detailData.value.deviceStatus), type: detailData.value.deviceStatus === 1 ? 'success' : 'danger' as const }
+  ]
+})
 
-const maintenanceActions = computed(() => {
-  const actions = ['ÏÈÍ¨¹ıÉè±¸±àÂë²éÑ¯£¬È·ÈÏµ±Ç°ÔÚÏß×´Ì¬ºÍ×î½üÉÏ±¨Ê±¼ä¡£'];
-  if (currentDevice.value?.onlineStatus !== 1) {
-    actions.push('µ±Ç°Éè±¸ÀëÏß£¬ÓÅÏÈ¼ì²é MQTT »á»°¡¢ÍøÂçÁ¬½Ó¡¢¹©µçºÍÏÖ³¡Á´Â·¡£');
+const formRules: FormRules<DeviceFormState> = {
+  productKey: [{ required: true, message: 'è¯·é€‰æ‹©äº§å“', trigger: 'change' }],
+  deviceName: [{ required: true, message: 'è¯·è¾“å…¥è®¾å¤‡åç§°', trigger: 'blur' }],
+  deviceCode: [{ required: true, message: 'è¯·è¾“å…¥è®¾å¤‡ç¼–ç ', trigger: 'blur' }],
+  metadataJson: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (!value) {
+          callback()
+          return
+        }
+        try {
+          JSON.parse(value)
+          callback()
+        } catch {
+          callback(new Error('metadataJson å¿…é¡»æ˜¯åˆæ³• JSON'))
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
+
+const exportColumns: CsvColumn<Device>[] = [
+  { key: 'id', label: 'è®¾å¤‡ ID' },
+  { key: 'deviceCode', label: 'è®¾å¤‡ç¼–ç ' },
+  { key: 'deviceName', label: 'è®¾å¤‡åç§°' },
+  { key: 'productKey', label: 'äº§å“ Key' },
+  { key: 'productName', label: 'äº§å“åç§°' },
+  { key: 'protocolCode', label: 'æ¥å…¥åè®®' },
+  { key: 'nodeType', label: 'èŠ‚ç‚¹ç±»å‹', formatter: (value) => getNodeTypeText(Number(value)) },
+  { key: 'onlineStatus', label: 'åœ¨çº¿çŠ¶æ€', formatter: (value) => getOnlineStatusText(Number(value)) },
+  { key: 'activateStatus', label: 'æ¿€æ´»çŠ¶æ€', formatter: (value) => getActivateStatusText(Number(value)) },
+  { key: 'deviceStatus', label: 'è®¾å¤‡çŠ¶æ€', formatter: (value) => getDeviceStatusText(Number(value)) },
+  { key: 'firmwareVersion', label: 'å›ºä»¶ç‰ˆæœ¬' },
+  { key: 'ipAddress', label: 'IP åœ°å€' },
+  { key: 'address', label: 'éƒ¨ç½²ä½ç½®' },
+  { key: 'lastReportTime', label: 'æœ€è¿‘ä¸ŠæŠ¥', formatter: (value) => formatDateTime(String(value || '')) },
+  { key: 'createTime', label: 'åˆ›å»ºæ—¶é—´', formatter: (value) => formatDateTime(String(value || '')) }
+]
+
+const exportColumnOptions = toCsvColumnOptions(exportColumns)
+const exportPresets = [
+  { label: 'é»˜è®¤æ¨¡æ¿', keys: exportColumns.map((column) => String(column.key)) },
+  { label: 'è¿ç»´æ¨¡æ¿', keys: ['deviceCode', 'deviceName', 'productKey', 'onlineStatus', 'activateStatus', 'deviceStatus', 'lastReportTime', 'address'] },
+  { label: 'åº“å­˜æ¨¡æ¿', keys: ['id', 'deviceCode', 'deviceName', 'productKey', 'productName', 'deviceStatus', 'createTime'] }
+]
+const selectedExportColumnKeys = ref<string[]>(
+  loadCsvColumnSelection(
+    exportColumnStorageKey,
+    exportColumns.map((column) => String(column.key))
+  )
+)
+
+function getOnlineStatusText(value?: number | null) {
+  return value === 1 ? 'åœ¨çº¿' : 'ç¦»çº¿'
+}
+
+function getActivateStatusText(value?: number | null) {
+  return value === 1 ? 'å·²æ¿€æ´»' : 'æœªæ¿€æ´»'
+}
+
+function getDeviceStatusText(value?: number | null) {
+  return value === 1 ? 'å¯ç”¨' : 'ç¦ç”¨'
+}
+
+function getNodeTypeText(value?: number | null) {
+  if (value === 1) {
+    return 'ç›´è¿è®¾å¤‡'
   }
-  if (!authReady.value) {
-    actions.push('ºË¶Ô clientId¡¢username¡¢password Óë deviceSecret£¬±ÜÃâÈÏÖ¤Ê§°Ü¡£');
+  if (value === 2) {
+    return 'ç½‘å…³è®¾å¤‡'
   }
-  if (lastReportMinutes.value !== null && lastReportMinutes.value > 60) {
-    actions.push(`×î½üÉÏ±¨ÒÑ³¬¹ı ${lastReportMinutes.value} ·ÖÖÓ£¬½¨Òé¸´²â²¢ÅÅ²é²É¼¯Á´Â·¡£`);
-  }
-  if (!currentDevice.value?.firmwareVersion) {
-    actions.push('½¨Òé²¹Â¼¹Ì¼ş°æ±¾ĞÅÏ¢£¬±ãÓÚºóĞøÉı¼¶ºÍÔËÎ¬Éó¼Æ¡£');
-  }
-  if (actions.length === 1) {
-    actions.push('Éè±¸ÕûÌåÔËĞĞÎÈ¶¨£¬¿É¼ÌĞøÖ´ĞĞÔ¶³Ì¿ØÖÆ¡¢ãĞÖµºË²éºÍÁªµ÷ÑéÖ¤¡£');
-  }
-  return actions;
-});
+  return '--'
+}
 
 function maskSecret(value?: string | null) {
   if (!value) {
-    return '--';
+    return '--'
   }
   if (value.length <= 4) {
-    return '*'.repeat(value.length);
+    return '*'.repeat(value.length)
   }
-  return `${value.slice(0, 2)}****${value.slice(-2)}`;
+  return `${value.slice(0, 2)}****${value.slice(-2)}`
 }
 
-function resetForm() {
-  Object.assign(deviceForm, createDemoDevice());
+function resetFormData(source?: Partial<Device>) {
+  Object.assign(formData, createDefaultFormData(), {
+    productKey: source?.productKey || '',
+    deviceName: source?.deviceName || '',
+    deviceCode: source?.deviceCode || '',
+    deviceSecret: source?.deviceSecret || '',
+    clientId: source?.clientId || '',
+    username: source?.username || '',
+    password: source?.password || '',
+    activateStatus: source?.activateStatus ?? 1,
+    deviceStatus: source?.deviceStatus ?? 1,
+    firmwareVersion: source?.firmwareVersion || '',
+    ipAddress: source?.ipAddress || '',
+    address: source?.address || '',
+    metadataJson: source?.metadataJson || ''
+  })
 }
 
-function jumpToInsight() {
-  router.push({
+function clearSelection() {
+  tableRef.value?.clearSelection()
+  selectedRows.value = []
+}
+
+function handleSelectionChange(rows: Device[]) {
+  selectedRows.value = rows
+}
+
+function openExportColumnSetting() {
+  exportColumnDialogVisible.value = true
+}
+
+function handleExportColumnConfirm(selectedKeys: string[]) {
+  selectedExportColumnKeys.value = selectedKeys
+  saveCsvColumnSelection(exportColumnStorageKey, selectedKeys)
+}
+
+function getResolvedExportColumns() {
+  return resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
+}
+
+function handleExportSelected() {
+  downloadRowsAsCsv('è®¾å¤‡èµ„äº§ä¸­å¿ƒ-é€‰ä¸­é¡¹.csv', selectedRows.value, getResolvedExportColumns())
+}
+
+function handleExportCurrent() {
+  downloadRowsAsCsv('è®¾å¤‡èµ„äº§ä¸­å¿ƒ-å½“å‰ç»“æœ.csv', tableData.value, getResolvedExportColumns())
+}
+
+function applyRouteQueryToFilters() {
+  searchForm.deviceId = typeof route.query.deviceId === 'string' ? route.query.deviceId : ''
+  searchForm.productKey = typeof route.query.productKey === 'string' ? route.query.productKey : ''
+  searchForm.deviceCode = typeof route.query.deviceCode === 'string' ? route.query.deviceCode : ''
+  searchForm.deviceName = typeof route.query.deviceName === 'string' ? route.query.deviceName : ''
+}
+
+async function loadProducts() {
+  productLoading.value = true
+  try {
+    const res = await productApi.getAllProducts()
+    if (res.code === 200) {
+      productOptions.value = res.data || []
+    }
+  } catch (error) {
+    console.error('åŠ è½½äº§å“åˆ—è¡¨å¤±è´¥', error)
+    ElMessage.error('åŠ è½½äº§å“åˆ—è¡¨å¤±è´¥')
+  } finally {
+    productLoading.value = false
+  }
+}
+
+async function loadDevicePage() {
+  loading.value = true
+  try {
+    const res = await deviceApi.pageDevices({
+      deviceId: searchForm.deviceId || undefined,
+      productKey: searchForm.productKey || undefined,
+      deviceCode: searchForm.deviceCode || undefined,
+      deviceName: searchForm.deviceName || undefined,
+      onlineStatus: searchForm.onlineStatus,
+      activateStatus: searchForm.activateStatus,
+      deviceStatus: searchForm.deviceStatus,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = applyPageResult(res.data)
+    }
+  } catch (error) {
+    console.error('è·å–è®¾å¤‡åˆ†é¡µå¤±è´¥', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function openDetail(id: string | number) {
+  detailVisible.value = true
+  detailLoading.value = true
+  detailErrorMessage.value = ''
+  detailData.value = null
+  try {
+    const res = await deviceApi.getDeviceById(id)
+    if (res.code === 200) {
+      detailData.value = res.data
+    }
+  } catch (error) {
+    detailErrorMessage.value = error instanceof Error ? error.message : 'åŠ è½½è®¾å¤‡è¯¦æƒ…å¤±è´¥'
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function loadEditableDetail(id: string | number) {
+  const res = await deviceApi.getDeviceById(id)
+  if (res.code === 200 && res.data) {
+    resetFormData(res.data)
+  }
+}
+
+function handleSearch() {
+  resetPage()
+  clearSelection()
+  void loadDevicePage()
+}
+
+function handleReset() {
+  searchForm.deviceId = ''
+  searchForm.productKey = ''
+  searchForm.deviceCode = ''
+  searchForm.deviceName = ''
+  searchForm.onlineStatus = undefined
+  searchForm.activateStatus = undefined
+  searchForm.deviceStatus = undefined
+  resetPage()
+  clearSelection()
+  void loadDevicePage()
+}
+
+function handleRefresh() {
+  clearSelection()
+  void loadDevicePage()
+}
+
+function handleOpenBatchImport() {
+  batchImportResult.value = null
+  batchImportVisible.value = true
+}
+
+function handleAdd() {
+  editingDeviceId.value = null
+  resetFormData()
+  formVisible.value = true
+}
+
+async function handleEdit(row: Device) {
+  try {
+    if (productOptions.value.length === 0) {
+      await loadProducts()
+    }
+    editingDeviceId.value = row.id
+    await loadEditableDetail(row.id)
+    formVisible.value = true
+  } catch (error) {
+    console.error('åŠ è½½è®¾å¤‡ç¼–è¾‘è¯¦æƒ…å¤±è´¥', error)
+    ElMessage.error('åŠ è½½è®¾å¤‡è¯¦æƒ…å¤±è´¥')
+  }
+}
+
+function handleOpenDetail(row: Device) {
+  void openDetail(row.id)
+}
+
+async function handleOpenReplace(row: Device) {
+  try {
+    if (productOptions.value.length === 0) {
+      await loadProducts()
+    }
+    const res = await deviceApi.getDeviceById(row.id)
+    if (res.code === 200 && res.data) {
+      replacingDevice.value = res.data
+      replaceVisible.value = true
+      return
+    }
+    ElMessage.error(res.msg || 'åŠ è½½å¾…æ›´æ¢è®¾å¤‡å¤±è´¥')
+  } catch (error) {
+    console.error('åŠ è½½å¾…æ›´æ¢è®¾å¤‡å¤±è´¥', error)
+    ElMessage.error('åŠ è½½å¾…æ›´æ¢è®¾å¤‡å¤±è´¥')
+  }
+}
+
+function handleJumpToInsight(row?: Device | null) {
+  if (!row?.deviceCode) {
+    return
+  }
+  void router.push({
     path: '/insight',
-    query: { deviceCode: currentDevice.value?.deviceCode || deviceForm.deviceCode }
-  });
+    query: {
+      deviceCode: row.deviceCode
+    }
+  })
 }
 
-function jumpToReporting() {
-  router.push({
-    path: '/reporting',
-    query: { deviceCode: currentDevice.value?.deviceCode || deviceForm.deviceCode }
-  });
-}
-
-async function handleCreateDevice() {
-  isCreating.value = true;
-  errorMessage.value = '';
-  lastRequest.value = { method: 'POST', path: '/device/add', body: { ...deviceForm } };
-
+async function handleDelete(row: Device) {
   try {
-    const response = await addDevice({ ...deviceForm });
-    currentDevice.value = response.data;
-    lastResponse.value = response;
-    queryId.value = response.data?.id ? String(response.data.id) : queryId.value;
-    queryCode.value = response.data.deviceCode;
-    ElMessage.success(`Éè±¸ ${response.data.deviceCode} ´´½¨³É¹¦`);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: 'ĞÂÔöÉè±¸',
-      request: lastRequest.value,
-      response,
-      ok: true,
-      detail: `ÒÑ´´½¨Éè±¸ ${response.data.deviceCode}`
-    });
+    await confirmDelete('è®¾å¤‡', row.deviceName || row.deviceCode)
+    await deviceApi.deleteDevice(row.id)
+    ElMessage.success('åˆ é™¤æˆåŠŸ')
+    clearSelection()
+    if (tableData.value.length === 1 && pagination.pageNum > 1) {
+      setPageNum(pagination.pageNum - 1)
+    }
+    await loadDevicePage()
   } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: 'ĞÂÔöÉè±¸',
-      request: lastRequest.value,
-      response: { message: errorMessage.value },
-      ok: false,
-      detail: `´´½¨Éè±¸Ê§°Ü£º${errorMessage.value}`
-    });
-  } finally {
-    isCreating.value = false;
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('åˆ é™¤è®¾å¤‡å¤±è´¥', error)
   }
 }
 
-async function handleQueryById() {
-  isQueryingId.value = true;
-  errorMessage.value = '';
-  lastRequest.value = { method: 'GET', path: `/device/${queryId.value}` };
-
+async function handleBatchDelete() {
+  if (selectedRows.value.length === 0) {
+    return
+  }
+  const deletingCount = selectedRows.value.length
   try {
-    const response = await getDeviceById(queryId.value);
-    currentDevice.value = response.data;
-    lastResponse.value = response;
-    queryCode.value = response.data.deviceCode;
-    ElMessage.success(`ÒÑ²éÑ¯µ½Éè±¸ ${response.data.deviceCode}`);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: '°´ ID ²éÑ¯Éè±¸',
-      request: lastRequest.value,
-      response,
-      ok: true,
-      detail: `²éÑ¯µ½Éè±¸ ${response.data.deviceCode}`
-    });
+    await confirmAction({
+      title: 'æ‰¹é‡åˆ é™¤è®¾å¤‡',
+      message: `ç¡®è®¤åˆ é™¤é€‰ä¸­çš„ ${deletingCount} å°è®¾å¤‡å—ï¼Ÿåˆ é™¤åä¸å¯æ¢å¤ã€‚`,
+      type: 'warning',
+      confirmButtonText: 'ç¡®è®¤åˆ é™¤'
+    })
+    await deviceApi.batchDeleteDevices(selectedRows.value.map((item) => item.id))
+    ElMessage.success('æ‰¹é‡åˆ é™¤æˆåŠŸ')
+    clearSelection()
+    if (deletingCount === tableData.value.length && pagination.pageNum > 1) {
+      setPageNum(pagination.pageNum - 1)
+    }
+    await loadDevicePage()
   } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: '°´ ID ²éÑ¯Éè±¸',
-      request: lastRequest.value,
-      response: { message: errorMessage.value },
-      ok: false,
-      detail: `°´ ID ²éÑ¯Ê§°Ü£º${errorMessage.value}`
-    });
-  } finally {
-    isQueryingId.value = false;
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('æ‰¹é‡åˆ é™¤è®¾å¤‡å¤±è´¥', error)
   }
 }
 
-async function handleQueryByCode() {
-  isQueryingCode.value = true;
-  errorMessage.value = '';
-  lastRequest.value = { method: 'GET', path: `/device/code/${queryCode.value}` };
-
+async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
+  batchImportSubmitting.value = true
   try {
-    const response = await getDeviceByCode(queryCode.value);
-    currentDevice.value = response.data;
-    lastResponse.value = response;
-    queryId.value = response.data?.id ? String(response.data.id) : queryId.value;
-    ElMessage.success(`ÒÑ²éÑ¯µ½Éè±¸ ${response.data.deviceCode}`);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: '°´±àÂë²éÑ¯Éè±¸',
-      request: lastRequest.value,
-      response,
-      ok: true,
-      detail: `²éÑ¯µ½Éè±¸ ${response.data.deviceCode}`
-    });
+    const res = await deviceApi.batchAddDevices(payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || 'æ‰¹é‡å¯¼å…¥è®¾å¤‡å¤±è´¥')
+      return
+    }
+    batchImportResult.value = res.data
+    if (res.data.successCount > 0) {
+      resetPage()
+      clearSelection()
+      await loadDevicePage()
+    }
+    if (res.data.failureCount === 0) {
+      ElMessage.success(`æ‰¹é‡å¯¼å…¥å®Œæˆï¼Œå…±æ–°å¢ ${res.data.successCount} å°è®¾å¤‡`)
+      return
+    }
+    if (res.data.successCount === 0) {
+      ElMessage.warning(`æœ¬æ¬¡å¯¼å…¥æœªæˆåŠŸå†™å…¥è®¾å¤‡ï¼Œå…± ${res.data.failureCount} æ¡å¤±è´¥`)
+      return
+    }
+    ElMessage.warning(`æ‰¹é‡å¯¼å…¥å®Œæˆï¼ŒæˆåŠŸ ${res.data.successCount} æ¡ï¼Œå¤±è´¥ ${res.data.failureCount} æ¡`)
   } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
-    recordActivity({
-      module: 'Éè±¸ÔËÎ¬ÖĞĞÄ',
-      action: '°´±àÂë²éÑ¯Éè±¸',
-      request: lastRequest.value,
-      response: { message: errorMessage.value },
-      ok: false,
-      detail: `°´±àÂë²éÑ¯Ê§°Ü£º${errorMessage.value}`
-    });
+    console.error('æ‰¹é‡å¯¼å…¥è®¾å¤‡å¤±è´¥', error)
+    ElMessage.error('æ‰¹é‡å¯¼å…¥è®¾å¤‡å¤±è´¥')
   } finally {
-    isQueryingCode.value = false;
+    batchImportSubmitting.value = false
   }
 }
+
+async function handleReplaceSubmit(payload: DeviceReplacePayload) {
+  if (!replacingDevice.value) {
+    return
+  }
+  try {
+    await confirmAction({
+      title: 'ç¡®è®¤æ›´æ¢è®¾å¤‡',
+      message: `ç¡®è®¤å°†è®¾å¤‡â€œ${replacingDevice.value.deviceCode}â€æ›´æ¢ä¸ºæ–°è®¾å¤‡â€œ${payload.deviceCode}â€å—ï¼Ÿæäº¤åæ—§è®¾å¤‡ä¼šè‡ªåŠ¨åœç”¨å¹¶è®°å½•æ›¿æ¢å…³ç³»ã€‚`,
+      type: 'warning',
+      confirmButtonText: 'ç¡®è®¤æ›´æ¢'
+    })
+    replaceSubmitting.value = true
+    const res = await deviceApi.replaceDevice(replacingDevice.value.id, payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || 'è®¾å¤‡æ›´æ¢å¤±è´¥')
+      return
+    }
+    ElMessage.success(`è®¾å¤‡æ›´æ¢æˆåŠŸï¼Œæ–°è®¾å¤‡ç¼–ç ï¼š${res.data.targetDeviceCode}`)
+    replaceVisible.value = false
+    replacingDevice.value = null
+    resetPage()
+    clearSelection()
+    await loadDevicePage()
+    await openDetail(res.data.targetDeviceId)
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('è®¾å¤‡æ›´æ¢å¤±è´¥', error)
+    ElMessage.error('è®¾å¤‡æ›´æ¢å¤±è´¥')
+  } finally {
+    replaceSubmitting.value = false
+  }
+}
+
+async function handleSubmit() {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    return
+  }
+
+  submitLoading.value = true
+  try {
+    if (editingDeviceId.value) {
+      await deviceApi.updateDevice(editingDeviceId.value, formData)
+      ElMessage.success('æ›´æ–°æˆåŠŸ')
+    } else {
+      await deviceApi.addDevice(formData)
+      ElMessage.success('æ–°å¢æˆåŠŸ')
+    }
+    formVisible.value = false
+    clearSelection()
+    resetPage()
+    await loadDevicePage()
+  } catch (error) {
+    console.error('æäº¤è®¾å¤‡å¤±è´¥', error)
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+function handleFormClose() {
+  formRef.value?.clearValidate()
+  resetFormData()
+  editingDeviceId.value = null
+}
+
+function handleSizeChange(size: number) {
+  setPageSize(size)
+  clearSelection()
+  void loadDevicePage()
+}
+
+function handlePageChange(page: number) {
+  setPageNum(page)
+  clearSelection()
+  void loadDevicePage()
+}
+
+watch(
+  () => [route.query.deviceId, route.query.productKey, route.query.deviceCode, route.query.deviceName] as const,
+  () => {
+    applyRouteQueryToFilters()
+    resetPage()
+    clearSelection()
+    void loadDevicePage()
+  }
+)
+
+watch(batchImportVisible, (value) => {
+  if (!value) {
+    batchImportResult.value = null
+  }
+})
+
+watch(replaceVisible, (value) => {
+  if (!value) {
+    replacingDevice.value = null
+  }
+})
+
+onMounted(async () => {
+  applyRouteQueryToFilters()
+  await loadProducts()
+  await loadDevicePage()
+})
 </script>
 
 <style scoped>
-.operations-shell {
+.device-asset-view {
+  padding: 20px;
   display: grid;
-  gap: 1.35rem;
+  gap: 16px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
+  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 
-.ops-status {
+.ops-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ops-hero-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  padding: 1rem 1.1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(82, 174, 255, 0.24);
-  background: #f8fbff;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.ops-status p,
-.ops-status strong,
-.ops-status span,
-.ops-status small {
-  display: block;
-}
-
-.ops-status p,
-.ops-status small {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-
-.ops-status strong {
-  margin-top: 0.45rem;
-  font-size: 1.55rem;
-}
-
-.ops-status span {
-  margin-top: 0.35rem;
-  color: var(--text-secondary);
+.ops-inline-note {
+  padding: 12px 14px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  border: 1px solid rgba(42, 63, 95, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-caption);
   line-height: 1.7;
 }
 
-.ops-status__score {
-  text-align: right;
+.ops-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
-.ops-status__score strong {
-  font-size: 2.2rem;
+.ops-pagination {
+  margin-top: 16px;
 }
 
-.ops-status--red {
-  border-color: rgba(255, 109, 109, 0.28);
-}
-
-.ops-status--orange {
-  border-color: rgba(255, 179, 71, 0.28);
-}
-
-.ops-status--yellow {
-  border-color: rgba(255, 214, 102, 0.28);
-}
-
-.ops-status--blue {
-  border-color: rgba(82, 174, 255, 0.28);
-}
-
-.focus-list,
-.baseline-list {
+.device-detail-stack {
   display: grid;
-  gap: 0.85rem;
+  gap: 16px;
 }
 
-.focus-list__item,
-.baseline-list__item {
-  padding: 1rem;
-  border-radius: var(--radius-md);
+.ops-drawer-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.ops-drawer-note {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, transparent);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.92)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 42%);
+}
+
+.ops-drawer-note strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.ops-drawer-note span {
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.ops-drawer-section {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid var(--panel-border);
-  background: #f8fbff;
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: rgba(255, 255, 255, 0.88);
 }
 
-.focus-list__item {
+.ops-drawer-section__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 16px;
+}
+
+.ops-drawer-section__header p {
+  margin: 6px 0 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ops-drawer-grid {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
-  align-items: start;
-}
-
-.focus-list__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 0.9rem;
-  background: rgba(30, 128, 255, 0.12);
-  color: var(--brand-bright);
-  font-family: var(--font-mono);
-}
-
-.focus-list__item p {
-  margin: 0;
-  line-height: 1.7;
-}
-
-.baseline-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
 }
 
-.baseline-list__item span,
-.baseline-list__item strong {
-  display: block;
+.ops-drawer-grid :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 
-.baseline-list__item span {
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.ops-drawer-grid__full {
+  grid-column: 1 / -1;
 }
 
-.baseline-list__item strong {
-  margin-top: 0.45rem;
-  font-size: 1.05rem;
-}
-
-.advice-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  line-height: 1.9;
-}
-
-@media (max-width: 1200px) {
-  .baseline-list {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .ops-status {
-    flex-direction: column;
-    align-items: flex-start;
+@media (max-width: 900px) {
+  .device-asset-view {
+    padding: 16px;
   }
 
-  .ops-status__score {
-    text-align: left;
+  .ops-drawer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ops-filter-actions {
+    justify-content: stretch;
   }
 }
 </style>
-
-

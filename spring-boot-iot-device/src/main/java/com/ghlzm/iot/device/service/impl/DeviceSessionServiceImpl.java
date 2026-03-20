@@ -1,15 +1,16 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import lombok.Data;
-import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -26,7 +27,7 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
     private final StringRedisTemplate stringRedisTemplate;
     private final DeviceMapper deviceMapper;
     private final IotProperties iotProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceSessionServiceImpl(StringRedisTemplate stringRedisTemplate,
                                     DeviceMapper deviceMapper,
@@ -152,14 +153,19 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
     }
 
     private void saveSessionRecord(DeviceSessionRecord sessionRecord) {
+        String sessionJson;
+        try {
+            sessionJson = objectMapper.writeValueAsString(sessionRecord);
+        } catch (JacksonException ex) {
+            throw new IllegalStateException("设备会话序列化失败", ex);
+        }
+
         try {
             stringRedisTemplate.opsForValue().set(
                     buildSessionKey(sessionRecord.getDeviceCode()),
-                    objectMapper.writeValueAsString(sessionRecord),
+                    sessionJson,
                     getSessionTtl()
             );
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("设备会话序列化失败", ex);
         } catch (Exception ex) {
             // 当前阶段 Redis 不可用时不阻断消息主链路，仍以数据库在线状态作为兜底结果。
         }

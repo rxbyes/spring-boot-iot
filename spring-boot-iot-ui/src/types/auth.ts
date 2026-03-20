@@ -31,6 +31,11 @@ export interface UserAuthContext {
   username: string;
   realName?: string;
   displayName?: string;
+  phone?: string;
+  email?: string;
+  accountType?: string;
+  authStatus?: string;
+  loginMethods?: string[];
   superAdmin: boolean;
   homePath?: string;
   roleCodes: string[];
