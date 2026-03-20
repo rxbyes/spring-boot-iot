@@ -1,0 +1,84 @@
+spring:
+  datasource:
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: ${IOT_MYSQL_URL:jdbc:mysql://8.130.107.120:3306/rm_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          username: ${IOT_MYSQL_USERNAME:root}
+          password: ${IOT_MYSQL_PASSWORD:mI8%pB1*gD}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        slave_1:
+          url: ${IOT_TDENGINE_URL:jdbc:TAOS-RS://8.130.107.120:6041/iot}
+          username: ${IOT_TDENGINE_USERNAME:root}
+          password: ${IOT_TDENGINE_PASSWORD:Fc11QetNg4RX}
+          driver-class-name: com.taosdata.jdbc.rs.RestfulDriver
+
+  data:
+    redis:
+      host: ${IOT_REDIS_HOST:8.130.107.120}
+      port: ${IOT_REDIS_PORT:6379}
+      password: ${IOT_REDIS_PASSWORD:1QAZ2wsx___}
+      database: ${IOT_REDIS_DATABASE:8}
+      timeout: 10s
+  cloud:
+    aes:
+      merchants:
+        62000000:
+          key: Ng93rNxwBoIOM7L9Gm9ATO+lPh2MTmD9o9kuA3u/AaE=
+          key-derivation: false  # true 派生密钥模式，false：直接秘钥模式
+          mode: AES/CBC/PKCS5Padding
+        62000001: # 南方测绘
+          key: "FWx7ESWwrfx/F7T9bLKfjIOcRdyqnT1ayHqZkB6Q4Ak="
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+        62000002: # 先科
+          key: "q3FiNTM6CYaVX8RwKI+WVu85K27PKb43Rd6G/cH2+5w="
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+        62000003: # 华源交通（三立）
+          key: "mTPJ8e6o1WNpk6zaiZTb6dqtUk9+ZaUS742LjU+Ri1A="
+          #          key: Ng93rNxwBoIOM7L9Gm9ATO+lPh2MTmD9o9kuA3u/AaE=
+          key-derivation: false
+          mode: AES/CBC/PKCS5Padding
+logging:
+  level:
+    root: info
+    com.ghlzm.iot: debug
+
+iot:
+  security:
+    token-expire-seconds: ${IOT_SECURITY_TOKEN_EXPIRE_SECONDS:86400}
+  cors:
+    # 允许本机与常见内网网段的 Vite 开发地址直连，避免通过局域网 IP 访问前端时登录被 CORS 拦截。
+    allowed-origin-patterns:
+      - http://localhost:*
+      - http://127.0.0.1:*
+      - http://10.*:*
+      - http://172.*:*
+      - http://192.168.*:*
+  mqtt:
+    enabled: ${IOT_MQTT_ENABLED:true}
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
+    client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
+    username: ${IOT_MQTT_USERNAME:admin}
+    password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
+    default-subscribe-topics:
+#      - $dp
+      - /sys/+/+/thing/property/post
+      - /sys/+/+/thing/event/post
+      - /sys/+/+/thing/property/reply
+      - /sys/+/+/thing/service/reply
+      - /sys/+/+/thing/status/post
+
+  telemetry:
+    storage-type: mysql
+
+  rule:
+    enabled: false
+
+  ota:
+    enabled: false
+
