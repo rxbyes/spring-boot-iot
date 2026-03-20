@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest'
 import type { Device } from '@/types/api'
 import {
   buildDevicePageCacheKey,
+  cloneDeviceDetailCacheEntry,
   cloneDevicePageCacheEntry,
+  createDeviceDetailCacheEntry,
   createDevicePageCacheEntry,
+  deserializeDeviceDetailCacheEntries,
   deserializeDevicePageCacheEntries,
   getNextDevicePageQuery,
   getDeviceRowKey,
+  isDeviceDetailCacheFresh,
   isDevicePageCacheFresh,
   matchesDeviceFilters,
   mergeLocalDeviceRow,
@@ -16,6 +20,7 @@ import {
   removeSelectedDeviceSnapshot,
   resolveDevicePageLoadStrategy,
   replaceSelectedDeviceSnapshot,
+  serializeDeviceDetailCacheEntries,
   serializeDevicePageCacheEntries
 } from '@/views/deviceWorkbenchState'
 
@@ -172,6 +177,26 @@ describe('deviceWorkbenchState', () => {
 
     expect(restored.map((item) => item.key)).toEqual([secondEntry.key, firstEntry.key])
     expect(restored[0]?.records[0]?.deviceName).toBe('设备B')
+  })
+
+  it('builds, clones and restores fresh device detail cache entries', () => {
+    const firstEntry = createDeviceDetailCacheEntry(createDevice({ id: '2001', deviceName: 'device-a' }), 2_000)
+    const secondEntry = createDeviceDetailCacheEntry(createDevice({ id: '2002', deviceName: 'device-b' }), 3_000)
+
+    const cloned = cloneDeviceDetailCacheEntry(secondEntry)
+    if (cloned) {
+      cloned.detail.deviceName = 'device-changed'
+    }
+    expect(secondEntry.detail.deviceName).toBe('device-b')
+
+    expect(isDeviceDetailCacheFresh(firstEntry, 2_500, 4_000)).toBe(true)
+    expect(isDeviceDetailCacheFresh(firstEntry, 1_000, 4_001)).toBe(false)
+
+    const serialized = serializeDeviceDetailCacheEntries([firstEntry, secondEntry], 8)
+    const restored = deserializeDeviceDetailCacheEntries(serialized, 10_000, 8, 5_000)
+
+    expect(restored.map((item) => item.key)).toEqual(['2002', '2001'])
+    expect(restored[0]?.detail.deviceName).toBe('device-b')
   })
 
   it('drops stale or invalid device page cache entries when restoring session cache', () => {
