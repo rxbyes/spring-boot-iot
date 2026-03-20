@@ -135,7 +135,12 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import EmptyState from '../components/EmptyState.vue';
 import PanelCard from '../components/PanelCard.vue';
-import { getSectionHomeConfigByPath, matchSectionCardActivity, pickSectionActivities } from '../utils/sectionWorkspaces';
+import {
+  getSectionHomeConfigByPath,
+  matchSectionCardActivity,
+  pickSectionActivities,
+  sortByPreferredPaths
+} from '../utils/sectionWorkspaces';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { formatDateTime } from '../utils/format';
@@ -150,7 +155,8 @@ const permissionStore = usePermissionStore();
 const config = computed(() => getSectionHomeConfigByPath(route.path));
 const accessibleCards = computed(() => {
   const cards = config.value?.cards || [];
-  return cards.filter((card) => permissionStore.hasRoutePermission(card.path));
+  const allowedCards = cards.filter((card) => permissionStore.hasRoutePermission(card.path));
+  return sortByPreferredPaths(allowedCards, permissionStore.roleProfile.featuredPaths);
 });
 const primaryCards = computed(() => accessibleCards.value.slice(0, 4));
 const secondaryCards = computed(() => accessibleCards.value.slice(4));
@@ -161,6 +167,7 @@ const heroTags = computed(() => {
   const userInfo = permissionStore.userInfo;
   return [
     { label: '角色', value: permissionStore.primaryRoleName || '未分配' },
+    { label: '关注域', value: permissionStore.roleProfile.focusLabel || '平台总览' },
     { label: '账号', value: userInfo?.accountType || '未标记' },
     { label: '实名', value: userInfo?.authStatus || '待完善' }
   ].filter((item) => Boolean(item.value));

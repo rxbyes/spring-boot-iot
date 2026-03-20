@@ -15,6 +15,7 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.time.LocalDateTime;
@@ -66,7 +67,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     @Override
     public ProductDetailVO getDetailById(Long id) {
         Product product = getRequiredById(id);
-        ProductDeviceStat stat = loadProductDeviceStatMap(List.of(id)).get(id);
+        ProductDeviceStatRow stat = loadProductDeviceStatMap(List.of(id)).get(id);
         return toDetailVO(product, stat);
     }
 
@@ -87,7 +88,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 status
         ));
         List<Product> records = result.getRecords();
-        Map<Long, ProductDeviceStat> statMap = loadProductDeviceStatMap(records.stream().map(Product::getId).toList());
+        Map<Long, ProductDeviceStatRow> statMap = loadProductDeviceStatMap(records.stream().map(Product::getId).toList());
         List<ProductPageVO> rows = records.stream()
                 .map(product -> toPageVO(product, statMap.get(product.getId())))
                 .toList();
@@ -247,39 +248,26 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 && ProductStatusEnum.DISABLED.getCode().equals(targetStatus);
     }
 
-    private Map<Long, ProductDeviceStat> loadProductDeviceStatMap(List<Long> productIds) {
+    private Map<Long, ProductDeviceStatRow> loadProductDeviceStatMap(List<Long> productIds) {
         if (CollectionUtils.isEmpty(productIds)) {
             return Map.of();
         }
-        List<Device> devices = deviceMapper.selectList(
-                new LambdaQueryWrapper<Device>()
-                        .select(Device::getProductId, Device::getOnlineStatus, Device::getLastReportTime)
-                        .in(Device::getProductId, productIds)
-                        .eq(Device::getDeleted, 0)
-        );
-        if (CollectionUtils.isEmpty(devices)) {
+        List<ProductDeviceStatRow> rows = deviceMapper.selectProductStats(productIds);
+        if (CollectionUtils.isEmpty(rows)) {
             return Map.of();
         }
 
-        Map<Long, ProductDeviceStat> statMap = new LinkedHashMap<>();
-        for (Device device : devices) {
-            if (device.getProductId() == null) {
+        Map<Long, ProductDeviceStatRow> statMap = new LinkedHashMap<>();
+        for (ProductDeviceStatRow row : rows) {
+            if (row.getProductId() == null) {
                 continue;
             }
-            ProductDeviceStat stat = statMap.computeIfAbsent(device.getProductId(), key -> new ProductDeviceStat());
-            stat.deviceCount++;
-            if (Integer.valueOf(1).equals(device.getOnlineStatus())) {
-                stat.onlineDeviceCount++;
-            }
-            if (device.getLastReportTime() != null
-                    && (stat.lastReportTime == null || device.getLastReportTime().isAfter(stat.lastReportTime))) {
-                stat.lastReportTime = device.getLastReportTime();
-            }
+            statMap.put(row.getProductId(), row);
         }
         return statMap;
     }
 
-    private ProductPageVO toPageVO(Product product, ProductDeviceStat stat) {
+    private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {
         ProductPageVO row = new ProductPageVO();
         row.setId(product.getId());
         row.setProductKey(product.getProductKey());
@@ -297,7 +285,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return row;
     }
 
-    private ProductDetailVO toDetailVO(Product product, ProductDeviceStat stat) {
+    private ProductDetailVO toDetailVO(Product product, ProductDeviceStatRow stat) {
         ProductDetailVO detail = new ProductDetailVO();
         detail.setId(product.getId());
         detail.setProductKey(product.getProductKey());
@@ -316,16 +304,16 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return detail;
     }
 
-    private long resolveDeviceCount(ProductDeviceStat stat) {
-        return stat == null ? 0L : stat.deviceCount;
+    private long resolveDeviceCount(ProductDeviceStatRow stat) {
+        return stat == null || stat.getDeviceCount() == null ? 0L : stat.getDeviceCount();
     }
 
-    private long resolveOnlineDeviceCount(ProductDeviceStat stat) {
-        return stat == null ? 0L : stat.onlineDeviceCount;
+    private long resolveOnlineDeviceCount(ProductDeviceStatRow stat) {
+        return stat == null || stat.getOnlineDeviceCount() == null ? 0L : stat.getOnlineDeviceCount();
     }
 
-    private LocalDateTime resolveLastReportTime(ProductDeviceStat stat) {
-        return stat == null ? null : stat.lastReportTime;
+    private LocalDateTime resolveLastReportTime(ProductDeviceStatRow stat) {
+        return stat == null ? null : stat.getLastReportTime();
     }
 
     private String normalizeRequired(String value, String fieldName) {
@@ -342,12 +330,4 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return value.trim();
     }
 
-    private static final class ProductDeviceStat {
-
-        private long deviceCount;
-
-        private long onlineDeviceCount;
-
-        private LocalDateTime lastReportTime;
-    }
 }

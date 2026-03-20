@@ -1,4 +1,4 @@
-import { request } from './request'
+import { request, type RequestOptions } from './request'
 import type {
   ApiEnvelope,
   Device,
@@ -28,6 +28,8 @@ export interface DevicePageQueryParams {
   pageSize?: number
 }
 
+type DeviceRequestOptions = Pick<RequestOptions, 'signal'>
+
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -45,18 +47,24 @@ export function addDevice(payload: DeviceAddPayload): Promise<ApiEnvelope<Device
   })
 }
 
-export function getDeviceById(id: IdType): Promise<ApiEnvelope<Device>> {
-  return request<Device>(`/api/device/${id}`)
+export function getDeviceById(id: IdType, options: DeviceRequestOptions = {}): Promise<ApiEnvelope<Device>> {
+  return request<Device>(`/api/device/${id}`, {
+    ...options
+  })
 }
 
 export function getDeviceByCode(deviceCode: string): Promise<ApiEnvelope<Device>> {
   return request<Device>(`/api/device/code/${deviceCode}`)
 }
 
-export function pageDevices(params: DevicePageQueryParams = {}): Promise<ApiEnvelope<PageResult<Device>>> {
+export function pageDevices(
+  params: DevicePageQueryParams = {},
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<PageResult<Device>>> {
   const query = buildQuery(params)
   return request<PageResult<Device>>(`/api/device/page${query ? `?${query}` : ''}`, {
-    method: 'GET'
+    method: 'GET',
+    ...options
   })
 }
 

@@ -1,4 +1,5 @@
 import { request } from './request';
+import type { RequestOptions } from './request';
 import type {
   ApiEnvelope,
   IdType,
@@ -17,6 +18,8 @@ export interface ProductPageQueryParams {
   pageSize?: number
 }
 
+type ProductRequestOptions = Pick<RequestOptions, 'signal'>
+
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -34,10 +37,14 @@ export const productApi = {
   /**
    * 分页查询产品台账
    */
-  pageProducts(params: ProductPageQueryParams = {}): Promise<ApiEnvelope<PageResult<Product>>> {
+  pageProducts(
+    params: ProductPageQueryParams = {},
+    options: ProductRequestOptions = {}
+  ): Promise<ApiEnvelope<PageResult<Product>>> {
     const query = buildQuery(params)
     return request<PageResult<Product>>(`/api/device/product/page${query ? `?${query}` : ''}`, {
-      method: 'GET'
+      method: 'GET',
+      ...options
     })
   },
 
@@ -54,8 +61,8 @@ export const productApi = {
   /**
    * 根据ID查询产品
    */
-  getProductById(id: IdType) {
-    return request<Product>(`/api/device/product/${id}`);
+  getProductById(id: IdType, options: ProductRequestOptions = {}) {
+    return request<Product>(`/api/device/product/${id}`, options);
   },
 
   /**

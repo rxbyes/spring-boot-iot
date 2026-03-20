@@ -66,7 +66,7 @@ iot:
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
     default-subscribe-topics:
-#      - $dp
+      - $dp
       - /sys/+/+/thing/property/post
       - /sys/+/+/thing/event/post
       - /sys/+/+/thing/property/reply

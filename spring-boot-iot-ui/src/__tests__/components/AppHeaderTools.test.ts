@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
+
 import AppHeaderTools from '@/components/AppHeaderTools.vue';
+import type { ShellHeaderToolsProps } from '@/types/shell';
 
 describe('AppHeaderTools', () => {
-  const baseProps = {
+  const baseProps: ShellHeaderToolsProps = {
     showNoticePanel: false,
     showHelpPanel: false,
     noticePanelId: 'notice-panel',

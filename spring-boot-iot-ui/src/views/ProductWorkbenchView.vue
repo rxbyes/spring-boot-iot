@@ -84,12 +84,66 @@
       </StandardTableToolbar>
 
       <div
-        v-loading="loading"
+        v-if="showListInlineState"
+        :class="[
+          'product-list-inline-state',
+          { 'product-list-inline-state--error': listRefreshState === 'error' }
+        ]"
+      >
+        {{ listRefreshMessage }}
+      </div>
+
+      <div
+        v-loading="loading && hasRecords"
         class="product-result-panel"
         element-loading-text="正在刷新产品列表"
         element-loading-background="rgba(248, 250, 255, 0.78)"
       >
-        <template v-if="hasRecords">
+        <div v-if="showListSkeleton" class="product-loading-state" aria-live="polite" aria-busy="true">
+          <div class="product-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="product-loading-pulse product-loading-pill" />
+          </div>
+
+          <div class="product-loading-state__desktop">
+            <div class="product-loading-table product-loading-table--header">
+              <span v-for="item in 8" :key="`head-${item}`" class="product-loading-pulse product-loading-line product-loading-line--header" />
+            </div>
+            <div v-for="row in 5" :key="`row-${row}`" class="product-loading-table product-loading-table--row">
+              <span class="product-loading-pulse product-loading-square" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--key" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--title" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--short" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--short" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--meta" />
+              <span class="product-loading-pulse product-loading-pill product-loading-pill--status" />
+              <span class="product-loading-pulse product-loading-line product-loading-line--time" />
+            </div>
+          </div>
+
+          <div class="product-loading-state__mobile">
+            <article v-for="card in 3" :key="`card-${card}`" class="product-loading-mobile-card">
+              <div class="product-loading-mobile-card__header">
+                <span class="product-loading-pulse product-loading-square" />
+                <div class="product-loading-mobile-card__heading">
+                  <span class="product-loading-pulse product-loading-line product-loading-line--title" />
+                  <span class="product-loading-pulse product-loading-line product-loading-line--meta" />
+                </div>
+                <span class="product-loading-pulse product-loading-pill product-loading-pill--status" />
+              </div>
+              <div class="product-loading-mobile-card__meta">
+                <span v-for="item in 3" :key="`meta-${card}-${item}`" class="product-loading-pulse product-loading-pill" />
+              </div>
+              <div class="product-loading-mobile-card__info">
+                <div v-for="item in 4" :key="`field-${card}-${item}`" class="product-loading-mobile-card__field">
+                  <span class="product-loading-pulse product-loading-line product-loading-line--label" />
+                  <span class="product-loading-pulse product-loading-line product-loading-line--value" />
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
           <div class="product-mobile-list">
             <div class="product-mobile-list__grid">
               <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
@@ -235,6 +289,16 @@
       :empty="!detailData"
     >
       <div v-if="detailData" class="product-detail-layout">
+        <div
+          v-if="detailRefreshing || detailRefreshErrorMessage"
+          :class="[
+            'product-detail-inline-state',
+            { 'product-detail-inline-state--error': Boolean(detailRefreshErrorMessage) }
+          ]"
+        >
+          {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
+        </div>
+
         <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">产品汇总</span>
@@ -261,7 +325,12 @@
             <div class="product-detail-overview-metrics">
               <article v-for="metric in detailSummaryMetrics" :key="metric.key" class="product-detail-overview-metric">
                 <span class="product-detail-overview-metric__label">{{ metric.label }}</span>
-                <strong class="product-detail-overview-metric__value">{{ metric.value }}</strong>
+                <div class="product-detail-overview-metric__value-wrapper">
+                  <strong class="product-detail-overview-metric__value">{{ metric.value }}</strong>
+                  <span v-if="metric.trend" :class="['product-detail-overview-metric__trend', `product-detail-overview-metric__trend--${metric.trendType}`]">
+                    {{ metric.trend }}
+                  </span>
+                </div>
                 <p class="product-detail-overview-metric__hint">{{ metric.hint }}</p>
               </article>
             </div>
@@ -290,24 +359,28 @@
               </header>
               <div class="product-detail-archive-grid">
                 <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <span class="product-detail-archive-item__label">产品编号</span>
-                  <strong class="product-detail-archive-item__value" :title="detailArchiveIdText">{{ detailArchiveIdText }}</strong>
+                  <div class="product-detail-archive-meta-row">
+                    <span class="product-detail-archive-item__label">厂商</span>
+                    <span class="product-detail-archive-meta-separator">|</span>
+                    <span class="product-detail-archive-item__label">产品编号</span>
+                  </div>
+                  <div class="product-detail-archive-meta-value">
+                    <strong class="product-detail-archive-item__value" :title="detailArchiveManufacturerText">{{ detailArchiveManufacturerText }}</strong>
+                    <span class="product-detail-archive-meta-separator">/</span>
+                    <strong class="product-detail-archive-item__value" :title="detailArchiveIdText">{{ detailArchiveIdText }}</strong>
+                  </div>
                 </article>
                 <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <span class="product-detail-archive-item__label">产品 Key</span>
-                  <strong class="product-detail-archive-item__value" :title="detailArchiveProductKeyText">
-                    {{ detailArchiveProductKeyText }}
-                  </strong>
-                </article>
-                <article class="product-detail-archive-item">
-                  <span class="product-detail-archive-item__label">厂商</span>
-                  <strong class="product-detail-archive-item__value" :title="detailArchiveManufacturerText">
-                    {{ detailArchiveManufacturerText }}
-                  </strong>
-                </article>
-                <article class="product-detail-archive-item">
-                  <span class="product-detail-archive-item__label">创建时间</span>
-                  <strong class="product-detail-archive-item__value">{{ detailArchiveCreateDateText }}</strong>
+                  <div class="product-detail-archive-meta-row">
+                    <span class="product-detail-archive-item__label">产品 Key</span>
+                    <span class="product-detail-archive-meta-separator">|</span>
+                    <span class="product-detail-archive-item__label">创建时间</span>
+                  </div>
+                  <div class="product-detail-archive-meta-value">
+                    <strong class="product-detail-archive-item__value" :title="detailArchiveProductKeyText">{{ detailArchiveProductKeyText }}</strong>
+                    <span class="product-detail-archive-meta-separator">/</span>
+                    <strong class="product-detail-archive-item__value">{{ detailArchiveCreateDateText }}</strong>
+                  </div>
                 </article>
               </div>
               <article class="product-detail-description-card">
@@ -377,6 +450,19 @@
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
+        <div
+          v-if="formRefreshing || formRefreshMessage"
+          :class="[
+            'product-form-inline-state',
+            {
+              'product-form-inline-state--warning': formRefreshState === 'warning',
+              'product-form-inline-state--error': formRefreshState === 'error'
+            }
+          ]"
+        >
+          {{ formRefreshMessage || '已先填入当前摘要，正在补充最新档案。' }}
+        </div>
+
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
@@ -476,7 +562,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -490,8 +576,35 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { productApi } from '@/api/product'
+import { ElMessageBox } from 'element-plus'
 import { useServerPagination } from '@/composables/useServerPagination'
-import type { Product, ProductAddPayload } from '@/types/api'
+import type { PageResult, Product, ProductAddPayload } from '@/types/api'
+import {
+  buildProductPageCacheKey,
+  cloneProductDetailCacheEntry,
+  cloneProductPageCacheEntry,
+  createProductDetailCacheEntry,
+  createProductPageCacheEntry,
+  deserializeProductDetailCacheEntries,
+  deserializeProductPageCacheEntries,
+  getNextProductPageQuery,
+  getProductRowKey,
+  isProductDetailCacheFresh,
+  isProductPageCacheFresh,
+  matchesProductFilters,
+  mergeLocalProductRow,
+  prependLocalProductRow,
+  type ProductDetailCacheEntry,
+  type ProductPageCacheEntry,
+  type ProductPageQuerySnapshot,
+  removeLocalProductRow,
+  removeSelectedProductSnapshot,
+  resolveProductPageLoadStrategy,
+  replaceSelectedProductSnapshot,
+  serializeProductDetailCacheEntries,
+  serializeProductPageCacheEntries,
+  shouldRefreshProductDetail
+} from '@/views/productWorkbenchState'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -501,6 +614,31 @@ import {
 } from '@/utils/csvColumns'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime } from '@/utils/format'
+
+function formatCount(value?: number | null) {
+  const count = Number(value)
+  return Number.isFinite(count) ? String(count) : '--'
+}
+
+function formatFullDateTime(value?: string | null) {
+  if (!value) {
+    return '--'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(date)
+}
 
 interface ProductSearchForm {
   productName: string
@@ -520,9 +658,16 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const submitLoading = ref(false)
 const formVisible = ref(false)
+const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
+const listRefreshMessage = ref('')
+const listRefreshState = ref<'info' | 'error' | ''>('')
+const formRefreshMessage = ref('')
+const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
+const detailRefreshErrorMessage = ref('')
 const editingProductId = ref<string | number | null>(null)
 
 const tableData = ref<Product[]>([])
@@ -531,6 +676,25 @@ const detailData = ref<Product | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'product-definition-center'
+const defaultPageSize = 10
+let latestListRequestId = 0
+let latestDetailRequestId = 0
+let latestEditRequestId = 0
+let listAbortController: AbortController | null = null
+let listPrefetchAbortController: AbortController | null = null
+let detailAbortController: AbortController | null = null
+let editAbortController: AbortController | null = null
+const productDetailCache = new Map<string, ProductDetailCacheEntry>()
+const productPageCache = new Map<string, ProductPageCacheEntry>()
+const productDetailCacheTtlMs = 5 * 60_000
+const productDetailCacheLimit = 12
+const productDetailCacheSessionStorageKey = 'iot.products.detail-cache'
+const productPageCacheTtlMs = 30_000
+const productPageCacheLimit = 8
+const productPageCacheSessionStorageKey = 'iot.products.page-cache'
+let activeEditSessionId = 0
+let formDirtySinceOpen = false
+let suppressFormDirtyTracking = false
 
 const searchForm = reactive<ProductSearchForm>({
   productName: '',
@@ -556,7 +720,7 @@ const createDefaultFormData = (): ProductFormState => ({
 
 const formData = reactive<ProductFormState>(createDefaultFormData())
 
-const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination(10)
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
 const formTitle = computed(() => (editingProductId.value ? '编辑产品' : '新增产品'))
 const submitButtonText = computed(() => (editingProductId.value ? '保存' : '新增'))
@@ -566,6 +730,8 @@ const detailSubtitle = computed(() => '按汇总、接入方式、档案信息�
 const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()
@@ -679,32 +845,47 @@ const detailOperationSummary = computed(() => {
   }
   return '当前已经有设备在用，变更前先评估对现场设备的影响。'
 })
-const detailSummaryMetrics = computed(() => [
-  {
-    key: 'deviceCount',
-    label: '关联设备数',
-    value: formatCount(detailData.value?.deviceCount),
-    hint: detailAssociationHint.value
-  },
-  {
-    key: 'onlineDeviceCount',
-    label: '在线设备数',
-    value: formatCount(detailData.value?.onlineDeviceCount),
-    hint: '当前在线的设备数量。'
-  },
-  {
-    key: 'onlineRatio',
-    label: '在线比例',
-    value: detailOnlineRatioText.value,
-    hint: parseCount(detailData.value?.deviceCount) ? '在线设备在全部关联设备中的比例' : '当前没有设备，暂不统计'
-  },
-  {
-    key: 'lastReportTime',
-    label: '最近上报',
-    value: formatDateTime(detailData.value?.lastReportTime),
-    hint: detailLastReportHint.value
+const detailSummaryMetrics = computed(() => {
+  const baseMetrics = [
+    {
+      key: 'deviceCount',
+      label: '关联设备数',
+      value: formatCount(detailData.value?.deviceCount),
+      hint: detailAssociationHint.value
+    },
+    {
+      key: 'onlineDeviceCount',
+      label: '在线设备数',
+      value: formatCount(detailData.value?.onlineDeviceCount),
+      hint: '当前在线的设备数量。'
+    },
+    {
+      key: 'onlineRatio',
+      label: '在线比例',
+      value: detailOnlineRatioText.value,
+      hint: parseCount(detailData.value?.deviceCount) ? '在线设备在全部关联设备中的比例' : '当前没有设备，暂不统计'
+    },
+    {
+      key: 'lastReportTime',
+      label: '最近上报',
+      value: formatDateTime(detailData.value?.lastReportTime),
+      hint: detailLastReportHint.value
+    }
+  ]
+  
+  if (detailData.value?.deviceCount != null && detailData.value.deviceCount > 0) {
+    return [
+      ...baseMetrics,
+      {
+        key: 'offlineRate',
+        label: '离线比例',
+        value: `${(1 - (parseCount(detailData.value?.onlineDeviceCount) / parseCount(detailData.value?.deviceCount)) * 100).toFixed(1)}%`,
+        hint: '离线设备在全部设备中的比例'
+      }
+    ]
   }
-])
+  return baseMetrics
+})
 const detailContractCards = computed(() => [
   { key: 'protocolCode', label: '协议编码', value: formatTextValue(detailData.value?.protocolCode) },
   { key: 'nodeType', label: '节点类型', value: getNodeTypeText(detailData.value?.nodeType) },
@@ -713,7 +894,7 @@ const detailContractCards = computed(() => [
 const detailArchiveIdText = computed(() => formatTextValue(detailData.value?.id))
 const detailArchiveProductKeyText = computed(() => formatTextValue(detailData.value?.productKey))
 const detailArchiveManufacturerText = computed(() => formatTextValue(detailData.value?.manufacturer))
-const detailArchiveCreateDateText = computed(() => formatDate(detailData.value?.createTime))
+const detailArchiveCreateDateText = computed(() => formatFullDateTime(detailData.value?.createTime))
 const detailGovernanceHeadline = computed(() => {
   if (!detailData.value) {
     return '正在整理维护建议'
@@ -796,11 +977,6 @@ function parseCount(value?: number | null) {
   return Number.isFinite(count) ? count : null
 }
 
-function formatCount(value?: number | null) {
-  const count = parseCount(value)
-  return count === null ? '--' : String(count)
-}
-
 function formatTextValue(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
     return '--'
@@ -825,14 +1001,85 @@ function formatDate(value?: string | null) {
   }).format(date)
 }
 
-function getProductRowKey(row?: Partial<Product> | null) {
-  if (!row) {
-    return ''
+function getProductDetailCacheKey(row?: Partial<Product> | null) {
+  return getProductRowKey(row)
+}
+
+function getCachedProductDetail(row?: Partial<Product> | null) {
+  const cacheKey = getProductDetailCacheKey(row)
+  if (!cacheKey) {
+    return null
   }
-  if (row.id !== undefined && row.id !== null && row.id !== '') {
-    return String(row.id)
+  const entry = cloneProductDetailCacheEntry(productDetailCache.get(cacheKey))
+  if (!entry) {
+    return null
   }
-  return row.productKey ? String(row.productKey) : ''
+  if (!isProductDetailCacheFresh(entry, productDetailCacheTtlMs)) {
+    productDetailCache.delete(cacheKey)
+    persistProductDetailCache()
+    return null
+  }
+  return { ...entry.detail }
+}
+
+function cacheProductDetail(product?: Product | null) {
+  const cacheKey = getProductDetailCacheKey(product)
+  if (!cacheKey || !product) {
+    return
+  }
+  const entry = createProductDetailCacheEntry(product)
+  productDetailCache.delete(cacheKey)
+  productDetailCache.set(cacheKey, entry)
+
+  while (productDetailCache.size > productDetailCacheLimit) {
+    const oldestKey = productDetailCache.keys().next().value
+    if (!oldestKey) {
+      break
+    }
+    productDetailCache.delete(oldestKey)
+  }
+
+  persistProductDetailCache()
+}
+
+function removeCachedProductDetail(row?: Partial<Product> | null) {
+  const cacheKey = getProductDetailCacheKey(row)
+  if (!cacheKey) {
+    return
+  }
+  productDetailCache.delete(cacheKey)
+  persistProductDetailCache()
+}
+
+function resolveDetailSnapshot(row: Product, cachedDetail: Product | null) {
+  if (cachedDetail) {
+    return {
+      ...cachedDetail,
+      ...row,
+      description: cachedDetail.description ?? row.description ?? null
+    }
+  }
+  return buildDetailPreview(row)
+}
+
+function abortListRequest() {
+  listAbortController?.abort()
+  listAbortController = null
+}
+
+function abortListPrefetchRequest() {
+  listPrefetchAbortController?.abort()
+  listPrefetchAbortController = null
+}
+
+function abortDetailRequest() {
+  detailAbortController?.abort()
+  detailAbortController = null
+}
+
+function abortEditRequest() {
+  editAbortController?.abort()
+  editAbortController = null
 }
 
 function resetFormData(source?: Partial<Product>) {
@@ -846,6 +1093,236 @@ function resetFormData(source?: Partial<Product>) {
     description: source?.description || '',
     status: source?.status ?? 1
   })
+}
+
+function applyFormDataWithoutDirty(source?: Partial<Product>) {
+  suppressFormDirtyTracking = true
+  try {
+    resetFormData(source)
+  } finally {
+    suppressFormDirtyTracking = false
+  }
+}
+
+function clearFormRefreshState() {
+  formRefreshing.value = false
+  formRefreshMessage.value = ''
+  formRefreshState.value = ''
+}
+
+function clearListRefreshState() {
+  listRefreshMessage.value = ''
+  listRefreshState.value = ''
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+function buildCurrentProductPageQuery(): ProductPageQuerySnapshot {
+  return {
+    productName: searchForm.productName.trim(),
+    nodeType: searchForm.nodeType,
+    status: searchForm.status,
+    pageNum: pagination.pageNum,
+    pageSize: pagination.pageSize
+  }
+}
+
+function getProductPageSessionStorage() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  return window.sessionStorage
+}
+
+function hydrateProductPageCache() {
+  const storage = getProductPageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  const entries = deserializeProductPageCacheEntries(
+    storage.getItem(productPageCacheSessionStorageKey),
+    productPageCacheTtlMs,
+    productPageCacheLimit
+  )
+
+  productPageCache.clear()
+  entries.forEach((entry: ProductPageCacheEntry) => {
+    productPageCache.set(entry.key, entry)
+  })
+
+  if (entries.length === 0) {
+    try {
+      storage.removeItem(productPageCacheSessionStorageKey)
+    } catch {
+      // 忽略浏览器存储异常，避免阻断页面加载
+    }
+  }
+}
+
+function hydrateProductDetailCache() {
+  const storage = getProductPageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  const entries = deserializeProductDetailCacheEntries(
+    storage.getItem(productDetailCacheSessionStorageKey),
+    productDetailCacheTtlMs,
+    productDetailCacheLimit
+  )
+
+  productDetailCache.clear()
+  entries.forEach((entry: ProductDetailCacheEntry) => {
+    productDetailCache.set(entry.key, entry)
+  })
+
+  if (entries.length === 0) {
+    try {
+      storage.removeItem(productDetailCacheSessionStorageKey)
+    } catch {
+      // 忽略浏览器存储异常，避免阻断页面加载
+    }
+  }
+}
+
+function persistProductPageCache() {
+  const storage = getProductPageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  try {
+    if (productPageCache.size === 0) {
+      storage.removeItem(productPageCacheSessionStorageKey)
+      return
+    }
+    storage.setItem(
+      productPageCacheSessionStorageKey,
+      serializeProductPageCacheEntries(productPageCache.values(), productPageCacheLimit)
+    )
+  } catch {
+    // 忽略浏览器存储异常，避免阻断列表主流程
+  }
+}
+
+function persistProductDetailCache() {
+  const storage = getProductPageSessionStorage()
+  if (!storage) {
+    return
+  }
+
+  try {
+    if (productDetailCache.size === 0) {
+      storage.removeItem(productDetailCacheSessionStorageKey)
+      return
+    }
+    storage.setItem(
+      productDetailCacheSessionStorageKey,
+      serializeProductDetailCacheEntries(productDetailCache.values(), productDetailCacheLimit)
+    )
+  } catch {
+    // 忽略浏览器存储异常，避免阻断详情主流程
+  }
+}
+
+function getCachedProductPage(query: ProductPageQuerySnapshot) {
+  const cacheKey = buildProductPageCacheKey(query)
+  return cloneProductPageCacheEntry(productPageCache.get(cacheKey))
+}
+
+function cacheProductPage(query: ProductPageQuerySnapshot, pageResult: PageResult<Product>) {
+  const entry = createProductPageCacheEntry(query, pageResult)
+  productPageCache.delete(entry.key)
+  productPageCache.set(entry.key, entry)
+
+  while (productPageCache.size > productPageCacheLimit) {
+    const oldestKey = productPageCache.keys().next().value
+    if (!oldestKey) {
+      break
+    }
+    productPageCache.delete(oldestKey)
+  }
+
+  persistProductPageCache()
+}
+
+function applyCachedProductPage(entry: ProductPageCacheEntry) {
+  tableData.value = applyPageResult({
+    total: entry.total,
+    pageNum: entry.pageNum,
+    pageSize: entry.pageSize,
+    records: entry.records
+  })
+  syncAppliedFilters()
+  void syncTableSelection()
+}
+
+function cacheVisibleProductPage() {
+  cacheProductPage(buildCurrentProductPageQuery(), {
+    total: pagination.total,
+    pageNum: pagination.pageNum,
+    pageSize: pagination.pageSize,
+    records: tableData.value
+  })
+}
+
+function clearProductPageCache() {
+  abortListPrefetchRequest()
+  productPageCache.clear()
+  persistProductPageCache()
+}
+
+function rebuildVisibleProductPageCache() {
+  clearProductPageCache()
+  if (pagination.total <= 0 || tableData.value.length === 0) {
+    return
+  }
+  cacheVisibleProductPage()
+}
+
+async function prefetchNextProductPage(query: ProductPageQuerySnapshot, total: number) {
+  const nextQuery = getNextProductPageQuery(query, total)
+  if (!nextQuery) {
+    return
+  }
+
+  const cachedPage = getCachedProductPage(nextQuery)
+  if (isProductPageCacheFresh(cachedPage, productPageCacheTtlMs)) {
+    return
+  }
+
+  abortListPrefetchRequest()
+  const controller = new AbortController()
+  listPrefetchAbortController = controller
+
+  try {
+    const res = await productApi.pageProducts(
+      {
+        productName: nextQuery.productName || undefined,
+        nodeType: nextQuery.nodeType,
+        status: nextQuery.status,
+        pageNum: nextQuery.pageNum,
+        pageSize: nextQuery.pageSize
+      },
+      {
+        signal: controller.signal
+      }
+    )
+    if (res.code === 200 && res.data) {
+      cacheProductPage(nextQuery, res.data)
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.warn('预取产品分页失败', error)
+    }
+  } finally {
+    if (listPrefetchAbortController === controller) {
+      listPrefetchAbortController = null
+    }
+  }
 }
 
 function syncAppliedFilters() {
@@ -863,6 +1340,55 @@ function clearSearchForm() {
 function clearSelection() {
   tableRef.value?.clearSelection()
   selectedRows.value = []
+}
+
+function matchesCurrentFilters(product: Product) {
+  return matchesProductFilters(product, {
+    productName: searchForm.productName,
+    nodeType: searchForm.nodeType,
+    status: searchForm.status
+  })
+}
+
+function replaceSelectedRowSnapshot(product: Product) {
+  selectedRows.value = replaceSelectedProductSnapshot(selectedRows.value, product)
+}
+
+function removeSelectedRowSnapshot(row?: Partial<Product> | null) {
+  selectedRows.value = removeSelectedProductSnapshot(selectedRows.value, row)
+}
+
+function mergeLocalTableRow(product: Product) {
+  const nextRows = mergeLocalProductRow(tableData.value, product)
+  if (!nextRows) {
+    return false
+  }
+
+  tableData.value = nextRows
+  cacheVisibleProductPage()
+  replaceSelectedRowSnapshot(product)
+  void syncTableSelection()
+  return true
+}
+
+function prependLocalTableRow(product: Product) {
+  tableData.value = prependLocalProductRow(tableData.value, product, pagination.pageSize)
+  cacheVisibleProductPage()
+  replaceSelectedRowSnapshot(product)
+  void syncTableSelection()
+}
+
+function removeLocalTableRow(row?: Partial<Product> | null) {
+  const nextRows = removeLocalProductRow(tableData.value, row)
+  if (!nextRows) {
+    return false
+  }
+
+  tableData.value = nextRows
+  cacheVisibleProductPage()
+  removeSelectedRowSnapshot(row)
+  void syncTableSelection()
+  return true
 }
 
 async function syncTableSelection() {
@@ -919,51 +1445,274 @@ function handleExportCurrent() {
 
 function applyRouteQueryToFilters() {
   searchForm.productName = typeof route.query.productName === 'string' ? route.query.productName.trim() : ''
+  searchForm.nodeType = parseRouteNumberQuery(route.query.nodeType)
+  searchForm.status = parseRouteNumberQuery(route.query.status)
+  pagination.pageNum = parseRoutePositiveIntQuery(route.query.pageNum, 1)
+  pagination.pageSize = parseRoutePositiveIntQuery(route.query.pageSize, defaultPageSize)
 }
 
-async function loadProductPage() {
-  loading.value = true
+function parseRouteNumberQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return undefined
+  }
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function parseRoutePositiveIntQuery(value: unknown, fallback: number) {
+  const parsed = parseRouteNumberQuery(value)
+  if (!parsed || parsed < 1) {
+    return fallback
+  }
+  return Math.trunc(parsed)
+}
+
+function normalizeQueryValue(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === undefined || raw === null || raw === '') {
+    return undefined
+  }
+  return String(raw)
+}
+
+function assignListQueryValue(
+  query: Record<string, unknown>,
+  key: 'productName' | 'nodeType' | 'status' | 'pageNum' | 'pageSize',
+  value: string | number | undefined
+) {
+  if (value === undefined || value === '') {
+    delete query[key]
+    return
+  }
+  query[key] = String(value)
+}
+
+function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
+  return (
+    normalizeQueryValue(route.query.productName) === normalizeQueryValue(nextQuery.productName) &&
+    normalizeQueryValue(route.query.nodeType) === normalizeQueryValue(nextQuery.nodeType) &&
+    normalizeQueryValue(route.query.status) === normalizeQueryValue(nextQuery.status) &&
+    normalizeQueryValue(route.query.pageNum) === normalizeQueryValue(nextQuery.pageNum) &&
+    normalizeQueryValue(route.query.pageSize) === normalizeQueryValue(nextQuery.pageSize)
+  )
+}
+
+async function syncListRouteQuery() {
+  const nextQuery: Record<string, unknown> = { ...route.query }
+  const trimmedProductName = searchForm.productName.trim()
+
+  assignListQueryValue(nextQuery, 'productName', trimmedProductName || undefined)
+  assignListQueryValue(nextQuery, 'nodeType', searchForm.nodeType)
+  assignListQueryValue(nextQuery, 'status', searchForm.status)
+  assignListQueryValue(nextQuery, 'pageNum', pagination.pageNum > 1 ? pagination.pageNum : undefined)
+  assignListQueryValue(nextQuery, 'pageSize', pagination.pageSize !== defaultPageSize ? pagination.pageSize : undefined)
+
+  if (hasSameListRouteQuery(nextQuery)) {
+    await loadProductPage()
+    return
+  }
+
+  await router.replace({
+    path: route.path,
+    query: nextQuery
+  })
+}
+
+function buildDetailPreview(row: Product) {
+  return {
+    ...row,
+    description: row.description ?? null
+  }
+}
+
+async function loadProductPage(options: { silent?: boolean; force?: boolean; silentMessage?: string } = {}) {
+  const requestId = ++latestListRequestId
+  const query = buildCurrentProductPageQuery()
+  const cachedPage = getCachedProductPage(query)
+  const loadStrategy = resolveProductPageLoadStrategy({
+    hasCachedPage: Boolean(cachedPage),
+    hasFreshCache: isProductPageCacheFresh(cachedPage, productPageCacheTtlMs),
+    force: options.force === true,
+    silent: options.silent === true
+  })
+  const hadVisibleResult = Boolean(cachedPage) || tableData.value.length > 0
+
+  abortListPrefetchRequest()
+  abortListRequest()
+  if (cachedPage) {
+    applyCachedProductPage(cachedPage)
+  }
+
+  if (loadStrategy.useFreshCacheOnly) {
+    clearListRefreshState()
+    loading.value = false
+    void prefetchNextProductPage(query, cachedPage.total)
+    return
+  }
+
+  const controller = new AbortController()
+  listAbortController = controller
+  const silent = loadStrategy.silentRequest
+  const preserveVisibleResult = silent && hadVisibleResult
+
+  if (preserveVisibleResult) {
+    listRefreshState.value = 'info'
+    listRefreshMessage.value = options.silentMessage || '已先展示当前结果，正在后台校验最新数据。'
+  } else {
+    clearListRefreshState()
+  }
+
+  loading.value = !preserveVisibleResult
   try {
-    const res = await productApi.pageProducts({
-      productName: searchForm.productName.trim() || undefined,
-      nodeType: searchForm.nodeType,
-      status: searchForm.status,
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    })
+    const res = await productApi.pageProducts(
+      {
+        productName: query.productName || undefined,
+        nodeType: query.nodeType,
+        status: query.status,
+        pageNum: query.pageNum,
+        pageSize: query.pageSize
+      },
+      {
+        signal: controller.signal
+      }
+    )
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (res.code === 200 && res.data) {
+      clearListRefreshState()
       tableData.value = applyPageResult(res.data)
       syncAppliedFilters()
+      cacheProductPage(query, res.data)
+      void syncTableSelection()
+      void prefetchNextProductPage(query, res.data.total)
     }
   } catch (error) {
+    if (requestId !== latestListRequestId || isAbortError(error)) {
+      return
+    }
     console.error('获取产品分页失败', error)
-    ElMessage.error('获取产品分页失败')
+    if (preserveVisibleResult) {
+      listRefreshState.value = 'error'
+      listRefreshMessage.value = '最新数据校验失败，当前先展示已有结果。'
+    } else {
+      clearListRefreshState()
+      ElMessage.error('获取产品分页失败')
+    }
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
+    if (listAbortController === controller) {
+      listAbortController = null
+    }
   }
 }
 
-async function openDetail(id: string | number) {
+async function openDetail(row: Product) {
+  const requestId = ++latestDetailRequestId
+  const cachedDetail = getCachedProductDetail(row)
+  const detailSnapshot = resolveDetailSnapshot(row, cachedDetail)
+  abortDetailRequest()
+
   detailVisible.value = true
-  detailLoading.value = true
+  detailLoading.value = false
   detailErrorMessage.value = ''
-  detailData.value = null
+  detailRefreshErrorMessage.value = ''
+  detailData.value = detailSnapshot
+
+  if (!shouldRefreshProductDetail(row, cachedDetail)) {
+    detailRefreshing.value = false
+    return
+  }
+
+  const controller = new AbortController()
+  detailAbortController = controller
+  detailRefreshing.value = true
+
   try {
-    const res = await productApi.getProductById(id)
-    if (res.code === 200) {
+    const res = await productApi.getProductById(row.id, {
+      signal: controller.signal
+    })
+    if (requestId !== latestDetailRequestId) {
+      return
+    }
+    if (res.code === 200 && res.data) {
       detailData.value = res.data
+      cacheProductDetail(res.data)
     }
   } catch (error) {
-    detailErrorMessage.value = error instanceof Error ? error.message : '加载产品详情失败'
+    if (requestId !== latestDetailRequestId || isAbortError(error)) {
+      return
+    }
+    detailRefreshErrorMessage.value = error instanceof Error ? error.message : '完整详情补充失败，当前先展示列表摘要。'
   } finally {
-    detailLoading.value = false
+    if (requestId === latestDetailRequestId) {
+      detailLoading.value = false
+      detailRefreshing.value = false
+    }
+    if (detailAbortController === controller) {
+      detailAbortController = null
+    }
   }
 }
 
-async function loadEditableDetail(id: string | number) {
-  const res = await productApi.getProductById(id)
-  if (res.code === 200 && res.data) {
-    resetFormData(res.data)
+async function refreshEditableDetail(row: Product, editSessionId: number, cachedDetail: Product | null) {
+  if (!shouldRefreshProductDetail(row, cachedDetail)) {
+    clearFormRefreshState()
+    return
+  }
+
+  const requestId = ++latestEditRequestId
+  abortEditRequest()
+  const controller = new AbortController()
+  editAbortController = controller
+  formRefreshing.value = true
+  formRefreshState.value = 'info'
+  formRefreshMessage.value = ''
+
+  try {
+    const res = await productApi.getProductById(row.id, {
+      signal: controller.signal
+    })
+    if (
+      requestId !== latestEditRequestId ||
+      editSessionId !== activeEditSessionId ||
+      editingProductId.value !== row.id
+    ) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      cacheProductDetail(res.data)
+      if (!formDirtySinceOpen) {
+        applyFormDataWithoutDirty(res.data)
+        formRef.value?.clearValidate()
+        clearFormRefreshState()
+      } else {
+        formRefreshState.value = 'warning'
+        formRefreshMessage.value = '最新档案已取回；你已开始编辑，当前未自动覆盖表单。'
+      }
+    }
+  } catch (error) {
+    if (
+      requestId !== latestEditRequestId ||
+      editSessionId !== activeEditSessionId ||
+      editingProductId.value !== row.id ||
+      isAbortError(error)
+    ) {
+      return
+    }
+    formRefreshState.value = 'error'
+    formRefreshMessage.value =
+      error instanceof Error ? `最新档案补充失败：${error.message}` : '最新档案补充失败，当前先保留已填入内容。'
+  } finally {
+    if (requestId === latestEditRequestId) {
+      formRefreshing.value = false
+    }
+    if (editAbortController === controller) {
+      editAbortController = null
+    }
   }
 }
 
@@ -971,14 +1720,14 @@ function handleSearch() {
   searchForm.productName = searchForm.productName.trim()
   resetPage()
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 function handleReset() {
   clearSearchForm()
   resetPage()
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 function removeAppliedFilter(key: ProductFilterKey) {
@@ -991,40 +1740,50 @@ function removeAppliedFilter(key: ProductFilterKey) {
   }
   resetPage()
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 function handleClearAppliedFilters() {
   clearSearchForm()
   resetPage()
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 function handleRefresh() {
   clearSelection()
-  void loadProductPage()
+  clearProductPageCache()
+  void loadProductPage({ force: true })
 }
 
 function handleAdd() {
+  activeEditSessionId += 1
+  abortEditRequest()
   editingProductId.value = null
-  resetFormData()
+  formDirtySinceOpen = false
+  clearFormRefreshState()
+  applyFormDataWithoutDirty()
   formVisible.value = true
 }
 
-async function handleEdit(row: Product) {
-  try {
-    editingProductId.value = row.id
-    await loadEditableDetail(row.id)
-    formVisible.value = true
-  } catch (error) {
-    console.error('加载产品编辑详情失败', error)
-    ElMessage.error('加载产品详情失败')
-  }
+function handleEdit(row: Product) {
+  const cachedDetail = getCachedProductDetail(row)
+  const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
+
+  activeEditSessionId += 1
+  const editSessionId = activeEditSessionId
+  abortEditRequest()
+  editingProductId.value = row.id
+  formDirtySinceOpen = false
+  clearFormRefreshState()
+  applyFormDataWithoutDirty(editSnapshot)
+  formVisible.value = true
+  formRef.value?.clearValidate()
+  void refreshEditableDetail(row, editSessionId, cachedDetail)
 }
 
 function handleOpenDetail(row: Product) {
-  void openDetail(row.id)
+  void openDetail(row)
 }
 
 function handleRowAction(command: string | number | object, row: Product) {
@@ -1054,11 +1813,21 @@ async function handleDelete(row: Product) {
     await confirmDelete('产品', row.productName || row.productKey)
     await productApi.deleteProduct(row.id)
     ElMessage.success('删除成功')
-    clearSelection()
-    if (tableData.value.length === 1 && pagination.pageNum > 1) {
+    removeCachedProductDetail(row)
+    const removedFromCurrentPage = removeLocalTableRow(row)
+    setTotal(pagination.total - 1)
+    if (tableData.value.length === 0 && pagination.pageNum > 1) {
+      clearProductPageCache()
       setPageNum(pagination.pageNum - 1)
+      clearSelection()
+      await syncListRouteQuery()
+      return
     }
-    await loadProductPage()
+    rebuildVisibleProductPageCache()
+    if (!removedFromCurrentPage) {
+      clearSelection()
+    }
+    void loadProductPage({ silent: true, force: true })
   } catch (error) {
     if (isConfirmCancelled(error)) {
       return
@@ -1077,16 +1846,38 @@ async function handleSubmit() {
   submitLoading.value = true
   try {
     if (editingProductId.value) {
-      await productApi.updateProduct(editingProductId.value, { ...formData })
+      const res = await productApi.updateProduct(editingProductId.value, { ...formData })
+      cacheProductDetail(res.data)
+      if (matchesCurrentFilters(res.data)) {
+        mergeLocalTableRow(res.data)
+      } else {
+        removeLocalTableRow(res.data)
+      }
+      rebuildVisibleProductPageCache()
       ElMessage.success('更新成功')
+      formVisible.value = false
+      void loadProductPage({ silent: true, force: true })
     } else {
-      await productApi.addProduct({ ...formData })
+      const res = await productApi.addProduct({ ...formData })
+      cacheProductDetail(res.data)
       ElMessage.success('新增成功')
+      formVisible.value = false
+      clearSelection()
+
+      if (pagination.pageNum === 1 && matchesCurrentFilters(res.data)) {
+        prependLocalTableRow(res.data)
+        setTotal(pagination.total + 1)
+        rebuildVisibleProductPageCache()
+        void loadProductPage({ silent: true, force: true })
+      } else if (pagination.pageNum === 1) {
+        clearProductPageCache()
+        void loadProductPage({ silent: true })
+      } else {
+        clearProductPageCache()
+        resetPage()
+        await syncListRouteQuery()
+      }
     }
-    formVisible.value = false
-    clearSelection()
-    resetPage()
-    await loadProductPage()
   } catch (error) {
     console.error('提交产品失败', error)
     ElMessage.error(error instanceof Error ? error.message : '提交产品失败')
@@ -1096,34 +1887,70 @@ async function handleSubmit() {
 }
 
 function handleFormClose() {
+  activeEditSessionId += 1
+  abortEditRequest()
   formRef.value?.clearValidate()
-  resetFormData()
+  clearFormRefreshState()
+  formDirtySinceOpen = false
+  applyFormDataWithoutDirty()
   editingProductId.value = null
 }
 
 function handleSizeChange(size: number) {
   setPageSize(size)
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 function handlePageChange(page: number) {
   setPageNum(page)
   clearSelection()
-  void loadProductPage()
+  void syncListRouteQuery()
 }
 
 watch(
-  () => route.query.productName,
+  () => [route.query.productName, route.query.nodeType, route.query.status, route.query.pageNum, route.query.pageSize],
   () => {
     applyRouteQueryToFilters()
-    resetPage()
     clearSelection()
     void loadProductPage()
   }
 )
 
+watch(detailVisible, (visible) => {
+  if (visible) {
+    return
+  }
+  latestDetailRequestId += 1
+  abortDetailRequest()
+  detailLoading.value = false
+  detailRefreshing.value = false
+  detailErrorMessage.value = ''
+  detailRefreshErrorMessage.value = ''
+  detailData.value = null
+})
+
+watch(
+  formData,
+  () => {
+    if (!formVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
+      return
+    }
+    formDirtySinceOpen = true
+  },
+  { deep: true, flush: 'sync' }
+)
+
+onBeforeUnmount(() => {
+  abortListRequest()
+  abortListPrefetchRequest()
+  abortDetailRequest()
+  abortEditRequest()
+})
+
 onMounted(async () => {
+  hydrateProductDetailCache()
+  hydrateProductPageCache()
   applyRouteQueryToFilters()
   await loadProductPage()
 })
@@ -1135,41 +1962,89 @@ onMounted(async () => {
 }
 
 :deep(.product-detail-drawer .el-drawer__header) {
-  padding: 20px 28px 16px;
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--panel-border);
 }
 
 :deep(.product-detail-drawer .el-drawer__body) {
-  padding: 12px 28px 22px;
+  padding: 20px 28px 24px;
 }
 
 :deep(.product-detail-drawer .detail-drawer__heading h2) {
-  margin-top: 0.28rem;
-  font-size: clamp(1.88rem, 2.35vw, 2.24rem);
+  margin-top: 0.24rem;
+  font-size: clamp(1.5rem, 2vw, 1.75rem);
   letter-spacing: -0.015em;
+  font-weight: 600;
+  color: var(--text-heading);
 }
 
 :deep(.product-detail-drawer .detail-drawer__subtitle) {
-  margin-top: 0.42rem;
+  margin-top: 0.4rem;
   max-width: 38rem;
   font-size: 13px;
-  line-height: 1.54;
+  line-height: 1.55;
+  color: var(--text-caption);
 }
 
 .product-detail-layout {
   display: grid;
-  gap: 10px;
+  gap: 18px;
+}
+
+.product-detail-inline-state {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--brand) 4%, white);
+  color: var(--brand);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.product-detail-inline-state--error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 4%, white);
+}
+
+.product-form-inline-state {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--brand) 4%, white);
+  color: var(--brand);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.product-form-inline-state--warning {
+  border-color: #d48806;
+  color: #d48806;
+  background: color-mix(in srgb, #d48806 4%, white);
+}
+
+.product-form-inline-state--error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .product-detail-zone {
   position: relative;
   overflow: hidden;
-  padding: 0.92rem 0.96rem;
+  padding: 1.2rem 1.3rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 6px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.92));
+  border-radius: 10px;
+  background: #ffffff;
   box-shadow:
-    0 6px 18px rgba(24, 45, 77, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+    0 3px 10px rgba(24, 45, 77, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .product-detail-zone::before {
@@ -1210,28 +2085,29 @@ onMounted(async () => {
 .product-detail-zone__header {
   display: grid;
   gap: 0.18rem;
-  margin-bottom: 0.62rem;
+  margin-bottom: 0.9rem;
 }
 
 .product-detail-zone__kicker {
   color: var(--text-heading);
-  font-size: 1.42rem;
-  font-weight: 700;
-  line-height: 1.34;
-  letter-spacing: -0.01em;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .product-detail-zone__intro {
   margin: 0;
   color: var(--text-caption);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .product-detail-overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
-  gap: 8px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -1239,9 +2115,9 @@ onMounted(async () => {
   display: grid;
   gap: 0.5rem;
   min-width: 0;
-  padding: 0.9rem 0.94rem;
+  padding: 1rem 1.1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 5px);
+  border-radius: 8px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 12%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
@@ -1328,16 +2204,16 @@ onMounted(async () => {
 .product-detail-overview-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .product-detail-overview-metric {
   display: grid;
   gap: 0.26rem;
   min-width: 0;
-  padding: 0.74rem 0.8rem;
+  padding: 0.9rem 1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
@@ -1346,28 +2222,58 @@ onMounted(async () => {
   color: var(--text-caption-2);
   font-size: 11px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.5;
+  text-transform: uppercase;
 }
 
 .product-detail-overview-metric__value {
   color: var(--text-heading);
-  font-size: 1.2rem;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.4;
   word-break: break-word;
 }
 
 .product-detail-overview-metric__hint {
   margin: 0;
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.product-detail-overview-metric__value-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.product-detail-overview-metric__trend {
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.product-detail-overview-metric__trend--up {
+  color: #52c41a;
+  background: color-mix(in srgb, #52c41a 12%, transparent);
+}
+
+.product-detail-overview-metric__trend--down {
+  color: #ff4d4f;
+  background: color-mix(in srgb, #ff4d4f 12%, transparent);
+}
+
+.product-detail-overview-metric__trend--same {
+  color: #d48806;
+  background: color-mix(in srgb, #d48806 12%, transparent);
 }
 
 .product-detail-ledger-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.76fr) minmax(0, 1.24fr);
-  gap: 8px;
+  grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
+  gap: 14px;
   align-items: start;
 }
 
@@ -1375,11 +2281,21 @@ onMounted(async () => {
   display: grid;
   gap: 0.5rem;
   min-width: 0;
-  padding: 0.82rem 0.86rem;
+  padding: 1rem 1.1rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 5px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.product-detail-ledger-card:hover {
+  box-shadow:
+    0 4px 12px rgba(24, 45, 77, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
 .product-detail-ledger-card--contract {
@@ -1396,47 +2312,48 @@ onMounted(async () => {
 .product-detail-card-header h3 {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.26rem;
-  font-weight: 700;
-  line-height: 1.34;
-  letter-spacing: -0.01em;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .product-detail-card-header p {
   margin: 0;
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.48;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .product-detail-contract-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .product-detail-contract-item {
   display: grid;
   gap: 0.24rem;
   min-width: 0;
-  padding: 0.74rem 0.8rem;
+  padding: 0.9rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .product-detail-contract-item__label {
   color: var(--text-caption-2);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .product-detail-contract-item__value {
   color: var(--text-heading);
-  font-size: 1.92rem;
+  font-size: 13.5px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.44;
   letter-spacing: -0.01em;
   word-break: break-word;
 }
@@ -1444,16 +2361,16 @@ onMounted(async () => {
 .product-detail-archive-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .product-detail-archive-item {
   display: grid;
   gap: 0.26rem;
   min-width: 0;
-  padding: 0.74rem 0.8rem;
+  padding: 0.9rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
@@ -1464,7 +2381,7 @@ onMounted(async () => {
 
 .product-detail-archive-item__label {
   color: var(--text-caption-2);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1479,27 +2396,66 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+.product-detail-archive-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.36rem;
+  margin-bottom: 0.18rem;
+  font-size: 11px;
+  color: var(--text-caption-2);
+  line-height: 1.4;
+}
+
+.product-detail-archive-meta-row .product-detail-archive-item__label {
+  font-size: 11px;
+  color: var(--text-caption-2);
+  font-weight: 600;
+}
+
+.product-detail-archive-meta-separator {
+  color: var(--brand);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.product-detail-archive-meta-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.36rem;
+  line-height: 1.4;
+}
+
+.product-detail-archive-meta-value .product-detail-archive-item__value {
+  font-size: 13.5px;
+}
+
+.product-detail-archive-meta-value .product-detail-archive-meta-separator {
+  color: var(--brand);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
 .product-detail-description-card {
   display: grid;
   gap: 0.26rem;
-  margin-top: 0.22rem;
-  padding: 0.74rem 0.8rem;
+  margin-top: 0.3rem;
+  padding: 1rem 1.1rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .product-detail-description-card__label {
   color: var(--text-caption-2);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .product-detail-description-card__value {
   color: var(--text-heading);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.54;
   word-break: break-word;
@@ -1508,7 +2464,7 @@ onMounted(async () => {
 .product-detail-governance-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -1516,9 +2472,9 @@ onMounted(async () => {
   display: grid;
   gap: 0.36rem;
   min-width: 0;
-  padding: 0.78rem 0.84rem;
+  padding: 0.95rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
@@ -1539,14 +2495,14 @@ onMounted(async () => {
 
 .product-detail-governance-card__label {
   color: color-mix(in srgb, var(--brand) 42%, var(--text-caption-2));
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .product-detail-governance-card__title {
   color: var(--text-heading);
-  font-size: 1.24rem;
+  font-size: 1.28rem;
   font-weight: 700;
   line-height: 1.36;
 }
@@ -1700,6 +2656,161 @@ onMounted(async () => {
 .product-empty-state__actions {
   display: flex;
   justify-content: center;
+}
+
+.product-loading-state {
+  display: grid;
+  gap: 14px;
+  min-height: 14rem;
+  padding: 0.72rem 0.1rem 0.2rem;
+}
+
+.product-loading-state__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.product-loading-state__desktop {
+  display: grid;
+  gap: 10px;
+}
+
+.product-loading-state__mobile {
+  display: none;
+  gap: 12px;
+}
+
+.product-loading-table {
+  display: grid;
+  grid-template-columns: 0.38fr 1.35fr 1.55fr 0.96fr 0.9fr 1.1fr 0.78fr 1.18fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.product-loading-table--header {
+  padding: 0 0.82rem;
+}
+
+.product-loading-table--row {
+  padding: 0.92rem 0.82rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.product-loading-mobile-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.92rem 0.96rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+.product-loading-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.product-loading-mobile-card__heading {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.product-loading-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.product-loading-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+}
+
+.product-loading-mobile-card__field {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.product-loading-pulse {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(228, 235, 246, 0.8), rgba(244, 248, 255, 0.98), rgba(228, 235, 246, 0.8));
+  background-size: 220% 100%;
+  animation: product-loading-shimmer 1.35s ease-in-out infinite;
+}
+
+.product-loading-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: inherit;
+}
+
+.product-loading-line {
+  display: block;
+  height: 0.82rem;
+  border-radius: var(--radius-pill);
+}
+
+.product-loading-line--header {
+  height: 0.72rem;
+}
+
+.product-loading-line--key {
+  width: 88%;
+}
+
+.product-loading-line--title {
+  width: 92%;
+}
+
+.product-loading-line--short {
+  width: 72%;
+}
+
+.product-loading-line--meta {
+  width: 78%;
+}
+
+.product-loading-line--time {
+  width: 100%;
+}
+
+.product-loading-line--label {
+  width: 52%;
+  height: 0.68rem;
+}
+
+.product-loading-line--value {
+  width: 82%;
+  height: 0.84rem;
+}
+
+.product-loading-pill {
+  display: inline-flex;
+  width: 6rem;
+  height: 1.42rem;
+  border-radius: var(--radius-pill);
+}
+
+.product-loading-pill--status {
+  width: 4.6rem;
+}
+
+.product-loading-square {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.3rem;
 }
 
 .product-mobile-list__grid {
@@ -1885,6 +2996,22 @@ onMounted(async () => {
 
   .product-mobile-card__info {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .product-detail-layout {
+    gap: 14px;
+  }
+}
+
+@keyframes product-loading-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: -100% 50%;
   }
 }
 </style>

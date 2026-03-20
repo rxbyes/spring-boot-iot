@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
+
 import HeaderPopoverPanel from '@/components/HeaderPopoverPanel.vue';
+import type { ShellPopoverItem } from '@/types/shell';
 
 describe('HeaderPopoverPanel', () => {
-  const items = [
+  const items: ShellPopoverItem[] = [
     { id: '1', title: '消息 1', description: '描述 1', path: '/one' },
     { id: '2', title: '消息 2', description: '描述 2', path: '/two' }
   ];

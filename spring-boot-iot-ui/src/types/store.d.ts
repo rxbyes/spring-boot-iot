@@ -27,19 +27,6 @@ export interface ThemeState {
   textColor: string;
 }
 
-// Tabs Store
-export interface TabInfo {
-  path: string;
-  title: string;
-  name: string;
-  closable: boolean;
-}
-
-export interface TabsState {
-  visitedTabs: TabInfo[];
-  cachedTabs: string[];
-}
-
 // Device Store
 export interface DeviceState {
   devices: Device[];

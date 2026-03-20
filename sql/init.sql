@@ -390,7 +390,8 @@ CREATE TABLE iot_device (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_device_code_tenant (tenant_id, device_code)
+    UNIQUE KEY uk_device_code_tenant (tenant_id, device_code),
+    KEY idx_device_deleted_product_stats (deleted, product_id, last_report_time, online_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
 
 CREATE TABLE iot_device_property (

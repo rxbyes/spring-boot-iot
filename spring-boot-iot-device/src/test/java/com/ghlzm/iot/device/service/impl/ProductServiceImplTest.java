@@ -1,10 +1,18 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
+import com.ghlzm.iot.device.vo.ProductPageVO;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,5 +78,64 @@ class ProductServiceImplTest {
         productService.deleteProduct(1001L);
 
         verify(productService).removeById(1001L);
+    }
+
+    @Test
+    void getDetailByIdShouldUseAggregatedDeviceStats() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProductName("Demo Product");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        doReturn(product).when(productService).getRequiredById(1001L);
+
+        ProductDeviceStatRow statRow = new ProductDeviceStatRow();
+        statRow.setProductId(1001L);
+        statRow.setDeviceCount(6L);
+        statRow.setOnlineDeviceCount(2L);
+        LocalDateTime lastReportTime = LocalDateTime.of(2026, 3, 20, 10, 30);
+        statRow.setLastReportTime(lastReportTime);
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of(statRow));
+
+        ProductDetailVO detail = productService.getDetailById(1001L);
+
+        assertEquals(6L, detail.getDeviceCount());
+        assertEquals(2L, detail.getOnlineDeviceCount());
+        assertEquals(lastReportTime, detail.getLastReportTime());
+        verify(deviceMapper).selectProductStats(any());
+    }
+
+    @Test
+    void pageProductsShouldMapAggregatedStatsIntoRows() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProductName("Demo Product");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        Page<Product> page = new Page<>(1, 10);
+        page.setCurrent(1L);
+        page.setSize(10L);
+        page.setTotal(1L);
+        page.setRecords(List.of(product));
+        doReturn(page).when(productService).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        ProductDeviceStatRow statRow = new ProductDeviceStatRow();
+        statRow.setProductId(1001L);
+        statRow.setDeviceCount(8L);
+        statRow.setOnlineDeviceCount(3L);
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of(statRow));
+
+        PageResult<ProductPageVO> result = productService.pageProducts(null, "Demo", null, null, null, 1L, 10L);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+        assertEquals(8L, result.getRecords().get(0).getDeviceCount());
+        assertEquals(3L, result.getRecords().get(0).getOnlineDeviceCount());
+        verify(deviceMapper).selectProductStats(any());
     }
 }

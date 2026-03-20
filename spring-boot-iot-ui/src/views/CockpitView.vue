@@ -5,7 +5,7 @@
         <p class="cockpit-hero__eyebrow">Risk Data Cockpit</p>
         <h1>风险运营驾驶舱</h1>
         <p class="cockpit-hero__desc">
-          首页聚焦关键风险指标、处置效率和系统运行状态；执行动作下沉到 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大工作台，避免“首页即操作台”的信息噪音。
+          首页聚焦关键风险指标、处置效率和系统运行状态；当前账号按“{{ permissionStore.roleProfile.focusLabel }}”优先组织入口，执行动作下沉到 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大工作台，避免“首页即操作台”的信息噪音。
         </p>
       </div>
       <div class="cockpit-hero__clock">
@@ -145,6 +145,7 @@ import {
 } from '../api/report';
 import { activityEntries, recordActivity } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
+import { sortByPreferredPaths } from '../utils/sectionWorkspaces';
 
 type BadgeTone = 'success' | 'warning' | 'danger' | 'muted' | 'brand';
 type RoleKey = 'frontline' | 'ops' | 'manager' | 'rd';
@@ -323,7 +324,7 @@ const rolePresets: RolePreset[] = [
   }
 ];
 
-const workbenchEntries = [
+const workbenchCatalog = [
   { title: '告警运营台', description: '告警确认、抑制与关闭处理。', caption: '风险运营', path: '/alarm-center' },
   { title: '事件协同台', description: '工单派发、接收、闭环与反馈。', caption: '事件闭环', path: '/event-disposal' },
   { title: '风险对象中心', description: '风险点台账、设备绑定与等级维护。', caption: '风险策略', path: '/risk-point' },
@@ -335,6 +336,10 @@ const workbenchEntries = [
 const roleOptions = computed(() => rolePresets.map(({ key, label, caption }) => ({ key, label, caption })));
 
 const activePreset = computed(() => rolePresets.find((item) => item.key === activeRole.value) || rolePresets[0]);
+const workbenchEntries = computed(() => {
+  const accessibleEntries = workbenchCatalog.filter((entry) => permissionStore.hasRoutePermission(entry.path));
+  return sortByPreferredPaths(accessibleEntries, permissionStore.roleProfile.featuredPaths).slice(0, 6);
+});
 
 const latestActivity = computed(() => {
   const latest = activityEntries.value[0];
@@ -359,17 +364,7 @@ const dataSourceHint = computed(() => {
 });
 
 function inferRoleFromAuth(): RoleKey {
-  const roleNames = permissionStore.roleNames;
-  if (roleNames.some((role) => role.includes('开发'))) {
-    return 'rd';
-  }
-  if (roleNames.some((role) => role.includes('管理') || role.includes('超级'))) {
-    return 'manager';
-  }
-  if (roleNames.some((role) => role.includes('运维'))) {
-    return 'ops';
-  }
-  return 'frontline';
+  return permissionStore.roleProfile.cockpitRole;
 }
 
 function switchRole(role: RoleKey) {

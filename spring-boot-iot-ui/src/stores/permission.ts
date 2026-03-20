@@ -3,7 +3,12 @@ import { defineStore } from 'pinia';
 
 import { getCurrentUser } from '../api/auth';
 import type { RequestError } from '../api/request';
-import { canAccessSectionHome, listSectionHomeConfigs } from '../utils/sectionWorkspaces';
+import {
+  canAccessSectionHome,
+  listSectionHomeConfigs,
+  resolveRoleHomePath,
+  resolveRoleWorkbenchProfile
+} from '../utils/sectionWorkspaces';
 import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
 
@@ -104,10 +109,26 @@ export const usePermissionStore = defineStore('permission', () => {
     return authContext.value.displayName || authContext.value.realName || authContext.value.username;
   });
   const primaryRoleName = computed(() => roleNames.value[0] || '');
-  const homePath = computed(() => normalizeRoutePath(authContext.value?.homePath));
   const allowedPaths = computed(() => collectMenuPaths(menus.value));
   const staticFallbackPaths = computed(() => collectStaticFallbackPaths());
   const hasBoundRoles = computed(() => roleCodes.value.length > 0 || roleNames.value.length > 0);
+  const roleProfile = computed(() => resolveRoleWorkbenchProfile(
+    roleCodes.value,
+    roleNames.value,
+    Boolean(authContext.value?.superAdmin)
+  ));
+  const homePath = computed(() => {
+    const configuredPath = normalizeOptionalRoutePath(authContext.value?.homePath);
+    if (configuredPath) {
+      return configuredPath;
+    }
+    return resolveRoleHomePath(
+      roleCodes.value,
+      roleNames.value,
+      Boolean(authContext.value?.superAdmin),
+      allowedPaths.value
+    );
+  });
   const userInfo = computed(() => {
     if (!authContext.value) {
       return null;
@@ -245,6 +266,7 @@ export const usePermissionStore = defineStore('permission', () => {
     roleNames,
     displayName,
     primaryRoleName,
+    roleProfile,
     homePath,
     allowedPaths,
     userInfo,
