@@ -1,6 +1,7 @@
 package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
@@ -137,7 +138,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         } catch (BizException ex) {
             throw ex;
         } catch (Exception e) {
-            throw new BizException("MQTT JSON 协议解析失败");
+            throw new BizException(500, buildDecodeFailureMessage(e), e);
         }
     }
 
@@ -723,18 +724,15 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     }
 
     private String sanitizePayload(String payloadText) {
-        if (payloadText == null) {
-            return null;
+        return JsonPayloadUtils.normalizeJsonDocument(payloadText);
+    }
+
+    private String buildDecodeFailureMessage(Exception exception) {
+        String detail = exception == null ? null : exception.getMessage();
+        if (detail == null || detail.isBlank()) {
+            return "MQTT JSON 协议解析失败";
         }
-        int startIndex = 0;
-        while (startIndex < payloadText.length()) {
-            char current = payloadText.charAt(startIndex);
-            if (current == '{' || current == '[') {
-                break;
-            }
-            startIndex++;
-        }
-        return payloadText.substring(startIndex).trim();
+        return "MQTT JSON 协议解析失败: " + detail;
     }
 
     private boolean isEncryptedEnvelope(Map<String, Object> payloadMap) {

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
@@ -32,8 +33,13 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -231,7 +237,61 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (payload == null || payload.length == 0) {
             return null;
         }
-        return new String(payload, StandardCharsets.UTF_8);
+        String decoded = tryDecodeUtf8(payload);
+        if (decoded != null) {
+            String normalizedJson = tryNormalizeJsonPayload(decoded);
+            if (hasText(normalizedJson)) {
+                return normalizedJson;
+            }
+            return wrapNonJsonPayload("UTF-8", decoded, payload);
+        }
+        return wrapNonJsonPayload("BASE64", null, payload);
+    }
+
+    private String tryNormalizeJsonPayload(String payloadText) {
+        String candidate = JsonPayloadUtils.normalizeJsonDocument(payloadText);
+        if (!hasText(candidate)) {
+            return null;
+        }
+        try {
+            objectMapper.readTree(candidate);
+            return candidate;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String wrapNonJsonPayload(String encoding, String decodedPayload, byte[] originalPayload) {
+        Map<String, Object> payloadWrapper = new LinkedHashMap<>();
+        payloadWrapper.put("encoding", encoding);
+        if (decodedPayload != null) {
+            payloadWrapper.put("rawText", decodedPayload);
+            String jsonCandidate = JsonPayloadUtils.normalizeJsonDocument(decodedPayload);
+            if (hasText(jsonCandidate) && !jsonCandidate.equals(decodedPayload.trim())) {
+                payloadWrapper.put("jsonCandidate", jsonCandidate);
+            }
+        }
+        payloadWrapper.put("payloadBase64", Base64.getEncoder().encodeToString(originalPayload));
+        try {
+            return objectMapper.writeValueAsString(payloadWrapper);
+        } catch (Exception ex) {
+            return "{\"encoding\":\"BASE64\",\"payloadBase64\":\""
+                    + Base64.getEncoder().encodeToString(originalPayload)
+                    + "\"}";
+        }
+    }
+
+    private String tryDecodeUtf8(byte[] payload) {
+        try {
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(payload))
+                    .toString();
+        } catch (CharacterCodingException ex) {
+            return null;
+        }
     }
 
     private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query) {

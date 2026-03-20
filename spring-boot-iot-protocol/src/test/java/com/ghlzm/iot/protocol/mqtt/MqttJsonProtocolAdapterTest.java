@@ -52,6 +52,19 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
+    void shouldIgnoreTrailingJunkAfterEncryptedEnvelopeJson() {
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        BizException ex = assertThrows(BizException.class, () -> adapter.decode("""
+                {"header":{"appId":"62000001"},"bodies":{"body":"PTOLy04o/stDufUYFo5s3g=="}}}
+                """.getBytes(StandardCharsets.UTF_8), context));
+
+        assertEquals("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: 62000001", ex.getMessage());
+    }
+
+    @Test
     void shouldDecodeType2TimestampScalarPayload() {
         ProtocolContext context = new ProtocolContext();
         context.setTopic("$dp");

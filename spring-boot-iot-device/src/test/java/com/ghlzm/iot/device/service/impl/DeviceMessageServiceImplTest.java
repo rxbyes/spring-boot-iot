@@ -22,7 +22,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -193,6 +195,23 @@ class DeviceMessageServiceImplTest {
         BizException ex = assertThrows(BizException.class, () -> deviceMessageService.handleUpMessage(upMessage));
         assertEquals("设备协议不匹配: demo-device-03", ex.getMessage());
         verifyNoInteractions(productMapper, productModelMapper, deviceMessageLogMapper, devicePropertyMapper);
+    }
+
+    @Test
+    void recordDispatchFailureTraceShouldNormalizeTrailingJsonJunkBeforePersist() throws Exception {
+        byte[] payload = """
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}}
+                """.getBytes(StandardCharsets.UTF_8);
+
+        deviceMessageService.recordDispatchFailureTrace("$dp", payload, null);
+
+        ArgumentCaptor<DeviceMessageLog> logCaptor = ArgumentCaptor.forClass(DeviceMessageLog.class);
+        verify(deviceMessageLogMapper).insert(logCaptor.capture());
+        String storedPayload = logCaptor.getValue().getPayload();
+        assertEquals(
+                "{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}",
+                JsonMapper.builder().findAndAddModules().build().readTree(storedPayload).toString()
+        );
     }
 
     @Test

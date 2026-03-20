@@ -61,7 +61,7 @@ export interface Product {
 
 export interface Device {
   id: IdType;
-  productId?: number | null;
+  productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
   productKey?: string | null;
@@ -94,7 +94,7 @@ export interface Device {
 
 export interface DeviceOption {
   id: IdType;
-  productId?: number | null;
+  productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
   productKey?: string | null;

@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 /**
@@ -8,9 +9,16 @@ import lombok.Data;
 @Data
 public class DeviceOptionVO {
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long id;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long productId;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long gatewayId;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long parentDeviceId;
     private String productKey;
     private String productName;

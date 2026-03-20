@@ -783,7 +783,11 @@
       :device-options="replaceParentOptions"
       :product-loading="productLoading"
       :device-options-loading="deviceOptionsLoading"
+      :refreshing="replaceRefreshing"
+      :refresh-message="replaceRefreshMessage"
+      :refresh-state="replaceRefreshState"
       :submitting="replaceSubmitting"
+      @dirty-change="handleReplaceDirtyChange"
       @submit="handleReplaceSubmit"
     />
 
@@ -901,6 +905,7 @@ const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
 const replaceSubmitting = ref(false)
+const replaceRefreshing = ref(false)
 const detailLoading = ref(false)
 const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
@@ -909,7 +914,10 @@ const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
 const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
+const replaceRefreshMessage = ref('')
+const replaceRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const editingDeviceId = ref<string | number | null>(null)
+const replaceFormDirtySinceOpen = ref(false)
 
 const tableData = ref<Device[]>([])
 const selectedRows = ref<Device[]>([])
@@ -926,10 +934,12 @@ const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'activateSta
 let latestListRequestId = 0
 let latestDetailRequestId = 0
 let latestEditRequestId = 0
+let latestReplaceRequestId = 0
 let listAbortController: AbortController | null = null
 let listPrefetchAbortController: AbortController | null = null
 let detailAbortController: AbortController | null = null
 let editAbortController: AbortController | null = null
+let replaceAbortController: AbortController | null = null
 let productLoadPromise: Promise<void> | null = null
 let deviceOptionLoadPromise: Promise<void> | null = null
 let routeLoadOptions: DevicePageLoadOptions | null = null
@@ -942,6 +952,7 @@ const devicePageCacheTtlMs = 30_000
 const devicePageCacheLimit = 8
 const devicePageCacheSessionStorageKey = 'iot.devices.page-cache'
 let activeEditSessionId = 0
+let activeReplaceSessionId = 0
 let formDirtySinceOpen = false
 let suppressFormDirtyTracking = false
 
@@ -1128,8 +1139,8 @@ const exportColumns: CsvColumn<Device>[] = [
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
 const exportPresets = [
   { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
-  { label: '运维模板', keys: ['deviceCode', 'deviceName', 'productKey', 'onlineStatus', 'activateStatus', 'deviceStatus', 'lastReportTime', 'address'] },
-  { label: '库存模板', keys: ['id', 'deviceCode', 'deviceName', 'productKey', 'productName', 'deviceStatus', 'createTime'] }
+  { label: '运维模板', keys: ['deviceCode', 'deviceName', 'parentDeviceCode', 'gatewayDeviceCode', 'productKey', 'onlineStatus', 'activateStatus', 'deviceStatus', 'lastReportTime', 'address'] },
+  { label: '库存模板', keys: ['id', 'deviceCode', 'deviceName', 'parentDeviceCode', 'productKey', 'productName', 'deviceStatus', 'createTime'] }
 ]
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
@@ -1438,6 +1449,12 @@ function clearFormRefreshState() {
   formRefreshState.value = ''
 }
 
+function clearReplaceRefreshState() {
+  replaceRefreshing.value = false
+  replaceRefreshMessage.value = ''
+  replaceRefreshState.value = ''
+}
+
 function toggleAdvancedFilters() {
   showAdvancedFilters.value = !showAdvancedFilters.value
 }
@@ -1604,6 +1621,11 @@ async function loadDeviceOptions() {
     }
   })()
   await deviceOptionLoadPromise
+}
+
+function clearDeviceOptionCache() {
+  deviceOptions.value = []
+  deviceOptionLoadPromise = null
 }
 
 function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
@@ -1850,6 +1872,11 @@ function abortDetailRequest() {
 function abortEditRequest() {
   editAbortController?.abort()
   editAbortController = null
+}
+
+function abortReplaceRequest() {
+  replaceAbortController?.abort()
+  replaceAbortController = null
 }
 
 function isAbortError(error: unknown) {
@@ -2112,6 +2139,66 @@ async function refreshEditableDetail(row: Device, editSessionId: number, cachedD
   }
 }
 
+async function refreshReplacingDevice(row: Device, replaceSessionId: number, cachedDetail: Device | null) {
+  if (!shouldRefreshDeviceDetail(row, cachedDetail)) {
+    clearReplaceRefreshState()
+    return
+  }
+
+  const requestId = ++latestReplaceRequestId
+  abortReplaceRequest()
+  const controller = new AbortController()
+  replaceAbortController = controller
+  replaceRefreshing.value = true
+  replaceRefreshState.value = 'info'
+  replaceRefreshMessage.value = ''
+
+  try {
+    const res = await deviceApi.getDeviceById(row.id, {
+      signal: controller.signal
+    })
+    if (
+      requestId !== latestReplaceRequestId ||
+      replaceSessionId !== activeReplaceSessionId ||
+      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(row.id)
+    ) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      cacheDeviceDetail(res.data)
+      if (!replaceFormDirtySinceOpen.value) {
+        replacingDevice.value = res.data
+        clearReplaceRefreshState()
+      } else {
+        replaceRefreshState.value = 'warning'
+        replaceRefreshMessage.value = '最新设备档案已取回；你已开始填写替换表单，当前未自动覆盖已输入内容。'
+      }
+      return
+    }
+    replaceRefreshState.value = 'error'
+    replaceRefreshMessage.value = res.msg || '最新设备档案补全失败，当前先保留已填入内容。'
+  } catch (error) {
+    if (
+      requestId !== latestReplaceRequestId ||
+      replaceSessionId !== activeReplaceSessionId ||
+      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(row.id) ||
+      isAbortError(error)
+    ) {
+      return
+    }
+    replaceRefreshState.value = 'error'
+    replaceRefreshMessage.value =
+      error instanceof Error ? `最新设备档案补全失败：${error.message}` : '最新设备档案补全失败，当前先保留已填入内容。'
+  } finally {
+    if (requestId === latestReplaceRequestId) {
+      replaceRefreshing.value = false
+    }
+    if (replaceAbortController === controller) {
+      replaceAbortController = null
+    }
+  }
+}
+
 function handleSearch() {
   searchForm.deviceId = searchForm.deviceId.trim()
   searchForm.productKey = searchForm.productKey.trim()
@@ -2207,6 +2294,10 @@ function handleOpenDetail(row: Device) {
   void openDetail(row)
 }
 
+function handleReplaceDirtyChange(value: boolean) {
+  replaceFormDirtySinceOpen.value = value
+}
+
 function buildReplacementSourceSnapshot(source: Device) {
   return {
     ...source,
@@ -2218,35 +2309,24 @@ function buildReplacementSourceSnapshot(source: Device) {
 function buildReplacementTargetSnapshot(source: Device, payload: DeviceReplacePayload, result: DeviceReplaceResult): Device {
   const targetProductKey = payload.productKey || source.productKey
   const matchedProduct = productOptions.value.find((item) => item.productKey === targetProductKey)
+  const parentOption = deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))
+  const gatewayOption =
+    parentOption?.nodeType === 2
+      ? parentOption
+      : deviceOptionMap.value.get(normalizeIdKey(parentOption?.gatewayId))
 
   return {
     ...source,
     id: result.targetDeviceId,
     productId: matchedProduct?.id ?? source.productId,
-    gatewayId: payload.parentDeviceId
-      ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
-        ? payload.parentDeviceId
-        : deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId ?? null
-      : null,
+    gatewayId: gatewayOption?.id ?? null,
     parentDeviceId: payload.parentDeviceId ?? null,
     productKey: targetProductKey,
     productName: matchedProduct?.productName || source.productName,
-    gatewayDeviceCode: payload.parentDeviceId
-      ? formatTextValue(
-          deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
-            ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceCode
-            : deviceOptionMap.value.get(normalizeIdKey(deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId))?.deviceCode
-        )
-      : null,
-    gatewayDeviceName: payload.parentDeviceId
-      ? formatTextValue(
-          deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.nodeType === 2
-            ? deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceName
-            : deviceOptionMap.value.get(normalizeIdKey(deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.gatewayId))?.deviceName
-        )
-      : null,
-    parentDeviceCode: deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceCode ?? null,
-    parentDeviceName: deviceOptionMap.value.get(normalizeIdKey(payload.parentDeviceId))?.deviceName ?? null,
+    gatewayDeviceCode: gatewayOption?.deviceCode ?? null,
+    gatewayDeviceName: gatewayOption?.deviceName ?? null,
+    parentDeviceCode: parentOption?.deviceCode ?? null,
+    parentDeviceName: parentOption?.deviceName ?? null,
     deviceName: result.targetDeviceName || payload.deviceName,
     deviceCode: result.targetDeviceCode || payload.deviceCode,
     deviceSecret: payload.deviceSecret || '',
@@ -2268,7 +2348,7 @@ function buildReplacementTargetSnapshot(source: Device, payload: DeviceReplacePa
   }
 }
 
-async function handleOpenReplace(row: Device) {
+async function handleOpenReplaceLegacy(row: Device) {
   try {
     if (productOptions.value.length === 0) {
       await loadProducts()
@@ -2286,6 +2366,22 @@ async function handleOpenReplace(row: Device) {
     console.error('加载待更换设备失败', error)
     ElMessage.error('加载待更换设备失败')
   }
+}
+
+async function handleOpenReplace(row: Device) {
+  const cachedDetail = getCachedDeviceDetail(row)
+  const replaceSnapshot = resolveDetailSnapshot(row, cachedDetail)
+
+  activeReplaceSessionId += 1
+  const replaceSessionId = activeReplaceSessionId
+  abortReplaceRequest()
+  replaceFormDirtySinceOpen.value = false
+  clearReplaceRefreshState()
+  replacingDevice.value = replaceSnapshot
+  replaceVisible.value = true
+  void loadProducts()
+  void loadDeviceOptions()
+  void refreshReplacingDevice(row, replaceSessionId, cachedDetail)
 }
 
 function handleJumpToInsight(row?: Device | null) {
@@ -2319,6 +2415,7 @@ async function handleDelete(row: Device) {
     await confirmDelete('设备', row.deviceName || row.deviceCode)
     await deviceApi.deleteDevice(row.id)
     ElMessage.success('删除成功')
+    clearDeviceOptionCache()
     removeCachedDeviceDetail(row)
     const shouldGoPrevPage = tableData.value.length === 1 && pagination.pageNum > 1
     const removedCount = removeLocalTableRows([row])
@@ -2363,6 +2460,7 @@ async function handleBatchDelete() {
     })
     await deviceApi.batchDeleteDevices(selectedRows.value.map((item) => item.id))
     ElMessage.success('批量删除成功')
+    clearDeviceOptionCache()
     deletingRows.forEach((item) => removeCachedDeviceDetail(item))
     const shouldGoPrevPage = deletingCount === tableData.value.length && pagination.pageNum > 1
     const removedCount = removeLocalTableRows(deletingRows)
@@ -2402,6 +2500,7 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
     }
     batchImportResult.value = res.data
     if (res.data.successCount > 0) {
+      clearDeviceOptionCache()
       clearDevicePageCache()
       resetPage()
       clearSelection()
@@ -2446,6 +2545,7 @@ async function handleReplaceSubmit(payload: DeviceReplacePayload) {
       return
     }
     ElMessage.success(`设备更换成功，新设备编码：${res.data.targetDeviceCode}`)
+    clearDeviceOptionCache()
     const sourceSnapshot = buildReplacementSourceSnapshot(replacingDevice.value)
     const targetSnapshot = buildReplacementTargetSnapshot(replacingDevice.value, payload, res.data)
     const sourceStillMatches = matchesCurrentFilters(sourceSnapshot)
@@ -2495,6 +2595,7 @@ async function handleSubmit() {
     const isEditing = Boolean(editingDeviceId.value)
     if (isEditing) {
       const res = await deviceApi.updateDevice(editingDeviceId.value as string | number, { ...formData })
+      clearDeviceOptionCache()
       cacheDeviceDetail(res.data)
       if (matchesCurrentFilters(res.data)) {
         mergeLocalTableRow(res.data)
@@ -2507,6 +2608,7 @@ async function handleSubmit() {
       ElMessage.success('更新成功')
     } else {
       const res = await deviceApi.addDevice({ ...formData })
+      clearDeviceOptionCache()
       cacheDeviceDetail(res.data)
       clearSelection()
       if (matchesCurrentFilters(res.data)) {
@@ -2611,6 +2713,11 @@ watch(batchImportVisible, (value) => {
 
 watch(replaceVisible, (value) => {
   if (!value) {
+    activeReplaceSessionId += 1
+    latestReplaceRequestId += 1
+    abortReplaceRequest()
+    clearReplaceRefreshState()
+    replaceFormDirtySinceOpen.value = false
     replacingDevice.value = null
   }
 })
@@ -2620,6 +2727,7 @@ onBeforeUnmount(() => {
   abortListPrefetchRequest()
   abortDetailRequest()
   abortEditRequest()
+  abortReplaceRequest()
 })
 
 onMounted(async () => {
@@ -3056,6 +3164,29 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+.device-relation-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.device-relation-cell strong,
+.device-relation-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-relation-cell strong {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.device-relation-cell span {
+  color: var(--text-caption);
+  font-size: 12px;
+}
+
 .device-mobile-card__address {
   display: -webkit-box;
   white-space: normal;
@@ -3195,6 +3326,32 @@ onMounted(async () => {
   grid-column: 1 / -1;
 }
 
+.device-form-relation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.device-form-relation-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: calc(var(--radius-md) + 2px);
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
+  background: rgba(248, 251, 255, 0.92);
+}
+
+.device-form-relation-card span {
+  color: var(--text-caption);
+  font-size: 12px;
+}
+
+.device-form-relation-card strong {
+  color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 @media (max-width: 900px) {
   .device-asset-view {
     padding: 16px;
@@ -3228,6 +3385,10 @@ onMounted(async () => {
   }
 
   .ops-drawer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-form-relation-summary {
     grid-template-columns: minmax(0, 1fr);
   }
 

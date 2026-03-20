@@ -1,6 +1,7 @@
 package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import org.springframework.stereotype.Component;
 
 import java.nio.ByteBuffer;
@@ -101,7 +102,9 @@ public class MqttPayloadFrameParser {
         if (firstMeaningfulByte != '{' && firstMeaningfulByte != '[') {
             return null;
         }
-        return new String(data, startIndex, data.length - startIndex, StandardCharsets.UTF_8).trim();
+        return JsonPayloadUtils.normalizeJsonDocument(
+                new String(data, startIndex, data.length - startIndex, StandardCharsets.UTF_8)
+        );
     }
 
     /**
@@ -114,21 +117,7 @@ public class MqttPayloadFrameParser {
     }
 
     private String sanitizeJson(String text) {
-        if (null == text) {
-            return null;
-        }
-        int startIndex = 0;
-        while (startIndex < text.length()) {
-            char current = text.charAt(startIndex);
-            if (current == '{' || current == '[') {
-                break;
-            }
-            startIndex++;
-        }
-        if (startIndex >= text.length()) {
-            return text.trim();
-        }
-        return text.substring(startIndex).trim();
+        return JsonPayloadUtils.normalizeJsonDocument(text);
     }
 
     /**
