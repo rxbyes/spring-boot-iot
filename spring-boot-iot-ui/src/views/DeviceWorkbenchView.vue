@@ -1,112 +1,78 @@
 <template>
   <div class="device-asset-view ops-workbench standard-list-view">
-    <PanelCard
-      eyebrow="设备资产台账"
-      title="设备资产中心"
-      description="聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardActionGroup gap="sm" class="ops-hero-actions">
-          <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
-          <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
-        </StandardActionGroup>
+    <PanelCard class="ops-hero-card ops-table-card device-workbench-card">
+      <template #header>
+        <div class="device-hero-card__header">
+          <div class="device-hero-card__heading">
+            <h2 class="device-hero-card__title">设备资产中心</h2>
+            <p class="device-hero-card__caption">聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。</p>
+          </div>
+          <StandardActionGroup gap="sm" class="ops-hero-actions">
+            <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
+            <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
+          </StandardActionGroup>
+        </div>
       </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="设备总数" :value="String(pagination.total)" :badge="{ label: '台账', tone: 'brand' }" />
-        <MetricCard label="当前页在线" :value="String(onlineCount)" :badge="{ label: '在线', tone: 'success' }" />
-        <MetricCard label="当前页已激活" :value="String(activatedCount)" :badge="{ label: '可用', tone: 'brand' }" />
-        <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: '停用', tone: 'warning' }" />
-      </div>
-      <div class="ops-inline-note">
-        当前交付已覆盖设备台账、详情查看、父子设备关系维护、增改删、批量导入、设备更换和导出闭环；本轮优先继续优化列表恢复速度与查询操作体验。
-      </div>
-    </PanelCard>
 
-    <PanelCard
-      eyebrow="设备筛选"
-      title="筛选条件"
-      description="默认先展示高频条件，更多条件可展开补充精确筛选。"
-      class="ops-filter-card"
-    >
-      <el-form :model="searchForm" label-position="top" class="ops-filter-form" @submit.prevent>
-        <el-row :gutter="20">
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="设备编码">
-              <el-input id="query-device-code" v-model="searchForm.deviceCode" placeholder="请输入设备编码" clearable @keyup.enter="handleSearch" />
+      <div class="device-workbench-card__filters">
+        <el-form :model="searchForm" class="device-inline-filter" @submit.prevent>
+          <div class="device-inline-filter__row">
+            <el-form-item class="device-inline-filter__item">
+              <el-input id="query-device-code" v-model="searchForm.deviceCode" placeholder="设备编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="设备名称">
-              <el-input id="filter-device-name" v-model="searchForm.deviceName" placeholder="请输入设备名称" clearable @keyup.enter="handleSearch" />
+            <el-form-item class="device-inline-filter__item">
+              <el-input id="filter-device-name" v-model="searchForm.deviceName" placeholder="设备名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="产品 Key">
-              <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="请输入产品 Key" clearable @keyup.enter="handleSearch" />
+            <el-form-item class="device-inline-filter__item">
+              <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="产品 Key" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="在线状态">
-              <el-select v-model="searchForm.onlineStatus" placeholder="请选择在线状态" clearable>
+            <el-form-item class="device-inline-filter__item">
+              <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
                 <el-option label="在线" :value="1" />
                 <el-option label="离线" :value="0" />
               </el-select>
             </el-form-item>
-          </el-col>
-        </el-row>
-
-        <div class="device-filter-toggle-row">
-          <div class="device-filter-toggle-row__left">
-            <el-button link class="device-filter-toggle" @click="toggleAdvancedFilters">
-              {{ showAdvancedFilters ? '收起更多条件' : '更多条件' }}
-            </el-button>
-            <span v-if="advancedFilterHint" class="device-filter-toggle-row__hint">{{ advancedFilterHint }}</span>
+            <div class="device-inline-filter__actions">
+              <StandardActionGroup gap="sm">
+                <el-button type="primary" @click="handleSearch">查询</el-button>
+                <el-button @click="handleReset">重置</el-button>
+              </StandardActionGroup>
+            </div>
           </div>
-          <div class="ops-filter-actions">
-            <StandardActionGroup gap="sm">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </StandardActionGroup>
-          </div>
-        </div>
 
-        <el-collapse-transition>
-          <div v-show="showAdvancedFilters" class="device-filter-advanced">
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                <el-form-item label="设备 ID">
-                  <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="请输入设备 ID" clearable @keyup.enter="handleSearch" />
+          <div class="device-inline-filter__footer">
+            <div class="device-filter-toggle-row__left">
+              <el-button link class="device-filter-toggle" @click="toggleAdvancedFilters">
+                {{ showAdvancedFilters ? '收起更多条件' : '更多条件' }}
+              </el-button>
+              <span v-if="advancedFilterHint" class="device-filter-toggle-row__hint">{{ advancedFilterHint }}</span>
+            </div>
+          </div>
+
+          <el-collapse-transition>
+            <div v-show="showAdvancedFilters" class="device-filter-advanced">
+              <div class="device-filter-advanced__grid">
+                <el-form-item class="device-inline-filter__item">
+                  <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="设备 ID" clearable @keyup.enter="handleSearch" />
                 </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                <el-form-item label="激活状态">
-                  <el-select v-model="searchForm.activateStatus" placeholder="请选择激活状态" clearable>
+                <el-form-item class="device-inline-filter__item">
+                  <el-select v-model="searchForm.activateStatus" placeholder="激活状态" clearable>
                     <el-option label="已激活" :value="1" />
                     <el-option label="未激活" :value="0" />
                   </el-select>
                 </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                <el-form-item label="设备状态">
-                  <el-select v-model="searchForm.deviceStatus" placeholder="请选择设备状态" clearable>
+                <el-form-item class="device-inline-filter__item">
+                  <el-select v-model="searchForm.deviceStatus" placeholder="设备状态" clearable>
                     <el-option label="启用" :value="1" />
                     <el-option label="禁用" :value="0" />
                   </el-select>
                 </el-form-item>
-              </el-col>
-            </el-row>
-          </div>
-        </el-collapse-transition>
-      </el-form>
-    </PanelCard>
+              </div>
+            </div>
+          </el-collapse-transition>
+        </el-form>
+      </div>
 
-    <PanelCard
-      eyebrow="设备列表"
-      title="设备资产台账"
-      description="支持详情、编辑、更换、删除、批量导入和导出。"
-      class="ops-table-card"
-    >
       <div v-if="hasAppliedFilters" class="device-applied-filters">
         <span class="device-applied-filters__label">已生效筛选</span>
         <div class="device-applied-filters__list">
