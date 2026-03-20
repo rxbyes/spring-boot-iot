@@ -1,0 +1,17 @@
+.DS_Store
+/logs/
+/*/target/
+/.idea/
+/*/logs/
+/spring-boot-iot-admin/logs/
+
+/spring-boot-iot-common/*.swp
+/spring-boot-iot-ui/dist/
+/spring-boot-iot-ui/node_modules/
+/.vscode/
+/.m2/
+/.mvn/
+/spring-boot-iot-ui/.npm-cache/
+/.m2-temp/
+/.mvn-temp-settings.xml
+/.codex-runtime/
