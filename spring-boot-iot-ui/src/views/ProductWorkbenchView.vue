@@ -13,6 +13,18 @@
       <div class="product-workbench-card__filters">
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
+            <!-- 快速搜索：支持产品名称、Key、厂商关键词搜索 -->
+            <el-form-item>
+              <el-input
+                id="quick-search"
+                v-model="quickSearchKeyword"
+                placeholder="快速搜索（产品名称、Key、厂商）"
+                clearable
+                prefix-icon="Search"
+                @keyup.enter="handleQuickSearch"
+                @clear="handleClearQuickSearch"
+              />
+            </el-form-item>
             <el-form-item>
               <el-input
                 id="query-product-name"
@@ -41,6 +53,12 @@
             <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
           </template>
         </StandardListFilterHeader>
+        <!-- 快速搜索标签 -->
+        <div v-if="quickSearchKeyword" class="product-quick-search-tag">
+          <el-tag closable class="product-quick-search-tag__chip" @close="handleClearQuickSearch">
+            快速搜索：{{ quickSearchKeyword }}
+          </el-tag>
+        </div>
       </div>
 
       <div v-if="hasAppliedFilters" class="product-applied-filters">
@@ -691,6 +709,9 @@ const appliedFilters = reactive<ProductSearchForm>({
   status: undefined
 })
 
+// 快速搜索关键词
+const quickSearchKeyword = ref('')
+
 const createDefaultFormData = (): ProductFormState => ({
   productKey: '',
   productName: '',
@@ -1329,6 +1350,20 @@ function matchesCurrentFilters(product: Product) {
     nodeType: searchForm.nodeType,
     status: searchForm.status
   })
+}
+
+// 快速搜索：支持产品名称、Key、厂商关键词搜索
+function handleQuickSearch() {
+  // 将快速搜索关键词同步到产品名称搜索框
+  searchForm.productName = quickSearchKeyword.value.trim()
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
+}
+
+function handleClearQuickSearch() {
+  quickSearchKeyword.value = ''
+  // 清除快速搜索标签，但保留其他筛选条件
 }
 
 function replaceSelectedRowSnapshot(product: Product) {
@@ -2571,6 +2606,18 @@ onMounted(async () => {
 .product-applied-filters__clear {
   margin-left: auto;
   padding-inline: 0.08rem;
+}
+
+// 快速搜索标签
+.product-quick-search-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.product-quick-search-tag__chip {
+  cursor: pointer;
 }
 
 .product-mobile-list {
