@@ -2824,119 +2824,220 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* 卡片视图容器 */
+/* ============================================
+   卡片视图 - 精致现代风格
+   ============================================ */
 .product-card-view {
-  display: block;
-  margin-bottom: 0.72rem;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
 }
 
-/* 卡片视图网格 */
+/* 卡片网格布局 */
 .product-card-view .product-mobile-list__grid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-/* 卡片视图卡片 */
+/* 卡片容器 - 精致卡片设计 */
 .product-card-view .product-mobile-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(228, 235, 246, 0.65);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 3px rgba(24, 45, 77, 0.02);
+  transition:
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease;
+  cursor: pointer;
 }
 
-/* 卡片视图卡片头部 */
+.product-card-view .product-mobile-card:hover {
+  box-shadow:
+    0 8px 24px rgba(24, 45, 77, 0.08),
+    0 4px 12px rgba(24, 45, 77, 0.04);
+  transform: translateY(-2px);
+  border-color: rgba(78, 89, 105, 0.15);
+}
+
+/* 卡片选中状态 */
+.product-card-view .product-mobile-card.selected {
+  border-color: var(--brand);
+  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
+}
+
+/* ============================================
+   卡片头部 - 棋盘布局
+   ============================================ */
 .product-card-view .product-mobile-card__header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  align-items: start;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  margin-bottom: 12px;
 }
 
-/* 卡片视图卡片标题 */
+/* 卡片复选框 */
+.product-card-view .product-mobile-card__header .el-checkbox {
+  grid-row: 1 / span 2;
+  margin: 0;
+}
+
+/* 卡片标题区域 */
+.product-card-view .product-mobile-card__heading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .product-card-view .product-mobile-card__title {
-  color: var(--text-heading);
-  font-size: 14px;
-  font-weight: 700;
+  color: #1a1d21;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.4;
+  letter-spacing: -0.02em;
 }
 
-/* 卡片视图卡片副标题 */
 .product-card-view .product-mobile-card__sub {
   overflow: hidden;
-  color: var(--text-caption);
+  color: #7d8692;
   font-size: 12px;
   line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 卡片视图卡片元数据 */
+/* 卡片状态标签 */
+.product-card-view .product-mobile-card__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   卡片元数据标签组
+   ============================================ */
 .product-card-view .product-mobile-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-/* 卡片视图卡片元数据项 */
 .product-card-view .product-mobile-card__meta-item {
   display: inline-flex;
   align-items: center;
-  min-height: 1.6rem;
-  padding: 0.2rem 0.58rem;
-  border-radius: var(--radius-pill);
-  background: rgba(78, 89, 105, 0.08);
-  color: var(--text-caption);
-  font-size: 11.5px;
+  padding: 6px 12px;
+  border: 1px solid rgba(228, 235, 246, 0.7);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #525a66;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
-/* 卡片视图卡片信息 */
+.product-card-view .product-mobile-card__meta-item:first-child {
+  background: rgba(78, 89, 105, 0.04);
+  border-color: rgba(78, 89, 105, 0.1);
+  color: #3e4651;
+}
+
+/* ============================================
+   卡片信息网格
+   ============================================ */
 .product-card-view .product-mobile-card__info {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem 0.9rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-grow: 1;
 }
 
-/* 卡片视图卡片字段 */
 .product-card-view .product-mobile-card__field {
-  display: grid;
-  gap: 0.18rem;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(228, 235, 246, 0.6);
+  border-radius: 8px;
+  background: #fcfdfd;
 }
 
-/* 卡片视图卡片字段标签 */
 .product-card-view .product-mobile-card__field span {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
+  color: #95a0ae;
+  font-size: 10.5px;
+  font-weight: 500;
   line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-/* 卡片视图卡片字段值 */
 .product-card-view .product-mobile-card__field strong {
   overflow: hidden;
-  color: var(--text-heading);
+  color: #1a1d21;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.52;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 卡片视图卡片操作 */
+/* ============================================
+   卡片操作区域
+   ============================================ */
 .product-card-view .product-mobile-card__actions {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  justify-content: flex-start;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(228, 235, 246, 0.5);
 }
 
-/* 卡片视图卡片操作按钮 */
 .product-card-view .product-mobile-card__actions :deep(.el-button) {
-  margin-left: 0;
-  padding-inline: 0.1rem;
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary) {
+  background: linear-gradient(135deg, #5a72eb 0%, #4a5ec0 100%);
+  border: none;
+  box-shadow: 0 2px 8px rgba(90, 114, 235, 0.25);
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:hover) {
+  background: linear-gradient(135deg, #4a62db 0%, #3a4eb0 100%);
+  box-shadow: 0 4px 12px rgba(90, 114, 235, 0.3);
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost) {
+  color: #7d8692;
+  border: 1px solid rgba(228, 235, 246, 0.7);
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost:hover) {
+  background: rgba(228, 235, 246, 0.5);
+  border-color: rgba(228, 235, 246, 1);
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-button .el-icon) {
+  font-size: 14px;
 }
 
 /* 响应式卡片视图 */
