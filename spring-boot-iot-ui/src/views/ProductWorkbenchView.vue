@@ -651,7 +651,7 @@ const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
 const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
-const detailRefreshErrorMessage = ref('')
+// detailRefreshErrorMessage 已移除，不再
 const editingProductId = ref<string | number | null>(null)
 
 const tableData = ref<Product[]>([])
@@ -1036,14 +1036,11 @@ function removeCachedProductDetail(row?: Partial<Product> | null) {
 }
 
 function resolveDetailSnapshot(row: Product, cachedDetail: Product | null) {
-  if (cachedDetail) {
-    return {
-      ...cachedDetail,
-      ...row,
-      description: cachedDetail.description ?? row.description ?? null
-    }
+  // 使用列表返回的 row 数据作为快照，确保详情页始终有数据显示
+  return {
+    ...row,
+    description: cachedDetail?.description ?? row.description ?? null
   }
-  return buildDetailPreview(row)
 }
 
 function abortListRequest() {
@@ -1603,42 +1600,42 @@ async function openDetail(row: Product) {
   detailVisible.value = true
   detailLoading.value = false
   detailErrorMessage.value = ''
-  detailRefreshErrorMessage.value = ''
   detailData.value = detailSnapshot
 
-  if (!shouldRefreshProductDetail(row, cachedDetail)) {
+  // 如果没有缓存或者需要刷新详情，则发起后台补数请求
+  if (!cachedDetail && shouldRefreshProductDetail(row, cachedDetail)) {
+    const controller = new AbortController()
+    detailAbortController = controller
+    detailRefreshing.value = true
+
+    try {
+      const res = await productApi.getProductById(row.id, {
+        signal: controller.signal
+      })
+      if (requestId !== latestDetailRequestId) {
+        return
+      }
+      if (res.code === 200 && res.data) {
+        detailData.value = res.data
+        cacheProductDetail(res.data)
+      }
+    } catch (error) {
+      if (requestId !== latestDetailRequestId || isAbortError(error)) {
+        return
+      }
+      // 静默失败，不显示红色提示，保持现有数据（detailSnapshot）
+      console.warn('完整详情补充失败', error)
+    } finally {
+      if (requestId === latestDetailRequestId) {
+        detailLoading.value = false
+        detailRefreshing.value = false
+      }
+      if (detailAbortController === controller) {
+        detailAbortController = null
+      }
+    }
+  } else {
     detailRefreshing.value = false
-    return
-  }
-
-  const controller = new AbortController()
-  detailAbortController = controller
-  detailRefreshing.value = true
-
-  try {
-    const res = await productApi.getProductById(row.id, {
-      signal: controller.signal
-    })
-    if (requestId !== latestDetailRequestId) {
-      return
-    }
-    if (res.code === 200 && res.data) {
-      detailData.value = res.data
-      cacheProductDetail(res.data)
-    }
-  } catch (error) {
-    if (requestId !== latestDetailRequestId || isAbortError(error)) {
-      return
-    }
-    detailRefreshErrorMessage.value = error instanceof Error ? error.message : '完整详情补充失败，当前先展示列表摘要。'
-  } finally {
-    if (requestId === latestDetailRequestId) {
-      detailLoading.value = false
-      detailRefreshing.value = false
-    }
-    if (detailAbortController === controller) {
-      detailAbortController = null
-    }
   }
 }
 
@@ -1917,7 +1914,7 @@ watch(detailVisible, (visible) => {
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''
-  detailRefreshErrorMessage.value = ''
+  // detailRefreshErrorMessage 已移除
   detailData.value = null
 })
 
