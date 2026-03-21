@@ -85,6 +85,28 @@
         ]"
       >
         <template #right>
+          <!-- 视图切换下拉菜单 -->
+          <el-dropdown
+            v-permission="'iot:products:view'"
+            @command="(command) => handleViewTypeChange(command)"
+          >
+            <el-button type="primary" link>
+              <span>{{ viewTypeName }}</span>
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="table">
+                  <el-icon><List /></el-icon>
+                  <span>表格视图</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="card">
+                  <el-icon><Grid /></el-icon>
+                  <span>卡片视图</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <!-- 批量操作下拉菜单 -->
           <el-dropdown
             v-permission="'iot:products:update'"
@@ -739,6 +761,19 @@ const appliedFilters = reactive<ProductSearchForm>({
 
 // 快速搜索关键词
 const quickSearchKeyword = ref('')
+
+// 视图类型：table 或 card
+const viewType = ref<'table' | 'card'>('table')
+
+const viewTypeName = computed(() => {
+  return viewType.value === 'table' ? '表格视图' : '卡片视图'
+})
+
+function handleViewTypeChange(command: string) {
+  if (command === 'table' || command === 'card') {
+    viewType.value = command
+  }
+}
 
 const createDefaultFormData = (): ProductFormState => ({
   productKey: '',
