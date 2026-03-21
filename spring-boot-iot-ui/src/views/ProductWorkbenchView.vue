@@ -3021,6 +3021,7 @@ onMounted(async () => {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-bright) 100%);
   border: none;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 25%, transparent);
+  color: #ffffff;
 }
 
 .product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:hover) {
