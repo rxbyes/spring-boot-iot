@@ -61,8 +61,8 @@ export interface Product {
   todayActiveCount?: number | null; // 今日活跃设备数
   sevenDaysActiveCount?: number | null; // 7日活跃设备数
   thirtyDaysActiveCount?: number | null; // 30日活跃设备数
-  avgOnlineDuration?: number | null; // 预留在线时长（分钟，当前后端未返回）
-  maxOnlineDuration?: number | null; // 预留在线时长（分钟，当前后端未返回）
+  avgOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
+  maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
 export interface Device {
@@ -289,6 +289,17 @@ export interface HttpReportPayload {
   topic?: string;
   clientId?: string;
   tenantId?: string;
+}
+
+export interface MqttReportPublishPayload {
+  protocolCode: string;
+  productKey: string;
+  deviceCode: string;
+  topic: string;
+  payload: string;
+  payloadEncoding?: string;
+  qos?: number;
+  retained?: boolean;
 }
 
 export interface ActivityDraft {

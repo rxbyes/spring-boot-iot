@@ -35,8 +35,8 @@
       <slot v-else />
     </div>
 
-    <template v-if="$slots.footer" #footer>
-      <div class="detail-drawer__footer">
+    <template #footer>
+      <div v-if="hasFooterSlot" class="detail-drawer__footer">
         <slot name="footer" />
       </div>
     </template>
@@ -44,6 +44,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useSlots } from 'vue'
+
 withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -80,6 +82,9 @@ withDefaults(
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void;
 }>();
+
+const slots = useSlots()
+const hasFooterSlot = computed(() => Boolean(slots.footer))
 </script>
 
 <style scoped>
@@ -470,4 +475,3 @@ const emit = defineEmits<{
   }
 }
 </style>
-

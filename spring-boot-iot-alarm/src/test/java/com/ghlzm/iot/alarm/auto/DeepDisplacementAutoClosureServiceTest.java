@@ -72,7 +72,8 @@ class DeepDisplacementAutoClosureServiceTest {
                 linkageRuleMapper,
                 emergencyPlanMapper,
                 devicePropertyMapper,
-                properties
+                properties,
+                null
         );
     }
 
@@ -86,8 +87,9 @@ class DeepDisplacementAutoClosureServiceTest {
         linkageRule.setTriggerCondition("{\"metric\":\"dispsX\",\"op\":\">=\",\"threshold\":20}");
         EmergencyPlan emergencyPlan = new EmergencyPlan();
         emergencyPlan.setId(8401L);
-        emergencyPlan.setPlanName("红色应急预案");
+        emergencyPlan.setPlanName("边坡深部位移红色应急预案");
         emergencyPlan.setRiskLevel("critical");
+        emergencyPlan.setDescription("边坡深部位移达到红色阈值时执行");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
         when(linkageRuleMapper.selectList(any())).thenReturn(List.of(linkageRule));
@@ -117,13 +119,123 @@ class DeepDisplacementAutoClosureServiceTest {
         verify(eventRecordService).addEvent(eventCaptor.capture());
         assertEquals("critical", eventCaptor.getValue().getRiskLevel());
         assertEquals(88L, eventCaptor.getValue().getResponsibleUser());
-        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"planName\"") || eventCaptor.getValue().getReviewNotes().contains("\"name\":\"红色应急预案\""));
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"name\":\"边坡深部位移红色应急预案\""));
 
         verify(eventRecordService).dispatchEvent(8601L, 88L, 88L);
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
         assertEquals("critical", riskPointCaptor.getValue().getRiskLevel());
+    }
+
+    @Test
+    void processShouldPreferSceneMatchedEmergencyPlan() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
+        EmergencyPlan genericPlan = new EmergencyPlan();
+        genericPlan.setId(8401L);
+        genericPlan.setPlanName("锅炉超温应急预案");
+        genericPlan.setRiskLevel("critical");
+        genericPlan.setDescription("锅炉区域出现超温告警时执行");
+        EmergencyPlan scopedPlan = new EmergencyPlan();
+        scopedPlan.setId(8402L);
+        scopedPlan.setPlanName("边坡深部位移红色应急预案");
+        scopedPlan.setRiskLevel("critical");
+        scopedPlan.setDescription("边坡深部位移达到红色阈值时执行");
+
+        mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(genericPlan, scopedPlan));
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+        when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
+            AlarmRecord alarmRecord = invocation.getArgument(0);
+            alarmRecord.setId(8503L);
+            return alarmRecord;
+        });
+        when(eventRecordService.addEvent(any())).thenAnswer(invocation -> {
+            EventRecord eventRecord = invocation.getArgument(0);
+            eventRecord.setId(8601L);
+            return eventRecord;
+        });
+
+        service.process(buildEvent("84330701", Map.of("dispsX", 25.6)));
+
+        ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+        verify(eventRecordService).addEvent(eventCaptor.capture());
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"id\":8402"));
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("边坡深部位移红色应急预案"));
+    }
+
+    @Test
+    void processShouldLeaveEmergencyPlanEmptyWhenOnlyGenericPlanExists() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
+        EmergencyPlan genericPlan = new EmergencyPlan();
+        genericPlan.setId(8401L);
+        genericPlan.setPlanName("锅炉超温应急预案");
+        genericPlan.setRiskLevel("critical");
+        genericPlan.setDescription("锅炉区域出现超温告警时执行");
+
+        mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(genericPlan));
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+        when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
+            AlarmRecord alarmRecord = invocation.getArgument(0);
+            alarmRecord.setId(8503L);
+            return alarmRecord;
+        });
+        when(eventRecordService.addEvent(any())).thenAnswer(invocation -> {
+            EventRecord eventRecord = invocation.getArgument(0);
+            eventRecord.setId(8601L);
+            return eventRecord;
+        });
+
+        service.process(buildEvent("84330701", Map.of("dispsX", 25.6)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"planId\":null"));
+
+        ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+        verify(eventRecordService).addEvent(eventCaptor.capture());
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"emergencyPlan\":null"));
+    }
+
+    @Test
+    void processShouldNotSelectPlanWithOnlyContextButNoSceneKeywords() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
+        EmergencyPlan contextOnlyPlan = new EmergencyPlan();
+        contextOnlyPlan.setId(8410L);
+        contextOnlyPlan.setPlanName("RP_SK00FB0D1310195_SW 现场处置预案");
+        contextOnlyPlan.setRiskLevel("critical");
+        contextOnlyPlan.setDescription("适用于该监测点异常时执行");
+
+        mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(contextOnlyPlan));
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+        when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
+            AlarmRecord alarmRecord = invocation.getArgument(0);
+            alarmRecord.setId(8503L);
+            return alarmRecord;
+        });
+        when(eventRecordService.addEvent(any())).thenAnswer(invocation -> {
+            EventRecord eventRecord = invocation.getArgument(0);
+            eventRecord.setId(8601L);
+            return eventRecord;
+        });
+
+        service.process(buildEvent("84330701", Map.of("dispsX", 25.6)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"planId\":null"));
+
+        ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+        verify(eventRecordService).addEvent(eventCaptor.capture());
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"emergencyPlan\":null"));
     }
 
     @Test

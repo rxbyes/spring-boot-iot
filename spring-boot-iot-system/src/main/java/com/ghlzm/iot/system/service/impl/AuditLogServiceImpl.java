@@ -31,6 +31,8 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     private static final String SYSTEM_ERROR_TYPE = "system_error";
     private static final String LEGACY_OPERATION_TYPE_COLUMN = "log_type";
     private static final String LEGACY_REQUEST_URL_COLUMN = "operation_uri";
+    private static final int RESULT_MESSAGE_MAX_LENGTH = 500;
+    private static final String TRUNCATED_SUFFIX = "...(truncated)";
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditLogSchemaSupport auditLogSchemaSupport;
@@ -392,6 +394,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         if (target.getDeleted() == null) {
             target.setDeleted(0);
         }
+        target.setResultMessage(truncateResultMessage(target.getResultMessage()));
         return target;
     }
 
@@ -599,6 +602,16 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
             return new Timestamp(date.getTime());
         }
         return value;
+    }
+
+    private String truncateResultMessage(String resultMessage) {
+        if (!StringUtils.hasText(resultMessage) || resultMessage.length() <= RESULT_MESSAGE_MAX_LENGTH) {
+            return resultMessage;
+        }
+        if (RESULT_MESSAGE_MAX_LENGTH <= TRUNCATED_SUFFIX.length()) {
+            return resultMessage.substring(0, RESULT_MESSAGE_MAX_LENGTH);
+        }
+        return resultMessage.substring(0, RESULT_MESSAGE_MAX_LENGTH - TRUNCATED_SUFFIX.length()) + TRUNCATED_SUFFIX;
     }
 
     private record QuerySpec(String whereClause, List<Object> params, boolean emptyResult) {

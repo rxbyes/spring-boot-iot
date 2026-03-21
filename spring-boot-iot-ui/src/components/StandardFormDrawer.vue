@@ -21,8 +21,8 @@
       <slot />
     </div>
 
-    <template v-if="$slots.footer" #footer>
-      <div class="form-drawer__footer">
+    <template #footer>
+      <div v-if="hasFooterSlot" class="form-drawer__footer">
         <slot name="footer" />
       </div>
     </template>
@@ -30,6 +30,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useSlots } from 'vue'
+
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -51,6 +53,9 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void;
   (event: 'close'): void;
 }>();
+
+const slots = useSlots()
+const hasFooterSlot = computed(() => Boolean(slots.footer))
 
 function handleClose() {
   emit('update:modelValue', false);

@@ -1,16 +1,15 @@
 <template>
-  <div class="product-asset-view ops-workbench standard-list-view">
-    <PanelCard class="ops-hero-card ops-table-card product-workbench-card">
-      <template #header>
-        <div class="product-hero-card__header">
-          <div class="product-hero-card__heading">
-            <h2 class="product-hero-card__title">产品定义中心</h2>
-            <p class="product-hero-card__caption">聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。</p>
-          </div>
-        </div>
-      </template>
-
-      <div class="product-workbench-card__filters">
+  <div class="product-asset-view">
+    <StandardWorkbenchPanel
+      title="产品定义中心"
+      description="聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      :show-inline-state="showListInlineState"
+      show-pagination
+    >
+      <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
             <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
@@ -50,103 +49,94 @@
             快速搜索：{{ quickSearchKeyword }}
           </el-tag>
         </div>
-      </div>
+      </template>
 
-      <div v-if="hasAppliedFilters" class="product-applied-filters">
-        <span class="product-applied-filters__label">已生效筛选</span>
-        <div class="product-applied-filters__list">
-          <el-tag
-            v-for="tag in activeFilterTags"
-            :key="tag.key"
-            closable
-            class="product-applied-filters__tag"
-            @close="removeAppliedFilter(tag.key)"
-          >
-            {{ tag.label }}
-          </el-tag>
-        </div>
-        <el-button link class="product-applied-filters__clear" @click="handleClearAppliedFilters">清空全部</el-button>
-      </div>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="removeAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
 
-      <StandardTableToolbar
-        :meta-items="[
-          `已选 ${selectedRows.length} 项`,
-          `启用 ${enabledProductCount} 个`,
-          `停用 ${disabledProductCount} 个`
-        ]"
-      >
-        <template #right>
-          <!-- 视图切换下拉菜单 -->
-          <el-dropdown
-            v-permission="'iot:products:view'"
-            @command="(command) => handleViewTypeChange(command)"
-          >
-            <el-button type="primary" link>
-              <span>{{ viewTypeName }}</span>
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+      <template #toolbar>
+        <StandardTableToolbar
+          :meta-items="[
+            `已选 ${selectedRows.length} 项`,
+            `启用 ${enabledProductCount} 个`,
+            `停用 ${disabledProductCount} 个`
+          ]"
+        >
+          <template #right>
+            <!-- 视图切换下拉菜单 -->
+            <el-dropdown
+              v-permission="'iot:products:view'"
+              @command="(command) => handleViewTypeChange(command)"
+            >
+              <el-button type="primary" link>
+                <span>{{ viewTypeName }}</span>
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="table">
+                    <el-icon><List /></el-icon>
+                    <span>表格视图</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="card">
+                    <el-icon><Grid /></el-icon>
+                    <span>卡片视图</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <!-- 批量操作下拉菜单 -->
+            <el-dropdown
+              v-permission="'iot:products:update'"
+              :disabled="selectedRows.length === 0"
+              trigger="click"
+              @command="(command) => handleBatchCommand(command, selectedRows)"
+            >
+              <el-button type="primary" link :disabled="selectedRows.length === 0">
+                <span>批量操作</span>
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="enable" divided>
+                    <el-icon><Top /></el-icon>
+                    <span>启用</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="disable">
+                    <el-icon><Bottom /></el-icon>
+                    <span>停用</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete">
+                    <el-icon><Delete /></el-icon>
+                    <span>删除</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">导出列设置</el-button>
+            <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
+              导出选中
             </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="table">
-                  <el-icon><List /></el-icon>
-                  <span>表格视图</span>
-                </el-dropdown-item>
-                <el-dropdown-item command="card">
-                  <el-icon><Grid /></el-icon>
-                  <span>卡片视图</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <!-- 批量操作下拉菜单 -->
-          <el-dropdown
-            v-permission="'iot:products:update'"
-            :disabled="selectedRows.length === 0"
-            trigger="click"
-            @command="(command) => handleBatchCommand(command, selectedRows)"
-          >
-            <el-button type="primary" link :disabled="selectedRows.length === 0">
-              <span>批量操作</span>
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            <el-button v-permission="'iot:products:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">
+              导出当前结果
             </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="enable" divided>
-                  <el-icon><Top /></el-icon>
-                  <span>启用</span>
-                </el-dropdown-item>
-                <el-dropdown-item command="disable">
-                  <el-icon><Bottom /></el-icon>
-                  <span>停用</span>
-                </el-dropdown-item>
-                <el-dropdown-item command="delete">
-                  <el-icon><Delete /></el-icon>
-                  <span>删除</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
-            导出选中
-          </el-button>
-          <el-button v-permission="'iot:products:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">
-            导出当前结果
-          </el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+            <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+            <el-button link @click="handleRefresh">刷新列表</el-button>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
-      <div
-        v-if="showListInlineState"
-        :class="[
-          'product-list-inline-state',
-          { 'product-list-inline-state--error': listRefreshState === 'error' }
-        ]"
-      >
-        {{ listRefreshMessage }}
-      </div>
+      <template #inline-state>
+        <StandardInlineState
+          :message="listRefreshMessage"
+          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+        />
+      </template>
 
       <div
         v-loading="loading && hasRecords"
@@ -334,18 +324,20 @@
         </div>
       </div>
 
-      <div v-if="pagination.total > 0" class="ops-pagination">
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </PanelCard>
+      <template #pagination>
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </StandardWorkbenchPanel>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -465,7 +457,7 @@
         <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">设备活跃度</span>
-            <p class="product-detail-zone__intro">设备活跃趋势分析。</p>
+            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
           </header>
           <div class="product-detail-active-grid">
             <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
@@ -653,14 +645,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
@@ -815,8 +809,12 @@ const appliedFilters = reactive<ProductSearchForm>({
   status: undefined
 })
 
-// 快速搜索关键词
-const quickSearchKeyword = ref('')
+const quickSearchKeyword = computed({
+  get: () => searchForm.productName,
+  set: (value: string) => {
+    searchForm.productName = value
+  }
+})
 
 // 视图类型：table 或 card
 const viewType = ref<'table' | 'card'>('table')
@@ -1542,12 +1540,11 @@ function matchesCurrentFilters(product: Product) {
 
 // 快速搜索：支持产品名称、厂商关键词搜索
 function handleQuickSearch() {
-  const keyword = quickSearchKeyword.value.trim()
+  const keyword = searchForm.productName.trim()
   if (!keyword) {
     return
   }
-  
-  // 将快速搜索关键词同步到产品名称搜索框（用于名称和厂商搜索）
+
   searchForm.productName = keyword
   resetPage()
   clearSelection()
@@ -1555,8 +1552,10 @@ function handleQuickSearch() {
 }
 
 function handleClearQuickSearch() {
-  quickSearchKeyword.value = ''
-  // 清除快速搜索标签，但保留其他筛选条件
+  searchForm.productName = ''
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
 }
 
 function replaceSelectedRowSnapshot(product: Product) {
@@ -2343,6 +2342,7 @@ onMounted(async () => {
 
 <style scoped>
 .product-asset-view {
+  display: grid;
   gap: 16px;
 }
 
@@ -2907,67 +2907,6 @@ onMounted(async () => {
   color: var(--text-caption);
   font-size: 12.5px;
   line-height: 1.52;
-}
-
-.product-hero-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  width: 100%;
-}
-
-.product-hero-card__heading {
-  min-width: 0;
-}
-
-.product-hero-card__title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.08rem;
-}
-
-.product-hero-card__caption {
-  margin: 0.35rem 0 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.product-workbench-card__filters {
-  margin-bottom: 0.72rem;
-}
-
-.product-applied-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem 0.75rem;
-  margin-bottom: 0.72rem;
-}
-
-.product-applied-filters__label {
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.product-applied-filters__list {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.product-applied-filters__tag {
-  margin: 0;
-}
-
-.product-applied-filters__clear {
-  margin-left: auto;
-  padding-inline: 0.08rem;
 }
 
 /* 快速搜索标签 */
@@ -3707,11 +3646,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
-  .product-hero-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .product-detail-archive-grid,
   .product-detail-overview-metrics,
   .product-detail-governance-grid {
@@ -3729,14 +3663,6 @@ onMounted(async () => {
 
   .product-detail-contract-item__value {
     font-size: 1.52rem;
-  }
-
-  .product-applied-filters {
-    align-items: flex-start;
-  }
-
-  .product-applied-filters__clear {
-    margin-left: 0;
   }
 
   .product-mobile-list {

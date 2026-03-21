@@ -20,6 +20,11 @@ public interface DeviceSessionService {
     void offline(String deviceCode);
 
     /**
+     * 按指定时间标记设备下线。
+     */
+    void offline(String deviceCode, LocalDateTime offlineTime);
+
+    /**
      * 收到 MQTT 消息时刷新最后活跃时间。
      */
     void refreshLastSeen(String deviceCode, String clientId, String topic);

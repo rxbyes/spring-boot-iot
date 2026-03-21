@@ -1,39 +1,28 @@
 <template>
-  <div class="device-asset-view ops-workbench standard-list-view">
-    <PanelCard class="ops-hero-card ops-table-card device-workbench-card">
-      <template #header>
-        <div class="device-hero-card__header">
-          <div class="device-hero-card__heading">
-            <h2 class="device-hero-card__title">设备资产中心</h2>
-            <p class="device-hero-card__caption">聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。</p>
-          </div>
-        </div>
-      </template>
-
-      <div class="device-workbench-card__filters">
-        <StandardListFilterHeader
-          :model="searchForm"
-          :show-advanced="showAdvancedFilters"
-          :show-advanced-toggle="true"
-          :advanced-hint="advancedFilterHint"
-          expand-text="展开全部筛选项"
-          collapse-text="收起"
-          @toggle-advanced="toggleAdvancedFilters"
-        >
+  <div class="device-asset-view">
+    <StandardWorkbenchPanel
+      title="设备资产中心"
+      description="聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      :show-inline-state="showListInlineState"
+      show-pagination
+    >
+      <template #filters>
+        <StandardListFilterHeader :model="searchForm">
           <template #primary>
+            <!-- 快速搜索：支持设备编码、设备名称关键词搜索 -->
             <el-form-item>
-              <el-input id="query-device-code" v-model="searchForm.deviceCode" placeholder="设备编码" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-            <el-form-item>
-              <el-input id="filter-device-name" v-model="searchForm.deviceName" placeholder="设备名称" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-            <el-form-item>
-              <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="产品 Key" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-          </template>
-          <template #advanced>
-            <el-form-item>
-              <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="设备 ID" clearable @keyup.enter="handleSearch" />
+              <el-input
+                id="quick-search"
+                v-model="quickSearchKeyword"
+                placeholder="快速搜索（设备编码、设备名称）"
+                clearable
+                prefix-icon="Search"
+                @keyup.enter="handleQuickSearch"
+                @clear="handleClearQuickSearch"
+              />
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
@@ -61,51 +50,48 @@
             <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
           </template>
         </StandardListFilterHeader>
-      </div>
-
-      <div v-if="hasAppliedFilters" class="device-applied-filters">
-        <span class="device-applied-filters__label">已生效筛选</span>
-        <div class="device-applied-filters__list">
-          <el-tag
-            v-for="tag in activeFilterTags"
-            :key="tag.key"
-            closable
-            class="device-applied-filters__tag"
-            @close="removeAppliedFilter(tag.key)"
-          >
-            {{ tag.label }}
+        <!-- 快速搜索标签 -->
+        <div v-if="quickSearchKeyword" class="device-quick-search-tag">
+          <el-tag closable class="device-quick-search-tag__chip" @close="handleClearQuickSearch">
+            快速搜索：{{ quickSearchKeyword }}
           </el-tag>
         </div>
-        <el-button link class="device-applied-filters__clear" @click="handleClearAppliedFilters">清空全部</el-button>
-      </div>
+      </template>
 
-      <StandardTableToolbar
-        :meta-items="[
-          `已选 ${selectedRows.length} 项`,
-          `在线 ${onlineCount} 台`,
-          `已激活 ${activatedCount} 台`,
-          `停用 ${disabledCount} 台`
-        ]"
-      >
-        <template #right>
-          <el-button v-permission="'iot:devices:delete'" link :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
-          <el-button v-permission="'iot:devices:export'" link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button v-permission="'iot:devices:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button v-permission="'iot:devices:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="removeAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
 
-      <div
-        v-if="showListInlineState"
-        :class="[
-          'device-list-inline-state',
-          { 'device-list-inline-state--error': listRefreshState === 'error' }
-        ]"
-      >
-        {{ listRefreshMessage }}
-      </div>
+      <template #toolbar>
+        <StandardTableToolbar
+          :meta-items="[
+            `已选 ${selectedRows.length} 项`,
+            `在线 ${onlineCount} 台`,
+            `已激活 ${activatedCount} 台`,
+            `停用 ${disabledCount} 台`
+          ]"
+        >
+          <template #right>
+            <el-button v-permission="'iot:devices:delete'" link :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
+            <el-button v-permission="'iot:devices:export'" link @click="openExportColumnSetting">导出列设置</el-button>
+            <el-button v-permission="'iot:devices:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+            <el-button v-permission="'iot:devices:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
+            <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+            <el-button link @click="handleRefresh">刷新列表</el-button>
+          </template>
+        </StandardTableToolbar>
+      </template>
+
+      <template #inline-state>
+        <StandardInlineState
+          :message="listRefreshMessage"
+          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+        />
+      </template>
 
       <div
         v-loading="loading && hasRecords"
@@ -321,18 +307,20 @@
         </div>
       </div>
 
-      <div v-if="pagination.total > 0" class="ops-pagination">
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </PanelCard>
+      <template #pagination>
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </StandardWorkbenchPanel>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -778,14 +766,16 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -948,6 +938,7 @@ const appliedFilters = reactive<DeviceSearchForm>({
   activateStatus: undefined,
   deviceStatus: undefined
 })
+const quickSearchKeyword = ref('')
 const showAdvancedFilters = ref(false)
 
 const createDefaultFormData = (): DeviceFormState => ({
@@ -1229,6 +1220,34 @@ function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilt
   return keys.reduce((count, key) => count + (hasFilledFilter(filters, key) ? 1 : 0), 0)
 }
 
+function isLikelyDeviceCodeKeyword(keyword: string) {
+  return /^[A-Za-z0-9:_-]+$/.test(keyword)
+}
+
+// 快速搜索只有一个输入框，这里把关键词映射回真实的设备编码 / 设备名称筛选字段。
+function applyQuickSearchKeywordToFilters() {
+  const keyword = quickSearchKeyword.value.trim()
+  if (!keyword) {
+    searchForm.deviceCode = ''
+    searchForm.deviceName = ''
+    return ''
+  }
+
+  if (isLikelyDeviceCodeKeyword(keyword)) {
+    searchForm.deviceCode = keyword
+    searchForm.deviceName = ''
+  } else {
+    searchForm.deviceName = keyword
+    searchForm.deviceCode = ''
+  }
+
+  return keyword
+}
+
+function syncQuickSearchKeywordFromFilters() {
+  quickSearchKeyword.value = searchForm.deviceCode || searchForm.deviceName
+}
+
 function maskSecret(value?: string | null) {
   if (!value) {
     return '--'
@@ -1410,6 +1429,7 @@ function syncAppliedFilters() {
 }
 
 function clearSearchForm() {
+  quickSearchKeyword.value = ''
   searchForm.deviceId = ''
   searchForm.productKey = ''
   searchForm.deviceCode = ''
@@ -1460,6 +1480,7 @@ function applyRouteQueryToFilters() {
   searchForm.productKey = typeof route.query.productKey === 'string' ? route.query.productKey.trim() : ''
   searchForm.deviceCode = typeof route.query.deviceCode === 'string' ? route.query.deviceCode.trim() : ''
   searchForm.deviceName = typeof route.query.deviceName === 'string' ? route.query.deviceName.trim() : ''
+  syncQuickSearchKeywordFromFilters()
   searchForm.onlineStatus = parseRouteNumberQuery(route.query.onlineStatus)
   searchForm.activateStatus = parseRouteNumberQuery(route.query.activateStatus)
   searchForm.deviceStatus = parseRouteNumberQuery(route.query.deviceStatus)
@@ -2183,6 +2204,7 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
 }
 
 function handleSearch() {
+  applyQuickSearchKeywordToFilters()
   searchForm.deviceId = searchForm.deviceId.trim()
   searchForm.productKey = searchForm.productKey.trim()
   searchForm.deviceCode = searchForm.deviceCode.trim()
@@ -2215,6 +2237,26 @@ function removeAppliedFilter(key: DeviceFilterKey) {
   } else {
     searchForm.deviceStatus = undefined
   }
+  syncQuickSearchKeywordFromFilters()
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
+}
+
+function handleQuickSearch() {
+  const keyword = applyQuickSearchKeywordToFilters()
+  if (!keyword) {
+    return
+  }
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
+}
+
+function handleClearQuickSearch() {
+  quickSearchKeyword.value = ''
+  searchForm.deviceCode = ''
+  searchForm.deviceName = ''
   resetPage()
   clearSelection()
   void syncListRouteQuery()
@@ -2723,88 +2765,8 @@ onMounted(async () => {
 
 <style scoped>
 .device-asset-view {
-  padding: 20px;
   display: grid;
   gap: 16px;
-}
-
-.device-hero-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.9rem 1.2rem;
-  flex-wrap: wrap;
-}
-
-.device-hero-card__heading {
-  flex: 1;
-  min-width: 0;
-}
-
-.device-hero-card__title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.08rem;
-}
-
-.device-hero-card__caption {
-  margin: 0.35rem 0 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.device-workbench-card__filters {
-  margin-bottom: 0.72rem;
-}
-
-.device-applied-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem 0.75rem;
-  margin-bottom: 0.72rem;
-}
-
-.device-applied-filters__label {
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.device-applied-filters__list {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.device-applied-filters__tag {
-  margin: 0;
-}
-
-.device-applied-filters__clear {
-  margin-left: auto;
-  padding-inline: 0.08rem;
-}
-
-.device-list-inline-state {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: color-mix(in srgb, var(--brand) 8%, white);
-  color: color-mix(in srgb, var(--brand) 68%, var(--text-caption));
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.device-list-inline-state--error {
-  border-color: color-mix(in srgb, var(--danger, #d84f45) 22%, transparent);
-  background: color-mix(in srgb, var(--danger, #d84f45) 7%, white);
-  color: color-mix(in srgb, var(--danger, #d84f45) 72%, var(--text-body));
 }
 
 .device-result-panel {
@@ -3303,15 +3265,6 @@ onMounted(async () => {
     padding: 16px;
   }
 
-  .device-applied-filters {
-    align-items: flex-start;
-  }
-
-  .device-applied-filters__clear {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .device-loading-table {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3326,11 +3279,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
-  .device-hero-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .device-mobile-list {
     display: block;
   }

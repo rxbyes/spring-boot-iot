@@ -1,161 +1,354 @@
 <template>
-  <div class="page-stack">
-    <section class="two-column-grid report-workbench-grid">
-      <PanelCard
-        class="report-card"
-        eyebrow="HTTP Simulator"
-        title="模拟设备上报"
-        description="左侧聚焦输入与发送；发送前先阻断格式错误，避免无效请求进入后端。"
-      >
-        <StandardActionGroup margin-bottom="sm" gap="sm">
-          <el-button
-            v-for="template in filteredTemplates"
-            :key="template.name"
-            class="secondary-button report-template-btn"
-            @click="applyTemplate(template)"
-          >
-            {{ template.name }}
-          </el-button>
-        </StandardActionGroup>
-
-        <form class="form-grid" @submit.prevent="handleSendReport">
-          <div class="field-group" style="grid-column: 1 / -1;">
-            <label for="report-mode">上报模式</label>
-            <el-radio-group id="report-mode" v-model="reportMode" class="report-mode-group">
-              <el-radio-button value="plaintext">
-                明文上报
-              </el-radio-button>
-              <el-radio-button value="encrypted">
-                密文上报
-              </el-radio-button>
-            </el-radio-group>
-          </div>
-          <div class="field-group" style="grid-column: 1 / -1;">
-            <div class="empty-state report-mode-tip">
-              {{ reportModeHint }}
+  <div class="page-stack reporting-view">
+    <section class="reporting-main-layout">
+      <PanelCard class="reporting-surface reporting-surface--compose">
+        <template #header>
+          <div class="reporting-surface__header">
+            <div class="reporting-surface__heading">
+              <p class="reporting-surface__eyebrow">链路验证中心</p>
+              <h2 class="reporting-surface__title">模拟上报</h2>
+              <p class="reporting-surface__description">
+                按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
+              </p>
             </div>
+            <span class="reporting-surface__badge">左侧模拟上报</span>
           </div>
-          <div class="field-group">
-            <label for="report-protocol">协议编码</label>
-            <el-input
-              id="report-protocol"
-              v-model="reportForm.protocolCode"
-              name="report_protocol_code"
-              placeholder="例如 mqtt-json..."
-              clearable
-            />
-          </div>
-          <div class="field-group">
-            <label for="report-product-key">产品 Key</label>
-            <el-input
-              id="report-product-key"
-              v-model="reportForm.productKey"
-              name="report_product_key"
-              placeholder="例如 demo-product..."
-              clearable
-            />
-          </div>
-          <div class="field-group">
-            <label for="report-device-code">设备编码</label>
-            <el-input
-              id="report-device-code"
-              v-model="reportForm.deviceCode"
-              name="report_device_code"
-              placeholder="例如 demo-device-01..."
-              clearable
-            />
-          </div>
-          <div class="field-group">
-            <label for="report-client-id">客户端 ID</label>
-            <el-input id="report-client-id" v-model="reportForm.clientId" name="report_client_id" autocomplete="off" spellcheck="false" clearable />
-          </div>
-          <div class="field-group">
-            <label for="report-tenant">租户 ID</label>
-            <el-input id="report-tenant" v-model="reportForm.tenantId" name="report_tenant_id" inputmode="numeric" placeholder="例如 1..." clearable />
-          </div>
-          <div class="field-group">
-            <label for="report-topic">Topic</label>
-            <el-input id="report-topic" v-model="reportForm.topic" name="report_topic" autocomplete="off" spellcheck="false" placeholder="例如 /sys/demo-product/demo-device-01/thing/property/post..." clearable />
-          </div>
-          <div class="field-group" style="grid-column: 1 / -1;">
-            <label for="payload">{{ payloadLabel }}</label>
-            <el-input id="payload" v-model="reportForm.payload" name="report_payload" type="textarea" :rows="9" spellcheck="false" />
-          </div>
-          <div v-if="reportMode === 'plaintext' && plaintextFrame?.type === 3" class="field-group" style="grid-column: 1 / -1;">
-            <label for="report-type3-binary">类型 3 文件流 Base64（可选）</label>
-            <el-input
-              id="report-type3-binary"
-              v-model="type3BinaryBase64"
-              name="report_type3_binary_base64"
-              type="textarea"
-              :rows="3"
-              spellcheck="false"
-              placeholder="若 C.3 需要携带文件流，可粘贴 Base64。"
-            />
-          </div>
+        </template>
 
-          <div v-if="validationIssues.length" class="field-group" style="grid-column: 1 / -1;">
-            <div class="empty-state report-validation" aria-live="polite">
-              <p class="report-validation__title">发送前请先修复以下问题：</p>
-              <ul class="report-validation__list">
+        <form class="reporting-compose-form" @submit.prevent="handleSendReport">
+          <section class="reporting-section">
+            <StandardInlineSectionHeader
+                title="设备查询"
+                description="设备编码是唯一查询入口；查询成功后只读反显产品 Key、协议编码和客户端 ID。"
+            />
+
+            <div class="reporting-query-row">
+              <el-input
+                  id="report-device-code"
+                  v-model="reportForm.deviceCode"
+                  name="report_device_code"
+                  placeholder="请输入设备编码"
+                  clearable
+                  @keyup.enter="handleQueryDevice"
+              />
+              <el-button
+                  type="primary"
+                  :loading="isQueryingDevice"
+                  :disabled="!normalizedText(reportForm.deviceCode)"
+                  @click="handleQueryDevice"
+              >
+                {{ isQueryingDevice ? '查询中...' : '查询设备' }}
+              </el-button>
+            </div>
+
+            <p class="reporting-state-message" :data-tone="deviceLookupTone">
+              {{ deviceLookupMessage }}
+            </p>
+
+            <StandardInfoGrid
+                v-if="resolvedDevice"
+                :items="deviceIdentityItems"
+                :columns="2"
+            />
+          </section>
+
+          <section class="reporting-section">
+            <StandardInlineSectionHeader
+                title="模拟配置"
+                description="先确定传输方式与上报模式，再校准 Topic 和租户参数。"
+            />
+
+            <div class="reporting-control-grid">
+              <article class="reporting-control-card">
+                <div class="reporting-control-card__header">
+                  <span class="reporting-control-card__title">传输方式</span>
+                  <span class="reporting-control-card__helper">HTTP / MQTT</span>
+                </div>
+                <StandardActionGroup gap="sm">
+                  <button
+                      type="button"
+                      class="reporting-choice-button"
+                      :class="{ 'reporting-choice-button--active': transportMode === 'http' }"
+                      @click="transportMode = 'http'"
+                  >
+                    HTTP
+                  </button>
+                  <button
+                      type="button"
+                      class="reporting-choice-button"
+                      :class="{ 'reporting-choice-button--active': transportMode === 'mqtt' }"
+                      @click="transportMode = 'mqtt'"
+                  >
+                    MQTT
+                  </button>
+                </StandardActionGroup>
+              </article>
+
+              <article class="reporting-control-card">
+                <div class="reporting-control-card__header">
+                  <span class="reporting-control-card__title">上报模式</span>
+                  <span class="reporting-control-card__helper">明文 / 密文</span>
+                </div>
+                <StandardActionGroup gap="sm">
+                  <button
+                      type="button"
+                      class="reporting-choice-button"
+                      :class="{ 'reporting-choice-button--active': reportMode === 'plaintext' }"
+                      @click="reportMode = 'plaintext'"
+                  >
+                    明文
+                  </button>
+                  <button
+                      type="button"
+                      class="reporting-choice-button"
+                      :class="{ 'reporting-choice-button--active': reportMode === 'encrypted' }"
+                      @click="reportMode = 'encrypted'"
+                  >
+                    密文
+                  </button>
+                </StandardActionGroup>
+              </article>
+
+              <article class="reporting-control-card">
+                <div class="reporting-control-card__header">
+                  <span class="reporting-control-card__title">租户 ID</span>
+                  <span class="reporting-control-card__helper">仅 HTTP 生效</span>
+                </div>
+                <el-input
+                    id="report-tenant"
+                    v-model="reportForm.tenantId"
+                    name="report_tenant_id"
+                    inputmode="numeric"
+                    placeholder="1"
+                    clearable
+                />
+              </article>
+
+              <article class="reporting-control-card">
+                <div class="reporting-control-card__header">
+                  <span class="reporting-control-card__title">Topic</span>
+                  <span class="reporting-control-card__helper">默认 `$dp`，可手工覆盖</span>
+                </div>
+                <div class="reporting-topic-row">
+                  <el-input
+                      id="report-topic"
+                      v-model="reportForm.topic"
+                      name="report_topic"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="$dp"
+                      clearable
+                  />
+                  <el-button plain :disabled="!resolvedDevice" @click="syncTopic">套用推荐</el-button>
+                </div>
+              </article>
+            </div>
+
+            <div class="reporting-quick-fill">
+              <el-button plain @click="oneClickFill">一键补全</el-button>
+              <span class="reporting-quick-fill__hint">
+                自动查询设备后套用推荐 Topic，并在密文协议场景下切换建议模式。
+              </span>
+            </div>
+          </section>
+
+          <section class="reporting-section">
+            <StandardInlineSectionHeader
+                title="Payload 编辑"
+                description="支持原始文本、JSON、XML。只有可识别 JSON 才会参与 C.1 / C.2 / C.3 明文帧判定。"
+            >
+              <template #actions>
+                <span class="reporting-format-chip">当前格式 {{ payloadFormatLabel }}</span>
+              </template>
+            </StandardInlineSectionHeader>
+
+            <div class="reporting-toolbar">
+              <div class="reporting-toolbar__group">
+                <span class="reporting-toolbar__label">模板</span>
+                <StandardActionGroup gap="sm">
+                  <el-button
+                      v-for="template in filteredTemplates"
+                      :key="template.name"
+                      plain
+                      size="small"
+                      @click="applyTemplate(template)"
+                  >
+                    {{ template.name }}
+                  </el-button>
+                </StandardActionGroup>
+              </div>
+
+              <div class="reporting-toolbar__group">
+                <span class="reporting-toolbar__label">格式化</span>
+                <StandardActionGroup gap="sm">
+                  <el-button plain size="small" @click="formatPayloadAsJson">JSON</el-button>
+                  <el-button plain size="small" @click="formatPayloadAsXml">XML</el-button>
+                </StandardActionGroup>
+              </div>
+            </div>
+
+            <el-input
+                id="payload"
+                v-model="reportForm.payload"
+                name="report_payload"
+                type="textarea"
+                :rows="11"
+                spellcheck="false"
+                :placeholder="payloadPlaceholder"
+                class="reporting-textarea"
+            />
+
+            <div
+                v-if="reportMode === 'plaintext' && plaintextFrame?.type === 3"
+                class="reporting-type3-panel"
+            >
+              <StandardInlineSectionHeader
+                  title="类型 3 文件流 Base64"
+                  description="若 C.3 需要携带文件流，可在此粘贴 Base64 内容。"
+              />
+              <el-input
+                  id="report-type3-binary"
+                  v-model="type3BinaryBase64"
+                  name="report_type3_binary_base64"
+                  type="textarea"
+                  :rows="3"
+                  spellcheck="false"
+                  placeholder="若 C.3 需要携带文件流，可在此粘贴 Base64。"
+                  class="reporting-textarea"
+              />
+            </div>
+          </section>
+
+          <section class="reporting-section reporting-section--submit">
+            <div v-if="showValidationBanner" class="reporting-validation-banner">
+              <strong>发送前请修复以下问题：</strong>
+              <ul class="reporting-validation-list">
                 <li v-for="issue in validationIssues" :key="`${issue.field}:${issue.message}`">
                   {{ issue.message }}
                 </li>
               </ul>
             </div>
-          </div>
 
-          <StandardActionGroup full-width>
-            <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending" :disabled="!canSend || isSending">
-              {{ isSending ? '发送中...' : '发送上报' }}
-            </el-button>
-            <el-button class="secondary-button" @click="syncTopic">
-              用推荐 Topic 覆盖
-            </el-button>
-          </StandardActionGroup>
+            <div class="reporting-submit-row">
+              <div class="reporting-submit-copy">
+                <span class="reporting-submit-label">当前发送状态</span>
+                <strong>{{ sendStatusText }}</strong>
+                <p>发送前会基于当前输入实时推导实际 payload、Topic 建议和字节编码。</p>
+              </div>
+              <StandardActionGroup>
+                <el-button
+                    type="primary"
+                    native-type="submit"
+                    :loading="isSending"
+                >
+                  {{ isSending ? '发送中...' : sendButtonText }}
+                </el-button>
+              </StandardActionGroup>
+            </div>
+          </section>
         </form>
       </PanelCard>
 
-      <div class="report-right-stack">
-        <PanelCard
-          class="report-card"
-          eyebrow="Diagnostics"
-          title="诊断与预演"
-          description="默认只展示关键结论；详细帧和预览按需展开。"
-        >
-          <StandardInfoGrid :items="diagnosticSummaryItems" />
+      <PanelCard class="reporting-surface reporting-surface--diagnosis">
+        <template #header>
+          <div class="reporting-surface__header">
+            <div class="reporting-surface__heading">
+              <p class="reporting-surface__eyebrow">链路验证中心</p>
+              <h2 class="reporting-surface__title">诊断复盘</h2>
+              <p class="reporting-surface__description">
+                右侧统一查看诊断摘要、实际发送内容、帧预演和最近一次响应结果。
+              </p>
+            </div>
+            <span class="reporting-surface__badge reporting-surface__badge--accent">右侧诊断复盘</span>
+          </div>
+        </template>
 
-          <el-collapse v-model="diagnosticCollapseNames" class="report-diagnostics-collapse">
-            <el-collapse-item v-if="reportMode === 'plaintext' && plaintextFrame" name="frame" title="明文帧详情（十进制/十六进制）">
-              <p class="report-preview__line">判定依据：{{ plaintextFrame.reason }}</p>
-              <p class="report-preview__line">十进制帧预览：</p>
-              <pre class="report-preview__code">{{ plaintextFrameDecimalPreview }}</pre>
-              <p class="report-preview__line">十六进制帧预览：</p>
-              <pre class="report-preview__code">{{ plaintextFrameHexPreview }}</pre>
-            </el-collapse-item>
-            <el-collapse-item v-if="normalizedJsonPreview" name="json" title="归一化 JSON 预览">
-              <pre class="report-preview__code">{{ normalizedJsonPreview }}</pre>
-            </el-collapse-item>
-            <el-collapse-item name="curl" title="curl 预览">
-              <pre class="report-preview__code">{{ curlPreview }}</pre>
-            </el-collapse-item>
-          </el-collapse>
-        </PanelCard>
+        <section class="reporting-section">
+          <StandardInlineSectionHeader
+              title="诊断摘要"
+              description="根据当前输入实时推导传输方式、Topic 建议、字节编码和发送就绪状态。"
+          />
 
-        <ResponsePanel
-          eyebrow="Response"
-          title="最后一次响应"
-          description="请求异常只在这里展示，避免与输入校验混在一起。"
-          :body="lastResponse"
-        />
-      </div>
+          <StandardInfoGrid
+              :items="diagnosticSummaryItems"
+              :columns="2"
+          />
+
+          <ul class="reporting-note-list">
+            <li v-for="note in diagnosticNotes" :key="note" class="reporting-note-item">
+              {{ note }}
+            </li>
+          </ul>
+        </section>
+
+        <section class="reporting-section">
+          <StandardInlineSectionHeader
+              :title="actualPayloadSectionTitle"
+              description="发送前的最终文本或 JSON 预演，可直接复制用于链路复核。"
+          >
+            <template #actions>
+              <el-button text type="primary" size="small" @click="copyActualPayloadPreview">
+                复制
+              </el-button>
+            </template>
+          </StandardInlineSectionHeader>
+          <pre class="reporting-code-block">{{ actualPayloadPreviewText }}</pre>
+        </section>
+
+        <section v-if="plaintextFrame" class="reporting-section">
+          <StandardInlineSectionHeader
+              title="明文帧预演"
+              description="仅在明文 JSON 被识别为 C.1 / C.2 / C.3 时展示。"
+          >
+            <template #actions>
+              <el-button text type="primary" size="small" @click="toggleFramePanel">
+                {{ framePanelExpanded ? '收起' : '展开' }}
+              </el-button>
+            </template>
+          </StandardInlineSectionHeader>
+
+          <div v-if="framePanelExpanded" class="reporting-frame-panel">
+            <StandardInfoGrid
+                :items="frameMetaItems"
+                :columns="1"
+            />
+
+            <div class="reporting-frame-grid">
+              <article class="reporting-code-surface">
+                <h3 class="reporting-code-surface__title">十进制</h3>
+                <pre class="reporting-code-block reporting-code-block--compact">
+{{ plaintextFrameDecimalPreview }}</pre>
+              </article>
+              <article class="reporting-code-surface">
+                <h3 class="reporting-code-surface__title">十六进制</h3>
+                <pre class="reporting-code-block reporting-code-block--compact">
+{{ plaintextFrameHexPreview }}</pre>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="reporting-section reporting-section--stretch">
+          <StandardInlineSectionHeader
+              title="响应"
+              description="保留最近一次页面响应，便于模拟发送后的联调复盘。"
+          >
+            <template #actions>
+              <el-button text type="primary" size="small" @click="copyResponse">
+                复制
+              </el-button>
+            </template>
+          </StandardInlineSectionHeader>
+          <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
+        </section>
+      </PanelCard>
     </section>
 
     <PanelCard
-      class="report-card"
-      eyebrow="Flow Reminder"
-      title="发送后建议检查"
-      description="先确认上报进入主链路，再核对设备属性、日志和在线状态。"
+        class="reporting-card reporting-card--follow-up"
+        eyebrow="链路验证中心"
+        title="发送后建议检查"
+        description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
     >
       <StandardFlowRail :items="followUpSteps" />
     </PanelCard>
@@ -163,22 +356,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 
-import { reportByHttp } from '../api/iot';
+import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
+import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
-import PanelCard from '../components/PanelCard.vue';
-import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardInfoGrid from '../components/StandardInfoGrid.vue';
+import StandardInlineSectionHeader from '../components/StandardInlineSectionHeader.vue';
 import { recordActivity } from '../stores/activity';
-import type { HttpReportPayload } from '../types/api';
+import type { Device, HttpReportPayload, MqttReportPublishPayload } from '../types/api';
+import { looksLikeXml, parseJsonSafely, prettyJson, prettyXml } from '../utils/format';
 import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
 import {
   evaluateReportWorkbenchInput,
   filterTemplatesByMode,
-  type ReportMode
+  type ReportMode,
+  type TransportMode
 } from './reportWorkbenchState';
 
 interface TemplateOption {
@@ -189,246 +384,543 @@ interface TemplateOption {
   type3BinaryBase64?: string;
 }
 
-const createDemoReport = (): HttpReportPayload => ({
-  protocolCode: 'mqtt-json',
-  productKey: 'demo-product',
-  deviceCode: 'demo-device-01',
-  payload: JSON.stringify({
-    messageType: 'property',
-    properties: {
-      temperature: 26.5,
-      humidity: 68
-    }
-  }, null, 2),
-  topic: '/sys/demo-product/demo-device-01/thing/property/post',
-  clientId: 'demo-device-01',
-  tenantId: '1'
+interface ReportFormState {
+  deviceCode: string;
+  topic: string;
+  tenantId: string;
+  payload: string;
+}
+
+type FeedbackTone = 'neutral' | 'info' | 'success' | 'danger';
+
+const createDefaultForm = (): ReportFormState => ({
+  deviceCode: '',
+  topic: '$dp',
+  tenantId: '1',
+  payload: JSON.stringify(
+      {
+        messageType: 'property',
+        properties: {
+          temperature: 26.5,
+          humidity: 68
+        }
+      },
+      null,
+      2
+  )
 });
 
 const templates: TemplateOption[] = [
   {
     name: '明文 C.1 属性',
     mode: 'plaintext',
-    topic: '/sys/demo-product/demo-device-01/thing/property/post',
-    payload: JSON.stringify({
-      messageType: 'property',
-      properties: {
-        temperature: 26.5,
-        humidity: 68
-      }
-    }, null, 2)
+    topic: '$dp',
+    payload: JSON.stringify(
+        {
+          messageType: 'property',
+          properties: {
+            temperature: 26.5,
+            humidity: 68
+          }
+        },
+        null,
+        2
+    )
   },
   {
     name: '明文 C.2 深部位移',
     mode: 'plaintext',
     topic: '$dp',
-    payload: JSON.stringify({
-      SK00FB0D1310195: {
-        L1_SW_1: {
-          '2026-03-20T08:07:22.000Z': {
-            dispsX: -0.0257,
-            dispsY: -0.0605
+    payload: JSON.stringify(
+        {
+          SK00FB0D1310195: {
+            L1_SW_1: {
+              '2026-03-20T08:07:22.000Z': {
+                dispsX: -0.0257,
+                dispsY: -0.0605
+              }
+            }
           }
-        }
-      }
-    }, null, 2)
+        },
+        null,
+        2
+    )
   },
   {
     name: '密文封包',
     mode: 'encrypted',
     topic: '$dp',
-    payload: JSON.stringify({
-      header: {
-        appId: '62000001'
-      },
-      bodies: {
-        body: 'PTOLy04o/stDufUYFo5s3g=='
-      }
-    }, null, 2)
+    payload: JSON.stringify(
+        {
+          header: {
+            appId: '62000001'
+          },
+          bodies: {
+            body: 'PTOLy04o/stDufUYFo5s3g=='
+          }
+        },
+        null,
+        2
+    )
   }
 ];
 
 const followUpSteps = [
-  { index: '01', title: '查询设备详情', description: '确认 onlineStatus、lastReportTime 是否变化。' },
-  { index: '02', title: '查询属性快照', description: '确认最新属性是否按预期入库。' },
-  { index: '03', title: '查询消息日志', description: '确认 topic 与 payload 已保留。' },
-  { index: '04', title: '联动后续能力', description: '后续可继续做风险判定、报告和预案触发闭环。' }
+  { index: '01', title: '查看设备档案', description: '确认 onlineStatus、lastReportTime 是否刷新。' },
+  { index: '02', title: '核对属性快照', description: '确认最新属性是否按预期落到设备属性表。' },
+  { index: '03', title: '核对消息日志', description: '确认 topic 与 payload 已进入消息日志。' },
+  { index: '04', title: '继续联动排查', description: '必要时继续查看链路追踪台、异常观测台和风险闭环结果。' }
 ];
 
-const reportForm = reactive<HttpReportPayload>(createDemoReport());
+const INITIAL_RESPONSE = {
+  tip: '查询设备后，可通过 HTTP 或 MQTT 发起模拟上报。'
+};
+
+const reportForm = reactive<ReportFormState>(createDefaultForm());
+const transportMode = ref<TransportMode>('http');
 const reportMode = ref<ReportMode>('plaintext');
 const type3BinaryBase64 = ref('');
 const isSending = ref(false);
-const lastResponse = ref<unknown>({ tip: '发送上报后，这里会出现统一响应体。' });
-const diagnosticCollapseNames = ref<string[]>([]);
+const isQueryingDevice = ref(false);
+const resolvedDevice = ref<Device | null>(null);
+const deviceLookupError = ref('');
+const hasAttemptedSubmit = ref(false);
+const lastResponse = ref<unknown>(INITIAL_RESPONSE);
+const framePanelExpanded = ref(true);
 
 const filteredTemplates = computed(() => filterTemplatesByMode(templates, reportMode.value));
+const resolvedProductKey = computed(() => normalizedText(resolvedDevice.value?.productKey));
+const resolvedProtocolCode = computed(() => normalizedText(resolvedDevice.value?.protocolCode));
+const resolvedClientId = computed(() => (resolvedDevice.value ? normalizedText(reportForm.deviceCode) : ''));
 
-const evaluation = computed(() => evaluateReportWorkbenchInput({
-  report: reportForm,
-  mode: reportMode.value,
-  type3BinaryBase64: type3BinaryBase64.value
-}));
+const evaluation = computed(() =>
+    evaluateReportWorkbenchInput({
+      report: {
+        protocolCode: resolvedProtocolCode.value,
+        productKey: resolvedProductKey.value,
+        deviceCode: normalizedText(reportForm.deviceCode),
+        topic: reportForm.topic,
+        payload: reportForm.payload
+      },
+      mode: reportMode.value,
+      transportMode: transportMode.value,
+      type3BinaryBase64: type3BinaryBase64.value
+    })
+);
 
 const plaintextFrame = computed(() => evaluation.value.plaintextFrame);
-const plaintextFrameError = computed(() => evaluation.value.plaintextFrameError);
-const parsedPayload = computed(() => evaluation.value.parsedPayload);
-const recommendedTopic = computed(() => evaluation.value.recommendedTopic);
 const validationIssues = computed(() => evaluation.value.validationIssues);
 const canSend = computed(() => evaluation.value.canSend);
+const showValidationBanner = computed(() => hasAttemptedSubmit.value && validationIssues.value.length > 0);
 
-const reportModeHint = computed(() => {
-  if (reportMode.value === 'encrypted') {
-    return '密文模式只透传封包，要求 payload 为完整的 header + bodies.body JSON。';
+const deviceLookupTone = computed<FeedbackTone>(() => {
+  if (isQueryingDevice.value) {
+    return 'info';
   }
-  return '明文模式会自动识别 C.1/C.2/C.3，并计算 Byte2~Byte3 大端长度。';
+  if (deviceLookupError.value) {
+    return 'danger';
+  }
+  if (resolvedDevice.value) {
+    return 'success';
+  }
+  return 'neutral';
 });
 
-const payloadLabel = computed(() => (reportMode.value === 'encrypted' ? '密文封包 JSON' : '明文 JSON'));
-
-const normalizedJsonPreview = computed(() => {
-  if (!parsedPayload.value) {
-    return '';
+const deviceLookupMessage = computed(() => {
+  if (isQueryingDevice.value) {
+    return '正在查询设备接入契约，请稍候。';
   }
-  return JSON.stringify(parsedPayload.value, null, 2);
+  if (deviceLookupError.value) {
+    return deviceLookupError.value;
+  }
+  if (resolvedDevice.value) {
+    return '已加载设备接入契约，可继续配置 Topic、模式与 payload。';
+  }
+  return '请输入设备编码后点击“查询设备”，加载产品 Key、协议编码和客户端 ID。';
+});
+
+const deviceIdentityItems = computed(() => [
+  {
+    key: 'product-key',
+    label: '产品 Key',
+    value: resolvedProductKey.value,
+    fallback: '查询后自动回显'
+  },
+  {
+    key: 'protocol-code',
+    label: '协议编码',
+    value: resolvedProtocolCode.value,
+    fallback: '查询后自动回显'
+  },
+  {
+    key: 'client-id',
+    label: '客户端 ID',
+    value: resolvedClientId.value,
+    fallback: '查询后自动回显'
+  },
+  {
+    key: 'device-name',
+    label: '设备名称',
+    value: normalizedText(resolvedDevice.value?.deviceName),
+    fallback: '查询后自动回显',
+    multiline: true
+  }
+]);
+
+const payloadFormatLabel = computed(() => {
+  if (evaluation.value.payloadFormat === 'json') {
+    return 'JSON';
+  }
+  if (evaluation.value.payloadFormat === 'xml') {
+    return 'XML';
+  }
+  return '原始文本';
+});
+
+const sendStatusText = computed(() => {
+  if (!resolvedDevice.value) {
+    return '待查询设备';
+  }
+  if (isSending.value) {
+    return '发送中';
+  }
+  if (hasAttemptedSubmit.value && validationIssues.value.length > 0) {
+    return '需先修复输入';
+  }
+  if (canSend.value) {
+    return '可发送';
+  }
+  return '待确认输入';
 });
 
 const diagnosticSummaryItems = computed(() => {
-  const modeLabel = reportMode.value === 'encrypted' ? '密文（封包透传）' : '明文（自动构造帧）';
-  const detectedType = plaintextFrame.value ? `类型 ${plaintextFrame.value.type}（${plaintextFrame.value.label}）` : '--';
-  const lengthLabel = plaintextFrame.value
-    ? `${plaintextFrame.value.jsonLength}（0x${plaintextFrame.value.lengthHighByte.toString(16).toUpperCase().padStart(2, '0')} ${plaintextFrame.value.lengthLowByte.toString(16).toUpperCase().padStart(2, '0')}）`
-    : '--';
+  const plaintextType = plaintextFrame.value
+      ? `类型 ${plaintextFrame.value.type}（${plaintextFrame.value.label}）`
+      : reportMode.value === 'plaintext'
+          ? '原始文本'
+          : '--';
 
   return [
     {
+      key: 'transport',
+      label: '传输方式',
+      value: transportMode.value === 'mqtt' ? 'MQTT 模拟' : 'HTTP 模拟'
+    },
+    {
       key: 'mode',
       label: '上报模式',
-      value: modeLabel
+      value: reportMode.value === 'encrypted' ? '密文透传' : '明文发送'
     },
     {
-      key: 'detected-type',
-      label: '识别类型',
-      value: reportMode.value === 'plaintext' ? detectedType : '--'
+      key: 'format',
+      label: '内容格式',
+      value: payloadFormatLabel.value
     },
     {
-      key: 'json-length',
-      label: 'Byte2~Byte3 长度',
-      value: reportMode.value === 'plaintext' ? lengthLabel : '--'
+      key: 'recognition',
+      label: '识别结果',
+      value: plaintextType,
+      multiline: true
+    },
+    {
+      key: 'topic',
+      label: '当前 Topic',
+      value: normalizedText(reportForm.topic) || '--',
+      multiline: true
     },
     {
       key: 'recommended-topic',
-      label: '推荐 Topic',
-      value: recommendedTopic.value
+      label: '建议 Topic',
+      value: resolvedDevice.value ? evaluation.value.recommendedTopic : '查询设备后生成',
+      multiline: true
+    },
+    {
+      key: 'encoding',
+      label: '实际字节编码',
+      value: evaluation.value.actualPayloadEncoding || 'UTF-8'
     },
     {
       key: 'send-status',
-      label: '可发送状态',
-      value: canSend.value ? '可发送' : '需修复输入问题'
-    },
-    {
-      key: 'diagnostic-reason',
-      label: '判定依据',
-      value: reportMode.value === 'plaintext' ? (plaintextFrame.value?.reason || plaintextFrameError.value || '--') : '密文模式不做类型判定'
+      label: '发送状态',
+      value: sendStatusText.value
     }
   ];
 });
 
+const diagnosticNotes = computed(() => {
+  const notes: string[] = [];
+  if (!resolvedDevice.value) {
+    notes.push('先输入设备编码并点击“查询设备”，再执行发送模拟。');
+  }
+  if (transportMode.value === 'mqtt') {
+    notes.push('MQTT 模拟会把原始 payload 直接发布到 Broker，再由现有 consumer 回流主链路。');
+  } else {
+    notes.push('HTTP 模拟会直接调用 `/api/message/http/report`，并按当前租户 ID 生效。');
+  }
+  if (reportMode.value === 'encrypted') {
+    notes.push('密文模式会直接透传 header + bodies.body 封包，不再计算类型和长度。');
+  }
+  notes.push(...evaluation.value.diagnosticNotes);
+  return Array.from(new Set(notes));
+});
+
+const frameMetaItems = computed(() => {
+  if (!plaintextFrame.value) {
+    return [];
+  }
+  return [
+    {
+      key: 'type',
+      label: '识别类型',
+      value: `类型 ${plaintextFrame.value.type}（${plaintextFrame.value.label}）`
+    },
+    {
+      key: 'reason',
+      label: '判定依据',
+      value: plaintextFrame.value.reason,
+      multiline: true
+    }
+  ];
+});
+
+const payloadPlaceholder = computed(() =>
+    reportMode.value === 'encrypted'
+        ? '请输入完整的 header + bodies.body 密文封包 JSON'
+        : '请输入原始文本、JSON 或 XML；只有可识别 JSON 才会构造 C.1 / C.2 / C.3 明文帧'
+);
+
+const sendButtonText = computed(() =>
+    transportMode.value === 'mqtt' ? '发送 MQTT 模拟' : '发送 HTTP 模拟'
+);
+
+const actualPayloadSectionTitle = computed(() => {
+  if (reportMode.value === 'encrypted') {
+    return '实际发送封包';
+  }
+  if (evaluation.value.autoInjectedDeviceCode) {
+    return '实际发送内容（已补 deviceCode）';
+  }
+  if (evaluation.value.actualPayloadFormat === 'xml') {
+    return '实际发送 XML';
+  }
+  if (evaluation.value.actualPayloadFormat === 'json') {
+    return '实际发送 JSON';
+  }
+  return '实际发送文本';
+});
+
+const actualPayloadPreviewText = computed(() => evaluation.value.actualPayloadPreview || '--');
 const plaintextFrameDecimalPreview = computed(() => {
   if (!plaintextFrame.value) {
-    return plaintextFrameError.value || '--';
+    return evaluation.value.plaintextFrameError || '--';
   }
   return formatFrameDecimalPreview(plaintextFrame.value.frameBytes);
 });
-
 const plaintextFrameHexPreview = computed(() => {
   if (!plaintextFrame.value) {
-    return plaintextFrameError.value || '--';
+    return evaluation.value.plaintextFrameError || '--';
   }
   return formatFrameHexPreview(plaintextFrame.value.frameBytes);
 });
+const responsePreview = computed(() => prettyJson(lastResponse.value));
 
-const curlPreview = computed(() => {
-  const topic = reportForm.topic || recommendedTopic.value;
-  if (reportMode.value === 'plaintext') {
-    const body = JSON.stringify(
-      {
-        ...reportForm,
-        topic,
-        payload: '<自动构造明文二进制帧>',
-        payloadEncoding: 'ISO-8859-1'
-      },
-      null,
-      2
-    );
-    return `curl -X POST http://localhost:9999/api/message/http/report \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
+watch(
+    () => reportForm.deviceCode,
+    (value, oldValue) => {
+      if (value === oldValue) {
+        return;
+      }
+      resetResolvedDeviceState();
+      hasAttemptedSubmit.value = false;
+    }
+);
+
+onMounted(() => {
+  try {
+    const lastTemplate = window.localStorage.getItem('reporting:lastTemplate');
+    if (!lastTemplate) {
+      return;
+    }
+    const template = JSON.parse(lastTemplate) as TemplateOption;
+    if (template && typeof template === 'object') {
+      applyTemplate(template);
+    }
+  } catch {
+    // 忽略本地模板恢复失败
   }
-
-  const body = JSON.stringify(
-    {
-      ...reportForm,
-      topic
-    },
-    null,
-    2
-  );
-
-  return `curl -X POST http://localhost:9999/api/message/http/report \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
 });
+
+function resetResolvedDeviceState() {
+  resolvedDevice.value = null;
+  deviceLookupError.value = '';
+}
 
 function applyTemplate(template: TemplateOption) {
   reportMode.value = template.mode;
   reportForm.payload = template.payload;
+  reportForm.topic = template.topic || '$dp';
   type3BinaryBase64.value = template.type3BinaryBase64 || '';
-  reportForm.topic = template.topic || recommendedTopic.value;
+
+  try {
+    window.localStorage.setItem('reporting:lastTemplate', JSON.stringify(template));
+  } catch {
+    // 忽略本地缓存写入失败
+  }
+
+  if (resolvedDevice.value) {
+    syncTopic();
+  }
+}
+
+async function oneClickFill() {
+  if (!normalizedText(reportForm.deviceCode)) {
+    ElMessage.warning('请先输入设备编码。');
+    return;
+  }
+
+  if (!resolvedDevice.value) {
+    const loaded = await handleQueryDevice();
+    if (!loaded) {
+      return;
+    }
+  }
+
+  syncTopic();
+
+  if (resolvedProtocolCode.value && resolvedProtocolCode.value.includes('encrypt')) {
+    reportMode.value = 'encrypted';
+  }
+
+  ElMessage.success('已自动补全推荐配置。');
 }
 
 function syncTopic() {
-  reportForm.topic = recommendedTopic.value;
+  if (!resolvedDevice.value) {
+    ElMessage.warning('请先查询设备，再套用推荐 Topic。');
+    return;
+  }
+  reportForm.topic = evaluation.value.recommendedTopic;
+}
+
+async function handleQueryDevice() {
+  const deviceCode = normalizedText(reportForm.deviceCode);
+  if (!deviceCode) {
+    ElMessage.warning('请先输入设备编码。');
+    return false;
+  }
+
+  isQueryingDevice.value = true;
+  deviceLookupError.value = '';
+  const queryingCode = deviceCode;
+
+  try {
+    const response = await getDeviceByCode(queryingCode);
+    if (!response.data) {
+      throw new Error(`未查询到设备 ${queryingCode}`);
+    }
+
+    if (normalizedText(reportForm.deviceCode) !== queryingCode) {
+      return false;
+    }
+
+    resolvedDevice.value = response.data;
+    ElMessage.success(`已加载设备 ${queryingCode} 的接入契约。`);
+    return true;
+  } catch (error) {
+    if (normalizedText(reportForm.deviceCode) === queryingCode) {
+      resolvedDevice.value = null;
+      deviceLookupError.value = (error as Error).message;
+      ElMessage.error(deviceLookupError.value);
+    }
+    return false;
+  } finally {
+    isQueryingDevice.value = false;
+  }
+}
+
+function formatPayloadAsJson() {
+  const payload = reportForm.payload;
+  if (parseJsonSafely<unknown>(payload) === null) {
+    ElMessage.warning('当前内容不是有效 JSON，无法格式化。');
+    return;
+  }
+  reportForm.payload = prettyJson(payload);
+}
+
+function formatPayloadAsXml() {
+  const payload = reportForm.payload.trim();
+  if (!looksLikeXml(payload)) {
+    ElMessage.warning('当前内容不是 XML 文本，无法格式化。');
+    return;
+  }
+  reportForm.payload = prettyXml(payload);
 }
 
 async function handleSendReport() {
+  hasAttemptedSubmit.value = true;
+
   if (!canSend.value) {
-    ElMessage.warning(validationIssues.value[0]?.message || '请输入有效 payload。');
+    ElMessage.warning(validationIssues.value[0]?.message || '请输入有效内容后再发送。');
     return;
   }
 
   isSending.value = true;
-
-  const requestPayload: HttpReportPayload = {
-    ...reportForm,
-    topic: reportForm.topic || recommendedTopic.value
-  };
-
-  let successDetail = '';
-  if (reportMode.value === 'plaintext') {
-    if (!plaintextFrame.value) {
-      ElMessage.warning(plaintextFrameError.value || '明文 payload 无法构造标准帧。');
-      isSending.value = false;
-      return;
-    }
-    requestPayload.payload = plaintextFrame.value.framedPayload;
-    requestPayload.payloadEncoding = 'ISO-8859-1';
-    successDetail = `已向设备 ${reportForm.deviceCode} 发送明文类型 ${plaintextFrame.value.type} 报文`;
-  } else {
-    requestPayload.payload = reportForm.payload;
-    successDetail = `已向设备 ${reportForm.deviceCode} 发送密文封包`;
-  }
+  const deviceCode = normalizedText(reportForm.deviceCode);
+  const topic = normalizedText(reportForm.topic);
+  const requestPayloadPreview =
+      reportMode.value === 'plaintext' && plaintextFrame.value
+          ? '<binary-frame>'
+          : evaluation.value.actualPayloadPreview;
 
   try {
-    const response = await reportByHttp(requestPayload);
+    let response;
+    let detail = '';
+
+    if (transportMode.value === 'http') {
+      const payload: HttpReportPayload = {
+        protocolCode: resolvedProtocolCode.value,
+        productKey: resolvedProductKey.value,
+        deviceCode,
+        topic,
+        clientId: deviceCode,
+        tenantId: normalizedText(reportForm.tenantId) || '1',
+        payload: evaluation.value.actualPayload
+      };
+      if (evaluation.value.actualPayloadEncoding) {
+        payload.payloadEncoding = evaluation.value.actualPayloadEncoding;
+      }
+      response = await reportByHttp(payload);
+      detail = `已通过 HTTP 向设备 ${deviceCode} 发送 ${reportMode.value === 'encrypted' ? '密文' : '明文'} 模拟报文`;
+    } else {
+      const payload: MqttReportPublishPayload = {
+        protocolCode: resolvedProtocolCode.value,
+        productKey: resolvedProductKey.value,
+        deviceCode,
+        topic,
+        payload: evaluation.value.actualPayload
+      };
+      if (evaluation.value.actualPayloadEncoding) {
+        payload.payloadEncoding = evaluation.value.actualPayloadEncoding;
+      }
+      response = await reportByMqtt(payload);
+      detail = `已通过 MQTT 向设备 ${deviceCode} 发布原始上行模拟报文`;
+    }
+
     lastResponse.value = response;
-    ElMessage.success(`设备 ${reportForm.deviceCode} 模拟上报成功`);
+    ElMessage.success(`${transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP'} 模拟上报成功`);
     recordActivity({
       module: '链路验证中心',
-      action: '发送模拟上报',
+      action: transportMode.value === 'mqtt' ? '发送 MQTT 模拟上报' : '发送 HTTP 模拟上报',
       request: {
-        ...requestPayload,
-        payload: reportMode.value === 'plaintext' ? '<binary-frame>' : reportForm.payload
+        deviceCode,
+        topic,
+        transportMode: transportMode.value,
+        reportMode: reportMode.value,
+        payload: requestPayloadPreview
       },
       response,
       ok: true,
-      detail: successDetail
+      detail
     });
   } catch (error) {
     const requestError = (error as Error).message;
@@ -436,10 +928,13 @@ async function handleSendReport() {
     ElMessage.error(requestError);
     recordActivity({
       module: '链路验证中心',
-      action: '发送模拟上报',
+      action: transportMode.value === 'mqtt' ? '发送 MQTT 模拟上报' : '发送 HTTP 模拟上报',
       request: {
-        ...requestPayload,
-        payload: reportMode.value === 'plaintext' ? '<binary-frame>' : reportForm.payload
+        deviceCode,
+        topic,
+        transportMode: transportMode.value,
+        reportMode: reportMode.value,
+        payload: requestPayloadPreview
       },
       response: { message: requestError },
       ok: false,
@@ -449,90 +944,508 @@ async function handleSendReport() {
     isSending.value = false;
   }
 }
+
+function toggleFramePanel() {
+  framePanelExpanded.value = !framePanelExpanded.value;
+}
+
+async function copyActualPayloadPreview() {
+  await copyText(actualPayloadPreviewText.value, '已复制实际发送内容。');
+}
+
+async function copyResponse() {
+  await copyText(responsePreview.value, '已复制最近一次响应。');
+}
+
+async function copyText(value: string, successMessage: string) {
+  if (!navigator.clipboard) {
+    ElMessage.warning('当前浏览器环境不支持剪贴板复制。');
+    return;
+  }
+  await navigator.clipboard.writeText(value);
+  ElMessage.success(successMessage);
+}
+
+function normalizedText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
 </script>
 
 <style scoped>
-.report-workbench-grid {
-  align-items: start;
+.reporting-view {
+  min-width: 0;
 }
 
-.report-right-stack {
+.reporting-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.96fr);
+  gap: var(--spacing-md);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.reporting-surface {
+  height: 100%;
+  min-width: 0;
+}
+
+.reporting-surface :deep(.el-card__body) {
+  height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.reporting-surface__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 1rem;
-}
-
-.report-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.report-card::after {
-  content: '';
-  position: absolute;
-  inset: -8rem -7rem auto auto;
-  width: 16rem;
-  height: 16rem;
-  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 65%);
-  pointer-events: none;
-}
-
-.report-template-btn {
-  border-radius: 999px;
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
-  color: var(--text-secondary);
-}
-
-.report-template-btn:hover {
-  border-color: var(--panel-border-hover);
-  color: var(--brand-deep);
-}
-
-.report-mode-group {
   width: 100%;
 }
 
-.report-mode-tip {
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--text-secondary);
+.reporting-surface__heading {
+  min-width: 0;
 }
 
-.report-validation {
-  border: 1px solid color-mix(in srgb, var(--el-color-danger) 35%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--el-color-danger) 10%, white);
-  color: var(--el-color-danger);
+.reporting-surface__eyebrow {
+  margin: 0 0 0.28rem;
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.report-validation__title {
+.reporting-surface__title {
   margin: 0;
-  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 1.08rem;
 }
 
-.report-validation__list {
-  margin: 0.5rem 0 0;
-  padding-left: 1.2rem;
+.reporting-surface__description {
+  margin: 0.38rem 0 0;
+  color: var(--text-caption);
+  line-height: 1.6;
+  font-size: 0.86rem;
 }
 
-.report-diagnostics-collapse {
+.reporting-surface__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0 0.78rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 8%, white);
+  color: var(--brand-deep);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reporting-surface__badge--accent {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent) 8%, white);
+  color: var(--accent-deep);
+}
+
+.reporting-compose-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.reporting-section {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.reporting-section + .reporting-section {
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
 }
 
-.report-preview__line {
-  margin: 0.4rem 0;
+.reporting-section--submit {
+  margin-top: auto;
+}
+
+.reporting-section--stretch {
+  flex: 1;
+}
+
+.reporting-query-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.reporting-state-message {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  background: var(--surface-subtle);
+  color: var(--text-caption);
+  line-height: 1.6;
+  font-size: 0.86rem;
+}
+
+.reporting-state-message[data-tone='info'] {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent) 7%, white);
+  color: var(--accent-deep);
+}
+
+.reporting-state-message[data-tone='success'] {
+  border-color: color-mix(in srgb, var(--success) 22%, var(--panel-border));
+  background: color-mix(in srgb, var(--success) 8%, white);
+  color: color-mix(in srgb, var(--success) 68%, var(--text-primary));
+}
+
+.reporting-state-message[data-tone='danger'] {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--panel-border));
+  background: color-mix(in srgb, var(--danger) 7%, white);
+  color: color-mix(in srgb, var(--danger) 72%, var(--text-primary));
+}
+
+.reporting-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.reporting-control-card {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-subtle), rgba(255, 255, 255, 0.96));
+}
+
+.reporting-control-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.reporting-control-card__title {
+  color: var(--text-heading);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.reporting-control-card__helper {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+}
+
+.reporting-choice-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5rem;
+  min-height: 2.25rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
   color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition:
+      border-color var(--transition-base),
+      background var(--transition-base),
+      color var(--transition-base),
+      box-shadow var(--transition-base),
+      transform var(--transition-base);
 }
 
-.report-preview__code {
-  margin: 0.75rem 0 0;
-  padding: 0.85rem 0.95rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
+.reporting-choice-button:hover {
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
   background: color-mix(in srgb, var(--brand) 6%, white);
-  white-space: pre-wrap;
+  color: var(--brand-deep);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.reporting-choice-button--active {
+  border-color: color-mix(in srgb, var(--brand) 32%, var(--panel-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 13%, white), color-mix(in srgb, var(--brand) 5%, white));
+  color: var(--brand-deep);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.reporting-topic-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.reporting-quick-fill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed color-mix(in srgb, var(--brand) 24%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 4%, white);
+}
+
+.reporting-quick-fill__hint {
+  color: var(--text-caption);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.reporting-format-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.72rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent) 7%, white);
+  color: var(--accent-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.reporting-toolbar {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.reporting-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.72rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
+}
+
+.reporting-toolbar__label {
   color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reporting-textarea :deep(.el-textarea__inner) {
+  min-height: 17rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-lg);
+  border-color: var(--panel-border);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-heading);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  line-height: 1.65;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.reporting-textarea :deep(.el-textarea__inner:focus) {
+  border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.reporting-type3-panel {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
+}
+
+.reporting-validation-banner {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--panel-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 6%, white), rgba(255, 255, 255, 0.98));
+}
+
+.reporting-validation-banner strong {
+  display: block;
+  color: color-mix(in srgb, var(--danger) 78%, var(--text-primary));
+  font-size: 0.85rem;
+}
+
+.reporting-validation-list {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+  color: color-mix(in srgb, var(--danger) 74%, var(--text-secondary));
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.reporting-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.reporting-submit-copy {
+  min-width: 0;
+}
+
+.reporting-submit-label {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reporting-submit-copy strong {
+  display: block;
+  margin-top: 0.28rem;
+  color: var(--text-heading);
+  font-size: 1rem;
+}
+
+.reporting-submit-copy p {
+  margin: 0.42rem 0 0;
+  color: var(--text-caption);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.reporting-note-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reporting-note-item {
+  position: relative;
+  padding-left: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.reporting-note-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.56rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 72%, white);
+}
+
+.reporting-frame-panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.reporting-frame-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.reporting-code-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-subtle);
+}
+
+.reporting-code-surface__title {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reporting-code-block {
+  flex: 1;
+  min-height: 12.5rem;
+  margin: 0;
+  padding: 1rem 1.05rem;
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 249, 252, 0.98));
+  color: var(--text-heading);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
+  line-height: 1.7;
+}
+
+.reporting-code-block--compact {
+  min-height: 9.5rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.reporting-code-block--response {
+  height: 100%;
+  min-height: 16rem;
+}
+
+.reporting-card--follow-up {
+  min-width: 0;
+}
+
+@media (max-width: 1280px) {
+  .reporting-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .reporting-control-grid,
+  .reporting-frame-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .reporting-surface__header,
+  .reporting-submit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reporting-query-row,
+  .reporting-topic-row {
+    grid-template-columns: 1fr;
+  }
+
+  .reporting-toolbar__group,
+  .reporting-quick-fill {
+    align-items: flex-start;
+  }
+
+  .reporting-choice-button {
+    width: 100%;
+  }
 }
 </style>

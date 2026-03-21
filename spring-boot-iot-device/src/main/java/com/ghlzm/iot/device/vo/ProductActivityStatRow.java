@@ -15,4 +15,8 @@ public class ProductActivityStatRow {
     private Long sevenDaysActiveCount;
 
     private Long thirtyDaysActiveCount;
+
+    private Long avgOnlineDuration;
+
+    private Long maxOnlineDuration;
 }

@@ -125,6 +125,11 @@ curl -X POST http://localhost:9999/api/message/http/report \
   }'
 ```
 
+页面验收补充：
+- 打开 `/reporting`，输入 `accept-http-device-01` 后点击“查询设备”。
+- 确认 `productKey`、`protocolCode`、`clientId` 已只读反显，`tenantId` 默认 `1`，`topic` 默认 `$dp`。
+- 明文模式下输入合法 JSON 或 XML，点击格式化，确认诊断区能展示“实际发送内容”预演；非法 JSON 不允许发送。
+
 ### 步骤 4：查询验证
 ```bash
 curl http://localhost:9999/api/device/accept-http-device-01/properties
@@ -141,6 +146,28 @@ curl http://localhost:9999/api/device/code/accept-http-device-01
 - `last_online_time` 与 `last_report_time` 已刷新
 
 ## 5. MQTT 标准 Topic 真实环境验收
+### 5.0 链路验证中心 MQTT 模拟验收
+
+标准 Topic 示例：
+
+```bash
+curl -X POST http://localhost:9999/api/message/mqtt/report/publish \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "protocolCode":"mqtt-json",
+    "productKey":"accept-http-product-01",
+    "deviceCode":"accept-http-device-01",
+    "topic":"/sys/accept-http-product-01/accept-http-device-01/thing/property/post",
+    "payload":"{\"messageType\":\"property\",\"properties\":{\"temperature\":28.1,\"humidity\":59}}"
+  }'
+```
+
+说明：
+- `/reporting` 页面里的 MQTT 模拟上报即调用该接口。
+- 若 payload 需要发送明文二进制帧，可附带 `payloadEncoding=ISO-8859-1`。
+- 该接口会把原始字节发布到 Broker，再由现有 MQTT consumer 回流进入主链路；若客户端未连接、设备不存在或产品不匹配，应返回业务错误。
+
 ### 步骤 1：启动后端并确保 MQTT 已连接
 建议附加唯一 `clientId`：
 ```bash
@@ -181,6 +208,24 @@ Payload：
 ```json
 {"accept-http-device-01":{"temperature":25.1,"humidity":61}}
 ```
+
+通过链路验证中心 / 新接口模拟 `$dp` 时，也可直接发送：
+
+```bash
+curl -X POST http://localhost:9999/api/message/mqtt/report/publish \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "protocolCode":"mqtt-json",
+    "productKey":"accept-http-product-01",
+    "deviceCode":"accept-http-device-01",
+    "topic":"$dp",
+    "payload":"{\"temperature\":25.1,\"humidity\":61}"
+  }'
+```
+
+说明：
+- `/reporting` 页面在 `MQTT + $dp + 普通属性 JSON` 场景下，若 payload 缺少任何设备身份字段，会自动补入 `deviceCode` 后再发送。
 
 ### 6.2 嵌套遥测 JSON
 ```json
