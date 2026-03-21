@@ -11,60 +11,56 @@
       </template>
 
       <div class="device-workbench-card__filters">
-        <el-form :model="searchForm" class="device-inline-filter" @submit.prevent>
-          <div class="device-inline-filter__row">
-            <el-form-item class="device-inline-filter__item">
+        <StandardListFilterHeader
+          :model="searchForm"
+          :show-advanced="showAdvancedFilters"
+          :show-advanced-toggle="true"
+          :advanced-hint="advancedFilterHint"
+          expand-text="展开全部筛选项"
+          collapse-text="收起"
+          @toggle-advanced="toggleAdvancedFilters"
+        >
+          <template #primary>
+            <el-form-item>
               <el-input id="query-device-code" v-model="searchForm.deviceCode" placeholder="设备编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-            <el-form-item class="device-inline-filter__item">
+            <el-form-item>
               <el-input id="filter-device-name" v-model="searchForm.deviceName" placeholder="设备名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-            <el-form-item class="device-inline-filter__item">
+            <el-form-item>
               <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="产品 Key" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </div>
-
-          <el-collapse-transition>
-            <div v-show="showAdvancedFilters" class="device-filter-advanced">
-              <div class="device-filter-advanced__grid">
-                <el-form-item class="device-inline-filter__item">
-                  <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="设备 ID" clearable @keyup.enter="handleSearch" />
-                </el-form-item>
-                <el-form-item class="device-inline-filter__item">
-                  <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
-                    <el-option label="在线" :value="1" />
-                    <el-option label="离线" :value="0" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item class="device-inline-filter__item">
-                  <el-select v-model="searchForm.activateStatus" placeholder="激活状态" clearable>
-                    <el-option label="已激活" :value="1" />
-                    <el-option label="未激活" :value="0" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item class="device-inline-filter__item">
-                  <el-select v-model="searchForm.deviceStatus" placeholder="设备状态" clearable>
-                    <el-option label="启用" :value="1" />
-                    <el-option label="禁用" :value="0" />
-                  </el-select>
-                </el-form-item>
-              </div>
-            </div>
-          </el-collapse-transition>
-
-          <div class="device-inline-filter__actions-row">
-            <StandardActionGroup gap="sm" class="device-inline-filter__actions">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-              <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
-              <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
-            </StandardActionGroup>
-            <el-button link class="device-filter-toggle" @click="toggleAdvancedFilters">
-              {{ showAdvancedFilters ? '收起' : '展开全部筛选项' }}
-            </el-button>
-            <span v-if="advancedFilterHint" class="device-filter-toggle-row__hint">{{ advancedFilterHint }}</span>
-          </div>
-        </el-form>
+          </template>
+          <template #advanced>
+            <el-form-item>
+              <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="设备 ID" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
+                <el-option label="在线" :value="1" />
+                <el-option label="离线" :value="0" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.activateStatus" placeholder="激活状态" clearable>
+                <el-option label="已激活" :value="1" />
+                <el-option label="未激活" :value="0" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.deviceStatus" placeholder="设备状态" clearable>
+                <el-option label="启用" :value="1" />
+                <el-option label="禁用" :value="0" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <el-button @click="handleReset">重置</el-button>
+            <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
+            <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
+          </template>
+        </StandardListFilterHeader>
       </div>
 
       <div v-if="hasAppliedFilters" class="device-applied-filters">
@@ -775,10 +771,10 @@ import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PanelCard from '@/components/PanelCard.vue'
-import StandardActionGroup from '@/components/StandardActionGroup.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
@@ -2739,68 +2735,6 @@ onMounted(async () => {
   margin-bottom: 0.72rem;
 }
 
-.device-inline-filter {
-  display: grid;
-}
-
-.device-inline-filter__row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-  gap: 12px 14px;
-  align-items: end;
-}
-
-.device-inline-filter__row :deep(.el-form-item) {
-  margin-bottom: 0;
-  min-width: 0;
-}
-
-.device-inline-filter__item {
-  min-width: 0;
-}
-
-.device-inline-filter__actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin-top: 10px;
-}
-
-.device-inline-filter__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.device-filter-toggle {
-  padding-inline: 0.08rem;
-  font-weight: 600;
-}
-
-.device-filter-toggle-row__hint {
-  color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.device-filter-advanced {
-  margin-top: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--brand) 18%, transparent);
-}
-
-.device-filter-advanced__grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: 12px 14px;
-}
-
-.device-filter-advanced__grid :deep(.el-form-item) {
-  margin-bottom: 0;
-  min-width: 0;
-}
-
 .device-applied-filters {
   display: flex;
   flex-wrap: wrap;
@@ -3341,29 +3275,9 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 1240px) {
-  .device-inline-filter__row {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-    gap: 12px;
-  }
-
-  .device-filter-advanced__grid {
-    grid-template-columns: repeat(2, minmax(180px, 1fr));
-  }
-}
-
 @media (max-width: 900px) {
   .device-asset-view {
     padding: 16px;
-  }
-
-  .device-inline-filter__row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .device-filter-advanced__grid {
-    grid-template-columns: 1fr;
   }
 
   .device-applied-filters {
@@ -3392,14 +3306,6 @@ onMounted(async () => {
   .device-hero-card__header {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .device-inline-filter__actions-row {
-    align-items: flex-start;
-  }
-
-  .device-filter-toggle-row__hint {
-    width: 100%;
   }
 
   .device-mobile-list {

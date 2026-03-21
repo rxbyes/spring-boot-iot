@@ -11,9 +11,9 @@
       </template>
 
       <div class="product-workbench-card__filters">
-        <el-form :model="searchForm" class="product-inline-filter" @submit.prevent>
-          <div class="product-inline-filter__row">
-            <el-form-item class="product-inline-filter__item">
+        <StandardListFilterHeader :model="searchForm">
+          <template #primary>
+            <el-form-item>
               <el-input
                 id="query-product-name"
                 v-model="searchForm.productName"
@@ -22,27 +22,25 @@
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
-            <el-form-item class="product-inline-filter__item">
+            <el-form-item>
               <el-select v-model="searchForm.nodeType" placeholder="节点类型" clearable>
                 <el-option label="直连设备" :value="1" />
                 <el-option label="网关设备" :value="2" />
               </el-select>
             </el-form-item>
-            <el-form-item class="product-inline-filter__item">
+            <el-form-item>
               <el-select v-model="searchForm.status" placeholder="产品状态" clearable>
                 <el-option label="启用" :value="1" />
                 <el-option label="停用" :value="0" />
               </el-select>
             </el-form-item>
-            <div class="product-inline-filter__actions">
-              <StandardActionGroup gap="sm">
-                <el-button type="primary" @click="handleSearch">查询</el-button>
-                <el-button @click="handleReset">重置</el-button>
-                <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
-              </StandardActionGroup>
-            </div>
-          </div>
-        </el-form>
+          </template>
+          <template #actions>
+            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <el-button @click="handleReset">重置</el-button>
+            <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
+          </template>
+        </StandardListFilterHeader>
       </div>
 
       <div v-if="hasAppliedFilters" class="product-applied-filters">
@@ -279,6 +277,7 @@
     <StandardDetailDrawer
       v-model="detailVisible"
       class="product-detail-drawer"
+      size="42rem"
       eyebrow="产品定义详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
@@ -286,17 +285,17 @@
       :error-message="detailErrorMessage"
       :empty="!detailData"
     >
-      <div v-if="detailData" class="product-detail-layout">
-        <div
-          v-if="detailRefreshing || detailRefreshErrorMessage"
-          :class="[
-            'product-detail-inline-state',
-            { 'product-detail-inline-state--error': Boolean(detailRefreshErrorMessage) }
-          ]"
+      <template #header-actions>
+        <el-button
+          v-permission="'iot:products:update'"
+          type="primary"
+          size="small"
+          @click="handleEditFromDetail"
         >
-          {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
-        </div>
-
+          编辑
+        </el-button>
+      </template>
+      <div v-if="detailData" class="product-detail-layout">
         <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">产品汇总</span>
@@ -444,23 +443,10 @@
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
-      size="44rem"
+      size="42rem"
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
-        <div
-          v-if="formRefreshing || formRefreshMessage"
-          :class="[
-            'product-form-inline-state',
-            {
-              'product-form-inline-state--warning': formRefreshState === 'warning',
-              'product-form-inline-state--error': formRefreshState === 'error'
-            }
-          ]"
-        >
-          {{ formRefreshMessage || '已先填入当前摘要，正在补充最新档案。' }}
-        </div>
-
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
@@ -566,10 +552,10 @@ import { ElMessage, type FormInstance, type FormRules, type TableInstance } from
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PanelCard from '@/components/PanelCard.vue'
-import StandardActionGroup from '@/components/StandardActionGroup.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
@@ -1784,6 +1770,13 @@ function handleOpenDetail(row: Product) {
   void openDetail(row)
 }
 
+function handleEditFromDetail() {
+  if (!detailData.value?.id) {
+    return
+  }
+  handleEdit(detailData.value)
+}
+
 function handleRowAction(command: string | number | object, row: Product) {
   if (command === 'devices') {
     handleJumpToDevices(row)
@@ -2583,33 +2576,6 @@ onMounted(async () => {
   padding-inline: 0.08rem;
 }
 
-.product-inline-filter {
-  display: grid;
-}
-
-.product-inline-filter__row {
-  display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(168px, 1fr)) auto;
-  gap: 14px 18px;
-  align-items: end;
-}
-
-.product-inline-filter__row :deep(.el-form-item) {
-  margin-bottom: 0;
-  min-width: 0;
-}
-
-.product-inline-filter__item {
-  min-width: 0;
-}
-
-.product-inline-filter__actions {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  min-height: 100%;
-}
-
 .product-mobile-list {
   display: none;
   margin-bottom: 0.72rem;
@@ -2939,11 +2905,6 @@ onMounted(async () => {
   .product-detail-governance-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .product-inline-filter__row {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-    gap: 12px 14px;
-  }
 }
 
 @media (max-width: 720px) {
@@ -2969,11 +2930,6 @@ onMounted(async () => {
 
   .product-detail-contract-item__value {
     font-size: 1.52rem;
-  }
-
-  .product-inline-filter__row {
-    grid-template-columns: 1fr;
-    gap: 12px;
   }
 
   .product-applied-filters {
