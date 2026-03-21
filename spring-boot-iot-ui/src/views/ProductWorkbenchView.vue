@@ -2924,6 +2924,125 @@ onMounted(async () => {
 }
 
 /* ============================================
+   卡片视图 - 精致现代风格
+   ============================================ */
+.product-card-view {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+/* 卡片网格布局 */
+.product-card-view .product-mobile-list__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* 卡片容器 - 精致卡片设计 */
+.product-card-view .product-mobile-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(228, 235, 246, 0.65);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 3px rgba(24, 45, 77, 0.02);
+  transition:
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease,
+    box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 卡片悬停效果 */
+.product-card-view .product-mobile-card:hover {
+  box-shadow:
+    0 12px 32px rgba(24, 45, 77, 0.08),
+    0 6px 16px rgba(24, 45, 77, 0.04);
+  transform: translateY(-4px);
+  border-color: rgba(78, 89, 105, 0.15);
+}
+
+/* 卡片选中状态 */
+.product-card-view .product-mobile-card.selected {
+  border-color: var(--brand);
+  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
+}
+
+/* 卡片选中伪元素装饰 */
+.product-card-view .product-mobile-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ============================================
+   卡片头部 - 棋盘布局
+   ============================================ */
+.product-card-view .product-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/* 卡片复选框 */
+.product-card-view .product-mobile-card__header .el-checkbox {
+  grid-row: 1 / span 2;
+  margin: 0;
+}
+
+/* 卡片标题区域 */
+.product-card-view .product-mobile-card__heading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.product-card-view .product-mobile-card__title {
+  color: #1a1d21;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.product-card-view .product-mobile-card__sub {
+  overflow: hidden;
+  color: #7d8692;
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 卡片状态标签 */
+.product-card-view .product-mobile-card__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
    卡片元数据标签组
    ============================================ */
 .product-card-view .product-mobile-card__meta {
@@ -3049,6 +3168,43 @@ onMounted(async () => {
 
 .product-card-view .product-mobile-card__actions :deep(.el-button .el-icon) {
   font-size: 14px;
+}
+
+/* 下拉菜单按钮样式 */
+.product-card-view .product-mobile-card__actions :deep(.el-button-group) {
+  display: flex;
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-dropdown) {
+  flex: 1;
+}
+
+/* 响应式卡片视图 */
+.product-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
+}
+
+/* 卡片视图响应式 - 桌面端显示 */
+@media (min-width: 721px) {
+  .product-card-view {
+    display: flex;
+  }
+  
+  .product-mobile-list {
+    display: none;
+  }
+}
+
+/* 卡片视图响应式 - 移动端显示 */
+@media (max-width: 720px) {
+  .product-card-view {
+    display: none;
+  }
+  
+  .product-mobile-list {
+    display: block;
+  }
 }
 
 /* 下拉菜单按钮样式 */
