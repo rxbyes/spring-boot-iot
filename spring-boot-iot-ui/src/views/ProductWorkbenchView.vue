@@ -262,56 +262,57 @@
           <!-- 表格视图 -->
           <template v-if="viewType === 'table'">
             <el-table
-            ref="tableRef"
-            class="product-desktop-table"
-            :data="tableData"
-            border
-            stripe
-            @selection-change="handleSelectionChange"
-          >
-            <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
-            <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
-            <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
-            <el-table-column prop="nodeType" label="节点类型" width="120">
-              <template #default="{ row }">
-                <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
-              </template>
-            </el-table-column>
-            <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
-            <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
-            <el-table-column prop="status" label="产品状态" width="110">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
-            <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
-            </StandardTableTextColumn>
-            <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-            </StandardTableTextColumn>
-            <el-table-column label="操作" width="180" fixed="right" :show-overflow-tooltip="false">
-              <template #default="{ row }">
-                <div class="product-table-actions">
-                  <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
-                    <el-button type="primary" link>
-                      更多
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+              ref="tableRef"
+              class="product-desktop-table"
+              :data="tableData"
+              border
+              stripe
+              @selection-change="handleSelectionChange"
+            >
+              <el-table-column type="selection" width="48" />
+              <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
+              <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
+              <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
+              <el-table-column prop="nodeType" label="节点类型" width="120">
+                <template #default="{ row }">
+                  <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
+                </template>
+              </el-table-column>
+              <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
+              <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
+              <el-table-column prop="status" label="产品状态" width="110">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
+              <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
+                <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+              </StandardTableTextColumn>
+              <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
+                <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+              </StandardTableTextColumn>
+              <el-table-column label="操作" width="180" fixed="right" :show-overflow-tooltip="false">
+                <template #default="{ row }">
+                  <div class="product-table-actions">
+                    <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
+                    <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+                    <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
+                      <el-button type="primary" link>
+                        更多
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="devices">查看设备</el-dropdown-item>
+                          <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
         </template>
 
         <div v-else-if="!loading" class="product-empty-state">
