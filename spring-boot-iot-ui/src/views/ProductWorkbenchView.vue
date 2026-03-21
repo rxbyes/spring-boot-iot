@@ -200,7 +200,7 @@
 
         <template v-else-if="hasRecords">
           <!-- 卡片视图 -->
-          <div v-if="viewType === 'card'" class="product-mobile-list">
+          <div v-if="viewType === 'card'" class="product-card-view">
             <div class="product-mobile-list__grid">
               <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
                 <div class="product-mobile-card__header">
@@ -2824,6 +2824,122 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+/* 卡片视图容器 */
+.product-card-view {
+  display: block;
+  margin-bottom: 0.72rem;
+}
+
+/* 卡片视图网格 */
+.product-card-view .product-mobile-list__grid {
+  display: grid;
+  gap: 12px;
+}
+
+/* 卡片视图卡片 */
+.product-card-view .product-mobile-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.92rem 0.96rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+/* 卡片视图卡片头部 */
+.product-card-view .product-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+/* 卡片视图卡片标题 */
+.product-card-view .product-mobile-card__title {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 卡片视图卡片副标题 */
+.product-card-view .product-mobile-card__sub {
+  overflow: hidden;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 卡片视图卡片元数据 */
+.product-card-view .product-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+/* 卡片视图卡片元数据项 */
+.product-card-view .product-mobile-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+  padding: 0.2rem 0.58rem;
+  border-radius: var(--radius-pill);
+  background: rgba(78, 89, 105, 0.08);
+  color: var(--text-caption);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* 卡片视图卡片信息 */
+.product-card-view .product-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+}
+
+/* 卡片视图卡片字段 */
+.product-card-view .product-mobile-card__field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+/* 卡片视图卡片字段标签 */
+.product-card-view .product-mobile-card__field span {
+  color: var(--text-caption-2);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* 卡片视图卡片字段值 */
+.product-card-view .product-mobile-card__field strong {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.52;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 卡片视图卡片操作 */
+.product-card-view .product-mobile-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  justify-content: flex-start;
+}
+
+/* 卡片视图卡片操作按钮 */
+.product-card-view .product-mobile-card__actions :deep(.el-button) {
+  margin-left: 0;
+  padding-inline: 0.1rem;
+}
+
+/* 响应式卡片视图 */
 .product-mobile-list {
   display: none;
   margin-bottom: 0.72rem;
