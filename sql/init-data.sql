@@ -124,7 +124,7 @@ INSERT INTO sys_menu (
     (93000001, 1, 0, '接入智维', 'iot-access', '', 'Layout', 'connection', '{"description":"资产、链路与异常观测","menuTitle":"接入智维","menuHint":"覆盖产品定义、设备资产、链路验证、异常观测与数据校验。"}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -153,7 +153,9 @@ INSERT INTO sys_menu (
     (93003004, 1, 93000003, '区域版图', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护"}', 45, 1, 1, '/region', 'system:region', 45, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003005, 1, 93000003, '数据字典', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置"}', 46, 1, 1, '/dict', 'system:dict', 46, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003006, 1, 93000003, '通知编排', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 48, 1, 1, '/audit-log', 'system:audit', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003010, 1, 93000003, '站内消息', 'system:in-app-message', '/in-app-message', 'InAppMessageView', 'bell', '{"caption":"通知中心站内消息的分类、范围与时间窗口编排"}', 48, 1, 1, '/in-app-message', 'system:in-app-message', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 51, 1, 1, '/automation-test', 'system:automation-test', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -176,7 +178,13 @@ INSERT INTO sys_menu (
     (93003203, 1, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限"}', 3303, 2, 2, '', 'system:role:delete', 3303, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003301, 1, 93003008, '新增菜单', 'system:menu:add', '', '', '', '{"caption":"新增菜单按钮权限"}', 3801, 2, 2, '', 'system:menu:add', 3801, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003302, 1, 93003008, '编辑菜单', 'system:menu:update', '', '', '', '{"caption":"编辑菜单按钮权限"}', 3802, 2, 2, '', 'system:menu:update', 3802, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003303, 1, 93003008, '删除菜单', 'system:menu:delete', '', '', '', '{"caption":"删除菜单按钮权限"}', 3803, 2, 2, '', 'system:menu:delete', 3803, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003303, 1, 93003008, '删除菜单', 'system:menu:delete', '', '', '', '{"caption":"删除菜单按钮权限"}', 3803, 2, 2, '', 'system:menu:delete', 3803, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003401, 1, 93003010, '新增站内消息', 'system:in-app-message:add', '', '', '', '{"caption":"新增站内消息按钮权限"}', 3901, 2, 2, '', 'system:in-app-message:add', 3901, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003402, 1, 93003010, '编辑站内消息', 'system:in-app-message:update', '', '', '', '{"caption":"编辑站内消息按钮权限"}', 3902, 2, 2, '', 'system:in-app-message:update', 3902, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003403, 1, 93003010, '删除站内消息', 'system:in-app-message:delete', '', '', '', '{"caption":"删除站内消息按钮权限"}', 3903, 2, 2, '', 'system:in-app-message:delete', 3903, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003501, 1, 93003011, '新增帮助文档', 'system:help-doc:add', '', '', '', '{"caption":"新增帮助文档按钮权限"}', 4001, 2, 2, '', 'system:help-doc:add', 4001, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003502, 1, 93003011, '编辑帮助文档', 'system:help-doc:update', '', '', '', '{"caption":"编辑帮助文档按钮权限"}', 4002, 2, 2, '', 'system:help-doc:update', 4002, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -253,6 +261,14 @@ VALUES
     (96010054, 1, @role_management_id, 93001012, 1, NOW(), 1, NOW(), 0),
     (96010055, 1, @role_management_id, 93001013, 1, NOW(), 1, NOW(), 0),
     (96010056, 1, @role_management_id, 93001014, 1, NOW(), 1, NOW(), 0),
+    (96010131, 1, @role_management_id, 93003010, 1, NOW(), 1, NOW(), 0),
+    (96010132, 1, @role_management_id, 93003011, 1, NOW(), 1, NOW(), 0),
+    (96010133, 1, @role_management_id, 93003401, 1, NOW(), 1, NOW(), 0),
+    (96010134, 1, @role_management_id, 93003402, 1, NOW(), 1, NOW(), 0),
+    (96010135, 1, @role_management_id, 93003403, 1, NOW(), 1, NOW(), 0),
+    (96010136, 1, @role_management_id, 93003501, 1, NOW(), 1, NOW(), 0),
+    (96010137, 1, @role_management_id, 93003502, 1, NOW(), 1, NOW(), 0),
+    (96010138, 1, @role_management_id, 93003503, 1, NOW(), 1, NOW(), 0),
 
     (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -536,6 +552,84 @@ ON DUPLICATE KEY UPDATE
     status = VALUES(status),
     sort_no = VALUES(sort_no),
     remark = VALUES(remark),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
+INSERT INTO sys_in_app_message (
+    id, tenant_id, message_type, priority, title, summary, content, target_type, target_role_codes, target_user_ids,
+    related_path, source_type, source_id, publish_time, expire_time, status, sort_no, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (760101, 1, 'system', 'critical', '系统维护窗口提醒', '今晚 23:00 将执行日志链路维护，请提前完成排障导出。', '平台计划在今晚 23:00 至 23:30 执行日志链路维护。维护期间通知中心、审计中心与异常观测台可能存在短时延迟，请运维与研发同事提前导出必要信息。', 'all', NULL, NULL,
+     '/system-log', 'system_maintenance', 'maintenance-20260321', DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_ADD(NOW(), INTERVAL 7 DAY), 1, 1, 1, NOW(), 1, NOW(), 0),
+    (760102, 1, 'business', 'high', '风险运营日报待确认', '请业务与管理角色在 18:00 前确认今日告警闭环情况。', '风险运营日报已生成，请优先核对今日告警确认率、事件派工状态和待关闭事项。如存在跨班次未闭环问题，请在事件协同台补充反馈。', 'role', 'BUSINESS_STAFF,MANAGEMENT_STAFF', NULL,
+     '/alarm-center', 'daily_report', 'risk-report-20260321', DATE_SUB(NOW(), INTERVAL 6 HOUR), DATE_ADD(NOW(), INTERVAL 2 DAY), 1, 2, 1, NOW(), 1, NOW(), 0),
+    (760103, 1, 'error', 'high', '接入链路异常排查提示', '检测到最近 30 分钟内存在 MQTT 分发失败，请研发和运维优先复核 TraceId。', '系统在最近 30 分钟内检测到 MQTT 分发失败与设备不存在异常。请先在异常观测台定位 system_error，再到链路追踪台按 TraceId 复核上下游日志。', 'role', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN', NULL,
+     '/message-trace', 'system_error', 'mqtt-dispatch-failed', DATE_SUB(NOW(), INTERVAL 20 MINUTE), DATE_ADD(NOW(), INTERVAL 3 DAY), 1, 3, 1, NOW(), 1, NOW(), 0),
+    (760104, 1, 'business', 'medium', '通知编排配置复核', '管理员请复核默认 webhook 渠道是否仍指向有效地址。', '近期已补齐系统异常自动通知能力，请管理员复核默认 webhook 地址、超时时间与 system_error 场景配置，避免真实环境异常无人接收。', 'user', NULL, '1',
+     '/channel', 'governance_task', 'channel-review-admin', DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 5 DAY), 1, 4, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    message_type = VALUES(message_type),
+    priority = VALUES(priority),
+    title = VALUES(title),
+    summary = VALUES(summary),
+    content = VALUES(content),
+    target_type = VALUES(target_type),
+    target_role_codes = VALUES(target_role_codes),
+    target_user_ids = VALUES(target_user_ids),
+    related_path = VALUES(related_path),
+    source_type = VALUES(source_type),
+    source_id = VALUES(source_id),
+    publish_time = VALUES(publish_time),
+    expire_time = VALUES(expire_time),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
+INSERT INTO sys_in_app_message_read (
+    id, tenant_id, message_id, user_id, read_time, create_time, update_time
+)
+SELECT 760201, 1, 760101, @user_admin_id, DATE_SUB(NOW(), INTERVAL 30 MINUTE), NOW(), NOW()
+FROM DUAL
+WHERE @user_admin_id IS NOT NULL
+ON DUPLICATE KEY UPDATE
+    read_time = VALUES(read_time),
+    update_time = NOW();
+
+INSERT INTO sys_in_app_message_read (
+    id, tenant_id, message_id, user_id, read_time, create_time, update_time
+)
+SELECT 760202, 1, 760102, @user_business_demo_id, DATE_SUB(NOW(), INTERVAL 15 MINUTE), NOW(), NOW()
+FROM DUAL
+WHERE @user_business_demo_id IS NOT NULL
+ON DUPLICATE KEY UPDATE
+    read_time = VALUES(read_time),
+    update_time = NOW();
+
+INSERT INTO sys_help_document (
+    id, tenant_id, doc_category, title, summary, content, keywords, related_paths, visible_role_codes,
+    status, sort_no, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (760301, 1, 'business', '告警运营与事件协同业务手册', '面向业务与管理角色的日常闭环指引。', '本手册覆盖告警确认、抑制、关闭，以及事件派工、接收、开始、完成和关闭的基础流程。建议业务与管理角色优先按“告警运营台 -> 事件协同台 -> 运营分析中心”顺序复核每日闭环进度。', '告警,事件,闭环,运营日报', '/alarm-center,/event-disposal,/report-analysis', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+     1, 1, 1, NOW(), 1, NOW(), 0),
+    (760302, 1, 'technical', '接入异常排查与 TraceId 使用说明', '面向运维与研发角色的链路排障资料。', '本资料汇总链路验证中心、异常观测台、链路追踪台的排障路径。遇到 MQTT 订阅失败、消息分发失败、设备不存在等问题时，优先按 TraceId 串联 system_error 审计与设备消息日志。', 'TraceId,排障,MQTT,system_error', '/reporting,/system-log,/message-trace', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
+     1, 2, 1, NOW(), 1, NOW(), 0),
+    (760303, 1, 'faq', '常见问题：产品与设备建档有什么区别', '统一解释产品、设备、父子拓扑和建档顺序。', '产品是接入模板，设备是现场资产实例。新增设备前必须先确定产品身份与协议契约；若存在父设备或网关关系，应在新增、编辑、批量导入或设备更换场景同步维护。', '产品,设备,建档,拓扑,FAQ', '/products,/devices', '',
+     1, 3, 1, NOW(), 1, NOW(), 0),
+    (760304, 1, 'faq', '通知中心与帮助中心如何使用', '说明右上角壳层入口的分类规则与使用方式。', '通知中心按系统事件、业务事件、错误事件聚合站内消息；帮助中心按业务类、技术类、FAQ 汇总资料。后续若接入真实 API，请继续保留当前分类与权限过滤口径。', '通知中心,帮助中心,FAQ,壳层', NULL, '',
+     1, 4, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    doc_category = VALUES(doc_category),
+    title = VALUES(title),
+    summary = VALUES(summary),
+    content = VALUES(content),
+    keywords = VALUES(keywords),
+    related_paths = VALUES(related_paths),
+    visible_role_codes = VALUES(visible_role_codes),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
     update_by = 1,
     update_time = NOW(),
     deleted = 0;

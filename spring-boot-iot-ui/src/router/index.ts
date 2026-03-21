@@ -193,6 +193,18 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/channel')
   },
   {
+    path: '/in-app-message',
+    name: 'in-app-message',
+    component: () => import('../views/InAppMessageView.vue'),
+    meta: routeMeta('/in-app-message')
+  },
+  {
+    path: '/help-doc',
+    name: 'help-doc',
+    component: () => import('../views/HelpDocView.vue'),
+    meta: routeMeta('/help-doc')
+  },
+  {
     path: '/quality-workbench',
     name: 'quality-workbench',
     component: () => import('../views/SectionLandingView.vue'),

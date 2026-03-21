@@ -74,10 +74,9 @@
         <HeaderPopoverPanel
           v-if="showNoticePanel"
           :panel-id="noticePanelId"
+          panel-class="header-popover--notice"
           aria-label="消息通知面板"
-          title="消息通知"
-          subtitle="最近操作与系统提醒"
-          :items="noticePopoverItems"
+          :content="noticePopoverContent"
           @select="openNotice"
         />
       </transition>
@@ -88,9 +87,7 @@
           :panel-id="helpPanelId"
           panel-class="header-popover--help"
           aria-label="帮助中心面板"
-          title="帮助中心"
-          subtitle="常用入口与使用说明"
-          :items="helpPopoverItems"
+          :content="helpPopoverContent"
           @select="openHelp"
         />
       </transition>
@@ -194,9 +191,9 @@ const {
   showHelpPanel,
   noticePanelId,
   helpPanelId,
-  noticePopoverItems,
+  noticePopoverContent,
   unreadNoticeCount,
-  helpPopoverItems,
+  helpPopoverContent,
   commandGroups,
   recentCommandItems,
   openCommandPalette,

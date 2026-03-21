@@ -25,6 +25,9 @@ DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
 
 DROP TABLE IF EXISTS sys_audit_log;
+DROP TABLE IF EXISTS sys_help_document;
+DROP TABLE IF EXISTS sys_in_app_message_read;
+DROP TABLE IF EXISTS sys_in_app_message;
 DROP TABLE IF EXISTS sys_notification_channel;
 DROP TABLE IF EXISTS sys_dict_item;
 DROP TABLE IF EXISTS sys_dict;
@@ -277,6 +280,70 @@ CREATE TABLE sys_notification_channel (
     KEY idx_channel_deleted_sort (deleted, sort_no, id),
     KEY idx_channel_deleted_type_sort (deleted, channel_type, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知渠道表';
+
+CREATE TABLE sys_in_app_message (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    message_type VARCHAR(32) NOT NULL COMMENT '消息类型 system/business/error',
+    priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级 critical/high/medium/low',
+    title VARCHAR(128) NOT NULL COMMENT '消息标题',
+    summary VARCHAR(500) DEFAULT NULL COMMENT '消息摘要',
+    content LONGTEXT DEFAULT NULL COMMENT '消息正文',
+    target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围 all/role/user',
+    target_role_codes VARCHAR(500) DEFAULT NULL COMMENT '目标角色编码，逗号分隔',
+    target_user_ids VARCHAR(500) DEFAULT NULL COMMENT '目标用户ID，逗号分隔',
+    related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',
+    source_type VARCHAR(64) DEFAULT NULL COMMENT '来源类型',
+    source_id VARCHAR(64) DEFAULT NULL COMMENT '来源业务ID',
+    publish_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+    expire_time DATETIME DEFAULT NULL COMMENT '过期时间',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1发布中 0停用',
+    sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
+    PRIMARY KEY (id),
+    KEY idx_in_app_message_deleted_status_time (deleted, status, publish_time, id),
+    KEY idx_in_app_message_deleted_type_time (deleted, message_type, publish_time, id),
+    KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息表';
+
+CREATE TABLE sys_in_app_message_read (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    message_id BIGINT NOT NULL COMMENT '消息ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    read_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '已读时间',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_in_app_message_read_user (tenant_id, message_id, user_id),
+    KEY idx_in_app_message_read_user_time (user_id, read_time, message_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息已读表';
+
+CREATE TABLE sys_help_document (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    doc_category VARCHAR(32) NOT NULL COMMENT '文档分类 business/technical/faq',
+    title VARCHAR(128) NOT NULL COMMENT '文档标题',
+    summary VARCHAR(500) DEFAULT NULL COMMENT '文档摘要',
+    content LONGTEXT NOT NULL COMMENT '文档正文',
+    keywords VARCHAR(500) DEFAULT NULL COMMENT '关键词，逗号分隔',
+    related_paths VARCHAR(500) DEFAULT NULL COMMENT '关联页面路径，逗号分隔',
+    visible_role_codes VARCHAR(500) DEFAULT NULL COMMENT '可见角色编码，逗号分隔',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0停用',
+    sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
+    PRIMARY KEY (id),
+    KEY idx_help_document_deleted_category_sort (deleted, doc_category, sort_no, id),
+    KEY idx_help_document_deleted_status_sort (deleted, status, sort_no, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='帮助文档表';
 
 CREATE TABLE sys_audit_log (
     id BIGINT NOT NULL COMMENT '主键',

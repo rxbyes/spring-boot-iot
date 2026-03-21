@@ -23,11 +23,39 @@ export interface ShellPasswordPayload {
   confirmPassword: string;
 }
 
+export type ShellPopoverTone = 'brand' | 'accent' | 'success' | 'warning' | 'danger' | 'neutral';
+
+export interface ShellPopoverMetric {
+  id: string;
+  label: string;
+  value: string;
+  tone?: ShellPopoverTone;
+}
+
 export interface ShellPopoverItem {
   id: string;
   title: string;
   description: string;
-  path: string;
+  meta?: string;
+  badge?: string;
+  path?: string;
+  tone?: ShellPopoverTone;
+}
+
+export interface ShellPopoverSection {
+  id: string;
+  title: string;
+  description: string;
+  items: ShellPopoverItem[];
+}
+
+export interface ShellPopoverContent {
+  title: string;
+  subtitle: string;
+  summaryTitle: string;
+  summaryDescription: string;
+  metrics: ShellPopoverMetric[];
+  sections: ShellPopoverSection[];
 }
 
 export interface ShellCommandPaletteItem {
@@ -96,9 +124,7 @@ export interface HeaderPopoverPanelProps {
   panelId: string;
   panelClass?: string;
   ariaLabel: string;
-  title: string;
-  subtitle: string;
-  items: ShellPopoverItem[];
+  content: ShellPopoverContent;
 }
 
 export interface ShellCommandPaletteProps {
@@ -163,9 +189,9 @@ export interface ShellHeaderInteractionsState {
   showHelpPanel: Ref<boolean>;
   noticePanelId: string;
   helpPanelId: string;
-  noticePopoverItems: ComputedRef<ShellPopoverItem[]>;
+  noticePopoverContent: ComputedRef<ShellPopoverContent>;
   unreadNoticeCount: ComputedRef<number>;
-  helpPopoverItems: ComputedRef<ShellPopoverItem[]>;
+  helpPopoverContent: ComputedRef<ShellPopoverContent>;
   commandGroups: ComputedRef<ShellCommandPaletteGroup[]>;
   recentCommandItems: ComputedRef<ShellCommandPaletteItem[]>;
   openCommandPalette: () => void;

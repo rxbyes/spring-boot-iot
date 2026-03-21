@@ -1,17 +1,32 @@
 ﻿import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import {
+  getMyInAppMessageUnreadStats,
+  markAllMyInAppMessagesRead,
+  pageMyInAppMessages,
+  type InAppMessageAccessRecord,
+  type InAppMessageUnreadStats
+} from '../api/inAppMessage';
+import {
+  listAccessibleHelpDocuments,
+  type HelpDocumentAccessRecord
+} from '../api/helpDoc';
 import { activityEntries } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import type {
   ShellCommandPaletteGroup,
   ShellCommandPaletteItem,
   ShellHeaderInteractionsOptions,
-  ShellHeaderInteractionsState,
-  ShellPopoverItem
+  ShellHeaderInteractionsState
 } from '../types/shell';
-import { formatDateTime } from '../utils/format';
 import { normalizeOptionalRoutePath } from '../utils/routePath';
+import {
+  buildShellHelpPopoverContentFromApi,
+  buildShellHelpPopoverContent,
+  buildShellNoticePopoverContentFromApi,
+  buildShellNoticePopoverContent
+} from '../utils/shellPanelContent';
 import {
   getWorkspaceCommandEntryByPath,
   sortByPreferredPaths,
@@ -20,13 +35,6 @@ import {
 } from '../utils/sectionWorkspaces';
 
 type CommandSearchEntry = WorkspaceCommandEntry & { searchText: string };
-
-const helpItems = [
-  { label: '平台首页', caption: '查看系统总览和业务入口', path: '/' },
-  { label: '链路验证中心', caption: '验证 HTTP 上报与链路解析', path: '/reporting' },
-  { label: '风险策略', caption: '进入对象、阈值与联动配置总览', path: '/risk-config' },
-  { label: '角色权限', caption: '维护角色与权限关系', path: '/role' }
-];
 
 export function useShellHeaderInteractions({
   headerRef,
@@ -42,46 +50,77 @@ export function useShellHeaderInteractions({
   const showNoticePanel = ref(false);
   const showHelpPanel = ref(false);
   const readNoticeIds = ref<string[]>([]);
+  const remoteNoticeMessages = ref<InAppMessageAccessRecord[]>([]);
+  const remoteNoticeStats = ref<InAppMessageUnreadStats | null>(null);
+  const remoteNoticeLoaded = ref(false);
+  const remoteHelpDocuments = ref<HelpDocumentAccessRecord[]>([]);
+  const remoteHelpLoaded = ref(false);
   const noticePanelId = 'header-notice-panel';
   const helpPanelId = 'header-help-panel';
+  const allowedPathSignature = computed(() => [...(permissionStore.allowedPaths || [])].sort().join('|'));
+  let remoteNoticeRequestId = 0;
+  let remoteHelpRequestId = 0;
 
-  const noticeItems = computed(() => {
-    const fromActivity = activityEntries.value.slice(0, 4).map((item) => ({
-      id: item.id,
-      title: item.title || [item.module, item.action].filter(Boolean).join(' · ') || '最近操作',
-      time: formatDateTime(item.createdAt),
-      path: item.path || route.path
-    }));
-
-    if (fromActivity.length > 0) {
-      return fromActivity;
-    }
-
-    return [
-      { id: 'notice-1', title: '系统导航已升级为统一控制台样式', time: '刚刚', path: '/' },
-      { id: 'notice-2', title: '按钮权限仍按数据库角色授权控制', time: '刚刚', path: '/role' },
-      { id: 'notice-3', title: '右上角头像已收口账号信息与安全操作', time: '刚刚', path: route.path }
-    ];
-  });
-
-  const noticePopoverItems = computed<ShellPopoverItem[]>(() =>
-    noticeItems.value.map((item) => ({
-      id: item.id,
-      title: item.title,
-      description: item.time,
-      path: item.path
-    }))
+  const fallbackNoticePopoverContent = computed(() =>
+    buildShellNoticePopoverContent({
+      roleProfile: permissionStore.roleProfile,
+      homePath: permissionStore.homePath || '/',
+      currentPath: route.path,
+      activeGroup: activeGroup.value,
+      allowedPaths: permissionStore.allowedPaths || [],
+      activities: activityEntries.value
+    })
   );
 
-  const unreadNoticeCount = computed(() => noticeItems.value.filter((item) => !readNoticeIds.value.includes(item.id)).length);
+  const noticePopoverContent = computed(() =>
+    remoteNoticeLoaded.value
+      ? buildShellNoticePopoverContentFromApi({
+          roleProfile: permissionStore.roleProfile,
+          homePath: permissionStore.homePath || '/',
+          currentPath: route.path,
+          activeGroup: activeGroup.value,
+          allowedPaths: permissionStore.allowedPaths || [],
+          activities: activityEntries.value
+        }, remoteNoticeMessages.value, remoteNoticeStats.value)
+      : fallbackNoticePopoverContent.value
+  );
 
-  const helpPopoverItems = computed<ShellPopoverItem[]>(() =>
-    helpItems.map((item, index) => ({
-      id: `help-${index}`,
-      title: item.label,
-      description: item.caption,
-      path: item.path
-    }))
+  const noticeItems = computed(() =>
+    noticePopoverContent.value.sections.flatMap((section) => section.items)
+  );
+
+  const fallbackNoticeItems = computed(() =>
+    fallbackNoticePopoverContent.value.sections.flatMap((section) => section.items)
+  );
+
+  const unreadNoticeCount = computed(() =>
+    remoteNoticeLoaded.value
+      ? remoteNoticeStats.value?.totalUnreadCount ?? remoteNoticeMessages.value.filter((item) => !item.read).length
+      : fallbackNoticeItems.value.filter((item) => !readNoticeIds.value.includes(item.id)).length
+  );
+
+  const fallbackHelpPopoverContent = computed(() =>
+    buildShellHelpPopoverContent({
+      roleProfile: permissionStore.roleProfile,
+      homePath: permissionStore.homePath || '/',
+      currentPath: route.path,
+      activeGroup: activeGroup.value,
+      allowedPaths: permissionStore.allowedPaths || [],
+      activities: activityEntries.value
+    })
+  );
+
+  const helpPopoverContent = computed(() =>
+    remoteHelpLoaded.value
+      ? buildShellHelpPopoverContentFromApi({
+          roleProfile: permissionStore.roleProfile,
+          homePath: permissionStore.homePath || '/',
+          currentPath: route.path,
+          activeGroup: activeGroup.value,
+          allowedPaths: permissionStore.allowedPaths || [],
+          activities: activityEntries.value
+        }, remoteHelpDocuments.value)
+      : fallbackHelpPopoverContent.value
   );
 
   const commandEntries = computed(() => {
@@ -199,13 +238,111 @@ export function useShellHeaderInteractions({
   });
 
   watch(
-    noticeItems,
+    fallbackNoticeItems,
     (items) => {
       const validIds = new Set(items.map((item) => item.id));
       readNoticeIds.value = readNoticeIds.value.filter((id) => validIds.has(id));
     },
     { immediate: true }
   );
+
+  watch(
+    () => `${permissionStore.authContext?.userId || ''}|${allowedPathSignature.value}`,
+    () => {
+      void refreshRemoteNoticeContent();
+    },
+    { immediate: true }
+  );
+
+  watch(
+    () => `${permissionStore.authContext?.userId || ''}|${route.path}|${allowedPathSignature.value}`,
+    () => {
+      void refreshRemoteHelpContent();
+    },
+    { immediate: true }
+  );
+
+  async function refreshRemoteNoticeContent() {
+    const userId = permissionStore.authContext?.userId;
+    if (!userId) {
+      remoteNoticeMessages.value = [];
+      remoteNoticeStats.value = null;
+      remoteNoticeLoaded.value = false;
+      return;
+    }
+
+    const requestId = ++remoteNoticeRequestId;
+    try {
+      const [messageResponse, statsResponse] = await Promise.all([
+        pageMyInAppMessages({ pageNum: 1, pageSize: 6 }),
+        getMyInAppMessageUnreadStats()
+      ]);
+      if (requestId !== remoteNoticeRequestId) {
+        return;
+      }
+      remoteNoticeMessages.value = messageResponse.data.records || [];
+      remoteNoticeStats.value = statsResponse.data;
+      remoteNoticeLoaded.value = true;
+    } catch {
+      if (requestId !== remoteNoticeRequestId) {
+        return;
+      }
+      remoteNoticeMessages.value = [];
+      remoteNoticeStats.value = null;
+      remoteNoticeLoaded.value = false;
+    }
+  }
+
+  async function refreshRemoteHelpContent() {
+    const userId = permissionStore.authContext?.userId;
+    if (!userId) {
+      remoteHelpDocuments.value = [];
+      remoteHelpLoaded.value = false;
+      return;
+    }
+
+    const requestId = ++remoteHelpRequestId;
+    try {
+      const response = await listAccessibleHelpDocuments({
+        currentPath: route.path,
+        limit: 6
+      });
+      if (requestId !== remoteHelpRequestId) {
+        return;
+      }
+      remoteHelpDocuments.value = response.data || [];
+      remoteHelpLoaded.value = true;
+    } catch {
+      if (requestId !== remoteHelpRequestId) {
+        return;
+      }
+      remoteHelpDocuments.value = [];
+      remoteHelpLoaded.value = false;
+    }
+  }
+
+  function markAllRemoteNoticeItemsRead() {
+    if (!remoteNoticeLoaded.value || unreadNoticeCount.value <= 0) {
+      return;
+    }
+    remoteNoticeMessages.value = remoteNoticeMessages.value.map((item) => ({
+      ...item,
+      read: true,
+      readTime: item.readTime || new Date().toISOString()
+    }));
+    if (remoteNoticeStats.value) {
+      remoteNoticeStats.value = {
+        ...remoteNoticeStats.value,
+        totalUnreadCount: 0,
+        systemUnreadCount: 0,
+        businessUnreadCount: 0,
+        errorUnreadCount: 0
+      };
+    }
+    void markAllMyInAppMessagesRead()
+      .then(() => refreshRemoteNoticeContent())
+      .catch(() => refreshRemoteNoticeContent());
+  }
 
   function closeHeaderPanels() {
     showNoticePanel.value = false;
@@ -233,7 +370,11 @@ export function useShellHeaderInteractions({
     const willOpen = !showNoticePanel.value;
     showNoticePanel.value = willOpen;
     if (showNoticePanel.value) {
-      readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...noticeItems.value.map((item) => item.id)]));
+      if (remoteNoticeLoaded.value) {
+        markAllRemoteNoticeItemsRead();
+      } else {
+        readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...fallbackNoticeItems.value.map((item) => item.id)]));
+      }
       showHelpPanel.value = false;
     }
   }
@@ -246,14 +387,20 @@ export function useShellHeaderInteractions({
   }
 
   function openNotice(path: string) {
-    readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...noticeItems.value.map((item) => item.id)]));
+    if (!remoteNoticeLoaded.value) {
+      readNoticeIds.value = Array.from(new Set([...readNoticeIds.value, ...fallbackNoticeItems.value.map((item) => item.id)]));
+    }
     showNoticePanel.value = false;
-    router.push(path);
+    if (path !== route.path) {
+      router.push(path);
+    }
   }
 
   function openHelp(path: string) {
     showHelpPanel.value = false;
-    router.push(path);
+    if (path !== route.path) {
+      router.push(path);
+    }
   }
 
   function handleDocumentPointerDown(event: PointerEvent) {
@@ -309,9 +456,9 @@ export function useShellHeaderInteractions({
     showHelpPanel,
     noticePanelId,
     helpPanelId,
-    noticePopoverItems,
+    noticePopoverContent,
     unreadNoticeCount,
-    helpPopoverItems,
+    helpPopoverContent,
     commandGroups,
     recentCommandItems,
     openCommandPalette,

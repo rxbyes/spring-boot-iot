@@ -106,9 +106,23 @@ describe('useShellOrchestrator', () => {
       showHelpPanel: ref(false),
       noticePanelId: 'notice-panel',
       helpPanelId: 'help-panel',
-      noticePopoverItems: computed(() => []),
+      noticePopoverContent: computed(() => ({
+        title: '通知中心',
+        subtitle: 'subtitle',
+        summaryTitle: 'summary',
+        summaryDescription: 'description',
+        metrics: [],
+        sections: []
+      })),
       unreadNoticeCount: computed(() => 0),
-      helpPopoverItems: computed(() => []),
+      helpPopoverContent: computed(() => ({
+        title: '帮助中心',
+        subtitle: 'subtitle',
+        summaryTitle: 'summary',
+        summaryDescription: 'description',
+        metrics: [],
+        sections: []
+      })),
       commandGroups: computed(() => []),
       recentCommandItems: computed(() => []),
       openCommandPalette: vi.fn(),

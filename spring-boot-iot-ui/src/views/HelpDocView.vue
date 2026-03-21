@@ -1,0 +1,685 @@
+<template>
+  <div class="help-doc-view sys-mgmt-view standard-list-view">
+    <PanelCard class="box-card">
+      <template #header>
+        <div class="card-header help-doc-view__header">
+          <div class="help-doc-view__header-copy">
+            <span>帮助文档管理</span>
+            <small>统一编排业务类、技术类、常见问题资料，并按角色和页面范围过滤给帮助中心。</small>
+          </div>
+          <el-button v-permission="'system:help-doc:add'" type="primary" :icon="Plus" @click="handleAdd">
+            新增文档
+          </el-button>
+        </div>
+      </template>
+
+      <el-form :model="searchForm" label-width="100px" class="search-form">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="文档标题">
+              <el-input
+                v-model="searchForm.title"
+                clearable
+                placeholder="请输入文档标题"
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="文档分类">
+              <el-select v-model="searchForm.docCategory" clearable placeholder="请选择分类">
+                <el-option
+                  v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="searchForm.status" clearable placeholder="请选择状态">
+                <el-option label="启用" :value="1" />
+                <el-option label="停用" :value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="24" class="text-right">
+            <el-form-item label="">
+              <el-button @click="handleReset">重置</el-button>
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
+        <template #right>
+          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+          <el-button link @click="handleRefresh">刷新列表</el-button>
+        </template>
+      </StandardTableToolbar>
+
+      <el-table
+        ref="tableRef"
+        v-loading="loading"
+        :data="tableData"
+        border
+        stripe
+        style="width: 100%"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
+        <StandardTableTextColumn prop="title" label="文档标题" :min-width="220" />
+        <el-table-column prop="docCategory" label="文档分类" width="110">
+          <template #default="{ row }">
+            <el-tag :type="categoryTagType(row.docCategory)">
+              {{ getCategoryLabel(row.docCategory) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="可见角色" :min-width="200">
+          <template #default="{ row }">
+            <span>{{ getRoleSummary(row.visibleRoleCodes) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="关联页面" :min-width="220">
+          <template #default="{ row }">
+            <span>{{ getRelatedPathSummary(row.relatedPaths) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+              {{ row.status === 1 ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+        <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
+        <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
+        <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleView(row)">查看</el-button>
+            <el-button v-permission="'system:help-doc:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button v-permission="'system:help-doc:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <StandardPagination
+        v-model:current-page="pagination.pageNum"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+
+      <StandardDetailDrawer
+        v-model="detailVisible"
+        eyebrow="System Content"
+        :title="detailTitle"
+        :subtitle="detailSubtitle"
+        :tags="detailTags"
+        :empty="!detailRecord"
+      >
+        <section class="detail-panel detail-panel--hero">
+          <div class="detail-section-header">
+            <div>
+              <h3>文档概览</h3>
+              <p>统一预览帮助中心消费的分类、角色范围和页面关联规则。</p>
+            </div>
+          </div>
+          <div class="detail-summary-grid">
+            <article class="detail-summary-card">
+              <span class="detail-summary-card__label">文档分类</span>
+              <strong class="detail-summary-card__value">{{ getCategoryLabel(detailRecord?.docCategory) }}</strong>
+              <p class="detail-summary-card__hint">与壳层 `业务 / 技术 / FAQ` 三类直接对齐</p>
+            </article>
+            <article class="detail-summary-card">
+              <span class="detail-summary-card__label">可见角色</span>
+              <strong class="detail-summary-card__value">{{ detailRoleCount }}</strong>
+              <p class="detail-summary-card__hint">{{ detailRoleSummary }}</p>
+            </article>
+            <article class="detail-summary-card">
+              <span class="detail-summary-card__label">关联页面</span>
+              <strong class="detail-summary-card__value">{{ detailPathCount }}</strong>
+              <p class="detail-summary-card__hint">{{ detailPathSummary }}</p>
+            </article>
+            <article class="detail-summary-card">
+              <span class="detail-summary-card__label">排序</span>
+              <strong class="detail-summary-card__value">{{ detailRecord?.sortNo ?? 0 }}</strong>
+              <p class="detail-summary-card__hint">当前状态：{{ detailRecord?.status === 1 ? '启用' : '停用' }}</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>检索与范围</h3>
+              <p>帮助中心会按 `visibleRoleCodes + relatedPaths + currentPath` 过滤与排序文档。</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">关键词</span>
+              <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailRecord?.keywords) }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">可见角色</span>
+              <strong class="detail-field__value">{{ detailRoleSummary }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">关联页面</span>
+              <strong class="detail-field__value detail-field__value--plain">{{ detailPathSummary }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>文档正文</h3>
+              <p>摘要用于帮助中心列表卡片，正文用于后续扩展详情页与检索增强。</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">摘要</span>
+              <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailRecord?.summary) }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">正文</span>
+              <div class="detail-field__value detail-field__value--pre">{{ formatValue(detailRecord?.content) }}</div>
+            </div>
+          </div>
+        </section>
+      </StandardDetailDrawer>
+
+      <StandardFormDrawer
+        v-model="dialogVisible"
+        eyebrow="System Form"
+        :title="dialogTitle"
+        subtitle="统一通过右侧抽屉维护帮助中心消费的文档编排。"
+        size="56rem"
+        @close="handleDialogClose"
+      >
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          title="帮助文档分类必须继续保持 business / technical / faq；帮助中心会按当前页面路径提升关联资料排序。"
+        />
+
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="110px" class="help-doc-view__form">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="文档标题" prop="title">
+                <el-input v-model="formData.title" placeholder="请输入文档标题" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="文档分类" prop="docCategory">
+                <el-select v-model="formData.docCategory" placeholder="请选择分类">
+                  <el-option
+                    v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="状态" prop="status">
+                <el-radio-group v-model="formData.status">
+                  <el-radio :value="1">启用</el-radio>
+                  <el-radio :value="0">停用</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="排序">
+                <el-input-number v-model="formData.sortNo" :min="0" :max="999" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="文档摘要">
+            <el-input v-model="formData.summary" type="textarea" :rows="2" placeholder="用于帮助中心摘要展示" />
+          </el-form-item>
+          <el-form-item label="文档正文" prop="content">
+            <el-input v-model="formData.content" type="textarea" :rows="8" placeholder="请输入完整帮助内容" />
+          </el-form-item>
+          <el-form-item label="关键词">
+            <el-input
+              v-model="formData.keywords"
+              placeholder="多个关键词用英文逗号分隔，例如 告警,事件,FAQ"
+            />
+          </el-form-item>
+          <el-form-item label="可见角色">
+            <el-select
+              v-model="formData.visibleRoleCodes"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="不选则默认全角色可见"
+            >
+              <el-option
+                v-for="role in roleOptions"
+                :key="role.roleCode"
+                :label="`${role.roleName} (${role.roleCode})`"
+                :value="role.roleCode"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关联页面">
+            <el-select
+              v-model="formData.relatedPaths"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="不选则不限制页面范围"
+            >
+              <el-option
+                v-for="item in pathOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+
+        <template #footer>
+          <StandardDrawerFooter :confirm-loading="submitLoading" @cancel="dialogVisible = false" @confirm="handleSubmit" />
+        </template>
+      </StandardFormDrawer>
+    </PanelCard>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import {
+  HELP_DOC_CATEGORY_OPTIONS,
+  addHelpDocument,
+  deleteHelpDocument,
+  getHelpDocument,
+  pageHelpDocuments,
+  updateHelpDocument,
+  type HelpDocCategory,
+  type HelpDocumentRecord
+} from '@/api/helpDoc'
+import { listRoles, type Role } from '@/api/role'
+import PanelCard from '@/components/PanelCard.vue'
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
+import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
+import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
+import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import { useServerPagination } from '@/composables/useServerPagination'
+import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
+import type { IdType } from '@/types/api'
+
+interface SearchFormState {
+  title: string
+  docCategory: HelpDocCategory | undefined
+  status: number | undefined
+}
+
+interface HelpDocFormState {
+  id?: IdType
+  docCategory: HelpDocCategory
+  title: string
+  summary: string
+  content: string
+  keywords: string
+  relatedPaths: string[]
+  visibleRoleCodes: string[]
+  status: number
+  sortNo: number
+}
+
+const formRef = ref()
+const tableRef = ref()
+const loading = ref(false)
+const submitLoading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增帮助文档')
+const detailVisible = ref(false)
+const detailRecord = ref<HelpDocumentRecord | null>(null)
+const tableData = ref<HelpDocumentRecord[]>([])
+const selectedRows = ref<HelpDocumentRecord[]>([])
+const roleOptions = ref<Role[]>([])
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
+
+const searchForm = reactive<SearchFormState>({
+  title: '',
+  docCategory: undefined,
+  status: undefined
+})
+
+const pathOptions = listWorkspaceCommandEntries()
+  .filter((item) => item.type === 'page')
+  .map((item) => ({
+    value: item.path,
+    label: `${item.workspaceLabel} / ${item.title}`
+  }))
+
+const formData = reactive<HelpDocFormState>(createEmptyForm())
+
+const roleLabelMap = computed(() => new Map(roleOptions.value.map((item) => [item.roleCode, item.roleName])))
+const pathLabelMap = computed(() => new Map(pathOptions.map((item) => [item.value, item.label])))
+
+const formRules = {
+  title: [{ required: true, message: '请输入文档标题', trigger: 'blur' }],
+  docCategory: [{ required: true, message: '请选择文档分类', trigger: 'change' }],
+  content: [{ required: true, message: '请输入文档正文', trigger: 'blur' }]
+}
+
+const detailTitle = computed(() => detailRecord.value?.title || '帮助文档详情')
+const detailSubtitle = computed(() => detailRecord.value?.summary || '统一预览帮助中心消费的角色范围、页面范围和文档正文。')
+const detailTags = computed(() => {
+  if (!detailRecord.value) {
+    return []
+  }
+  return [
+    { label: getCategoryLabel(detailRecord.value.docCategory), type: categoryTagType(detailRecord.value.docCategory) },
+    { label: detailRecord.value.status === 1 ? '启用中' : '已停用', type: detailRecord.value.status === 1 ? 'success' : 'danger' }
+  ]
+})
+const detailRoleSummary = computed(() => getRoleSummary(detailRecord.value?.visibleRoleCodes))
+const detailPathSummary = computed(() => getRelatedPathSummary(detailRecord.value?.relatedPaths))
+const detailRoleCount = computed(() => {
+  const count = splitCsvValue(detailRecord.value?.visibleRoleCodes).length
+  return count > 0 ? `${count} 个角色` : '全角色'
+})
+const detailPathCount = computed(() => {
+  const count = splitCsvValue(detailRecord.value?.relatedPaths).length
+  return count > 0 ? `${count} 个页面` : '不限制'
+})
+
+function createEmptyForm(): HelpDocFormState {
+  return {
+    id: undefined,
+    docCategory: 'business',
+    title: '',
+    summary: '',
+    content: '',
+    keywords: '',
+    relatedPaths: [],
+    visibleRoleCodes: [],
+    status: 1,
+    sortNo: 0
+  }
+}
+
+function resetForm() {
+  Object.assign(formData, createEmptyForm())
+}
+
+function splitCsvValue(value?: string | null): string[] {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function formatValue(value?: string | null) {
+  const content = String(value || '').trim()
+  return content || '--'
+}
+
+function getCategoryLabel(value?: string | null) {
+  return HELP_DOC_CATEGORY_OPTIONS.find((item) => item.value === value)?.label || '--'
+}
+
+function categoryTagType(value?: string | null): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
+  if (value === 'business') {
+    return 'primary'
+  }
+  if (value === 'technical') {
+    return 'warning'
+  }
+  if (value === 'faq') {
+    return 'success'
+  }
+  return 'info'
+}
+
+function getRoleSummary(value?: string | null) {
+  const roleCodes = splitCsvValue(value)
+  if (roleCodes.length === 0) {
+    return '全角色可见'
+  }
+  return roleCodes.map((code) => roleLabelMap.value.get(code) || code).join('、')
+}
+
+function getRelatedPathSummary(value?: string | null) {
+  const paths = splitCsvValue(value)
+  if (paths.length === 0) {
+    return '不限制页面范围'
+  }
+  return paths.map((path) => pathLabelMap.value.get(path) || path).join('、')
+}
+
+function buildPayload() {
+  return {
+    id: formData.id,
+    docCategory: formData.docCategory,
+    title: formData.title.trim(),
+    summary: formData.summary.trim() || undefined,
+    content: formData.content.trim(),
+    keywords: formData.keywords.trim() || undefined,
+    relatedPaths: formData.relatedPaths.length > 0 ? formData.relatedPaths.join(',') : undefined,
+    visibleRoleCodes: formData.visibleRoleCodes.length > 0 ? formData.visibleRoleCodes.join(',') : undefined,
+    status: formData.status,
+    sortNo: formData.sortNo
+  }
+}
+
+async function loadRoleOptions() {
+  try {
+    const response = await listRoles({ status: 1 })
+    if (response.code === 200 && response.data) {
+      roleOptions.value = response.data
+    }
+  } catch (error) {
+    console.error('加载角色列表失败', error)
+  }
+}
+
+async function loadHelpDocPage() {
+  loading.value = true
+  try {
+    const response = await pageHelpDocuments({
+      title: searchForm.title || undefined,
+      docCategory: searchForm.docCategory,
+      status: searchForm.status,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize
+    })
+    if (response.code === 200 && response.data) {
+      tableData.value = applyPageResult(response.data)
+    }
+  } catch (error) {
+    console.error('获取帮助文档分页失败', error)
+    ElMessage.error((error as Error).message || '获取帮助文档分页失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function clearSelection() {
+  selectedRows.value = []
+  tableRef.value?.clearSelection?.()
+}
+
+function handleSelectionChange(rows: HelpDocumentRecord[]) {
+  selectedRows.value = rows
+}
+
+function handleSearch() {
+  resetPage()
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleReset() {
+  searchForm.title = ''
+  searchForm.docCategory = undefined
+  searchForm.status = undefined
+  handleSearch()
+}
+
+function handlePageChange(page: number) {
+  setPageNum(page)
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleSizeChange(pageSize: number) {
+  setPageSize(pageSize)
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleRefresh() {
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleDialogClose() {
+  resetForm()
+  formRef.value?.clearValidate?.()
+}
+
+function handleAdd() {
+  dialogTitle.value = '新增帮助文档'
+  resetForm()
+  dialogVisible.value = true
+}
+
+function handleView(row: HelpDocumentRecord) {
+  detailRecord.value = row
+  detailVisible.value = true
+}
+
+async function handleEdit(row: HelpDocumentRecord) {
+  try {
+    const response = await getHelpDocument(row.id!)
+    if (response.code !== 200 || !response.data) {
+      ElMessage.error('加载帮助文档详情失败')
+      return
+    }
+    const record = response.data
+    dialogTitle.value = '编辑帮助文档'
+    Object.assign(formData, {
+      id: record.id,
+      docCategory: record.docCategory || 'business',
+      title: record.title || '',
+      summary: record.summary || '',
+      content: record.content || '',
+      keywords: record.keywords || '',
+      relatedPaths: splitCsvValue(record.relatedPaths),
+      visibleRoleCodes: splitCsvValue(record.visibleRoleCodes),
+      status: Number(record.status ?? 1),
+      sortNo: Number(record.sortNo ?? 0)
+    })
+    dialogVisible.value = true
+  } catch (error) {
+    console.error('加载帮助文档详情失败', error)
+    ElMessage.error((error as Error).message || '加载帮助文档详情失败')
+  }
+}
+
+async function handleDelete(row: HelpDocumentRecord) {
+  try {
+    await confirmDelete(`确定删除帮助文档“${row.title}”吗？删除后帮助中心将不再返回该资料。`)
+    await deleteHelpDocument(row.id!)
+    ElMessage.success('删除成功')
+    clearSelection()
+    loadHelpDocPage()
+  } catch (error) {
+    if (!isConfirmCancelled(error)) {
+      console.error('删除帮助文档失败', error)
+      ElMessage.error((error as Error).message || '删除帮助文档失败')
+    }
+  }
+}
+
+async function handleSubmit() {
+  try {
+    await formRef.value?.validate?.()
+    submitLoading.value = true
+    const payload = buildPayload()
+    if (formData.id) {
+      await updateHelpDocument(payload)
+      ElMessage.success('更新成功')
+    } else {
+      await addHelpDocument(payload)
+      ElMessage.success('新增成功')
+    }
+    dialogVisible.value = false
+    clearSelection()
+    loadHelpDocPage()
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('提交帮助文档失败', error)
+      ElMessage.error(error.message || '提交帮助文档失败')
+    }
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadHelpDocPage()
+  loadRoleOptions()
+})
+</script>
+
+<style scoped>
+.help-doc-view__header {
+  align-items: flex-start;
+}
+
+.help-doc-view__header-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.help-doc-view__header-copy small {
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.help-doc-view__form {
+  margin-top: 1rem;
+}
+
+.help-doc-view__form :deep(.el-alert) {
+  margin-bottom: 1rem;
+}
+
+.detail-field__value--pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+</style>
