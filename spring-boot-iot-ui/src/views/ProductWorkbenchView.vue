@@ -622,7 +622,9 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import { productApi } from '@/api/product'
+import { deviceApi } from '@/api/device'
 import { ElMessageBox } from 'element-plus'
 import { useServerPagination } from '@/composables/useServerPagination'
 import type { PageResult, Product, ProductAddPayload } from '@/types/api'
@@ -708,6 +710,17 @@ const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+
+// 设备列表抽屉相关状态
+const deviceListDrawerVisible = ref(false)
+const deviceListData = ref<Product[]>([])
+const deviceListTotal = ref(0)
+const deviceListOnlineCount = ref(0)
+const deviceListOfflineCount = ref(0)
+const devicesLoading = ref(false)
+
+// 当前选择的产品
+const currentProduct = ref<Product | null>(null)
 const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
 const listRefreshMessage = ref('')
@@ -1892,6 +1905,40 @@ function handleJumpToDevices(row?: Product | null) {
       productKey: row.productKey
     }
   })
+}
+
+// 打开设备列表抽屉
+function handleOpenDeviceListDrawer(row: Product) {
+  currentProduct.value = row
+  deviceListDrawerVisible.value = true
+  void loadDeviceList(row.productKey)
+}
+
+// 加载设备列表
+async function loadDeviceList(productKey: string) {
+  devicesLoading.value = true
+  try {
+    const res = await deviceApi.pageDevices({
+      productKey,
+      pageNum: 1,
+      pageSize: 100
+    })
+    if (res.code === 200 && res.data) {
+      const devices = res.data.records || []
+      deviceListData.value = devices
+      deviceListTotal.value = res.data.total || 0
+      deviceListOnlineCount.value = devices.filter((d) => d.onlineStatus === 1).length
+      deviceListOfflineCount.value = devices.filter((d) => d.onlineStatus !== 1).length
+    }
+  } catch (error) {
+    console.error('获取设备列表失败', error)
+    deviceListData.value = []
+    deviceListTotal.value = 0
+    deviceListOnlineCount.value = 0
+    deviceListOfflineCount.value = 0
+  } finally {
+    devicesLoading.value = false
+  }
 }
 
 async function handleBatchCommand(command: string, rows: Product[]) {
