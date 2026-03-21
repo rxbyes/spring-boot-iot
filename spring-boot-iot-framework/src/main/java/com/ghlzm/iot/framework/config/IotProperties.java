@@ -223,6 +223,15 @@ public class IotProperties {
         private Boolean systemErrorNotifyEnabled = Boolean.FALSE;
         private Integer notificationTimeoutMs = 3000;
         private Integer systemErrorNotifyCooldownSeconds = 300;
+        private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
+
+        @Data
+        public static class InAppUnreadBridge {
+            private Boolean enabled = Boolean.FALSE;
+            private Integer scanIntervalSeconds = 60;
+            private Integer highThresholdMinutes = 30;
+            private Integer criticalThresholdMinutes = 10;
+        }
     }
 
     @Data

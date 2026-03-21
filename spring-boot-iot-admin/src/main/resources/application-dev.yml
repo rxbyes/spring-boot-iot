@@ -99,5 +99,15 @@ iot:
       orange: 10
       red: 20
 
+  observability:
+    system-error-notify-enabled: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED:false}
+    notification-timeout-ms: ${IOT_OBSERVABILITY_NOTIFICATION_TIMEOUT_MS:3000}
+    system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
+    in-app-unread-bridge:
+      enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:false}
+      scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}
+      high-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_HIGH_THRESHOLD_MINUTES:30}
+      critical-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_CRITICAL_THRESHOLD_MINUTES:10}
+
   ota:
     enabled: false

@@ -240,9 +240,13 @@
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item v-permission="'iot:devices:replace'" command="replace">更换</el-dropdown-item>
-                        <el-dropdown-item command="insight">洞察</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:devices:delete'" command="delete">删除</el-dropdown-item>
+                        <el-dropdown-item
+                          v-for="action in deviceRowActions"
+                          :key="action.command"
+                          :command="action.command"
+                        >
+                          {{ action.label }}
+                        </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -292,9 +296,13 @@
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item v-permission="'iot:devices:replace'" command="replace">更换</el-dropdown-item>
-                        <el-dropdown-item command="insight">洞察</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:devices:delete'" command="delete">删除</el-dropdown-item>
+                        <el-dropdown-item
+                          v-for="action in deviceRowActions"
+                          :key="action.command"
+                          :command="action.command"
+                        >
+                          {{ action.label }}
+                        </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -781,6 +789,7 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { usePermissionStore } from '@/stores/permission'
 import type {
   Device,
   DeviceAddPayload,
@@ -847,8 +856,15 @@ interface DevicePageLoadOptions {
   silentMessage?: string
 }
 
+interface DeviceRowAction {
+  command: 'replace' | 'insight' | 'delete'
+  label: string
+  permission?: string
+}
+
 const route = useRoute()
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -994,6 +1010,13 @@ const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) =
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
 const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const deviceRowActions = computed<DeviceRowAction[]>(() =>
+  [
+    { command: 'replace', label: '更换', permission: 'iot:devices:replace' },
+    { command: 'insight', label: '洞察' },
+    { command: 'delete', label: '删除', permission: 'iot:devices:delete' }
+  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+)
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {

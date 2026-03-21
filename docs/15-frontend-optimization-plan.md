@@ -1,5 +1,113 @@
 ﻿# spring-boot-iot-ui 优化方案
 
+## 2026-03-22 更广域控制台巡检补充
+
+- 巡检入口：
+  - 前端使用本地 Vite：`http://127.0.0.1:4175`
+  - 后端代理目标：`http://127.0.0.1:9999`
+  - 登录账号：`admin`
+- 巡检范围：
+  - 按路由批量抽查 `31` 个页面，覆盖 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大分区，以及各分区 landing 页和主要治理页。
+  - 抽查路由包括：`/products`、`/devices`、`/reporting`、`/alarm-center`、`/event-disposal`、`/risk-point`、`/rule-definition`、`/linkage-rule`、`/emergency-plan`、`/report-analysis`、`/organization`、`/user`、`/role`、`/menu`、`/region`、`/dict`、`/channel`、`/in-app-message`、`/help-doc`、`/automation-test`、`/audit-log` 等。
+- 当前结论：
+  - 在完成 `P1` 下拉权限 warning 和 `P2` radio 废弃 API warning 清理后，本轮批量复扫的 `31` 个页面未再复现前端 `warning` 或页面级 `error`。
+  - 说明当前主要工作台和治理页的控制台噪音已明显收敛，现阶段不再存在可稳定复现的“整页级前端 warning backlog”。
+- 仍需记录的非业务噪音：
+  - `GET /favicon.ico 404`
+  - 触发条件：新开浏览器会话首次访问本地 Vite 页面时偶发出现在控制台。
+  - 根因判断：`spring-boot-iot-ui/index.html` 当前未声明 favicon，开发服务器也没有提供对应静态资源；这是浏览器默认请求导致的静态资源缺失，不影响业务交互。
+  - 优先级：`P3`
+  - 建议动作：后续如需继续收紧开发态噪音，可补一个最小 favicon 资源或在 `index.html` 显式声明占位图标；这属于前端壳层静态资源完善，不属于业务缺陷。
+- 复测备注：
+  - 初次批量脚本曾在 `/rule-definition` 捕获一次 `查询规则列表失败 TypeError: Failed to fetch`。
+  - 随后对 `/rule-definition` 单页做稳定复测后未再复现，页面数据和交互均正常，判断更接近巡检页切换阶段的采样伪阳性，不纳入当前活跃问题台账。
+- 后续规则：
+  - 继续以“批量巡检结果 + 单页复测复现”双重成立作为入台账标准，避免把采样脚本自身的切页干扰误记为页面缺陷。
+  - 新 warning 若只在单次巡检里出现，必须先在对应页面做二次复测，再决定是否进入本文件。
+
+## 2026-03-22 通知渠道桥接场景口径补充
+
+- 调整范围：平台治理 `/channel` 文案示例，以及通知中心相关权威口径同步。
+- 本轮落地内容：
+  - `ChannelView.vue` 的渠道配置提示和示例 JSON 已补齐 `in_app_unread_bridge` 场景说明，与现有 `system_error` 场景并列。
+  - 新示例继续只作为渠道 JSON 的填写参考，不在前端页面内新增任何“桥接规则配置器”或第二套通知中心开关。
+- 新增防回退规则：
+  - `scenes` 的可选值必须与后端自动场景同源维护；当前只允许复用 `system_error` 与 `in_app_unread_bridge`，不要在前端说明中自行扩出未落地场景名。
+  - 通知中心的高优未读桥接属于后端调度能力，前端治理页只负责渠道说明和示例，不承接阈值、去重或重试逻辑。
+
+## 2026-03-22 前端 Warning 归类清单
+
+- 验收入口：前端使用 `npm run acceptance:dev`，实际打开 `http://127.0.0.1:5175`；后端代理目标为 `http://127.0.0.1:9999`。
+- 抽查页面：`/devices`、`/reporting`、`/risk-point`，以及头部壳层 `通知中心 / 帮助中心`。
+- 控制台概况：本轮 Playwright 抽查未出现前端 `error`，但开发态仍累计 `181` 条 `warning`；去重归并后，当前主要收口为 `2` 类。
+- 对帮助中心一期验收的影响：
+  - 不阻断本轮帮助中心真实联调、分页、搜索、详情和角色过滤验收。
+  - 但会抬高开发态噪音，掩盖真实新问题；其中权限指令类 warning 还存在后续组件升级后失效的风险。
+
+### 1. `v-permission` 直接挂在 `el-dropdown-item` 上
+
+- 现象：
+  - 控制台大量重复输出 `Runtime directive used on component with non-element root node. The directives will not function as intended.`
+  - 堆栈主要落在 `ElDropdownItem -> TableTdWrapper -> ElTableBody -> DeviceWorkbenchView`。
+- 当前已定位的触发点：
+  - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - 自定义权限指令：`spring-boot-iot-ui/src/directives/permission.ts`
+- 根因判断：
+  - `v-permission` 当前通过直接改 DOM 的 `display` 来隐藏节点。
+  - `el-dropdown-item` 是组件节点，不保证把指令稳定落到单一原生根元素上；Vue 3 因此给出运行时 warning。
+  - 这类 warning 不是“当前一定坏了”，而是“当前写法依赖实现细节，后续可能失效”。
+- 影响评估：
+  - 优先级：`P1`
+  - 影响面：产品台账、设备台账的“更多”下拉操作；后续若继续把 `v-permission` 用到更多组件型节点，warning 会继续扩散。
+  - 用户影响：当前功能大多仍可用，但存在菜单项隐藏不稳定、组件升级后权限指令失效、控制台噪音掩盖真实告警的风险。
+- 建议动作：
+  - 不再对 `el-dropdown-item` 直接使用 `v-permission`。
+  - 改为在脚本层先按权限过滤可执行 action 列表，再用 `v-for + v-if` 渲染下拉项。
+  - 为 `permission.ts` 补一条使用约束：只允许挂在原生元素或确认具备稳定单根元素的组件上。
+  - 设备页和产品页作为首批整改对象，修完后再全局扫描一次 `v-permission` 的组件节点用法。
+- 建议验收口径：
+  - 打开 `/devices`、`/products` 后，不再出现上述 runtime directive warning。
+  - 无权限账号看不到不该出现的“删除 / 更换”等下拉动作。
+- 2026-03-22 处理进度：
+  - 已完成首批整改：`DeviceWorkbenchView.vue`、`ProductWorkbenchView.vue` 两处“更多”下拉已改为脚本层按权限过滤 action 列表，不再对 `el-dropdown-item` 直接挂 `v-permission`。
+  - `npm run build` 已通过，说明本轮整改未引入新的前端构建错误。
+  - 后续仍需全局复查其他组件型节点上的 `v-permission` 用法，避免同类 warning 在别的页面继续出现。
+
+### 2. Element Plus `el-radio` / `el-radio-button` 旧 API 写法
+
+- 现象：
+  - 控制台出现 `ElementPlusError: [el-radio] [API] label act as value is about to be deprecated in version 3.0.0, please use value instead.`
+- 当前已定位的触发点：
+  - `spring-boot-iot-ui/src/views/ReportWorkbenchView.vue`
+  - 当前使用方式：
+    - `<el-radio-button label="plaintext">`
+    - `<el-radio-button label="encrypted">`
+- 根因判断：
+  - Element Plus 仍兼容 `label` 兼作值，但已明确标记为 `3.0.0` 前废弃。
+  - 当前不是业务 bug，而是典型的升级前兼容 warning。
+- 影响评估：
+  - 优先级：`P2`
+  - 影响面：链路验证中心的“明文上报 / 密文上报”模式切换。
+  - 用户影响：当前功能可用，但后续升级 Element Plus 时会先变成强提醒，再可能演化成真实兼容问题。
+- 建议动作：
+  - 把 `ReportWorkbenchView.vue` 中的 `el-radio-button label=...` 改成 `:value=\"...\"`。
+  - 顺手全局复查 `el-radio-button` / `el-radio` 是否还有 `label` 兼作值的历史写法，避免同类 warning 零散残留。
+- 建议验收口径：
+  - 打开 `/reporting` 后，不再出现 `label act as value` deprecation warning。
+  - `明文上报 / 密文上报` 的模式切换、模板过滤和发送逻辑保持不变。
+- 2026-03-22 处理进度：
+  - 已完成整改：`ReportWorkbenchView.vue` 的 `el-radio-button label=...` 已改为 `value=...`。
+  - 已顺手全局复查当前前端代码中的 `el-radio-button` 用法，当前仅链路验证中心存在这类旧写法，其余页面未再发现同类 `label` 兼作值的问题。
+  - 后续若升级 Element Plus，再继续按同样口径复查新增页面，避免旧写法回流。
+
+### 3. 后续处理顺序
+
+- 第 1 步：先清理 `DeviceWorkbenchView.vue`、`ProductWorkbenchView.vue` 的下拉权限指令写法，优先消掉高频 runtime warning。
+- 第 2 步：已完成，`ReportWorkbenchView.vue` 的 `el-radio-button` 废弃 API 已收口。
+- 第 3 步：重新跑一次前端验收入口，确认控制台 warning 明显收敛，再决定是否继续扩展到其他治理页。
+- 第 4 步：若后续继续发现新 warning，统一追加到本文件，不再让零散控制台截图代替问题台账。
+
 ## 2026-03-22 通知中心生产契约与稳定性治理
 
 - 调整范围：全局壳层 `通知中心`、平台治理 `/in-app-message`，以及通知中心相关后端契约。

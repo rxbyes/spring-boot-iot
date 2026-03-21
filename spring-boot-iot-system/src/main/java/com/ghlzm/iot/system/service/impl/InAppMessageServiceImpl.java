@@ -630,37 +630,10 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         if (message == null || activeUserMap.isEmpty()) {
             return new DeliverySnapshot(0L, 0L, 0L);
         }
-        List<Long> targetUserIds = switch (message.getTargetType()) {
-            case "all" -> activeUserMap.keySet().stream().toList();
-            case "role" -> {
-                Set<String> targetRoles = SystemContentAccessSupport.toUpperCaseSet(
-                        SystemContentAccessSupport.splitCsv(message.getTargetRoleCodes())
-                );
-                yield activeUserMap.keySet().stream()
-                        .filter(userId -> userRoles.getOrDefault(userId, List.of()).stream()
-                                .map(RoleSummaryVO::getRoleCode)
-                                .filter(StringUtils::hasText)
-                                .map(value -> value.toUpperCase(Locale.ROOT))
-                                .anyMatch(targetRoles::contains))
-                        .toList();
-            }
-            case "user" -> SystemContentAccessSupport.splitCsv(message.getTargetUserIds()).stream()
-                    .map(value -> {
-                        try {
-                            return Long.parseLong(value);
-                        } catch (NumberFormatException ex) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .filter(activeUserMap::containsKey)
-                    .distinct()
-                    .toList();
-            default -> List.of();
-        };
+        List<Long> targetUserIds = InAppMessageDeliverySupport.resolveTargetUserIds(message, activeUserMap, userRoles);
         long deliveryCount = targetUserIds.size();
         long readCount = targetUserIds.stream()
-                .filter(userId -> readKeys.contains(buildReadKey(message.getId(), userId)))
+                .filter(userId -> readKeys.contains(InAppMessageDeliverySupport.buildReadKey(message.getId(), userId)))
                 .count();
         return new DeliverySnapshot(deliveryCount, readCount, Math.max(0L, deliveryCount - readCount));
     }
@@ -712,7 +685,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     }
 
     private String buildReadKey(Long messageId, Long userId) {
-        return messageId + ":" + userId;
+        return InAppMessageDeliverySupport.buildReadKey(messageId, userId);
     }
 
     private Long defaultTenantId(Long tenantId) {

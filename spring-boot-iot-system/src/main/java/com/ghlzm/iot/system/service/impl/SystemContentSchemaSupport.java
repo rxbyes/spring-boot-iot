@@ -22,6 +22,8 @@ public class SystemContentSchemaSupport {
 
     static final String SCHEMA_HINT =
             "系统内容依赖表缺失，请先执行 sql/upgrade/20260321_phase5_in_app_message_help_docs.sql，若为旧库升级请继续执行 sql/upgrade/20260322_phase5_notification_center_followup.sql";
+    static final String BRIDGE_SCHEMA_HINT =
+            "站内消息渠道桥接依赖表缺失，请先执行 sql/upgrade/20260322_phase5_notification_channel_bridge.sql";
 
     private static final String TABLE_EXISTS_SQL =
             "SELECT COUNT(1) FROM information_schema.tables "
@@ -33,6 +35,7 @@ public class SystemContentSchemaSupport {
     private static final String HELP_DOCUMENT_TABLE = "sys_help_document";
     private static final String IN_APP_MESSAGE_TABLE = "sys_in_app_message";
     private static final String IN_APP_MESSAGE_READ_TABLE = "sys_in_app_message_read";
+    private static final String IN_APP_MESSAGE_BRIDGE_LOG_TABLE = "sys_in_app_message_bridge_log";
 
     private static final List<String> HELP_DOCUMENT_REQUIRED_COLUMNS = List.of(
             "id",
@@ -86,6 +89,23 @@ public class SystemContentSchemaSupport {
             "create_time",
             "update_time");
 
+    private static final List<String> IN_APP_MESSAGE_BRIDGE_LOG_REQUIRED_COLUMNS = List.of(
+            "id",
+            "tenant_id",
+            "message_id",
+            "channel_code",
+            "bridge_scene",
+            "unread_count",
+            "recipient_snapshot",
+            "bridge_status",
+            "response_status_code",
+            "response_body",
+            "last_attempt_time",
+            "success_time",
+            "attempt_count",
+            "create_time",
+            "update_time");
+
     private final JdbcTemplate jdbcTemplate;
     private final Map<String, TableSnapshot> snapshotCache = new ConcurrentHashMap<>();
 
@@ -105,11 +125,19 @@ public class SystemContentSchemaSupport {
         ensureTableReady(IN_APP_MESSAGE_READ_TABLE, IN_APP_MESSAGE_READ_REQUIRED_COLUMNS);
     }
 
+    public void ensureInAppMessageBridgeLogReady() {
+        ensureTableReady(IN_APP_MESSAGE_BRIDGE_LOG_TABLE, IN_APP_MESSAGE_BRIDGE_LOG_REQUIRED_COLUMNS, BRIDGE_SCHEMA_HINT);
+    }
+
     public void refresh() {
         snapshotCache.clear();
     }
 
     private void ensureTableReady(String tableName, List<String> requiredColumns) {
+        ensureTableReady(tableName, requiredColumns, SCHEMA_HINT);
+    }
+
+    private void ensureTableReady(String tableName, List<String> requiredColumns, String schemaHint) {
         TableSnapshot cachedSnapshot = snapshotCache.computeIfAbsent(tableName, this::loadSnapshot);
         if (isReady(cachedSnapshot, requiredColumns)) {
             return;
@@ -117,22 +145,22 @@ public class SystemContentSchemaSupport {
 
         TableSnapshot refreshedSnapshot = loadSnapshot(tableName);
         snapshotCache.put(tableName, refreshedSnapshot);
-        validateSnapshot(refreshedSnapshot, requiredColumns);
+        validateSnapshot(refreshedSnapshot, requiredColumns, schemaHint);
     }
 
     private boolean isReady(TableSnapshot snapshot, List<String> requiredColumns) {
         return snapshot.exists() && snapshot.columns().containsAll(requiredColumns);
     }
 
-    private void validateSnapshot(TableSnapshot snapshot, List<String> requiredColumns) {
+    private void validateSnapshot(TableSnapshot snapshot, List<String> requiredColumns, String schemaHint) {
         if (!snapshot.exists()) {
-            throw new BizException(SCHEMA_HINT);
+            throw new BizException(schemaHint);
         }
         List<String> missingColumns = requiredColumns.stream()
                 .filter(requiredColumn -> !snapshot.columns().contains(requiredColumn))
                 .toList();
         if (!missingColumns.isEmpty()) {
-            throw new BizException(SCHEMA_HINT + "，缺少列: " + String.join(", ", missingColumns));
+            throw new BizException(schemaHint + "，缺少列: " + String.join(", ", missingColumns));
         }
     }
 

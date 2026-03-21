@@ -1,6 +1,6 @@
 ﻿# 06 前端开发与 CSS 规范
 
-更新时间：2026-03-21
+更新时间：2026-03-22
 
 ## 1. 技术栈与目录
 
@@ -44,6 +44,7 @@
 - 帮助中心“查看更多”必须继续使用 `/api/system/help-doc/access/page` 做服务端分页检索；关键字高亮统一走安全文本切片渲染，不得用 `v-html` 直接拼接高亮 HTML。
 - 2026-03-21 夜间起，平台治理下的 `/in-app-message` 与 `/help-doc` 编排页已成为壳层系统内容的权威维护入口；后续新增消息分类、帮助分类、角色范围或关联页面时，必须继续复用 `system / business / error` 与 `business / technical / faq` 这两组既有口径，不得在编排页再发明第二套命名。
 - `/in-app-message` 当前必须继续复用固定来源类型 `manual / system_error / event_dispatch / work_order / governance`；治理页对系统自动消息只允许“查看或停用”，禁止在前端开放正文任意编辑或删除入口。
+- `/channel` 当前维护的 `config.scenes` 需继续与后端自动场景同源：`system_error` 用于后台异常通知，`in_app_unread_bridge` 用于高优未读阈值后的渠道桥接；前端只负责提示和示例 JSON，不在页面内额外维护第二套桥接规则。
 - 系统内容编排页中的“关联页面”候选项必须优先复用共享 workspace schema 派生结果，不得在页面内再维护另一份私有路由字典，避免帮助中心和命令面板对同一路径出现两套文案。
 - `AppShell` 只通过 `src/composables/useShellOrchestrator.ts` 承接壳层编排；后续若新增壳层交互、导航规则或路由副作用，应优先扩展对应 composable，并最终由 orchestrator 统一装配，不再回到壳层主文件直接拼接多组状态。
 - `useShellHeaderInteractions.ts` 统一承接摘要弹层、列表抽屉、详情抽屉、请求取消、未读统计刷新与抽屉互斥逻辑；路由切换后的浮层收口继续交由 `useShellRouteChangeEffects.ts`，避免壳层回到组件内多点 watch 的旧实现。

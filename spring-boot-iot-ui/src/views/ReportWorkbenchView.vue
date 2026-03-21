@@ -22,10 +22,10 @@
           <div class="field-group" style="grid-column: 1 / -1;">
             <label for="report-mode">上报模式</label>
             <el-radio-group id="report-mode" v-model="reportMode" class="report-mode-group">
-              <el-radio-button label="plaintext">
+              <el-radio-button value="plaintext">
                 明文上报
               </el-radio-button>
-              <el-radio-button label="encrypted">
+              <el-radio-button value="encrypted">
                 密文上报
               </el-radio-button>
             </el-radio-group>

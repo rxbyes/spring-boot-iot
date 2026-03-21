@@ -248,9 +248,14 @@
                       更多
                     </el-button>
                     <template #dropdown>
-                                  <el-dropdown-menu>
-                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-for="action in productRowActions"
+                          :key="action.command"
+                          :command="action.command"
+                        >
+                          {{ action.label }}
+                        </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -302,10 +307,15 @@
                         更多
                       </el-button>
                       <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+                            v-for="action in productRowActions"
+                            :key="action.command"
+                            :command="action.command"
+                          >
+                            {{ action.label }}
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
                       </template>
                     </el-dropdown>
                   </div>
@@ -638,6 +648,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ArrowDown, Bottom, Delete, Grid, List, Top } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -655,6 +666,7 @@ import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { ElMessageBox } from 'element-plus'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { usePermissionStore } from '@/stores/permission'
 import type { PageResult, Product, ProductAddPayload } from '@/types/api'
 import {
   buildProductPageCacheKey,
@@ -727,8 +739,15 @@ type ProductFilterKey = keyof ProductSearchForm
 
 interface ProductFormState extends ProductAddPayload {}
 
+interface ProductRowAction {
+  command: 'devices' | 'delete'
+  label: string
+  permission?: string
+}
+
 const route = useRoute()
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -837,6 +856,12 @@ const disabledProductCount = computed(() => tableData.value.filter((item) => ite
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
 const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const productRowActions = computed<ProductRowAction[]>(() =>
+  [
+    { command: 'devices', label: '查看设备' },
+    { command: 'delete', label: '删除', permission: 'iot:products:delete' }
+  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+)
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()

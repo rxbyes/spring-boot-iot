@@ -117,7 +117,7 @@
           <el-form-item label="配置 JSON" prop="config">
             <el-input v-model="formData.config" type="textarea" :rows="6" :placeholder="configPlaceholder" />
             <div class="form-tip">
-              webhook / 微信 / 飞书 / 钉钉 建议配置 `url`，系统异常自动通知需在 `scenes` 中包含 `system_error`。
+              webhook / 微信 / 飞书 / 钉钉 建议配置 `url`，后台异常需在 `scenes` 中包含 `system_error`，高优未读桥接需包含 `in_app_unread_bridge`。
             </div>
           </el-form-item>
           <el-form-item label="状态" prop="status">
@@ -249,10 +249,10 @@ const formRules = {
 }
 
 const configPlaceholders: Record<string, string> = {
-  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
   email: '{\n  "host": "smtp.example.com",\n  "port": 465,\n  "from": "iot-alert@example.com"\n}',
   sms: '{\n  "provider": "demo",\n  "signName": "spring-boot-iot"\n}'
 }
