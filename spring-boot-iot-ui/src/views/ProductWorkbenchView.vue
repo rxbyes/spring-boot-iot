@@ -712,8 +712,9 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 
 // 设备列表抽屉相关状态
+import type { Device } from '@/types/api'
 const deviceListDrawerVisible = ref(false)
-const deviceListData = ref<Product[]>([])
+const deviceListData = ref<Device[]>([])
 const deviceListTotal = ref(0)
 const deviceListOnlineCount = ref(0)
 const deviceListOfflineCount = ref(0)
@@ -1905,6 +1906,49 @@ function handleJumpToDevices(row?: Product | null) {
       productKey: row.productKey
     }
   })
+}
+
+function handleOpenDeviceListDrawer(row: Product) {
+  currentProduct.value = row
+  deviceListDrawerVisible.value = true
+  void loadDeviceList(row.productKey)
+}
+
+// 加载设备列表
+async function loadDeviceList(productKey: string) {
+  devicesLoading.value = true
+  try {
+    const res = await deviceApi.pageDevices({
+      productKey,
+      pageNum: 1,
+      pageSize: 100
+    })
+    if (res.code === 200 && res.data) {
+      const devices = res.data.records || []
+      deviceListData.value = devices
+      deviceListTotal.value = res.data.total || 0
+      deviceListOnlineCount.value = devices.filter((d: any) => d.onlineStatus === 1).length
+      deviceListOfflineCount.value = devices.filter((d: any) => d.onlineStatus !== 1).length
+    }
+  } catch (error) {
+    console.error('获取设备列表失败', error)
+    deviceListData.value = []
+    deviceListTotal.value = 0
+    deviceListOnlineCount.value = 0
+    deviceListOfflineCount.value = 0
+  } finally {
+    devicesLoading.value = false
+  }
+}
+
+function handleRowAction(command: string | number | object, row: Product) {
+  if (command === 'devices') {
+    handleOpenDeviceListDrawer(row)
+    return
+  }
+  if (command === 'delete') {
+    void handleDelete(row)
+  }
 }
 
 // 打开设备列表抽屉
