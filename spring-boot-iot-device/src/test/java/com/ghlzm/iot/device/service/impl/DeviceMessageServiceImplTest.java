@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.event.DeviceRiskEvaluationEvent;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -16,6 +17,7 @@ import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +59,8 @@ class DeviceMessageServiceImplTest {
     private CommandRecordService commandRecordService;
     @Mock
     private DeviceFileService deviceFileService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -74,7 +78,8 @@ class DeviceMessageServiceImplTest {
                 productModelMapper,
                 commandRecordService,
                 deviceFileService,
-                iotProperties
+                iotProperties,
+                eventPublisher
         );
     }
 
@@ -124,6 +129,11 @@ class DeviceMessageServiceImplTest {
         verify(deviceMapper).updateById(deviceCaptor.capture());
         assertEquals(1, deviceCaptor.getValue().getOnlineStatus());
         assertEquals(1, deviceCaptor.getValue().getActivateStatus());
+
+        ArgumentCaptor<DeviceRiskEvaluationEvent> eventCaptor = ArgumentCaptor.forClass(DeviceRiskEvaluationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertEquals("demo-device-01", eventCaptor.getValue().getDeviceCode());
+        assertEquals("26.5", String.valueOf(eventCaptor.getValue().getProperties().get("temperature")));
     }
 
     @Test
@@ -272,6 +282,7 @@ class DeviceMessageServiceImplTest {
         verify(commandRecordService).markSuccessByCommandId(any(), any(), any());
         verify(devicePropertyMapper, never()).insert(any(DeviceProperty.class));
         verify(devicePropertyMapper, never()).updateById(any(DeviceProperty.class));
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -362,6 +373,11 @@ class DeviceMessageServiceImplTest {
         verify(deviceMapper, times(3)).updateById(deviceCaptor.capture());
         assertEquals(List.of(3001L, 3002L, 3003L),
                 deviceCaptor.getAllValues().stream().map(Device::getId).toList());
+
+        ArgumentCaptor<DeviceRiskEvaluationEvent> eventCaptor = ArgumentCaptor.forClass(DeviceRiskEvaluationEvent.class);
+        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        assertEquals(List.of("84330701", "84330695"),
+                eventCaptor.getAllValues().stream().map(DeviceRiskEvaluationEvent::getDeviceCode).toList());
     }
 
     private DeviceUpMessage buildMessage(String protocolCode,

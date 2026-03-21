@@ -7,6 +7,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
+import com.ghlzm.iot.device.event.DeviceRiskEvaluationEvent;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -24,6 +25,7 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import org.springframework.context.ApplicationEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -66,6 +68,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final IotProperties iotProperties;
+    private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
@@ -75,7 +78,8 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     ProductModelMapper productModelMapper,
                                     CommandRecordService commandRecordService,
                                     DeviceFileService deviceFileService,
-                                    IotProperties iotProperties) {
+                                    IotProperties iotProperties,
+                                    ApplicationEventPublisher eventPublisher) {
         this.deviceMapper = deviceMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -84,6 +88,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
         this.iotProperties = iotProperties;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -145,6 +150,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         deviceFileService.handleFilePayload(device, upMessage);
         updateLatestProperties(device, upMessage);
         updateDeviceOnlineStatus(device, upMessage);
+        publishRiskEvaluationEvent(device, upMessage);
         handleChildMessages(upMessage);
     }
 
@@ -426,6 +432,28 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             update.setActivateStatus(1);
         }
         deviceMapper.updateById(update);
+    }
+
+    private void publishRiskEvaluationEvent(Device device, DeviceUpMessage upMessage) {
+        if (eventPublisher == null || upMessage == null || upMessage.getProperties() == null || upMessage.getProperties().isEmpty()) {
+            return;
+        }
+        Map<String, Object> copiedProperties = new LinkedHashMap<>(upMessage.getProperties());
+        DeviceRiskEvaluationEvent event = new DeviceRiskEvaluationEvent(
+                device.getTenantId(),
+                device.getId(),
+                device.getDeviceCode(),
+                device.getDeviceName(),
+                device.getProductId(),
+                upMessage.getProductKey(),
+                upMessage.getProtocolCode(),
+                upMessage.getMessageType(),
+                upMessage.getTopic(),
+                hasText(upMessage.getTraceId()) ? upMessage.getTraceId() : TraceContextHolder.getTraceId(),
+                upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp(),
+                copiedProperties
+        );
+        eventPublisher.publishEvent(event);
     }
 
     private void handleChildMessages(DeviceUpMessage parentMessage) {

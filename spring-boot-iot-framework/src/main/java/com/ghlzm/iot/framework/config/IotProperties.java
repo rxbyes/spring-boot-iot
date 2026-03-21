@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -199,11 +200,21 @@ public class IotProperties {
     public static class Alarm {
         private Boolean enabled = Boolean.FALSE;
         private Notify notify = new Notify();
+        private AutoClosure autoClosure = new AutoClosure();
 
         @Data
         public static class Notify {
             private Boolean emailEnabled;
             private Boolean webhookEnabled;
+        }
+
+        @Data
+        public static class AutoClosure {
+            private Boolean enabled = Boolean.FALSE;
+            private Integer cooldownMinutes = 30;
+            private BigDecimal yellow = BigDecimal.valueOf(5);
+            private BigDecimal orange = BigDecimal.valueOf(10);
+            private BigDecimal red = BigDecimal.valueOf(20);
         }
     }
 

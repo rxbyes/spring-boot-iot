@@ -248,7 +248,7 @@
                       更多
                     </el-button>
                     <template #dropdown>
-                      <el-dropdown-menu>
+                                  <el-dropdown-menu>
                         <el-dropdown-item command="devices">查看设备</el-dropdown-item>
                         <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
                       </el-dropdown-menu>
@@ -302,10 +302,10 @@
                         更多
                       </el-button>
                       <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                          <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
-                        </el-dropdown-menu>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
+                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
                       </template>
                     </el-dropdown>
                   </div>
@@ -451,6 +451,21 @@
           </div>
         </section>
 
+        <!-- 活跃度统计区段 -->
+        <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
+          <header class="product-detail-zone__header">
+            <span class="product-detail-zone__kicker">设备活跃度</span>
+            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
+          </header>
+          <div class="product-detail-active-grid">
+            <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
+              <span class="product-detail-active-metric__label">{{ metric.label }}</span>
+              <strong class="product-detail-active-metric__value">{{ metric.value }}</strong>
+              <p class="product-detail-active-metric__hint">{{ metric.hint }}</p>
+            </article>
+          </div>
+        </section>
+
         <section class="product-detail-zone product-detail-zone--governance">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">维护与治理</span>
@@ -495,7 +510,7 @@
             type="primary"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
             :disabled="!detailData?.productKey"
-            @click="handleJumpToDevices(detailData)"
+            @click="detailData && handleOpenDeviceListDrawer(detailData)"
           >
             查看设备
           </el-button>
@@ -604,6 +619,19 @@
       :preset-storage-key="exportColumnStorageKey"
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
+    />
+
+    <DeviceListDrawer
+      v-model="deviceListDrawerVisible"
+      :title="currentProduct?.productName || currentProduct?.productKey || '设备列表'"
+      :eyebrow="currentProduct?.productName ? '产品关联设备' : '设备列表'"
+      :devices="deviceListData"
+      :total-devices="deviceListTotal"
+      :online-devices="deviceListOnlineCount"
+      :offline-devices="deviceListOfflineCount"
+      :loading="devicesLoading"
+      :devices-loading="devicesLoading"
+      @view-device="handleViewDevice"
     />
   </div>
 </template>
@@ -995,6 +1023,69 @@ const detailChangeChecklist = computed(() => [
   '再确认协议或物模型变化是否需要新建产品版本。',
   '最后确认调整后不会影响设备建档和上报链路。'
 ])
+
+// 活跃度统计计算属性
+const hasActiveMetrics = computed(() => {
+  if (!detailData.value) return false
+  const hasActiveCount = detailData.value.todayActiveCount != null || detailData.value.sevenDaysActiveCount != null || detailData.value.thirtyDaysActiveCount != null
+  const hasOnlineDuration = detailData.value.avgOnlineDuration != null || detailData.value.maxOnlineDuration != null
+  return hasActiveCount || hasOnlineDuration
+})
+
+const detailActiveMetrics = computed(() => {
+  const metrics: Array<{ key: string; label: string; value: string; hint: string }> = []
+  
+  // 活跃设备数
+  if (detailData.value?.todayActiveCount != null) {
+    metrics.push({
+      key: 'todayActiveCount',
+      label: '今日活跃',
+      value: String(detailData.value.todayActiveCount),
+      hint: '今天上报过数据的设备数量'
+    })
+  }
+  
+  if (detailData.value?.sevenDaysActiveCount != null) {
+    metrics.push({
+      key: 'sevenDaysActiveCount',
+      label: '7日活跃',
+      value: String(detailData.value.sevenDaysActiveCount),
+      hint: '最近7天上报过数据的设备数量'
+    })
+  }
+  
+  if (detailData.value?.thirtyDaysActiveCount != null) {
+    metrics.push({
+      key: 'thirtyDaysActiveCount',
+      label: '30日活跃',
+      value: String(detailData.value.thirtyDaysActiveCount),
+      hint: '最近30天上报过数据的设备数量'
+    })
+  }
+  
+  // 在线时长
+  if (detailData.value?.avgOnlineDuration != null) {
+    const hours = Math.round(detailData.value.avgOnlineDuration / 60)
+    metrics.push({
+      key: 'avgOnlineDuration',
+      label: '平均在线时长',
+      value: `${hours}小时`,
+      hint: '设备平均每次在线时长'
+    })
+  }
+  
+  if (detailData.value?.maxOnlineDuration != null) {
+    const hours = Math.round(detailData.value.maxOnlineDuration / 60)
+    metrics.push({
+      key: 'maxOnlineDuration',
+      label: '最长在线时长',
+      value: `${hours}小时`,
+      hint: '设备单次最长在线时长'
+    })
+  }
+  
+  return metrics
+})
 
 const formRules: FormRules<ProductFormState> = {
   productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }],
@@ -1886,76 +1977,17 @@ function handleEditFromDetail() {
   handleEdit(detailData.value)
 }
 
-function handleRowAction(command: string | number | object, row: Product) {
-  if (command === 'devices') {
-    handleJumpToDevices(row)
-    return
-  }
-  if (command === 'delete') {
-    void handleDelete(row)
-  }
-}
-
-function handleJumpToDevices(row?: Product | null) {
-  if (!row?.productKey) {
-    return
-  }
-  void router.push({
-    path: '/devices',
-    query: {
-      productKey: row.productKey
-    }
-  })
-}
-
-function handleOpenDeviceListDrawer(row: Product) {
-  currentProduct.value = row
-  deviceListDrawerVisible.value = true
-  void loadDeviceList(row.productKey)
-}
-
-// 加载设备列表
-async function loadDeviceList(productKey: string) {
-  devicesLoading.value = true
-  try {
-    const res = await deviceApi.pageDevices({
-      productKey,
-      pageNum: 1,
-      pageSize: 100
-    })
-    if (res.code === 200 && res.data) {
-      const devices = res.data.records || []
-      deviceListData.value = devices
-      deviceListTotal.value = res.data.total || 0
-      deviceListOnlineCount.value = devices.filter((d: any) => d.onlineStatus === 1).length
-      deviceListOfflineCount.value = devices.filter((d: any) => d.onlineStatus !== 1).length
-    }
-  } catch (error) {
-    console.error('获取设备列表失败', error)
-    deviceListData.value = []
-    deviceListTotal.value = 0
-    deviceListOnlineCount.value = 0
-    deviceListOfflineCount.value = 0
-  } finally {
-    devicesLoading.value = false
-  }
-}
-
-function handleRowAction(command: string | number | object, row: Product) {
-  if (command === 'devices') {
-    handleOpenDeviceListDrawer(row)
-    return
-  }
-  if (command === 'delete') {
-    void handleDelete(row)
-  }
-}
-
 // 打开设备列表抽屉
 function handleOpenDeviceListDrawer(row: Product) {
   currentProduct.value = row
   deviceListDrawerVisible.value = true
   void loadDeviceList(row.productKey)
+}
+
+// 查看设备
+function handleViewDevice(device: Device) {
+  console.log('view device', device)
+  // TODO: 实现查看设备的逻辑
 }
 
 // 加载设备列表
@@ -1982,6 +2014,16 @@ async function loadDeviceList(productKey: string) {
     deviceListOfflineCount.value = 0
   } finally {
     devicesLoading.value = false
+  }
+}
+
+function handleRowAction(command: string | number | object, row: Product) {
+  if (command === 'devices') {
+    handleOpenDeviceListDrawer(row)
+    return
+  }
+  if (command === 'delete') {
+    void handleDelete(row)
   }
 }
 
@@ -3698,6 +3740,54 @@ onMounted(async () => {
 
   100% {
     background-position: -100% 50%;
+  }
+}
+
+/* ============================================
+   设备活跃度统计
+   ============================================ */
+.product-detail-active-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.product-detail-active-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-active-metric__label {
+  color: var(--text-caption-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.product-detail-active-metric__value {
+  color: var(--text-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.product-detail-active-metric__hint {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .product-detail-active-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

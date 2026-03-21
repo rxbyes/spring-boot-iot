@@ -91,6 +91,13 @@ iot:
   rule:
     enabled: false
 
+  alarm:
+    auto-closure:
+      enabled: true
+      cooldown-minutes: 30
+      yellow: 5
+      orange: 10
+      red: 20
+
   ota:
     enabled: false
-

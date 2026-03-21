@@ -57,6 +57,12 @@ export interface Product {
   lastReportTime?: string | null;
   createTime?: string | null;
   updateTime?: string | null;
+  // 活跃度统计（详情页增强数据）
+  todayActiveCount?: number | null; // 今日活跃设备数
+  sevenDaysActiveCount?: number | null; // 7日活跃设备数
+  thirtyDaysActiveCount?: number | null; // 30日活跃设备数
+  avgOnlineDuration?: number | null; // 平均在线时长（分钟）
+  maxOnlineDuration?: number | null; // 最长在线时长（分钟）
 }
 
 export interface Device {
