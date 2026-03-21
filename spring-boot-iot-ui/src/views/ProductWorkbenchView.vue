@@ -85,6 +85,34 @@
         ]"
       >
         <template #right>
+          <!-- 批量操作下拉菜单 -->
+          <el-dropdown
+            v-permission="'iot:products:update'"
+            :disabled="selectedRows.length === 0"
+            trigger="click"
+            @command="(command) => handleBatchCommand(command, selectedRows)"
+          >
+            <el-button type="primary" link :disabled="selectedRows.length === 0">
+              <span>批量操作</span>
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="enable" divided>
+                  <el-icon><Top /></el-icon>
+                  <span>启用</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="disable">
+                  <el-icon><Bottom /></el-icon>
+                  <span>停用</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="delete">
+                  <el-icon><Delete /></el-icon>
+                  <span>删除</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">导出列设置</el-button>
           <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
             导出选中
@@ -1829,6 +1857,108 @@ function handleJumpToDevices(row?: Product | null) {
       productKey: row.productKey
     }
   })
+}
+
+async function handleBatchCommand(command: string, rows: Product[]) {
+  const rowCount = rows.length
+  if (rowCount === 0) {
+    return
+  }
+
+  // 辅助函数：将 null 转换为 undefined
+  function normalizeProductPayload(row: Product): ProductAddPayload {
+    return {
+      productKey: row.productKey,
+      productName: row.productName,
+      protocolCode: row.protocolCode,
+      nodeType: row.nodeType,
+      dataFormat: row.dataFormat ?? undefined,
+      manufacturer: row.manufacturer ?? undefined,
+      description: row.description ?? undefined,
+      status: row.status ?? 1
+    }
+  }
+
+  try {
+    if (command === 'enable') {
+      // 批量启用
+      for (const row of rows) {
+        await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 1 }))
+      }
+      ElMessage.success(`已启用 ${rowCount} 个产品`)
+      rows.forEach((row) => {
+        const updatedRow = { ...row, status: 1 }
+        mergeLocalTableRow(updatedRow)
+        replaceSelectedRowSnapshot(updatedRow)
+      })
+      void loadProductPage({ silent: true })
+    } else if (command === 'disable') {
+      // 批量停用
+      for (const row of rows) {
+        await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 0 }))
+      }
+      ElMessage.success(`已停用 ${rowCount} 个产品`)
+      rows.forEach((row) => {
+        const updatedRow = { ...row, status: 0 }
+        mergeLocalTableRow(updatedRow)
+        replaceSelectedRowSnapshot(updatedRow)
+      })
+      void loadProductPage({ silent: true })
+    } else if (command === 'delete') {
+      await handleDeleteBatch(rows)
+    }
+  } catch (error) {
+    console.error('批量操作失败', error)
+    ElMessage.error(error instanceof Error ? error.message : '批量操作失败')
+  }
+}
+
+async function handleDeleteBatch(rows: Product[]) {
+  try {
+    // 确认删除
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${rows.length} 个产品吗？此操作不可恢复`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 批量删除
+    await Promise.all(rows.map((row) => productApi.deleteProduct(row.id)))
+    ElMessage.success(`已删除 ${rows.length} 个产品`)
+
+    rows.forEach((row) => {
+      removeCachedProductDetail(row)
+      removeLocalTableRow(row)
+      removeSelectedRowSnapshot(row)
+    })
+
+    setTotal(pagination.total - rows.length)
+    
+    // 如果当前页没有数据了，翻到上一页
+    if (tableData.value.length === 0 && pagination.pageNum > 1) {
+      clearProductPageCache()
+      setPageNum(pagination.pageNum - 1)
+      clearSelection()
+      await syncListRouteQuery()
+      return
+    }
+
+    rebuildVisibleProductPageCache()
+    if (tableData.value.length === 0) {
+      clearSelection()
+    }
+    void loadProductPage({ silent: true, force: true })
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('批量删除产品失败', error)
+    ElMessage.error(error instanceof Error ? error.message : '批量删除产品失败')
+  }
 }
 
 async function handleDelete(row: Product) {
