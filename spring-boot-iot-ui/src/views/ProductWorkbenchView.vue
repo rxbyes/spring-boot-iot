@@ -2608,7 +2608,7 @@ onMounted(async () => {
   padding-inline: 0.08rem;
 }
 
-// 快速搜索标签
+/* 快速搜索标签 */
 .product-quick-search-tag {
   display: flex;
   align-items: center;
