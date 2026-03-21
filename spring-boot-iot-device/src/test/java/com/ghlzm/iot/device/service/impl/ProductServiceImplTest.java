@@ -8,9 +8,11 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,12 +101,25 @@ class ProductServiceImplTest {
         statRow.setLastReportTime(lastReportTime);
         when(deviceMapper.selectProductStats(any())).thenReturn(List.of(statRow));
 
+        ProductActivityStatRow activityStatRow = new ProductActivityStatRow();
+        activityStatRow.setProductId(1001L);
+        activityStatRow.setTodayActiveCount(3L);
+        activityStatRow.setSevenDaysActiveCount(5L);
+        activityStatRow.setThirtyDaysActiveCount(8L);
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        when(deviceMapper.selectProductActivityStat(1001L, todayStart, todayStart.minusDays(7), todayStart.minusDays(30)))
+                .thenReturn(activityStatRow);
+
         ProductDetailVO detail = productService.getDetailById(1001L);
 
         assertEquals(6L, detail.getDeviceCount());
         assertEquals(2L, detail.getOnlineDeviceCount());
         assertEquals(lastReportTime, detail.getLastReportTime());
+        assertEquals(3L, detail.getTodayActiveCount());
+        assertEquals(5L, detail.getSevenDaysActiveCount());
+        assertEquals(8L, detail.getThirtyDaysActiveCount());
         verify(deviceMapper).selectProductStats(any());
+        verify(deviceMapper).selectProductActivityStat(1001L, todayStart, todayStart.minusDays(7), todayStart.minusDays(30));
     }
 
     @Test
@@ -137,5 +152,6 @@ class ProductServiceImplTest {
         assertEquals(8L, result.getRecords().get(0).getDeviceCount());
         assertEquals(3L, result.getRecords().get(0).getOnlineDeviceCount());
         verify(deviceMapper).selectProductStats(any());
+        verify(deviceMapper, never()).selectProductActivityStat(any(), any(), any(), any());
     }
 }

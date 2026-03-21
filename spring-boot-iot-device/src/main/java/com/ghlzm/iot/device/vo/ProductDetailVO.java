@@ -35,6 +35,12 @@ public class ProductDetailVO {
 
     private LocalDateTime lastReportTime;
 
+    private Long todayActiveCount;
+
+    private Long sevenDaysActiveCount;
+
+    private Long thirtyDaysActiveCount;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

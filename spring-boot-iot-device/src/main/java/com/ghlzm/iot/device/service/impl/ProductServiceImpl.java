@@ -14,10 +14,12 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,7 +70,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     public ProductDetailVO getDetailById(Long id) {
         Product product = getRequiredById(id);
         ProductDeviceStatRow stat = loadProductDeviceStatMap(List.of(id)).get(id);
-        return toDetailVO(product, stat);
+        ProductActivityStatRow activityStat = loadProductActivityStat(id);
+        return toDetailVO(product, stat, activityStat);
     }
 
     @Override
@@ -267,6 +270,17 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return statMap;
     }
 
+    private ProductActivityStatRow loadProductActivityStat(Long productId) {
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        // 活跃设备数统一按自然日窗口统计，直接复用设备最近上报时间口径。
+        return deviceMapper.selectProductActivityStat(
+                productId,
+                todayStart,
+                todayStart.minusDays(7),
+                todayStart.minusDays(30)
+        );
+    }
+
     private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {
         ProductPageVO row = new ProductPageVO();
         row.setId(product.getId());
@@ -285,7 +299,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return row;
     }
 
-    private ProductDetailVO toDetailVO(Product product, ProductDeviceStatRow stat) {
+    private ProductDetailVO toDetailVO(Product product, ProductDeviceStatRow stat, ProductActivityStatRow activityStat) {
         ProductDetailVO detail = new ProductDetailVO();
         detail.setId(product.getId());
         detail.setProductKey(product.getProductKey());
@@ -299,6 +313,9 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         detail.setDeviceCount(resolveDeviceCount(stat));
         detail.setOnlineDeviceCount(resolveOnlineDeviceCount(stat));
         detail.setLastReportTime(resolveLastReportTime(stat));
+        detail.setTodayActiveCount(resolveTodayActiveCount(activityStat));
+        detail.setSevenDaysActiveCount(resolveSevenDaysActiveCount(activityStat));
+        detail.setThirtyDaysActiveCount(resolveThirtyDaysActiveCount(activityStat));
         detail.setCreateTime(product.getCreateTime());
         detail.setUpdateTime(product.getUpdateTime());
         return detail;
@@ -314,6 +331,18 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
     private LocalDateTime resolveLastReportTime(ProductDeviceStatRow stat) {
         return stat == null ? null : stat.getLastReportTime();
+    }
+
+    private long resolveTodayActiveCount(ProductActivityStatRow stat) {
+        return stat == null || stat.getTodayActiveCount() == null ? 0L : stat.getTodayActiveCount();
+    }
+
+    private long resolveSevenDaysActiveCount(ProductActivityStatRow stat) {
+        return stat == null || stat.getSevenDaysActiveCount() == null ? 0L : stat.getSevenDaysActiveCount();
+    }
+
+    private long resolveThirtyDaysActiveCount(ProductActivityStatRow stat) {
+        return stat == null || stat.getThirtyDaysActiveCount() == null ? 0L : stat.getThirtyDaysActiveCount();
     }
 
     private String normalizeRequired(String value, String fieldName) {

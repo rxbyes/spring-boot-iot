@@ -61,8 +61,8 @@ export interface Product {
   todayActiveCount?: number | null; // 今日活跃设备数
   sevenDaysActiveCount?: number | null; // 7日活跃设备数
   thirtyDaysActiveCount?: number | null; // 30日活跃设备数
-  avgOnlineDuration?: number | null; // 平均在线时长（分钟）
-  maxOnlineDuration?: number | null; // 最长在线时长（分钟）
+  avgOnlineDuration?: number | null; // 预留在线时长（分钟，当前后端未返回）
+  maxOnlineDuration?: number | null; // 预留在线时长（分钟，当前后端未返回）
 }
 
 export interface Device {

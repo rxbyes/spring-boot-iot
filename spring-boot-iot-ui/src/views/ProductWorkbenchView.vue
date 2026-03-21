@@ -455,7 +455,7 @@
         <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">设备活跃度</span>
-            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
+            <p class="product-detail-zone__intro">设备活跃趋势分析。</p>
           </header>
           <div class="product-detail-active-grid">
             <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
