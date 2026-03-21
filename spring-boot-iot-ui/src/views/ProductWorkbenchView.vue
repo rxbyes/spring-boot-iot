@@ -26,15 +26,6 @@
               />
             </el-form-item>
             <el-form-item>
-              <el-input
-                id="query-product-name"
-                v-model="searchForm.productName"
-                placeholder="产品名称"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
               <el-select v-model="searchForm.nodeType" placeholder="节点类型" clearable>
                 <el-option label="直连设备" :value="1" />
                 <el-option label="网关设备" :value="2" />
@@ -208,7 +199,8 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <div class="product-mobile-list">
+          <!-- 卡片视图 -->
+          <div v-if="viewType === 'card'" class="product-mobile-list">
             <div class="product-mobile-list__grid">
               <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
                 <div class="product-mobile-card__header">
@@ -267,7 +259,9 @@
             </div>
           </div>
 
-          <el-table
+          <!-- 表格视图 -->
+          <template v-if="viewType === 'table'">
+            <el-table
             ref="tableRef"
             class="product-desktop-table"
             :data="tableData"
