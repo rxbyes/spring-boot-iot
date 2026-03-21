@@ -13,12 +13,12 @@
       <div class="product-workbench-card__filters">
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持产品名称、Key、厂商关键词搜索 -->
+            <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
                 v-model="quickSearchKeyword"
-                placeholder="快速搜索（产品名称、Key、厂商）"
+                placeholder="快速搜索（产品名称、厂商）"
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuickSearch"
@@ -1380,10 +1380,15 @@ function matchesCurrentFilters(product: Product) {
   })
 }
 
-// 快速搜索：支持产品名称、Key、厂商关键词搜索
+// 快速搜索：支持产品名称、厂商关键词搜索
 function handleQuickSearch() {
-  // 将快速搜索关键词同步到产品名称搜索框
-  searchForm.productName = quickSearchKeyword.value.trim()
+  const keyword = quickSearchKeyword.value.trim()
+  if (!keyword) {
+    return
+  }
+  
+  // 将快速搜索关键词同步到产品名称搜索框（用于名称和厂商搜索）
+  searchForm.productName = keyword
   resetPage()
   clearSelection()
   void syncListRouteQuery()
@@ -1865,22 +1870,33 @@ async function handleBatchCommand(command: string, rows: Product[]) {
     return
   }
 
-  // 辅助函数：将 null 转换为 undefined
-  function normalizeProductPayload(row: Product): ProductAddPayload {
-    return {
-      productKey: row.productKey,
-      productName: row.productName,
-      protocolCode: row.protocolCode,
-      nodeType: row.nodeType,
-      dataFormat: row.dataFormat ?? undefined,
-      manufacturer: row.manufacturer ?? undefined,
-      description: row.description ?? undefined,
-      status: row.status ?? 1
-    }
-  }
-
   try {
     if (command === 'enable') {
+      // 批量启用确认
+      await ElMessageBox.confirm(
+        `确定要启用选中的 ${rowCount} 个产品吗？启用后可正常接入设备`,
+        '确认启用',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+
+      // 辅助函数：将 null 转换为 undefined
+      function normalizeProductPayload(row: Product): ProductAddPayload {
+        return {
+          productKey: row.productKey,
+          productName: row.productName,
+          protocolCode: row.protocolCode,
+          nodeType: row.nodeType,
+          dataFormat: row.dataFormat ?? undefined,
+          manufacturer: row.manufacturer ?? undefined,
+          description: row.description ?? undefined,
+          status: row.status ?? 1
+        }
+      }
+
       // 批量启用
       for (const row of rows) {
         await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 1 }))
@@ -1893,6 +1909,31 @@ async function handleBatchCommand(command: string, rows: Product[]) {
       })
       void loadProductPage({ silent: true })
     } else if (command === 'disable') {
+      // 批量停用确认
+      await ElMessageBox.confirm(
+        `确定要停用选中的 ${rowCount} 个产品吗？停用后将无法新增设备，但不影响现有设备`,
+        '确认停用',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+
+      // 辅助函数：将 null 转换为 undefined
+      function normalizeProductPayload(row: Product): ProductAddPayload {
+        return {
+          productKey: row.productKey,
+          productName: row.productName,
+          protocolCode: row.protocolCode,
+          nodeType: row.nodeType,
+          dataFormat: row.dataFormat ?? undefined,
+          manufacturer: row.manufacturer ?? undefined,
+          description: row.description ?? undefined,
+          status: row.status ?? 1
+        }
+      }
+
       // 批量停用
       for (const row of rows) {
         await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 0 }))
@@ -1908,6 +1949,9 @@ async function handleBatchCommand(command: string, rows: Product[]) {
       await handleDeleteBatch(rows)
     }
   } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
     console.error('批量操作失败', error)
     ElMessage.error(error instanceof Error ? error.message : '批量操作失败')
   }
