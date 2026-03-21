@@ -27,5 +27,12 @@ public interface HelpDocumentService extends IService<HelpDocument> {
                                                        String currentPath,
                                                        Integer limit);
 
+    PageResult<HelpDocumentAccessVO> pageAccessibleDocuments(Long userId,
+                                                             String docCategory,
+                                                             String keyword,
+                                                             String currentPath,
+                                                             Long pageNum,
+                                                             Long pageSize);
+
     HelpDocumentAccessVO getAccessibleDocument(Long userId, Long id, String currentPath);
 }

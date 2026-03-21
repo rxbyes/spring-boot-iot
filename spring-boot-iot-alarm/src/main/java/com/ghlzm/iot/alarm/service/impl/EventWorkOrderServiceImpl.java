@@ -6,6 +6,8 @@ import com.ghlzm.iot.alarm.entity.EventWorkOrder;
 import com.ghlzm.iot.alarm.mapper.EventWorkOrderMapper;
 import com.ghlzm.iot.alarm.service.EventWorkOrderService;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.notification.InAppMessagePublishCommand;
+import com.ghlzm.iot.framework.notification.InAppMessagePublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,15 @@ import java.util.List;
  */
 @Service
 public class EventWorkOrderServiceImpl extends ServiceImpl<EventWorkOrderMapper, EventWorkOrder> implements EventWorkOrderService {
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long DEFAULT_OPERATOR_ID = 1L;
+
+    private final InAppMessagePublisher inAppMessagePublisher;
+
+    public EventWorkOrderServiceImpl(InAppMessagePublisher inAppMessagePublisher) {
+        this.inAppMessagePublisher = inAppMessagePublisher;
+    }
 
     @Override
     public List<EventWorkOrder> listWorkOrders(Long receiveUser, Integer status) {
@@ -43,6 +54,7 @@ public class EventWorkOrderServiceImpl extends ServiceImpl<EventWorkOrderMapper,
         workOrder.setStatus(1); // 1-已接收
         workOrder.setReceiveTime(LocalDateTime.now().toString());
         this.updateById(workOrder);
+        publishWorkOrderNotice(workOrder, "receive");
     }
 
     @Transactional
@@ -61,6 +73,7 @@ public class EventWorkOrderServiceImpl extends ServiceImpl<EventWorkOrderMapper,
         workOrder.setStatus(2); // 2-处理中
         workOrder.setStartTime(LocalDateTime.now().toString());
         this.updateById(workOrder);
+        publishWorkOrderNotice(workOrder, "start");
     }
 
     @Transactional
@@ -78,5 +91,59 @@ public class EventWorkOrderServiceImpl extends ServiceImpl<EventWorkOrderMapper,
         workOrder.setPhotos(photos);
         workOrder.setCompleteTime(LocalDateTime.now().toString());
         this.updateById(workOrder);
+        publishWorkOrderNotice(workOrder, "complete");
+    }
+
+    private void publishWorkOrderNotice(EventWorkOrder workOrder, String action) {
+        Long targetUserId = switch (action) {
+            case "receive", "start" -> workOrder.getReceiveUser();
+            case "complete" -> workOrder.getAssignUser();
+            default -> null;
+        };
+        if (targetUserId == null) {
+            return;
+        }
+        String workOrderCode = workOrder.getWorkOrderCode() == null ? String.valueOf(workOrder.getId()) : workOrder.getWorkOrderCode();
+        String eventCode = workOrder.getEventCode() == null ? String.valueOf(workOrder.getEventId()) : workOrder.getEventCode();
+        String title = switch (action) {
+            case "receive" -> "工单已接收";
+            case "start" -> "工单处理中";
+            case "complete" -> "工单已完成";
+            default -> "工单状态更新";
+        };
+        String statusText = switch (action) {
+            case "receive" -> "已接收";
+            case "start" -> "处理中";
+            case "complete" -> "已完成";
+            default -> "状态更新";
+        };
+        String summary = switch (action) {
+            case "receive" -> "工单 " + workOrderCode + " 已被接收，请关注后续处理进展。";
+            case "start" -> "工单 " + workOrderCode + " 已开始处理，请持续跟进处置进度。";
+            case "complete" -> "工单 " + workOrderCode + " 已完成处理，请尽快复核闭环结果。";
+            default -> "工单 " + workOrderCode + " 状态已更新。";
+        };
+        String actionAdvice = "complete".equals(action)
+                ? "请前往事件协同台复核反馈内容，并视情况推进事件关闭。"
+                : "请前往事件协同台查看最新工单状态与处理记录。";
+        inAppMessagePublisher.publish(InAppMessagePublishCommand.builder()
+                .tenantId(DEFAULT_TENANT_ID)
+                .messageType("business")
+                .priority("complete".equals(action) ? "high" : "medium")
+                .title(title)
+                .summary(summary)
+                .content("""
+                        工单编号：%s
+                        事件编号：%s
+                        当前状态：%s
+                        建议动作：%s
+                        """.formatted(workOrderCode, eventCode, statusText, actionAdvice))
+                .targetType("user")
+                .targetUserIds(List.of(targetUserId))
+                .relatedPath("/event-disposal")
+                .sourceType("work_order")
+                .sourceId(workOrder.getId() + ":" + action)
+                .operatorId(DEFAULT_OPERATOR_ID)
+                .build());
     }
 }

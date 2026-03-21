@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   ShellAccountCenterState,
+  ShellHelpCenterEntry,
   ShellHeaderInteractionsState,
   ShellNavigationState,
+  ShellNoticeCenterEntry,
   ShellViewportState
 } from '@/types/shell';
 
@@ -104,6 +106,10 @@ describe('useShellOrchestrator', () => {
       commandKeyword: ref(''),
       showNoticePanel: ref(false),
       showHelpPanel: ref(false),
+      showNoticeCenterDrawer: ref(false),
+      showHelpCenterDrawer: ref(false),
+      showNoticeDetailDrawer: ref(false),
+      showHelpDetailDrawer: ref(false),
       noticePanelId: 'notice-panel',
       helpPanelId: 'help-panel',
       noticePopoverContent: computed(() => ({
@@ -112,7 +118,8 @@ describe('useShellOrchestrator', () => {
         summaryTitle: 'summary',
         summaryDescription: 'description',
         metrics: [],
-        sections: []
+        sections: [],
+        footerActions: []
       })),
       unreadNoticeCount: computed(() => 0),
       helpPopoverContent: computed(() => ({
@@ -121,8 +128,28 @@ describe('useShellOrchestrator', () => {
         summaryTitle: 'summary',
         summaryDescription: 'description',
         metrics: [],
-        sections: []
+        sections: [],
+        footerActions: []
       })),
+      noticeCenterLoading: ref(false),
+      noticeCenterErrorMessage: ref(''),
+      noticeCenterItems: ref<ShellNoticeCenterEntry[]>([]),
+      noticeCenterPagination: { pageNum: 1, pageSize: 10, total: 0 },
+      activeNoticeFilter: ref('all'),
+      unreadOnlyNotice: ref(false),
+      helpCenterLoading: ref(false),
+      helpCenterErrorMessage: ref(''),
+      helpCenterItems: ref<ShellHelpCenterEntry[]>([]),
+      helpCenterPagination: { pageNum: 1, pageSize: 10, total: 0 },
+      activeHelpFilter: ref('all'),
+      helpKeyword: ref(''),
+      noticeDetailLoading: ref(false),
+      noticeDetailErrorMessage: ref(''),
+      noticeDetailRecord: ref(null),
+      helpDetailLoading: ref(false),
+      helpDetailErrorMessage: ref(''),
+      helpDetailRecord: ref(null),
+      helpDetailKeyword: ref(''),
       commandGroups: computed(() => []),
       recentCommandItems: computed(() => []),
       openCommandPalette: vi.fn(),
@@ -131,7 +158,27 @@ describe('useShellOrchestrator', () => {
       toggleHelpPanel: vi.fn(),
       openNotice: vi.fn(),
       openHelp: vi.fn(),
+      handlePopoverAction: vi.fn(),
+      openNoticeCenter: vi.fn(),
+      openHelpCenter: vi.fn(),
+      markNoticeRead: vi.fn(async () => undefined),
+      markAllNoticeRead: vi.fn(async () => undefined),
+      openNoticeDetail: vi.fn(async () => undefined),
+      openHelpDetail: vi.fn(async () => undefined),
+      navigateToPath: vi.fn(),
+      handleNoticePageChange: vi.fn(),
+      handleNoticePageSizeChange: vi.fn(),
+      handleHelpPageChange: vi.fn(),
+      handleHelpPageSizeChange: vi.fn(),
+      handleNoticeFilterChange: vi.fn(),
+      handleNoticeUnreadOnlyChange: vi.fn(),
+      handleHelpFilterChange: vi.fn(),
+      handleHelpKeywordChange: vi.fn(),
+      handleHelpSearch: vi.fn(),
+      refreshNoticeCenter: vi.fn(async () => undefined),
+      refreshHelpCenter: vi.fn(async () => undefined),
       closeHeaderPanels: vi.fn(),
+      closeContentDrawers: vi.fn(),
       resetHeaderOverlays
     };
 

@@ -1,5 +1,40 @@
 ﻿# spring-boot-iot-ui 优化方案
 
+## 2026-03-22 通知中心生产契约与稳定性治理
+
+- 调整范围：全局壳层 `通知中心`、平台治理 `/in-app-message`，以及通知中心相关后端契约。
+- 本轮落地内容：
+  - 壳层通知中心已补齐多标签稳定性：登录后、标签页重新激活、通知摘要/列表打开、单条已读、全部已读后都会刷新后端摘要；多标签页同步优先 `BroadcastChannel`，回退 `storage` 事件。
+  - 平台治理 `/in-app-message` 已补齐来源类型筛选、通知统计概览、自动消息/手工消息区分治理，以及“自动消息只允许查看或停用”的前端约束。
+  - 通知来源类型当前统一收口为 `manual / system_error / event_dispatch / work_order / governance`；前端不再继续透出旧来源值的新增入口。
+- 新增防回退规则：
+  - 壳层通知中心仍只允许作为 `AppShell` 全局能力存在，不新增消费端独立菜单、独立路由或页面级私有通知模块。
+  - 自动消息详情继续展示来源与关联页面，但管理页不得开放正文任意编辑或删除入口；需要停用时统一走状态更新。
+  - 通知中心的未读同步、摘要刷新和显式已读逻辑必须继续收口在 `useShellHeaderInteractions.ts`，不要把同步状态拆散到组件层各自维护。
+
+## 2026-03-21 壳层通知 / 帮助消费端完整闭环
+
+- 调整范围：全局壳层右上角 `通知中心`、`帮助中心`，以及 `spring-boot-iot-system` 帮助文档访问接口。
+- 本轮落地内容：
+  - 壳层摘要弹层继续只展示少量分组卡片，但卡片点击已统一改为打开详情抽屉；弹层 footer 已新增“查看更多”，通知摘要额外补齐“全部已读”。
+  - `useShellHeaderInteractions.ts` 已统一承接摘要弹层、列表抽屉、详情抽屉、请求取消、未读统计刷新与抽屉互斥逻辑；`AppShell.vue` 继续只通过 `useShellOrchestrator.ts` 装配壳层状态。
+  - 通知消费闭环已补齐：
+    - 摘要继续使用 `/api/system/in-app-message/my/page?pageSize=6` + `/api/system/in-app-message/my/unread-count`。
+    - “查看更多”列表抽屉使用 `/api/system/in-app-message/my/page`，支持 `all/system/business/error` 分类筛选、仅看未读、服务端分页、详情查看、单条已读、全部已读与关联页面跳转。
+    - 详情抽屉使用 `/api/system/in-app-message/my/{id}`，展示分类、优先级、发布时间、摘要、正文、来源与关联页面。
+  - 帮助消费闭环已补齐：
+    - 摘要继续使用 `/api/system/help-doc/access/list?limit=6`。
+    - 后端已新增 `/api/system/help-doc/access/page`，用于“查看更多”列表抽屉的服务端分页检索，并保持角色过滤、授权路径过滤和 `currentPath` 优先排序。
+    - 列表抽屉支持 `all/business/technical/faq` 分类筛选、关键字搜索、分页、详情查看、关联页面跳转，以及标题/摘要/关键词/正文四处高亮。
+    - 详情抽屉继续使用 `/api/system/help-doc/access/{id}`，保留当前页相关标识与高亮关键字。
+  - `HeaderPopoverPanel.vue` 继续只消费统一 `ShellPopoverContent`，没有直接读取后端字段；新抽屉组件优先复用 `StandardDetailDrawer`、`StandardPagination` 和现有 token。
+  - 当后端接口失败时，摘要弹层与列表抽屉仍统一回退到本地壳层兜底内容，不让右上角入口出现空白。
+- 新增防回退规则：
+  - 壳层通知/帮助消费闭环必须继续留在全局壳层内完成，不新增消费端独立路由、菜单或页面级私有实现。
+  - 通知未读只允许通过显式动作更新；打开摘要弹层或详情抽屉都不得自动 `read-all`。
+  - 帮助高亮必须继续使用安全文本切片渲染，不得为了高亮效果回退到 `v-html` 拼接。
+  - 壳层新增交互若涉及浮层、抽屉或详情态，优先扩展 `src/types/shell.ts` contract 与 `useShellHeaderInteractions.ts`，再由 `useShellRouteChangeEffects.ts` 统一收口路由切换副作用。
+
 ## 2026-03-21 壳层通知中心 / 帮助中心后端数据源接线
 
 - 调整范围：全局壳层右上角 `通知中心`、`帮助中心`。
@@ -7,10 +42,10 @@
   - `useShellHeaderInteractions.ts` 已优先接入后端接口：
     - `/api/system/in-app-message/my/page`
     - `/api/system/in-app-message/my/unread-count`
-    - `/api/system/in-app-message/my/read-all`
     - `/api/system/help-doc/access/list`
+    - `/api/system/help-doc/access/page`
   - 壳层仍继续输出统一的 `ShellPopoverContent`，组件层不直接消费后端接口字段；新增的数据适配仍统一收口在 `shellPanelContent.ts`。
-  - 通知中心保留“打开面板即清空未读徽标”的既有体验，但已同步调用后端 `read-all` 接口，未读状态不再只停留在前端本地。
+  - 该阶段已完成“后端优先 + 本地兜底”的基础接线；通知“打开面板即清空未读徽标”的旧语义已在本轮完整闭环中废弃，当前统一改为显式已读。
   - 帮助中心已改为“后端优先 + 本地兜底”模式：后端接口可用时按真实帮助文档与当前路径排序，不可用时仍保留原有角色化本地兜底内容。
 - 新增防回退规则：
   - 壳层通知/帮助的后端接线必须保持“API 模块 -> 壳层适配函数 -> `ShellPopoverContent` -> 组件”的单向流，不得把后端字段直接写进组件模板。

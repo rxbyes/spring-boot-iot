@@ -325,7 +325,9 @@ function buildHelpItem(
     ]),
     badge: categoryMeta.badge,
     path: definition.path ? normalizedPath : undefined,
-    tone: categoryMeta.tone
+    tone: categoryMeta.tone,
+    actionLabel: '查看详情',
+    categoryKey: definition.category
   };
 }
 
@@ -348,7 +350,9 @@ function buildHelpFallbackSection(
           meta: buildItemMeta([context.roleProfile.label, '角色推荐']),
           badge: categoryMeta.badge,
           path: normalizeRoutePath(context.homePath),
-          tone: categoryMeta.tone
+          tone: categoryMeta.tone,
+          actionLabel: '查看详情',
+          categoryKey: category
         }
       ]
     };
@@ -367,7 +371,9 @@ function buildHelpFallbackSection(
           meta: buildItemMeta([context.activeGroup.label, '权限内兜底']),
           badge: categoryMeta.badge,
           path: normalizeRoutePath(context.currentPath || context.homePath),
-          tone: categoryMeta.tone
+          tone: categoryMeta.tone,
+          actionLabel: '查看详情',
+          categoryKey: category
         }
       ]
     };
@@ -384,7 +390,9 @@ function buildHelpFallbackSection(
         description: '帮助条目默认按当前菜单授权过滤，不会向无权限账号展示不可进入的功能入口。',
         meta: buildItemMeta([context.roleProfile.label, '统一口径']),
         badge: categoryMeta.badge,
-        tone: categoryMeta.tone
+        tone: categoryMeta.tone,
+        actionLabel: '查看详情',
+        categoryKey: category
       }
     ]
   };
@@ -467,7 +475,9 @@ function buildActivityNoticeItem(
     ]),
     badge: entry.ok ? '最近操作' : '失败记录',
     path: preferredPath,
-    tone: entry.ok ? categoryMeta.tone : 'danger'
+    tone: entry.ok ? categoryMeta.tone : 'danger',
+    actionLabel: '查看详情',
+    categoryKey: category
   };
 }
 
@@ -524,7 +534,11 @@ function buildRemoteNoticeItem(
     ]),
     badge: NOTICE_PRIORITY_LABEL[message.priority] || NOTICE_PRIORITY_LABEL.medium,
     path: accessiblePath,
-    tone: resolveRemoteNoticeTone(category, message.priority || 'medium')
+    tone: resolveRemoteNoticeTone(category, message.priority || 'medium'),
+    actionLabel: '查看详情',
+    categoryKey: category,
+    resourceId: String(message.id),
+    read: Boolean(message.read)
   }
 }
 
@@ -562,7 +576,10 @@ function buildRemoteHelpItem(
     ]),
     badge: HELP_CATEGORY_META[category].badge,
     path: primaryPath,
-    tone: HELP_CATEGORY_META[category].tone
+    tone: HELP_CATEGORY_META[category].tone,
+    actionLabel: '查看详情',
+    categoryKey: category,
+    resourceId: String(document.id)
   }
 }
 
@@ -596,7 +613,9 @@ function buildSystemNoticeFallbacks(
         meta: buildItemMeta([context.roleProfile.label, '治理提醒']),
         badge: '角色推送',
         path: governancePath,
-        tone: 'brand'
+        tone: 'brand',
+        actionLabel: '查看详情',
+        categoryKey: 'system'
       }
     : {
         id: 'notice-system-permission-filtered',
@@ -604,7 +623,9 @@ function buildSystemNoticeFallbacks(
         description: '当前账号只会看到有权访问的功能入口，避免展示无权限的跳转目标。',
         meta: buildItemMeta([context.roleProfile.label, '壳层规则']),
         badge: '系统规则',
-        tone: 'brand'
+        tone: 'brand',
+        actionLabel: '查看详情',
+        categoryKey: 'system'
       };
 
   return [
@@ -615,7 +636,9 @@ function buildSystemNoticeFallbacks(
       meta: buildItemMeta([homeEntry?.title || '平台首页', '角色焦点']),
       badge: '角色推送',
       path: homePath,
-      tone: 'brand'
+      tone: 'brand',
+      actionLabel: '查看详情',
+      categoryKey: 'system'
     },
     governanceItem
   ];
@@ -638,7 +661,9 @@ function buildBusinessNoticeFallbacks(
       meta: buildItemMeta([entry.workspaceLabel, context.roleProfile.label]),
       badge: '角色推送',
       path: entry.path,
-      tone: 'accent' as const
+      tone: 'accent' as const,
+      actionLabel: '查看详情',
+      categoryKey: 'business'
     }));
 
   const currentWorkspaceItem: ShellPopoverItem = {
@@ -651,7 +676,9 @@ function buildBusinessNoticeFallbacks(
     meta: buildItemMeta([currentEntry?.title || context.activeGroup.label, '当前工作台']),
     badge: '当前焦点',
     path: normalizedCurrentPath,
-    tone: 'accent'
+    tone: 'accent',
+    actionLabel: '查看详情',
+    categoryKey: 'business'
   };
 
   return [currentWorkspaceItem, ...featuredItems];
@@ -682,7 +709,9 @@ function buildErrorNoticeFallback(context: ShellPanelContext, entryMap: Map<stri
       meta: buildItemMeta([context.roleProfile.label, '排障入口']),
       badge: '排障建议',
       path: fallbackPath,
-      tone: 'danger'
+      tone: 'danger',
+      actionLabel: '查看详情',
+      categoryKey: 'error'
     };
   }
 
@@ -692,7 +721,9 @@ function buildErrorNoticeFallback(context: ShellPanelContext, entryMap: Map<stri
     description: '最近操作中未识别到新的失败记录，建议继续关注当前工作台的业务推进和异常提示。',
     meta: buildItemMeta([context.activeGroup.label, '排障兜底']),
     badge: '状态稳定',
-    tone: 'success'
+    tone: 'success',
+    actionLabel: '查看详情',
+    categoryKey: 'error'
   };
 }
 
@@ -787,7 +818,10 @@ export function buildShellNoticePopoverContent(context: ShellPanelContext): Shel
         tone: failureCount > 0 ? 'danger' : 'success'
       }
     ],
-    sections
+    sections,
+    footerActions: [
+      { id: 'notice-view-more', label: '查看更多', tone: 'brand' }
+    ]
   };
 }
 
@@ -851,6 +885,10 @@ export function buildShellNoticePopoverContentFromApi(
         description: '同步错误告警、排障提醒和异常复核入口。',
         items: errorItems
       }
+    ],
+    footerActions: [
+      { id: 'notice-view-more', label: '查看更多', tone: 'brand' },
+      { id: 'notice-mark-all-read', label: '全部已读', tone: 'warning', disabled: totalUnreadCount <= 0 }
     ]
   }
 }
@@ -870,7 +908,10 @@ export function buildShellHelpPopoverContent(context: ShellPanelContext): ShellP
       { id: 'help-workspace', label: '当前工作台', value: context.activeGroup.label, tone: 'success' },
       { id: 'help-faq', label: '常见问题', value: `${Math.max(faqCount, 1)}`, tone: 'warning' }
     ],
-    sections
+    sections,
+    footerActions: [
+      { id: 'help-view-more', label: '查看更多', tone: 'brand' }
+    ]
   };
 }
 
@@ -927,6 +968,9 @@ export function buildShellHelpPopoverContentFromApi(
       { id: 'help-workspace', label: '当前工作台', value: context.activeGroup.label, tone: 'success' },
       { id: 'help-faq', label: '常见问题', value: `${Math.max(faqCount, 1)}`, tone: 'warning' }
     ],
-    sections
+    sections,
+    footerActions: [
+      { id: 'help-view-more', label: '查看更多', tone: 'brand' }
+    ]
   }
 }

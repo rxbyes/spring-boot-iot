@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.Serializable;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,16 +32,26 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
 
     private final HelpDocumentMapper helpDocumentMapper;
     private final PermissionService permissionService;
+    private final SystemContentSchemaSupport systemContentSchemaSupport;
 
     public HelpDocumentServiceImpl(HelpDocumentMapper helpDocumentMapper,
-                                   PermissionService permissionService) {
+                                   PermissionService permissionService,
+                                   SystemContentSchemaSupport systemContentSchemaSupport) {
         this.helpDocumentMapper = helpDocumentMapper;
         this.permissionService = permissionService;
+        this.systemContentSchemaSupport = systemContentSchemaSupport;
+    }
+
+    @Override
+    public HelpDocument getById(Serializable id) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
+        return super.getById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public HelpDocument addDocument(HelpDocument document, Long operatorId) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
         normalizeAndValidateDocument(document, null);
         if (document.getCreateBy() == null) {
             document.setCreateBy(defaultOperator(operatorId));
@@ -58,6 +69,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
                                                   Integer status,
                                                   Long pageNum,
                                                   Long pageSize) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
         Page<HelpDocument> page = PageQueryUtils.buildPage(pageNum, pageSize);
         LambdaQueryWrapper<HelpDocument> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(HelpDocument::getDeleted, 0);
@@ -81,6 +93,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDocument(HelpDocument document, Long operatorId) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
         HelpDocument existing = requireDocument(document == null ? null : document.getId());
         normalizeAndValidateDocument(document, existing);
         document.setTenantId(existing.getTenantId());
@@ -91,6 +104,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteDocument(Long id, Long operatorId) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
         HelpDocument existing = requireDocument(id);
         existing.setDeleted(1);
         existing.setUpdateBy(defaultOperator(operatorId));
@@ -103,18 +117,8 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
                                                               String keyword,
                                                               String currentPath,
                                                               Integer limit) {
-        UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
-        AccessScope scope = buildAccessScope(authContext, currentPath);
-        String normalizedCategory = StringUtils.hasText(docCategory) ? docCategory.trim().toLowerCase(Locale.ROOT) : null;
-        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase(Locale.ROOT) : null;
-        List<HelpDocumentAccessVO> documents = helpDocumentMapper.selectList(buildAccessQueryWrapper()).stream()
-                .filter(document -> !StringUtils.hasText(normalizedCategory) || normalizedCategory.equals(document.getDocCategory()))
-                .filter(document -> matchesRoleScope(document, scope.roleCodes()))
-                .filter(document -> matchesPermissionScope(document, scope.authorizedPaths()))
-                .filter(document -> matchesKeyword(document, normalizedKeyword))
-                .map(document -> toAccessVO(document, scope.currentPath()))
-                .sorted(accessComparator())
-                .toList();
+        systemContentSchemaSupport.ensureHelpDocumentReady();
+        List<HelpDocumentAccessVO> documents = listAccessibleDocumentRecords(userId, docCategory, keyword, currentPath);
         if (limit == null || limit <= 0 || documents.size() <= limit) {
             return documents;
         }
@@ -122,7 +126,46 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     }
 
     @Override
+    public PageResult<HelpDocumentAccessVO> pageAccessibleDocuments(Long userId,
+                                                                    String docCategory,
+                                                                    String keyword,
+                                                                    String currentPath,
+                                                                    Long pageNum,
+                                                                    Long pageSize) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
+        long safePageNum = PageQueryUtils.normalizePageNum(pageNum);
+        long safePageSize = PageQueryUtils.normalizePageSize(pageSize);
+        List<HelpDocumentAccessVO> documents = listAccessibleDocumentRecords(userId, docCategory, keyword, currentPath);
+        if (documents.isEmpty()) {
+            return PageResult.empty(safePageNum, safePageSize);
+        }
+
+        int fromIndex = (int) Math.min((safePageNum - 1L) * safePageSize, documents.size());
+        int toIndex = (int) Math.min(fromIndex + safePageSize, documents.size());
+        return PageResult.of((long) documents.size(), safePageNum, safePageSize, documents.subList(fromIndex, toIndex));
+    }
+
+    private List<HelpDocumentAccessVO> listAccessibleDocumentRecords(Long userId,
+                                                                     String docCategory,
+                                                                     String keyword,
+                                                                     String currentPath) {
+        UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
+        AccessScope scope = buildAccessScope(authContext, currentPath);
+        String normalizedCategory = StringUtils.hasText(docCategory) ? docCategory.trim().toLowerCase(Locale.ROOT) : null;
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase(Locale.ROOT) : null;
+        return helpDocumentMapper.selectList(buildAccessQueryWrapper()).stream()
+                .filter(document -> !StringUtils.hasText(normalizedCategory) || normalizedCategory.equals(document.getDocCategory()))
+                .filter(document -> matchesRoleScope(document, scope.roleCodes()))
+                .filter(document -> matchesPermissionScope(document, scope.authorizedPaths()))
+                .filter(document -> matchesKeyword(document, normalizedKeyword))
+                .map(document -> toAccessVO(document, scope.currentPath()))
+                .sorted(accessComparator())
+                .toList();
+    }
+
+    @Override
     public HelpDocumentAccessVO getAccessibleDocument(Long userId, Long id, String currentPath) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
         HelpDocument document = requireDocument(id);
         if (!Integer.valueOf(1).equals(document.getStatus())) {
             throw new BizException("帮助文档不存在");

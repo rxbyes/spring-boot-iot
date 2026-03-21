@@ -27,11 +27,10 @@
         <ul class="header-popover__list">
           <li v-for="item in section.items" :key="item.id">
             <button
-              v-if="item.path"
               type="button"
               class="header-popover__item"
               :data-tone="item.tone || 'neutral'"
-              @click="$emit('select', item.path)"
+              @click="$emit('select', item)"
             >
               <div class="header-popover__item-top">
                 <strong>{{ item.title }}</strong>
@@ -39,24 +38,27 @@
               </div>
               <p>{{ item.description }}</p>
               <div class="header-popover__item-meta">
-                <span>{{ item.meta || '站内入口' }}</span>
-                <span class="header-popover__item-action">进入</span>
+                <span>{{ item.meta || '站内说明' }}</span>
+                <span class="header-popover__item-action">{{ item.actionLabel || '查看详情' }}</span>
               </div>
             </button>
-
-            <article v-else class="header-popover__item header-popover__item--static" :data-tone="item.tone || 'neutral'">
-              <div class="header-popover__item-top">
-                <strong>{{ item.title }}</strong>
-                <span v-if="item.badge" class="header-popover__item-badge">{{ item.badge }}</span>
-              </div>
-              <p>{{ item.description }}</p>
-              <div class="header-popover__item-meta">
-                <span>{{ item.meta || '站内说明' }}</span>
-              </div>
-            </article>
           </li>
         </ul>
       </section>
+    </div>
+
+    <div v-if="content.footerActions?.length" class="header-popover__footer">
+      <button
+        v-for="action in content.footerActions"
+        :key="action.id"
+        type="button"
+        class="header-popover__footer-action"
+        :data-tone="action.tone || 'neutral'"
+        :disabled="action.disabled"
+        @click="$emit('action', action.id)"
+      >
+        {{ action.label }}
+      </button>
     </div>
   </section>
 </template>
@@ -67,13 +69,16 @@ import { nextTick, onMounted, ref } from 'vue';
 import type { HeaderPopoverPanelProps } from '../types/shell';
 
 const props = defineProps<HeaderPopoverPanelProps>();
-defineEmits<{ (e: 'select', path: string): void; }>();
+defineEmits<{
+  (e: 'select', item: HeaderPopoverPanelProps['content']['sections'][number]['items'][number]): void;
+  (e: 'action', actionId: string): void;
+}>();
 const panelRef = ref<HTMLElement | null>(null);
 
 onMounted(() => {
   void props;
   nextTick(() => {
-    const firstAction = panelRef.value?.querySelector<HTMLButtonElement>('button.header-popover__item');
+    const firstAction = panelRef.value?.querySelector<HTMLButtonElement>('button.header-popover__item, button.header-popover__footer-action');
     firstAction?.focus();
     if (document.activeElement !== firstAction) {
       panelRef.value?.focus();
@@ -252,12 +257,6 @@ onMounted(() => {
   background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
-.header-popover__item--static:hover,
-.header-popover__item--static:focus-visible {
-  border-color: var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), var(--bg-hover));
-}
-
 .header-popover__item[data-tone='brand'] { border-left: 3px solid color-mix(in srgb, var(--brand) 72%, white); }
 .header-popover__item[data-tone='accent'] { border-left: 3px solid color-mix(in srgb, var(--accent) 72%, white); }
 .header-popover__item[data-tone='success'] { border-left: 3px solid color-mix(in srgb, var(--success) 72%, white); }
@@ -316,6 +315,42 @@ onMounted(() => {
   flex: none;
   color: var(--brand);
   font-weight: 600;
+}
+
+.header-popover__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 88%, white);
+}
+
+.header-popover__footer-action {
+  min-height: 2rem;
+  padding: 0 0.82rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.header-popover__footer-action:hover,
+.header-popover__footer-action:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 22%, white);
+  color: var(--brand);
+}
+
+.header-popover__footer-action:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.header-popover__footer-action[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--warning) 24%, var(--panel-border));
+  color: color-mix(in srgb, var(--warning) 76%, black);
 }
 
 @media (max-width: 1200px) { .header-popover { right: var(--shell-gutter); } }

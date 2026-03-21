@@ -78,6 +78,7 @@
           aria-label="消息通知面板"
           :content="noticePopoverContent"
           @select="openNotice"
+          @action="handlePopoverAction"
         />
       </transition>
 
@@ -89,6 +90,7 @@
           aria-label="帮助中心面板"
           :content="helpPopoverContent"
           @select="openHelp"
+          @action="handlePopoverAction"
         />
       </transition>
     </header>
@@ -99,6 +101,61 @@
       :groups="commandGroups"
       :recent-items="recentCommandItems"
       @select="selectCommandPath"
+    />
+
+    <ShellNoticeCenterDrawer
+      v-model="showNoticeCenterDrawer"
+      :loading="noticeCenterLoading"
+      :error-message="noticeCenterErrorMessage"
+      :items="noticeCenterItems"
+      :pagination="noticeCenterPagination"
+      :active-filter="activeNoticeFilter"
+      :unread-only="unreadOnlyNotice"
+      @update:active-filter="handleNoticeFilterChange"
+      @update:unread-only="handleNoticeUnreadOnlyChange"
+      @page-change="handleNoticePageChange"
+      @page-size-change="handleNoticePageSizeChange"
+      @select="openNoticeDetail"
+      @navigate="navigateToPath"
+      @read="markNoticeRead"
+      @read-all="markAllNoticeRead"
+      @refresh="refreshNoticeCenter"
+    />
+
+    <ShellHelpCenterDrawer
+      v-model="showHelpCenterDrawer"
+      :loading="helpCenterLoading"
+      :error-message="helpCenterErrorMessage"
+      :items="helpCenterItems"
+      :pagination="helpCenterPagination"
+      :active-filter="activeHelpFilter"
+      :keyword="helpKeyword"
+      @update:active-filter="handleHelpFilterChange"
+      @update:keyword="handleHelpKeywordChange"
+      @search="handleHelpSearch"
+      @page-change="handleHelpPageChange"
+      @page-size-change="handleHelpPageSizeChange"
+      @select="openHelpDetail"
+      @navigate="navigateToPath"
+      @refresh="refreshHelpCenter"
+    />
+
+    <ShellNoticeDetailDrawer
+      v-model="showNoticeDetailDrawer"
+      :loading="noticeDetailLoading"
+      :error-message="noticeDetailErrorMessage"
+      :record="noticeDetailRecord"
+      @navigate="navigateToPath"
+      @mark-read="noticeDetailRecord && markNoticeRead(noticeDetailRecord)"
+    />
+
+    <ShellHelpDetailDrawer
+      v-model="showHelpDetailDrawer"
+      :loading="helpDetailLoading"
+      :error-message="helpDetailErrorMessage"
+      :record="helpDetailRecord"
+      :highlight-keyword="helpDetailKeyword"
+      @navigate="navigateToPath"
     />
 
     <div class="cloud-layout">
@@ -156,6 +213,10 @@ import HeaderPopoverPanel from './HeaderPopoverPanel.vue';
 import ShellAccountDrawers from './ShellAccountDrawers.vue';
 import ShellBreadcrumb from './ShellBreadcrumb.vue';
 import ShellCommandPalette from './ShellCommandPalette.vue';
+import ShellHelpCenterDrawer from './ShellHelpCenterDrawer.vue';
+import ShellHelpDetailDrawer from './ShellHelpDetailDrawer.vue';
+import ShellNoticeCenterDrawer from './ShellNoticeCenterDrawer.vue';
+import ShellNoticeDetailDrawer from './ShellNoticeDetailDrawer.vue';
 import ShellSidebarNav from './ShellSidebarNav.vue';
 import ShellWorkspaceTabs from './ShellWorkspaceTabs.vue';
 
@@ -189,11 +250,34 @@ const {
   commandKeyword,
   showNoticePanel,
   showHelpPanel,
+  showNoticeCenterDrawer,
+  showHelpCenterDrawer,
+  showNoticeDetailDrawer,
+  showHelpDetailDrawer,
   noticePanelId,
   helpPanelId,
   noticePopoverContent,
   unreadNoticeCount,
   helpPopoverContent,
+  noticeCenterLoading,
+  noticeCenterErrorMessage,
+  noticeCenterItems,
+  noticeCenterPagination,
+  activeNoticeFilter,
+  unreadOnlyNotice,
+  helpCenterLoading,
+  helpCenterErrorMessage,
+  helpCenterItems,
+  helpCenterPagination,
+  activeHelpFilter,
+  helpKeyword,
+  noticeDetailLoading,
+  noticeDetailErrorMessage,
+  noticeDetailRecord,
+  helpDetailLoading,
+  helpDetailErrorMessage,
+  helpDetailRecord,
+  helpDetailKeyword,
   commandGroups,
   recentCommandItems,
   openCommandPalette,
@@ -202,6 +286,23 @@ const {
   toggleHelpPanel,
   openNotice,
   openHelp,
+  handlePopoverAction,
+  navigateToPath,
+  openNoticeDetail,
+  openHelpDetail,
+  markNoticeRead,
+  markAllNoticeRead,
+  handleNoticePageChange,
+  handleNoticePageSizeChange,
+  handleNoticeFilterChange,
+  handleNoticeUnreadOnlyChange,
+  refreshNoticeCenter,
+  handleHelpPageChange,
+  handleHelpPageSizeChange,
+  handleHelpFilterChange,
+  handleHelpKeywordChange,
+  handleHelpSearch,
+  refreshHelpCenter,
   closeHeaderPanels
 } = useShellOrchestrator();
 </script>

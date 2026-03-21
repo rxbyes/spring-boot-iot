@@ -38,9 +38,15 @@
 - 顶部全局搜索统一使用 `Ctrl/Cmd + K` 命令面板口径；新增入口需保证能被命令面板与角色化推荐检索到。
 - 壳层右上角 `通知中心 / 帮助中心` 必须按当前角色和菜单权限生成内容；禁止继续维护不区分角色、也不过滤权限的静态硬编码列表。
 - 2026-03-21 起，壳层右上角入口已优先接入 `/api/system/in-app-message/my/*` 与 `/api/system/help-doc/access/*`；后续如需调整文案、摘要、分组或动作，优先改后端数据与前端适配层，不要回退到组件内硬编码静态数组。
+- 壳层通知/帮助消费闭环必须继续留在全局 `AppShell` 内完成，不新增消费端独立菜单、独立路由或页面级私有通知/帮助模块。
+- 通知未读当前只允许通过显式动作更新：打开摘要弹层、列表抽屉或详情抽屉都不得自动触发 `read-all`；只有“标记已读 / 全部已读”才能更新未读徽标和后端状态。
+- 通知中心当前必须继续使用“登录后 + 标签页重新激活 + 通知摘要/列表打开 + 显式已读后”的刷新策略，并通过 `BroadcastChannel` 优先、`storage` 事件兜底的方式同步多标签页未读徽标，不得回退到单标签本地状态。
+- 帮助中心“查看更多”必须继续使用 `/api/system/help-doc/access/page` 做服务端分页检索；关键字高亮统一走安全文本切片渲染，不得用 `v-html` 直接拼接高亮 HTML。
 - 2026-03-21 夜间起，平台治理下的 `/in-app-message` 与 `/help-doc` 编排页已成为壳层系统内容的权威维护入口；后续新增消息分类、帮助分类、角色范围或关联页面时，必须继续复用 `system / business / error` 与 `business / technical / faq` 这两组既有口径，不得在编排页再发明第二套命名。
+- `/in-app-message` 当前必须继续复用固定来源类型 `manual / system_error / event_dispatch / work_order / governance`；治理页对系统自动消息只允许“查看或停用”，禁止在前端开放正文任意编辑或删除入口。
 - 系统内容编排页中的“关联页面”候选项必须优先复用共享 workspace schema 派生结果，不得在页面内再维护另一份私有路由字典，避免帮助中心和命令面板对同一路径出现两套文案。
 - `AppShell` 只通过 `src/composables/useShellOrchestrator.ts` 承接壳层编排；后续若新增壳层交互、导航规则或路由副作用，应优先扩展对应 composable，并最终由 orchestrator 统一装配，不再回到壳层主文件直接拼接多组状态。
+- `useShellHeaderInteractions.ts` 统一承接摘要弹层、列表抽屉、详情抽屉、请求取消、未读统计刷新与抽屉互斥逻辑；路由切换后的浮层收口继续交由 `useShellRouteChangeEffects.ts`，避免壳层回到组件内多点 watch 的旧实现。
 - 壳层共享类型统一沉淀到 `src/types/shell.ts`；`AppShell`、壳层子组件与 shell composables 不再互相反向引用类型，避免组件层直接依赖实现层。
 
 ## 3. 页面开发统一模式

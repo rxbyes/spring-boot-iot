@@ -62,6 +62,11 @@ public class InAppMessage implements Serializable {
 
     private String sourceId;
 
+    /**
+     * 去重键，按 sourceType/sourceId/target/messageType 生成。
+     */
+    private String dedupKey;
+
     private Date publishTime;
 
     private Date expireTime;

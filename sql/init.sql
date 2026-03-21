@@ -295,6 +295,7 @@ CREATE TABLE sys_in_app_message (
     related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',
     source_type VARCHAR(64) DEFAULT NULL COMMENT '来源类型',
     source_id VARCHAR(64) DEFAULT NULL COMMENT '来源业务ID',
+    dedup_key VARCHAR(32) DEFAULT NULL COMMENT '去重键',
     publish_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
     expire_time DATETIME DEFAULT NULL COMMENT '过期时间',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1发布中 0停用',
@@ -307,7 +308,9 @@ CREATE TABLE sys_in_app_message (
     PRIMARY KEY (id),
     KEY idx_in_app_message_deleted_status_time (deleted, status, publish_time, id),
     KEY idx_in_app_message_deleted_type_time (deleted, message_type, publish_time, id),
-    KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id)
+    KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id),
+    KEY idx_in_app_message_source (source_type, source_id),
+    KEY idx_in_app_message_tenant_dedup (tenant_id, dedup_key, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息表';
 
 CREATE TABLE sys_in_app_message_read (

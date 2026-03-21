@@ -1,9 +1,10 @@
-import { request } from './request'
+import { request, type RequestOptions } from './request'
 import type { ApiEnvelope, IdType, PageResult } from '@/types/api'
 
 export type InAppMessageType = 'system' | 'business' | 'error'
 export type InAppMessagePriority = 'critical' | 'high' | 'medium' | 'low'
 export type InAppMessageTargetType = 'all' | 'role' | 'user'
+export type InAppMessageSourceType = 'manual' | 'system_error' | 'event_dispatch' | 'work_order' | 'governance'
 
 export const IN_APP_MESSAGE_TYPE_OPTIONS = [
   { value: 'system' as const, label: '系统事件' },
@@ -24,6 +25,14 @@ export const IN_APP_MESSAGE_TARGET_TYPE_OPTIONS = [
   { value: 'user' as const, label: '按用户定向' }
 ]
 
+export const IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS = [
+  { value: 'manual' as const, label: '手工广播' },
+  { value: 'system_error' as const, label: '系统异常' },
+  { value: 'event_dispatch' as const, label: '事件派工' },
+  { value: 'work_order' as const, label: '工单状态' },
+  { value: 'governance' as const, label: '治理任务' }
+]
+
 export interface InAppMessageRecord {
   id?: IdType
   tenantId?: IdType
@@ -38,6 +47,7 @@ export interface InAppMessageRecord {
   relatedPath?: string | null
   sourceType?: string | null
   sourceId?: string | null
+  dedupKey?: string | null
   publishTime?: string | null
   expireTime?: string | null
   status: number
@@ -83,11 +93,62 @@ export interface InAppMessagePageQuery {
   title?: string
   messageType?: InAppMessageType
   priority?: InAppMessagePriority
+  sourceType?: string
   targetType?: InAppMessageTargetType
   status?: number
   pageNum?: number
   pageSize?: number
 }
+
+export interface InAppMessageStatsBucket {
+  key: string
+  label: string
+  deliveryCount: number
+  readCount: number
+  unreadCount: number
+  readRate: number
+}
+
+export interface InAppMessageTrendBucket {
+  date: string
+  deliveryCount: number
+  readCount: number
+  unreadCount: number
+}
+
+export interface InAppMessageTopUnreadRecord {
+  messageId: IdType
+  title: string
+  messageType?: string | null
+  sourceType?: string | null
+  publishTime?: string | null
+  deliveryCount: number
+  readCount: number
+  unreadCount: number
+  unreadRate: number
+}
+
+export interface InAppMessageStatsRecord {
+  startTime?: string | null
+  endTime?: string | null
+  totalDeliveryCount: number
+  totalReadCount: number
+  totalUnreadCount: number
+  readRate: number
+  trend: InAppMessageTrendBucket[]
+  messageTypeBuckets: InAppMessageStatsBucket[]
+  sourceTypeBuckets: InAppMessageStatsBucket[]
+  topUnreadMessages: InAppMessageTopUnreadRecord[]
+}
+
+export interface InAppMessageStatsQuery {
+  startTime?: string
+  endTime?: string
+  messageType?: InAppMessageType
+  sourceType?: string
+}
+
+type InAppMessageRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
@@ -112,6 +173,13 @@ export function getInAppMessage(id: IdType): Promise<ApiEnvelope<InAppMessageRec
   })
 }
 
+export function getInAppMessageStats(params: InAppMessageStatsQuery = {}): Promise<ApiEnvelope<InAppMessageStatsRecord>> {
+  const query = buildQuery(params)
+  return request<InAppMessageStatsRecord>(`/api/system/in-app-message/stats${query ? `?${query}` : ''}`, {
+    method: 'GET'
+  })
+}
+
 export function addInAppMessage(data: Partial<InAppMessageRecord>): Promise<ApiEnvelope<InAppMessageRecord>> {
   return request<InAppMessageRecord>('/api/system/in-app-message/add', {
     method: 'POST',
@@ -132,10 +200,14 @@ export function deleteInAppMessage(id: IdType): Promise<ApiEnvelope<void>> {
   })
 }
 
-export function pageMyInAppMessages(params: MyInAppMessagePageQuery = {}): Promise<ApiEnvelope<PageResult<InAppMessageAccessRecord>>> {
+export function pageMyInAppMessages(
+  params: MyInAppMessagePageQuery = {},
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<PageResult<InAppMessageAccessRecord>>> {
   const query = buildQuery(params)
   return request<PageResult<InAppMessageAccessRecord>>(`/api/system/in-app-message/my/page${query ? `?${query}` : ''}`, {
-    method: 'GET'
+    method: 'GET',
+    ...options
   })
 }
 
@@ -145,14 +217,29 @@ export function getMyInAppMessageUnreadStats(): Promise<ApiEnvelope<InAppMessage
   })
 }
 
-export function markMyInAppMessageRead(id: IdType): Promise<ApiEnvelope<void>> {
-  return request<void>(`/api/system/in-app-message/my/read/${id}`, {
-    method: 'POST'
+export function getMyInAppMessage(
+  id: IdType,
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<InAppMessageAccessRecord>> {
+  return request<InAppMessageAccessRecord>(`/api/system/in-app-message/my/${id}`, {
+    method: 'GET',
+    ...options
   })
 }
 
-export function markAllMyInAppMessagesRead(): Promise<ApiEnvelope<void>> {
+export function markMyInAppMessageRead(
+  id: IdType,
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<void>> {
+  return request<void>(`/api/system/in-app-message/my/read/${id}`, {
+    method: 'POST',
+    ...options
+  })
+}
+
+export function markAllMyInAppMessagesRead(options: InAppMessageRequestOptions = {}): Promise<ApiEnvelope<void>> {
   return request<void>('/api/system/in-app-message/my/read-all', {
-    method: 'POST'
+    method: 'POST',
+    ...options
   })
 }

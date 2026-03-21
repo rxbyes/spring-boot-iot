@@ -8,20 +8,27 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.InAppMessage;
 import com.ghlzm.iot.system.entity.InAppMessageRead;
+import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.InAppMessageMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageReadMapper;
 import com.ghlzm.iot.system.service.InAppMessageService;
 import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.UserService;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
+import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
+import com.ghlzm.iot.system.vo.RoleSummaryVO;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,32 +40,47 @@ import java.util.stream.Collectors;
 @Service
 public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InAppMessage> implements InAppMessageService {
 
-    private static final Long DEFAULT_TENANT_ID = 1L;
-    private static final Set<String> ALLOWED_MESSAGE_TYPES = Set.of("system", "business", "error");
-    private static final Set<String> ALLOWED_PRIORITIES = Set.of("critical", "high", "medium", "low");
-    private static final Set<String> ALLOWED_TARGET_TYPES = Set.of("all", "role", "user");
+    private static final SimpleDateFormat STATS_TIME_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final SimpleDateFormat STATS_DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd");
 
     private final InAppMessageMapper inAppMessageMapper;
     private final InAppMessageReadMapper inAppMessageReadMapper;
     private final PermissionService permissionService;
+    private final UserService userService;
+    private final SystemContentSchemaSupport systemContentSchemaSupport;
 
     public InAppMessageServiceImpl(InAppMessageMapper inAppMessageMapper,
                                    InAppMessageReadMapper inAppMessageReadMapper,
-                                   PermissionService permissionService) {
+                                   PermissionService permissionService,
+                                   UserService userService,
+                                   SystemContentSchemaSupport systemContentSchemaSupport) {
         this.inAppMessageMapper = inAppMessageMapper;
         this.inAppMessageReadMapper = inAppMessageReadMapper;
         this.permissionService = permissionService;
+        this.userService = userService;
+        this.systemContentSchemaSupport = systemContentSchemaSupport;
+    }
+
+    @Override
+    public InAppMessage getById(Serializable id) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
+        return super.getById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public InAppMessage addMessage(InAppMessage message, Long operatorId) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
         normalizeAndValidateMessage(message, null);
         if (message.getCreateBy() == null) {
             message.setCreateBy(defaultOperator(operatorId));
         }
         if (message.getUpdateBy() == null) {
             message.setUpdateBy(defaultOperator(operatorId));
+        }
+        InAppMessage existing = findDedupedMessage(message);
+        if (existing != null) {
+            return existing;
         }
         inAppMessageMapper.insert(message);
         return inAppMessageMapper.selectById(message.getId());
@@ -68,10 +90,12 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     public PageResult<InAppMessage> pageMessages(String title,
                                                  String messageType,
                                                  String priority,
+                                                 String sourceType,
                                                  String targetType,
                                                  Integer status,
                                                  Long pageNum,
                                                  Long pageSize) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
         Page<InAppMessage> page = PageQueryUtils.buildPage(pageNum, pageSize);
         LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(InAppMessage::getDeleted, 0);
@@ -85,6 +109,9 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         }
         if (StringUtils.hasText(priority)) {
             queryWrapper.eq(InAppMessage::getPriority, priority.trim().toLowerCase(Locale.ROOT));
+        }
+        if (StringUtils.hasText(sourceType)) {
+            queryWrapper.eq(InAppMessage::getSourceType, sourceType.trim().toLowerCase(Locale.ROOT));
         }
         if (StringUtils.hasText(targetType)) {
             queryWrapper.eq(InAppMessage::getTargetType, targetType.trim().toLowerCase(Locale.ROOT));
@@ -101,8 +128,10 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMessage(InAppMessage message, Long operatorId) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
         InAppMessage existing = requireMessage(message == null ? null : message.getId());
         normalizeAndValidateMessage(message, existing);
+        ensureAutomaticMessageOnlyStatusUpdate(existing, message);
         message.setTenantId(existing.getTenantId());
         message.setUpdateBy(defaultOperator(operatorId));
         inAppMessageMapper.updateById(message);
@@ -111,7 +140,11 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteMessage(Long id, Long operatorId) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
         InAppMessage existing = requireMessage(id);
+        if (InAppMessageSupport.isAutomaticSourceType(existing.getSourceType())) {
+            throw new BizException("系统自动消息只允许查看或停用");
+        }
         existing.setDeleted(1);
         existing.setUpdateBy(defaultOperator(operatorId));
         inAppMessageMapper.updateById(existing);
@@ -123,6 +156,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                                                            Boolean unreadOnly,
                                                            Long pageNum,
                                                            Long pageSize) {
+        ensureMyMessageAccessReady();
         long safePageNum = PageQueryUtils.normalizePageNum(pageNum);
         long safePageSize = PageQueryUtils.normalizePageSize(pageSize);
         List<InAppMessage> accessibleMessages = listAccessibleMessages(userId);
@@ -138,6 +172,9 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                     .filter(message -> !readMap.containsKey(message.getId()))
                     .toList();
         }
+        accessibleMessages = accessibleMessages.stream()
+                .sorted(accessibleMessageComparator(readMap))
+                .toList();
         if (accessibleMessages.isEmpty()) {
             return PageResult.empty(safePageNum, safePageSize);
         }
@@ -152,6 +189,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
 
     @Override
     public InAppMessageUnreadStatsVO getMyUnreadStats(Long userId) {
+        ensureMyMessageAccessReady();
         List<InAppMessage> accessibleMessages = listAccessibleMessages(userId);
         Map<Long, InAppMessageRead> readMap = queryReadMap(userId, accessibleMessages.stream().map(InAppMessage::getId).toList());
         InAppMessageUnreadStatsVO stats = new InAppMessageUnreadStatsVO();
@@ -173,6 +211,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
 
     @Override
     public InAppMessageAccessVO getMyMessageDetail(Long userId, Long id) {
+        ensureMyMessageAccessReady();
         InAppMessage message = requireVisibleMessage(userId, id);
         InAppMessageRead readRecord = queryReadRecord(userId, message.getId());
         return toAccessVO(message, readRecord);
@@ -181,6 +220,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void markMessageRead(Long userId, Long id) {
+        ensureMyMessageAccessReady();
         InAppMessage message = requireVisibleMessage(userId, id);
         if (queryReadRecord(userId, message.getId()) != null) {
             return;
@@ -191,6 +231,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void markAllMessagesRead(Long userId) {
+        ensureMyMessageAccessReady();
         List<InAppMessage> accessibleMessages = listAccessibleMessages(userId);
         if (accessibleMessages.isEmpty()) {
             return;
@@ -204,17 +245,118 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         }
     }
 
+    @Override
+    public InAppMessageStatsVO getMessageStats(Date startTime,
+                                               Date endTime,
+                                               String messageType,
+                                               String sourceType) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
+        ensureMyMessageAccessReady();
+        Date[] normalizedRange = normalizeStatsRange(startTime, endTime);
+        List<InAppMessage> messages = listMessagesForStats(normalizedRange[0], normalizedRange[1], messageType, sourceType);
+
+        InAppMessageStatsVO stats = new InAppMessageStatsVO();
+        stats.setStartTime(normalizedRange[0] == null ? null : STATS_TIME_FORMATTER.format(normalizedRange[0]));
+        stats.setEndTime(normalizedRange[1] == null ? null : STATS_TIME_FORMATTER.format(normalizedRange[1]));
+        if (messages.isEmpty()) {
+            return stats;
+        }
+
+        List<User> activeUsers = userService.listUsers(null, null, null, 1);
+        Map<Long, User> activeUserMap = activeUsers.stream()
+                .filter(user -> user.getId() != null)
+                .collect(Collectors.toMap(User::getId, Function.identity(), (left, right) -> left));
+        Map<Long, List<RoleSummaryVO>> userRoles = permissionService.listUserRolesByUserIds(activeUserMap.keySet());
+        Set<String> readKeys = queryReadKeysByMessageIds(messages.stream().map(InAppMessage::getId).toList());
+        Map<String, InAppMessageStatsVO.TrendBucket> trendBuckets = new LinkedHashMap<>();
+        Map<String, InAppMessageStatsVO.Bucket> messageTypeBuckets = new LinkedHashMap<>();
+        Map<String, InAppMessageStatsVO.Bucket> sourceTypeBuckets = new LinkedHashMap<>();
+        List<InAppMessageStatsVO.TopUnreadMessage> topUnreadMessages = new java.util.ArrayList<>();
+
+        for (InAppMessage message : messages) {
+            DeliverySnapshot snapshot = resolveDeliverySnapshot(message, activeUserMap, userRoles, readKeys);
+            stats.setTotalDeliveryCount(stats.getTotalDeliveryCount() + snapshot.deliveryCount());
+            stats.setTotalReadCount(stats.getTotalReadCount() + snapshot.readCount());
+            stats.setTotalUnreadCount(stats.getTotalUnreadCount() + snapshot.unreadCount());
+
+            String trendKey = message.getPublishTime() == null ? "未知日期" : STATS_DATE_FORMATTER.format(message.getPublishTime());
+            InAppMessageStatsVO.TrendBucket trendBucket = trendBuckets.computeIfAbsent(trendKey, key -> {
+                InAppMessageStatsVO.TrendBucket bucket = new InAppMessageStatsVO.TrendBucket();
+                bucket.setDate(key);
+                return bucket;
+            });
+            trendBucket.setDeliveryCount(trendBucket.getDeliveryCount() + snapshot.deliveryCount());
+            trendBucket.setReadCount(trendBucket.getReadCount() + snapshot.readCount());
+            trendBucket.setUnreadCount(trendBucket.getUnreadCount() + snapshot.unreadCount());
+
+            accumulateBucket(messageTypeBuckets,
+                    message.getMessageType(),
+                    resolveMessageTypeLabel(message.getMessageType()),
+                    snapshot);
+            String normalizedSourceType = InAppMessageSupport.normalizeSourceType(message.getSourceType(), "manual");
+            accumulateBucket(sourceTypeBuckets,
+                    normalizedSourceType,
+                    resolveSourceTypeLabel(normalizedSourceType),
+                    snapshot);
+
+            InAppMessageStatsVO.TopUnreadMessage topUnreadMessage = new InAppMessageStatsVO.TopUnreadMessage();
+            topUnreadMessage.setMessageId(message.getId());
+            topUnreadMessage.setTitle(message.getTitle());
+            topUnreadMessage.setMessageType(message.getMessageType());
+            topUnreadMessage.setSourceType(normalizedSourceType);
+            topUnreadMessage.setPublishTime(message.getPublishTime() == null ? null : STATS_TIME_FORMATTER.format(message.getPublishTime()));
+            topUnreadMessage.setDeliveryCount(snapshot.deliveryCount());
+            topUnreadMessage.setReadCount(snapshot.readCount());
+            topUnreadMessage.setUnreadCount(snapshot.unreadCount());
+            topUnreadMessage.setUnreadRate(snapshot.deliveryCount() <= 0
+                    ? 0D
+                    : (double) snapshot.unreadCount() / snapshot.deliveryCount());
+            topUnreadMessages.add(topUnreadMessage);
+        }
+
+        stats.setReadRate(stats.getTotalDeliveryCount() <= 0
+                ? 0D
+                : (double) stats.getTotalReadCount() / stats.getTotalDeliveryCount());
+        stats.setTrend(trendBuckets.values().stream()
+                .sorted(Comparator.comparing(InAppMessageStatsVO.TrendBucket::getDate))
+                .toList());
+        stats.setMessageTypeBuckets(finalizeBuckets(messageTypeBuckets));
+        stats.setSourceTypeBuckets(finalizeBuckets(sourceTypeBuckets));
+        stats.setTopUnreadMessages(topUnreadMessages.stream()
+                .sorted(Comparator.comparing(InAppMessageStatsVO.TopUnreadMessage::getUnreadRate, Comparator.reverseOrder())
+                        .thenComparing(InAppMessageStatsVO.TopUnreadMessage::getUnreadCount, Comparator.reverseOrder())
+                        .thenComparing(InAppMessageStatsVO.TopUnreadMessage::getMessageId, Comparator.reverseOrder()))
+                .limit(5)
+                .toList());
+        return stats;
+    }
+
     private void normalizeAndValidateMessage(InAppMessage message, InAppMessage existing) {
         if (message == null) {
             throw new BizException("站内消息不能为空");
         }
         message.setTenantId(existing == null ? defaultTenantId(message.getTenantId()) : existing.getTenantId());
-        message.setMessageType(normalizeEnum(message.getMessageType(), ALLOWED_MESSAGE_TYPES, "消息类型", null));
-        message.setPriority(normalizeEnum(message.getPriority(), ALLOWED_PRIORITIES, "消息优先级", "medium"));
-        message.setTargetType(normalizeEnum(message.getTargetType(), ALLOWED_TARGET_TYPES, "推送范围", "all"));
-        message.setTitle(requireText(message.getTitle(), "消息标题"));
-        message.setSummary(nullableText(message.getSummary()));
-        message.setContent(nullableText(message.getContent()));
+        message.setMessageType(InAppMessageSupport.normalizeEnum(
+                message.getMessageType(),
+                InAppMessageSupport.ALLOWED_MESSAGE_TYPES,
+                "消息类型",
+                null
+        ));
+        message.setPriority(InAppMessageSupport.normalizeEnum(
+                message.getPriority(),
+                InAppMessageSupport.ALLOWED_PRIORITIES,
+                "消息优先级",
+                "medium"
+        ));
+        message.setTargetType(InAppMessageSupport.normalizeEnum(
+                message.getTargetType(),
+                InAppMessageSupport.ALLOWED_TARGET_TYPES,
+                "推送范围",
+                "all"
+        ));
+        message.setTitle(InAppMessageSupport.requireText(message.getTitle(), "消息标题"));
+        message.setSummary(InAppMessageSupport.nullableText(message.getSummary()));
+        message.setContent(InAppMessageSupport.nullableText(message.getContent()));
         if (!StringUtils.hasText(message.getSummary()) && !StringUtils.hasText(message.getContent())) {
             throw new BizException("消息摘要和正文不能同时为空");
         }
@@ -227,7 +369,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
             message.setTargetRoleCodes(normalizedRoles);
             message.setTargetUserIds(null);
         } else if ("user".equals(message.getTargetType())) {
-            String normalizedUserIds = normalizeUserIdsCsv(message.getTargetUserIds());
+            String normalizedUserIds = InAppMessageSupport.normalizeUserIdsCsv(message.getTargetUserIds());
             if (!StringUtils.hasText(normalizedUserIds)) {
                 throw new BizException("按用户推送时必须指定目标用户");
             }
@@ -239,9 +381,17 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         }
 
         message.setRelatedPath(SystemContentAccessSupport.normalizePath(message.getRelatedPath()));
-        message.setSourceType(nullableText(message.getSourceType()));
-        message.setSourceId(nullableText(message.getSourceId()));
+        message.setSourceType(InAppMessageSupport.normalizeSourceType(
+                message.getSourceType(),
+                existing == null ? "manual" : existing.getSourceType()
+        ));
+        message.setSourceId(InAppMessageSupport.nullableText(message.getSourceId()));
         message.setPublishTime(message.getPublishTime() == null ? new Date() : message.getPublishTime());
+        message.setExpireTime(InAppMessageSupport.resolveDefaultExpireTime(
+                message.getSourceType(),
+                message.getPublishTime(),
+                message.getExpireTime()
+        ));
         if (message.getExpireTime() != null && !message.getExpireTime().after(message.getPublishTime())) {
             throw new BizException("过期时间必须晚于发布时间");
         }
@@ -251,9 +401,11 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         if (message.getSortNo() == null) {
             message.setSortNo(existing == null ? 0 : existing.getSortNo());
         }
+        message.setDedupKey(InAppMessageSupport.buildDedupKey(message));
     }
 
     private List<InAppMessage> listAccessibleMessages(Long userId) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
         UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
         Set<String> roleCodes = SystemContentAccessSupport.toUpperCaseSet(authContext.getRoleCodes());
         Date now = new Date();
@@ -294,6 +446,11 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                 .thenComparing(InAppMessage::getId, Comparator.nullsLast(Comparator.reverseOrder()));
     }
 
+    private Comparator<InAppMessage> accessibleMessageComparator(Map<Long, InAppMessageRead> readMap) {
+        return Comparator.comparing((InAppMessage message) -> readMap.containsKey(message.getId()))
+                .thenComparing(accessibleMessageComparator());
+    }
+
     private int priorityWeight(String priority) {
         return switch (priority) {
             case "critical" -> 4;
@@ -314,6 +471,18 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         return inAppMessageReadMapper.selectList(queryWrapper).stream()
                 .filter(item -> item.getMessageId() != null)
                 .collect(Collectors.toMap(InAppMessageRead::getMessageId, Function.identity(), (left, right) -> left));
+    }
+
+    private Set<String> queryReadKeysByMessageIds(Collection<Long> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return Set.of();
+        }
+        LambdaQueryWrapper<InAppMessageRead> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.in(InAppMessageRead::getMessageId, messageIds);
+        return inAppMessageReadMapper.selectList(queryWrapper).stream()
+                .filter(item -> item.getMessageId() != null && item.getUserId() != null)
+                .map(item -> buildReadKey(item.getMessageId(), item.getUserId()))
+                .collect(Collectors.toSet());
     }
 
     private InAppMessageRead queryReadRecord(Long userId, Long messageId) {
@@ -381,51 +550,184 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         return vo;
     }
 
-    private String normalizeEnum(String raw,
-                                 Set<String> allowedValues,
-                                 String fieldName,
-                                 String defaultValue) {
-        String normalized = StringUtils.hasText(raw) ? raw.trim().toLowerCase(Locale.ROOT) : defaultValue;
-        if (!StringUtils.hasText(normalized) || !allowedValues.contains(normalized)) {
-            throw new BizException(fieldName + "不合法");
+    private void ensureAutomaticMessageOnlyStatusUpdate(InAppMessage existing, InAppMessage updating) {
+        if (!InAppMessageSupport.isAutomaticSourceType(existing == null ? null : existing.getSourceType())) {
+            return;
         }
-        return normalized;
+        boolean onlyStatusChanged = Objects.equals(existing.getMessageType(), updating.getMessageType())
+                && Objects.equals(existing.getPriority(), updating.getPriority())
+                && Objects.equals(existing.getTitle(), updating.getTitle())
+                && Objects.equals(existing.getSummary(), updating.getSummary())
+                && Objects.equals(existing.getContent(), updating.getContent())
+                && Objects.equals(existing.getTargetType(), updating.getTargetType())
+                && Objects.equals(existing.getTargetRoleCodes(), updating.getTargetRoleCodes())
+                && Objects.equals(existing.getTargetUserIds(), updating.getTargetUserIds())
+                && Objects.equals(existing.getRelatedPath(), updating.getRelatedPath())
+                && Objects.equals(existing.getSourceType(), updating.getSourceType())
+                && Objects.equals(existing.getSourceId(), updating.getSourceId())
+                && Objects.equals(existing.getPublishTime(), updating.getPublishTime())
+                && Objects.equals(existing.getExpireTime(), updating.getExpireTime())
+                && Objects.equals(existing.getSortNo(), updating.getSortNo());
+        if (!onlyStatusChanged) {
+            throw new BizException("系统自动消息只允许查看或停用");
+        }
     }
 
-    private String requireText(String raw, String fieldName) {
-        String normalized = nullableText(raw);
-        if (!StringUtils.hasText(normalized)) {
-            throw new BizException(fieldName + "不能为空");
-        }
-        return normalized;
-    }
-
-    private String nullableText(String raw) {
-        if (!StringUtils.hasText(raw)) {
+    private InAppMessage findDedupedMessage(InAppMessage message) {
+        if (message == null || !StringUtils.hasText(message.getDedupKey())) {
             return null;
         }
-        return raw.trim();
+        Date now = new Date();
+        LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(InAppMessage::getTenantId, message.getTenantId())
+                .eq(InAppMessage::getDedupKey, message.getDedupKey())
+                .eq(InAppMessage::getDeleted, 0)
+                .eq(InAppMessage::getStatus, 1)
+                .and(wrapper -> wrapper.isNull(InAppMessage::getExpireTime)
+                        .or()
+                        .gt(InAppMessage::getExpireTime, now))
+                .orderByDesc(InAppMessage::getPublishTime)
+                .orderByDesc(InAppMessage::getId)
+                .last("LIMIT 1");
+        return inAppMessageMapper.selectOne(queryWrapper);
     }
 
-    private String normalizeUserIdsCsv(String raw) {
-        List<String> userIds = SystemContentAccessSupport.splitCsv(raw).stream()
-                .map(value -> {
-                    try {
-                        return String.valueOf(Long.parseLong(value));
-                    } catch (NumberFormatException ex) {
-                        throw new BizException("目标用户格式不合法");
-                    }
-                })
-                .distinct()
+    private List<InAppMessage> listMessagesForStats(Date startTime,
+                                                    Date endTime,
+                                                    String messageType,
+                                                    String sourceType) {
+        LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(InAppMessage::getDeleted, 0);
+        if (startTime != null) {
+            queryWrapper.ge(InAppMessage::getPublishTime, startTime);
+        }
+        if (endTime != null) {
+            queryWrapper.le(InAppMessage::getPublishTime, endTime);
+        }
+        if (StringUtils.hasText(messageType)) {
+            queryWrapper.eq(InAppMessage::getMessageType, messageType.trim().toLowerCase(Locale.ROOT));
+        }
+        if (StringUtils.hasText(sourceType)) {
+            queryWrapper.eq(InAppMessage::getSourceType, sourceType.trim().toLowerCase(Locale.ROOT));
+        }
+        queryWrapper.orderByDesc(InAppMessage::getPublishTime)
+                .orderByDesc(InAppMessage::getId);
+        return inAppMessageMapper.selectList(queryWrapper);
+    }
+
+    private Date[] normalizeStatsRange(Date startTime, Date endTime) {
+        Date normalizedEndTime = endTime == null ? new Date() : endTime;
+        Date normalizedStartTime = startTime == null
+                ? new Date(normalizedEndTime.getTime() - 6L * 24L * 60L * 60L * 1000L)
+                : startTime;
+        return new Date[]{normalizedStartTime, normalizedEndTime};
+    }
+
+    private DeliverySnapshot resolveDeliverySnapshot(InAppMessage message,
+                                                     Map<Long, User> activeUserMap,
+                                                     Map<Long, List<RoleSummaryVO>> userRoles,
+                                                     Set<String> readKeys) {
+        if (message == null || activeUserMap.isEmpty()) {
+            return new DeliverySnapshot(0L, 0L, 0L);
+        }
+        List<Long> targetUserIds = switch (message.getTargetType()) {
+            case "all" -> activeUserMap.keySet().stream().toList();
+            case "role" -> {
+                Set<String> targetRoles = SystemContentAccessSupport.toUpperCaseSet(
+                        SystemContentAccessSupport.splitCsv(message.getTargetRoleCodes())
+                );
+                yield activeUserMap.keySet().stream()
+                        .filter(userId -> userRoles.getOrDefault(userId, List.of()).stream()
+                                .map(RoleSummaryVO::getRoleCode)
+                                .filter(StringUtils::hasText)
+                                .map(value -> value.toUpperCase(Locale.ROOT))
+                                .anyMatch(targetRoles::contains))
+                        .toList();
+            }
+            case "user" -> SystemContentAccessSupport.splitCsv(message.getTargetUserIds()).stream()
+                    .map(value -> {
+                        try {
+                            return Long.parseLong(value);
+                        } catch (NumberFormatException ex) {
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .filter(activeUserMap::containsKey)
+                    .distinct()
+                    .toList();
+            default -> List.of();
+        };
+        long deliveryCount = targetUserIds.size();
+        long readCount = targetUserIds.stream()
+                .filter(userId -> readKeys.contains(buildReadKey(message.getId(), userId)))
+                .count();
+        return new DeliverySnapshot(deliveryCount, readCount, Math.max(0L, deliveryCount - readCount));
+    }
+
+    private void accumulateBucket(Map<String, InAppMessageStatsVO.Bucket> buckets,
+                                  String key,
+                                  String label,
+                                  DeliverySnapshot snapshot) {
+        String normalizedKey = StringUtils.hasText(key) ? key : "unknown";
+        InAppMessageStatsVO.Bucket bucket = buckets.computeIfAbsent(normalizedKey, ignored -> {
+            InAppMessageStatsVO.Bucket item = new InAppMessageStatsVO.Bucket();
+            item.setKey(normalizedKey);
+            item.setLabel(label);
+            return item;
+        });
+        bucket.setDeliveryCount(bucket.getDeliveryCount() + snapshot.deliveryCount());
+        bucket.setReadCount(bucket.getReadCount() + snapshot.readCount());
+        bucket.setUnreadCount(bucket.getUnreadCount() + snapshot.unreadCount());
+    }
+
+    private List<InAppMessageStatsVO.Bucket> finalizeBuckets(Map<String, InAppMessageStatsVO.Bucket> buckets) {
+        return buckets.values().stream()
+                .peek(bucket -> bucket.setReadRate(bucket.getDeliveryCount() <= 0
+                        ? 0D
+                        : (double) bucket.getReadCount() / bucket.getDeliveryCount()))
+                .sorted(Comparator.comparing(InAppMessageStatsVO.Bucket::getDeliveryCount, Comparator.reverseOrder()))
                 .toList();
-        return String.join(",", userIds);
+    }
+
+    private String resolveMessageTypeLabel(String messageType) {
+        return switch (messageType) {
+            case "system" -> "系统事件";
+            case "business" -> "业务事件";
+            case "error" -> "错误事件";
+            default -> "站内消息";
+        };
+    }
+
+    private String resolveSourceTypeLabel(String sourceType) {
+        return switch (StringUtils.hasText(sourceType) ? sourceType : "unknown") {
+            case "manual" -> "手工广播";
+            case "system_maintenance", "daily_report" -> "手工广播";
+            case "system_error" -> "系统异常";
+            case "event_dispatch" -> "事件派工";
+            case "work_order" -> "工单状态";
+            case "governance", "governance_task" -> "治理任务";
+            default -> sourceType;
+        };
+    }
+
+    private String buildReadKey(Long messageId, Long userId) {
+        return messageId + ":" + userId;
     }
 
     private Long defaultTenantId(Long tenantId) {
-        return tenantId == null ? DEFAULT_TENANT_ID : tenantId;
+        return tenantId == null ? InAppMessageSupport.DEFAULT_TENANT_ID : tenantId;
     }
 
     private Long defaultOperator(Long operatorId) {
-        return operatorId == null ? 1L : operatorId;
+        return operatorId == null ? InAppMessageSupport.DEFAULT_OPERATOR_ID : operatorId;
+    }
+
+    private void ensureMyMessageAccessReady() {
+        systemContentSchemaSupport.ensureInAppMessageReady();
+        systemContentSchemaSupport.ensureInAppMessageReadReady();
+    }
+
+    private record DeliverySnapshot(long deliveryCount, long readCount, long unreadCount) {
     }
 }

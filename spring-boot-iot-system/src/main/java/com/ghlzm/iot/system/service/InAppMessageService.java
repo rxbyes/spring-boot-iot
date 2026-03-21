@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.InAppMessage;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
+import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
+
+import java.util.Date;
 
 public interface InAppMessageService extends IService<InAppMessage> {
 
@@ -13,6 +16,7 @@ public interface InAppMessageService extends IService<InAppMessage> {
     PageResult<InAppMessage> pageMessages(String title,
                                           String messageType,
                                           String priority,
+                                          String sourceType,
                                           String targetType,
                                           Integer status,
                                           Long pageNum,
@@ -35,4 +39,9 @@ public interface InAppMessageService extends IService<InAppMessage> {
     void markMessageRead(Long userId, Long id);
 
     void markAllMessagesRead(Long userId);
+
+    InAppMessageStatsVO getMessageStats(Date startTime,
+                                        Date endTime,
+                                        String messageType,
+                                        String sourceType);
 }

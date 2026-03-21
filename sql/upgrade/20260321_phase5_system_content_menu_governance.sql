@@ -60,8 +60,10 @@ SET @role_super_admin_id = (
 
 SET @role_menu_id = COALESCE((SELECT MAX(id) FROM sys_role_menu), 96000000);
 
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@role_menu_id := @role_menu_id + 1), 1, target.role_id, target.menu_id, 1, NOW(), 1, NOW(), 0
+-- 历史库中的 sys_role_menu 可能只有 id / tenant_id / role_id / menu_id / create_time 这组基础字段，
+-- 因此这里仅写入兼容字段集，避免旧环境因 create_by/update_by/deleted 缺失而脚本失败。
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_time)
+SELECT (@role_menu_id := @role_menu_id + 1), 1, target.role_id, target.menu_id, NOW()
 FROM (
     SELECT @role_management_id AS role_id, 93003010 AS menu_id
     UNION ALL SELECT @role_management_id, 93003011
@@ -84,7 +86,6 @@ WHERE target.role_id IS NOT NULL
   AND NOT EXISTS (
       SELECT 1
       FROM sys_role_menu rm
-      WHERE rm.deleted = 0
-        AND rm.role_id = target.role_id
+      WHERE rm.role_id = target.role_id
         AND rm.menu_id = target.menu_id
   );

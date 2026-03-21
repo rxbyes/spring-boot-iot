@@ -2,7 +2,7 @@
 import { mount } from '@vue/test-utils';
 
 import HeaderPopoverPanel from '@/components/HeaderPopoverPanel.vue';
-import type { ShellPopoverContent } from '@/types/shell';
+import type { ShellPopoverContent, ShellPopoverItem } from '@/types/shell';
 
 describe('HeaderPopoverPanel', () => {
   const content: ShellPopoverContent = {
@@ -31,6 +31,9 @@ describe('HeaderPopoverPanel', () => {
           { id: '3', title: '问题 1', description: '回答 1', badge: 'FAQ', tone: 'warning' }
         ]
       }
+    ],
+    footerActions: [
+      { id: 'view-more', label: '查看更多', tone: 'brand' }
     ]
   };
 
@@ -49,7 +52,7 @@ describe('HeaderPopoverPanel', () => {
     expect(wrapper.findAll('.header-popover__list li')).toHaveLength(3);
   });
 
-  it('emits select with target path when item is clicked', async () => {
+  it('emits select with item payload when item is clicked', async () => {
     const wrapper = mount(HeaderPopoverPanel, {
       props: {
         panelId: 'panel-id',
@@ -59,6 +62,19 @@ describe('HeaderPopoverPanel', () => {
     });
 
     await wrapper.findAll('.header-popover__list li button')[1].trigger('click');
-    expect(wrapper.emitted('select')?.[0]).toEqual(['/two']);
+    expect(wrapper.emitted('select')?.[0]).toEqual([expect.objectContaining<ShellPopoverItem>({ id: '2', path: '/two' })]);
+  });
+
+  it('emits footer action when footer button is clicked', async () => {
+    const wrapper = mount(HeaderPopoverPanel, {
+      props: {
+        panelId: 'panel-id',
+        ariaLabel: '测试面板',
+        content
+      }
+    });
+
+    await wrapper.find('.header-popover__footer-action').trigger('click');
+    expect(wrapper.emitted('action')?.[0]).toEqual(['view-more']);
   });
 });

@@ -1,4 +1,4 @@
-import { request } from './request'
+import { request, type RequestOptions } from './request'
 import type { ApiEnvelope, IdType } from '@/types/api'
 import type { PageResult } from '@/types/api'
 
@@ -57,6 +57,8 @@ export interface HelpDocumentPageQuery {
   pageSize?: number
 }
 
+type HelpDocRequestOptions = Pick<RequestOptions, 'signal'>
+
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -100,16 +102,36 @@ export function deleteHelpDocument(id: IdType): Promise<ApiEnvelope<void>> {
   })
 }
 
-export function listAccessibleHelpDocuments(params: HelpDocumentAccessQuery = {}): Promise<ApiEnvelope<HelpDocumentAccessRecord[]>> {
+export function listAccessibleHelpDocuments(
+  params: HelpDocumentAccessQuery = {},
+  options: HelpDocRequestOptions = {}
+): Promise<ApiEnvelope<HelpDocumentAccessRecord[]>> {
   const query = buildQuery(params)
   return request<HelpDocumentAccessRecord[]>(`/api/system/help-doc/access/list${query ? `?${query}` : ''}`, {
-    method: 'GET'
+    method: 'GET',
+    ...options
   })
 }
 
-export function getAccessibleHelpDocument(id: IdType, currentPath?: string): Promise<ApiEnvelope<HelpDocumentAccessRecord>> {
+export function pageAccessibleHelpDocuments(
+  params: HelpDocumentAccessQuery & { pageNum?: number; pageSize?: number } = {},
+  options: HelpDocRequestOptions = {}
+): Promise<ApiEnvelope<PageResult<HelpDocumentAccessRecord>>> {
+  const query = buildQuery(params)
+  return request<PageResult<HelpDocumentAccessRecord>>(`/api/system/help-doc/access/page${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
+export function getAccessibleHelpDocument(
+  id: IdType,
+  currentPath?: string,
+  options: HelpDocRequestOptions = {}
+): Promise<ApiEnvelope<HelpDocumentAccessRecord>> {
   const query = buildQuery({ currentPath })
   return request<HelpDocumentAccessRecord>(`/api/system/help-doc/access/${id}${query ? `?${query}` : ''}`, {
-    method: 'GET'
+    method: 'GET',
+    ...options
   })
 }

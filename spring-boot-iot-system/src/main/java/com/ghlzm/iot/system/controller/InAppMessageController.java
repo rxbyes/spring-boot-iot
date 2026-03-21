@@ -7,7 +7,9 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.InAppMessage;
 import com.ghlzm.iot.system.service.InAppMessageService;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
+import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Date;
 
 @RestController
 @RequestMapping("/api/system/in-app-message")
@@ -33,14 +37,24 @@ public class InAppMessageController {
     public R<PageResult<InAppMessage>> pageMessages(@RequestParam(required = false) String title,
                                                     @RequestParam(required = false) String messageType,
                                                     @RequestParam(required = false) String priority,
+                                                    @RequestParam(required = false) String sourceType,
                                                     @RequestParam(required = false) String targetType,
                                                     @RequestParam(required = false) Integer status,
                                                     @RequestParam(defaultValue = "1") Long pageNum,
                                                     @RequestParam(defaultValue = "10") Long pageSize) {
-        return R.ok(inAppMessageService.pageMessages(title, messageType, priority, targetType, status, pageNum, pageSize));
+        return R.ok(inAppMessageService.pageMessages(title, messageType, priority, sourceType, targetType, status, pageNum, pageSize));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/stats")
+    public R<InAppMessageStatsVO> getMessageStats(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date endTime,
+            @RequestParam(required = false) String messageType,
+            @RequestParam(required = false) String sourceType) {
+        return R.ok(inAppMessageService.getMessageStats(startTime, endTime, messageType, sourceType));
+    }
+
+    @GetMapping("/{id:[0-9]+}")
     public R<InAppMessage> getById(@PathVariable Long id) {
         return R.ok(inAppMessageService.getById(id));
     }
@@ -56,7 +70,7 @@ public class InAppMessageController {
         return R.ok();
     }
 
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/delete/{id:[0-9]+}")
     public R<Void> deleteMessage(@PathVariable Long id, Authentication authentication) {
         inAppMessageService.deleteMessage(id, requireCurrentUserId(authentication));
         return R.ok();
@@ -77,12 +91,12 @@ public class InAppMessageController {
         return R.ok(inAppMessageService.getMyUnreadStats(requireCurrentUserId(authentication)));
     }
 
-    @GetMapping("/my/{id}")
+    @GetMapping("/my/{id:[0-9]+}")
     public R<InAppMessageAccessVO> getMyMessageDetail(@PathVariable Long id, Authentication authentication) {
         return R.ok(inAppMessageService.getMyMessageDetail(requireCurrentUserId(authentication), id));
     }
 
-    @PostMapping("/my/read/{id}")
+    @PostMapping("/my/read/{id:[0-9]+}")
     public R<Void> markMessageRead(@PathVariable Long id, Authentication authentication) {
         inAppMessageService.markMessageRead(requireCurrentUserId(authentication), id);
         return R.ok();

@@ -1,6 +1,6 @@
 # 真实环境测试与验收手册
 
-更新时间：2026-03-20
+更新时间：2026-03-22
 
 ## 1. 当前测试策略
 当前项目统一采用“自动化回归 + 真实环境验收”双轨策略：
@@ -28,6 +28,12 @@
 ```bash
 mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+若本机 `9999` 已被其他进程占用，可临时改用：
+```bash
+mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev -Dspring-boot.run.arguments=--server.port=10099
+```
+此时需同步把 `curl` 基准地址、前端 `VITE_PROXY_TARGET` 或冒烟脚本 `-BaseUrl` 改到对应端口，并在验收记录里注明“本机端口冲突”环境阻塞。
 
 可选脚本：
 ```powershell
@@ -62,10 +68,12 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 验收前先确认：
 - 新库：已执行 `sql/init.sql`（如需样例数据再执行 `sql/init-data.sql`）
 - 历史库：按需执行 `sql/upgrade/` 当前基线脚本
+- 验收系统内容能力前，历史库至少已执行 `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`
 - 风险监测联调前，额外确认已执行 `sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql`
 - 如共享开发库存在历史 Phase 4 早期结构偏差（缺列、缺表、旧约束），额外执行 `sql/upgrade/20260316_phase4_real_env_schema_alignment.sql`
 - 如本轮要联调南方测绘深部位移基准站 `SK00FB0D1310195`，额外执行 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`，并确认 `application-dev.yml` 已配置 `iot.device.sub-device-mappings`
 - 如历史库菜单管理页仍缺少超管按钮权限，可补执行 `sql/upgrade/20260317_phase4_menu_button_permission_backfill.sql`
+- 如 `/api/auth/me` 或 `/api/menu/tree` 中仍看不到 `/help-doc`、`/in-app-message`，再补执行 `sql/upgrade/20260321_phase5_system_content_menu_governance.sql`
 - 使用自动同步方式时，可执行：`PYTHONPATH=.codex-runtime/pydeps python scripts/run-real-env-schema-sync.py`
 - MQTT 客户端日志无异常
 - 若本轮需要验证“系统异常自动通知”，额外设置 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`，并准备可接收请求的 webhook 渠道地址
@@ -387,6 +395,61 @@ curl http://localhost:9999/api/menu/tree \
 - 响应体 `code = 200`
 - `data` 为非空树结构，且包含 `meta`、`type`、`children`
 - `data.token` 非空
+
+### 11.1 系统内容能力验收（真实环境）
+
+前置条件：
+- 已完成登录，并拿到 `Authorization: Bearer <token>`
+- 历史库已执行 `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`
+- 若菜单树仍缺 `/help-doc`、`/in-app-message`，先执行 `sql/upgrade/20260321_phase5_system_content_menu_governance.sql`，再重新登录复验
+
+步骤 1：校验帮助中心摘要接口
+```bash
+curl "http://localhost:9999/api/system/help-doc/access/list?limit=6&currentPath=/system-management" \
+  -H "Authorization: Bearer <token>"
+```
+
+步骤 2：校验帮助中心分页接口
+```bash
+curl "http://localhost:9999/api/system/help-doc/access/page?pageNum=1&pageSize=5&keyword=系统&currentPath=/system-management" \
+  -H "Authorization: Bearer <token>"
+```
+
+步骤 3：校验帮助中心详情接口
+```bash
+curl "http://localhost:9999/api/system/help-doc/access/<id>?currentPath=/system-management" \
+  -H "Authorization: Bearer <token>"
+```
+
+步骤 4：校验通知中心分页接口
+```bash
+curl "http://localhost:9999/api/system/in-app-message/my/page?pageNum=1&pageSize=5" \
+  -H "Authorization: Bearer <token>"
+```
+
+步骤 5：校验通知中心未读统计接口
+```bash
+curl "http://localhost:9999/api/system/in-app-message/my/unread-count" \
+  -H "Authorization: Bearer <token>"
+```
+
+步骤 6：校验平台治理菜单授权
+```bash
+curl "http://localhost:9999/api/auth/me" \
+  -H "Authorization: Bearer <token>"
+
+curl "http://localhost:9999/api/menu/tree" \
+  -H "Authorization: Bearer <token>"
+```
+
+通过标准：
+- 上述接口 HTTP 状态码均为 `200`，响应体 `code = 200`
+- `/api/system/help-doc/access/page` 返回 `PageResult<HelpDocumentAccessVO>`，不允许再出现 `参数类型错误: id`
+- `help-doc/access/list` 与 `help-doc/access/page` 支持 `currentPath` 优先级；详情接口可返回 `currentPathMatched`
+- `my/page` 与 `my/unread-count` 返回结构稳定，未读统计至少包含 `totalUnreadCount`、`systemUnreadCount`、`businessUnreadCount`、`errorUnreadCount`
+- `/api/auth/me` 或 `/api/menu/tree` 中应能看到 `/help-doc`、`/in-app-message`，管理/超管账号还应具备 `system:help-doc:add/update/delete`、`system:in-app-message:add/update/delete` 对应按钮权限
+- 若历史库未执行 `20260321_phase5_in_app_message_help_docs.sql`，接口应返回“系统内容依赖表缺失，请先执行 `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`”业务提示，而不是通用 `500`
+- 前端头部通知中心 / 帮助中心即使回退到本地兜底，也不能据此判定后端真实环境验收通过
 
 说明：
 - 手机号需与 `sys_user.phone` 一致。

@@ -55,6 +55,7 @@ describe('shellPanelContent', () => {
 
     expect(content.title).toBe('帮助中心');
     expect(content.sections).toHaveLength(3);
+    expect(content.footerActions?.map((action) => action.id)).toEqual(['help-view-more']);
     expect(itemPaths).not.toContain('/role');
     expect(itemPaths).not.toContain('/automation-test');
     expect(itemPaths).toContain('/alarm-center');
@@ -113,6 +114,7 @@ describe('shellPanelContent', () => {
     expect(content.sections.map((section) => section.id)).toEqual(['notice-system', 'notice-business', 'notice-error']);
     expect(errorSection?.items.some((item) => item.title.includes('链路验证失败'))).toBe(true);
     expect(content.metrics.find((metric) => metric.id === 'notice-failure')?.value).toBe('1');
+    expect(content.footerActions?.map((action) => action.id)).toEqual(['notice-view-more']);
   });
 
   it('maps remote notice messages into shell sections and unread metrics', () => {
@@ -174,6 +176,8 @@ describe('shellPanelContent', () => {
     expect(content.sections.find((section) => section.id === 'notice-error')?.items[0].path).toBe('/message-trace');
     expect(content.metrics.find((metric) => metric.id === 'notice-unread')?.value).toBe('2');
     expect(content.metrics.find((metric) => metric.id === 'notice-error-unread')?.value).toBe('1');
+    expect(content.footerActions?.map((action) => action.id)).toEqual(['notice-view-more', 'notice-mark-all-read']);
+    expect(content.sections.find((section) => section.id === 'notice-error')?.items[0].resourceId).toBe('2');
   });
 
   it('maps remote help documents into shell sections and keeps current-path priority', () => {
@@ -211,5 +215,7 @@ describe('shellPanelContent', () => {
     expect(content.sections.find((section) => section.id === 'help-business')?.items[0].path).toBe('/alarm-center');
     expect(content.sections.find((section) => section.id === 'help-faq')?.items[0].path).toBe('/products');
     expect(content.metrics.find((metric) => metric.id === 'help-docs')?.value).toBe('2');
+    expect(content.footerActions?.map((action) => action.id)).toEqual(['help-view-more']);
+    expect(content.sections.find((section) => section.id === 'help-business')?.items[0].resourceId).toBe('10');
   });
 });

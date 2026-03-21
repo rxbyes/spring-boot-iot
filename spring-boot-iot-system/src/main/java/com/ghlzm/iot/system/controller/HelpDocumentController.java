@@ -39,7 +39,7 @@ public class HelpDocumentController {
         return R.ok(helpDocumentService.pageDocuments(title, docCategory, status, pageNum, pageSize));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public R<HelpDocument> getById(@PathVariable Long id) {
         return R.ok(helpDocumentService.getById(id));
     }
@@ -55,7 +55,7 @@ public class HelpDocumentController {
         return R.ok();
     }
 
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/delete/{id:[0-9]+}")
     public R<Void> deleteDocument(@PathVariable Long id, Authentication authentication) {
         helpDocumentService.deleteDocument(id, requireCurrentUserId(authentication));
         return R.ok();
@@ -71,7 +71,18 @@ public class HelpDocumentController {
         return R.ok(helpDocumentService.listAccessibleDocuments(userId, docCategory, keyword, currentPath, limit));
     }
 
-    @GetMapping("/access/{id}")
+    @GetMapping("/access/page")
+    public R<PageResult<HelpDocumentAccessVO>> pageAccessibleDocuments(@RequestParam(required = false) String docCategory,
+                                                                       @RequestParam(required = false) String keyword,
+                                                                       @RequestParam(required = false) String currentPath,
+                                                                       @RequestParam(defaultValue = "1") Long pageNum,
+                                                                       @RequestParam(defaultValue = "10") Long pageSize,
+                                                                       Authentication authentication) {
+        Long userId = requireCurrentUserId(authentication);
+        return R.ok(helpDocumentService.pageAccessibleDocuments(userId, docCategory, keyword, currentPath, pageNum, pageSize));
+    }
+
+    @GetMapping("/access/{id:[0-9]+}")
     public R<HelpDocumentAccessVO> getAccessibleDocument(@PathVariable Long id,
                                                          @RequestParam(required = false) String currentPath,
                                                          Authentication authentication) {

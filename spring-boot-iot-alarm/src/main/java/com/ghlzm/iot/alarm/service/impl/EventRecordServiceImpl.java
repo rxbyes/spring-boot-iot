@@ -8,6 +8,8 @@ import com.ghlzm.iot.alarm.mapper.EventRecordMapper;
 import com.ghlzm.iot.alarm.mapper.EventWorkOrderMapper;
 import com.ghlzm.iot.alarm.service.EventRecordService;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.notification.InAppMessagePublishCommand;
+import com.ghlzm.iot.framework.notification.InAppMessagePublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +22,16 @@ import java.util.List;
 @Service
 public class EventRecordServiceImpl extends ServiceImpl<EventRecordMapper, EventRecord> implements EventRecordService {
 
-    private final EventWorkOrderMapper eventWorkOrderMapper;
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long DEFAULT_OPERATOR_ID = 1L;
 
-    public EventRecordServiceImpl(EventWorkOrderMapper eventWorkOrderMapper) {
+    private final EventWorkOrderMapper eventWorkOrderMapper;
+    private final InAppMessagePublisher inAppMessagePublisher;
+
+    public EventRecordServiceImpl(EventWorkOrderMapper eventWorkOrderMapper,
+                                  InAppMessagePublisher inAppMessagePublisher) {
         this.eventWorkOrderMapper = eventWorkOrderMapper;
+        this.inAppMessagePublisher = inAppMessagePublisher;
     }
 
     @Override
@@ -80,6 +88,7 @@ public class EventRecordServiceImpl extends ServiceImpl<EventRecordMapper, Event
         workOrder.setCreateTime(LocalDateTime.now());
         workOrder.setCreateBy(1L);
         eventWorkOrderMapper.insert(workOrder);
+        publishDispatchNotice(event, workOrder, receiveUser);
     }
 
     @Transactional
@@ -113,5 +122,32 @@ public class EventRecordServiceImpl extends ServiceImpl<EventRecordMapper, Event
             workOrder.setCompleteTime(LocalDateTime.now().toString());
             eventWorkOrderMapper.updateById(workOrder);
         }
+    }
+
+    private void publishDispatchNotice(EventRecord event, EventWorkOrder workOrder, Long receiveUser) {
+        if (receiveUser == null) {
+            return;
+        }
+        String eventCode = event.getEventCode() == null ? String.valueOf(event.getId()) : event.getEventCode();
+        String workOrderCode = workOrder.getWorkOrderCode() == null ? String.valueOf(workOrder.getId()) : workOrder.getWorkOrderCode();
+        inAppMessagePublisher.publish(InAppMessagePublishCommand.builder()
+                .tenantId(DEFAULT_TENANT_ID)
+                .messageType("business")
+                .priority("high")
+                .title("事件已派工，请及时接收")
+                .summary("事件 " + eventCode + " 已派发至你，请前往事件协同台处理。")
+                .content("""
+                        事件编号：%s
+                        工单编号：%s
+                        当前状态：待接收
+                        建议动作：请尽快进入事件协同台完成工单接收，并确认现场处理安排。
+                        """.formatted(eventCode, workOrderCode))
+                .targetType("user")
+                .targetUserIds(List.of(receiveUser))
+                .relatedPath("/event-disposal")
+                .sourceType("event_dispatch")
+                .sourceId(String.valueOf(event.getId()))
+                .operatorId(DEFAULT_OPERATOR_ID)
+                .build());
     }
 }
