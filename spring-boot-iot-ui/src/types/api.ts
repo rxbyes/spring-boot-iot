@@ -279,6 +279,7 @@ export interface HttpReportPayload {
   productKey: string;
   deviceCode: string;
   payload: string;
+  payloadEncoding?: string;
   topic?: string;
   clientId?: string;
   tenantId?: string;

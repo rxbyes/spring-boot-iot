@@ -7,9 +7,6 @@
             <h2 class="product-hero-card__title">产品定义中心</h2>
             <p class="product-hero-card__caption">聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。</p>
           </div>
-          <StandardActionGroup gap="sm">
-            <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
-          </StandardActionGroup>
         </div>
       </template>
 
@@ -41,6 +38,7 @@
               <StandardActionGroup gap="sm">
                 <el-button type="primary" @click="handleSearch">查询</el-button>
                 <el-button @click="handleReset">重置</el-button>
+                <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
               </StandardActionGroup>
             </div>
           </div>

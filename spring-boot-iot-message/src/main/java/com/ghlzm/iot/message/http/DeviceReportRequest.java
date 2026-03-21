@@ -30,6 +30,12 @@ public class DeviceReportRequest {
     private String payload;
 
     /**
+     * payload 字节编码方式，默认 UTF-8。
+     * 明文二进制帧模拟场景可传 ISO-8859-1（latin1）保留 0~255 原始字节。
+     */
+    private String payloadEncoding;
+
+    /**
      * 上报 topic，HTTP 模拟场景下由调用方传入。
      */
     private String topic;

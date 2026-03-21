@@ -9,15 +9,20 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
+import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
@@ -85,6 +90,20 @@ class DeviceServiceImplTest {
         deviceService.deleteDevice(2001L);
 
         verify(deviceService).removeById(2001L);
+    }
+
+    @Test
+    void applyRelationFieldsShouldIgnoreNullRelationIdsWhenMapIsEmpty() throws Exception {
+        DevicePageVO row = new DevicePageVO();
+        Method applyRelationFieldsMethod = DeviceServiceImpl.class
+                .getDeclaredMethod("applyRelationFields", DevicePageVO.class, Map.class);
+        applyRelationFieldsMethod.setAccessible(true);
+
+        assertDoesNotThrow(() -> applyRelationFieldsMethod.invoke(deviceService, row, Map.of()));
+        assertNull(row.getGatewayDeviceCode());
+        assertNull(row.getGatewayDeviceName());
+        assertNull(row.getParentDeviceCode());
+        assertNull(row.getParentDeviceName());
     }
 
     private DeviceAddDTO buildDeviceAddDTO(String productKey, String deviceCode) {

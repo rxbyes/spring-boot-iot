@@ -38,6 +38,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -640,7 +641,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 .distinct()
                 .toList();
         if (CollectionUtils.isEmpty(filteredIds)) {
-            return Map.of();
+            return Collections.emptyMap();
         }
         return productService.listByIds(filteredIds)
                 .stream()
@@ -659,7 +660,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 .distinct()
                 .toList();
         if (CollectionUtils.isEmpty(filteredIds)) {
-            return Map.of();
+            return Collections.emptyMap();
         }
         return lambdaQuery()
                 .in(Device::getId, filteredIds)
@@ -670,8 +671,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     private void applyRelationFields(DeviceDetailVO detail, Map<Long, Device> relationDeviceMap) {
-        Device gatewayDevice = relationDeviceMap.get(detail.getGatewayId());
-        Device parentDevice = relationDeviceMap.get(detail.getParentDeviceId());
+        Device gatewayDevice = findRelationDevice(relationDeviceMap, detail.getGatewayId());
+        Device parentDevice = findRelationDevice(relationDeviceMap, detail.getParentDeviceId());
         detail.setGatewayDeviceCode(gatewayDevice != null ? gatewayDevice.getDeviceCode() : null);
         detail.setGatewayDeviceName(gatewayDevice != null ? gatewayDevice.getDeviceName() : null);
         detail.setParentDeviceCode(parentDevice != null ? parentDevice.getDeviceCode() : null);
@@ -679,12 +680,19 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     private void applyRelationFields(DevicePageVO row, Map<Long, Device> relationDeviceMap) {
-        Device gatewayDevice = relationDeviceMap.get(row.getGatewayId());
-        Device parentDevice = relationDeviceMap.get(row.getParentDeviceId());
+        Device gatewayDevice = findRelationDevice(relationDeviceMap, row.getGatewayId());
+        Device parentDevice = findRelationDevice(relationDeviceMap, row.getParentDeviceId());
         row.setGatewayDeviceCode(gatewayDevice != null ? gatewayDevice.getDeviceCode() : null);
         row.setGatewayDeviceName(gatewayDevice != null ? gatewayDevice.getDeviceName() : null);
         row.setParentDeviceCode(parentDevice != null ? parentDevice.getDeviceCode() : null);
         row.setParentDeviceName(parentDevice != null ? parentDevice.getDeviceName() : null);
+    }
+
+    private Device findRelationDevice(Map<Long, Device> relationDeviceMap, Long relationDeviceId) {
+        if (relationDeviceId == null || CollectionUtils.isEmpty(relationDeviceMap)) {
+            return null;
+        }
+        return relationDeviceMap.get(relationDeviceId);
     }
 
     private Device resolveParentDevice(DeviceAddDTO dto, Long currentDeviceId) {

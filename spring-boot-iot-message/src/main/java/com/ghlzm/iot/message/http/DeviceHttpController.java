@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 /**
  * HTTP 设备接入控制器。
@@ -33,9 +35,26 @@ public class DeviceHttpController {
         raw.setTopic(request.getTopic());
         raw.setClientId(request.getClientId());
         raw.setTenantId(request.getTenantId());
-        raw.setPayload(request.getPayload().getBytes(StandardCharsets.UTF_8));
+        raw.setPayload(resolvePayloadBytes(request));
 
         upMessageDispatcher.dispatch(raw);
         return R.ok();
+    }
+
+    private byte[] resolvePayloadBytes(DeviceReportRequest request) {
+        Charset charset = resolveCharset(request.getPayloadEncoding());
+        return request.getPayload().getBytes(charset);
+    }
+
+    private Charset resolveCharset(String payloadEncoding) {
+        if (payloadEncoding == null || payloadEncoding.isBlank()) {
+            return StandardCharsets.UTF_8;
+        }
+
+        String normalized = payloadEncoding.trim().toLowerCase(Locale.ROOT);
+        if ("iso-8859-1".equals(normalized) || "latin1".equals(normalized) || "latin-1".equals(normalized)) {
+            return StandardCharsets.ISO_8859_1;
+        }
+        return StandardCharsets.UTF_8;
     }
 }

@@ -7,10 +7,6 @@
             <h2 class="device-hero-card__title">设备资产中心</h2>
             <p class="device-hero-card__caption">聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。</p>
           </div>
-          <StandardActionGroup gap="sm" class="ops-hero-actions">
-            <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
-            <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
-          </StandardActionGroup>
         </div>
       </template>
 
@@ -26,27 +22,6 @@
             <el-form-item class="device-inline-filter__item">
               <el-input id="device-product-key" v-model="searchForm.productKey" placeholder="产品 Key" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-            <el-form-item class="device-inline-filter__item">
-              <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
-                <el-option label="在线" :value="1" />
-                <el-option label="离线" :value="0" />
-              </el-select>
-            </el-form-item>
-            <div class="device-inline-filter__actions">
-              <StandardActionGroup gap="sm">
-                <el-button type="primary" @click="handleSearch">查询</el-button>
-                <el-button @click="handleReset">重置</el-button>
-              </StandardActionGroup>
-            </div>
-          </div>
-
-          <div class="device-inline-filter__footer">
-            <div class="device-filter-toggle-row__left">
-              <el-button link class="device-filter-toggle" @click="toggleAdvancedFilters">
-                {{ showAdvancedFilters ? '收起更多条件' : '更多条件' }}
-              </el-button>
-              <span v-if="advancedFilterHint" class="device-filter-toggle-row__hint">{{ advancedFilterHint }}</span>
-            </div>
           </div>
 
           <el-collapse-transition>
@@ -54,6 +29,12 @@
               <div class="device-filter-advanced__grid">
                 <el-form-item class="device-inline-filter__item">
                   <el-input id="query-device-id" v-model="searchForm.deviceId" placeholder="设备 ID" clearable @keyup.enter="handleSearch" />
+                </el-form-item>
+                <el-form-item class="device-inline-filter__item">
+                  <el-select v-model="searchForm.onlineStatus" placeholder="在线状态" clearable>
+                    <el-option label="在线" :value="1" />
+                    <el-option label="离线" :value="0" />
+                  </el-select>
                 </el-form-item>
                 <el-form-item class="device-inline-filter__item">
                   <el-select v-model="searchForm.activateStatus" placeholder="激活状态" clearable>
@@ -70,6 +51,19 @@
               </div>
             </div>
           </el-collapse-transition>
+
+          <div class="device-inline-filter__actions-row">
+            <StandardActionGroup gap="sm" class="device-inline-filter__actions">
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+              <el-button @click="handleReset">重置</el-button>
+              <el-button v-permission="'iot:devices:add'" type="primary" @click="handleAdd">新增设备</el-button>
+              <el-button v-permission="'iot:devices:import'" plain @click="handleOpenBatchImport">批量导入</el-button>
+            </StandardActionGroup>
+            <el-button link class="device-filter-toggle" @click="toggleAdvancedFilters">
+              {{ showAdvancedFilters ? '收起' : '展开全部筛选项' }}
+            </el-button>
+            <span v-if="advancedFilterHint" class="device-filter-toggle-row__hint">{{ advancedFilterHint }}</span>
+          </div>
         </el-form>
       </div>
 
@@ -267,14 +261,6 @@
             <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
-            <el-table-column label="父子关系" :min-width="220">
-              <template #default="{ row }">
-                <div class="device-relation-cell">
-                  <strong>{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
-                  <span>网关：{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</span>
-                </div>
-              </template>
-            </el-table-column>
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
@@ -299,13 +285,24 @@
             <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
               <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
             </StandardTableTextColumn>
-            <el-table-column label="操作" width="320" fixed="right" :show-overflow-tooltip="false">
+            <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
               <template #default="{ row }">
-                <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                <el-button v-permission="'iot:devices:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                <el-button v-permission="'iot:devices:replace'" type="primary" link @click="handleOpenReplace(row)">更换</el-button>
-                <el-button type="primary" link @click="handleJumpToInsight(row)">洞察</el-button>
-                <el-button v-permission="'iot:devices:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+                <div class="device-table-actions">
+                  <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
+                  <el-button v-permission="'iot:devices:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
+                  <el-dropdown trigger="click" @command="(command) => handleMobileRowAction(command, row)">
+                    <el-button type="primary" link>
+                      更多
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-permission="'iot:devices:replace'" command="replace">更换</el-dropdown-item>
+                        <el-dropdown-item command="insight">洞察</el-dropdown-item>
+                        <el-dropdown-item v-permission="'iot:devices:delete'" command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -777,7 +774,6 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import MetricCard from '@/components/MetricCard.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardActionGroup from '@/components/StandardActionGroup.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -896,7 +892,7 @@ const replacingDevice = ref<Device | null>(null)
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
 const defaultPageSize = 10
-const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'activateStatus', 'deviceStatus']
+const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'onlineStatus', 'activateStatus', 'deviceStatus']
 let latestListRequestId = 0
 let latestDetailRequestId = 0
 let latestEditRequestId = 0
@@ -1002,12 +998,12 @@ const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) =
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
 const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
-const advancedFilterFilledCount = computed(() => countFilledFilters(searchForm, advancedFilterKeys))
+const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
-  if (showAdvancedFilters.value || advancedFilterFilledCount.value === 0) {
+  if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
     return ''
   }
-  return `更多条件中已填写 ${advancedFilterFilledCount.value} 项，查询时会一并生效。`
+  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`
 })
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: DeviceFilterKey; label: string }> = []
@@ -1402,6 +1398,7 @@ function clearSearchForm() {
   searchForm.onlineStatus = undefined
   searchForm.activateStatus = undefined
   searchForm.deviceStatus = undefined
+  showAdvancedFilters.value = false
 }
 
 function clearListRefreshState() {
@@ -1447,6 +1444,7 @@ function applyRouteQueryToFilters() {
   searchForm.onlineStatus = parseRouteNumberQuery(route.query.onlineStatus)
   searchForm.activateStatus = parseRouteNumberQuery(route.query.activateStatus)
   searchForm.deviceStatus = parseRouteNumberQuery(route.query.deviceStatus)
+  showAdvancedFilters.value = countFilledFilters(searchForm, advancedFilterKeys) > 0
   pagination.pageNum = parseRoutePositiveIntQuery(route.query.pageNum, 1)
   pagination.pageSize = parseRoutePositiveIntQuery(route.query.pageSize, defaultPageSize)
 }
@@ -2709,100 +2707,130 @@ onMounted(async () => {
   padding: 20px;
   display: grid;
   gap: 16px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
 }
 
-.ops-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.ops-hero-actions {
+.device-hero-card__header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.ops-inline-note {
-  padding: 12px 14px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  border: 1px solid rgba(42, 63, 95, 0.1);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text-caption);
-  line-height: 1.7;
-}
-
-.ops-filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.device-filter-toggle-row {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 4px;
+  gap: 0.9rem 1.2rem;
+  flex-wrap: wrap;
 }
 
-.device-filter-toggle-row__left {
-  display: flex;
+.device-hero-card__heading {
   flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
   min-width: 0;
 }
 
-.device-filter-toggle {
-  padding: 0;
-  font-weight: 600;
+.device-hero-card__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.08rem;
 }
 
-.device-filter-toggle-row__hint {
+.device-hero-card__caption {
+  margin: 0.35rem 0 0;
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.6;
 }
 
+.device-workbench-card__filters {
+  margin-bottom: 0.72rem;
+}
+
+.device-inline-filter {
+  display: grid;
+}
+
+.device-inline-filter__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.device-inline-filter__row :deep(.el-form-item) {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.device-inline-filter__item {
+  min-width: 0;
+}
+
+.device-inline-filter__actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.device-inline-filter__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.device-filter-toggle {
+  padding-inline: 0.08rem;
+  font-weight: 600;
+}
+
+.device-filter-toggle-row__hint {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .device-filter-advanced {
-  margin-top: 12px;
-  padding-top: 14px;
-  border-top: 1px dashed rgba(42, 63, 95, 0.12);
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.device-filter-advanced__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px 14px;
+}
+
+.device-filter-advanced__grid :deep(.el-form-item) {
+  margin-bottom: 0;
+  min-width: 0;
 }
 
 .device-applied-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 0.72rem;
 }
 
 .device-applied-filters__label {
-  color: var(--text-caption);
-  font-size: 13px;
+  color: var(--text-caption-2);
+  font-size: 12px;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .device-applied-filters__list {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.45rem;
   min-width: 0;
 }
 
 .device-applied-filters__tag {
-  max-width: 100%;
+  margin: 0;
 }
 
 .device-applied-filters__clear {
-  padding: 0;
+  margin-left: auto;
+  padding-inline: 0.08rem;
 }
 
 .device-list-inline-state {
@@ -2825,15 +2853,11 @@ onMounted(async () => {
 .device-result-panel {
   position: relative;
   isolation: isolate;
-  min-height: 14rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
+  min-height: 0;
 }
 
 .device-result-panel :deep(.el-loading-mask) {
-  border-radius: inherit;
-  background: rgba(248, 250, 255, 0.78) !important;
-  backdrop-filter: blur(5px);
+  background: rgba(248, 250, 255, 0.62) !important;
 }
 
 .device-result-panel :deep(.el-loading-spinner .el-loading-text) {
@@ -3130,27 +3154,16 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.device-relation-cell {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.device-relation-cell strong,
-.device-relation-cell span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.device-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
   white-space: nowrap;
 }
 
-.device-relation-cell strong {
-  color: var(--text-heading);
-  font-weight: 600;
-}
-
-.device-relation-cell span {
-  color: var(--text-caption);
-  font-size: 12px;
+.device-table-actions :deep(.el-button) {
+  margin-left: 0;
+  padding-inline: 0.08rem;
 }
 
 .device-mobile-card__address {
@@ -3318,9 +3331,39 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
+@media (min-width: 721px) {
+  .device-mobile-list {
+    display: none !important;
+  }
+
+  .device-desktop-table {
+    display: block !important;
+  }
+}
+
+@media (max-width: 1240px) {
+  .device-inline-filter__row {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .device-filter-advanced__grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .device-asset-view {
     padding: 16px;
+  }
+
+  .device-inline-filter__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .device-filter-advanced__grid {
+    grid-template-columns: 1fr;
   }
 
   .device-applied-filters {
@@ -3330,20 +3373,6 @@ onMounted(async () => {
   .device-applied-filters__clear {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .device-filter-toggle-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .device-filter-toggle-row__left {
-    width: 100%;
-  }
-
-  .device-filter-toggle-row .ops-filter-actions {
-    width: 100%;
-    justify-content: stretch;
   }
 
   .device-loading-table {
@@ -3357,13 +3386,22 @@ onMounted(async () => {
   .device-form-relation-summary {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .ops-filter-actions {
-    justify-content: stretch;
-  }
 }
 
 @media (max-width: 720px) {
+  .device-hero-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .device-inline-filter__actions-row {
+    align-items: flex-start;
+  }
+
+  .device-filter-toggle-row__hint {
+    width: 100%;
+  }
+
   .device-mobile-list {
     display: block;
   }

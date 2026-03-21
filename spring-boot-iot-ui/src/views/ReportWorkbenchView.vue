@@ -1,15 +1,15 @@
 <template>
   <div class="page-stack">
-    <section class="two-column-grid">
+    <section class="two-column-grid report-workbench-grid">
       <PanelCard
         class="report-card"
         eyebrow="HTTP Simulator"
         title="模拟设备上报"
-        description="这里直接对应 `POST /api/message/http/report`，是当前 Phase 1 最关键的联调入口。"
+        description="左侧聚焦输入与发送；发送前先阻断格式错误，避免无效请求进入后端。"
       >
         <StandardActionGroup margin-bottom="sm" gap="sm">
           <el-button
-            v-for="template in templates"
+            v-for="template in filteredTemplates"
             :key="template.name"
             class="secondary-button report-template-btn"
             @click="applyTemplate(template)"
@@ -19,6 +19,22 @@
         </StandardActionGroup>
 
         <form class="form-grid" @submit.prevent="handleSendReport">
+          <div class="field-group" style="grid-column: 1 / -1;">
+            <label for="report-mode">上报模式</label>
+            <el-radio-group id="report-mode" v-model="reportMode" class="report-mode-group">
+              <el-radio-button label="plaintext">
+                明文上报
+              </el-radio-button>
+              <el-radio-button label="encrypted">
+                密文上报
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+          <div class="field-group" style="grid-column: 1 / -1;">
+            <div class="empty-state report-mode-tip">
+              {{ reportModeHint }}
+            </div>
+          </div>
           <div class="field-group">
             <label for="report-protocol">协议编码</label>
             <el-input
@@ -62,11 +78,35 @@
             <el-input id="report-topic" v-model="reportForm.topic" name="report_topic" autocomplete="off" spellcheck="false" placeholder="例如 /sys/demo-product/demo-device-01/thing/property/post..." clearable />
           </div>
           <div class="field-group" style="grid-column: 1 / -1;">
-            <label for="payload">Payload</label>
+            <label for="payload">{{ payloadLabel }}</label>
             <el-input id="payload" v-model="reportForm.payload" name="report_payload" type="textarea" :rows="9" spellcheck="false" />
           </div>
+          <div v-if="reportMode === 'plaintext' && plaintextFrame?.type === 3" class="field-group" style="grid-column: 1 / -1;">
+            <label for="report-type3-binary">类型 3 文件流 Base64（可选）</label>
+            <el-input
+              id="report-type3-binary"
+              v-model="type3BinaryBase64"
+              name="report_type3_binary_base64"
+              type="textarea"
+              :rows="3"
+              spellcheck="false"
+              placeholder="若 C.3 需要携带文件流，可粘贴 Base64。"
+            />
+          </div>
+
+          <div v-if="validationIssues.length" class="field-group" style="grid-column: 1 / -1;">
+            <div class="empty-state report-validation" aria-live="polite">
+              <p class="report-validation__title">发送前请先修复以下问题：</p>
+              <ul class="report-validation__list">
+                <li v-for="issue in validationIssues" :key="`${issue.field}:${issue.message}`">
+                  {{ issue.message }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <StandardActionGroup full-width>
-            <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending">
+            <el-button class="primary-button" type="primary" native-type="submit" :loading="isSending" :disabled="!canSend || isSending">
               {{ isSending ? '发送中...' : '发送上报' }}
             </el-button>
             <el-button class="secondary-button" @click="syncTopic">
@@ -76,42 +116,46 @@
         </form>
       </PanelCard>
 
-      <PanelCard
-        class="report-card"
-        eyebrow="Protocol Preview"
-        title="报文预演"
-        description="在真正调用接口前，先看 topic、messageType 和 curl 命令是否合理。"
-      >
-        <StandardInfoGrid :items="previewInfoItems" />
-        <div class="empty-state report-preview" style="margin-top: 1rem;">
-          当前 curl 预览：
-          <pre class="report-preview__code">{{ curlPreview }}</pre>
-        </div>
-      </PanelCard>
-    </section>
+      <div class="report-right-stack">
+        <PanelCard
+          class="report-card"
+          eyebrow="Diagnostics"
+          title="诊断与预演"
+          description="默认只展示关键结论；详细帧和预览按需展开。"
+        >
+          <StandardInfoGrid :items="diagnosticSummaryItems" />
 
-    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
+          <el-collapse v-model="diagnosticCollapseNames" class="report-diagnostics-collapse">
+            <el-collapse-item v-if="reportMode === 'plaintext' && plaintextFrame" name="frame" title="明文帧详情（十进制/十六进制）">
+              <p class="report-preview__line">判定依据：{{ plaintextFrame.reason }}</p>
+              <p class="report-preview__line">十进制帧预览：</p>
+              <pre class="report-preview__code">{{ plaintextFrameDecimalPreview }}</pre>
+              <p class="report-preview__line">十六进制帧预览：</p>
+              <pre class="report-preview__code">{{ plaintextFrameHexPreview }}</pre>
+            </el-collapse-item>
+            <el-collapse-item v-if="normalizedJsonPreview" name="json" title="归一化 JSON 预览">
+              <pre class="report-preview__code">{{ normalizedJsonPreview }}</pre>
+            </el-collapse-item>
+            <el-collapse-item name="curl" title="curl 预览">
+              <pre class="report-preview__code">{{ curlPreview }}</pre>
+            </el-collapse-item>
+          </el-collapse>
+        </PanelCard>
 
-    <section class="two-column-grid">
-      <ResponsePanel
-        eyebrow="Parsed Payload"
-        title="Payload 解析预览"
-        description="便于确认 messageType、属性结构与 JSON 字符串转义是否正确。"
-        :body="parsedPayload || { warning: '当前 payload 不是有效 JSON。' }"
-      />
-      <ResponsePanel
-        eyebrow="Response"
-        title="最后一次响应"
-        description="请求成功后，可继续到“设备洞察”页面查看属性和消息日志。"
-        :body="lastResponse"
-      />
+        <ResponsePanel
+          eyebrow="Response"
+          title="最后一次响应"
+          description="请求异常只在这里展示，避免与输入校验混在一起。"
+          :body="lastResponse"
+        />
+      </div>
     </section>
 
     <PanelCard
       class="report-card"
       eyebrow="Flow Reminder"
       title="发送后建议检查"
-      description="按照文档推荐的 Phase 1 验证顺序，确认报文已进入主链路并更新设备状态。"
+      description="先确认上报进入主链路，再核对设备属性、日志和在线状态。"
     >
       <StandardFlowRail :items="followUpSteps" />
     </PanelCard>
@@ -130,24 +174,32 @@ import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import { recordActivity } from '../stores/activity';
 import type { HttpReportPayload } from '../types/api';
-import { parseJsonSafely, prettyJson } from '../utils/format';
+import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
+import {
+  evaluateReportWorkbenchInput,
+  filterTemplatesByMode,
+  type ReportMode
+} from './reportWorkbenchState';
 
 interface TemplateOption {
   name: string;
-  payload: Record<string, unknown>;
+  mode: ReportMode;
+  payload: string;
+  topic?: string;
+  type3BinaryBase64?: string;
 }
 
 const createDemoReport = (): HttpReportPayload => ({
   protocolCode: 'mqtt-json',
   productKey: 'demo-product',
   deviceCode: 'demo-device-01',
-  payload: prettyJson({
+  payload: JSON.stringify({
     messageType: 'property',
     properties: {
       temperature: 26.5,
       humidity: 68
     }
-  }),
+  }, null, 2),
   topic: '/sys/demo-product/demo-device-01/thing/property/post',
   clientId: 'demo-device-01',
   tenantId: '1'
@@ -155,104 +207,180 @@ const createDemoReport = (): HttpReportPayload => ({
 
 const templates: TemplateOption[] = [
   {
-    name: '温湿度属性',
-    payload: {
+    name: '明文 C.1 属性',
+    mode: 'plaintext',
+    topic: '/sys/demo-product/demo-device-01/thing/property/post',
+    payload: JSON.stringify({
       messageType: 'property',
       properties: {
         temperature: 26.5,
         humidity: 68
       }
-    }
+    }, null, 2)
   },
   {
-    name: '设备状态',
-    payload: {
-      messageType: 'status',
-      properties: {
-        voltage: 3.54,
-        signal4g: -51,
-        batteryDumpEnergy: 1
+    name: '明文 C.2 深部位移',
+    mode: 'plaintext',
+    topic: '$dp',
+    payload: JSON.stringify({
+      SK00FB0D1310195: {
+        L1_SW_1: {
+          '2026-03-20T08:07:22.000Z': {
+            dispsX: -0.0257,
+            dispsY: -0.0605
+          }
+        }
       }
-    }
+    }, null, 2)
   },
   {
-    name: '事件占位',
-    payload: {
-      messageType: 'event',
-      eventCode: 'overheat',
-      properties: {
-        temperature: 88.8
+    name: '密文封包',
+    mode: 'encrypted',
+    topic: '$dp',
+    payload: JSON.stringify({
+      header: {
+        appId: '62000001'
+      },
+      bodies: {
+        body: 'PTOLy04o/stDufUYFo5s3g=='
       }
-    }
+    }, null, 2)
   }
 ];
 
 const followUpSteps = [
   { index: '01', title: '查询设备详情', description: '确认 onlineStatus、lastReportTime 是否变化。' },
-  { index: '02', title: '查询属性快照', description: '确认 `temperature` / `humidity` 等属性已写入。' },
+  { index: '02', title: '查询属性快照', description: '确认最新属性是否按预期入库。' },
   { index: '03', title: '查询消息日志', description: '确认 topic 与 payload 已保留。' },
-  { index: '04', title: '衔接未来图表', description: '这些属性将直接成为后续图表与数字孪生的数据源。' }
+  { index: '04', title: '联动后续能力', description: '后续可继续做风险判定、报告和预案触发闭环。' }
 ];
 
 const reportForm = reactive<HttpReportPayload>(createDemoReport());
+const reportMode = ref<ReportMode>('plaintext');
+const type3BinaryBase64 = ref('');
 const isSending = ref(false);
-const errorMessage = ref('');
 const lastResponse = ref<unknown>({ tip: '发送上报后，这里会出现统一响应体。' });
+const diagnosticCollapseNames = ref<string[]>([]);
 
-const parsedPayload = computed(() => parseJsonSafely<Record<string, unknown>>(reportForm.payload));
-const inferredMessageType = computed(() => String(parsedPayload.value?.messageType || 'property'));
-const recommendedTopic = computed(() => {
-  const suffix =
-    inferredMessageType.value === 'status'
-      ? 'thing/status/post'
-      : inferredMessageType.value === 'event'
-        ? 'thing/event/post'
-        : 'thing/property/post';
+const filteredTemplates = computed(() => filterTemplatesByMode(templates, reportMode.value));
 
-  return `/sys/${reportForm.productKey}/${reportForm.deviceCode}/${suffix}`;
+const evaluation = computed(() => evaluateReportWorkbenchInput({
+  report: reportForm,
+  mode: reportMode.value,
+  type3BinaryBase64: type3BinaryBase64.value
+}));
+
+const plaintextFrame = computed(() => evaluation.value.plaintextFrame);
+const plaintextFrameError = computed(() => evaluation.value.plaintextFrameError);
+const parsedPayload = computed(() => evaluation.value.parsedPayload);
+const recommendedTopic = computed(() => evaluation.value.recommendedTopic);
+const validationIssues = computed(() => evaluation.value.validationIssues);
+const canSend = computed(() => evaluation.value.canSend);
+
+const reportModeHint = computed(() => {
+  if (reportMode.value === 'encrypted') {
+    return '密文模式只透传封包，要求 payload 为完整的 header + bodies.body JSON。';
+  }
+  return '明文模式会自动识别 C.1/C.2/C.3，并计算 Byte2~Byte3 大端长度。';
 });
 
-const previewInfoItems = computed(() => [
-  {
-    key: 'recommended-topic',
-    label: '推荐 Topic',
-    value: recommendedTopic.value
-  },
-  {
-    key: 'message-type',
-    label: 'messageType',
-    value: inferredMessageType.value
-  },
-  {
-    key: 'payload-status',
-    label: 'Payload 状态',
-    value: parsedPayload.value ? 'JSON 有效' : 'JSON 无法解析'
-  },
-  {
-    key: 'request-path',
-    label: '模拟入口',
-    value: 'POST /api/message/http/report'
+const payloadLabel = computed(() => (reportMode.value === 'encrypted' ? '密文封包 JSON' : '明文 JSON'));
+
+const normalizedJsonPreview = computed(() => {
+  if (!parsedPayload.value) {
+    return '';
   }
-]);
+  return JSON.stringify(parsedPayload.value, null, 2);
+});
+
+const diagnosticSummaryItems = computed(() => {
+  const modeLabel = reportMode.value === 'encrypted' ? '密文（封包透传）' : '明文（自动构造帧）';
+  const detectedType = plaintextFrame.value ? `类型 ${plaintextFrame.value.type}（${plaintextFrame.value.label}）` : '--';
+  const lengthLabel = plaintextFrame.value
+    ? `${plaintextFrame.value.jsonLength}（0x${plaintextFrame.value.lengthHighByte.toString(16).toUpperCase().padStart(2, '0')} ${plaintextFrame.value.lengthLowByte.toString(16).toUpperCase().padStart(2, '0')}）`
+    : '--';
+
+  return [
+    {
+      key: 'mode',
+      label: '上报模式',
+      value: modeLabel
+    },
+    {
+      key: 'detected-type',
+      label: '识别类型',
+      value: reportMode.value === 'plaintext' ? detectedType : '--'
+    },
+    {
+      key: 'json-length',
+      label: 'Byte2~Byte3 长度',
+      value: reportMode.value === 'plaintext' ? lengthLabel : '--'
+    },
+    {
+      key: 'recommended-topic',
+      label: '推荐 Topic',
+      value: recommendedTopic.value
+    },
+    {
+      key: 'send-status',
+      label: '可发送状态',
+      value: canSend.value ? '可发送' : '需修复输入问题'
+    },
+    {
+      key: 'diagnostic-reason',
+      label: '判定依据',
+      value: reportMode.value === 'plaintext' ? (plaintextFrame.value?.reason || plaintextFrameError.value || '--') : '密文模式不做类型判定'
+    }
+  ];
+});
+
+const plaintextFrameDecimalPreview = computed(() => {
+  if (!plaintextFrame.value) {
+    return plaintextFrameError.value || '--';
+  }
+  return formatFrameDecimalPreview(plaintextFrame.value.frameBytes);
+});
+
+const plaintextFrameHexPreview = computed(() => {
+  if (!plaintextFrame.value) {
+    return plaintextFrameError.value || '--';
+  }
+  return formatFrameHexPreview(plaintextFrame.value.frameBytes);
+});
 
 const curlPreview = computed(() => {
+  const topic = reportForm.topic || recommendedTopic.value;
+  if (reportMode.value === 'plaintext') {
+    const body = JSON.stringify(
+      {
+        ...reportForm,
+        topic,
+        payload: '<自动构造明文二进制帧>',
+        payloadEncoding: 'ISO-8859-1'
+      },
+      null,
+      2
+    );
+    return `curl -X POST http://localhost:9999/api/message/http/report \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
+  }
+
   const body = JSON.stringify(
     {
       ...reportForm,
-      topic: reportForm.topic || recommendedTopic.value
+      topic
     },
     null,
     2
   );
 
-  return `curl -X POST http://localhost:9999/api/message/http/report \\
-  -H "Content-Type: application/json" \\
-  -d '${body}'`;
+  return `curl -X POST http://localhost:9999/api/message/http/report \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
 });
 
 function applyTemplate(template: TemplateOption) {
-  reportForm.payload = prettyJson(template.payload);
-  syncTopic();
+  reportMode.value = template.mode;
+  reportForm.payload = template.payload;
+  type3BinaryBase64.value = template.type3BinaryBase64 || '';
+  reportForm.topic = template.topic || recommendedTopic.value;
 }
 
 function syncTopic() {
@@ -260,37 +388,62 @@ function syncTopic() {
 }
 
 async function handleSendReport() {
-  isSending.value = true;
-  errorMessage.value = '';
+  if (!canSend.value) {
+    ElMessage.warning(validationIssues.value[0]?.message || '请输入有效 payload。');
+    return;
+  }
 
-  const requestPayload = {
+  isSending.value = true;
+
+  const requestPayload: HttpReportPayload = {
     ...reportForm,
     topic: reportForm.topic || recommendedTopic.value
   };
+
+  let successDetail = '';
+  if (reportMode.value === 'plaintext') {
+    if (!plaintextFrame.value) {
+      ElMessage.warning(plaintextFrameError.value || '明文 payload 无法构造标准帧。');
+      isSending.value = false;
+      return;
+    }
+    requestPayload.payload = plaintextFrame.value.framedPayload;
+    requestPayload.payloadEncoding = 'ISO-8859-1';
+    successDetail = `已向设备 ${reportForm.deviceCode} 发送明文类型 ${plaintextFrame.value.type} 报文`;
+  } else {
+    requestPayload.payload = reportForm.payload;
+    successDetail = `已向设备 ${reportForm.deviceCode} 发送密文封包`;
+  }
 
   try {
     const response = await reportByHttp(requestPayload);
     lastResponse.value = response;
     ElMessage.success(`设备 ${reportForm.deviceCode} 模拟上报成功`);
     recordActivity({
-      module: 'HTTP 上报实验台',
+      module: '链路验证中心',
       action: '发送模拟上报',
-      request: requestPayload,
+      request: {
+        ...requestPayload,
+        payload: reportMode.value === 'plaintext' ? '<binary-frame>' : reportForm.payload
+      },
       response,
       ok: true,
-      detail: `已向设备 ${reportForm.deviceCode} 发送 ${inferredMessageType.value} 报文`
+      detail: successDetail
     });
   } catch (error) {
-    errorMessage.value = (error as Error).message;
-    lastResponse.value = { ok: false, message: errorMessage.value };
-    ElMessage.error(errorMessage.value);
+    const requestError = (error as Error).message;
+    lastResponse.value = { ok: false, message: requestError };
+    ElMessage.error(requestError);
     recordActivity({
-      module: 'HTTP 上报实验台',
+      module: '链路验证中心',
       action: '发送模拟上报',
-      request: requestPayload,
-      response: { message: errorMessage.value },
+      request: {
+        ...requestPayload,
+        payload: reportMode.value === 'plaintext' ? '<binary-frame>' : reportForm.payload
+      },
+      response: { message: requestError },
       ok: false,
-      detail: `发送失败：${errorMessage.value}`
+      detail: `发送失败：${requestError}`
     });
   } finally {
     isSending.value = false;
@@ -299,6 +452,16 @@ async function handleSendReport() {
 </script>
 
 <style scoped>
+.report-workbench-grid {
+  align-items: start;
+}
+
+.report-right-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .report-card {
   position: relative;
   overflow: hidden;
@@ -326,10 +489,41 @@ async function handleSendReport() {
   color: var(--brand-deep);
 }
 
-.report-preview {
+.report-mode-group {
+  width: 100%;
+}
+
+.report-mode-tip {
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 5%, white));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--brand) 4%, white);
+  color: var(--text-secondary);
+}
+
+.report-validation {
+  border: 1px solid color-mix(in srgb, var(--el-color-danger) 35%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--el-color-danger) 10%, white);
+  color: var(--el-color-danger);
+}
+
+.report-validation__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.report-validation__list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.report-diagnostics-collapse {
+  margin-top: 1rem;
+}
+
+.report-preview__line {
+  margin: 0.4rem 0;
+  color: var(--text-secondary);
 }
 
 .report-preview__code {

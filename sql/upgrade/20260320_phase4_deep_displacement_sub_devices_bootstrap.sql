@@ -250,6 +250,26 @@ SET @risk_point_id := (
     LIMIT 1
 );
 
+-- 防止脚本重复执行时，同一风险点-设备-测点绑定被重复插入。
+DELETE duplicate_binding
+FROM risk_point_device duplicate_binding
+JOIN risk_point_device keep_binding
+    ON duplicate_binding.risk_point_id = keep_binding.risk_point_id
+   AND duplicate_binding.device_code = keep_binding.device_code
+   AND duplicate_binding.metric_identifier = keep_binding.metric_identifier
+   AND duplicate_binding.tenant_id = keep_binding.tenant_id
+   AND duplicate_binding.deleted = keep_binding.deleted
+WHERE duplicate_binding.id > keep_binding.id
+  AND duplicate_binding.risk_point_id = @risk_point_id
+  AND duplicate_binding.device_code IN (
+      '84330701', '84330695', '84330697', '84330699',
+      '84330686', '84330687', '84330691', '84330696'
+  )
+  AND duplicate_binding.metric_identifier IN ('dispsX', 'dispsY')
+  AND duplicate_binding.deleted = 0
+  AND keep_binding.deleted = 0
+  AND @risk_point_id IS NOT NULL;
+
 INSERT INTO risk_point_device (
     risk_point_id,
     device_id,
@@ -298,15 +318,13 @@ JOIN (
     UNION ALL
     SELECT 'dispsY', '垂直坡面方向累计变形量'
 ) metric
+LEFT JOIN risk_point_device existing
+    ON existing.risk_point_id = @risk_point_id
+   AND existing.device_id = child.id
+   AND existing.metric_identifier = metric.metric_identifier
+   AND existing.tenant_id = child.tenant_id
+   AND existing.deleted = 0
 WHERE child.deleted = 0
   AND child.tenant_id = COALESCE(@base_tenant_id, 1)
   AND @risk_point_id IS NOT NULL
-ON DUPLICATE KEY UPDATE
-    device_code = VALUES(device_code),
-    device_name = VALUES(device_name),
-    metric_name = VALUES(metric_name),
-    threshold_unit = VALUES(threshold_unit),
-    tenant_id = VALUES(tenant_id),
-    update_by = VALUES(update_by),
-    update_time = VALUES(update_time),
-    deleted = 0;
+  AND existing.id IS NULL;
