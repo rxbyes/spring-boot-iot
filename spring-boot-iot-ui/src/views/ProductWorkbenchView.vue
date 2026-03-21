@@ -3003,6 +3003,7 @@ onMounted(async () => {
   border-top: 1px solid rgba(228, 235, 246, 0.5);
 }
 
+/* 操作按钮样式 - 使用系统品牌色 */
 .product-card-view .product-mobile-card__actions :deep(.el-button) {
   flex: 1;
   height: 32px;
@@ -3015,29 +3016,47 @@ onMounted(async () => {
   gap: 6px;
 }
 
+/* 主按钮 - 使用系统品牌色 */
 .product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary) {
-  background: linear-gradient(135deg, #5a72eb 0%, #4a5ec0 100%);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-bright) 100%);
   border: none;
-  box-shadow: 0 2px 8px rgba(90, 114, 235, 0.25);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:hover) {
-  background: linear-gradient(135deg, #4a62db 0%, #3a4eb0 100%);
-  box-shadow: 0 4px 12px rgba(90, 114, 235, 0.3);
+  background: linear-gradient(135deg, var(--brand-bright) 0%, var(--brand) 100%);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
+.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:active) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+/* 次要按钮 - 使用系统边框色 */
 .product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost) {
-  color: #7d8692;
-  border: 1px solid rgba(228, 235, 246, 0.7);
+  color: var(--text-caption);
+  border: 1px solid var(--panel-border);
+  background: transparent;
 }
 
 .product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost:hover) {
-  background: rgba(228, 235, 246, 0.5);
-  border-color: rgba(228, 235, 246, 1);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .product-card-view .product-mobile-card__actions :deep(.el-button .el-icon) {
   font-size: 14px;
+}
+
+/* 下拉菜单按钮样式 */
+.product-card-view .product-mobile-card__actions :deep(.el-button-group) {
+  display: flex;
+}
+
+.product-card-view .product-mobile-card__actions :deep(.el-dropdown) {
+  flex: 1;
 }
 
 /* 响应式卡片视图 */
