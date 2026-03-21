@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS iot_device_online_session (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    online_time DATETIME NOT NULL COMMENT '会话开始时间',
+    last_seen_time DATETIME DEFAULT NULL COMMENT '会话最后活跃时间',
+    offline_time DATETIME DEFAULT NULL COMMENT '会话结束时间',
+    duration_minutes BIGINT DEFAULT NULL COMMENT '在线时长（分钟）',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_online_session_device_active (deleted, device_id, offline_time),
+    KEY idx_online_session_product_time (deleted, product_id, online_time, offline_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备在线会话表';
