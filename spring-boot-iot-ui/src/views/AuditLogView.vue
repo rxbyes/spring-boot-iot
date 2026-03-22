@@ -121,9 +121,9 @@
             <StandardButton action="reset" @click="handleReset">重置</StandardButton>
           </template>
         </StandardListFilterHeader>
-        <div v-if="quickSearchKeyword.trim()" class="audit-log-quick-search-tag">
+        <div v-if="appliedQuickSearchValue" class="audit-log-quick-search-tag">
           <el-tag closable class="audit-log-quick-search-tag__chip" @close="handleClearQuickSearch">
-            快速搜索：{{ quickSearchKeyword.trim() }}
+            快速搜索：{{ appliedQuickSearchValue }}
           </el-tag>
         </div>
       </template>
@@ -131,7 +131,7 @@
       <template #applied-filters>
         <StandardAppliedFiltersBar
           :tags="activeFilterTags"
-          @remove="removeAppliedFilter"
+          @remove="handleRemoveAppliedFilter"
           @clear="handleClearAppliedFilters"
         />
       </template>
@@ -277,7 +277,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
-import type { RequestError } from '@/api/request'
+import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -287,6 +287,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -318,8 +319,8 @@ const viewTip = computed(() =>
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
 const canJumpFromSearch = computed(() =>
   Boolean(
-    quickSearchKeyword.value.trim() || searchForm.traceId || searchForm.deviceCode || searchForm.productKey
-      || (searchForm.requestMethod === 'MQTT' && searchForm.requestUrl)
+    appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey
+      || (appliedFilters.requestMethod === 'MQTT' && appliedFilters.requestUrl)
   )
 )
 const businessOperationTypeOptions = [
@@ -446,61 +447,48 @@ const advancedFilterKeys = computed<
     ? ['requestUrl', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass']
     : ['traceId']
 )
-const activeFilterTags = computed(() => {
-  const tags: Array<{ key: string; label: string }> = []
-  if (appliedFilters.userName.trim()) {
-    tags.push({ key: 'userName', label: `操作用户：${appliedFilters.userName.trim()}` })
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  advancedAppliedCount,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: 'userName', label: '操作用户', isActive: (value) => isBusinessMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationType', label: (value) => `操作类型：${getOperationTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => isBusinessMode.value && value !== undefined },
+    { key: 'traceId', label: 'TraceId', advanced: true },
+    { key: 'operationModule', label: (value) => `${isSystemMode.value ? '异常模块' : '操作模块'}：${String(value || '').trim()}` },
+    { key: 'requestMethod', label: (value) => `请求通道：${String(value || '')}`, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'requestUrl', label: '目标 / URL', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'deviceCode', label: '设备编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'productKey', label: '产品标识', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'errorCode', label: '异常编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'exceptionClass', label: '异常类型', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationResult', label: (value) => `操作结果：${getOperationResultName(Number(value))}`, clearValue: undefined, isActive: (value) => value !== undefined }
+  ],
+  defaults: {
+    userName: '',
+    operationType: undefined,
+    traceId: '',
+    deviceCode: '',
+    productKey: '',
+    operationModule: '',
+    requestMethod: '',
+    requestUrl: '',
+    errorCode: '',
+    exceptionClass: '',
+    operationResult: undefined
   }
-  if (appliedFilters.operationType) {
-    tags.push({ key: 'operationType', label: `操作类型：${getOperationTypeName(appliedFilters.operationType)}` })
-  }
-  if (appliedFilters.traceId.trim()) {
-    tags.push({ key: 'traceId', label: `TraceId：${appliedFilters.traceId.trim()}` })
-  }
-  if (appliedFilters.operationModule.trim()) {
-    tags.push({
-      key: 'operationModule',
-      label: `${isSystemMode.value ? '异常模块' : '操作模块'}：${appliedFilters.operationModule.trim()}`
-    })
-  }
-  if (isSystemMode.value && appliedFilters.requestMethod) {
-    tags.push({
-      key: 'requestMethod',
-      label: `请求通道：${appliedFilters.requestMethod}`
-    })
-  }
-  if (isSystemMode.value && appliedFilters.requestUrl.trim()) {
-    tags.push({
-      key: 'requestUrl',
-      label: `目标 / URL：${appliedFilters.requestUrl.trim()}`
-    })
-  }
-  if (appliedFilters.deviceCode.trim()) {
-    tags.push({ key: 'deviceCode', label: `设备编码：${appliedFilters.deviceCode.trim()}` })
-  }
-  if (appliedFilters.productKey.trim()) {
-    tags.push({ key: 'productKey', label: `产品标识：${appliedFilters.productKey.trim()}` })
-  }
-  if (appliedFilters.errorCode.trim()) {
-    tags.push({ key: 'errorCode', label: `异常编码：${appliedFilters.errorCode.trim()}` })
-  }
-  if (appliedFilters.exceptionClass.trim()) {
-    tags.push({ key: 'exceptionClass', label: `异常类型：${appliedFilters.exceptionClass.trim()}` })
-  }
-  if (appliedFilters.operationResult !== undefined) {
-    tags.push({ key: 'operationResult', label: `操作结果：${getOperationResultName(appliedFilters.operationResult)}` })
-  }
-  return tags
 })
-const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
-const advancedAppliedFilterCount = computed(() =>
-  advancedFilterKeys.value.reduce((count, key) => count + (hasFilledFilter(appliedFilters[key]) ? 1 : 0), 0)
-)
+const appliedQuickSearchValue = computed(() => (isSystemMode.value ? appliedFilters.traceId.trim() : appliedFilters.userName.trim()))
 const advancedFilterHint = computed(() => {
-  if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
+  if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
     return ''
   }
-  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`
+  return `更多条件已生效 ${advancedAppliedCount.value} 项`
 })
 
 const statsSummaryText = computed(() => {
@@ -532,20 +520,6 @@ const hasFilledFilter = (value: string | number | undefined) => {
     return value.trim() !== ''
   }
   return value !== undefined
-}
-
-const syncAppliedFilters = () => {
-  appliedFilters.userName = searchForm.userName.trim()
-  appliedFilters.operationType = searchForm.operationType
-  appliedFilters.traceId = searchForm.traceId.trim()
-  appliedFilters.deviceCode = searchForm.deviceCode.trim()
-  appliedFilters.productKey = searchForm.productKey.trim()
-  appliedFilters.operationModule = searchForm.operationModule.trim()
-  appliedFilters.requestMethod = searchForm.requestMethod.trim()
-  appliedFilters.requestUrl = searchForm.requestUrl.trim()
-  appliedFilters.errorCode = searchForm.errorCode.trim()
-  appliedFilters.exceptionClass = searchForm.exceptionClass.trim()
-  appliedFilters.operationResult = searchForm.operationResult
 }
 
 const syncQuickSearchKeywordFromFilters = () => {
@@ -613,25 +587,31 @@ const applySystemRouteQuery = () => {
 
 // 获取审计日志查询条件
 const buildAuditLogQueryParams = () => ({
-  traceId: searchForm.traceId,
-  operationModule: searchForm.operationModule,
-  operationResult: searchForm.operationResult,
+  traceId: appliedFilters.traceId,
+  operationModule: appliedFilters.operationModule,
+  operationResult: appliedFilters.operationResult,
   ...(isBusinessMode.value
     ? {
-        userName: searchForm.userName,
-        operationType: searchForm.operationType,
+        userName: appliedFilters.userName,
+        operationType: appliedFilters.operationType,
         excludeSystemError: true
       }
     : {
         operationType: 'system_error',
-        deviceCode: searchForm.deviceCode,
-        productKey: searchForm.productKey,
-        requestMethod: searchForm.requestMethod,
-        requestUrl: searchForm.requestUrl,
-        errorCode: searchForm.errorCode,
-        exceptionClass: searchForm.exceptionClass
+        deviceCode: appliedFilters.deviceCode,
+        productKey: appliedFilters.productKey,
+        requestMethod: appliedFilters.requestMethod,
+        requestUrl: appliedFilters.requestUrl,
+        errorCode: appliedFilters.errorCode,
+        exceptionClass: appliedFilters.exceptionClass
       })
 })
+
+const logPageError = (context: string, error: unknown) => {
+  if (!isHandledRequestError(error)) {
+    console.error(context, error)
+  }
+}
 
 // 获取审计日志列表
 const getAuditLogList = async () => {
@@ -646,7 +626,7 @@ const getAuditLogList = async () => {
       tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
-    console.error('获取审计日志列表失败', error)
+    logPageError('获取审计日志列表失败', error)
   } finally {
     loading.value = false
   }
@@ -671,7 +651,7 @@ const getAuditLogStats = async () => {
       businessStats.value = { ...createEmptyBusinessStats(), ...res.data }
     }
   } catch (error) {
-    console.error('获取日志统计失败', error)
+    logPageError('获取日志统计失败', error)
   } finally {
     statsLoading.value = false
   }
@@ -740,6 +720,7 @@ watch(
 
 const triggerSearch = (resetPageFirst = false) => {
   applyQuickSearchKeywordToFilters()
+  syncAdvancedFilterState()
   syncAppliedFilters()
   if (resetPageFirst) {
     resetPage()
@@ -777,45 +758,9 @@ const handleClearAppliedFilters = () => {
   handleReset()
 }
 
-const removeAppliedFilter = (key: keyof typeof appliedFilters) => {
-  switch (key) {
-    case 'operationType':
-      searchForm.operationType = undefined
-      break
-    case 'operationResult':
-      searchForm.operationResult = undefined
-      break
-    case 'userName':
-      searchForm.userName = ''
-      break
-    case 'traceId':
-      searchForm.traceId = ''
-      break
-    case 'deviceCode':
-      searchForm.deviceCode = ''
-      break
-    case 'productKey':
-      searchForm.productKey = ''
-      break
-    case 'operationModule':
-      searchForm.operationModule = ''
-      break
-    case 'requestMethod':
-      searchForm.requestMethod = ''
-      break
-    case 'requestUrl':
-      searchForm.requestUrl = ''
-      break
-    case 'errorCode':
-      searchForm.errorCode = ''
-      break
-    case 'exceptionClass':
-      searchForm.exceptionClass = ''
-      break
-  }
-  if ((isSystemMode.value && key === 'traceId') || (isBusinessMode.value && key === 'userName')) {
-    syncQuickSearchKeywordFromFilters()
-  }
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key)
+  syncQuickSearchKeywordFromFilters()
   syncAdvancedFilterState()
   triggerSearch(true)
 }
@@ -912,12 +857,11 @@ const handleDetail = async (row: AuditLogRecord) => {
     }
     detailData.value = { ...row, ...res.data }
   } catch (error) {
-    const requestError = error as RequestError | undefined
-    if (!requestError?.handled) {
+    if (!isHandledRequestError(error)) {
       ElMessage.error(`获取${pageTitle.value}详情失败`)
     }
     detailErrorMessage.value = error instanceof Error ? error.message : `获取${pageTitle.value}详情失败`
-    console.error('获取日志详情失败', error)
+    logPageError('获取日志详情失败', error)
   } finally {
     detailLoading.value = false
   }
@@ -942,7 +886,7 @@ const handleDelete = async (row: AuditLogRecord) => {
     if (isConfirmCancelled(error)) {
       return
     }
-    console.error('删除失败', error)
+    logPageError('删除失败', error)
   }
 }
 

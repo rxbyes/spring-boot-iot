@@ -59,7 +59,7 @@
 - 帮助中心“查看更多”必须继续使用 `/api/system/help-doc/access/page` 做服务端分页检索；关键字高亮统一走安全文本切片渲染，不得用 `v-html` 直接拼接高亮 HTML。
 - 2026-03-21 夜间起，平台治理下的 `/in-app-message` 与 `/help-doc` 编排页已成为壳层系统内容的权威维护入口；后续新增消息分类、帮助分类、角色范围或关联页面时，必须继续复用 `system / business / error` 与 `business / technical / faq` 这两组既有口径，不得在编排页再发明第二套命名。
 - `/in-app-message` 当前必须继续复用固定来源类型 `manual / system_error / event_dispatch / work_order / governance`；治理页对系统自动消息只允许“查看或停用”，禁止在前端开放正文任意编辑或删除入口。
-- `/in-app-message` 当前新增的“桥接效果运营”必须继续留在同一页面内，以默认展开的折叠区承接桥接统计、渠道/来源洞察、桥接日志分页和桥接详情抽屉；不得再拆成独立菜单、独立路由或第二套桥接治理页。
+- `/in-app-message` 当前新增的“桥接效果运营”必须继续留在同一页面内，以独立 `StandardWorkbenchPanel` 分区承接桥接统计、渠道/来源洞察、桥接日志分页和桥接详情抽屉；不得再拆成独立菜单、独立路由或第二套桥接治理页。
 - 桥接详情当前必须使用独立于消息详情的 `StandardDetailDrawer` 状态，统一展示“桥接结果摘要 + 消息原文 + 尝试明细”；桥接分页继续复用 `StandardPagination`，日志表与尝试表继续复用 `StandardTableTextColumn` / 统一表格 token，不再引入页面私有表格样式。
 - 桥接筛选中的渠道下拉当前只允许展示 `webhook / wechat / feishu / dingtalk` 四类渠道，并继续直接复用 `/api/system/channel/list` 结果过滤；不要在前端另维护一份私有渠道字典。
 - 桥接响应摘要、目标摘要和尝试明细当前必须继续使用安全文本切片展示，不得在治理页用 `v-html` 直接注入后端响应内容。
@@ -185,6 +185,7 @@
 - 系统数据列表与卡片操作区中的 `详情 / 编辑 / 更多 / 查看设备 / 删除 / 更换 / 洞察`，当前统一使用查询橙按钮语义；不得再为操作列单独保留红色删除按钮或另一套私有链接颜色。
 - 产品定义中心与设备资产中心的查询头已统一抽离为 `StandardListFilterHeader`；后续同类列表页默认复用该组件，不再复制页面私有筛选头模板。
 - `/message-trace`、`/audit-log` 与 `/system-log` 这类链路 / 日志台账页也必须复用 `StandardListFilterHeader + StandardAppliedFiltersBar`；高频入口走快速搜索，其余条件收口到“更多筛选”，隐藏条件生效时继续通过提示文案和筛选标签保持可感知。
+- 已生效筛选状态统一通过 `useListAppliedFilters` 承接“标签构建 + 单项移除 + 全部清空 + 高级筛选命中数”逻辑；纳管页不再各自手写第二套 applied-filters 状态机。
 - 当同类查询头结构在 3 个及以上列表页重复出现时，下一轮应统一抽离为公共组件（建议命名 `ListFilterHeader`），禁止继续页面内复制模板和样式。
 - 列表页若要支持刷新、回退或跨页面跳转后恢复筛选，应把高频条件与分页状态同步到路由 query；至少保持 `productName / nodeType / status / pageNum / pageSize` 这类高频台账状态可恢复，不要只在组件内留瞬时状态。
 - 路由 query 恢复不得只覆盖文本输入；枚举型筛选与分页参数也必须同步恢复。以设备台账页为例，应继续覆盖 `deviceId / productKey / deviceCode / deviceName / onlineStatus / activateStatus / deviceStatus / pageNum / pageSize`，避免回退后只恢复一半状态。
@@ -243,8 +244,10 @@
   - `npm run build`
   - `npm run test` 或受影响范围的 `vitest run`
   - `npm run component:guard`
+  - `npm run list:guard`
   - `npm run style:guard`
 - `component:guard` 当前独立负责共享动作/文本列契约守卫：禁止 `StandardActionLink` 使用 `tone`、禁止 `StandardActionMenu` item 回流 `tone`、禁止页面 `*actions` 区块继续深度覆写 Element 操作组件，并限制试点页固定宽度纯文本列回退到裸 `el-table-column`。
+- `list:guard` 当前独立负责列表骨架守卫：纳管页必须使用 `StandardListFilterHeader`、`StandardTableToolbar`、`StandardPagination`，并禁止回流 `search-form` 与 `text-right` 旧模板。
 - `style:guard` 当前负责控制样式字面量、圆角/阴影数量回退，以及品牌色硬编码回流；`tokens.css` 与 `element-overrides.css` 继续作为 token 源头白名单。
 - 当前仓库尚未看到 `eslint` / `stylelint` 独立脚本，因此现阶段前端硬门禁仍以“构建 + 测试 + style guard + 代码评审”为主。
 - 若未来补齐 ESLint / Stylelint 或其他静态门禁，必须同步回写本文件与 [15-前端优化与治理计划.md](./15-前端优化与治理计划.md)。
@@ -265,7 +268,7 @@
 12. 页面超长时是否只有右侧内容区滚动，左侧二级菜单与顶部一级导航是否保持固定；若仍出现整页滚动，必须优先修正共享壳层或页面内异常高度样式。
 13. 当筛选区存在“更多条件”折叠层时，默认态、展开态和已命中隐藏条件时的提示是否一致可感知；不得出现“高级条件已生效但页面无提示”的状态。
 14. 若改动涉及右上角通知/帮助入口，是否仍按角色和菜单权限过滤内容，且保留 `系统事件 / 业务事件 / 错误事件` 与 `业务类 / 技术类 / FAQ` 的分类结构；不得回退为一组静态链接。
-15. 若改动涉及 `/in-app-message` 桥接运营专区，是否仍保持“同页折叠区 + 独立桥接详情抽屉 + 安全文本摘要 + 无导出/无手工重试”的当前 V1 口径；不得私自扩出第二套治理流。
+15. 若改动涉及 `/in-app-message` 桥接运营专区，是否仍保持“同页独立 workbench 分区 + 独立桥接详情抽屉 + 安全文本摘要 + 无导出/无手工重试”的当前 V1 口径；不得私自扩出第二套治理流。
 
 ## 8. 已知问题与技术债
 

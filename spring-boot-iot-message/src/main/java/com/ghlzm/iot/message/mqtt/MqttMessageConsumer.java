@@ -30,6 +30,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     private final MqttTopicRouter mqttTopicRouter;
     private final DeviceSessionService deviceSessionService;
     private final MqttConnectionListener mqttConnectionListener;
+    private final MqttConsumerRuntimeState mqttConsumerRuntimeState;
 
     private volatile boolean running;
     private MqttClient mqttClient;
@@ -39,12 +40,14 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                                UpMessageDispatcher upMessageDispatcher,
                                MqttTopicRouter mqttTopicRouter,
                                DeviceSessionService deviceSessionService,
-                               MqttConnectionListener mqttConnectionListener) {
+                               MqttConnectionListener mqttConnectionListener,
+                               MqttConsumerRuntimeState mqttConsumerRuntimeState) {
         this.iotProperties = iotProperties;
         this.upMessageDispatcher = upMessageDispatcher;
         this.mqttTopicRouter = mqttTopicRouter;
         this.deviceSessionService = deviceSessionService;
         this.mqttConnectionListener = mqttConnectionListener;
+        this.mqttConsumerRuntimeState = mqttConsumerRuntimeState;
     }
 
     @Override
@@ -139,10 +142,12 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             mqttConnectionListener.onMessageReceived(topic, message == null || message.getPayload() == null
                     ? 0
                     : message.getPayload().length);
+            mqttConsumerRuntimeState.markMessageReceived();
             rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
             rawDeviceMessage.setTraceId(traceId);
 
             DeviceUpMessage upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
+            mqttConsumerRuntimeState.markDispatchSuccess(upMessage.getTraceId());
             String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
                     ? upMessage.getDeviceCode()
                     : rawDeviceMessage.getDeviceCode();
@@ -190,6 +195,10 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     public boolean isConnected() {
         return mqttClient != null && mqttClient.isConnected();
+    }
+
+    public String getEffectiveClientId() {
+        return effectiveClientId;
     }
 
     private void subscribeConfiguredTopics() {

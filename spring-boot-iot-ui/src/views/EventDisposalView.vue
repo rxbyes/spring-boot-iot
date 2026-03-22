@@ -3,7 +3,7 @@
     <PanelCard
       eyebrow="Event Workflow"
       title="事件协同台"
-      description="聚合派发、处理与关闭状态，统一通过筛选卡和列表卡管理事件闭环。"
+      description="聚合派发、处理与关闭状态，统一通过下方工作台管理事件闭环。"
       class="ops-hero-card"
     >
       <div class="ops-kpi-grid">
@@ -17,59 +17,75 @@
       </div>
     </PanelCard>
 
-    <PanelCard
-      eyebrow="Event Filters"
-      title="筛选条件"
-      description="优先关注待派发和处理中事件，快速定位仍在闭环中的风险事项。"
-      class="ops-filter-card"
-    >
-      <StandardListFilterHeader :model="filters">
-        <template #primary>
-          <el-form-item>
-            <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-              <el-option label="严重" value="critical" />
-              <el-option label="警告" value="warning" />
-              <el-option label="提醒" value="info" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.status" placeholder="状态" clearable>
-              <el-option label="待派发" :value="0" />
-              <el-option label="已派发" :value="1" />
-              <el-option label="处理中" :value="2" />
-              <el-option label="待验收" :value="3" />
-              <el-option label="已关闭" :value="4" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-input :model-value="eventListAdvice" placeholder="处置建议" disabled />
-          </el-form-item>
-        </template>
-        <template #actions>
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        </template>
-      </StandardListFilterHeader>
-    </PanelCard>
-
-    <PanelCard
-      eyebrow="Event List"
+    <StandardWorkbenchPanel
       title="事件列表"
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
-      class="ops-table-card"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
-        <template #right>
-          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-          <StandardButton action="refresh" link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
+                <el-option label="严重" value="critical" />
+                <el-option label="警告" value="warning" />
+                <el-option label="提醒" value="info" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.status" placeholder="状态" clearable>
+                <el-option label="待派发" :value="0" />
+                <el-option label="已派发" :value="1" />
+                <el-option label="处理中" :value="2" />
+                <el-option label="待验收" :value="3" />
+                <el-option label="已关闭" :value="4" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #notices>
+        <el-alert
+          title="优先关注待派发和处理中事件，快速定位仍在闭环中的风险事项。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
+          <template #right>
+            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
+
       <div v-if="loading" class="ops-state">正在加载事件列表...</div>
       <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
       <template v-else>
@@ -103,7 +119,9 @@
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -114,7 +132,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <EventDetailDrawer
       v-model="detailVisible"
@@ -201,11 +219,14 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
@@ -274,10 +295,13 @@ const filters = reactive({
   riskLevel: '',
   status: ''
 });
+const appliedFilters = reactive({
+  deviceCode: '',
+  riskLevel: '',
+  status: ''
+});
 
 const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
-
-const eventListAdvice = '优先推进待派发和处理中事件';
 const pagedEventList = computed(() => applyLocalRecords(eventList.value));
 
 const dispatchForm = reactive({
@@ -351,13 +375,33 @@ const getStatusText = (status: number) => {
   }
 };
 
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'deviceCode', label: '设备编码' },
+    { key: 'riskLevel', label: (value) => `风险等级：${getRiskLevelText(String(value || ''))}` },
+    { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' }
+  ],
+  defaults: {
+    deviceCode: '',
+    riskLevel: '',
+    status: ''
+  }
+});
+
 const loadEventList = async () => {
   loading.value = true;
   try {
     const params: { deviceCode?: string; riskLevel?: string; status?: number } = {};
-    if (filters.deviceCode) params.deviceCode = filters.deviceCode;
-    if (filters.riskLevel) params.riskLevel = filters.riskLevel;
-    if (filters.status) params.status = parseInt(filters.status, 10);
+    if (appliedFilters.deviceCode) params.deviceCode = appliedFilters.deviceCode;
+    if (appliedFilters.riskLevel) params.riskLevel = appliedFilters.riskLevel;
+    if (appliedFilters.status) params.status = parseInt(appliedFilters.status, 10);
 
     const res = await getEventList(params);
     if (res.code === 200) {
@@ -376,7 +420,9 @@ const loadEventList = async () => {
 };
 
 const handleSearch = () => {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadEventList();
 };
 
@@ -384,7 +430,9 @@ const handleReset = () => {
   filters.deviceCode = '';
   filters.riskLevel = '';
   filters.status = '';
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadEventList();
 };
 
@@ -400,6 +448,17 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadEventList();
+};
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  void loadEventList();
+};
+
+const handleClearAppliedFilters = () => {
+  handleReset();
 };
 
 const openExportColumnSetting = () => {
@@ -499,6 +558,7 @@ const handleCloseConfirm = async () => {
 };
 
 onMounted(() => {
+  syncAppliedFilters();
   void loadEventList();
 });
 

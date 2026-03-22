@@ -85,6 +85,7 @@ iot:
 #    connection-timeout: 10
 #    keep-alive-interval: 30
 #    default-subscribe-topics:
+#      - "$dp"
 #      - /sys/+/+/thing/property/post
 #      - /sys/+/+/thing/event/post
 #      - /sys/+/+/thing/property/reply

@@ -38,6 +38,10 @@ export function createRequestError(message: string, handled = false, status?: nu
   return error;
 }
 
+export function isHandledRequestError(error: unknown): error is RequestError {
+  return Boolean(error && typeof error === 'object' && (error as RequestError).handled);
+}
+
 export function normalizeUnsafeIdJson(bodyText: string): string {
   // 真实环境历史响应仍可能把雪花 Long 主键直接返回为 number，这里在 JSON.parse 前兜底转成字符串。
   return bodyText.replace(

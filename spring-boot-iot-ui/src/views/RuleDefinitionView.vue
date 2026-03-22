@@ -20,56 +20,74 @@
       </div>
     </PanelCard>
 
-    <PanelCard
-      eyebrow="Rule Filters"
-      title="筛选条件"
-      description="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
-      class="ops-filter-card"
-    >
-      <StandardListFilterHeader :model="filters">
-        <template #primary>
-          <el-form-item>
-            <el-input v-model="filters.ruleName" placeholder="规则名称" clearable @keyup.enter="handleSearch" />
-          </el-form-item>
-          <el-form-item>
-            <el-input v-model="filters.metricIdentifier" placeholder="测点标识符" clearable @keyup.enter="handleSearch" />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
-              <el-option label="严重" value="critical" />
-              <el-option label="警告" value="warning" />
-              <el-option label="提醒" value="info" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.status" placeholder="状态" clearable>
-              <el-option label="启用" :value="0" />
-              <el-option label="停用" :value="1" />
-            </el-select>
-          </el-form-item>
-        </template>
-        <template #actions>
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        </template>
-      </StandardListFilterHeader>
-    </PanelCard>
-
-    <PanelCard
-      eyebrow="Rule List"
+    <StandardWorkbenchPanel
       title="阈值策略列表"
       :description="`当前 ${pagination.total} 条阈值策略，支持告警触发和转事件配置。`"
-      class="ops-table-card"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <StandardTableToolbar
-        compact
-        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
-      >
-        <template #right>
-          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.ruleName" placeholder="规则名称" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+            <el-form-item>
+              <el-input v-model="filters.metricIdentifier" placeholder="测点标识符" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
+                <el-option label="严重" value="critical" />
+                <el-option label="警告" value="warning" />
+                <el-option label="提醒" value="info" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.status" placeholder="状态" clearable>
+                <el-option label="启用" :value="0" />
+                <el-option label="停用" :value="1" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #notices>
+        <el-alert
+          title="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
+        >
+          <template #right>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <div v-if="loading" class="ops-state">正在加载阈值策略列表...</div>
       <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的阈值策略</div>
@@ -114,7 +132,9 @@
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -125,7 +145,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -235,12 +255,15 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
@@ -253,6 +276,12 @@ const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
 
 const filters = reactive({
+  ruleName: '',
+  metricIdentifier: '',
+  alarmLevel: '',
+  status: '' as '' | number
+});
+const appliedFilters = reactive({
   ruleName: '',
   metricIdentifier: '',
   alarmLevel: '',
@@ -338,14 +367,36 @@ const getStatusText = (status: number) => {
   }
 };
 
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'ruleName', label: '规则名称' },
+    { key: 'metricIdentifier', label: '测点标识符' },
+    { key: 'alarmLevel', label: (value) => `告警等级：${getAlarmLevelText(String(value || ''))}` },
+    { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
+  ],
+  defaults: {
+    ruleName: '',
+    metricIdentifier: '',
+    alarmLevel: '',
+    status: '' as '' | number
+  }
+});
+
 const loadRuleList = async () => {
   loading.value = true;
   try {
     const res = await pageRuleList({
-      ruleName: filters.ruleName || undefined,
-      metricIdentifier: filters.metricIdentifier || undefined,
-      alarmLevel: filters.alarmLevel || undefined,
-      status: filters.status === '' ? undefined : Number(filters.status),
+      ruleName: appliedFilters.ruleName || undefined,
+      metricIdentifier: appliedFilters.metricIdentifier || undefined,
+      alarmLevel: appliedFilters.alarmLevel || undefined,
+      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     });
@@ -360,7 +411,9 @@ const loadRuleList = async () => {
 };
 
 const handleSearch = () => {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadRuleList();
 };
 
@@ -369,7 +422,9 @@ const handleReset = () => {
   filters.metricIdentifier = '';
   filters.alarmLevel = '';
   filters.status = '';
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadRuleList();
 };
 
@@ -395,6 +450,17 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadRuleList();
+};
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  void loadRuleList();
+};
+
+const handleClearAppliedFilters = () => {
+  handleReset();
 };
 
 const resetRuleForm = () => {
@@ -475,6 +541,7 @@ const handleFormClose = () => {
 };
 
 onMounted(() => {
+  syncAppliedFilters();
   void loadRuleList();
 });
 </script>

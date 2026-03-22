@@ -71,9 +71,9 @@
             <StandardButton action="reset" @click="handleReset">重置</StandardButton>
           </template>
         </StandardListFilterHeader>
-        <div v-if="quickSearchKeyword.trim()" class="message-trace-quick-search-tag">
+        <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
           <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
-            快速搜索：{{ quickSearchKeyword.trim() }}
+            快速搜索：{{ appliedFilters.traceId.trim() }}
           </el-tag>
         </div>
       </template>
@@ -81,7 +81,7 @@
       <template #applied-filters>
         <StandardAppliedFiltersBar
           :tags="activeFilterTags"
-          @remove="removeAppliedFilter"
+          @remove="handleRemoveAppliedFilter"
           @clear="handleClearAppliedFilters"
         />
       </template>
@@ -282,6 +282,7 @@ import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceMessageLog } from '@/types/api';
 import { formatDateTime, prettyJson } from '@/utils/format';
@@ -350,43 +351,38 @@ const detailTags = computed(() => {
   ];
 });
 const canJumpWithSearch = computed(() =>
-  Boolean(quickSearchKeyword.value.trim() || searchForm.traceId || searchForm.deviceCode || searchForm.productKey || searchForm.topic)
+  Boolean(appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey || appliedFilters.topic)
 );
-const activeFilterTags = computed(() => {
-  const tags: Array<{ key: keyof typeof appliedFilters; label: string }> = [];
-  if (appliedFilters.traceId.trim()) {
-    tags.push({ key: 'traceId', label: `TraceId：${appliedFilters.traceId.trim()}` });
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  advancedAppliedCount,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: 'traceId', label: 'TraceId' },
+    { key: 'deviceCode', label: '设备编码' },
+    { key: 'productKey', label: '产品标识' },
+    { key: 'messageType', label: (value) => `消息类型：${getMessageTypeLabel(value)}`, clearValue: '' },
+    { key: 'topic', label: 'Topic', advanced: true }
+  ],
+  defaults: {
+    deviceCode: '',
+    productKey: '',
+    traceId: '',
+    messageType: '',
+    topic: ''
   }
-  if (appliedFilters.deviceCode.trim()) {
-    tags.push({ key: 'deviceCode', label: `设备编码：${appliedFilters.deviceCode.trim()}` });
-  }
-  if (appliedFilters.productKey.trim()) {
-    tags.push({ key: 'productKey', label: `产品标识：${appliedFilters.productKey.trim()}` });
-  }
-  if (appliedFilters.messageType) {
-    tags.push({ key: 'messageType', label: `消息类型：${getMessageTypeLabel(appliedFilters.messageType)}` });
-  }
-  if (appliedFilters.topic.trim()) {
-    tags.push({ key: 'topic', label: `Topic：${appliedFilters.topic.trim()}` });
-  }
-  return tags;
 });
-const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0);
-const advancedAppliedFilterCount = computed(() => (appliedFilters.topic.trim() ? 1 : 0));
 const advancedFilterHint = computed(() => {
-  if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
+  if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
     return '';
   }
-  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`;
+  return `更多条件已生效 ${advancedAppliedCount.value} 项`;
 });
-
-function syncAppliedFilters() {
-  appliedFilters.deviceCode = searchForm.deviceCode.trim();
-  appliedFilters.productKey = searchForm.productKey.trim();
-  appliedFilters.traceId = searchForm.traceId.trim();
-  appliedFilters.messageType = searchForm.messageType.trim();
-  appliedFilters.topic = searchForm.topic.trim();
-}
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;
@@ -417,11 +413,11 @@ function applyRouteQuery() {
 
 function buildQueryParams(): MessageTraceQueryParams {
   return {
-    deviceCode: searchForm.deviceCode,
-    productKey: searchForm.productKey,
-    traceId: searchForm.traceId,
-    messageType: searchForm.messageType,
-    topic: searchForm.topic,
+    deviceCode: appliedFilters.deviceCode,
+    productKey: appliedFilters.productKey,
+    traceId: appliedFilters.traceId,
+    messageType: appliedFilters.messageType,
+    topic: appliedFilters.topic,
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   };
@@ -455,6 +451,7 @@ function resetSearchForm() {
 
 function triggerSearch(resetPageFirst = false) {
   applyQuickSearchKeywordToFilters();
+  syncAdvancedFilterState();
   syncAppliedFilters();
   if (resetPageFirst) {
     resetPage();
@@ -472,7 +469,7 @@ function handleReset() {
 }
 
 function handleRefresh() {
-  triggerSearch(false);
+  loadTableData();
 }
 
 function handleQuickSearch() {
@@ -492,27 +489,9 @@ function handleClearAppliedFilters() {
   handleReset();
 }
 
-function removeAppliedFilter(key: keyof typeof appliedFilters) {
-  switch (key) {
-    case 'traceId':
-      searchForm.traceId = '';
-      break;
-    case 'deviceCode':
-      searchForm.deviceCode = '';
-      break;
-    case 'productKey':
-      searchForm.productKey = '';
-      break;
-    case 'messageType':
-      searchForm.messageType = '';
-      break;
-    case 'topic':
-      searchForm.topic = '';
-      break;
-  }
-  if (key === 'traceId') {
-    syncQuickSearchKeywordFromFilters();
-  }
+function handleRemoveAppliedFilter(key: string) {
+  removeAppliedFilter(key);
+  syncQuickSearchKeywordFromFilters();
   syncAdvancedFilterState();
   triggerSearch(true);
 }
@@ -538,10 +517,10 @@ function canJumpWithRow(row: DeviceMessageLog) {
 
 function jumpToSystemLog(row?: DeviceMessageLog) {
   const source = row || {
-    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
-    deviceCode: searchForm.deviceCode,
-    productKey: searchForm.productKey,
-    topic: searchForm.topic
+    traceId: appliedFilters.traceId,
+    deviceCode: appliedFilters.deviceCode,
+    productKey: appliedFilters.productKey,
+    topic: appliedFilters.topic
   };
   router.push({
     path: '/system-log',

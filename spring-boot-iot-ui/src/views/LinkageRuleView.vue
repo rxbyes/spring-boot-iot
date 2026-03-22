@@ -20,49 +20,64 @@
       </div>
     </PanelCard>
 
-    <PanelCard
-      eyebrow="Linkage Filters"
-      title="筛选条件"
-      description="优先检查启用中的联动编排和动作编排完整性，避免触发后无法执行后续动作。"
-      class="ops-filter-card"
-    >
-      <StandardListFilterHeader :model="filters">
-        <template #primary>
-          <el-form-item>
-            <el-input v-model="filters.ruleName" placeholder="规则名称" clearable @keyup.enter="handleSearch" />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.status" placeholder="状态" clearable>
-              <el-option label="启用" :value="0" />
-              <el-option label="停用" :value="1" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-input :model-value="linkageAdvice" placeholder="治理建议" disabled />
-          </el-form-item>
-        </template>
-        <template #actions>
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        </template>
-      </StandardListFilterHeader>
-    </PanelCard>
-
-    <PanelCard
-      eyebrow="Linkage List"
+    <StandardWorkbenchPanel
       title="联动编排列表"
       :description="`当前 ${pagination.total} 条联动编排，支持动作编排与启停管理。`"
-      class="ops-table-card"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <StandardTableToolbar
-        compact
-        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `已配动作 ${actionConfiguredCount} 项`]"
-      >
-        <template #right>
-          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.ruleName" placeholder="规则名称" clearable @keyup.enter="handleSearch" />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.status" placeholder="状态" clearable>
+                <el-option label="启用" :value="0" />
+                <el-option label="停用" :value="1" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #notices>
+        <el-alert
+          :title="linkageAdvice"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `已配动作 ${actionConfiguredCount} 项`]"
+        >
+          <template #right>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <div v-if="loading" class="ops-state">正在加载联动编排列表...</div>
       <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的联动编排</div>
@@ -102,7 +117,9 @@
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -113,7 +130,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -186,12 +203,15 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/linkageRule';
@@ -204,6 +224,10 @@ const tableRef = ref();
 const selectedRows = ref<LinkageRule[]>([]);
 
 const filters = reactive({
+  ruleName: '',
+  status: '' as '' | number
+});
+const appliedFilters = reactive({
   ruleName: '',
   status: '' as '' | number
 });
@@ -256,12 +280,30 @@ const getStatusText = (status: number) => {
   }
 };
 
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'ruleName', label: '规则名称' },
+    { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
+  ],
+  defaults: {
+    ruleName: '',
+    status: '' as '' | number
+  }
+});
+
 const loadRuleList = async () => {
   loading.value = true;
   try {
     const res = await pageRuleList({
-      ruleName: filters.ruleName || undefined,
-      status: filters.status === '' ? undefined : Number(filters.status),
+      ruleName: appliedFilters.ruleName || undefined,
+      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     });
@@ -276,14 +318,18 @@ const loadRuleList = async () => {
 };
 
 const handleSearch = () => {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadRuleList();
 };
 
 const handleReset = () => {
   filters.ruleName = '';
   filters.status = '';
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadRuleList();
 };
 
@@ -309,6 +355,17 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadRuleList();
+};
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  void loadRuleList();
+};
+
+const handleClearAppliedFilters = () => {
+  handleReset();
 };
 
 const resetRuleForm = () => {
@@ -375,6 +432,7 @@ const handleFormClose = () => {
 };
 
 onMounted(() => {
+  syncAppliedFilters();
   void loadRuleList();
 });
 </script>

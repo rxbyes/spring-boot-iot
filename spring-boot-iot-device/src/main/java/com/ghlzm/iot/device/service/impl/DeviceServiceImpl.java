@@ -147,7 +147,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public DeviceDetailVO updateDevice(Long id, DeviceAddDTO dto) {
         Device device = getRequiredById(id);
         Product product = productService.getRequiredByProductKey(normalizeRequiredText(dto.getProductKey()));
-        ensureProductEnabledForDeviceArchive(product);
+        resolveDeviceArchiveContract(product);
         ensureDeviceCodeUnique(normalizeRequiredText(dto.getDeviceCode()), id);
         applyEditableFields(device, dto, product, false);
         updateById(device);
@@ -319,7 +319,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private Device createDeviceRecord(DeviceAddDTO dto) {
         Product product = productService.getRequiredByProductKey(normalizeRequiredText(dto.getProductKey()));
-        ensureProductEnabledForDeviceArchive(product);
+        resolveDeviceArchiveContract(product);
         ensureDeviceCodeUnique(normalizeRequiredText(dto.getDeviceCode()), null);
 
         Device device = new Device();
@@ -333,6 +333,22 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
             throw new BizException("产品已停用，禁止继续建档: " + product.getProductKey());
         }
+    }
+
+    private DeviceArchiveContract resolveDeviceArchiveContract(Product product) {
+        if (product == null || product.getId() == null || product.getId() <= 0) {
+            throw new BizException("产品信息无效，禁止继续建档: " + (product == null ? "<unknown>" : product.getProductKey()));
+        }
+        ensureProductEnabledForDeviceArchive(product);
+
+        String protocolCode = normalizeOptionalText(product.getProtocolCode());
+        if (protocolCode == null) {
+            throw new BizException("产品未配置接入协议，禁止继续建档: " + product.getProductKey());
+        }
+        if (product.getNodeType() == null) {
+            throw new BizException("产品未配置节点类型，禁止继续建档: " + product.getProductKey());
+        }
+        return new DeviceArchiveContract(product.getId(), protocolCode, product.getNodeType());
     }
 
     private void ensureDeviceCodeUnique(String deviceCode, Long excludeId) {
@@ -472,9 +488,10 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     private void applyEditableFields(Device device, DeviceAddDTO dto, Product product, boolean initializeDefaults) {
+        DeviceArchiveContract archiveContract = resolveDeviceArchiveContract(product);
         Device parentDevice = resolveParentDevice(dto, device.getId());
-        device.setProductId(product.getId());
-        device.setGatewayId(resolveGatewayId(product.getNodeType(), parentDevice));
+        device.setProductId(archiveContract.productId());
+        device.setGatewayId(resolveGatewayId(archiveContract.nodeType(), parentDevice));
         device.setParentDeviceId(parentDevice != null ? parentDevice.getId() : null);
         device.setDeviceName(normalizeRequiredText(dto.getDeviceName()));
         device.setDeviceCode(normalizeRequiredText(dto.getDeviceCode()));
@@ -482,8 +499,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         device.setClientId(normalizeOptionalText(dto.getClientId()));
         device.setUsername(normalizeOptionalText(dto.getUsername()));
         device.setPassword(normalizeOptionalText(dto.getPassword()));
-        device.setProtocolCode(product.getProtocolCode());
-        device.setNodeType(product.getNodeType());
+        device.setProtocolCode(archiveContract.protocolCode());
+        device.setNodeType(archiveContract.nodeType());
         device.setFirmwareVersion(normalizeOptionalText(dto.getFirmwareVersion()));
         device.setIpAddress(normalizeOptionalText(dto.getIpAddress()));
         device.setAddress(normalizeOptionalText(dto.getAddress()));
@@ -785,5 +802,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         option.setOnlineStatus(device.getOnlineStatus());
         option.setDeviceStatus(device.getDeviceStatus());
         return option;
+    }
+
+    private record DeviceArchiveContract(Long productId, String protocolCode, Integer nodeType) {
     }
 }

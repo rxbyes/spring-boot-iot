@@ -4,14 +4,21 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
+import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
+import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -46,11 +53,21 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
 
     private final JdbcTemplate jdbcTemplate;
     private final DeviceAccessErrorLogSchemaSupport schemaSupport;
+    private final DeviceMapper deviceMapper;
+    private final ProductMapper productMapper;
+    private final IotProperties iotProperties;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceAccessErrorLogServiceImpl(JdbcTemplate jdbcTemplate,
-                                           DeviceAccessErrorLogSchemaSupport schemaSupport) {
+                                           DeviceAccessErrorLogSchemaSupport schemaSupport,
+                                           DeviceMapper deviceMapper,
+                                           ProductMapper productMapper,
+                                           IotProperties iotProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.schemaSupport = schemaSupport;
+        this.deviceMapper = deviceMapper;
+        this.productMapper = productMapper;
+        this.iotProperties = iotProperties;
     }
 
     @Override
@@ -87,6 +104,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             putValue(values, columns, "error_code", logRecord.getErrorCode());
             putValue(values, columns, "exception_class", logRecord.getExceptionClass());
             putValue(values, columns, "error_message", logRecord.getErrorMessage());
+            putValue(values, columns, "contract_snapshot", logRecord.getContractSnapshot());
             putValue(values, columns, "create_time", logRecord.getCreateTime());
             putValue(values, columns, "deleted", logRecord.getDeleted());
             if (values.isEmpty()) {
@@ -194,6 +212,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         logRecord.setErrorCode(resolveErrorCode(throwable));
         logRecord.setExceptionClass(truncate(throwable.getClass().getName(), MAX_EXCEPTION_CLASS_LENGTH));
         logRecord.setErrorMessage(truncate(resolveErrorMessage(throwable), MAX_ERROR_MESSAGE_LENGTH));
+        logRecord.setContractSnapshot(buildContractSnapshot(rawDeviceMessage));
         logRecord.setCreateTime(LocalDateTime.now());
         logRecord.setDeleted(0);
         return logRecord;
@@ -297,6 +316,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         addSelect(selectColumns, columns, "error_code");
         addSelect(selectColumns, columns, "exception_class");
         addSelect(selectColumns, columns, "error_message");
+        addSelect(selectColumns, columns, "contract_snapshot");
         addSelect(selectColumns, columns, "create_time");
         addSelect(selectColumns, columns, "deleted");
         return String.join(", ", selectColumns);
@@ -382,6 +402,9 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         if (columns.contains("error_message")) {
             logRecord.setErrorMessage(rs.getString("error_message"));
         }
+        if (columns.contains("contract_snapshot")) {
+            logRecord.setContractSnapshot(rs.getString("contract_snapshot"));
+        }
         if (columns.contains("create_time")) {
             logRecord.setCreateTime(getLocalDateTime(rs, "create_time"));
         }
@@ -458,6 +481,87 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private String resolveText(String primary, String fallback) {
         String normalizedPrimary = trimToNull(primary);
         return normalizedPrimary != null ? normalizedPrimary : trimToNull(fallback);
+    }
+
+    private String buildContractSnapshot(RawDeviceMessage rawDeviceMessage) {
+        try {
+            return objectMapper.writeValueAsString(resolveContractSnapshot(rawDeviceMessage));
+        } catch (Exception ex) {
+            log.debug("序列化设备接入契约快照失败, error={}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private Map<String, Object> resolveContractSnapshot(RawDeviceMessage rawDeviceMessage) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        String actualProtocolCode = resolveText(
+                rawDeviceMessage == null ? null : rawDeviceMessage.getProtocolCode(),
+                iotProperties.getProtocol() == null ? null : iotProperties.getProtocol().getDefaultCode()
+        );
+        Device device = findDeviceByCode(rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode());
+        Product resolvedProduct = resolveProduct(device, rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey());
+        String deviceProtocolCode = trimToNull(device == null ? null : device.getProtocolCode());
+        String productProtocolCode = trimToNull(resolvedProduct == null ? null : resolvedProduct.getProtocolCode());
+        String expectedProtocolCode = actualProtocolCode;
+        String protocolSource = "router-default";
+        if (deviceProtocolCode != null) {
+            expectedProtocolCode = deviceProtocolCode;
+            protocolSource = "device";
+        } else if (productProtocolCode != null) {
+            expectedProtocolCode = productProtocolCode;
+            protocolSource = "product-fallback";
+        }
+
+        snapshot.put("routeType", trimToNull(rawDeviceMessage == null ? null : rawDeviceMessage.getTopicRouteType()));
+        snapshot.put("expectedProtocolCode", expectedProtocolCode);
+        snapshot.put("actualProtocolCode", actualProtocolCode);
+        snapshot.put("protocolSource", protocolSource);
+        snapshot.put("deviceProtocolCode", deviceProtocolCode);
+        snapshot.put("productProtocolCode", productProtocolCode);
+        snapshot.put("deviceProductId", device == null ? null : device.getProductId());
+        snapshot.put("resolvedProductId", resolvedProduct == null ? null : resolvedProduct.getId());
+        snapshot.put("productKey", resolveText(
+                resolvedProduct == null ? null : resolvedProduct.getProductKey(),
+                rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey()
+        ));
+        return snapshot;
+    }
+
+    private Device findDeviceByCode(String deviceCode) {
+        String normalizedDeviceCode = trimToNull(deviceCode);
+        if (normalizedDeviceCode == null) {
+            return null;
+        }
+        return deviceMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
+                .eq(Device::getDeviceCode, normalizedDeviceCode)
+                .eq(Device::getDeleted, 0)
+                .last("limit 1"));
+    }
+
+    private Product resolveProduct(Device device, String productKey) {
+        Product product = findProductById(device == null ? null : device.getProductId());
+        if (product != null) {
+            return product;
+        }
+        String normalizedProductKey = trimToNull(productKey);
+        if (normalizedProductKey == null) {
+            return null;
+        }
+        return productMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Product>()
+                .eq(Product::getProductKey, normalizedProductKey)
+                .eq(Product::getDeleted, 0)
+                .last("limit 1"));
+    }
+
+    private Product findProductById(Long productId) {
+        if (productId == null || productId <= 0) {
+            return null;
+        }
+        Product product = productMapper.selectById(productId);
+        if (product == null || Integer.valueOf(1).equals(product.getDeleted())) {
+            return null;
+        }
+        return product;
     }
 
     private String trimToNull(String value) {

@@ -3,7 +3,7 @@
     <PanelCard
       eyebrow="Alarm Command"
       title="告警运营台"
-      description="聚合今日告警、待确认状态与处置结果，统一通过筛选卡和列表卡完成告警研判与处置。"
+      description="聚合今日告警、待确认状态与处置结果，统一通过下方工作台完成告警研判与处置。"
       class="ops-hero-card"
     >
       <div class="ops-kpi-grid">
@@ -17,58 +17,74 @@
       </div>
     </PanelCard>
 
-    <PanelCard
-      eyebrow="Alarm Filters"
-      title="筛选条件"
-      description="优先定位待确认和高等级告警，快速聚焦需要立即响应的风险项。"
-      class="ops-filter-card"
-    >
-      <StandardListFilterHeader :model="filters">
-        <template #primary>
-          <el-form-item>
-            <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
-              <el-option label="严重" value="critical" />
-              <el-option label="警告" value="warning" />
-              <el-option label="提醒" value="info" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.status" placeholder="状态" clearable>
-              <el-option label="未确认" :value="0" />
-              <el-option label="已确认" :value="1" />
-              <el-option label="已抑制" :value="2" />
-              <el-option label="已关闭" :value="3" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-input :model-value="alarmListAdvice" placeholder="处置建议" disabled />
-          </el-form-item>
-        </template>
-        <template #actions>
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        </template>
-      </StandardListFilterHeader>
-    </PanelCard>
-
-    <PanelCard
-      eyebrow="Alarm List"
+    <StandardWorkbenchPanel
       title="告警列表"
       :description="`当前 ${pagination.total} 条告警记录，支持选择、导出和批量排查。`"
-      class="ops-table-card"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `未确认 ${stats.unconfirmedAlarms} 项` ]">
-        <template #right>
-          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-          <StandardButton action="refresh" link :disabled="alarmList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
+                <el-option label="严重" value="critical" />
+                <el-option label="警告" value="warning" />
+                <el-option label="提醒" value="info" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="filters.status" placeholder="状态" clearable>
+                <el-option label="未确认" :value="0" />
+                <el-option label="已确认" :value="1" />
+                <el-option label="已抑制" :value="2" />
+                <el-option label="已关闭" :value="3" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #notices>
+        <el-alert
+          title="优先定位待确认和高等级告警，快速聚焦需要立即响应的风险项。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `未确认 ${stats.unconfirmedAlarms} 项` ]">
+          <template #right>
+            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="alarmList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
+
       <div v-if="loading" class="ops-state">正在加载告警列表...</div>
       <div v-else-if="alarmList.length === 0" class="ops-state">暂无符合条件的告警记录</div>
       <template v-else>
@@ -104,7 +120,9 @@
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -115,7 +133,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <AlarmDetailDrawer
       v-model="detailVisible"
@@ -143,10 +161,13 @@ import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -211,10 +232,13 @@ const filters = reactive({
   alarmLevel: '',
   status: '' as '' | number
 });
+const appliedFilters = reactive({
+  deviceCode: '',
+  alarmLevel: '',
+  status: '' as '' | number
+});
 
 const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
-
-const alarmListAdvice = '优先处理未确认与严重告警';
 const pagedAlarmList = computed(() => applyLocalRecords(alarmList.value));
 
 const getAlarmLevelType = (level: string) => {
@@ -272,14 +296,34 @@ const getStatusText = (status: number) => {
   }
 };
 
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'deviceCode', label: '设备编码' },
+    { key: 'alarmLevel', label: (value) => `告警等级：${getAlarmLevelText(String(value || ''))}` },
+    { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
+  ],
+  defaults: {
+    deviceCode: '',
+    alarmLevel: '',
+    status: '' as '' | number
+  }
+});
+
 const loadAlarmList = async () => {
   loading.value = true;
   try {
-    const statusValue = filters.status === '' ? undefined : Number(filters.status);
+    const statusValue = appliedFilters.status === '' ? undefined : Number(appliedFilters.status);
     const normalizedStatus = typeof statusValue === 'number' && Number.isFinite(statusValue) ? statusValue : undefined;
     const res = await getAlarmList({
-      deviceCode: filters.deviceCode || undefined,
-      alarmLevel: filters.alarmLevel || undefined,
+      deviceCode: appliedFilters.deviceCode || undefined,
+      alarmLevel: appliedFilters.alarmLevel || undefined,
       status: normalizedStatus
     });
 
@@ -299,7 +343,9 @@ const loadAlarmList = async () => {
 };
 
 const handleSearch = () => {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadAlarmList();
 };
 
@@ -307,7 +353,9 @@ const handleReset = () => {
   filters.deviceCode = '';
   filters.alarmLevel = '';
   filters.status = '';
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadAlarmList();
 };
 
@@ -323,6 +371,17 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadAlarmList();
+};
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  void loadAlarmList();
+};
+
+const handleClearAppliedFilters = () => {
+  handleReset();
 };
 
 const openExportColumnSetting = () => {
@@ -434,6 +493,7 @@ const handleClose = async (row: AlarmRecord) => {
 };
 
 onMounted(() => {
+  syncAppliedFilters();
   void loadAlarmList();
 });
 

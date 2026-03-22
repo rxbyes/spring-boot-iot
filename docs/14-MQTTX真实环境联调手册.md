@@ -21,6 +21,9 @@ mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 - 若未显式设置 `IOT_MQTT_CLIENT_ID`，日志中的有效 `clientId` 应带 `主机/PID` 运行时后缀
 - 无 Broker 认证失败或重连异常
 
+补充说明：
+- 若使用 YAML 配置 `iot.mqtt.default-subscribe-topics`，历史 `$dp` 主题必须写成 `"$dp"`；未加引号时，运行时可能只剩 `/sys/**` 订阅，导致 `$dp` 回放与联调超时。
+
 ## 3. 准备测试数据
 先创建产品和设备，确保产品协议为 `mqtt-json`。
 
@@ -204,11 +207,15 @@ iot:device:session:demo-device-01
 
 ## 10. 常见排查
 - MQTTX 已发送但数据库无变化：先看后端是否收到 MQTT 上行日志，再检查 `/system-log` 页面或 `sys_audit_log` 中是否新增 `operation_type=system_error` 的 MQTT 异常记录，然后继续核对 topic、设备编码、Broker 权限。
+- 开始回放前，先访问 `/actuator/health/mqttConsumer`；若 `connected=false` 或 `subscribeTopics` 为空，先恢复 consumer 再做报文回放。
+- 若本轮要验证 `$dp`，还要确认 `subscribeTopics` 中明确包含 `"$dp"`；若只剩 `/sys/**`，先检查 `application-dev.yml` 中是否把 `$dp` 写成了未加引号的裸值。
 - 若已开启 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`：同步检查通知渠道 `config` 是否包含 `url` 与 `scenes:["system_error"]`，必要时先调用 `POST /api/system/channel/test/{channelCode}` 验证 webhook 侧可达性。
 - 后端收到消息但未进入主链路：重点排查设备不存在、设备未绑定产品、设备协议为空、设备协议与产品协议不一致。
 - 标准 topic 无效：检查 `productKey`、`deviceCode` 是否与数据库一致。
 - `$dp` 无效：检查 payload 中的 `deviceCode` 是否存在，且设备协议是否为 `mqtt-json`。
 - 对 `SK11%` 这类批量历史资产快速巡检时，可执行 `python scripts/audit-device-contracts.py --device-prefix SK11`，优先看 `MISSING_PRODUCT_BINDING`、`MISSING_DEVICE_PROTOCOL` 与 `DEVICE_PRODUCT_PROTOCOL_CONFLICT`。
-- 单台设备修复可执行 `python scripts/audit-device-contracts.py --device-code SK11EB0D1308096AZ --product-key south_multi_displacement --protocol-code mqtt-json --apply`。
+- 修复清单导出可执行 `python scripts/audit-device-contracts.py --device-prefix SK11 --export-repair-csv logs/repair-checklists/sk11-device-contracts.csv`。
+- 审核后的修复清单执行可使用 `python scripts/audit-device-contracts.py --repair-file logs/repair-checklists/sk11-device-contracts.csv --apply`。
+- 标准 trace 回放可执行 `python scripts/replay-mqtt-trace.py --trace-id 97daeef362184d349330e48b4401d3ea`；若失败归档落库，优先查看 `contractSnapshot` 中的 `expectedProtocolCode / actualProtocolCode / protocolSource`。
 - 同一深部位移样本出现两套告警/事件留痕：先核对共享环境是否仍有未升级旧版 consumer 同时在线；已升级实例会使用分布式锁，但无法约束旧实例继续按旧逻辑写入。
 - 若切换到其他真实环境，只覆盖 `IOT_MQTT_*`、`IOT_MYSQL_*`、`IOT_REDIS_*` 环境变量，并同步核对 AES 商户密钥配置。

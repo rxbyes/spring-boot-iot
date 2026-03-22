@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     error_code VARCHAR(64) DEFAULT NULL COMMENT '错误码',
     exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',
     error_message VARCHAR(500) DEFAULT NULL COMMENT '错误消息',
+    contract_snapshot LONGTEXT DEFAULT NULL COMMENT '设备契约快照',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),

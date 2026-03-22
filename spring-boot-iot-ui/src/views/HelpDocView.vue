@@ -1,57 +1,71 @@
 <template>
   <div class="help-doc-view sys-mgmt-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header help-doc-view__header">
-          <div class="help-doc-view__header-copy">
-            <span>帮助文档管理</span>
-            <small>统一编排业务类、技术类、常见问题资料，并按角色和页面范围过滤给帮助中心。</small>
-          </div>
-          <StandardButton v-permission="'system:help-doc:add'" action="add" :icon="Plus" @click="handleAdd">
-            新增文档
-          </StandardButton>
-        </div>
+    <StandardWorkbenchPanel
+      title="帮助文档管理"
+      description="统一编排业务类、技术类、常见问题资料，并按角色和页面范围过滤给帮助中心。"
+      show-header-actions
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      show-pagination
+    >
+      <template #header-actions>
+        <StandardButton v-permission="'system:help-doc:add'" action="add" :icon="Plus" @click="handleAdd">
+          新增文档
+        </StandardButton>
       </template>
 
-      <StandardListFilterHeader :model="searchForm">
-        <template #primary>
-          <el-form-item>
-            <el-input
-              v-model="searchForm.title"
-              clearable
-              placeholder="文档标题"
-              @keyup.enter="handleSearch"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="searchForm.docCategory" clearable placeholder="文档分类">
-              <el-option
-                v-for="item in HELP_DOC_CATEGORY_OPTIONS"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
+      <template #filters>
+        <StandardListFilterHeader :model="searchForm">
+          <template #primary>
+            <el-form-item>
+              <el-input
+                v-model="searchForm.title"
+                clearable
+                placeholder="文档标题"
+                @keyup.enter="handleSearch"
               />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="searchForm.status" clearable placeholder="状态">
-              <el-option label="启用" :value="1" />
-              <el-option label="停用" :value="0" />
-            </el-select>
-          </el-form-item>
-        </template>
-        <template #actions>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-        </template>
-      </StandardListFilterHeader>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.docCategory" clearable placeholder="文档分类">
+                <el-option
+                  v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.status" clearable placeholder="状态">
+                <el-option label="启用" :value="1" />
+                <el-option label="停用" :value="0" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-      <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
-        <template #right>
-          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
+          <template #right>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         ref="tableRef"
@@ -102,16 +116,18 @@
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </template>
 
       <StandardDetailDrawer
         v-model="detailVisible"
@@ -297,7 +313,7 @@
           <StandardDrawerFooter :confirm-loading="submitLoading" @cancel="dialogVisible = false" @confirm="handleSubmit" />
         </template>
       </StandardFormDrawer>
-    </PanelCard>
+    </StandardWorkbenchPanel>
   </div>
 </template>
 
@@ -316,7 +332,7 @@ import {
   type HelpDocumentRecord
 } from '@/api/helpDoc'
 import { listRoles, type Role } from '@/api/role'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -324,6 +340,8 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
@@ -362,6 +380,11 @@ const roleOptions = ref<Role[]>([])
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
 
 const searchForm = reactive<SearchFormState>({
+  title: '',
+  docCategory: undefined,
+  status: undefined
+})
+const appliedFilters = reactive<SearchFormState>({
   title: '',
   docCategory: undefined,
   status: undefined
@@ -405,6 +428,25 @@ const detailRoleCount = computed(() => {
 const detailPathCount = computed(() => {
   const count = splitCsvValue(detailRecord.value?.relatedPaths).length
   return count > 0 ? `${count} 个页面` : '不限制'
+})
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: 'title', label: '文档标题' },
+    { key: 'docCategory', label: (value) => `文档分类：${getCategoryLabel(value)}`, clearValue: undefined, isActive: (value) => value !== undefined },
+    { key: 'status', label: (value) => `状态：${Number(value) === 1 ? '启用' : '停用'}`, clearValue: undefined, isActive: (value) => value !== undefined }
+  ],
+  defaults: {
+    title: '',
+    docCategory: undefined,
+    status: undefined
+  }
 })
 
 function createEmptyForm(): HelpDocFormState {
@@ -501,9 +543,9 @@ async function loadHelpDocPage() {
   loading.value = true
   try {
     const response = await pageHelpDocuments({
-      title: searchForm.title || undefined,
-      docCategory: searchForm.docCategory,
-      status: searchForm.status,
+      title: appliedFilters.title || undefined,
+      docCategory: appliedFilters.docCategory,
+      status: appliedFilters.status,
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
@@ -528,6 +570,7 @@ function handleSelectionChange(rows: HelpDocumentRecord[]) {
 }
 
 function handleSearch() {
+  syncAppliedFilters()
   resetPage()
   clearSelection()
   loadHelpDocPage()
@@ -537,7 +580,21 @@ function handleReset() {
   searchForm.title = ''
   searchForm.docCategory = undefined
   searchForm.status = undefined
-  handleSearch()
+  syncAppliedFilters()
+  resetPage()
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleRemoveAppliedFilter(key: string) {
+  removeAppliedFilter(key)
+  resetPage()
+  clearSelection()
+  loadHelpDocPage()
+}
+
+function handleClearAppliedFilters() {
+  handleReset()
 }
 
 function handlePageChange(page: number) {
@@ -642,27 +699,13 @@ async function handleSubmit() {
 }
 
 onMounted(() => {
+  syncAppliedFilters()
   loadHelpDocPage()
   loadRoleOptions()
 })
 </script>
 
 <style scoped>
-.help-doc-view__header {
-  align-items: flex-start;
-}
-
-.help-doc-view__header-copy {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.help-doc-view__header-copy small {
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 .help-doc-view__form {
   margin-top: 1rem;
 }

@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     error_code VARCHAR(64) DEFAULT NULL COMMENT 'error code',
     exception_class VARCHAR(255) DEFAULT NULL COMMENT 'exception class',
     error_message VARCHAR(500) DEFAULT NULL COMMENT 'error message',
+    contract_snapshot LONGTEXT DEFAULT NULL COMMENT 'contract snapshot',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
     PRIMARY KEY (id),
@@ -95,6 +96,9 @@ CREATE TABLE IF NOT EXISTS sys_notification_channel (
 
 
 COLUMNS_TO_ADD: ColumnSpecMap = {
+    "iot_device_access_error_log": [
+        ("contract_snapshot", "LONGTEXT DEFAULT NULL COMMENT 'contract snapshot'"),
+    ],
     "iot_command_record": [
         ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
         ("product_key", "VARCHAR(64) DEFAULT NULL COMMENT 'product key'"),

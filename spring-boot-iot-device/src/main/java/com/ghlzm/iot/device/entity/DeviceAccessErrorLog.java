@@ -31,6 +31,7 @@ public class DeviceAccessErrorLog {
     private String errorCode;
     private String exceptionClass;
     private String errorMessage;
+    private String contractSnapshot;
     private LocalDateTime createTime;
     private Integer deleted;
 }
