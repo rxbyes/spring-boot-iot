@@ -1,12 +1,15 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.InAppMessage;
+import com.ghlzm.iot.system.entity.InAppMessageBridgeAttemptLog;
 import com.ghlzm.iot.system.entity.InAppMessageBridgeLog;
 import com.ghlzm.iot.system.entity.InAppMessageRead;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.mapper.InAppMessageBridgeAttemptLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageReadMapper;
@@ -49,6 +52,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
     private final InAppMessageMapper inAppMessageMapper;
     private final InAppMessageReadMapper inAppMessageReadMapper;
     private final InAppMessageBridgeLogMapper inAppMessageBridgeLogMapper;
+    private final InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper;
     private final UserService userService;
     private final PermissionService permissionService;
     private final NotificationChannelDispatcher notificationChannelDispatcher;
@@ -58,6 +62,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
     public InAppMessageUnreadBridgeServiceImpl(InAppMessageMapper inAppMessageMapper,
                                                InAppMessageReadMapper inAppMessageReadMapper,
                                                InAppMessageBridgeLogMapper inAppMessageBridgeLogMapper,
+                                               InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper,
                                                UserService userService,
                                                PermissionService permissionService,
                                                NotificationChannelDispatcher notificationChannelDispatcher,
@@ -66,6 +71,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
         this.inAppMessageMapper = inAppMessageMapper;
         this.inAppMessageReadMapper = inAppMessageReadMapper;
         this.inAppMessageBridgeLogMapper = inAppMessageBridgeLogMapper;
+        this.inAppMessageBridgeAttemptLogMapper = inAppMessageBridgeAttemptLogMapper;
         this.userService = userService;
         this.permissionService = permissionService;
         this.notificationChannelDispatcher = notificationChannelDispatcher;
@@ -84,6 +90,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
             systemContentSchemaSupport.ensureInAppMessageReady();
             systemContentSchemaSupport.ensureInAppMessageReadReady();
             systemContentSchemaSupport.ensureInAppMessageBridgeLogReady();
+            systemContentSchemaSupport.ensureInAppMessageBridgeAttemptLogReady();
         } catch (BizException ex) {
             log.warn("站内消息未读桥接已跳过，原因：{}", ex.getMessage());
             return;
@@ -236,6 +243,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
                                                 Date now) {
         InAppMessageBridgeLog bridgeLog = existingLog == null ? new InAppMessageBridgeLog() : existingLog;
         if (bridgeLog.getId() == null) {
+            bridgeLog.setId(IdWorker.getId());
             bridgeLog.setTenantId(message.getTenantId() == null ? InAppMessageSupport.DEFAULT_TENANT_ID : message.getTenantId());
             bridgeLog.setMessageId(message.getId());
             bridgeLog.setChannelCode(channel.channel().getChannelCode());
@@ -257,7 +265,30 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
         } else {
             inAppMessageBridgeLogMapper.updateById(bridgeLog);
         }
+        saveAttemptLog(bridgeLog, message, result, now);
         return bridgeLog;
+    }
+
+    private void saveAttemptLog(InAppMessageBridgeLog bridgeLog,
+                                InAppMessage message,
+                                NotificationChannelDispatcher.DispatchResult result,
+                                Date now) {
+        InAppMessageBridgeAttemptLog attemptLog = new InAppMessageBridgeAttemptLog();
+        attemptLog.setId(IdWorker.getId());
+        attemptLog.setTenantId(message.getTenantId() == null ? InAppMessageSupport.DEFAULT_TENANT_ID : message.getTenantId());
+        attemptLog.setBridgeLogId(bridgeLog.getId());
+        attemptLog.setMessageId(message.getId());
+        attemptLog.setChannelCode(bridgeLog.getChannelCode());
+        attemptLog.setBridgeScene(bridgeLog.getBridgeScene());
+        attemptLog.setAttemptNo(bridgeLog.getAttemptCount());
+        attemptLog.setBridgeStatus(bridgeLog.getBridgeStatus());
+        attemptLog.setUnreadCount(bridgeLog.getUnreadCount());
+        attemptLog.setRecipientSnapshot(bridgeLog.getRecipientSnapshot());
+        attemptLog.setResponseStatusCode(result.statusCode());
+        attemptLog.setResponseBody(bridgeLog.getResponseBody());
+        attemptLog.setAttemptTime(now);
+        attemptLog.setCreateTime(now);
+        inAppMessageBridgeAttemptLogMapper.insert(attemptLog);
     }
 
     private NotificationChannelDispatcher.NotificationEnvelope buildBridgeEnvelope(InAppMessage message,

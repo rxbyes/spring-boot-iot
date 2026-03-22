@@ -3,10 +3,12 @@ package com.ghlzm.iot.system.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.InAppMessage;
+import com.ghlzm.iot.system.entity.InAppMessageBridgeAttemptLog;
 import com.ghlzm.iot.system.entity.InAppMessageBridgeLog;
 import com.ghlzm.iot.system.entity.InAppMessageRead;
 import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.mapper.InAppMessageBridgeAttemptLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageReadMapper;
@@ -43,6 +45,8 @@ class InAppMessageUnreadBridgeServiceImplTest {
     @Mock
     private InAppMessageBridgeLogMapper inAppMessageBridgeLogMapper;
     @Mock
+    private InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper;
+    @Mock
     private UserService userService;
     @Mock
     private PermissionService permissionService;
@@ -59,6 +63,7 @@ class InAppMessageUnreadBridgeServiceImplTest {
                 inAppMessageMapper,
                 inAppMessageReadMapper,
                 inAppMessageBridgeLogMapper,
+                inAppMessageBridgeAttemptLogMapper,
                 userService,
                 permissionService,
                 notificationChannelDispatcher,
@@ -96,6 +101,13 @@ class InAppMessageUnreadBridgeServiceImplTest {
         assertEquals(1, bridgeLog.getBridgeStatus());
         assertEquals(1, bridgeLog.getAttemptCount());
         assertTrue(String.valueOf(bridgeLog.getRecipientSnapshot()).contains("运维一"));
+
+        ArgumentCaptor<InAppMessageBridgeAttemptLog> attemptCaptor = ArgumentCaptor.forClass(InAppMessageBridgeAttemptLog.class);
+        verify(inAppMessageBridgeAttemptLogMapper).insert(attemptCaptor.capture());
+        InAppMessageBridgeAttemptLog attemptLog = attemptCaptor.getValue();
+        assertEquals(bridgeLog.getId(), attemptLog.getBridgeLogId());
+        assertEquals(bridgeLog.getAttemptCount(), attemptLog.getAttemptNo());
+        assertEquals(bridgeLog.getBridgeStatus(), attemptLog.getBridgeStatus());
     }
 
     @Test

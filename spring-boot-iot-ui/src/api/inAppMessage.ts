@@ -148,6 +148,99 @@ export interface InAppMessageStatsQuery {
   sourceType?: string
 }
 
+export interface InAppMessageBridgeTrendBucket {
+  date: string
+  bridgeCount: number
+  successCount: number
+  pendingRetryCount: number
+  totalAttemptCount: number
+}
+
+export interface InAppMessageBridgeChannelBucket {
+  key: string
+  label: string
+  channelType?: string | null
+  bridgeCount: number
+  successCount: number
+  pendingRetryCount: number
+  successRate: number
+}
+
+export interface InAppMessageBridgeSourceTypeBucket {
+  key: string
+  label: string
+  bridgeCount: number
+  successCount: number
+  pendingRetryCount: number
+  successRate: number
+}
+
+export interface InAppMessageBridgeStatsRecord {
+  startTime?: string | null
+  endTime?: string | null
+  totalBridgeCount: number
+  successCount: number
+  pendingRetryCount: number
+  totalAttemptCount: number
+  successRate: number
+  trend: InAppMessageBridgeTrendBucket[]
+  channelBuckets: InAppMessageBridgeChannelBucket[]
+  sourceTypeBuckets: InAppMessageBridgeSourceTypeBucket[]
+}
+
+export interface InAppMessageBridgeLogRecord {
+  id: IdType
+  messageId: IdType
+  title: string
+  messageType?: InAppMessageType | null
+  priority?: InAppMessagePriority | null
+  sourceType?: string | null
+  sourceId?: string | null
+  relatedPath?: string | null
+  publishTime?: string | null
+  channelCode?: string | null
+  channelName?: string | null
+  channelType?: string | null
+  bridgeScene?: string | null
+  bridgeStatus?: number | null
+  unreadCount?: number | null
+  attemptCount?: number | null
+  lastAttemptTime?: string | null
+  successTime?: string | null
+  responseStatusCode?: number | null
+  responseBody?: string | null
+}
+
+export interface InAppMessageBridgeAttemptRecord {
+  id: IdType
+  bridgeLogId: IdType
+  messageId: IdType
+  channelCode?: string | null
+  bridgeScene?: string | null
+  attemptNo?: number | null
+  bridgeStatus?: number | null
+  unreadCount?: number | null
+  recipientSnapshot?: string | null
+  responseStatusCode?: number | null
+  responseBody?: string | null
+  attemptTime?: string | null
+}
+
+export interface InAppMessageBridgeQuery {
+  startTime?: string
+  endTime?: string
+  messageType?: InAppMessageType
+  sourceType?: string
+  priority?: InAppMessagePriority
+  channelCode?: string
+  bridgeStatus?: number
+}
+
+export interface InAppMessageBridgePageQuery extends InAppMessageBridgeQuery {
+  pageNum?: number
+  pageSize?: number
+}
+
 type InAppMessageRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
@@ -177,6 +270,38 @@ export function getInAppMessageStats(params: InAppMessageStatsQuery = {}): Promi
   const query = buildQuery(params)
   return request<InAppMessageStatsRecord>(`/api/system/in-app-message/stats${query ? `?${query}` : ''}`, {
     method: 'GET'
+  })
+}
+
+export function getInAppMessageBridgeStats(
+  params: InAppMessageBridgeQuery = {},
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<InAppMessageBridgeStatsRecord>> {
+  const query = buildQuery(params)
+  return request<InAppMessageBridgeStatsRecord>(`/api/system/in-app-message/bridge/stats${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
+export function pageInAppMessageBridgeLogs(
+  params: InAppMessageBridgePageQuery = {},
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<PageResult<InAppMessageBridgeLogRecord>>> {
+  const query = buildQuery(params)
+  return request<PageResult<InAppMessageBridgeLogRecord>>(`/api/system/in-app-message/bridge/page${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
+export function listInAppMessageBridgeAttempts(
+  id: IdType,
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<InAppMessageBridgeAttemptRecord[]>> {
+  return request<InAppMessageBridgeAttemptRecord[]>(`/api/system/in-app-message/bridge/${id}/attempts`, {
+    method: 'GET',
+    ...options
   })
 }
 

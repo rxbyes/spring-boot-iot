@@ -5,7 +5,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.InAppMessage;
+import com.ghlzm.iot.system.service.InAppMessageBridgeQueryService;
 import com.ghlzm.iot.system.service.InAppMessageService;
+import com.ghlzm.iot.system.vo.InAppMessageBridgeAttemptVO;
+import com.ghlzm.iot.system.vo.InAppMessageBridgeLogVO;
+import com.ghlzm.iot.system.vo.InAppMessageBridgeStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
 import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
@@ -28,9 +32,12 @@ import java.util.Date;
 public class InAppMessageController {
 
     private final InAppMessageService inAppMessageService;
+    private final InAppMessageBridgeQueryService inAppMessageBridgeQueryService;
 
-    public InAppMessageController(InAppMessageService inAppMessageService) {
+    public InAppMessageController(InAppMessageService inAppMessageService,
+                                  InAppMessageBridgeQueryService inAppMessageBridgeQueryService) {
         this.inAppMessageService = inAppMessageService;
+        this.inAppMessageBridgeQueryService = inAppMessageBridgeQueryService;
     }
 
     @GetMapping("/page")
@@ -52,6 +59,55 @@ public class InAppMessageController {
             @RequestParam(required = false) String messageType,
             @RequestParam(required = false) String sourceType) {
         return R.ok(inAppMessageService.getMessageStats(startTime, endTime, messageType, sourceType));
+    }
+
+    @GetMapping("/bridge/stats")
+    public R<InAppMessageBridgeStatsVO> getBridgeStats(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date endTime,
+            @RequestParam(required = false) String messageType,
+            @RequestParam(required = false) String sourceType,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String channelCode,
+            @RequestParam(required = false) Integer bridgeStatus) {
+        return R.ok(inAppMessageBridgeQueryService.getBridgeStats(
+                startTime,
+                endTime,
+                messageType,
+                sourceType,
+                priority,
+                channelCode,
+                bridgeStatus
+        ));
+    }
+
+    @GetMapping("/bridge/page")
+    public R<PageResult<InAppMessageBridgeLogVO>> pageBridgeLogs(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date endTime,
+            @RequestParam(required = false) String messageType,
+            @RequestParam(required = false) String sourceType,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String channelCode,
+            @RequestParam(required = false) Integer bridgeStatus,
+            @RequestParam(defaultValue = "1") Long pageNum,
+            @RequestParam(defaultValue = "10") Long pageSize) {
+        return R.ok(inAppMessageBridgeQueryService.pageBridgeLogs(
+                startTime,
+                endTime,
+                messageType,
+                sourceType,
+                priority,
+                channelCode,
+                bridgeStatus,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @GetMapping("/bridge/{id:[0-9]+}/attempts")
+    public R<java.util.List<InAppMessageBridgeAttemptVO>> listBridgeAttempts(@PathVariable Long id) {
+        return R.ok(inAppMessageBridgeQueryService.listBridgeAttempts(id));
     }
 
     @GetMapping("/{id:[0-9]+}")

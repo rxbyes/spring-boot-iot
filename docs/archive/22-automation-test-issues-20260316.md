@@ -1,6 +1,6 @@
 # 自动化测试问题清单（2026-03-16）
 
-基线文档：`docs/21-business-functions-and-acceptance.md`  
+基线文档：`docs/21-业务功能清单与验收标准.md`  
 执行时间：2026-03-16 21:34（Asia/Shanghai）  
 执行环境：`application-dev.yml` 对应真实环境，后端 `http://127.0.0.1:9999`
 

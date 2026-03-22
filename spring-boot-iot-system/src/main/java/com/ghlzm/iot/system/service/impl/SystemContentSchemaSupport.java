@@ -24,6 +24,8 @@ public class SystemContentSchemaSupport {
             "系统内容依赖表缺失，请先执行 sql/upgrade/20260321_phase5_in_app_message_help_docs.sql，若为旧库升级请继续执行 sql/upgrade/20260322_phase5_notification_center_followup.sql";
     static final String BRIDGE_SCHEMA_HINT =
             "站内消息渠道桥接依赖表缺失，请先执行 sql/upgrade/20260322_phase5_notification_channel_bridge.sql";
+    static final String BRIDGE_ATTEMPT_SCHEMA_HINT =
+            "站内消息桥接尝试明细依赖表缺失，请先执行 sql/upgrade/20260322_phase5_notification_channel_bridge_attempt_log.sql";
 
     private static final String TABLE_EXISTS_SQL =
             "SELECT COUNT(1) FROM information_schema.tables "
@@ -36,6 +38,7 @@ public class SystemContentSchemaSupport {
     private static final String IN_APP_MESSAGE_TABLE = "sys_in_app_message";
     private static final String IN_APP_MESSAGE_READ_TABLE = "sys_in_app_message_read";
     private static final String IN_APP_MESSAGE_BRIDGE_LOG_TABLE = "sys_in_app_message_bridge_log";
+    private static final String IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_TABLE = "sys_in_app_message_bridge_attempt_log";
 
     private static final List<String> HELP_DOCUMENT_REQUIRED_COLUMNS = List.of(
             "id",
@@ -106,6 +109,22 @@ public class SystemContentSchemaSupport {
             "create_time",
             "update_time");
 
+    private static final List<String> IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_REQUIRED_COLUMNS = List.of(
+            "id",
+            "tenant_id",
+            "bridge_log_id",
+            "message_id",
+            "channel_code",
+            "bridge_scene",
+            "attempt_no",
+            "bridge_status",
+            "unread_count",
+            "recipient_snapshot",
+            "response_status_code",
+            "response_body",
+            "attempt_time",
+            "create_time");
+
     private final JdbcTemplate jdbcTemplate;
     private final Map<String, TableSnapshot> snapshotCache = new ConcurrentHashMap<>();
 
@@ -127,6 +146,14 @@ public class SystemContentSchemaSupport {
 
     public void ensureInAppMessageBridgeLogReady() {
         ensureTableReady(IN_APP_MESSAGE_BRIDGE_LOG_TABLE, IN_APP_MESSAGE_BRIDGE_LOG_REQUIRED_COLUMNS, BRIDGE_SCHEMA_HINT);
+    }
+
+    public void ensureInAppMessageBridgeAttemptLogReady() {
+        ensureTableReady(
+                IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_TABLE,
+                IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_REQUIRED_COLUMNS,
+                BRIDGE_ATTEMPT_SCHEMA_HINT
+        );
     }
 
     public void refresh() {

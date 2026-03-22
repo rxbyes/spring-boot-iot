@@ -1,6 +1,12 @@
 # 09 GPT 接管提示模板
 
-更新时间：2026-03-21
+> 文档定位：GPT / Codex / 其他编码助手接手项目时的标准模板和任务场景提示。
+> 适用角色：研发、测试、文档维护者、AI 协作助手。
+> 权威级别：一级权威。
+> 上游来源：`AGENTS.md`、核心权威文档、当前交付边界和文档体系。
+> 下游消费：`docs/template/README.md`、技能文档、日常任务 prompt。
+> 变更触发条件：最小阅读集、任务分流、帮助中心治理、可观测路径或阶段规划变化。
+> 更新时间：2026-03-22
 
 本文件提供一份可直接投喂给 GPT / Codex 类编码模型的固定接管提示模板。
 
@@ -8,6 +14,7 @@
 - 让模型优先读取最小阅读集，而不是全量扫描 `docs/`
 - 让模型快速进入“可直接编码”的工作状态
 - 明确项目硬约束、交付边界、真实环境基线与文档更新规则
+- 让 `docs/template/README.md` 只做快捷入口，而不再维护 7 份重复的薄包装页
 
 ## 1. 使用方式
 
@@ -18,7 +25,7 @@
 说明：
 - 默认模板已经包含最小阅读集与关键约束
 - 如果任务只涉及局部页面、单个接口或单个 Bug，不需要要求模型全量扫描仓库
-- 如果任务影响协议、前端、验收、Phase 4 交付边界，再追加对应附加片段
+- 如果任务影响协议、前端、验收、可观测性、系统内容治理或 Phase 4 交付边界，再追加对应附加片段
 
 ## 2. 标准模板
 
@@ -79,7 +86,7 @@
 
 - Phase 1~3 主链路已是稳定基线：产品、设备、HTTP 上报、MQTT 上下行、协议解析、消息日志、属性更新、在线状态
 - Phase 4 核心能力当前可用：告警运营台、事件协同台、风险对象中心、阈值策略、联动编排、应急预案库、运营分析中心、组织架构/账号中心/角色权限/导航编排/区域版图/数据字典/通知编排/审计中心
-- `/risk-monitoring`、`/risk-monitoring-gis` 已有代码基线，但是否计入已交付范围，以 `docs/19-phase4-progress.md` 为准
+- `/risk-monitoring`、`/risk-monitoring-gis` 已有代码基线，但是否计入已交付范围，以 `docs/19-第四阶段交付边界与复验进展.md` 为准
 
 ## 六、本次任务
 
@@ -116,7 +123,7 @@
 - 结论优先，表达直接
 - 不要泛泛而谈
 - 发现信息不确定时明确标记：
-  - `【待确认】`
+  - `待确认标签（如 DOC-Q 编号）`
   - `【根据代码推断】`
   - `【文档缺失】`
 
@@ -132,13 +139,13 @@
 ```md
 这是一个前端任务，请额外补充阅读：
 - `docs/06-前端开发与CSS规范.md`
-- `docs/15-frontend-optimization-plan.md`
+- `docs/15-前端优化与治理计划.md`
 
 前端约束：
 - 保持 UTF-8 可读，不能写入乱码中文
 - 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享列表样式和现有 design tokens
 - 分组概览、工作台、抽屉和确认弹窗必须保持统一 brand/accent token 体系，不要再给单页单独发明另一套主色
-- 如发现样式漂移、分页不统一或新的前端治理问题，请同步更新 `docs/15-frontend-optimization-plan.md`
+- 如发现样式漂移、分页不统一或新的前端治理问题，请同步更新 `docs/15-前端优化与治理计划.md`
 ```
 
 ### 3.2 协议 / MQTT / 设备接入任务
@@ -146,8 +153,8 @@
 ```md
 这是一个协议或设备接入任务，请额外补充阅读：
 - `docs/05-protocol.md`
-- `docs/14-mqttx-live-runbook.md`
-- `docs/test-scenarios.md`
+- `docs/14-MQTTX真实环境联调手册.md`
+- `docs/真实环境测试与验收手册.md`
 
 请重点关注：
 - 标准 Topic 与 `$dp` 兼容链路
@@ -160,8 +167,8 @@
 ```md
 这是一个测试或验收任务，请额外补充阅读：
 - `docs/05-自动化测试与质量保障.md`
-- `docs/test-scenarios.md`
-- `docs/21-business-functions-and-acceptance.md`
+- `docs/真实环境测试与验收手册.md`
+- `docs/21-业务功能清单与验收标准.md`
 
 请重点关注：
 - 真实环境基线
@@ -173,8 +180,8 @@
 
 ```md
 这是一个涉及 Phase 4 交付边界的任务，请额外补充阅读：
-- `docs/19-phase4-progress.md`
-- `docs/21-business-functions-and-acceptance.md`
+- `docs/19-第四阶段交付边界与复验进展.md`
+- `docs/21-业务功能清单与验收标准.md`
 
 请重点区分：
 - “代码已存在”
@@ -194,7 +201,36 @@
 - 保留
 - 合并后删除
 - 废弃归档
-- 【待确认】
+- 待确认项（如需保留请附 `DOC-Q` 编号）
+```
+
+### 3.6 可观测 / 日志 / 系统内容治理任务
+
+```md
+这是一个可观测、日志、通知中心或帮助中心治理任务，请额外补充阅读：
+- `docs/11-可观测性、日志追踪与消息通知治理.md`
+- `docs/12-帮助文档与系统内容治理.md`
+- `docs/07-部署运行与配置说明.md`
+
+请重点区分：
+- 权威资料层与帮助中心消费层
+- TraceId / 审计 / 消息追踪 / 站内消息 / 外部渠道桥接之间的关系
+- 变更是影响运行口径、消费口径，还是两者都影响
+```
+
+### 3.7 多租户 / 数据权限任务
+
+```md
+这是一个涉及多租户、组织范围或数据权限的任务，请额外补充阅读：
+- `docs/13-数据权限与多租户模型.md`
+- `docs/04-数据库设计与初始化数据.md`
+- `docs/21-业务功能清单与验收标准.md`
+
+请重点区分：
+- `tenant_id` 预留字段
+- 角色 / 菜单 / 按钮权限
+- 组织 / 区域 / 业务对象数据范围
+- 已证实事实与仍待确认事项
 ```
 
 ## 4. 极简版模板
@@ -248,7 +284,7 @@
 `README.md`、`docs/README.md`、`docs/01-系统概览与架构说明.md`、`docs/02-业务功能与流程说明.md`、`docs/03-接口规范与接口清单.md`、`docs/04-数据库设计与初始化数据.md`、`docs/07-部署运行与配置说明.md`、`docs/08-变更记录与技术债清单.md`。
 
 如任务涉及验收口径，再补读：
-`docs/19-phase4-progress.md`、`docs/21-business-functions-and-acceptance.md`、`docs/test-scenarios.md`。
+`docs/19-第四阶段交付边界与复验进展.md`、`docs/21-业务功能清单与验收标准.md`、`docs/真实环境测试与验收手册.md`。
 
 治理约束：
 - 不要机械汇总原文档
@@ -268,7 +304,7 @@
    - 保留
    - 合并后删除
    - 废弃归档
-   - 【待确认】
+   - 待确认项（如需保留请附 `DOC-Q` 编号）
 5. 实际文档修改，不要只停留在建议层
 
 完成后输出：
@@ -287,10 +323,10 @@
 `README.md`、`docs/README.md`、`docs/01-系统概览与架构说明.md`、`docs/02-业务功能与流程说明.md`、`docs/03-接口规范与接口清单.md`、`docs/04-数据库设计与初始化数据.md`、`docs/07-部署运行与配置说明.md`、`docs/08-变更记录与技术债清单.md`。
 
 如果涉及以下内容，再按需补读：
-- 协议 / MQTT：`docs/05-protocol.md`、`docs/14-mqttx-live-runbook.md`
-- 前端：`docs/06-前端开发与CSS规范.md`、`docs/15-frontend-optimization-plan.md`
-- 验收：`docs/05-自动化测试与质量保障.md`、`docs/test-scenarios.md`
-- Phase 4 范围：`docs/19-phase4-progress.md`、`docs/21-business-functions-and-acceptance.md`
+- 协议 / MQTT：`docs/05-protocol.md`、`docs/14-MQTTX真实环境联调手册.md`
+- 前端：`docs/06-前端开发与CSS规范.md`、`docs/15-前端优化与治理计划.md`
+- 验收：`docs/05-自动化测试与质量保障.md`、`docs/真实环境测试与验收手册.md`
+- Phase 4 范围：`docs/19-第四阶段交付边界与复验进展.md`、`docs/21-业务功能清单与验收标准.md`
 
 项目硬约束：
 - 项目名必须保持：`spring-boot-iot`
@@ -330,10 +366,10 @@
 
 如问题涉及验收、协议或 Phase 4，再补读：
 - `docs/05-自动化测试与质量保障.md`
-- `docs/test-scenarios.md`
+- `docs/真实环境测试与验收手册.md`
 - `docs/05-protocol.md`
-- `docs/19-phase4-progress.md`
-- `docs/21-business-functions-and-acceptance.md`
+- `docs/19-第四阶段交付边界与复验进展.md`
+- `docs/21-业务功能清单与验收标准.md`
 
 问题现象：
 【填写报错、异常现象、日志、接口失败信息、复现步骤】
@@ -374,15 +410,15 @@
 `README.md`、`docs/README.md`、`docs/01-系统概览与架构说明.md`、`docs/02-业务功能与流程说明.md`、`docs/03-接口规范与接口清单.md`、`docs/06-前端开发与CSS规范.md`、`docs/07-部署运行与配置说明.md`、`docs/08-变更记录与技术债清单.md`。
 
 额外补读：
-- `docs/15-frontend-optimization-plan.md`
-- 如涉及验收或 Phase 4 页面，再补读 `docs/19-phase4-progress.md`、`docs/21-business-functions-and-acceptance.md`
+- `docs/15-前端优化与治理计划.md`
+- 如涉及验收或 Phase 4 页面，再补读 `docs/19-第四阶段交付边界与复验进展.md`、`docs/21-业务功能清单与验收标准.md`
 
 前端约束：
 - 保持 UTF-8 可读，不能写入乱码中文
 - 优先复用 `PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享列表样式和现有 design tokens
 - 分组概览、工作台、抽屉和确认弹窗必须保持统一 brand/accent token 体系，不要再给单页单独发明另一套主色
 - 不要新增一套页面本地分页/列表规范
-- 如发现样式漂移、分页不统一、列表重复建设或新的治理问题，必须同步更新 `docs/15-frontend-optimization-plan.md`
+- 如发现样式漂移、分页不统一、列表重复建设或新的治理问题，必须同步更新 `docs/15-前端优化与治理计划.md`
 - 不要破坏现有后端 API 契约
 
 本次任务：
@@ -411,10 +447,10 @@
 
 如涉及验收、协议或 Phase 4 范围，再补读：
 - `docs/05-自动化测试与质量保障.md`
-- `docs/test-scenarios.md`
+- `docs/真实环境测试与验收手册.md`
 - `docs/05-protocol.md`
-- `docs/19-phase4-progress.md`
-- `docs/21-business-functions-and-acceptance.md`
+- `docs/19-第四阶段交付边界与复验进展.md`
+- `docs/21-业务功能清单与验收标准.md`
 
 本次接口任务：
 【填写接口目标，例如“新增接口 / 修改返回结构 / 补齐分页接口 / 修复接口行为”】
@@ -462,9 +498,9 @@
 
 如涉及验收、Phase 4 或真实环境结构对齐，再补读：
 - `docs/05-自动化测试与质量保障.md`
-- `docs/test-scenarios.md`
-- `docs/19-phase4-progress.md`
-- `docs/21-business-functions-and-acceptance.md`
+- `docs/真实环境测试与验收手册.md`
+- `docs/19-第四阶段交付边界与复验进展.md`
+- `docs/21-业务功能清单与验收标准.md`
 
 本次数据库任务：
 【填写任务，例如“补字段 / 修初始化脚本 / 增加升级脚本 / 修正 SQL 示例 / 对齐真实环境 schema”】
@@ -483,7 +519,7 @@
 - 不要把某个环境的绝对路径写死到脚本或说明中
 - 如涉及真实环境基线，仍以 `application-dev.yml` 为准
 - 任何表结构、初始化数据、升级脚本变化，都必须同步更新 `docs/04-数据库设计与初始化数据.md`
-- 如影响验收口径，也同步更新 `docs/21-business-functions-and-acceptance.md` 或其他相关核心文档
+- 如影响验收口径，也同步更新 `docs/21-业务功能清单与验收标准.md` 或其他相关核心文档
 
 请按以下方式执行：
 1. 先判断这是“初始化问题”还是“升级兼容问题”

@@ -707,7 +707,7 @@ $md = New-Object System.Text.StringBuilder
 [void]$md.AppendLine('')
 [void]$md.AppendLine("- Run time: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
 [void]$md.AppendLine("- Base URL: $baseUrl")
-[void]$md.AppendLine("- Baseline doc: docs/21-business-functions-and-acceptance.md")
+[void]$md.AppendLine("- Baseline doc: docs/21-业务功能清单与验收标准.md")
 [void]$md.AppendLine('')
 [void]$md.AppendLine('## Function Point Summary')
 [void]$md.AppendLine('')

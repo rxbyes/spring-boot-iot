@@ -265,6 +265,277 @@
         @current-change="handlePageChange"
       />
 
+      <el-collapse v-model="bridgeCollapseSections" class="in-app-message-view__bridge-collapse">
+        <el-collapse-item name="bridge-operations" class="in-app-message-view__bridge-item">
+          <template #title>
+            <div class="in-app-message-view__bridge-title">
+              <div class="in-app-message-view__bridge-title-copy">
+                <span>桥接效果运营</span>
+                <small>统一查看最新桥接结果、待重试情况，以及每条桥接记录的逐次尝试明细。</small>
+              </div>
+              <el-tag size="small" type="info" effect="plain">
+                默认展开
+              </el-tag>
+            </div>
+          </template>
+
+          <section v-loading="bridgeStatsLoading" class="in-app-message-view__bridge-stats">
+            <article class="in-app-message-view__stats-card">
+              <span>桥接记录数</span>
+              <strong>{{ formatCount(bridgeStatsRecord?.totalBridgeCount) }}</strong>
+              <small>按最近尝试时间统计的桥接汇总记录</small>
+            </article>
+            <article class="in-app-message-view__stats-card">
+              <span>桥接成功数</span>
+              <strong>{{ formatCount(bridgeStatsRecord?.successCount) }}</strong>
+              <small>累计尝试 {{ formatCount(bridgeStatsRecord?.totalAttemptCount) }} 次</small>
+            </article>
+            <article class="in-app-message-view__stats-card">
+              <span>待重试数</span>
+              <strong>{{ formatCount(bridgeStatsRecord?.pendingRetryCount) }}</strong>
+              <small>按最新桥接状态仍需继续跟进</small>
+            </article>
+            <article class="in-app-message-view__stats-card">
+              <span>桥接成功率</span>
+              <strong>{{ formatPercent(bridgeStatsRecord?.successRate) }}</strong>
+              <small>{{ bridgeTrendHint }}</small>
+            </article>
+          </section>
+
+          <section class="in-app-message-view__insight-grid in-app-message-view__bridge-insight-grid">
+            <article class="in-app-message-view__insight-card">
+              <div class="in-app-message-view__insight-header">
+                <div>
+                  <h3>渠道效果分布</h3>
+                  <p>结合渠道类型和成功率，快速识别待重点治理的外部桥接渠道。</p>
+                </div>
+              </div>
+              <ul v-if="bridgeChannelBuckets.length > 0" class="in-app-message-view__insight-list">
+                <li v-for="bucket in bridgeChannelBuckets" :key="bucket.key">
+                  <span>{{ bucket.label }} · {{ getChannelTypeLabel(bucket.channelType) }}</span>
+                  <strong>{{ bucket.bridgeCount }} / {{ formatPercent(bucket.successRate) }}</strong>
+                </li>
+              </ul>
+              <el-empty v-else description="暂无渠道效果分布" :image-size="64" />
+            </article>
+            <article class="in-app-message-view__insight-card">
+              <div class="in-app-message-view__insight-header">
+                <div>
+                  <h3>来源效果分布</h3>
+                  <p>区分自动消息来源，便于判断哪类事件更需要桥接补偿。</p>
+                </div>
+              </div>
+              <ul v-if="bridgeSourceTypeBuckets.length > 0" class="in-app-message-view__insight-list">
+                <li v-for="bucket in bridgeSourceTypeBuckets" :key="bucket.key">
+                  <span>{{ bucket.label }}</span>
+                  <strong>{{ bucket.bridgeCount }} / {{ formatPercent(bucket.successRate) }}</strong>
+                </li>
+              </ul>
+              <el-empty v-else description="暂无来源效果分布" :image-size="64" />
+            </article>
+          </section>
+
+          <section class="in-app-message-view__bridge-filter-card">
+            <el-form :model="bridgeSearchForm" label-width="100px" class="search-form search-form--bridge">
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <el-form-item label="时间范围">
+                    <el-date-picker
+                      v-model="bridgeSearchForm.timeRange"
+                      type="datetimerange"
+                      unlink-panels
+                      clearable
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      range-separator="至"
+                      start-placeholder="开始时间"
+                      end-placeholder="结束时间"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="渠道">
+                    <el-select v-model="bridgeSearchForm.channelCode" clearable filterable placeholder="请选择渠道">
+                      <el-option
+                        v-for="channel in bridgeChannelOptions"
+                        :key="channel.channelCode"
+                        :label="`${channel.channelName} (${channel.channelCode})`"
+                        :value="channel.channelCode"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="20">
+                <el-col :span="8">
+                  <el-form-item label="桥接状态">
+                    <el-select v-model="bridgeSearchForm.bridgeStatus" clearable placeholder="请选择桥接状态">
+                      <el-option label="桥接成功" :value="1" />
+                      <el-option label="待重试" :value="0" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="消息分类">
+                    <el-select v-model="bridgeSearchForm.messageType" clearable placeholder="请选择消息分类">
+                      <el-option
+                        v-for="item in IN_APP_MESSAGE_TYPE_OPTIONS"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="来源类型">
+                    <el-select v-model="bridgeSearchForm.sourceType" clearable placeholder="请选择来源类型">
+                      <el-option
+                        v-for="item in IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="20">
+                <el-col :span="8">
+                  <el-form-item label="优先级">
+                    <el-select v-model="bridgeSearchForm.priority" clearable placeholder="请选择优先级">
+                      <el-option
+                        v-for="item in IN_APP_MESSAGE_PRIORITY_OPTIONS"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <div />
+                </el-col>
+                <el-col :span="8" class="text-right">
+                  <el-form-item label="">
+                    <el-button @click="handleBridgeReset">重置</el-button>
+                    <el-button type="primary" @click="handleBridgeSearch">查询</el-button>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </el-form>
+          </section>
+
+          <el-alert
+            v-if="bridgeErrorMessage"
+            class="in-app-message-view__bridge-alert"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="bridgeErrorMessage"
+          />
+
+          <StandardTableToolbar :meta-items="[ `桥接结果 ${bridgePagination.total} 条`, bridgeRangeSummary ]">
+            <template #right>
+              <el-button link @click="handleBridgeRefresh">刷新桥接结果</el-button>
+            </template>
+          </StandardTableToolbar>
+
+          <el-table
+            v-loading="bridgeTableLoading"
+            :data="bridgeTableData"
+            border
+            stripe
+            empty-text="暂无桥接记录"
+            style="width: 100%"
+          >
+            <StandardTableTextColumn prop="title" label="消息标题" :min-width="220" />
+            <el-table-column prop="messageType" label="消息分类" width="110">
+              <template #default="{ row }">
+                <el-tag :type="messageTypeTagType(row.messageType)">
+                  {{ getMessageTypeLabel(row.messageType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="priority" label="优先级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="priorityTagType(row.priority)" effect="plain">
+                  {{ getPriorityLabel(row.priority) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="sourceType" label="来源类型" width="130">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain" :type="sourceTypeTagType(row.sourceType)">
+                  {{ getSourceTypeLabel(row.sourceType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="channelName" label="渠道名称" :min-width="140">
+              <template #default="{ row }">
+                {{ getBridgeChannelName(row) }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="channelCode" label="渠道编码" :min-width="140" />
+            <el-table-column prop="channelType" label="渠道类型" width="120">
+              <template #default="{ row }">
+                <el-tag size="small" type="info" effect="plain">
+                  {{ getChannelTypeLabel(row.channelType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="bridgeStatus" label="桥接状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="bridgeStatusTagType(row.bridgeStatus)">
+                  {{ getBridgeStatusLabel(row.bridgeStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="unreadCount" label="未读人数" width="100" align="right">
+              <template #default="{ row }">
+                {{ formatCount(row.unreadCount) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="attemptCount" label="尝试次数" width="100" align="right">
+              <template #default="{ row }">
+                {{ formatCount(row.attemptCount) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="lastAttemptTime" label="最近尝试时间" width="180">
+              <template #default="{ row }">
+                {{ formatDateTimeValue(row.lastAttemptTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="successTime" label="成功时间" width="180">
+              <template #default="{ row }">
+                {{ formatDateTimeValue(row.successTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="responseStatusCode" label="响应码" width="100" align="right">
+              <template #default="{ row }">
+                {{ formatValue(row.responseStatusCode) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" fixed="right" :show-overflow-tooltip="false">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="handleViewBridge(row)">查看桥接</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <StandardPagination
+            v-model:current-page="bridgePagination.pageNum"
+            v-model:page-size="bridgePagination.pageSize"
+            :total="bridgePagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleBridgeSizeChange"
+            @current-change="handleBridgePageChange"
+          />
+        </el-collapse-item>
+      </el-collapse>
+
       <StandardDetailDrawer
         v-model="detailVisible"
         eyebrow="System Content"
@@ -361,6 +632,169 @@
               <div class="detail-field__value detail-field__value--pre">{{ formatValue(detailRecord?.content) }}</div>
             </div>
           </div>
+        </section>
+      </StandardDetailDrawer>
+
+      <StandardDetailDrawer
+        v-model="bridgeDetailVisible"
+        eyebrow="Bridge Insight"
+        :title="bridgeDetailTitle"
+        :subtitle="bridgeDetailSubtitle"
+        :tags="bridgeDetailTags"
+        :loading="bridgeDetailLoading"
+        :empty="!bridgeDetailRecord"
+      >
+        <section class="detail-panel detail-panel--hero">
+          <div class="detail-section-header">
+            <div>
+              <h3>桥接结果摘要</h3>
+              <p>基于最新桥接汇总结果，快速定位当前状态、最近响应和待跟进未读人数。</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-field__label">桥接状态</span>
+              <strong class="detail-field__value">{{ getBridgeStatusLabel(bridgeDetailRecord?.bridgeStatus) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">渠道</span>
+              <strong class="detail-field__value">{{ getBridgeChannelName(bridgeDetailRecord) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">未读人数</span>
+              <strong class="detail-field__value">{{ formatCount(bridgeDetailRecord?.unreadCount) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">尝试次数</span>
+              <strong class="detail-field__value">{{ formatCount(bridgeDetailRecord?.attemptCount) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">最近尝试时间</span>
+              <strong class="detail-field__value">{{ formatDateTimeValue(bridgeDetailRecord?.lastAttemptTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">成功时间</span>
+              <strong class="detail-field__value">{{ formatDateTimeValue(bridgeDetailRecord?.successTime) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">响应码</span>
+              <strong class="detail-field__value">{{ formatValue(bridgeDetailRecord?.responseStatusCode) }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">最近响应摘要</span>
+              <div class="detail-field__value detail-field__value--pre">{{ formatResponseSummary(bridgeDetailRecord?.responseBody, 220) }}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>消息原文</h3>
+              <p>通过现有消息详情接口回放原始标题、摘要、正文、来源和关联页面。</p>
+            </div>
+          </div>
+          <el-alert
+            v-if="bridgeDetailMessageError"
+            class="in-app-message-view__bridge-detail-alert"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="bridgeDetailMessageError"
+          />
+          <div v-else-if="bridgeDetailMessageRecord" class="detail-grid">
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">消息标题</span>
+              <strong class="detail-field__value">{{ formatValue(bridgeDetailMessageRecord.title) }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">摘要</span>
+              <strong class="detail-field__value detail-field__value--plain">{{ formatValue(bridgeDetailMessageRecord.summary) }}</strong>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">正文</span>
+              <div class="detail-field__value detail-field__value--pre">{{ formatValue(bridgeDetailMessageRecord.content) }}</div>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">来源类型</span>
+              <strong class="detail-field__value">{{ getSourceTypeLabel(bridgeDetailMessageRecord.sourceType) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">来源标识</span>
+              <strong class="detail-field__value">{{ formatValue(bridgeDetailMessageRecord.sourceId) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">关联页面</span>
+              <strong class="detail-field__value">{{ getPathLabel(bridgeDetailMessageRecord.relatedPath) }}</strong>
+            </div>
+            <div class="detail-field">
+              <span class="detail-field__label">发布时间</span>
+              <strong class="detail-field__value">{{ formatDateTimeValue(bridgeDetailMessageRecord.publishTime) }}</strong>
+            </div>
+          </div>
+          <el-empty v-else description="暂无消息原文" :image-size="72" />
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
+              <h3>尝试明细</h3>
+              <p>按尝试序号倒序展示每次桥接的结果、目标摘要和最近响应内容。</p>
+            </div>
+          </div>
+          <el-alert
+            v-if="bridgeAttemptError"
+            class="in-app-message-view__bridge-detail-alert"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="bridgeAttemptError"
+          />
+          <el-table
+            :data="bridgeAttemptRecords"
+            border
+            stripe
+            empty-text="暂无尝试明细"
+            style="width: 100%"
+          >
+            <el-table-column prop="attemptNo" label="尝试序号" width="100" align="right" />
+            <el-table-column prop="bridgeStatus" label="结果" width="110">
+              <template #default="{ row }">
+                <el-tag :type="bridgeStatusTagType(row.bridgeStatus)">
+                  {{ getBridgeStatusLabel(row.bridgeStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="unreadCount" label="未读人数" width="100" align="right">
+              <template #default="{ row }">
+                {{ formatCount(row.unreadCount) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="recipientSnapshot" label="目标摘要" min-width="220">
+              <template #default="{ row }">
+                <span class="in-app-message-view__multiline-cell">
+                  {{ formatRecipientSummary(row.recipientSnapshot) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="responseStatusCode" label="响应码" width="100" align="right">
+              <template #default="{ row }">
+                {{ formatValue(row.responseStatusCode) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="responseBody" label="响应摘要" min-width="220">
+              <template #default="{ row }">
+                <span class="in-app-message-view__multiline-cell">
+                  {{ formatResponseSummary(row.responseBody, 160) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="attemptTime" label="尝试时间" width="180">
+              <template #default="{ row }">
+                {{ formatDateTimeValue(row.attemptTime) }}
+              </template>
+            </el-table-column>
+          </el-table>
         </section>
       </StandardDetailDrawer>
 
@@ -548,6 +982,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import type { ChannelRecord } from '@/api/channel'
+import { CHANNEL_TYPES, listChannels } from '@/api/channel'
 import type { User } from '@/api/user'
 import type { Role } from '@/api/role'
 import {
@@ -558,9 +994,17 @@ import {
   addInAppMessage,
   deleteInAppMessage,
   getInAppMessage,
+  getInAppMessageBridgeStats,
   getInAppMessageStats,
+  listInAppMessageBridgeAttempts,
+  pageInAppMessageBridgeLogs,
   pageInAppMessages,
   updateInAppMessage,
+  type InAppMessageBridgeAttemptRecord,
+  type InAppMessageBridgeChannelBucket,
+  type InAppMessageBridgeLogRecord,
+  type InAppMessageBridgeSourceTypeBucket,
+  type InAppMessageBridgeStatsRecord,
   type InAppMessagePriority,
   type InAppMessageRecord,
   type InAppMessageSourceType,
@@ -580,9 +1024,10 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
+import type { ApiEnvelope, IdType } from '@/types/api'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
-import type { IdType } from '@/types/api'
+import { formatDateTime, truncateText } from '@/utils/format'
 
 interface SearchFormState {
   title: string
@@ -591,6 +1036,15 @@ interface SearchFormState {
   sourceType: InAppMessageSourceType | undefined
   targetType: InAppMessageTargetType | undefined
   status: number | undefined
+}
+
+interface BridgeSearchFormState {
+  timeRange: string[]
+  channelCode: string
+  bridgeStatus: number | undefined
+  messageType: InAppMessageType | undefined
+  sourceType: InAppMessageSourceType | undefined
+  priority: InAppMessagePriority | undefined
 }
 
 interface MessageFormState {
@@ -612,6 +1066,9 @@ interface MessageFormState {
   sortNo: number
 }
 
+const BRIDGE_COLLAPSE_NAME = 'bridge-operations'
+const ALLOWED_BRIDGE_CHANNEL_TYPES = new Set(['webhook', 'wechat', 'feishu', 'dingtalk'])
+
 const formRef = ref()
 const tableRef = ref()
 const loading = ref(false)
@@ -625,8 +1082,31 @@ const tableData = ref<InAppMessageRecord[]>([])
 const selectedRows = ref<InAppMessageRecord[]>([])
 const roleOptions = ref<Role[]>([])
 const userOptions = ref<User[]>([])
+const channelOptions = ref<ChannelRecord[]>([])
 const statsRecord = ref<InAppMessageStatsRecord | null>(null)
+const bridgeCollapseSections = ref<string[]>([BRIDGE_COLLAPSE_NAME])
+const bridgeStatsLoading = ref(false)
+const bridgeTableLoading = ref(false)
+const bridgeStatsErrorMessage = ref('')
+const bridgeTableErrorMessage = ref('')
+const bridgeStatsRecord = ref<InAppMessageBridgeStatsRecord | null>(null)
+const bridgeTableData = ref<InAppMessageBridgeLogRecord[]>([])
+const bridgeDetailVisible = ref(false)
+const bridgeDetailLoading = ref(false)
+const bridgeDetailRecord = ref<InAppMessageBridgeLogRecord | null>(null)
+const bridgeDetailMessageRecord = ref<InAppMessageRecord | null>(null)
+const bridgeAttemptRecords = ref<InAppMessageBridgeAttemptRecord[]>([])
+const bridgeDetailMessageError = ref('')
+const bridgeAttemptError = ref('')
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
+const {
+  pagination: bridgePagination,
+  applyPageResult: applyBridgePageResult,
+  resetPage: resetBridgePage,
+  setPageNum: setBridgePageNum,
+  setPageSize: setBridgePageSize,
+  resetTotal: resetBridgeTotal
+} = useServerPagination()
 
 const searchForm = reactive<SearchFormState>({
   title: '',
@@ -636,6 +1116,8 @@ const searchForm = reactive<SearchFormState>({
   targetType: undefined,
   status: undefined
 })
+
+const bridgeSearchForm = reactive<BridgeSearchFormState>(createEmptyBridgeSearchForm())
 
 const pathOptions = listWorkspaceCommandEntries()
   .filter((item) => item.type === 'page')
@@ -653,8 +1135,12 @@ const userLabelMap = computed(() => new Map(
     .filter((item) => item.id !== undefined)
     .map((item) => [String(item.id), buildUserLabel(item)])
 ))
+const channelTypeLabelMap = computed(() => new Map(CHANNEL_TYPES.map((item) => [item.value, item.label])))
 const editableSourceTypeOptions = computed(() =>
   IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS.filter((item) => item.value === 'manual' || item.value === 'governance')
+)
+const bridgeChannelOptions = computed(() =>
+  channelOptions.value.filter((item) => ALLOWED_BRIDGE_CHANNEL_TYPES.has(String(item.channelType || '').toLowerCase()))
 )
 const sourceTypeBuckets = computed<InAppMessageStatsBucket[]>(() => statsRecord.value?.sourceTypeBuckets || [])
 const topUnreadMessages = computed<InAppMessageTopUnreadRecord[]>(() => statsRecord.value?.topUnreadMessages || [])
@@ -665,6 +1151,32 @@ const topSourceTypeHint = computed(() => {
     return '暂无来源数据'
   }
   return `${topSourceTypeBucket.value.deliveryCount} 次投放，已读率 ${formatPercent(topSourceTypeBucket.value.readRate)}`
+})
+const bridgeChannelBuckets = computed<InAppMessageBridgeChannelBucket[]>(() => bridgeStatsRecord.value?.channelBuckets || [])
+const bridgeSourceTypeBuckets = computed<InAppMessageBridgeSourceTypeBucket[]>(() => bridgeStatsRecord.value?.sourceTypeBuckets || [])
+const latestBridgeTrend = computed(() => {
+  const trend = bridgeStatsRecord.value?.trend || []
+  return trend.length > 0 ? trend[trend.length - 1] : null
+})
+const bridgeTrendHint = computed(() => {
+  if (!latestBridgeTrend.value) {
+    return '暂无最近桥接趋势'
+  }
+  return `${latestBridgeTrend.value.date} 成功 ${formatCount(latestBridgeTrend.value.successCount)} / 待重试 ${formatCount(latestBridgeTrend.value.pendingRetryCount)}`
+})
+const bridgeRangeSummary = computed(() => {
+  const [startTime, endTime] = bridgeSearchForm.timeRange
+  if (startTime || endTime) {
+    return `统计范围 ${startTime || '不限'} 至 ${endTime || '不限'}`
+  }
+  if (bridgeStatsRecord.value?.startTime || bridgeStatsRecord.value?.endTime) {
+    return `统计范围 ${bridgeStatsRecord.value?.startTime || '不限'} 至 ${bridgeStatsRecord.value?.endTime || '不限'}`
+  }
+  return '统计范围 最近 7 天'
+})
+const bridgeErrorMessage = computed(() => {
+  const messages = [bridgeStatsErrorMessage.value, bridgeTableErrorMessage.value].filter(Boolean)
+  return messages.join('；')
 })
 
 const formRules = {
@@ -688,6 +1200,12 @@ watch(
   }
 )
 
+watch(bridgeDetailVisible, (value) => {
+  if (!value) {
+    clearBridgeDetailState()
+  }
+})
+
 const detailTitle = computed(() => detailRecord.value?.title || '消息详情')
 const detailSubtitle = computed(() => detailRecord.value?.summary || '统一预览消息内容、推送范围和发布时间。')
 const detailActionLabel = computed(() => detailRecord.value?.relatedPath ? '查看详情 / 进入页面' : '查看详情 / 标记已读')
@@ -706,6 +1224,24 @@ const detailTags = computed(() => {
 const detailTargetSummary = computed(() => getTargetSummary(detailRecord.value))
 const detailRoleNames = computed(() => resolveRoleNames(detailRecord.value?.targetRoleCodes))
 const detailUserNames = computed(() => resolveUserNames(detailRecord.value?.targetUserIds))
+const bridgeDetailTitle = computed(() => bridgeDetailRecord.value?.title || '桥接详情')
+const bridgeDetailSubtitle = computed(() => {
+  if (!bridgeDetailRecord.value) {
+    return '统一查看桥接结果汇总、消息原文和逐次尝试明细。'
+  }
+  return `${getBridgeChannelName(bridgeDetailRecord.value)} · 最近尝试 ${formatDateTimeValue(bridgeDetailRecord.value.lastAttemptTime)}`
+})
+const bridgeDetailTags = computed(() => {
+  if (!bridgeDetailRecord.value) {
+    return []
+  }
+  return [
+    { label: getBridgeStatusLabel(bridgeDetailRecord.value.bridgeStatus), type: bridgeStatusTagType(bridgeDetailRecord.value.bridgeStatus) },
+    { label: getMessageTypeLabel(bridgeDetailRecord.value.messageType), type: messageTypeTagType(bridgeDetailRecord.value.messageType) },
+    { label: getPriorityLabel(bridgeDetailRecord.value.priority), type: priorityTagType(bridgeDetailRecord.value.priority) },
+    { label: getChannelTypeLabel(bridgeDetailRecord.value.channelType), type: 'info' as const }
+  ]
+})
 
 function createEmptyForm(): MessageFormState {
   return {
@@ -728,8 +1264,44 @@ function createEmptyForm(): MessageFormState {
   }
 }
 
+function createEmptyBridgeSearchForm(): BridgeSearchFormState {
+  return {
+    timeRange: createDefaultBridgeTimeRange(),
+    channelCode: '',
+    bridgeStatus: undefined,
+    messageType: undefined,
+    sourceType: undefined,
+    priority: undefined
+  }
+}
+
+function createDefaultBridgeTimeRange(): string[] {
+  const endTime = new Date()
+  const startTime = new Date(endTime.getTime() - (7 * 24 * 60 * 60 * 1000))
+  return [formatDateTimeQuery(startTime), formatDateTimeQuery(endTime)]
+}
+
+function formatDateTimeQuery(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  const second = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`
+}
+
 function resetForm() {
   Object.assign(formData, createEmptyForm())
+}
+
+function clearBridgeDetailState() {
+  bridgeDetailRecord.value = null
+  bridgeDetailMessageRecord.value = null
+  bridgeAttemptRecords.value = []
+  bridgeDetailMessageError.value = ''
+  bridgeAttemptError.value = ''
+  bridgeDetailLoading.value = false
 }
 
 function buildUserLabel(user: User) {
@@ -766,6 +1338,18 @@ function getPathLabel(path?: string | null) {
     return '未绑定页面'
   }
   return pathLabelMap.value.get(normalizedPath) || normalizedPath
+}
+
+function getChannelTypeLabel(value?: string | null) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) {
+    return '--'
+  }
+  return channelTypeLabelMap.value.get(normalized) || normalized
+}
+
+function getBridgeStatusLabel(value?: number | null) {
+  return Number(value) === 1 ? '桥接成功' : '待重试'
 }
 
 function messageTypeTagType(value?: string | null): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
@@ -826,6 +1410,10 @@ function sourceTypeTagType(value?: string | null): 'primary' | 'success' | 'warn
   return 'info'
 }
 
+function bridgeStatusTagType(value?: number | null): 'success' | 'warning' {
+  return Number(value) === 1 ? 'success' : 'warning'
+}
+
 function splitCsvValue(value?: string | null): string[] {
   return String(value || '')
     .split(',')
@@ -833,8 +1421,11 @@ function splitCsvValue(value?: string | null): string[] {
     .filter(Boolean)
 }
 
-function formatValue(value?: string | null) {
-  const content = String(value || '').trim()
+function formatValue(value?: string | number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  const content = String(value).trim()
   return content || '--'
 }
 
@@ -844,6 +1435,26 @@ function formatCount(value?: number | null) {
 
 function formatPercent(value?: number | null) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`
+}
+
+function formatDateTimeValue(value?: string | null) {
+  return formatDateTime(value)
+}
+
+function formatResponseSummary(value?: string | null, maxLength = 140) {
+  const normalized = value === undefined || value === null ? '' : String(value).trim()
+  if (!normalized) {
+    return '--'
+  }
+  return truncateText(normalized.replace(/\s+/g, ' '), maxLength)
+}
+
+function formatRecipientSummary(value?: string | null) {
+  const normalized = value === undefined || value === null ? '' : String(value).trim()
+  if (!normalized) {
+    return '--'
+  }
+  return truncateText(normalized.replace(/\s+/g, ' '), 120)
 }
 
 function resolveRoleNames(value?: string | null) {
@@ -878,6 +1489,13 @@ function getTargetSummary(row?: InAppMessageRecord | null) {
     return userIds.length > 0 ? `${userIds.length} 个用户` : '未配置用户'
   }
   return '--'
+}
+
+function getBridgeChannelName(row?: Partial<InAppMessageBridgeLogRecord> | null) {
+  if (!row) {
+    return '--'
+  }
+  return formatValue(row.channelName) !== '--' ? formatValue(row.channelName) : formatValue(row.channelCode)
 }
 
 function isAutomaticMessage(sourceType?: string | null) {
@@ -942,6 +1560,26 @@ function buildUpdatePayloadFromRecord(row: InAppMessageRecord, status: number) {
   }
 }
 
+function buildBridgeQuery() {
+  const [startTime, endTime] = bridgeSearchForm.timeRange
+  return {
+    startTime: startTime || undefined,
+    endTime: endTime || undefined,
+    channelCode: bridgeSearchForm.channelCode || undefined,
+    bridgeStatus: bridgeSearchForm.bridgeStatus,
+    messageType: bridgeSearchForm.messageType,
+    sourceType: bridgeSearchForm.sourceType,
+    priority: bridgeSearchForm.priority
+  }
+}
+
+function ensureSuccess<T>(response: ApiEnvelope<T>, fallbackMessage: string): T {
+  if (response.code === 200 && response.data !== undefined && response.data !== null) {
+    return response.data
+  }
+  throw new Error(response.msg || fallbackMessage)
+}
+
 async function loadRoleOptions() {
   try {
     const response = await listRoles({ status: 1 })
@@ -961,6 +1599,17 @@ async function loadUserOptions() {
     }
   } catch (error) {
     console.error('加载用户列表失败', error)
+  }
+}
+
+async function loadChannelOptions() {
+  try {
+    const response = await listChannels()
+    if (response.code === 200 && response.data) {
+      channelOptions.value = response.data
+    }
+  } catch (error) {
+    console.error('加载渠道列表失败', error)
   }
 }
 
@@ -1004,6 +1653,45 @@ async function loadStats() {
   } finally {
     statsLoading.value = false
   }
+}
+
+async function loadBridgeStats() {
+  bridgeStatsLoading.value = true
+  bridgeStatsErrorMessage.value = ''
+  try {
+    const response = await getInAppMessageBridgeStats(buildBridgeQuery())
+    bridgeStatsRecord.value = ensureSuccess(response, '获取桥接统计失败')
+  } catch (error) {
+    console.error('获取桥接统计失败', error)
+    bridgeStatsRecord.value = null
+    bridgeStatsErrorMessage.value = (error as Error).message || '获取桥接统计失败'
+  } finally {
+    bridgeStatsLoading.value = false
+  }
+}
+
+async function loadBridgePage() {
+  bridgeTableLoading.value = true
+  bridgeTableErrorMessage.value = ''
+  try {
+    const response = await pageInAppMessageBridgeLogs({
+      ...buildBridgeQuery(),
+      pageNum: bridgePagination.pageNum,
+      pageSize: bridgePagination.pageSize
+    })
+    bridgeTableData.value = applyBridgePageResult(ensureSuccess(response, '获取桥接日志失败'))
+  } catch (error) {
+    console.error('获取桥接日志失败', error)
+    bridgeTableData.value = []
+    resetBridgeTotal()
+    bridgeTableErrorMessage.value = (error as Error).message || '获取桥接日志失败'
+  } finally {
+    bridgeTableLoading.value = false
+  }
+}
+
+async function refreshBridgeSection() {
+  await Promise.allSettled([loadBridgeStats(), loadBridgePage()])
 }
 
 function clearSelection() {
@@ -1050,6 +1738,30 @@ function handleRefresh() {
   loadStats()
 }
 
+function handleBridgeSearch() {
+  resetBridgePage()
+  refreshBridgeSection()
+}
+
+function handleBridgeReset() {
+  Object.assign(bridgeSearchForm, createEmptyBridgeSearchForm())
+  handleBridgeSearch()
+}
+
+function handleBridgePageChange(page: number) {
+  setBridgePageNum(page)
+  loadBridgePage()
+}
+
+function handleBridgeSizeChange(pageSize: number) {
+  setBridgePageSize(pageSize)
+  loadBridgePage()
+}
+
+function handleBridgeRefresh() {
+  refreshBridgeSection()
+}
+
 function handleDialogClose() {
   resetForm()
   formRef.value?.clearValidate?.()
@@ -1066,6 +1778,48 @@ function handleView(row: InAppMessageRecord) {
   detailVisible.value = true
 }
 
+async function handleViewBridge(row: InAppMessageBridgeLogRecord) {
+  bridgeDetailRecord.value = row
+  bridgeDetailVisible.value = true
+  bridgeDetailLoading.value = true
+  bridgeDetailMessageRecord.value = null
+  bridgeAttemptRecords.value = []
+  bridgeDetailMessageError.value = ''
+  bridgeAttemptError.value = ''
+
+  const [messageResult, attemptResult] = await Promise.allSettled([
+    getInAppMessage(row.messageId),
+    listInAppMessageBridgeAttempts(row.id)
+  ])
+
+  if (messageResult.status === 'fulfilled') {
+    try {
+      bridgeDetailMessageRecord.value = ensureSuccess(messageResult.value, '加载消息原文失败')
+    } catch (error) {
+      bridgeDetailMessageError.value = (error as Error).message || '加载消息原文失败'
+    }
+  } else {
+    bridgeDetailMessageError.value = messageResult.reason instanceof Error
+      ? messageResult.reason.message
+      : '加载消息原文失败'
+  }
+
+  if (attemptResult.status === 'fulfilled') {
+    try {
+      const attempts = ensureSuccess(attemptResult.value, '加载桥接尝试明细失败')
+      bridgeAttemptRecords.value = [...attempts].sort((left, right) => Number(right.attemptNo || 0) - Number(left.attemptNo || 0))
+    } catch (error) {
+      bridgeAttemptError.value = (error as Error).message || '加载桥接尝试明细失败'
+    }
+  } else {
+    bridgeAttemptError.value = attemptResult.reason instanceof Error
+      ? attemptResult.reason.message
+      : '加载桥接尝试明细失败'
+  }
+
+  bridgeDetailLoading.value = false
+}
+
 async function handleEdit(row: InAppMessageRecord) {
   if (isAutomaticMessage(row.sourceType)) {
     detailRecord.value = row
@@ -1075,11 +1829,7 @@ async function handleEdit(row: InAppMessageRecord) {
   }
   try {
     const response = await getInAppMessage(row.id!)
-    if (response.code !== 200 || !response.data) {
-      ElMessage.error('加载消息详情失败')
-      return
-    }
-    const record = response.data
+    const record = ensureSuccess(response, '加载消息详情失败')
     dialogTitle.value = '编辑站内消息'
     Object.assign(formData, {
       id: record.id,
@@ -1166,6 +1916,8 @@ onMounted(() => {
   loadStats()
   loadRoleOptions()
   loadUserOptions()
+  loadChannelOptions()
+  refreshBridgeSection()
 })
 </script>
 
@@ -1196,7 +1948,8 @@ onMounted(() => {
   line-height: 1.4;
 }
 
-.in-app-message-view__stats {
+.in-app-message-view__stats,
+.in-app-message-view__bridge-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
@@ -1204,7 +1957,8 @@ onMounted(() => {
 }
 
 .in-app-message-view__stats-card,
-.in-app-message-view__insight-card {
+.in-app-message-view__insight-card,
+.in-app-message-view__bridge-filter-card {
   border: 1px solid var(--panel-border);
   border-radius: 20px;
   background:
@@ -1235,6 +1989,10 @@ onMounted(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.in-app-message-view__bridge-insight-grid {
+  margin-top: 0.25rem;
 }
 
 .in-app-message-view__insight-header {
@@ -1286,6 +2044,78 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.in-app-message-view__bridge-collapse {
+  margin-top: 1.5rem;
+}
+
+.in-app-message-view__bridge-collapse :deep(.el-collapse) {
+  border: none;
+}
+
+.in-app-message-view__bridge-collapse :deep(.el-collapse-item__header) {
+  height: auto;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(247, 250, 255, 0.96), rgba(255, 255, 255, 0.98)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 10%, transparent), transparent 30%);
+}
+
+.in-app-message-view__bridge-collapse :deep(.el-collapse-item__wrap) {
+  margin-top: 0.85rem;
+  border: none;
+  background: transparent;
+}
+
+.in-app-message-view__bridge-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 0;
+}
+
+.in-app-message-view__bridge-title {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.in-app-message-view__bridge-title-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.in-app-message-view__bridge-title-copy span {
+  color: var(--text-heading);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.in-app-message-view__bridge-title-copy small {
+  color: var(--text-caption);
+  line-height: 1.5;
+}
+
+.in-app-message-view__bridge-filter-card {
+  margin-bottom: 1rem;
+}
+
+.in-app-message-view__bridge-filter-card :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+.in-app-message-view__bridge-alert,
+.in-app-message-view__bridge-detail-alert {
+  margin-bottom: 1rem;
+}
+
+.in-app-message-view__multiline-cell {
+  display: block;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .in-app-message-view__form {
   margin-top: 1rem;
 }
@@ -1301,6 +2131,7 @@ onMounted(() => {
 
 @media (max-width: 1200px) {
   .in-app-message-view__stats,
+  .in-app-message-view__bridge-stats,
   .in-app-message-view__insight-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1308,8 +2139,14 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .in-app-message-view__stats,
+  .in-app-message-view__bridge-stats,
   .in-app-message-view__insight-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .in-app-message-view__bridge-title {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

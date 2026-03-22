@@ -305,7 +305,7 @@ function createDefaultTarget() {
     password: '123456',
     browserPath: '',
     headless: true,
-    issueDocPath: 'docs/22-automation-test-issues-20260316.md',
+    issueDocPath: 'docs/archive/22-automation-test-issues-20260316.md',
     outputPrefix: 'config-browser',
     baselineDir: 'config/automation/baselines',
     scenarioScopes: ['delivery', 'baseline'],

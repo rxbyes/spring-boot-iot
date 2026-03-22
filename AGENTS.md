@@ -58,7 +58,7 @@ Current code also contains a risk monitoring baseline:
 - `spring-boot-iot-ui/src/api/riskMonitoring.ts`
 - `spring-boot-iot-alarm/.../RiskMonitoringController.java`
 
-But this risk monitoring baseline is not yet counted as delivered scope unless `docs/19-phase4-progress.md` is updated accordingly.
+But this risk monitoring baseline is not yet counted as delivered scope unless `docs/19-第四阶段交付边界与复验进展.md` is updated accordingly.
 
 ## Real-environment rule
 All future acceptance work must use `spring-boot-iot-admin/src/main/resources/application-dev.yml` or environment-variable overrides of that file.
@@ -91,7 +91,7 @@ When environment access is blocked, report the environment blocker explicitly. D
 - After editing frontend text content, labels, placeholders, comments, or documentation, always self-check for mojibake such as `鍒�`, `褰�`, `璇�`, `鐢�` and fix it before ending the task.
 - New page optimization work must reuse the existing shared page patterns first: `PanelCard`, `StandardPagination`, `useServerPagination`, `StandardTableToolbar`, `StandardTableTextColumn`, `StandardDetailDrawer`, `StandardFormDrawer`, `StandardDrawerFooter`, `confirmAction`, shared global list styles, and existing design tokens. Do not add another page-local list/pagination/detail-dialog style when an existing standard pattern already fits.
 - Overview, workbench, drawer, and confirmation interactions must stay on the unified brand/accent token system. Do not introduce another page-local blue/orange/purple palette unless the product requirement explicitly documents that exception.
-- If a frontend change introduces or reveals style drift, duplicated list layouts, or inconsistent pagination behavior, record the issue and the prevention rule in `docs/15-frontend-optimization-plan.md` before closing the task.
+- If a frontend change introduces or reveals style drift, duplicated list layouts, or inconsistent pagination behavior, record the issue and the prevention rule in `docs/15-前端优化与治理计划.md` before closing the task.
 
 ## Always read before coding
 ### Minimum set for all tasks
@@ -105,10 +105,21 @@ When environment access is blocked, report the environment blocker explicitly. D
 - docs/08-变更记录与技术债清单.md
 
 ### Read additionally when relevant
-- tests / acceptance / regression: docs/05-自动化测试与质量保障.md, docs/test-scenarios.md, docs/21-business-functions-and-acceptance.md
-- frontend work: docs/06-前端开发与CSS规范.md, docs/15-frontend-optimization-plan.md
-- MQTT / protocol / payload parsing: docs/05-protocol.md, docs/14-mqttx-live-runbook.md
-- Phase 4 scope or delivery boundary: docs/19-phase4-progress.md, docs/21-business-functions-and-acceptance.md
+- tests / acceptance / regression: docs/05-自动化测试与质量保障.md, docs/真实环境测试与验收手册.md, docs/21-业务功能清单与验收标准.md
+- frontend work: docs/06-前端开发与CSS规范.md, docs/15-前端优化与治理计划.md
+- MQTT / protocol / payload parsing: docs/05-protocol.md, docs/14-MQTTX真实环境联调手册.md
+- observability / trace / notification: docs/11-可观测性、日志追踪与消息通知治理.md
+- help center / system content governance: docs/12-帮助文档与系统内容治理.md
+- multi-tenant / data permission / org scope: docs/13-数据权限与多租户模型.md
+- Phase 4 scope or delivery boundary: docs/19-第四阶段交付边界与复验进展.md, docs/21-业务功能清单与验收标准.md
+- stage planning / next iteration: docs/16-阶段规划与迭代路线图.md, docs/19-第四阶段交付边界与复验进展.md
+- AI collaboration / takeover prompt: docs/09-GPT接管提示模板.md
+
+### Do not treat as primary coding dependencies
+- compatibility entry pages
+- docs/archive/*
+- historical issue ledgers / retrospective notes
+- thin wrapper pages previously under docs/template/*; use docs/template/README.md instead
 
 ## Hard constraints
 - Project name must remain: spring-boot-iot
@@ -235,7 +246,7 @@ When environment access is blocked, report the environment blocker explicitly. D
 - risk configuration real-environment acceptance passes
 - report analysis real-environment acceptance passes
 - system management real-environment acceptance passes
-- `docs/19-phase4-progress.md` and `docs/21-business-functions-and-acceptance.md` are consistent with the actual delivered scope
+- `docs/19-第四阶段交付边界与复验进展.md` and `docs/21-业务功能清单与验收标准.md` are consistent with the actual delivered scope
 
 ## Known environment note
 - `DeviceMessageServiceImplTest` may still fail on some JDK 17 environments because Mockito inline mock maker cannot self-attach its ByteBuddy agent.

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="iot-favicon-gradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#123b63" />
+      <stop offset="1" stop-color="#2f8f83" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#iot-favicon-gradient)" />
+  <path d="M21 18h6v28h-6zM32 18h15v6H32zM32 29h11v6H32zM32 40h15v6H32z" fill="#f5f9ff" />
+</svg>

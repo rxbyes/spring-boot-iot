@@ -29,6 +29,26 @@
 }
 ```
 
+## MQTT JSON 事件上报示例
+
+Topic：
+```text
+/sys/demo-product/demo-device-01/thing/event/post
+```
+
+Payload：
+```json
+{
+  "messageType": "event",
+  "events": {
+    "overheat": {
+      "level": 2,
+      "value": 88.2
+    }
+  }
+}
+```
+
 ## MQTT Topic 规范
 - /sys/{productKey}/{deviceCode}/thing/property/post
 - /sys/{productKey}/{deviceCode}/thing/event/post
@@ -100,6 +120,16 @@
     "targetTemperature": 23.0,
     "requestId": "task6-verify-001"
   }
+}
+```
+
+- 服务调用示例：
+```json
+{
+  "messageId": "cmd-001",
+  "commandType": "service",
+  "serviceIdentifier": "reboot",
+  "params": {}
 }
 ```
 

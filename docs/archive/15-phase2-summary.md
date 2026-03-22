@@ -73,7 +73,7 @@
 - 现场演示优先使用 [14-mqtt-live-runbook.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/14-mqtt-live-runbook.md)
 - 协议和 topic 规范优先查看 [05-protocol.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/05-protocol.md)
 - API 调试入口优先查看 [04-api.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/04-api.md)
-- 测试与样例优先查看 [test-scenarios.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/test-scenarios.md)
+- 测试与样例优先查看 [真实环境测试与验收手册.md](/Users/rxbyes/Downloads/rxbyes/idea/spring-boot-iot/docs/真实环境测试与验收手册.md)
 
 ## 5. 当前状态结论
 

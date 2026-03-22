@@ -10,14 +10,25 @@
   - 按路由批量抽查 `31` 个页面，覆盖 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大分区，以及各分区 landing 页和主要治理页。
   - 抽查路由包括：`/products`、`/devices`、`/reporting`、`/alarm-center`、`/event-disposal`、`/risk-point`、`/rule-definition`、`/linkage-rule`、`/emergency-plan`、`/report-analysis`、`/organization`、`/user`、`/role`、`/menu`、`/region`、`/dict`、`/channel`、`/in-app-message`、`/help-doc`、`/automation-test`、`/audit-log` 等。
 - 当前结论：
-  - 在完成 `P1` 下拉权限 warning 和 `P2` radio 废弃 API warning 清理后，本轮批量复扫的 `31` 个页面未再复现前端 `warning` 或页面级 `error`。
-  - 说明当前主要工作台和治理页的控制台噪音已明显收敛，现阶段不再存在可稳定复现的“整页级前端 warning backlog”。
-- 仍需记录的非业务噪音：
+  - 在完成 `P1` 下拉权限 warning、`P2` radio 废弃 API warning，以及开发态 `favicon` 静态资源补齐后，批量复扫的主要工作台和治理页未再复现前端 `warning` 或稳定可见的静态资源 404 噪音。
+  - 当前“纯前端控制台噪音”已明显收敛，现阶段不再存在可稳定复现的整页级前端 warning backlog。
+- 已处理的非业务噪音：
   - `GET /favicon.ico 404`
-  - 触发条件：新开浏览器会话首次访问本地 Vite 页面时偶发出现在控制台。
-  - 根因判断：`spring-boot-iot-ui/index.html` 当前未声明 favicon，开发服务器也没有提供对应静态资源；这是浏览器默认请求导致的静态资源缺失，不影响业务交互。
-  - 优先级：`P3`
-  - 建议动作：后续如需继续收紧开发态噪音，可补一个最小 favicon 资源或在 `index.html` 显式声明占位图标；这属于前端壳层静态资源完善，不属于业务缺陷。
+  - 处理结果：已在 `spring-boot-iot-ui/public/favicon.svg` 补齐最小站点图标，并在 `spring-boot-iot-ui/index.html` 显式声明 `rel=\"icon\"`。
+  - 处理后预期：新开浏览器会话访问本地 Vite 页面时，不再因为默认 favicon 请求产生 404 控制台噪音。
+- 复测更新：
+  - 当前本地验收基线已恢复：`http://127.0.0.1:4175` 与 `http://127.0.0.1:9999` 复测均可正常访问。
+  - 对首页 `/` 再次复测时，以下接口当前均已返回 `200`：
+    - `/api/system/in-app-message/my/page`
+    - `/api/system/in-app-message/my/unread-count`
+    - `/api/system/help-doc/access/list`
+    - `/api/report/risk-trend`
+    - `/api/report/alarm-statistics`
+    - `/api/report/event-closure`
+    - `/api/report/device-health`
+  - 对 `/reporting` 再次复测时，浏览器控制台当前为 `0 error / 0 warning`；帮助中心当前页资料请求 `/api/system/help-doc/access/list?currentPath=%2Freporting&limit=6` 也已返回 `200`。
+  - `spring-boot-iot-ui/public/favicon.svg` 当前可正常访问 `200`，开发态未再出现默认 `favicon` 缺失导致的稳定 404 噪音。
+  - 前一轮记录的 `ECONNREFUSED` 判断为“后端临时不可达时段的环境性阻塞”，当前环境已恢复，不再纳入活跃问题台账。
 - 复测备注：
   - 初次批量脚本曾在 `/rule-definition` 捕获一次 `查询规则列表失败 TypeError: Failed to fetch`。
   - 随后对 `/rule-definition` 单页做稳定复测后未再复现，页面数据和交互均正常，判断更接近巡检页切换阶段的采样伪阳性，不纳入当前活跃问题台账。

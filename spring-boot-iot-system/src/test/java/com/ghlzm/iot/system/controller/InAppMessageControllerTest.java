@@ -3,7 +3,10 @@ package com.ghlzm.iot.system.controller;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.advice.GlobalExceptionHandler;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.InAppMessageBridgeQueryService;
 import com.ghlzm.iot.system.service.InAppMessageService;
+import com.ghlzm.iot.system.vo.InAppMessageBridgeAttemptVO;
+import com.ghlzm.iot.system.vo.InAppMessageBridgeStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +17,8 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
@@ -29,12 +34,18 @@ class InAppMessageControllerTest {
     @Mock
     private InAppMessageService inAppMessageService;
 
+    @Mock
+    private InAppMessageBridgeQueryService inAppMessageBridgeQueryService;
+
     private MockMvc mockMvc;
     private Authentication authentication;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new InAppMessageController(inAppMessageService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new InAppMessageController(
+                        inAppMessageService,
+                        inAppMessageBridgeQueryService
+                ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
         authentication = new TestingAuthenticationToken(new JwtUserPrincipal(1L, "admin"), null);
@@ -80,5 +91,43 @@ class InAppMessageControllerTest {
 
         verify(inAppMessageService).getMyUnreadStats(1L);
         verify(inAppMessageService, never()).getMyMessageDetail(anyLong(), anyLong());
+    }
+
+    @Test
+    void shouldResolveBridgeStatsBeforeNumericDetailRoute() throws Exception {
+        when(inAppMessageBridgeQueryService.getBridgeStats(null, null, null, null, null, null, null))
+                .thenReturn(new InAppMessageBridgeStatsVO());
+
+        mockMvc.perform(get("/api/system/in-app-message/bridge/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(inAppMessageBridgeQueryService).getBridgeStats(null, null, null, null, null, null, null);
+        verify(inAppMessageService, never()).getById(anyLong());
+    }
+
+    @Test
+    void shouldResolveBridgePageBeforeNumericDetailRoute() throws Exception {
+        when(inAppMessageBridgeQueryService.pageBridgeLogs(null, null, null, null, null, null, null, 1L, 10L))
+                .thenReturn(PageResult.empty(1L, 10L));
+
+        mockMvc.perform(get("/api/system/in-app-message/bridge/page"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(inAppMessageBridgeQueryService).pageBridgeLogs(null, null, null, null, null, null, null, 1L, 10L);
+        verify(inAppMessageService, never()).getById(anyLong());
+    }
+
+    @Test
+    void shouldResolveBridgeAttemptsBeforeNumericDetailRoute() throws Exception {
+        when(inAppMessageBridgeQueryService.listBridgeAttempts(1L)).thenReturn(List.of(new InAppMessageBridgeAttemptVO()));
+
+        mockMvc.perform(get("/api/system/in-app-message/bridge/1/attempts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(inAppMessageBridgeQueryService).listBridgeAttempts(1L);
+        verify(inAppMessageService, never()).getById(anyLong());
     }
 }

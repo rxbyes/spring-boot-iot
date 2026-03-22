@@ -23,7 +23,7 @@ Before editing, read only what is needed from:
 - `docs/03-接口规范与接口清单.md`
 - `docs/06-前端开发与CSS规范.md`
 - `docs/05-protocol.md`
-- `docs/15-frontend-optimization-plan.md`
+- `docs/15-前端优化与治理计划.md`
 
 Then inspect the current frontend files that are directly related to the requested page:
 - `spring-boot-iot-ui/src/router/index.ts`
@@ -70,7 +70,7 @@ If code changes affect behavior, routes, APIs, workflows, startup commands, test
 
 Default documentation targets:
 - `docs/06-前端开发与CSS规范.md` for frontend structure, page semantics, and shared UI rules
-- `docs/15-frontend-optimization-plan.md` for frontend optimization constraints and governance notes
+- `docs/15-前端优化与治理计划.md` for frontend optimization constraints and governance notes
 - matching files under `docs/` when backend/API/protocol behavior changed
 - `README.md` when usage, startup, validation, or product scope changed
 - `AGENTS.md` when development rules, required reading, or workflow assumptions changed
@@ -312,7 +312,7 @@ For each requested page:
 6. update route title / description if the page meaning changed
 7. update the existing docs in place:
    - `docs/06-前端开发与CSS规范.md`
-   - `docs/15-frontend-optimization-plan.md` when shared frontend rules change
+   - `docs/15-前端优化与治理计划.md` when shared frontend rules change
    - related files under `docs/` if behavior changed
    - `README.md` and `AGENTS.md` when their content is affected
 8. run frontend build

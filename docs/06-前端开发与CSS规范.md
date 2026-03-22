@@ -1,6 +1,12 @@
 ﻿# 06 前端开发与 CSS 规范
 
-更新时间：2026-03-22
+> 文档定位：前端架构、组件分层、共享组件、交互模式和视觉 token 的长期规范。
+> 适用角色：前端、全栈、设计协作、代码评审、AI 前端助手。
+> 权威级别：一级权威。
+> 上游来源：`spring-boot-iot-ui` 当前实现、共享组件、shell 编排和视觉 token。
+> 下游消费：页面开发、重构收口、前端治理计划、skills。
+> 变更触发条件：共享组件模式变化、壳层结构变化、设计 token 变化、详情/列表交互规则变化。
+> 更新时间：2026-03-22
 
 ## 1. 技术栈与目录
 
@@ -13,6 +19,15 @@
   - `spring-boot-iot-ui/src/api`
   - `spring-boot-iot-ui/src/router`
   - `spring-boot-iot-ui/src/styles`
+
+### 1.1 组件分层与命名规则
+
+- 路由级页面统一放在 `src/views`，命名保持 `*View.vue`，例如 `ProductWorkbenchView.vue`、`RiskGisView.vue`。
+- 全局壳层、导航和跨页面编排能力继续收口到 `AppShell` 与 `useShell*` 系列 composable，不在页面内重复维护第二套壳层状态。
+- 可跨页面复用的标准组件继续使用 `Standard*`、`PanelCard`、`MetricCard` 一类统一前缀；新增共享组件时优先进入共享层，不要先做页面私有复制。
+- 业务型抽屉、卡片和面板命名优先采用“领域 + 结构 / 动作”模式，例如 `RiskMonitoringDetailDrawer`、`DeviceBatchImportDrawer`，避免出现 `Popup1`、`PanelNew` 一类无语义名称。
+- composable 统一使用 `useXxx` 命名；API 模块统一按业务域拆分到 `src/api/*`；类型定义优先沉淀到 `src/types/*`。
+- 页面内若同时存在“共享标准组件”和“页面定制包装层”，应优先保留共享标准件，把页面层命名为 `*Section`、`*Panel`、`*Card` 这类语义包装，而不是重新发明另一套 `Standard*` 前缀。
 
 ## 2. 前端架构基线
 
@@ -44,6 +59,10 @@
 - 帮助中心“查看更多”必须继续使用 `/api/system/help-doc/access/page` 做服务端分页检索；关键字高亮统一走安全文本切片渲染，不得用 `v-html` 直接拼接高亮 HTML。
 - 2026-03-21 夜间起，平台治理下的 `/in-app-message` 与 `/help-doc` 编排页已成为壳层系统内容的权威维护入口；后续新增消息分类、帮助分类、角色范围或关联页面时，必须继续复用 `system / business / error` 与 `business / technical / faq` 这两组既有口径，不得在编排页再发明第二套命名。
 - `/in-app-message` 当前必须继续复用固定来源类型 `manual / system_error / event_dispatch / work_order / governance`；治理页对系统自动消息只允许“查看或停用”，禁止在前端开放正文任意编辑或删除入口。
+- `/in-app-message` 当前新增的“桥接效果运营”必须继续留在同一页面内，以默认展开的折叠区承接桥接统计、渠道/来源洞察、桥接日志分页和桥接详情抽屉；不得再拆成独立菜单、独立路由或第二套桥接治理页。
+- 桥接详情当前必须使用独立于消息详情的 `StandardDetailDrawer` 状态，统一展示“桥接结果摘要 + 消息原文 + 尝试明细”；桥接分页继续复用 `StandardPagination`，日志表与尝试表继续复用 `StandardTableTextColumn` / 统一表格 token，不再引入页面私有表格样式。
+- 桥接筛选中的渠道下拉当前只允许展示 `webhook / wechat / feishu / dingtalk` 四类渠道，并继续直接复用 `/api/system/channel/list` 结果过滤；不要在前端另维护一份私有渠道字典。
+- 桥接响应摘要、目标摘要和尝试明细当前必须继续使用安全文本切片展示，不得在治理页用 `v-html` 直接注入后端响应内容。
 - `/channel` 当前维护的 `config.scenes` 需继续与后端自动场景同源：`system_error` 用于后台异常通知，`in_app_unread_bridge` 用于高优未读阈值后的渠道桥接；前端只负责提示和示例 JSON，不在页面内额外维护第二套桥接规则。
 - 系统内容编排页中的“关联页面”候选项必须优先复用共享 workspace schema 派生结果，不得在页面内再维护另一份私有路由字典，避免帮助中心和命令面板对同一路径出现两套文案。
 - `AppShell` 只通过 `src/composables/useShellOrchestrator.ts` 承接壳层编排；后续若新增壳层交互、导航规则或路由副作用，应优先扩展对应 composable，并最终由 orchestrator 统一装配，不再回到壳层主文件直接拼接多组状态。
@@ -70,6 +89,9 @@
 12. 统一详情抽屉：`StandardDetailDrawer`。
 13. 统一表单抽屉：`StandardFormDrawer`。
 14. `StandardDrawerFooter` + `confirmAction`：统一新增/修改/删除/确认类底部按钮和二次确认交互。
+
+补充规则：
+- 详情抽屉优先采用“列表摘要秒开 + 完整详情后台静默补数”的体验；不得用红色错误提示表达正常刷新中的补数过程。
 
 ### 3.1 链路验证中心专项约束
 
@@ -174,7 +196,7 @@
 
 - 分组概览、风险处置工作台、详情抽屉、表单抽屉与确认弹窗统一复用 `--brand`、`--accent`、`--panel-border` 等全局 token。
 - 不再在概览页或工作台局部写死另一套蓝色主题；局部强调色只能作为 `--accent` 的补充，而不是替换整页品牌色。
-- 如需局部例外主题，必须在 `docs/15-frontend-optimization-plan.md` 记录原因、影响范围和回退策略。
+- 如需局部例外主题，必须在 `docs/15-前端优化与治理计划.md` 记录原因、影响范围和回退策略。
 
 ## 5. 文本与编码规范
 
@@ -182,7 +204,17 @@
 - 禁止提交乱码文本（如 `鍒�`、`褰�`、`璇�`、`鐢�`）。
 - 涉及文案修改时必须自检中文可读性。
 
-## 6. 回归检查清单（前端改动后）
+## 6. 前端工程门禁
+
+- 当前已落地的前端门禁命令：
+  - `npm run build`
+  - `npm run test` 或受影响范围的 `vitest run`
+  - `npm run style:guard`
+- `style:guard` 当前负责控制样式字面量、圆角/阴影数量回退，以及品牌色硬编码回流；`tokens.css` 与 `element-overrides.css` 继续作为 token 源头白名单。
+- 当前仓库尚未看到 `eslint` / `stylelint` 独立脚本，因此现阶段前端硬门禁仍以“构建 + 测试 + style guard + 代码评审”为主。
+- 若未来补齐 ESLint / Stylelint 或其他静态门禁，必须同步回写本文件与 [15-前端优化与治理计划.md](./15-前端优化与治理计划.md)。
+
+## 7. 回归检查清单（前端改动后）
 
 1. 登录态恢复、401 回退流程是否正常。
 2. 菜单与按钮权限是否按角色生效。
@@ -196,10 +228,10 @@
 10. 页面超长时是否只有右侧内容区滚动，左侧二级菜单与顶部一级导航是否保持固定；若仍出现整页滚动，必须优先修正共享壳层或页面内异常高度样式。
 11. 当筛选区存在“更多条件”折叠层时，默认态、展开态和已命中隐藏条件时的提示是否一致可感知；不得出现“高级条件已生效但页面无提示”的状态。
 12. 若改动涉及右上角通知/帮助入口，是否仍按角色和菜单权限过滤内容，且保留 `系统事件 / 业务事件 / 错误事件` 与 `业务类 / 技术类 / FAQ` 的分类结构；不得回退为一组静态链接。
+13. 若改动涉及 `/in-app-message` 桥接运营专区，是否仍保持“同页折叠区 + 独立桥接详情抽屉 + 安全文本摘要 + 无导出/无手工重试”的当前 V1 口径；不得私自扩出第二套治理流。
 
-## 7. 已知问题与技术债
+## 8. 已知问题与技术债
 
 - `RealTimeMonitoringView`、`UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView`、`AutomationTestCenterView`、`DeviceInsightView`、`ProductWorkbenchView`、`DeviceWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`FutureLabView` 已完成当前批次的统一组件化迁移。
 - 当前剩余债务主要集中在自动化测试中心个别展示块是否继续拆成更细粒度组件，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
-- `【待确认】` 前端是否已建立强制 lint/style 检查门禁；仓库中未见明确质量闸门说明。
-- `【文档缺失】` 缺少“前端组件分层与命名规则”正式文档（如 atoms/molecules/templates 级别约定）。
+- 当前仍缺独立 ESLint / Stylelint 流水线脚本，现阶段继续以 `build + test + style:guard` 作为最小门禁。

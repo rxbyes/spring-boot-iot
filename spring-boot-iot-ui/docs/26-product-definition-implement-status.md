@@ -96,7 +96,7 @@ VITE_BAIDU_MAP_PUBLIC_KEY=your_baidu_map_api_key
 - `docs/24-product-definition-evolution-plan.md` - 进化规划
 - `docs/25-product-detail-active-metrics.md` - 活跃度统计需求
 - `docs/backend-product-api-requirements.md` - 后端 API 需求
-- `docs/23-frontend-detail-optimization.md` - 前端优化文档
+- `docs/archive/23-frontend-detail-optimization.md` - 前端优化过程归档
 
 ## 下一步工作
 

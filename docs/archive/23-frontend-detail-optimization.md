@@ -150,7 +150,7 @@ async function openDetail(row: Product) {
 |------|----------|------|
 | `src/views/ProductWorkbenchView.vue` | 修改 | 移除红色提示，优化加载体验 |
 | `src/components/StandardDetailDrawer.vue` | 可能修改 | 优化错误提示逻辑 |
-| `docs/15-frontend-optimization-plan.md` | 更新 | 记录本次优化 |
+| `docs/15-前端优化与治理计划.md` | 更新 | 记录本次优化 |
 
 ## 页面改造说明
 
@@ -231,7 +231,7 @@ open http://localhost:5173/products
 
 ### 已同步更新的文档
 
-- `docs/15-frontend-optimization-plan.md`：记录本次优化
+- `docs/15-前端优化与治理计划.md`：记录本次优化
 - `docs/23-frontend-detail-optimization.md`：本次优化记录
 
 ### 防回退规则

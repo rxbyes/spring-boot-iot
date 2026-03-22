@@ -84,6 +84,22 @@ class SystemContentSchemaSupportTest {
             "create_time",
             "update_time");
 
+    private static final List<String> IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_COLUMNS = List.of(
+            "id",
+            "tenant_id",
+            "bridge_log_id",
+            "message_id",
+            "channel_code",
+            "bridge_scene",
+            "attempt_no",
+            "bridge_status",
+            "unread_count",
+            "recipient_snapshot",
+            "response_status_code",
+            "response_body",
+            "attempt_time",
+            "create_time");
+
     @Mock
     private JdbcTemplate jdbcTemplate;
 
@@ -144,5 +160,15 @@ class SystemContentSchemaSupportTest {
                 .thenReturn(IN_APP_MESSAGE_BRIDGE_LOG_COLUMNS);
 
         assertDoesNotThrow(support::ensureInAppMessageBridgeLogReady);
+    }
+
+    @Test
+    void shouldPassWhenBridgeAttemptLogTableIsComplete() {
+        SystemContentSchemaSupport support = new SystemContentSchemaSupport(jdbcTemplate);
+        when(jdbcTemplate.queryForObject(TABLE_EXISTS_SQL, Integer.class, "sys_in_app_message_bridge_attempt_log")).thenReturn(1);
+        when(jdbcTemplate.queryForList(TABLE_COLUMNS_SQL, String.class, "sys_in_app_message_bridge_attempt_log"))
+                .thenReturn(IN_APP_MESSAGE_BRIDGE_ATTEMPT_LOG_COLUMNS);
+
+        assertDoesNotThrow(support::ensureInAppMessageBridgeAttemptLogReady);
     }
 }
