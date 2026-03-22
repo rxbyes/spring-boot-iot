@@ -86,8 +86,8 @@
 
     <template #footer>
       <StandardActionGroup>
-        <el-button v-if="record?.relatedPath" type="primary" @click="emit('navigate', record.relatedPath)">进入页面</el-button>
-        <el-button v-if="record && !record.read" type="warning" plain @click="emit('markRead')">标记已读</el-button>
+        <StandardButton v-if="record?.relatedPath" action="confirm" @click="emit('navigate', record.relatedPath)">进入页面</StandardButton>
+        <StandardButton v-if="record && !record.read" action="batch" plain @click="emit('markRead')">标记已读</StandardButton>
       </StandardActionGroup>
     </template>
   </StandardDetailDrawer>

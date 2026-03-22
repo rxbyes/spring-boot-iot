@@ -4,169 +4,180 @@
       :title="pageTitle"
       :description="pageDescription"
       show-filters
+      :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
       <template #filters>
-        <el-form :model="searchForm" label-width="100px" class="search-form">
-          <el-row :gutter="20">
-            <el-col v-if="isBusinessMode" :span="8">
-              <el-form-item label="操作用户">
-                <el-input
-                  v-model="searchForm.userName"
-                  placeholder="请输入操作用户"
-                  clearable
-                  @keyup.enter="handleSearch"
+        <StandardListFilterHeader
+          :model="searchForm"
+          :show-advanced="showAdvancedFilters"
+          show-advanced-toggle
+          :advanced-hint="advancedFilterHint"
+          @toggle-advanced="toggleAdvancedFilters"
+        >
+          <template #primary>
+            <el-form-item>
+              <el-input
+                id="quick-search"
+                v-model="quickSearchKeyword"
+                :placeholder="quickSearchPlaceholder"
+                clearable
+                prefix-icon="Search"
+                @keyup.enter="handleQuickSearch"
+                @clear="handleClearQuickSearch"
+              />
+            </el-form-item>
+            <el-form-item v-if="isBusinessMode">
+              <el-select v-model="searchForm.operationType" placeholder="操作类型" clearable>
+                <el-option
+                  v-for="item in businessOperationTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
                 />
-              </el-form-item>
-            </el-col>
-            <el-col v-if="isBusinessMode" :span="8">
-              <el-form-item label="操作类型">
-                <el-select v-model="searchForm.operationType" placeholder="请选择操作类型" clearable>
-                  <el-option
-                    v-for="item in businessOperationTypeOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item :label="isSystemMode ? '异常模块' : '操作模块'">
-                <el-input
-                  v-model="searchForm.operationModule"
-                  :placeholder="isSystemMode ? '请输入异常模块' : '请输入操作模块'"
-                  clearable
-                  @keyup.enter="handleSearch"
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="searchForm.operationModule"
+                :placeholder="isSystemMode ? '异常模块' : '操作模块'"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.operationResult" placeholder="操作结果" clearable>
+                <el-option label="成功" :value="1" />
+                <el-option label="失败" :value="0" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="isSystemMode">
+              <el-select v-model="searchForm.requestMethod" :placeholder="isSystemMode ? '请求通道' : '请求方法'" clearable>
+                <el-option
+                  v-for="item in systemRequestMethodOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
                 />
-              </el-form-item>
-            </el-col>
-            <el-col v-if="isSystemMode" :span="8">
-              <el-form-item label="请求通道">
-                <el-select v-model="searchForm.requestMethod" placeholder="请选择请求通道" clearable>
-                  <el-option
-                    v-for="item in systemRequestMethodOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col v-if="isSystemMode" :span="8">
-              <el-form-item label="目标 / URL">
-                <el-input
-                  v-model="searchForm.requestUrl"
-                  placeholder="请输入 topic、生命周期目标或请求地址"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <el-form-item label="TraceId">
-                <el-input
-                  v-model="searchForm.traceId"
-                  placeholder="请输入 TraceId"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col v-if="isSystemMode" :span="8">
-              <el-form-item label="设备编码">
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #advanced>
+            <el-form-item v-if="isBusinessMode">
+              <el-input
+                v-model="searchForm.traceId"
+                placeholder="TraceId"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item v-if="isSystemMode">
+              <el-input
+                v-model="searchForm.requestUrl"
+                placeholder="目标 / URL"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <template v-if="isSystemMode">
+              <el-form-item>
                 <el-input
                   v-model="searchForm.deviceCode"
-                  placeholder="请输入设备编码"
+                  placeholder="设备编码"
                   clearable
                   @keyup.enter="handleSearch"
                 />
               </el-form-item>
-            </el-col>
-            <el-col v-if="isSystemMode" :span="8">
-              <el-form-item label="产品标识">
+              <el-form-item>
                 <el-input
                   v-model="searchForm.productKey"
-                  placeholder="请输入产品标识"
+                  placeholder="产品标识"
                   clearable
                   @keyup.enter="handleSearch"
                 />
               </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row v-if="isSystemMode" :gutter="20">
-            <el-col :span="8">
-              <el-form-item label="异常编码">
+              <el-form-item>
                 <el-input
                   v-model="searchForm.errorCode"
-                  placeholder="请输入异常编码"
+                  placeholder="异常编码"
                   clearable
                   @keyup.enter="handleSearch"
                 />
               </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="异常类型">
+              <el-form-item>
                 <el-input
                   v-model="searchForm.exceptionClass"
-                  placeholder="请输入异常类名"
+                  placeholder="异常类型"
                   clearable
                   @keyup.enter="handleSearch"
                 />
               </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <el-form-item label="操作结果">
-                <el-select v-model="searchForm.operationResult" placeholder="请选择操作结果" clearable>
-                  <el-option label="成功" :value="1" />
-                  <el-option label="失败" :value="0" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row>
-            <el-col :span="24" class="text-right">
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-            </el-col>
-          </el-row>
-        </el-form>
+            </template>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+        <div v-if="quickSearchKeyword.trim()" class="audit-log-quick-search-tag">
+          <el-tag closable class="audit-log-quick-search-tag__chip" @close="handleClearQuickSearch">
+            快速搜索：{{ quickSearchKeyword.trim() }}
+          </el-tag>
+        </div>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="removeAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
       </template>
 
       <template #notices>
-        <el-alert
-          :title="viewTip"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
-        <el-alert
-          :title="statsSummaryText"
-          type="success"
-          :closable="false"
-          show-icon
-          class="stats-alert"
-        />
+        <div class="audit-log-notice-grid">
+          <el-alert
+            :title="viewTip"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            :title="statsSummaryText"
+            type="success"
+            :closable="false"
+            show-icon
+            class="stats-alert"
+          />
+        </div>
       </template>
 
       <template #toolbar>
-        <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `已选 ${selectedRows.length} 项`,
+            isSystemMode ? `异常 ${systemStats.total}` : `审计 ${businessStats.total}`,
+            isSystemMode
+              ? `今日 ${systemStats.todayCount}`
+              : `成功 ${businessStats.successCount}`,
+            isSystemMode
+              ? `链路 ${systemStats.distinctTraceCount}`
+              : `失败 ${businessStats.failureCount}`
+          ]"
+        >
           <template #right>
-            <el-button v-if="isSystemMode" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
+            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
               链路追踪台
-            </el-button>
-            <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-            <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-            <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-            <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-            <el-button link @click="handleRefresh">刷新列表</el-button>
+            </StandardButton>
+            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
       </template>
@@ -174,6 +185,7 @@
       <el-table
         ref="tableRef"
         v-loading="loading"
+        class="audit-log-table"
         :data="tableData"
         border
         stripe
@@ -203,39 +215,40 @@
         <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
         <el-table-column prop="operationResult" label="操作结果" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.operationResult === 1 ? 'success' : 'danger'">
-              {{ row.operationResult === 1 ? '成功' : '失败' }}
+            <el-tag :type="getOperationResultTag(row.operationResult)" round>
+              {{ getOperationResultName(row.operationResult) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" :width="isSystemMode ? 210 : 150" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleDetail(row)">详情</el-button>
-            <el-button
-              v-if="isSystemMode"
-              type="primary"
-              link
-              :disabled="!canJumpToMessageTrace(row)"
-              @click="handleJumpToMessageTrace(row)"
-            >
-              追踪
-            </el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>
+              <StandardActionLink
+                v-if="isSystemMode"
+                :disabled="!canJumpToMessageTrace(row)"
+                @click="handleJumpToMessageTrace(row)"
+              >
+                追踪
+              </StandardActionLink>
+              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-          class="pagination"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
     </StandardWorkbenchPanel>
 
@@ -268,6 +281,8 @@ import type { RequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
@@ -302,7 +317,10 @@ const viewTip = computed(() =>
 )
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
 const canJumpFromSearch = computed(() =>
-  Boolean(searchForm.traceId || searchForm.deviceCode || searchForm.productKey || (searchForm.requestMethod === 'MQTT' && searchForm.requestUrl))
+  Boolean(
+    quickSearchKeyword.value.trim() || searchForm.traceId || searchForm.deviceCode || searchForm.productKey
+      || (searchForm.requestMethod === 'MQTT' && searchForm.requestUrl)
+  )
 )
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
@@ -333,6 +351,21 @@ const searchForm = reactive({
   exceptionClass: '',
   operationResult: undefined as number | undefined
 })
+const appliedFilters = reactive({
+  userName: '',
+  operationType: undefined as string | undefined,
+  traceId: '',
+  deviceCode: '',
+  productKey: '',
+  operationModule: '',
+  requestMethod: '',
+  requestUrl: '',
+  errorCode: '',
+  exceptionClass: '',
+  operationResult: undefined as number | undefined
+})
+const quickSearchKeyword = ref('')
+const showAdvancedFilters = ref(false)
 
 // 分页
 
@@ -405,6 +438,70 @@ const createEmptyBusinessStats = (): BusinessAuditStats => ({
 
 const systemStats = ref<SystemErrorStats>(createEmptySystemStats())
 const businessStats = ref<BusinessAuditStats>(createEmptyBusinessStats())
+const quickSearchPlaceholder = computed(() => (isSystemMode.value ? '快速搜索（TraceId）' : '快速搜索（操作用户）'))
+const advancedFilterKeys = computed<
+  Array<'traceId' | 'deviceCode' | 'productKey' | 'requestUrl' | 'errorCode' | 'exceptionClass'>
+>(() =>
+  isSystemMode.value
+    ? ['requestUrl', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass']
+    : ['traceId']
+)
+const activeFilterTags = computed(() => {
+  const tags: Array<{ key: string; label: string }> = []
+  if (appliedFilters.userName.trim()) {
+    tags.push({ key: 'userName', label: `操作用户：${appliedFilters.userName.trim()}` })
+  }
+  if (appliedFilters.operationType) {
+    tags.push({ key: 'operationType', label: `操作类型：${getOperationTypeName(appliedFilters.operationType)}` })
+  }
+  if (appliedFilters.traceId.trim()) {
+    tags.push({ key: 'traceId', label: `TraceId：${appliedFilters.traceId.trim()}` })
+  }
+  if (appliedFilters.operationModule.trim()) {
+    tags.push({
+      key: 'operationModule',
+      label: `${isSystemMode.value ? '异常模块' : '操作模块'}：${appliedFilters.operationModule.trim()}`
+    })
+  }
+  if (isSystemMode.value && appliedFilters.requestMethod) {
+    tags.push({
+      key: 'requestMethod',
+      label: `请求通道：${appliedFilters.requestMethod}`
+    })
+  }
+  if (isSystemMode.value && appliedFilters.requestUrl.trim()) {
+    tags.push({
+      key: 'requestUrl',
+      label: `目标 / URL：${appliedFilters.requestUrl.trim()}`
+    })
+  }
+  if (appliedFilters.deviceCode.trim()) {
+    tags.push({ key: 'deviceCode', label: `设备编码：${appliedFilters.deviceCode.trim()}` })
+  }
+  if (appliedFilters.productKey.trim()) {
+    tags.push({ key: 'productKey', label: `产品标识：${appliedFilters.productKey.trim()}` })
+  }
+  if (appliedFilters.errorCode.trim()) {
+    tags.push({ key: 'errorCode', label: `异常编码：${appliedFilters.errorCode.trim()}` })
+  }
+  if (appliedFilters.exceptionClass.trim()) {
+    tags.push({ key: 'exceptionClass', label: `异常类型：${appliedFilters.exceptionClass.trim()}` })
+  }
+  if (appliedFilters.operationResult !== undefined) {
+    tags.push({ key: 'operationResult', label: `操作结果：${getOperationResultName(appliedFilters.operationResult)}` })
+  }
+  return tags
+})
+const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
+const advancedAppliedFilterCount = computed(() =>
+  advancedFilterKeys.value.reduce((count, key) => count + (hasFilledFilter(appliedFilters[key]) ? 1 : 0), 0)
+)
+const advancedFilterHint = computed(() => {
+  if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
+    return ''
+  }
+  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`
+})
 
 const statsSummaryText = computed(() => {
   if (statsLoading.value) {
@@ -430,7 +527,46 @@ const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
 }
 
+const hasFilledFilter = (value: string | number | undefined) => {
+  if (typeof value === 'string') {
+    return value.trim() !== ''
+  }
+  return value !== undefined
+}
+
+const syncAppliedFilters = () => {
+  appliedFilters.userName = searchForm.userName.trim()
+  appliedFilters.operationType = searchForm.operationType
+  appliedFilters.traceId = searchForm.traceId.trim()
+  appliedFilters.deviceCode = searchForm.deviceCode.trim()
+  appliedFilters.productKey = searchForm.productKey.trim()
+  appliedFilters.operationModule = searchForm.operationModule.trim()
+  appliedFilters.requestMethod = searchForm.requestMethod.trim()
+  appliedFilters.requestUrl = searchForm.requestUrl.trim()
+  appliedFilters.errorCode = searchForm.errorCode.trim()
+  appliedFilters.exceptionClass = searchForm.exceptionClass.trim()
+  appliedFilters.operationResult = searchForm.operationResult
+}
+
+const syncQuickSearchKeywordFromFilters = () => {
+  quickSearchKeyword.value = isSystemMode.value ? searchForm.traceId : searchForm.userName
+}
+
+const applyQuickSearchKeywordToFilters = () => {
+  const keyword = quickSearchKeyword.value.trim()
+  if (isSystemMode.value) {
+    searchForm.traceId = keyword
+    return
+  }
+  searchForm.userName = keyword
+}
+
+const syncAdvancedFilterState = () => {
+  showAdvancedFilters.value = advancedFilterKeys.value.some((key) => hasFilledFilter(searchForm[key]))
+}
+
 const resetSearchForm = () => {
+  quickSearchKeyword.value = ''
   searchForm.userName = ''
   searchForm.operationType = undefined
   searchForm.traceId = ''
@@ -442,6 +578,7 @@ const resetSearchForm = () => {
   searchForm.errorCode = ''
   searchForm.exceptionClass = ''
   searchForm.operationResult = undefined
+  showAdvancedFilters.value = false
 }
 
 const readRouteQueryValue = (key: string) => {
@@ -470,6 +607,8 @@ const applySystemRouteQuery = () => {
   searchForm.errorCode = readRouteQueryValue('errorCode')
   searchForm.exceptionClass = readRouteQueryValue('exceptionClass')
   searchForm.operationResult = parseOptionalNumber(readRouteQueryValue('operationResult'))
+  syncQuickSearchKeywordFromFilters()
+  syncAdvancedFilterState()
 }
 
 // 获取审计日志查询条件
@@ -542,6 +681,9 @@ const getAuditLogStats = async () => {
 onMounted(() => {
   reloadExportSelection()
   applySystemRouteQuery()
+  syncQuickSearchKeywordFromFilters()
+  syncAdvancedFilterState()
+  syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
 })
@@ -561,6 +703,9 @@ watch(viewMode, (newMode, oldMode) => {
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
+  syncQuickSearchKeywordFromFilters()
+  syncAdvancedFilterState()
+  syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
 })
@@ -587,26 +732,92 @@ watch(
     applySystemRouteQuery()
     resetPage()
     clearSelection()
+    syncAppliedFilters()
     getAuditLogList()
     getAuditLogStats()
   }
 )
 
-// 处理搜索
-const handleSearch = () => {
-  resetPage()
+const triggerSearch = (resetPageFirst = false) => {
+  applyQuickSearchKeywordToFilters()
+  syncAppliedFilters()
+  if (resetPageFirst) {
+    resetPage()
+  }
   clearSelection()
   getAuditLogList()
   getAuditLogStats()
 }
 
+// 处理搜索
+const handleSearch = () => {
+  triggerSearch(true)
+}
+
 // 重置搜索
 const handleReset = () => {
   resetSearchForm()
-  resetPage()
-  clearSelection()
-  getAuditLogList()
-  getAuditLogStats()
+  triggerSearch(true)
+}
+
+const handleQuickSearch = () => {
+  triggerSearch(true)
+}
+
+const handleClearQuickSearch = () => {
+  quickSearchKeyword.value = ''
+  triggerSearch(true)
+}
+
+const toggleAdvancedFilters = () => {
+  showAdvancedFilters.value = !showAdvancedFilters.value
+}
+
+const handleClearAppliedFilters = () => {
+  handleReset()
+}
+
+const removeAppliedFilter = (key: keyof typeof appliedFilters) => {
+  switch (key) {
+    case 'operationType':
+      searchForm.operationType = undefined
+      break
+    case 'operationResult':
+      searchForm.operationResult = undefined
+      break
+    case 'userName':
+      searchForm.userName = ''
+      break
+    case 'traceId':
+      searchForm.traceId = ''
+      break
+    case 'deviceCode':
+      searchForm.deviceCode = ''
+      break
+    case 'productKey':
+      searchForm.productKey = ''
+      break
+    case 'operationModule':
+      searchForm.operationModule = ''
+      break
+    case 'requestMethod':
+      searchForm.requestMethod = ''
+      break
+    case 'requestUrl':
+      searchForm.requestUrl = ''
+      break
+    case 'errorCode':
+      searchForm.errorCode = ''
+      break
+    case 'exceptionClass':
+      searchForm.exceptionClass = ''
+      break
+  }
+  if ((isSystemMode.value && key === 'traceId') || (isBusinessMode.value && key === 'userName')) {
+    syncQuickSearchKeywordFromFilters()
+  }
+  syncAdvancedFilterState()
+  triggerSearch(true)
 }
 
 const handleSelectionChange = (rows: AuditLogRecord[]) => {
@@ -619,9 +830,7 @@ const clearSelection = () => {
 }
 
 const handleRefresh = () => {
-  clearSelection()
-  getAuditLogList()
-  getAuditLogStats()
+  triggerSearch(false)
 }
 
 const canJumpToMessageTrace = (row?: AuditLogRecord) => {
@@ -632,7 +841,13 @@ const canJumpToMessageTrace = (row?: AuditLogRecord) => {
 }
 
 const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
-  const target = row || searchForm
+  const target = row || {
+    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
+    deviceCode: searchForm.deviceCode,
+    productKey: searchForm.productKey,
+    requestMethod: searchForm.requestMethod,
+    requestUrl: searchForm.requestUrl
+  }
   const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
   const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
   router.push({
@@ -775,3 +990,23 @@ watch(detailVisible, (visible) => {
   }
 })
 </script>
+
+<style scoped>
+.audit-log-view {
+  min-width: 0;
+}
+
+.audit-log-quick-search-tag {
+  margin-top: 0.72rem;
+}
+
+.audit-log-quick-search-tag__chip {
+  margin: 0;
+}
+
+.audit-log-notice-grid {
+  display: grid;
+  gap: 0.72rem;
+}
+
+</style>

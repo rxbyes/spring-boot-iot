@@ -81,9 +81,31 @@ public class UpMessageDispatcher {
         }
         upMessage.setProtocolCode(rawMessage.getProtocolCode());
         upMessage.setTopic(rawMessage.getTopic());
+        enrichRawMessage(rawMessage, upMessage);
 
         deviceMessageService.handleUpMessage(upMessage);
         return upMessage;
+    }
+
+    private void enrichRawMessage(RawDeviceMessage rawMessage, DeviceUpMessage upMessage) {
+        if (rawMessage == null || upMessage == null) {
+            return;
+        }
+        if (hasText(upMessage.getDeviceCode())) {
+            rawMessage.setDeviceCode(upMessage.getDeviceCode());
+        }
+        if (hasText(upMessage.getProductKey())) {
+            rawMessage.setProductKey(upMessage.getProductKey());
+        }
+        if (hasText(upMessage.getMessageType())) {
+            rawMessage.setMessageType(upMessage.getMessageType());
+        }
+        if (!hasText(rawMessage.getClientId()) && hasText(upMessage.getDeviceCode())) {
+            rawMessage.setClientId(upMessage.getDeviceCode());
+        }
+        if (hasText(upMessage.getProtocolCode())) {
+            rawMessage.setProtocolCode(upMessage.getProtocolCode());
+        }
     }
 
     private Map<String, Object> buildMetadata(RawDeviceMessage rawMessage) {

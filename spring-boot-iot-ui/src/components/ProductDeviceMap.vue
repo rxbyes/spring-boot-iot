@@ -7,7 +7,7 @@
     <div v-if="error" class="product-device-map__error">
       <el-icon><Warning /></el-icon>
       <span>{{ error }}</span>
-      <el-button type="primary" link @click="handleRetry">重试</el-button>
+      <StandardActionLink @click="handleRetry">重试</StandardActionLink>
     </div>
     <div ref="mapContainer" class="product-device-map__container" />
     <div v-if="!loading && !error && hasGeolocationData" class="product-device-map__legend">

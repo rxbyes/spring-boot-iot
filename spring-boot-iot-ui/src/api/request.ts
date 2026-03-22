@@ -20,15 +20,21 @@ export interface ResponseInterceptor<T = unknown> {
 export interface RequestError extends Error {
   handled?: boolean;
   status?: number;
+  rawMessage?: string;
 }
+
+const SYSTEM_BUSY_MESSAGE = '系统繁忙，请稍后重试！';
 
 const UNSAFE_ID_JSON_FIELD_PATTERN =
   /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
 
-export function createRequestError(message: string, handled = false, status?: number): RequestError {
+export function createRequestError(message: string, handled = false, status?: number, rawMessage?: string): RequestError {
   const error = new Error(message) as RequestError;
   error.handled = handled;
   error.status = status;
+  if (rawMessage && rawMessage !== message) {
+    error.rawMessage = rawMessage;
+  }
   return error;
 }
 
@@ -52,6 +58,16 @@ export function parseApiEnvelope<T>(bodyText: string): ApiEnvelope<T> | null {
   } catch {
     return null;
   }
+}
+
+function resolveHttpErrorMessage(status: number, bodyText: string, fallbackMessage: string): string {
+  if (status === 500) {
+    return SYSTEM_BUSY_MESSAGE;
+  }
+  if (status > 500) {
+    return bodyText || SYSTEM_BUSY_MESSAGE;
+  }
+  return bodyText || fallbackMessage;
 }
 
 class InterceptorManager {
@@ -138,7 +154,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
       if (!response.ok) {
         const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
-        const message = processedPayload.msg || bodyText || `请求失败: ${statusMessage}`;
+        const message = processedPayload.msg || resolveHttpErrorMessage(response.status, bodyText, `请求失败: ${statusMessage}`);
         throw createRequestError(message, false, response.status);
       }
       return processedPayload;
@@ -146,7 +162,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     if (!response.ok) {
       const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
-      const message = bodyText || `请求失败: ${statusMessage}`;
+      const message = resolveHttpErrorMessage(response.status, bodyText, `请求失败: ${statusMessage}`);
       throw createRequestError(message, false, response.status);
     }
 

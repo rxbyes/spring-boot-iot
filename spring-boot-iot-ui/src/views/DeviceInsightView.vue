@@ -23,18 +23,18 @@
             </div>
           </div>
           <StandardActionGroup margin-top="sm">
-            <el-button class="primary-button" type="primary" native-type="submit" :loading="isLoading">
+            <StandardButton action="confirm" native-type="submit" :loading="isLoading">
               {{ isLoading ? '刷新中...' : '刷新对象洞察' }}
-            </el-button>
-            <el-button class="secondary-button" @click="jumpToReporting">
+            </StandardButton>
+            <StandardButton action="reset" @click="jumpToReporting">
               进入链路验证中心
-            </el-button>
-            <el-button class="secondary-button" @click="goToMessageTrace">
+            </StandardButton>
+            <StandardButton action="reset" @click="goToMessageTrace">
               链路追踪台
-            </el-button>
-            <el-button class="ghost-button" @click="jumpToDevices">
+            </StandardButton>
+            <StandardButton action="reset" plain @click="jumpToDevices">
               查看设备资产
-            </el-button>
+            </StandardButton>
           </StandardActionGroup>
         </form>
 

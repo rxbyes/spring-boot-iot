@@ -93,7 +93,9 @@
                 </el-table-column>
                 <el-table-column label="操作" width="100" fixed="right" show-overflow-tooltip>
                   <template #default="{ row }">
-                    <el-button type="primary" link @click="handleViewDevice(row)">查看</el-button>
+                    <StandardRowActions>
+                      <StandardActionLink @click="handleViewDevice(row)">查看</StandardActionLink>
+                    </StandardRowActions>
                   </template>
                 </el-table-column>
               </el-table>

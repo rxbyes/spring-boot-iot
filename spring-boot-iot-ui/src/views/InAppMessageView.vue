@@ -7,9 +7,9 @@
             <span>站内消息管理</span>
             <small>统一治理通知中心的手工广播、系统自动消息来源与消费效果。</small>
           </div>
-          <el-button v-permission="'system:in-app-message:add'" type="primary" :icon="Plus" @click="handleAdd">
+          <StandardButton v-permission="'system:in-app-message:add'" action="add" :icon="Plus" @click="handleAdd">
             新增消息
-          </el-button>
+          </StandardButton>
         </div>
       </template>
 
@@ -69,97 +69,73 @@
         </article>
       </section>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="消息标题">
-              <el-input
-                v-model="searchForm.title"
-                clearable
-                placeholder="请输入消息标题"
-                @keyup.enter="handleSearch"
+      <StandardListFilterHeader :model="searchForm">
+        <template #primary>
+          <el-form-item>
+            <el-input
+              v-model="searchForm.title"
+              clearable
+              placeholder="消息标题"
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.messageType" clearable placeholder="消息分类">
+              <el-option
+                v-for="item in IN_APP_MESSAGE_TYPE_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
               />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="消息分类">
-              <el-select v-model="searchForm.messageType" clearable placeholder="请选择分类">
-                <el-option
-                  v-for="item in IN_APP_MESSAGE_TYPE_OPTIONS"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="优先级">
-              <el-select v-model="searchForm.priority" clearable placeholder="请选择优先级">
-                <el-option
-                  v-for="item in IN_APP_MESSAGE_PRIORITY_OPTIONS"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="来源类型">
-              <el-select v-model="searchForm.sourceType" clearable placeholder="请选择来源类型">
-                <el-option
-                  v-for="item in IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="推送范围">
-              <el-select v-model="searchForm.targetType" clearable placeholder="请选择推送范围">
-                <el-option
-                  v-for="item in IN_APP_MESSAGE_TARGET_TYPE_OPTIONS"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="状态">
-              <el-select v-model="searchForm.status" clearable placeholder="请选择状态">
-                <el-option label="启用" :value="1" />
-                <el-option label="停用" :value="0" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <div />
-          </el-col>
-          <el-col :span="8">
-            <div />
-          </el-col>
-          <el-col :span="8" class="text-right">
-            <el-form-item label="">
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.priority" clearable placeholder="优先级">
+              <el-option
+                v-for="item in IN_APP_MESSAGE_PRIORITY_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.sourceType" clearable placeholder="来源类型">
+              <el-option
+                v-for="item in IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.targetType" clearable placeholder="推送范围">
+              <el-option
+                v-for="item in IN_APP_MESSAGE_TARGET_TYPE_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.status" clearable placeholder="状态">
+              <el-option label="启用" :value="1" />
+              <el-option label="停用" :value="0" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+        </template>
+      </StandardListFilterHeader>
 
-      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
+      <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
         <template #right>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -222,34 +198,30 @@
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
         <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleView(row)">查看</el-button>
-            <el-button
-              v-if="canEditMessage(row)"
-              v-permission="'system:in-app-message:update'"
-              type="primary"
-              link
-              @click="handleEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-else-if="canDeactivateMessage(row)"
-              v-permission="'system:in-app-message:update'"
-              type="warning"
-              link
-              @click="handleDeactivate(row)"
-            >
-              停用
-            </el-button>
-            <el-button
-              v-if="canDeleteMessage(row)"
-              v-permission="'system:in-app-message:delete'"
-              type="danger"
-              link
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
+            <StandardRowActions variant="table" gap="wide" wrap>
+              <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
+              <StandardActionLink
+                v-if="canEditMessage(row)"
+                v-permission="'system:in-app-message:update'"
+                @click="handleEdit(row)"
+              >
+                编辑
+              </StandardActionLink>
+              <StandardActionLink
+                v-else-if="canDeactivateMessage(row)"
+                v-permission="'system:in-app-message:update'"
+                @click="handleDeactivate(row)"
+              >
+                停用
+              </StandardActionLink>
+              <StandardActionLink
+                v-if="canDeleteMessage(row)"
+                v-permission="'system:in-app-message:delete'"
+                @click="handleDelete(row)"
+              >
+                删除
+              </StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -336,94 +308,77 @@
           </section>
 
           <section class="in-app-message-view__bridge-filter-card">
-            <el-form :model="bridgeSearchForm" label-width="100px" class="search-form search-form--bridge">
-              <el-row :gutter="20">
-                <el-col :span="12">
-                  <el-form-item label="时间范围">
-                    <el-date-picker
-                      v-model="bridgeSearchForm.timeRange"
-                      type="datetimerange"
-                      unlink-panels
-                      clearable
-                      value-format="YYYY-MM-DD HH:mm:ss"
-                      range-separator="至"
-                      start-placeholder="开始时间"
-                      end-placeholder="结束时间"
-                      style="width: 100%"
+            <StandardListFilterHeader
+              :model="bridgeSearchForm"
+              :primary-columns="'minmax(340px, 1.5fr) repeat(2, minmax(220px, 1fr))'"
+              :primary-visible-count="3"
+            >
+              <template #primary>
+                <el-form-item>
+                  <el-date-picker
+                    v-model="bridgeSearchForm.timeRange"
+                    type="datetimerange"
+                    unlink-panels
+                    clearable
+                    value-format="YYYY-MM-DD HH:mm:ss"
+                    range-separator="至"
+                    start-placeholder="开始时间"
+                    end-placeholder="结束时间"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-select v-model="bridgeSearchForm.channelCode" clearable filterable placeholder="渠道">
+                    <el-option
+                      v-for="channel in bridgeChannelOptions"
+                      :key="channel.channelCode"
+                      :label="`${channel.channelName} (${channel.channelCode})`"
+                      :value="channel.channelCode"
                     />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="渠道">
-                    <el-select v-model="bridgeSearchForm.channelCode" clearable filterable placeholder="请选择渠道">
-                      <el-option
-                        v-for="channel in bridgeChannelOptions"
-                        :key="channel.channelCode"
-                        :label="`${channel.channelName} (${channel.channelCode})`"
-                        :value="channel.channelCode"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="桥接状态">
-                    <el-select v-model="bridgeSearchForm.bridgeStatus" clearable placeholder="请选择桥接状态">
-                      <el-option label="桥接成功" :value="1" />
-                      <el-option label="待重试" :value="0" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="消息分类">
-                    <el-select v-model="bridgeSearchForm.messageType" clearable placeholder="请选择消息分类">
-                      <el-option
-                        v-for="item in IN_APP_MESSAGE_TYPE_OPTIONS"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="来源类型">
-                    <el-select v-model="bridgeSearchForm.sourceType" clearable placeholder="请选择来源类型">
-                      <el-option
-                        v-for="item in IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="优先级">
-                    <el-select v-model="bridgeSearchForm.priority" clearable placeholder="请选择优先级">
-                      <el-option
-                        v-for="item in IN_APP_MESSAGE_PRIORITY_OPTIONS"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <div />
-                </el-col>
-                <el-col :span="8" class="text-right">
-                  <el-form-item label="">
-                    <el-button @click="handleBridgeReset">重置</el-button>
-                    <el-button type="primary" @click="handleBridgeSearch">查询</el-button>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </el-form>
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-select v-model="bridgeSearchForm.bridgeStatus" clearable placeholder="桥接状态">
+                    <el-option label="桥接成功" :value="1" />
+                    <el-option label="待重试" :value="0" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-select v-model="bridgeSearchForm.messageType" clearable placeholder="消息分类">
+                    <el-option
+                      v-for="item in IN_APP_MESSAGE_TYPE_OPTIONS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-select v-model="bridgeSearchForm.sourceType" clearable placeholder="来源类型">
+                    <el-option
+                      v-for="item in IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-select v-model="bridgeSearchForm.priority" clearable placeholder="优先级">
+                    <el-option
+                      v-for="item in IN_APP_MESSAGE_PRIORITY_OPTIONS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                </el-form-item>
+              </template>
+              <template #actions>
+                <StandardButton action="reset" @click="handleBridgeReset">重置</StandardButton>
+                <StandardButton action="query" @click="handleBridgeSearch">查询</StandardButton>
+              </template>
+            </StandardListFilterHeader>
           </section>
 
           <el-alert
@@ -435,9 +390,9 @@
             :title="bridgeErrorMessage"
           />
 
-          <StandardTableToolbar :meta-items="[ `桥接结果 ${bridgePagination.total} 条`, bridgeRangeSummary ]">
+          <StandardTableToolbar compact :meta-items="[ `桥接结果 ${bridgePagination.total} 条`, bridgeRangeSummary ]">
             <template #right>
-              <el-button link @click="handleBridgeRefresh">刷新桥接结果</el-button>
+              <StandardButton action="refresh" link @click="handleBridgeRefresh">刷新桥接结果</StandardButton>
             </template>
           </StandardTableToolbar>
 
@@ -518,7 +473,9 @@
             </el-table-column>
             <el-table-column label="操作" width="120" fixed="right" :show-overflow-tooltip="false">
               <template #default="{ row }">
-                <el-button type="primary" link @click="handleViewBridge(row)">查看桥接</el-button>
+                <StandardRowActions variant="table" gap="wide">
+                  <StandardActionLink @click="handleViewBridge(row)">桥接详情</StandardActionLink>
+                </StandardRowActions>
               </template>
             </el-table-column>
           </el-table>
@@ -1020,10 +977,12 @@ import PanelCard from '@/components/PanelCard.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
+import type { RequestError } from '@/api/request'
 import type { ApiEnvelope, IdType } from '@/types/api'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
@@ -1175,7 +1134,7 @@ const bridgeRangeSummary = computed(() => {
   return '统计范围 最近 7 天'
 })
 const bridgeErrorMessage = computed(() => {
-  const messages = [bridgeStatsErrorMessage.value, bridgeTableErrorMessage.value].filter(Boolean)
+  const messages = [...new Set([bridgeStatsErrorMessage.value, bridgeTableErrorMessage.value].filter(Boolean))]
   return messages.join('；')
 })
 
@@ -1580,6 +1539,21 @@ function ensureSuccess<T>(response: ApiEnvelope<T>, fallbackMessage: string): T 
   throw new Error(response.msg || fallbackMessage)
 }
 
+function resolvePageErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error) {
+    return error.message || fallbackMessage
+  }
+  return fallbackMessage
+}
+
+function showPageError(error: unknown, fallbackMessage: string) {
+  const message = resolvePageErrorMessage(error, fallbackMessage)
+  if (!(error as RequestError | undefined)?.handled) {
+    ElMessage.error(message)
+  }
+  return message
+}
+
 async function loadRoleOptions() {
   try {
     const response = await listRoles({ status: 1 })
@@ -1631,7 +1605,7 @@ async function loadMessagePage() {
     }
   } catch (error) {
     console.error('获取站内消息分页失败', error)
-    ElMessage.error((error as Error).message || '获取站内消息分页失败')
+    showPageError(error, '获取站内消息分页失败')
   } finally {
     loading.value = false
   }
@@ -1649,7 +1623,7 @@ async function loadStats() {
     }
   } catch (error) {
     console.error('获取站内消息统计失败', error)
-    ElMessage.error((error as Error).message || '获取站内消息统计失败')
+    showPageError(error, '获取站内消息统计失败')
   } finally {
     statsLoading.value = false
   }
@@ -1664,7 +1638,7 @@ async function loadBridgeStats() {
   } catch (error) {
     console.error('获取桥接统计失败', error)
     bridgeStatsRecord.value = null
-    bridgeStatsErrorMessage.value = (error as Error).message || '获取桥接统计失败'
+    bridgeStatsErrorMessage.value = resolvePageErrorMessage(error, '获取桥接统计失败')
   } finally {
     bridgeStatsLoading.value = false
   }
@@ -1684,7 +1658,7 @@ async function loadBridgePage() {
     console.error('获取桥接日志失败', error)
     bridgeTableData.value = []
     resetBridgeTotal()
-    bridgeTableErrorMessage.value = (error as Error).message || '获取桥接日志失败'
+    bridgeTableErrorMessage.value = resolvePageErrorMessage(error, '获取桥接日志失败')
   } finally {
     bridgeTableLoading.value = false
   }
@@ -1796,12 +1770,10 @@ async function handleViewBridge(row: InAppMessageBridgeLogRecord) {
     try {
       bridgeDetailMessageRecord.value = ensureSuccess(messageResult.value, '加载消息原文失败')
     } catch (error) {
-      bridgeDetailMessageError.value = (error as Error).message || '加载消息原文失败'
+      bridgeDetailMessageError.value = resolvePageErrorMessage(error, '加载消息原文失败')
     }
   } else {
-    bridgeDetailMessageError.value = messageResult.reason instanceof Error
-      ? messageResult.reason.message
-      : '加载消息原文失败'
+    bridgeDetailMessageError.value = resolvePageErrorMessage(messageResult.reason, '加载消息原文失败')
   }
 
   if (attemptResult.status === 'fulfilled') {
@@ -1809,12 +1781,10 @@ async function handleViewBridge(row: InAppMessageBridgeLogRecord) {
       const attempts = ensureSuccess(attemptResult.value, '加载桥接尝试明细失败')
       bridgeAttemptRecords.value = [...attempts].sort((left, right) => Number(right.attemptNo || 0) - Number(left.attemptNo || 0))
     } catch (error) {
-      bridgeAttemptError.value = (error as Error).message || '加载桥接尝试明细失败'
+      bridgeAttemptError.value = resolvePageErrorMessage(error, '加载桥接尝试明细失败')
     }
   } else {
-    bridgeAttemptError.value = attemptResult.reason instanceof Error
-      ? attemptResult.reason.message
-      : '加载桥接尝试明细失败'
+    bridgeAttemptError.value = resolvePageErrorMessage(attemptResult.reason, '加载桥接尝试明细失败')
   }
 
   bridgeDetailLoading.value = false
@@ -1852,7 +1822,7 @@ async function handleEdit(row: InAppMessageRecord) {
     dialogVisible.value = true
   } catch (error) {
     console.error('加载站内消息详情失败', error)
-    ElMessage.error((error as Error).message || '加载站内消息详情失败')
+    showPageError(error, '加载站内消息详情失败')
   }
 }
 
@@ -1865,7 +1835,7 @@ async function handleDeactivate(row: InAppMessageRecord) {
     await loadStats()
   } catch (error) {
     console.error('停用站内消息失败', error)
-    ElMessage.error((error as Error).message || '停用站内消息失败')
+    showPageError(error, '停用站内消息失败')
   }
 }
 
@@ -1880,7 +1850,7 @@ async function handleDelete(row: InAppMessageRecord) {
   } catch (error) {
     if (!isConfirmCancelled(error)) {
       console.error('删除站内消息失败', error)
-      ElMessage.error((error as Error).message || '删除站内消息失败')
+      showPageError(error, '删除站内消息失败')
     }
   }
 }
@@ -1904,7 +1874,7 @@ async function handleSubmit() {
   } catch (error) {
     if (error instanceof Error) {
       console.error('提交站内消息失败', error)
-      ElMessage.error(error.message || '提交站内消息失败')
+      showPageError(error, '提交站内消息失败')
     }
   } finally {
     submitLoading.value = false

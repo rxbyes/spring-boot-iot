@@ -1,7 +1,7 @@
 # spring-boot-iot
 
 > 文档定位：项目总入口，提供当前交付基线、真实环境启动口径和核心文档导航。
-> 适用角色：研发、运维、测试、交付、AI 协作助手。
+> 适用角色：研发、运维、测试、交付、智能助手协作人员。
 > 权威级别：一级入口。
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
@@ -15,7 +15,7 @@
 - 设备接入：产品定义、设备资产、HTTP / MQTT 上报、协议解析、消息日志、最新属性、在线状态、最小下行
 - 风险处置：告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
 - 平台治理：组织、用户、角色、菜单、区域、字典、通知渠道、站内消息、帮助文档、审计中心
-- 质量与协作：自动化工场、真实环境验收、AI 接管模板、帮助中心消费层治理
+- 质量与协作：自动化工场、真实环境验收、智能助手接手模板、帮助中心消费层治理
 
 当前唯一启动模块是 `spring-boot-iot-admin`，当前父 `pom.xml` 激活 `11` 个模块：
 
@@ -125,7 +125,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 帮助中心 / 系统内容： [docs/12-帮助文档与系统内容治理.md](docs/12-帮助文档与系统内容治理.md)
 - 多租户 / 数据权限： [docs/13-数据权限与多租户模型.md](docs/13-数据权限与多租户模型.md)
 - Phase 边界 / 下阶段规划： [docs/19-第四阶段交付边界与复验进展.md](docs/19-第四阶段交付边界与复验进展.md)、[docs/16-阶段规划与迭代路线图.md](docs/16-阶段规划与迭代路线图.md)
-- AI 协作： [docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md)
+- 智能助手协作： [docs/skills/ai-task-intake/SKILL.md](docs/skills/ai-task-intake/SKILL.md)、[docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md)、[docs/template/README.md](docs/template/README.md)
 - 不再作为编码主依赖：兼容入口页、`docs/archive/*`、历史台账页、`docs/template/*` 薄包装页
 
 ## 当前维护规则
@@ -134,6 +134,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 2. 帮助中心不是第二真相源；若帮助中心与 `docs/` 冲突，以 `docs/` 与代码事实为准。
 3. `docs/README.md` 只保留摘要映射和阅读导航，不再承载帮助治理细则；帮助中心治理规则统一收口到 [docs/12-帮助文档与系统内容治理.md](docs/12-帮助文档与系统内容治理.md)。
 4. 旧入口文档和历史路线图默认进入 `docs/archive/`，不再作为主维护链路。
+5. 日常向智能助手发任务时，优先使用 [docs/skills/ai-task-intake/SKILL.md](docs/skills/ai-task-intake/SKILL.md) 中“你本人专用版六条超短清单”；如果装不下，再使用 [docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md) 中的任务卡模板；只有跨模块、跨验收、跨数据库的大任务再使用 [docs/template/README.md](docs/template/README.md) 指向的长模板。
 
 ## 相关入口
 

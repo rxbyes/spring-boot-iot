@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>账号中心</span>
-          <el-button v-permission="'system:user:add'" type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
+          <StandardButton v-permission="'system:user:add'" action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
         </div>
       </template>
 
@@ -28,19 +28,19 @@
         </el-row>
         <el-row>
           <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
           </el-col>
         </el-row>
       </el-form>
 
       <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
         <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+          <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -70,9 +70,11 @@
         <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button v-permission="'system:user:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button v-permission="'system:user:reset-password'" type="primary" link @click="handleResetPassword(row)">重置密码</el-button>
-            <el-button v-permission="'system:user:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink v-permission="'system:user:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+              <StandardActionLink v-permission="'system:user:reset-password'" @click="handleResetPassword(row)">重置密码</StandardActionLink>
+              <StandardActionLink v-permission="'system:user:delete'" @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -121,18 +123,18 @@
         </el-form>
         <template #footer>
           <StandardDrawerFooter @cancel="dialogVisible = false">
-            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
+            <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
               取消
-            </el-button>
-            <el-button
+            </StandardButton>
+            <StandardButton
               v-permission="formData.id ? 'system:user:update' : 'system:user:add'"
-              type="primary"
+              action="confirm"
               class="standard-drawer-footer__button standard-drawer-footer__button--primary"
               :loading="submitLoading"
               @click="handleSubmit"
             >
               确定
-            </el-button>
+            </StandardButton>
           </StandardDrawerFooter>
         </template>
       </StandardFormDrawer>

@@ -149,8 +149,12 @@ public class MqttConnectionListener {
             putIfHasText(context, "traceId", rawDeviceMessage.getTraceId());
             putIfHasText(context, "deviceCode", rawDeviceMessage.getDeviceCode());
             putIfHasText(context, "productKey", rawDeviceMessage.getProductKey());
+            putIfHasText(context, "protocolCode", rawDeviceMessage.getProtocolCode());
             putIfHasText(context, "messageType", rawDeviceMessage.getMessageType());
             putIfHasText(context, "topicRouteType", rawDeviceMessage.getTopicRouteType());
+            putIfHasText(context, "clientId", rawDeviceMessage.getClientId());
+            putIfHasText(context, "gatewayDeviceCode", rawDeviceMessage.getGatewayDeviceCode());
+            putIfHasText(context, "subDeviceCode", rawDeviceMessage.getSubDeviceCode());
         }
         archiveFailureTrace(topic, payload, rawDeviceMessage);
         archiveAccessFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
@@ -241,7 +245,13 @@ public class MqttConnectionListener {
         if (errorText.contains("协议解析") || errorText.contains("decode")) {
             return "protocol_decode";
         }
-        if (errorText.contains("设备不存在") || errorText.contains("协议不匹配") || errorText.contains("产品不匹配")) {
+        if (errorText.contains("设备不存在")
+                || errorText.contains("协议不匹配")
+                || errorText.contains("协议未配置")
+                || errorText.contains("协议配置异常")
+                || errorText.contains("产品不匹配")
+                || errorText.contains("产品不存在")
+                || errorText.contains("未绑定产品")) {
             return "device_validate";
         }
         return "message_dispatch";

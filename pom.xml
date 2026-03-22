@@ -217,6 +217,7 @@
                 <artifactId>ghlxk-spring-boot-starter-aes</artifactId>
                 <version>${ghlxk.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 

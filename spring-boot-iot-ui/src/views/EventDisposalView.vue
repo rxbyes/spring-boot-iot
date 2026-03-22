@@ -23,44 +23,36 @@
       description="优先关注待派发和处理中事件，快速定位仍在闭环中的风险事项。"
       class="ops-filter-card"
     >
-      <el-form :model="filters" label-position="top" class="ops-filter-form">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="设备编码">
-              <el-input v-model="filters.deviceCode" placeholder="请输入设备编码" clearable />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="风险等级">
-              <el-select v-model="filters.riskLevel" placeholder="请选择风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
-                <el-option label="待派发" :value="0" />
-                <el-option label="已派发" :value="1" />
-                <el-option label="处理中" :value="2" />
-                <el-option label="待验收" :value="3" />
-                <el-option label="已关闭" :value="4" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="处置建议">
-              <el-input :model-value="eventListAdvice" disabled />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <div class="ops-filter-actions">
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </div>
-      </el-form>
+      <StandardListFilterHeader :model="filters">
+        <template #primary>
+          <el-form-item>
+            <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
+              <el-option label="严重" value="critical" />
+              <el-option label="警告" value="warning" />
+              <el-option label="提醒" value="info" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.status" placeholder="状态" clearable>
+              <el-option label="待派发" :value="0" />
+              <el-option label="已派发" :value="1" />
+              <el-option label="处理中" :value="2" />
+              <el-option label="待验收" :value="3" />
+              <el-option label="已关闭" :value="4" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-input :model-value="eventListAdvice" placeholder="处置建议" disabled />
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+        </template>
+      </StandardListFilterHeader>
     </PanelCard>
 
     <PanelCard
@@ -69,13 +61,13 @@
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
       class="ops-table-card"
     >
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
+      <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
         <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+          <StandardButton action="refresh" link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
       <div v-if="loading" class="ops-state">正在加载事件列表...</div>
@@ -103,9 +95,11 @@
           <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
           <el-table-column label="操作" width="250" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
-              <el-button v-if="row.status === 0" type="primary" link @click="handleDispatch(row)">派发</el-button>
-              <el-button v-if="row.status !== 4" type="primary" link @click="handleClose(row)">关闭</el-button>
+              <StandardRowActions variant="table" gap="wide" wrap>
+                <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
+                <StandardActionLink v-if="row.status === 0" @click="handleDispatch(row)">派发</StandardActionLink>
+                <StandardActionLink v-if="row.status !== 4" @click="handleClose(row)">关闭</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
@@ -208,6 +202,7 @@ import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
@@ -540,6 +535,3 @@ watch(detailVisible, (visible) => {
   width: 100%;
 }
 </style>
-
-
-

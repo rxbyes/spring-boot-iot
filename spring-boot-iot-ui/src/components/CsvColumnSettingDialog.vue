@@ -15,36 +15,31 @@
           placeholder="搜索模板名称"
           class="csv-column-setting__search"
         />
-        <el-button link @click="clearRecentPresets">清空最近</el-button>
+        <StandardActionLink @click="clearRecentPresets">清空最近</StandardActionLink>
       </div>
       <div v-if="allPresets.length" class="csv-column-setting__presets">
         <span class="csv-column-setting__preset-label">导出模板：</span>
         <div v-for="preset in filteredPresets" :key="`${preset.label}-${preset.custom ? 'c' : 'b'}`" class="csv-column-setting__preset-item">
           <div class="csv-column-setting__preset-main">
-            <el-button link @click="applyPreset(preset)">
-              {{ preset.label }}
-            </el-button>
+            <StandardActionLink @click="applyPreset(preset)">{{ preset.label }}</StandardActionLink>
             <el-tag v-if="isPinnedPreset(preset.label)" size="small" type="success" effect="plain">置顶</el-tag>
             <el-tag v-if="isRecentPreset(preset.label)" size="small" type="warning" effect="plain">最近</el-tag>
             <el-tag v-if="preset.group" size="small" effect="plain">{{ preset.group }}</el-tag>
-            <el-button link @click="togglePinnedPreset(preset.label)">
+            <StandardActionLink @click="togglePinnedPreset(preset.label)">
               {{ isPinnedPreset(preset.label) ? '取消置顶' : '置顶' }}
-            </el-button>
-            <el-button
+            </StandardActionLink>
+            <StandardActionLink
               v-if="preset.custom"
-              link
               @click="handleRenamePreset(preset)"
             >
               重命名
-            </el-button>
-            <el-button
+            </StandardActionLink>
+            <StandardActionLink
               v-if="preset.custom"
-              link
-              type="danger"
               @click="handleDeletePreset(preset.label)"
             >
               删除
-            </el-button>
+            </StandardActionLink>
           </div>
           <div class="csv-column-setting__preset-meta">
             <span>最近使用：{{ formatPresetTime(getRecentUsedAt(preset.label)) }}</span>
@@ -54,31 +49,31 @@
       </div>
       <div v-if="presetGroups.length" class="csv-column-setting__groups">
         <span class="csv-column-setting__preset-label">分组筛选：</span>
-        <el-button
+        <StandardButton
           v-for="group in presetGroups"
           :key="group"
-          :type="activeGroup === group ? 'primary' : 'default'"
+          :type="activeGroup === group ? 'primary' : ''"
           text
           @click="activeGroup = group"
         >
           {{ group }}
-        </el-button>
+        </StandardButton>
       </div>
       <div v-for="(item, index) in rows" :key="item.key" class="csv-column-setting__row">
         <el-checkbox v-model="item.checked">{{ item.label }}</el-checkbox>
         <div class="csv-column-setting__actions">
-          <el-button link :disabled="index === 0" @click="moveUp(index)">上移</el-button>
-          <el-button link :disabled="index === rows.length - 1" @click="moveDown(index)">下移</el-button>
+          <StandardActionLink :disabled="index === 0" @click="moveUp(index)">上移</StandardActionLink>
+          <StandardActionLink :disabled="index === rows.length - 1" @click="moveDown(index)">下移</StandardActionLink>
         </div>
       </div>
     </div>
     <template #footer>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleSavePreset">保存为模板</el-button>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleExportPresets">导出模板JSON</el-button>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleImportPresets">导入模板JSON</el-button>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleResetDefault">恢复默认</el-button>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleConfirm">确定</el-button>
+      <StandardButton action="reset" class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleSavePreset">保存为模板</StandardButton>
+      <StandardButton action="reset" class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleExportPresets">导出模板JSON</StandardButton>
+      <StandardButton action="reset" class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleImportPresets">导入模板JSON</StandardButton>
+      <StandardButton action="reset" class="sys-dialog__btn sys-dialog__btn--ghost" @click="handleResetDefault">恢复默认</StandardButton>
+      <StandardButton action="cancel" class="sys-dialog__btn sys-dialog__btn--ghost" @click="emit('update:modelValue', false)">取消</StandardButton>
+      <StandardButton action="confirm" class="sys-dialog__btn sys-dialog__btn--primary" @click="handleConfirm">确定</StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -115,10 +110,10 @@
       </el-tabs>
     </div>
     <template #footer>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportPreviewDetail('back')">取消导入</el-button>
-      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="closeImportPreviewDetail('confirm')">
+      <StandardButton action="cancel" class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportPreviewDetail('back')">取消导入</StandardButton>
+      <StandardButton action="confirm" class="sys-dialog__btn sys-dialog__btn--primary" @click="closeImportPreviewDetail('confirm')">
         确认导入
-      </el-button>
+      </StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -141,10 +136,10 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closePresetEditor">取消</el-button>
-      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmPresetEditor">
+      <StandardButton action="cancel" class="sys-dialog__btn sys-dialog__btn--ghost" @click="closePresetEditor">取消</StandardButton>
+      <StandardButton action="confirm" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmPresetEditor">
         {{ presetEditorConfirmText }}
-      </el-button>
+      </StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -186,10 +181,10 @@
       </button>
     </div>
     <template #footer>
-      <el-button class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportStrategy">取消</el-button>
-      <el-button type="primary" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmImportStrategy">
+      <StandardButton action="cancel" class="sys-dialog__btn sys-dialog__btn--ghost" @click="closeImportStrategy">取消</StandardButton>
+      <StandardButton action="confirm" class="sys-dialog__btn sys-dialog__btn--primary" @click="confirmImportStrategy">
         确定策略
-      </el-button>
+      </StandardButton>
     </template>
   </StandardFormDrawer>
 </template>

@@ -6,10 +6,10 @@
   --font-body: "Alibaba PuHuiTi 3.0", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
 
-  /* 主视觉色 */
+  /* 主视觉色 - 阿里云控制台橙 */
   --primary: #ff6a00;
-  --primary-bright: #ff8f3d;
-  --primary-deep: #e85d04;
+  --primary-bright: #ff9550;
+  --primary-deep: #e35b00;
   --primary-light: rgba(255, 106, 0, 0.1);
 
   /* 品牌色与组件主色保持一致 */
@@ -19,56 +19,56 @@
   --brand-light: var(--primary-light);
 
   /* 辅助色 - 云控制台蓝 */
-  --accent: #1677ff;
-  --accent-bright: #4096ff;
-  --accent-deep: #0958d9;
+  --accent: #1f6ff2;
+  --accent-bright: #4b8cff;
+  --accent-deep: #1556d9;
 
   /* 功能色 */
-  --success: #52c41a;
-  --success-bg: rgba(82, 196, 26, 0.1);
-  --warning: #fa8c16;
-  --warning-bg: rgba(250, 140, 22, 0.1);
-  --danger: #ff4d4f;
-  --danger-bg: rgba(255, 77, 79, 0.1);
-  --info: #1e80ff;
-  --info-bg: rgba(30, 128, 255, 0.1);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --warning: #d48806;
+  --warning-bg: rgba(212, 136, 6, 0.1);
+  --danger: #e84749;
+  --danger-bg: rgba(232, 71, 73, 0.1);
+  --info: var(--accent);
+  --info-bg: rgba(31, 111, 242, 0.1);
 
-  /* 背景色 - 云控制台浅色体系 */
-  --bg: #f3f5f7;
-  --bg-elevated: #f7f8fa;
+  /* 背景色 - 阿里云浅色控制台体系 */
+  --bg: #f5f7fa;
+  --bg-elevated: #f8fafc;
   --bg-panel: rgba(255, 255, 255, 0.98);
   --bg-card: #ffffff;
-  --bg-hover: #f7f9fc;
-  --bg-active: #fff3eb;
+  --bg-hover: #f3f7fd;
+  --bg-active: #fff4ea;
   --surface-raised: #ffffff;
-  --surface-soft: #fafbfc;
-  --surface-muted: #f5f7fa;
-  --surface-subtle: #f7f8fa;
+  --surface-soft: #fafbfd;
+  --surface-muted: #f4f7fb;
+  --surface-subtle: #f7f9fc;
 
   /* 文字色 */
-  --text-primary: #1d2129;
-  --text-secondary: #4e5969;
-  --text-tertiary: #8a94a6;
-  --text-disabled: #a0aaba;
+  --text-primary: #3b4d67;
+  --text-secondary: #5f718c;
+  --text-tertiary: #8fa0b7;
+  --text-disabled: #acb7c6;
   --ink-strong: #ffffff;
-  --text-heading: #17233d;
-  --text-ink: #1f2937;
-  --text-caption: #5f7088;
-  --text-caption-2: #66788f;
-  --text-muted-1: #7e8da2;
-  --text-muted-2: #8793a6;
-  --text-muted-3: #8c98aa;
+  --text-heading: #24364f;
+  --text-ink: #3f516d;
+  --text-caption: #6b7d98;
+  --text-caption-2: #7586a0;
+  --text-muted-1: #7f90a6;
+  --text-muted-2: #8798ad;
+  --text-muted-3: #91a0b5;
 
   /* 边框色 */
-  --panel-border: #e6ebf2;
+  --panel-border: #e3e9f1;
   --panel-border-strong: color-mix(in srgb, var(--brand) 35%, transparent);
   --panel-border-hover: color-mix(in srgb, var(--brand) 50%, transparent);
-  --line-soft: #eef2f7;
-  --line-muted: #d9dfe8;
-  --line-panel: #d9e0ea;
-  --line-panel-2: #e4e9f1;
-  --line-brand-soft: #ffd8bc;
-  --line-brand-mid: #ffb784;
+  --line-soft: #edf2f8;
+  --line-muted: #d9e1eb;
+  --line-panel: #d6dfeb;
+  --line-panel-2: #e3e9f2;
+  --line-brand-soft: #ffe1c7;
+  --line-brand-mid: #ffc494;
 
   /* 圆角 */
   --radius-2xs: 2px;
@@ -81,18 +81,20 @@
   --radius-pill: 999px;
 
   /* 阴影 */
-  --shadow-xs: 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 8px 20px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.1);
-  --shadow-card-soft: 0 2px 10px rgba(15, 23, 42, 0.04);
-  --shadow-card: 0 6px 18px rgba(15, 23, 42, 0.05);
-  --shadow-card-hover: 0 12px 24px rgba(15, 23, 42, 0.08);
-  --shadow-panel: 0 6px 18px rgba(15, 23, 42, 0.08);
+  --shadow-xs: 0 1px 3px rgba(31, 50, 81, 0.05);
+  --shadow-sm: 0 4px 12px rgba(31, 50, 81, 0.06);
+  --shadow-md: 0 8px 20px rgba(31, 50, 81, 0.08);
+  --shadow-lg: 0 16px 36px rgba(31, 50, 81, 0.1);
+  --shadow-card-soft: 0 2px 10px rgba(31, 50, 81, 0.05);
+  --shadow-card: 0 6px 18px rgba(31, 50, 81, 0.06);
+  --shadow-card-hover: 0 12px 24px rgba(31, 50, 81, 0.08);
+  --shadow-panel: 0 6px 18px rgba(31, 50, 81, 0.08);
   --shadow-brand: 0 8px 20px color-mix(in srgb, var(--brand) 18%, transparent);
-  --shadow-popover: 0 18px 48px rgba(15, 23, 42, 0.14);
-  --shadow-drawer: -12px 0 32px rgba(15, 23, 42, 0.1);
-  --shadow-side-panel: 12px 0 28px rgba(15, 23, 42, 0.14);
+  --shadow-popover: 0 18px 48px rgba(31, 50, 81, 0.14);
+  --shadow-drawer: -12px 0 32px rgba(31, 50, 81, 0.1);
+  --shadow-side-panel: 12px 0 28px rgba(31, 50, 81, 0.14);
+  --overlay-mask: rgba(16, 23, 38, 0.45);
+  --loading-mask-bg: color-mix(in srgb, var(--surface-soft) 78%, transparent);
 
   /* 间距 */
   --spacing-xs: 4px;
@@ -100,6 +102,41 @@
   --spacing-md: 12px;
   --spacing-lg: 16px;
   --spacing-xl: 24px;
+
+  /* 按钮 */
+  --button-height-sm: 32px;
+  --button-height-md: 36px;
+  --button-padding-inline-sm: 14px;
+  --button-padding-inline-md: 18px;
+  --button-font-weight: 600;
+  --button-primary-bg-color: var(--brand);
+  --button-primary-bg: linear-gradient(135deg, var(--brand) 0%, var(--brand-bright) 100%);
+  --button-primary-hover-bg-color: var(--brand-deep);
+  --button-primary-hover-bg: linear-gradient(135deg, var(--brand-bright) 0%, var(--brand) 100%);
+  --button-primary-active-bg: linear-gradient(135deg, color-mix(in srgb, var(--brand-deep) 92%, black), var(--brand));
+  --button-primary-disabled-bg-color: color-mix(in srgb, var(--brand) 32%, white);
+  --button-primary-disabled-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brand) 42%, white),
+    color-mix(in srgb, var(--brand-bright) 36%, white)
+  );
+  --button-primary-text: #ffffff;
+  --button-primary-hover-text: #ffffff;
+  --button-primary-disabled-text: rgba(255, 255, 255, 0.88);
+  --button-action-text: var(--brand);
+  --button-action-hover-text: var(--brand-deep);
+  --button-action-hover-bg: color-mix(in srgb, var(--brand) 10%, white);
+  --button-secondary-bg: var(--bg-card);
+  --button-secondary-border: color-mix(in srgb, var(--brand) 28%, white);
+  --button-secondary-text: var(--brand);
+  --button-secondary-hover-bg: color-mix(in srgb, var(--brand) 9%, white);
+  --button-secondary-hover-border: color-mix(in srgb, var(--brand) 52%, white);
+  --button-secondary-hover-text: var(--brand-deep);
+  --button-secondary-active-bg: color-mix(in srgb, var(--brand) 14%, white);
+  --button-secondary-active-border: color-mix(in srgb, var(--brand) 60%, white);
+  --button-secondary-disabled-bg: color-mix(in srgb, var(--brand) 4%, white);
+  --button-secondary-disabled-border: color-mix(in srgb, var(--brand) 16%, white);
+  --button-secondary-disabled-text: color-mix(in srgb, var(--brand) 48%, white);
 
   /* 过渡 */
   --transition-fast: 150ms ease;

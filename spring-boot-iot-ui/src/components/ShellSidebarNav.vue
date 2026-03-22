@@ -78,7 +78,9 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
 .shell-sidebar-nav {
   border-right: 1px solid var(--panel-border);
   padding: 1rem 0.7rem 1.15rem;
-  background: linear-gradient(180deg, rgba(250, 251, 253, 0.98), rgba(246, 248, 251, 0.98));
+  background:
+    linear-gradient(180deg, var(--surface-soft), var(--surface-muted)),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 4%, transparent), transparent 42%);
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -124,7 +126,7 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
   gap: 0.62rem;
   align-items: center;
   text-decoration: none;
-  color: #334155;
+  color: var(--text-ink);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: 0.58rem 0.72rem 0.58rem 0.64rem;
@@ -156,7 +158,7 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
   font-size: 0;
   font-weight: 600;
   color: transparent;
-  background: rgba(148, 163, 184, 0.55);
+  background: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
   flex-shrink: 0;
 }
 
@@ -172,8 +174,8 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
 }
 
 .shell-sidebar-nav__item:hover {
-  border-color: #dfe5ee;
-  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--line-panel);
+  background: var(--bg-card);
   box-shadow: var(--shadow-card-soft);
 }
 
@@ -182,9 +184,11 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
 }
 
 .shell-sidebar-nav__item--active {
-  border-color: rgba(255, 106, 0, 0.16);
-  background: linear-gradient(90deg, rgba(255, 106, 0, 0.1), rgba(255, 255, 255, 0.98));
-  box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.04);
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--brand) 9%, white), color-mix(in srgb, var(--accent) 3%, white)),
+    var(--bg-card);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .shell-sidebar-nav__item--active::before {
@@ -215,17 +219,17 @@ function getItemAriaLabel(item: WorkspaceNavItem) {
   border-radius: var(--radius-md);
   font-size: 0.72rem;
   color: var(--brand-deep);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__item:hover .shell-sidebar-nav__marker {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__item--active .shell-sidebar-nav__marker {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__content {

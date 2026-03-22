@@ -1,9 +1,9 @@
 <template>
   <PanelCard :eyebrow="eyebrow" :title="title" :description="description">
     <template #actions>
-      <el-button text type="primary" @click="copyToClipboard">
+      <StandardButton action="refresh" text type="primary" @click="copyToClipboard">
         复制 JSON
-      </el-button>
+      </StandardButton>
     </template>
     <pre class="response-panel" aria-live="polite">{{ formatted }}</pre>
   </PanelCard>

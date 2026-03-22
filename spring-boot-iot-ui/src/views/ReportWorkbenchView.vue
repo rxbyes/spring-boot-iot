@@ -1,5 +1,16 @@
 <template>
-  <div class="page-stack reporting-view">
+  <div class="page-stack reporting-view ops-workbench">
+    <section class="reporting-overview-grid">
+      <MetricCard
+          v-for="item in reportingOverviewMetrics"
+          :key="item.label"
+          :label="item.label"
+          :value="item.value"
+          :badge="item.badge"
+          size="compact"
+      />
+    </section>
+
     <section class="reporting-main-layout">
       <PanelCard class="reporting-surface reporting-surface--compose">
         <template #header>
@@ -31,19 +42,17 @@
                   clearable
                   @keyup.enter="handleQueryDevice"
               />
-              <el-button
-                  type="primary"
+              <StandardButton
+                  action="query"
                   :loading="isQueryingDevice"
                   :disabled="!normalizedText(reportForm.deviceCode)"
                   @click="handleQueryDevice"
               >
                 {{ isQueryingDevice ? '查询中...' : '查询设备' }}
-              </el-button>
+              </StandardButton>
             </div>
 
-            <p class="reporting-state-message" :data-tone="deviceLookupTone">
-              {{ deviceLookupMessage }}
-            </p>
+            <StandardInlineState :message="deviceLookupMessage" :tone="deviceLookupInlineTone" />
 
             <StandardInfoGrid
                 v-if="resolvedDevice"
@@ -64,24 +73,11 @@
                   <span class="reporting-control-card__title">传输方式</span>
                   <span class="reporting-control-card__helper">HTTP / MQTT</span>
                 </div>
-                <StandardActionGroup gap="sm">
-                  <button
-                      type="button"
-                      class="reporting-choice-button"
-                      :class="{ 'reporting-choice-button--active': transportMode === 'http' }"
-                      @click="transportMode = 'http'"
-                  >
-                    HTTP
-                  </button>
-                  <button
-                      type="button"
-                      class="reporting-choice-button"
-                      :class="{ 'reporting-choice-button--active': transportMode === 'mqtt' }"
-                      @click="transportMode = 'mqtt'"
-                  >
-                    MQTT
-                  </button>
-                </StandardActionGroup>
+                <StandardChoiceGroup
+                  v-model="transportMode"
+                  :options="transportModeOptions"
+                  responsive
+                />
               </article>
 
               <article class="reporting-control-card">
@@ -89,24 +85,11 @@
                   <span class="reporting-control-card__title">上报模式</span>
                   <span class="reporting-control-card__helper">明文 / 密文</span>
                 </div>
-                <StandardActionGroup gap="sm">
-                  <button
-                      type="button"
-                      class="reporting-choice-button"
-                      :class="{ 'reporting-choice-button--active': reportMode === 'plaintext' }"
-                      @click="reportMode = 'plaintext'"
-                  >
-                    明文
-                  </button>
-                  <button
-                      type="button"
-                      class="reporting-choice-button"
-                      :class="{ 'reporting-choice-button--active': reportMode === 'encrypted' }"
-                      @click="reportMode = 'encrypted'"
-                  >
-                    密文
-                  </button>
-                </StandardActionGroup>
+                <StandardChoiceGroup
+                  v-model="reportMode"
+                  :options="reportModeOptions"
+                  responsive
+                />
               </article>
 
               <article class="reporting-control-card">
@@ -139,13 +122,13 @@
                       placeholder="$dp"
                       clearable
                   />
-                  <el-button plain :disabled="!resolvedDevice" @click="syncTopic">套用推荐</el-button>
+                  <StandardButton action="reset" plain :disabled="!resolvedDevice" @click="syncTopic">套用推荐</StandardButton>
                 </div>
               </article>
             </div>
 
             <div class="reporting-quick-fill">
-              <el-button plain @click="oneClickFill">一键补全</el-button>
+              <StandardButton action="reset" plain @click="oneClickFill">一键补全</StandardButton>
               <span class="reporting-quick-fill__hint">
                 自动查询设备后套用推荐 Topic，并在密文协议场景下切换建议模式。
               </span>
@@ -166,23 +149,24 @@
               <div class="reporting-toolbar__group">
                 <span class="reporting-toolbar__label">模板</span>
                 <StandardActionGroup gap="sm">
-                  <el-button
+                  <StandardButton
                       v-for="template in filteredTemplates"
                       :key="template.name"
+                      action="reset"
                       plain
                       size="small"
                       @click="applyTemplate(template)"
                   >
                     {{ template.name }}
-                  </el-button>
+                  </StandardButton>
                 </StandardActionGroup>
               </div>
 
               <div class="reporting-toolbar__group">
                 <span class="reporting-toolbar__label">格式化</span>
                 <StandardActionGroup gap="sm">
-                  <el-button plain size="small" @click="formatPayloadAsJson">JSON</el-button>
-                  <el-button plain size="small" @click="formatPayloadAsXml">XML</el-button>
+                  <StandardButton action="reset" plain size="small" @click="formatPayloadAsJson">JSON</StandardButton>
+                  <StandardButton action="reset" plain size="small" @click="formatPayloadAsXml">XML</StandardButton>
                 </StandardActionGroup>
               </div>
             </div>
@@ -236,13 +220,9 @@
                 <p>发送前会基于当前输入实时推导实际 payload、Topic 建议和字节编码。</p>
               </div>
               <StandardActionGroup>
-                <el-button
-                    type="primary"
-                    native-type="submit"
-                    :loading="isSending"
-                >
+                <StandardButton action="confirm" native-type="submit" :loading="isSending">
                   {{ isSending ? '发送中...' : sendButtonText }}
-                </el-button>
+                </StandardButton>
               </StandardActionGroup>
             </div>
           </section>
@@ -287,9 +267,7 @@
               description="发送前的最终文本或 JSON 预演，可直接复制用于链路复核。"
           >
             <template #actions>
-              <el-button text type="primary" size="small" @click="copyActualPayloadPreview">
-                复制
-              </el-button>
+              <StandardActionLink @click="copyActualPayloadPreview">复制</StandardActionLink>
             </template>
           </StandardInlineSectionHeader>
           <pre class="reporting-code-block">{{ actualPayloadPreviewText }}</pre>
@@ -301,9 +279,7 @@
               description="仅在明文 JSON 被识别为 C.1 / C.2 / C.3 时展示。"
           >
             <template #actions>
-              <el-button text type="primary" size="small" @click="toggleFramePanel">
-                {{ framePanelExpanded ? '收起' : '展开' }}
-              </el-button>
+              <StandardActionLink @click="toggleFramePanel">{{ framePanelExpanded ? '收起' : '展开' }}</StandardActionLink>
             </template>
           </StandardInlineSectionHeader>
 
@@ -334,9 +310,7 @@
               description="保留最近一次页面响应，便于模拟发送后的联调复盘。"
           >
             <template #actions>
-              <el-button text type="primary" size="small" @click="copyResponse">
-                复制
-              </el-button>
+              <StandardActionLink @click="copyResponse">复制</StandardActionLink>
             </template>
           </StandardInlineSectionHeader>
           <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
@@ -360,10 +334,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
+import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
 import StandardInfoGrid from '../components/StandardInfoGrid.vue';
+import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardInlineSectionHeader from '../components/StandardInlineSectionHeader.vue';
 import { recordActivity } from '../stores/activity';
 import type { Device, HttpReportPayload, MqttReportPublishPayload } from '../types/api';
@@ -476,6 +452,16 @@ const INITIAL_RESPONSE = {
   tip: '查询设备后，可通过 HTTP 或 MQTT 发起模拟上报。'
 };
 
+const transportModeOptions = [
+  { label: 'HTTP', value: 'http' },
+  { label: 'MQTT', value: 'mqtt' }
+] as const;
+
+const reportModeOptions = [
+  { label: '明文', value: 'plaintext' },
+  { label: '密文', value: 'encrypted' }
+] as const;
+
 const reportForm = reactive<ReportFormState>(createDefaultForm());
 const transportMode = ref<TransportMode>('http');
 const reportMode = ref<ReportMode>('plaintext');
@@ -577,6 +563,16 @@ const payloadFormatLabel = computed(() => {
   return '原始文本';
 });
 
+const recognitionStatusText = computed(() => {
+  if (plaintextFrame.value) {
+    return `类型 ${plaintextFrame.value.type}`;
+  }
+  if (reportMode.value === 'encrypted') {
+    return '密文透传';
+  }
+  return payloadFormatLabel.value;
+});
+
 const sendStatusText = computed(() => {
   if (!resolvedDevice.value) {
     return '待查询设备';
@@ -592,6 +588,65 @@ const sendStatusText = computed(() => {
   }
   return '待确认输入';
 });
+
+const deviceLookupInlineTone = computed<'info' | 'error'>(() =>
+    deviceLookupTone.value === 'danger' ? 'error' : 'info'
+);
+
+const reportingOverviewMetrics = computed(() => [
+  {
+    label: '设备契约',
+    value: isQueryingDevice.value ? '查询中' : resolvedDevice.value ? '已加载' : deviceLookupError.value ? '查询失败' : '待查询',
+    badge: {
+      label: deviceLookupError.value ? '需处理' : resolvedDevice.value ? '已就绪' : isQueryingDevice.value ? '处理中' : '接入前置',
+      tone: (
+          deviceLookupError.value
+              ? 'danger'
+              : resolvedDevice.value
+                  ? 'success'
+                  : isQueryingDevice.value
+                      ? 'brand'
+                      : 'muted'
+      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
+    }
+  },
+  {
+    label: '传输方式',
+    value: transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP',
+    badge: {
+      label: reportMode.value === 'encrypted' ? '密文' : '明文',
+      tone: (reportMode.value === 'encrypted' ? 'warning' : 'brand') as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
+    }
+  },
+  {
+    label: '识别结果',
+    value: recognitionStatusText.value,
+    badge: {
+      label: payloadFormatLabel.value,
+      tone: (
+          reportMode.value === 'encrypted'
+              ? 'warning'
+              : plaintextFrame.value
+                  ? 'success'
+                  : 'muted'
+      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
+    }
+  },
+  {
+    label: '发送状态',
+    value: sendStatusText.value,
+    badge: {
+      label: transportMode.value === 'mqtt' ? 'Broker' : 'HTTP API',
+      tone: (
+          hasAttemptedSubmit.value && validationIssues.value.length > 0
+              ? 'danger'
+              : canSend.value
+                  ? 'success'
+                  : 'brand'
+      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
+    }
+  }
+]);
 
 const diagnosticSummaryItems = computed(() => {
   const plaintextType = plaintextFrame.value
@@ -976,6 +1031,12 @@ function normalizedText(value: unknown): string {
   min-width: 0;
 }
 
+.reporting-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
 .reporting-main-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.96fr);
@@ -1083,35 +1144,6 @@ function normalizedText(value: unknown): string {
   gap: 0.75rem;
 }
 
-.reporting-state-message {
-  margin: 0;
-  padding: 0.75rem 0.9rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--panel-border);
-  background: var(--surface-subtle);
-  color: var(--text-caption);
-  line-height: 1.6;
-  font-size: 0.86rem;
-}
-
-.reporting-state-message[data-tone='info'] {
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
-  background: color-mix(in srgb, var(--accent) 7%, white);
-  color: var(--accent-deep);
-}
-
-.reporting-state-message[data-tone='success'] {
-  border-color: color-mix(in srgb, var(--success) 22%, var(--panel-border));
-  background: color-mix(in srgb, var(--success) 8%, white);
-  color: color-mix(in srgb, var(--success) 68%, var(--text-primary));
-}
-
-.reporting-state-message[data-tone='danger'] {
-  border-color: color-mix(in srgb, var(--danger) 24%, var(--panel-border));
-  background: color-mix(in srgb, var(--danger) 7%, white);
-  color: color-mix(in srgb, var(--danger) 72%, var(--text-primary));
-}
-
 .reporting-control-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1143,42 +1175,6 @@ function normalizedText(value: unknown): string {
 .reporting-control-card__helper {
   color: var(--text-tertiary);
   font-size: 0.78rem;
-}
-
-.reporting-choice-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 5rem;
-  min-height: 2.25rem;
-  padding: 0 0.95rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition:
-      border-color var(--transition-base),
-      background var(--transition-base),
-      color var(--transition-base),
-      box-shadow var(--transition-base),
-      transform var(--transition-base);
-}
-
-.reporting-choice-button:hover {
-  border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
-  background: color-mix(in srgb, var(--brand) 6%, white);
-  color: var(--brand-deep);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-xs);
-}
-
-.reporting-choice-button--active {
-  border-color: color-mix(in srgb, var(--brand) 32%, var(--panel-border));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 13%, white), color-mix(in srgb, var(--brand) 5%, white));
-  color: var(--brand-deep);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .reporting-topic-row {
@@ -1415,12 +1411,17 @@ function normalizedText(value: unknown): string {
 }
 
 @media (max-width: 1280px) {
+  .reporting-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .reporting-main-layout {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
+  .reporting-overview-grid,
   .reporting-control-grid,
   .reporting-frame-grid {
     grid-template-columns: 1fr;
@@ -1444,8 +1445,5 @@ function normalizedText(value: unknown): string {
     align-items: flex-start;
   }
 
-  .reporting-choice-button {
-    width: 100%;
-  }
 }
 </style>

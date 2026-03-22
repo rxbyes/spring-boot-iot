@@ -12,9 +12,7 @@
         {{ tag.label }}
       </el-tag>
     </div>
-    <el-button link class="standard-applied-filters-bar__clear" @click="emit('clear')">
-      {{ clearText }}
-    </el-button>
+    <StandardActionLink class="standard-applied-filters-bar__clear" @click="emit('clear')">{{ clearText }}</StandardActionLink>
   </div>
 </template>
 

@@ -4,75 +4,86 @@
       title="链路追踪台"
       description="按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。"
       show-filters
+      :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
       <template #filters>
-        <el-form :model="searchForm" label-width="96px" class="search-form">
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <el-form-item label="设备编码">
-                <el-input
-                  v-model="searchForm.deviceCode"
-                  placeholder="请输入设备编码"
-                  clearable
-                  @keyup.enter="handleSearch"
+        <StandardListFilterHeader
+          :model="searchForm"
+          :show-advanced="showAdvancedFilters"
+          show-advanced-toggle
+          :advanced-hint="advancedFilterHint"
+          @toggle-advanced="toggleAdvancedFilters"
+        >
+          <template #primary>
+            <el-form-item>
+              <el-input
+                id="quick-search"
+                v-model="quickSearchKeyword"
+                placeholder="快速搜索（TraceId）"
+                clearable
+                prefix-icon="Search"
+                @keyup.enter="handleQuickSearch"
+                @clear="handleClearQuickSearch"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="searchForm.deviceCode"
+                placeholder="设备编码"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="searchForm.productKey"
+                placeholder="产品标识"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.messageType" placeholder="消息类型" clearable>
+                <el-option
+                  v-for="item in messageTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
                 />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="产品标识">
-                <el-input
-                  v-model="searchForm.productKey"
-                  placeholder="请输入产品标识"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="TraceId">
-                <el-input
-                  v-model="searchForm.traceId"
-                  placeholder="请输入 TraceId"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <el-form-item label="消息类型">
-                <el-select v-model="searchForm.messageType" placeholder="请选择消息类型" clearable>
-                  <el-option
-                    v-for="item in messageTypeOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="16">
-              <el-form-item label="Topic">
-                <el-input
-                  v-model="searchForm.topic"
-                  placeholder="请输入 Topic 关键字"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row>
-            <el-col :span="24" class="text-right">
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-            </el-col>
-          </el-row>
-        </el-form>
+              </el-select>
+            </el-form-item>
+          </template>
+          <template #advanced>
+            <el-form-item>
+              <el-input
+                v-model="searchForm.topic"
+                placeholder="Topic"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+        <div v-if="quickSearchKeyword.trim()" class="message-trace-quick-search-tag">
+          <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
+            快速搜索：{{ quickSearchKeyword.trim() }}
+          </el-tag>
+        </div>
+      </template>
+
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="removeAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
       </template>
 
       <template #notices>
@@ -86,22 +97,24 @@
       </template>
 
       <template #toolbar>
-        <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
+        <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `当前页 ${tableData.length} 条` ]">
           <template #right>
-            <el-button
+            <StandardButton
+              action="refresh"
               link
               :disabled="!canJumpWithSearch"
               @click="jumpToSystemLog()"
             >
               跳转异常观测台
-            </el-button>
-            <el-button link @click="handleRefresh">刷新列表</el-button>
+            </StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
       </template>
 
       <el-table
         v-loading="loading"
+        class="message-trace-table"
         :data="tableData"
         border
         stripe
@@ -110,47 +123,50 @@
         <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
         <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
         <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
-        <el-table-column label="消息类型" width="120">
+        <StandardTableTextColumn label="消息类型" :width="120">
           <template #default="{ row }">
             {{ getMessageTypeLabel(row.messageType) }}
           </template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
         <StandardTableTextColumn label="Payload 摘要" :min-width="260">
           <template #default="{ row }">
-            {{ truncateText(row.payload || '--', 120) }}
+            {{ formatInlineText(row.payload) }}
           </template>
         </StandardTableTextColumn>
-        <el-table-column label="上报时间" width="180">
+        <StandardTableTextColumn label="上报时间" :width="180">
           <template #default="{ row }">
             {{ formatDateTime(row.reportTime || row.createTime) }}
           </template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openDetail(row)">详情</el-button>
-            <el-button type="primary" link :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">异常观测台</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
+              <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-          class="pagination"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
     </StandardWorkbenchPanel>
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="Message Trace Detail"
+      eyebrow="链路追踪详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :tags="detailTags"
@@ -259,14 +275,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceMessageLog } from '@/types/api';
-import { formatDateTime, prettyJson, truncateText } from '@/utils/format';
+import { formatDateTime, prettyJson } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -285,6 +303,15 @@ const searchForm = reactive({
   messageType: '',
   topic: ''
 });
+const appliedFilters = reactive({
+  deviceCode: '',
+  productKey: '',
+  traceId: '',
+  messageType: '',
+  topic: ''
+});
+const quickSearchKeyword = ref('');
+const showAdvancedFilters = ref(false);
 
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 
@@ -322,7 +349,56 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
-const canJumpWithSearch = computed(() => Boolean(searchForm.traceId || searchForm.deviceCode || searchForm.productKey || searchForm.topic));
+const canJumpWithSearch = computed(() =>
+  Boolean(quickSearchKeyword.value.trim() || searchForm.traceId || searchForm.deviceCode || searchForm.productKey || searchForm.topic)
+);
+const activeFilterTags = computed(() => {
+  const tags: Array<{ key: keyof typeof appliedFilters; label: string }> = [];
+  if (appliedFilters.traceId.trim()) {
+    tags.push({ key: 'traceId', label: `TraceId：${appliedFilters.traceId.trim()}` });
+  }
+  if (appliedFilters.deviceCode.trim()) {
+    tags.push({ key: 'deviceCode', label: `设备编码：${appliedFilters.deviceCode.trim()}` });
+  }
+  if (appliedFilters.productKey.trim()) {
+    tags.push({ key: 'productKey', label: `产品标识：${appliedFilters.productKey.trim()}` });
+  }
+  if (appliedFilters.messageType) {
+    tags.push({ key: 'messageType', label: `消息类型：${getMessageTypeLabel(appliedFilters.messageType)}` });
+  }
+  if (appliedFilters.topic.trim()) {
+    tags.push({ key: 'topic', label: `Topic：${appliedFilters.topic.trim()}` });
+  }
+  return tags;
+});
+const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0);
+const advancedAppliedFilterCount = computed(() => (appliedFilters.topic.trim() ? 1 : 0));
+const advancedFilterHint = computed(() => {
+  if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
+    return '';
+  }
+  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`;
+});
+
+function syncAppliedFilters() {
+  appliedFilters.deviceCode = searchForm.deviceCode.trim();
+  appliedFilters.productKey = searchForm.productKey.trim();
+  appliedFilters.traceId = searchForm.traceId.trim();
+  appliedFilters.messageType = searchForm.messageType.trim();
+  appliedFilters.topic = searchForm.topic.trim();
+}
+
+function syncQuickSearchKeywordFromFilters() {
+  quickSearchKeyword.value = searchForm.traceId;
+}
+
+function applyQuickSearchKeywordToFilters() {
+  searchForm.traceId = quickSearchKeyword.value.trim();
+}
+
+function syncAdvancedFilterState() {
+  showAdvancedFilters.value = Boolean(searchForm.topic.trim());
+}
 
 function readQueryValue(key: keyof MessageTraceQueryParams) {
   const value = route.query[key];
@@ -335,6 +411,8 @@ function applyRouteQuery() {
   searchForm.traceId = readQueryValue('traceId');
   searchForm.messageType = readQueryValue('messageType');
   searchForm.topic = readQueryValue('topic');
+  syncQuickSearchKeywordFromFilters();
+  syncAdvancedFilterState();
 }
 
 function buildQueryParams(): MessageTraceQueryParams {
@@ -371,21 +449,72 @@ function resetSearchForm() {
   searchForm.traceId = '';
   searchForm.messageType = '';
   searchForm.topic = '';
+  quickSearchKeyword.value = '';
+  showAdvancedFilters.value = false;
+}
+
+function triggerSearch(resetPageFirst = false) {
+  applyQuickSearchKeywordToFilters();
+  syncAppliedFilters();
+  if (resetPageFirst) {
+    resetPage();
+  }
+  loadTableData();
 }
 
 function handleSearch() {
-  resetPage();
-  loadTableData();
+  triggerSearch(true);
 }
 
 function handleReset() {
   resetSearchForm();
-  resetPage();
-  loadTableData();
+  triggerSearch(true);
 }
 
 function handleRefresh() {
-  loadTableData();
+  triggerSearch(false);
+}
+
+function handleQuickSearch() {
+  triggerSearch(true);
+}
+
+function handleClearQuickSearch() {
+  quickSearchKeyword.value = '';
+  triggerSearch(true);
+}
+
+function toggleAdvancedFilters() {
+  showAdvancedFilters.value = !showAdvancedFilters.value;
+}
+
+function handleClearAppliedFilters() {
+  handleReset();
+}
+
+function removeAppliedFilter(key: keyof typeof appliedFilters) {
+  switch (key) {
+    case 'traceId':
+      searchForm.traceId = '';
+      break;
+    case 'deviceCode':
+      searchForm.deviceCode = '';
+      break;
+    case 'productKey':
+      searchForm.productKey = '';
+      break;
+    case 'messageType':
+      searchForm.messageType = '';
+      break;
+    case 'topic':
+      searchForm.topic = '';
+      break;
+  }
+  if (key === 'traceId') {
+    syncQuickSearchKeywordFromFilters();
+  }
+  syncAdvancedFilterState();
+  triggerSearch(true);
 }
 
 function handleSizeChange(size: number) {
@@ -408,7 +537,12 @@ function canJumpWithRow(row: DeviceMessageLog) {
 }
 
 function jumpToSystemLog(row?: DeviceMessageLog) {
-  const source = row || searchForm;
+  const source = row || {
+    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
+    deviceCode: searchForm.deviceCode,
+    productKey: searchForm.productKey,
+    topic: searchForm.topic
+  };
   router.push({
     path: '/system-log',
     query: {
@@ -443,6 +577,14 @@ function formatValue(value?: string | number | null) {
   return String(value);
 }
 
+function formatInlineText(value?: string | null) {
+  if (!value) {
+    return '--';
+  }
+  const normalized = String(value).replace(/\s+/g, ' ').trim();
+  return normalized || '--';
+}
+
 watch(
   () => [
     route.query.deviceCode,
@@ -457,6 +599,7 @@ watch(
     }
     applyRouteQuery();
     resetPage();
+    syncAppliedFilters();
     loadTableData();
   }
 );
@@ -469,6 +612,22 @@ watch(detailVisible, (visible) => {
 
 onMounted(() => {
   applyRouteQuery();
+  syncAppliedFilters();
   loadTableData();
 });
 </script>
+
+<style scoped>
+.message-trace-view {
+  min-width: 0;
+}
+
+.message-trace-quick-search-tag {
+  margin-top: 0.72rem;
+}
+
+.message-trace-quick-search-tag__chip {
+  margin: 0;
+}
+
+</style>

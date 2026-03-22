@@ -29,10 +29,10 @@
     </div>
 
     <template #footer>
-      <el-button @click="$emit('openRealNameAuth')">实名认证</el-button>
-      <el-button @click="$emit('openLoginMethods')">登录方式</el-button>
-      <el-button @click="$emit('openChangePasswordDialog')">修改密码</el-button>
-      <el-button type="primary" @click="updateAccountDialog(false)">关闭</el-button>
+      <StandardButton action="reset" @click="$emit('openRealNameAuth')">实名认证</StandardButton>
+      <StandardButton action="reset" @click="$emit('openLoginMethods')">登录方式</StandardButton>
+      <StandardButton action="reset" @click="$emit('openChangePasswordDialog')">修改密码</StandardButton>
+      <StandardButton action="confirm" @click="updateAccountDialog(false)">关闭</StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -54,8 +54,8 @@
     </div>
 
     <template #footer>
-      <el-button @click="$emit('openAccountCenter')">返回账号中心</el-button>
-      <el-button type="primary" @click="updateRealNameAuthDialog(false)">我知道了</el-button>
+      <StandardButton action="reset" @click="$emit('openAccountCenter')">返回账号中心</StandardButton>
+      <StandardButton action="confirm" @click="updateRealNameAuthDialog(false)">我知道了</StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -77,8 +77,8 @@
     </div>
 
     <template #footer>
-      <el-button @click="$emit('openAccountCenter')">返回账号中心</el-button>
-      <el-button type="primary" @click="updateLoginMethodsDialog(false)">关闭</el-button>
+      <StandardButton action="reset" @click="$emit('openAccountCenter')">返回账号中心</StandardButton>
+      <StandardButton action="confirm" @click="updateLoginMethodsDialog(false)">关闭</StandardButton>
     </template>
   </StandardFormDrawer>
 
@@ -103,8 +103,8 @@
     </el-form>
 
     <template #footer>
-      <el-button @click="updateChangePasswordDialog(false)">取消</el-button>
-      <el-button type="primary" :loading="passwordSubmitting" @click="submitChangePassword">确认修改</el-button>
+      <StandardButton action="cancel" @click="updateChangePasswordDialog(false)">取消</StandardButton>
+      <StandardButton action="confirm" :loading="passwordSubmitting" @click="submitChangePassword">确认修改</StandardButton>
     </template>
   </StandardFormDrawer>
 </template>

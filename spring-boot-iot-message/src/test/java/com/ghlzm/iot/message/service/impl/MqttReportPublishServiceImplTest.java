@@ -82,6 +82,79 @@ class MqttReportPublishServiceImplTest {
     }
 
     @Test
+    void publishShouldRejectWhenDeviceProductMissing() {
+        Device device = buildDevice();
+        device.setProductId(0L);
+
+        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
+
+        MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
+                deviceService,
+                productService,
+                mqttMessageConsumer,
+                mqttDownMessagePublisher,
+                buildIotProperties()
+        );
+
+        BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
+        assertEquals("设备所属产品不存在: demo-device-01", ex.getMessage());
+        verifyNoInteractions(productService, mqttDownMessagePublisher);
+    }
+
+    @Test
+    void publishShouldFallbackToProductProtocolWhenDeviceProtocolBlank() {
+        Device device = buildDevice();
+        device.setProtocolCode("");
+        Product product = buildProduct();
+
+        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
+        when(productService.getRequiredById(1001L)).thenReturn(product);
+
+        MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
+                deviceService,
+                productService,
+                mqttMessageConsumer,
+                mqttDownMessagePublisher,
+                buildIotProperties()
+        );
+
+        service.publish(buildCommand("plain-text"));
+
+        verify(mqttDownMessagePublisher).publishRaw(
+                "$dp",
+                "plain-text".getBytes(StandardCharsets.UTF_8),
+                1,
+                false
+        );
+    }
+
+    @Test
+    void publishShouldRejectWhenProtocolMismatchedWithExpectedActual() {
+        Device device = buildDevice();
+        device.setProtocolCode("");
+        Product product = buildProduct();
+        product.setProtocolCode("tcp-hex");
+
+        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
+        when(productService.getRequiredById(1001L)).thenReturn(product);
+
+        MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
+                deviceService,
+                productService,
+                mqttMessageConsumer,
+                mqttDownMessagePublisher,
+                buildIotProperties()
+        );
+
+        BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
+        assertEquals("模拟上报 protocolCode 与设备协议不匹配: demo-device-01, expected=tcp-hex, actual=mqtt-json", ex.getMessage());
+        verifyNoInteractions(mqttDownMessagePublisher);
+    }
+
+    @Test
     void publishShouldPreserveFrameBytesWhenLatin1EncodingSpecified() {
         Device device = buildDevice();
         Product product = buildProduct();
@@ -164,6 +237,7 @@ class MqttReportPublishServiceImplTest {
         Product product = new Product();
         product.setId(1001L);
         product.setProductKey("demo-product");
+        product.setProtocolCode("mqtt-json");
         return product;
     }
 

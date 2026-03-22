@@ -2,9 +2,11 @@
   <div class="automation-step-editor">
     <StandardInlineSectionHeader :title="`步骤 ${stepIndex + 1}`">
       <template #actions>
-        <el-button text @click="$emit('move', -1)" :disabled="stepIndex === 0">上移</el-button>
-        <el-button text @click="$emit('move', 1)" :disabled="stepIndex === stepCount - 1">下移</el-button>
-        <el-button text type="danger" @click="$emit('remove')">删除</el-button>
+        <StandardRowActions variant="editor" gap="comfortable">
+          <StandardActionLink :disabled="stepIndex === 0" @click="$emit('move', -1)">上移</StandardActionLink>
+          <StandardActionLink :disabled="stepIndex === stepCount - 1" @click="$emit('move', 1)">下移</StandardActionLink>
+          <StandardActionLink @click="$emit('remove')">删除</StandardActionLink>
+        </StandardRowActions>
       </template>
     </StandardInlineSectionHeader>
 

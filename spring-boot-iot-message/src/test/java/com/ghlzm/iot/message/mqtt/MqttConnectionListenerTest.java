@@ -23,13 +23,15 @@ class MqttConnectionListenerTest {
         AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
         AtomicReference<ArchiveCall> archived = new AtomicReference<>();
         MqttConnectionListener listener = newListener(captured, archived);
-        BizException ex = new BizException("设备不存在: demo-device-02");
+        BizException ex = new BizException("设备未绑定产品: demo-device-02");
         RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
         rawDeviceMessage.setTraceId("trace-demo-001");
         rawDeviceMessage.setDeviceCode("demo-device-02");
         rawDeviceMessage.setProductKey("demo-product");
+        rawDeviceMessage.setProtocolCode("mqtt-json");
         rawDeviceMessage.setMessageType("property");
         rawDeviceMessage.setTopicRouteType("direct");
+        rawDeviceMessage.setClientId("demo-device-02");
 
         listener.onMessageDispatchFailed(
                 "/sys/demo-product/demo-device-02/thing/property/post",
@@ -48,8 +50,10 @@ class MqttConnectionListenerTest {
         assertEquals("trace-demo-001", event.context().get("traceId"));
         assertEquals("demo-device-02", event.context().get("deviceCode"));
         assertEquals("demo-product", event.context().get("productKey"));
+        assertEquals("mqtt-json", event.context().get("protocolCode"));
         assertEquals("property", event.context().get("messageType"));
         assertEquals("direct", event.context().get("topicRouteType"));
+        assertEquals("demo-device-02", event.context().get("clientId"));
         assertEquals("device_validate", event.context().get("failureStage"));
         assertSame(ex, event.throwable());
 

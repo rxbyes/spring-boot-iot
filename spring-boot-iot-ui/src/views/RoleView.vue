@@ -7,7 +7,7 @@
             <span>角色权限</span>
             <small>在角色页统一维护基础信息、页面菜单与按钮权限，导航结构以导航编排页维护结果为准。</small>
           </div>
-          <el-button v-permission="'system:role:add'" type="primary" @click="handleAdd" :icon="Plus">新增角色</el-button>
+          <StandardButton v-permission="'system:role:add'" action="add" @click="handleAdd" :icon="Plus">新增角色</StandardButton>
         </div>
       </template>
 
@@ -44,19 +44,19 @@
         </el-row>
         <el-row>
           <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
           </el-col>
         </el-row>
       </el-form>
 
       <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
         <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+          <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -84,8 +84,10 @@
         <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
         <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button v-permission="'system:role:update'" type="primary" link @click="handleEdit(row)">编辑/授权</el-button>
-            <el-button v-permission="'system:role:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink v-permission="'system:role:update'" @click="handleEdit(row)">编辑/授权</StandardActionLink>
+              <StandardActionLink v-permission="'system:role:delete'" @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -160,7 +162,7 @@
                   <h3>菜单与按钮授权</h3>
                   <p>目录节点仅用于展示层级；勾选页面或按钮时，后端会自动补齐所需父级菜单。</p>
                 </div>
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" link @click="refreshMenuTree">刷新菜单树</el-button>
+                <StandardButton v-permission="formData.id ? 'system:role:update' : 'system:role:add'" action="refresh" link @click="refreshMenuTree">刷新菜单树</StandardButton>
               </div>
 
               <el-alert
@@ -177,8 +179,8 @@
                   placeholder="筛选菜单名称 / 编码 / 路由"
                   class="role-auth-toolbar__search"
                 />
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" @click="handleCheckAllMenus" :disabled="menuSelectableIds.length === 0">全选</el-button>
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" @click="handleClearMenus" :disabled="checkedMenuCount === 0">清空</el-button>
+                <StandardButton v-permission="formData.id ? 'system:role:update' : 'system:role:add'" action="batch" @click="handleCheckAllMenus" :disabled="menuSelectableIds.length === 0">全选</StandardButton>
+                <StandardButton v-permission="formData.id ? 'system:role:update' : 'system:role:add'" action="reset" @click="handleClearMenus" :disabled="checkedMenuCount === 0">清空</StandardButton>
               </div>
 
               <div v-loading="menuTreeLoading" class="role-auth-tree">
@@ -218,18 +220,18 @@
 
         <template #footer>
           <StandardDrawerFooter @cancel="dialogVisible = false">
-            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
+            <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
               取消
-            </el-button>
-            <el-button
+            </StandardButton>
+            <StandardButton
               v-permission="formData.id ? 'system:role:update' : 'system:role:add'"
-              type="primary"
+              action="confirm"
               class="standard-drawer-footer__button standard-drawer-footer__button--primary"
               @click="handleSubmit"
               :loading="submitLoading"
             >
               确定
-            </el-button>
+            </StandardButton>
           </StandardDrawerFooter>
         </template>
       </StandardFormDrawer>

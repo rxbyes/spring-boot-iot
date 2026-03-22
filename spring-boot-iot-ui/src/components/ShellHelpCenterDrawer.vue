@@ -38,7 +38,7 @@
               @update:model-value="emit('update:keyword', $event || '')"
               @keyup.enter="emit('search')"
             />
-            <el-button type="primary" @click="emit('search')">搜索</el-button>
+            <StandardButton action="query" @click="emit('search')">搜索</StandardButton>
           </div>
         </label>
       </div>
@@ -81,8 +81,8 @@
           </div>
 
           <StandardActionGroup gap="sm" marginTop="sm">
-            <el-button type="primary" link @click="emit('select', item)">查看详情</el-button>
-            <el-button v-if="item.primaryPath" type="primary" link @click="emit('navigate', item.primaryPath)">进入页面</el-button>
+            <StandardActionLink @click="emit('select', item)">查看详情</StandardActionLink>
+            <StandardActionLink v-if="item.primaryPath" @click="emit('navigate', item.primaryPath)">进入页面</StandardActionLink>
           </StandardActionGroup>
         </article>
       </div>
@@ -99,7 +99,7 @@
 
     <template #footer>
       <StandardActionGroup>
-        <el-button @click="emit('refresh')">刷新</el-button>
+        <StandardButton action="refresh" @click="emit('refresh')">刷新</StandardButton>
       </StandardActionGroup>
     </template>
   </StandardDetailDrawer>

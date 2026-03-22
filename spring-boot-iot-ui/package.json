@@ -13,6 +13,7 @@
     "acceptance:browser:plan": "node ./scripts/business-browser-acceptance.mjs --dry-run",
     "acceptance:browser:update-baseline": "node ./scripts/business-browser-acceptance.mjs --update-baseline",
     "acceptance:browser:baseline:manage": "node ../scripts/auto/manage-visual-baselines.mjs",
+    "component:guard": "node ./scripts/component-contract-guard.mjs",
     "style:guard": "node ./scripts/style-literal-guard.mjs",
     "style:guard:update-baseline": "node ./scripts/style-literal-guard.mjs --update-baseline",
     "build": "vite build",

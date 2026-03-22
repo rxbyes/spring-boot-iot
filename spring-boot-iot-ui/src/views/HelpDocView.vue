@@ -7,59 +7,49 @@
             <span>帮助文档管理</span>
             <small>统一编排业务类、技术类、常见问题资料，并按角色和页面范围过滤给帮助中心。</small>
           </div>
-          <el-button v-permission="'system:help-doc:add'" type="primary" :icon="Plus" @click="handleAdd">
+          <StandardButton v-permission="'system:help-doc:add'" action="add" :icon="Plus" @click="handleAdd">
             新增文档
-          </el-button>
+          </StandardButton>
         </div>
       </template>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="文档标题">
-              <el-input
-                v-model="searchForm.title"
-                clearable
-                placeholder="请输入文档标题"
-                @keyup.enter="handleSearch"
+      <StandardListFilterHeader :model="searchForm">
+        <template #primary>
+          <el-form-item>
+            <el-input
+              v-model="searchForm.title"
+              clearable
+              placeholder="文档标题"
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.docCategory" clearable placeholder="文档分类">
+              <el-option
+                v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
               />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="文档分类">
-              <el-select v-model="searchForm.docCategory" clearable placeholder="请选择分类">
-                <el-option
-                  v-for="item in HELP_DOC_CATEGORY_OPTIONS"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="状态">
-              <el-select v-model="searchForm.status" clearable placeholder="请选择状态">
-                <el-option label="启用" :value="1" />
-                <el-option label="停用" :value="0" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-form-item label="">
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.status" clearable placeholder="状态">
+              <el-option label="启用" :value="1" />
+              <el-option label="停用" :value="0" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+        </template>
+      </StandardListFilterHeader>
 
-      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
+      <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
         <template #right>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -81,16 +71,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="可见角色" :min-width="200">
+        <StandardTableTextColumn label="可见角色" :min-width="200">
           <template #default="{ row }">
-            <span>{{ getRoleSummary(row.visibleRoleCodes) }}</span>
+            {{ getRoleSummary(row.visibleRoleCodes) }}
           </template>
-        </el-table-column>
-        <el-table-column label="关联页面" :min-width="220">
+        </StandardTableTextColumn>
+        <StandardTableTextColumn label="关联页面" :min-width="220">
           <template #default="{ row }">
-            <span>{{ getRelatedPathSummary(row.relatedPaths) }}</span>
+            {{ getRelatedPathSummary(row.relatedPaths) }}
           </template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -103,9 +93,11 @@
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
         <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleView(row)">查看</el-button>
-            <el-button v-permission="'system:help-doc:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button v-permission="'system:help-doc:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
+              <StandardActionLink v-permission="'system:help-doc:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+              <StandardActionLink v-permission="'system:help-doc:delete'" @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -328,6 +320,7 @@ import PanelCard from '@/components/PanelCard.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'

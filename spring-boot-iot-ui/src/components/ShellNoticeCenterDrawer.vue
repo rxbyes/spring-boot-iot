@@ -67,9 +67,9 @@
           </div>
 
           <StandardActionGroup gap="sm" marginTop="sm">
-            <el-button type="primary" link @click="emit('select', item)">查看详情</el-button>
-            <el-button v-if="item.relatedPath" type="primary" link @click="emit('navigate', item.relatedPath)">进入页面</el-button>
-            <el-button v-if="!item.read" type="warning" link @click="emit('read', item)">标记已读</el-button>
+            <StandardActionLink @click="emit('select', item)">查看详情</StandardActionLink>
+            <StandardActionLink v-if="item.relatedPath" @click="emit('navigate', item.relatedPath)">进入页面</StandardActionLink>
+            <StandardActionLink v-if="!item.read" @click="emit('read', item)">标记已读</StandardActionLink>
           </StandardActionGroup>
         </article>
       </div>
@@ -86,8 +86,8 @@
 
     <template #footer>
       <StandardActionGroup>
-        <el-button @click="emit('refresh')">刷新</el-button>
-        <el-button type="warning" plain @click="emit('readAll')">全部已读</el-button>
+        <StandardButton action="refresh" @click="emit('refresh')">刷新</StandardButton>
+        <StandardButton action="batch" @click="emit('readAll')">全部已读</StandardButton>
       </StandardActionGroup>
     </template>
   </StandardDetailDrawer>

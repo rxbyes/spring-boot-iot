@@ -60,14 +60,14 @@ iot:
       - http://192.168.*:*
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
-    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
-#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
+#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
     # 默认共享 clientId 会在运行时追加主机/PID 后缀；如需固定值，请显式设置为自定义非默认值。
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
     default-subscribe-topics:
-      - $dp
+#      - $dp
       - /sys/+/+/thing/property/post
       - /sys/+/+/thing/event/post
       - /sys/+/+/thing/property/reply

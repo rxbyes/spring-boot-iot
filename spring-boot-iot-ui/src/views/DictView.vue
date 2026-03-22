@@ -4,48 +4,40 @@
       <template #header>
         <div class="card-header">
           <span>数据字典</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
+          <StandardButton action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
         </div>
       </template>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="字典名称">
-              <el-input v-model="searchForm.dictName" placeholder="请输入字典名称" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="字典编码">
-              <el-input v-model="searchForm.dictCode" placeholder="请输入字典编码" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="字典类型">
-              <el-select v-model="searchForm.dictType" placeholder="请选择字典类型" clearable>
-                <el-option label="文本" value="text" />
-                <el-option label="数字" value="number" />
-                <el-option label="布尔" value="boolean" />
-                <el-option label="日期" value="date" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+      <StandardListFilterHeader :model="searchForm">
+        <template #primary>
+          <el-form-item>
+            <el-input v-model="searchForm.dictName" placeholder="字典名称" clearable @keyup.enter="handleSearch" />
+          </el-form-item>
+          <el-form-item>
+            <el-input v-model="searchForm.dictCode" placeholder="字典编码" clearable @keyup.enter="handleSearch" />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="searchForm.dictType" placeholder="字典类型" clearable>
+              <el-option label="文本" value="text" />
+              <el-option label="数字" value="number" />
+              <el-option label="布尔" value="boolean" />
+              <el-option label="日期" value="date" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+        </template>
+      </StandardListFilterHeader>
 
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+      <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项` ]">
         <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+          <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -79,9 +71,11 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleItems(row)">字典项</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
+              <StandardActionLink @click="handleItems(row)">字典项</StandardActionLink>
+              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -150,14 +144,14 @@
         size="58rem"
         @close="handleItemsDialogClose"
       >
-        <StandardTableToolbar :meta-items="[ `已选 ${selectedItemRows.length} 项` ]">
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedItemRows.length} 项` ]">
           <template #right>
-            <el-button link @click="handleAddItem">新增字典项</el-button>
-            <el-button link @click="openItemExportColumnSetting">导出列设置</el-button>
-            <el-button link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</el-button>
-            <el-button link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</el-button>
-            <el-button link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</el-button>
-            <el-button link @click="handleRefreshItems">刷新列表</el-button>
+            <StandardButton action="add" link @click="handleAddItem">新增字典项</StandardButton>
+            <StandardButton action="refresh" link @click="openItemExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefreshItems">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
         <el-table
@@ -187,8 +181,10 @@
           <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
           <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleEditItem(row)">编辑</el-button>
-              <el-button type="danger" link @click="handleDeleteItem(row)">删除</el-button>
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="handleEditItem(row)">编辑</StandardActionLink>
+                <StandardActionLink @click="handleDeleteItem(row)">删除</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
@@ -257,6 +253,7 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'

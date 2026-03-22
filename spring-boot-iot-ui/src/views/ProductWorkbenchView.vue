@@ -38,9 +38,9 @@
             </el-form-item>
           </template>
           <template #actions>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-            <el-button @click="handleReset">重置</el-button>
-            <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton v-permission="'iot:products:add'" action="add" @click="handleAdd">新增产品</StandardButton>
           </template>
         </StandardListFilterHeader>
         <!-- 快速搜索标签 -->
@@ -61,6 +61,7 @@
 
       <template #toolbar>
         <StandardTableToolbar
+          compact
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
             `启用 ${enabledProductCount} 个`,
@@ -73,10 +74,10 @@
               v-permission="'iot:products:view'"
               @command="(command) => handleViewTypeChange(command)"
             >
-              <el-button type="primary" link>
+              <StandardActionLink>
                 <span>{{ viewTypeName }}</span>
                 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </el-button>
+              </StandardActionLink>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="table">
@@ -97,10 +98,10 @@
               trigger="click"
               @command="(command) => handleBatchCommand(command, selectedRows)"
             >
-              <el-button type="primary" link :disabled="selectedRows.length === 0">
+              <StandardActionLink :disabled="selectedRows.length === 0">
                 <span>批量操作</span>
                 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </el-button>
+              </StandardActionLink>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="enable" divided>
@@ -118,15 +119,15 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-            <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">导出列设置</el-button>
-            <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
+            <StandardButton v-permission="'iot:products:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton v-permission="'iot:products:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
               导出选中
-            </el-button>
-            <el-button v-permission="'iot:products:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">
+            </StandardButton>
+            <StandardButton v-permission="'iot:products:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">
               导出当前结果
-            </el-button>
-            <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-            <el-button link @click="handleRefresh">刷新列表</el-button>
+            </StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
       </template>
@@ -142,7 +143,7 @@
         v-loading="loading && hasRecords"
         class="product-result-panel"
         element-loading-text="正在刷新产品列表"
-        element-loading-background="rgba(248, 250, 255, 0.78)"
+        element-loading-background="var(--loading-mask-bg)"
       >
         <div v-if="showListSkeleton" class="product-loading-state" aria-live="polite" aria-busy="true">
           <div class="product-loading-state__summary">
@@ -230,26 +231,11 @@
                   </div>
                 </div>
 
-                <div class="product-mobile-card__actions">
-                  <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
-                    <el-button type="primary" link>
-                      更多
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item
-                          v-for="action in productRowActions"
-                          :key="action.command"
-                          :command="action.command"
-                        >
-                          {{ action.label }}
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
+                <StandardRowActions variant="card" gap="comfortable" class="product-mobile-card__actions">
+                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
+                  <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                  <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
+                </StandardRowActions>
               </article>
             </div>
           </div>
@@ -287,28 +273,13 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="180" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
                 <template #default="{ row }">
-                  <div class="product-table-actions">
-                    <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                    <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                    <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
-                      <el-button type="primary" link>
-                        更多
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item
-                            v-for="action in productRowActions"
-                            :key="action.command"
-                            :command="action.command"
-                          >
-                            {{ action.label }}
-                          </el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
-                  </div>
+                  <StandardRowActions variant="table" gap="wide">
+                    <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
+                    <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                    <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
+                  </StandardRowActions>
                 </template>
               </el-table-column>
             </el-table>
@@ -318,8 +289,8 @@
         <div v-else-if="!loading" class="product-empty-state">
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="product-empty-state__actions">
-            <el-button v-if="hasAppliedFilters" @click="handleClearAppliedFilters">清空筛选条件</el-button>
-            <el-button v-else v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else v-permission="'iot:products:add'" action="add" @click="handleAdd">新增产品</StandardButton>
           </div>
         </div>
       </div>
@@ -351,14 +322,14 @@
       :empty="!detailData"
     >
       <template #header-actions>
-        <el-button
+        <StandardButton
           v-permission="'iot:products:update'"
-          type="primary"
+          action="confirm"
           size="small"
           @click="handleEditFromDetail"
         >
           编辑
-        </el-button>
+        </StandardButton>
       </template>
       <div v-if="detailData" class="product-detail-layout">
         <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
@@ -505,17 +476,17 @@
 
       <template #footer>
         <StandardDrawerFooter @cancel="detailVisible = false">
-          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
+          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
             关闭
-          </el-button>
-          <el-button
-            type="primary"
+          </StandardButton>
+          <StandardButton
+            action="confirm"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
             :disabled="!detailData?.productKey"
             @click="detailData && handleOpenDeviceListDrawer(detailData)"
           >
             查看设备
-          </el-button>
+          </StandardButton>
         </StandardDrawerFooter>
       </template>
     </StandardDetailDrawer>
@@ -596,19 +567,19 @@
           @cancel="formVisible = false"
           @confirm="handleSubmit"
         >
-          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
+          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
             取消
-          </el-button>
-          <el-button
+          </StandardButton>
+          <StandardButton
             id="product-submit-button"
             v-permission="submitPermission"
-            type="primary"
+            action="confirm"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
             :loading="submitLoading"
             @click="handleSubmit"
           >
             {{ submitButtonText }}
-          </el-button>
+          </StandardButton>
         </StandardDrawerFooter>
       </template>
     </StandardFormDrawer>
@@ -658,7 +629,6 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
-import { ElMessageBox } from 'element-plus'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
 import type { PageResult, Product, ProductAddPayload } from '@/types/api'
@@ -695,7 +665,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
-import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime } from '@/utils/format'
 
 function formatCount(value?: number | null) {
@@ -734,6 +704,7 @@ type ProductFilterKey = keyof ProductSearchForm
 interface ProductFormState extends ProductAddPayload {}
 
 interface ProductRowAction {
+  key?: string
   command: 'devices' | 'delete'
   label: string
   permission?: string
@@ -856,8 +827,8 @@ const showListSkeleton = computed(() => loading.value && !hasRecords.value)
 const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
-    { command: 'devices', label: '查看设备' },
-    { command: 'delete', label: '删除', permission: 'iot:products:delete' }
+    { key: 'devices', command: 'devices', label: '查看设备' },
+    { key: 'delete', command: 'delete', label: '删除', permission: 'iot:products:delete' }
   ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
 )
 const activeFilterTags = computed(() => {
@@ -2059,16 +2030,12 @@ async function handleBatchCommand(command: string, rows: Product[]) {
 
   try {
     if (command === 'enable') {
-      // 批量启用确认
-      await ElMessageBox.confirm(
-        `确定要启用选中的 ${rowCount} 个产品吗？启用后可正常接入设备`,
-        '确认启用',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      )
+      await confirmAction({
+        title: '确认启用',
+        message: `确定要启用选中的 ${rowCount} 个产品吗？启用后可正常接入设备`,
+        type: 'warning',
+        confirmButtonText: '确定'
+      })
 
       // 辅助函数：将 null 转换为 undefined
       function normalizeProductPayload(row: Product): ProductAddPayload {
@@ -2096,16 +2063,12 @@ async function handleBatchCommand(command: string, rows: Product[]) {
       })
       void loadProductPage({ silent: true })
     } else if (command === 'disable') {
-      // 批量停用确认
-      await ElMessageBox.confirm(
-        `确定要停用选中的 ${rowCount} 个产品吗？停用后将无法新增设备，但不影响现有设备`,
-        '确认停用',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      )
+      await confirmAction({
+        title: '确认停用',
+        message: `确定要停用选中的 ${rowCount} 个产品吗？停用后将无法新增设备，但不影响现有设备`,
+        type: 'warning',
+        confirmButtonText: '确定'
+      })
 
       // 辅助函数：将 null 转换为 undefined
       function normalizeProductPayload(row: Product): ProductAddPayload {
@@ -2146,16 +2109,12 @@ async function handleBatchCommand(command: string, rows: Product[]) {
 
 async function handleDeleteBatch(rows: Product[]) {
   try {
-    // 确认删除
-    await ElMessageBox.confirm(
-      `确定要删除选中的 ${rows.length} 个产品吗？此操作不可恢复`,
-      '确认删除',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
+    await confirmAction({
+      title: '确认删除',
+      message: `确定要删除选中的 ${rows.length} 个产品吗？此操作不可恢复`,
+      type: 'warning',
+      confirmButtonText: '确定'
+    })
 
     // 批量删除
     await Promise.all(rows.map((row) => productApi.deleteProduct(row.id)))
@@ -2409,9 +2368,9 @@ onMounted(async () => {
 }
 
 .product-form-inline-state--warning {
-  border-color: #d48806;
-  color: #d48806;
-  background: color-mix(in srgb, #d48806 4%, white);
+  border-color: var(--warning);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 4%, white);
 }
 
 .product-form-inline-state--error {
@@ -2641,18 +2600,18 @@ onMounted(async () => {
 }
 
 .product-detail-overview-metric__trend--up {
-  color: #52c41a;
-  background: color-mix(in srgb, #52c41a 12%, transparent);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
 .product-detail-overview-metric__trend--down {
-  color: #ff4d4f;
-  background: color-mix(in srgb, #ff4d4f 12%, transparent);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 .product-detail-overview-metric__trend--same {
-  color: #d48806;
-  background: color-mix(in srgb, #d48806 12%, transparent);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
 .product-detail-ledger-grid {
@@ -3212,68 +3171,8 @@ onMounted(async () => {
    卡片操作区域
    ============================================ */
 .product-card-view .product-mobile-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding-top: 12px;
   border-top: 1px solid rgba(228, 235, 246, 0.5);
-}
-
-/* 操作按钮样式 - 使用系统品牌色 */
-.product-card-view .product-mobile-card__actions :deep(.el-button) {
-  flex: 1;
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-/* 主按钮 - 使用系统品牌色 */
-.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary) {
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-bright) 100%);
-  border: none;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 25%, transparent);
-  color: #ffffff;
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:hover) {
-  background: linear-gradient(135deg, var(--brand-bright) 0%, var(--brand) 100%);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 35%, transparent);
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--primary:active) {
-  transform: translateY(1px);
-  box-shadow: 0 2px 4px color-mix(in srgb, var(--brand) 20%, transparent);
-}
-
-/* 次要按钮 - 使用系统边框色 */
-.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost) {
-  color: var(--text-caption);
-  border: 1px solid var(--panel-border);
-  background: transparent;
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-button.el-button--ghost:hover) {
-  background: color-mix(in srgb, var(--brand) 8%, transparent);
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-button .el-icon) {
-  font-size: 14px;
-}
-
-/* 下拉菜单按钮样式 */
-.product-card-view .product-mobile-card__actions :deep(.el-button-group) {
-  display: flex;
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-dropdown) {
-  flex: 1;
 }
 
 /* 响应式卡片视图 */
@@ -3302,15 +3201,6 @@ onMounted(async () => {
   .product-mobile-list {
     display: block;
   }
-}
-
-/* 下拉菜单按钮样式 */
-.product-card-view .product-mobile-card__actions :deep(.el-button-group) {
-  display: flex;
-}
-
-.product-card-view .product-mobile-card__actions :deep(.el-dropdown) {
-  flex: 1;
 }
 
 /* 响应式卡片视图 */
@@ -3605,32 +3495,8 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.product-mobile-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  justify-content: flex-start;
-}
-
-.product-mobile-card__actions :deep(.el-button) {
-  margin-left: 0;
-  padding-inline: 0.1rem;
-}
-
 .product-desktop-table {
   display: block;
-}
-
-.product-table-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.18rem;
-  white-space: nowrap;
-}
-
-.product-table-actions :deep(.el-button) {
-  margin-left: 0;
-  padding-inline: 0.08rem;
 }
 
 @media (max-width: 1080px) {

@@ -7,7 +7,7 @@
       class="ops-hero-card"
     >
       <template #actions>
-        <el-button type="primary" @click="handleAdd">新增规则</el-button>
+        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
       </template>
       <div class="ops-kpi-grid">
         <MetricCard label="规则总数" :value="String(pagination.total)" :badge="{ label: '阈值治理', tone: 'brand' }" />
@@ -26,41 +26,33 @@
       description="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
       class="ops-filter-card"
     >
-      <el-form :model="filters" label-position="top" class="ops-filter-form">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="规则名称">
-              <el-input v-model="filters.ruleName" placeholder="请输入规则名称" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="测点标识符">
-              <el-input v-model="filters.metricIdentifier" placeholder="请输入测点标识符" clearable @keyup.enter="handleSearch" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="告警等级">
-              <el-select v-model="filters.alarmLevel" placeholder="请选择告警等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
-                <el-option label="启用" :value="0" />
-                <el-option label="停用" :value="1" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <div class="ops-filter-actions">
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </div>
-      </el-form>
+      <StandardListFilterHeader :model="filters">
+        <template #primary>
+          <el-form-item>
+            <el-input v-model="filters.ruleName" placeholder="规则名称" clearable @keyup.enter="handleSearch" />
+          </el-form-item>
+          <el-form-item>
+            <el-input v-model="filters.metricIdentifier" placeholder="测点标识符" clearable @keyup.enter="handleSearch" />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
+              <el-option label="严重" value="critical" />
+              <el-option label="警告" value="warning" />
+              <el-option label="提醒" value="info" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.status" placeholder="状态" clearable>
+              <el-option label="启用" :value="0" />
+              <el-option label="停用" :value="1" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+        </template>
+      </StandardListFilterHeader>
     </PanelCard>
 
     <PanelCard
@@ -70,11 +62,12 @@
       class="ops-table-card"
     >
       <StandardTableToolbar
+        compact
         :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
       >
         <template #right>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -93,7 +86,7 @@
           <StandardTableTextColumn prop="metricIdentifier" label="测点标识符" :width="160" />
           <StandardTableTextColumn prop="metricName" label="测点名称" :width="140" />
           <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
-          <el-table-column prop="duration" label="持续时间(秒)" width="120" />
+          <StandardTableTextColumn prop="duration" label="持续时间(秒)" :width="120" />
           <el-table-column prop="alarmLevel" label="告警等级" width="100">
             <template #default="{ row }">
               <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
@@ -114,8 +107,10 @@
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
+                <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
@@ -242,6 +237,7 @@ import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
@@ -491,4 +487,3 @@ onMounted(() => {
   border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>
-

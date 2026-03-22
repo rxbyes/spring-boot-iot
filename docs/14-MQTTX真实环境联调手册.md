@@ -24,6 +24,10 @@ mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ## 3. 准备测试数据
 先创建产品和设备，确保产品协议为 `mqtt-json`。
 
+若本轮需要查看 `/api/device/access-error/**` 失败归档，先确认历史库已执行：
+- `sql/upgrade/20260322_phase5_device_access_error_archive.sql`
+- 或 `python scripts/run-real-env-schema-sync.py`
+
 若本轮联调的是南方测绘深部位移基准站 `SK00FB0D1310195`，还需要额外确认：
 - `application-dev.yml` 已配置 `iot.device.sub-device-mappings.SK00FB0D1310195`
 - 若共享库里还没有 8 个子设备与初始风险点，可先执行 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`
@@ -201,8 +205,10 @@ iot:device:session:demo-device-01
 ## 10. 常见排查
 - MQTTX 已发送但数据库无变化：先看后端是否收到 MQTT 上行日志，再检查 `/system-log` 页面或 `sys_audit_log` 中是否新增 `operation_type=system_error` 的 MQTT 异常记录，然后继续核对 topic、设备编码、Broker 权限。
 - 若已开启 `IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED=true`：同步检查通知渠道 `config` 是否包含 `url` 与 `scenes:["system_error"]`，必要时先调用 `POST /api/system/channel/test/{channelCode}` 验证 webhook 侧可达性。
-- 后端收到消息但未进入主链路：重点排查设备不存在、设备协议不匹配、产品与设备绑定不一致。
+- 后端收到消息但未进入主链路：重点排查设备不存在、设备未绑定产品、设备协议为空、设备协议与产品协议不一致。
 - 标准 topic 无效：检查 `productKey`、`deviceCode` 是否与数据库一致。
 - `$dp` 无效：检查 payload 中的 `deviceCode` 是否存在，且设备协议是否为 `mqtt-json`。
+- 对 `SK11%` 这类批量历史资产快速巡检时，可执行 `python scripts/audit-device-contracts.py --device-prefix SK11`，优先看 `MISSING_PRODUCT_BINDING`、`MISSING_DEVICE_PROTOCOL` 与 `DEVICE_PRODUCT_PROTOCOL_CONFLICT`。
+- 单台设备修复可执行 `python scripts/audit-device-contracts.py --device-code SK11EB0D1308096AZ --product-key south_multi_displacement --protocol-code mqtt-json --apply`。
 - 同一深部位移样本出现两套告警/事件留痕：先核对共享环境是否仍有未升级旧版 consumer 同时在线；已升级实例会使用分布式锁，但无法约束旧实例继续按旧逻辑写入。
 - 若切换到其他真实环境，只覆盖 `IOT_MQTT_*`、`IOT_MYSQL_*`、`IOT_REDIS_*` 环境变量，并同步核对 AES 商户密钥配置。

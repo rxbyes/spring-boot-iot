@@ -319,8 +319,9 @@ const {
   overflow: hidden;
   color: var(--text-primary);
   background:
-    radial-gradient(circle at top right, rgba(255, 106, 0, 0.08), transparent 20rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 12rem);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 20rem),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 7%, transparent), transparent 22rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 22%, transparent), transparent 12rem);
 }
 
 .skip-link {
@@ -342,10 +343,10 @@ const {
   position: sticky;
   top: 0;
   z-index: 90;
-  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
-  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid color-mix(in srgb, var(--line-panel) 86%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
   backdrop-filter: blur(16px);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .cloud-header__main {
@@ -368,8 +369,18 @@ const {
   gap: 4px;
   border: 1px solid var(--line-panel);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  background: linear-gradient(180deg, var(--bg-card), var(--surface-soft));
   box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.menu-trigger:hover {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--line-panel));
+  background: linear-gradient(180deg, var(--bg-card), color-mix(in srgb, var(--brand) 6%, white));
+  box-shadow: var(--shadow-sm);
 }
 
 .menu-trigger span {
@@ -377,7 +388,7 @@ const {
   height: 2px;
   margin: 0 auto;
   border-radius: var(--radius-pill);
-  background: #526378;
+  background: var(--text-secondary);
 }
 
 .cloud-brand {
@@ -403,7 +414,7 @@ const {
   position: absolute;
   inset: 5px;
   border-radius: 0.42rem;
-  border: 2px solid rgba(255, 255, 255, 0.72);
+  border: 2px solid color-mix(in srgb, var(--bg-card) 72%, transparent);
 }
 
 .cloud-brand__text {
@@ -434,17 +445,17 @@ const {
   margin-left: auto;
   min-width: 0;
   padding: 0 0.22rem 0 0;
-  border: 1px solid var(--line-panel-2);
+  border: 1px solid var(--line-panel);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, rgba(248, 249, 251, 0.96), rgba(245, 247, 250, 0.98));
+  background: linear-gradient(180deg, var(--surface-subtle), var(--surface-soft));
   overflow: hidden;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .command-trigger:hover {
-  border-color: color-mix(in srgb, var(--brand) 20%, white);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--line-panel));
   background: var(--bg-card);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 8%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .command-trigger__icon {
@@ -460,7 +471,7 @@ const {
   content: '';
   width: 0.56rem;
   height: 0.56rem;
-  border: 1.6px solid #8ea0ba;
+  border: 1.6px solid var(--text-tertiary);
   border-radius: 50%;
 }
 
@@ -469,7 +480,7 @@ const {
   position: absolute;
   width: 0.3rem;
   height: 1.6px;
-  background: #8ea0ba;
+  background: var(--text-tertiary);
   border-radius: var(--radius-pill);
   transform: translate(0.26rem, 0.28rem) rotate(45deg);
 }
@@ -490,8 +501,8 @@ const {
   height: 2rem;
   padding: 0 0.7rem;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 10%, white);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--accent) 10%, white);
+  color: var(--accent-deep);
   font-size: 0.76rem;
   font-weight: 700;
 }
@@ -542,7 +553,7 @@ const {
   position: fixed;
   inset: 0;
   border: none;
-  background: rgba(16, 23, 38, 0.45);
+  background: var(--overlay-mask);
   z-index: 70;
 }
 

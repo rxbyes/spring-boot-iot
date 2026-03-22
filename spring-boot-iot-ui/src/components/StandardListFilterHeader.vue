@@ -17,14 +17,13 @@
         <StandardActionGroup gap="sm" class="standard-list-filter-header__actions">
           <slot name="actions" />
         </StandardActionGroup>
-        <el-button
+        <StandardActionLink
           v-if="showFilterToggle"
-          link
           class="standard-list-filter-header__toggle"
           @click="handleToggleFilters"
         >
           {{ filtersExpanded ? collapseText : expandText }}
-        </el-button>
+        </StandardActionLink>
         <span v-if="advancedHint" class="standard-list-filter-header__hint">{{ advancedHint }}</span>
       </div>
     </el-form>

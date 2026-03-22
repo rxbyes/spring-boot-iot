@@ -47,9 +47,9 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
         }
 
         Device device = deviceService.getRequiredByCode(command.getDeviceCode());
-        Product product = productService.getRequiredById(device.getProductId());
+        Product product = resolveRequiredProduct(device, command.getDeviceCode());
         ensureProductMatched(command.getProductKey(), product, command.getDeviceCode());
-        ensureProtocolMatched(command.getProtocolCode(), device, command.getDeviceCode());
+        ensureProtocolMatched(command.getProtocolCode(), device, product, command.getDeviceCode());
 
         int actualQos = command.getQos() == null ? iotProperties.getMqtt().getQos() : command.getQos();
         boolean retained = Boolean.TRUE.equals(command.getRetained());
@@ -69,13 +69,48 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
         }
     }
 
-    private void ensureProtocolMatched(String protocolCode, Device device, String deviceCode) {
-        String actualProtocolCode = device == null ? null : device.getProtocolCode();
-        if (actualProtocolCode == null || actualProtocolCode.isBlank()) {
-            return;
+    private Product resolveRequiredProduct(Device device, String deviceCode) {
+        if (device == null || device.getProductId() == null || device.getProductId() <= 0) {
+            throw new BizException("设备所属产品不存在: " + deviceCode);
         }
-        if (!actualProtocolCode.equalsIgnoreCase(protocolCode)) {
-            throw new BizException("模拟上报 protocolCode 与设备协议不匹配: " + deviceCode);
+        try {
+            return productService.getRequiredById(device.getProductId());
+        } catch (BizException ex) {
+            throw new BizException("设备所属产品不存在: " + deviceCode);
         }
+    }
+
+    private void ensureProtocolMatched(String protocolCode, Device device, Product product, String deviceCode) {
+        String deviceProtocolCode = normalizeText(device == null ? null : device.getProtocolCode());
+        String productProtocolCode = normalizeText(product == null ? null : product.getProtocolCode());
+        if (hasText(deviceProtocolCode) && hasText(productProtocolCode)
+                && !deviceProtocolCode.equalsIgnoreCase(productProtocolCode)) {
+            throw new BizException("模拟上报目标设备协议配置异常: " + deviceCode
+                    + ", deviceProtocol=" + deviceProtocolCode
+                    + ", productProtocol=" + productProtocolCode);
+        }
+        String expectedProtocolCode = hasText(deviceProtocolCode) ? deviceProtocolCode : productProtocolCode;
+        if (!hasText(expectedProtocolCode)) {
+            throw new BizException("模拟上报目标设备未配置协议: " + deviceCode
+                    + ", deviceProtocol=" + displayText(deviceProtocolCode)
+                    + ", productProtocol=" + displayText(productProtocolCode));
+        }
+        if (!expectedProtocolCode.equalsIgnoreCase(protocolCode)) {
+            throw new BizException("模拟上报 protocolCode 与设备协议不匹配: " + deviceCode
+                    + ", expected=" + expectedProtocolCode
+                    + ", actual=" + displayText(protocolCode));
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String normalizeText(String value) {
+        return hasText(value) ? value.trim() : null;
+    }
+
+    private String displayText(String value) {
+        return hasText(value) ? value.trim() : "<empty>";
     }
 }

@@ -23,43 +23,35 @@
       description="优先定位待确认和高等级告警，快速聚焦需要立即响应的风险项。"
       class="ops-filter-card"
     >
-      <el-form :model="filters" label-position="top" class="ops-filter-form">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="设备编码">
-              <el-input v-model="filters.deviceCode" placeholder="请输入设备编码" clearable />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="告警等级">
-              <el-select v-model="filters.alarmLevel" placeholder="请选择告警等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
-                <el-option label="未确认" :value="0" />
-                <el-option label="已确认" :value="1" />
-                <el-option label="已抑制" :value="2" />
-                <el-option label="已关闭" :value="3" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="处置建议">
-              <el-input :model-value="alarmListAdvice" disabled />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <div class="ops-filter-actions">
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </div>
-      </el-form>
+      <StandardListFilterHeader :model="filters">
+        <template #primary>
+          <el-form-item>
+            <el-input v-model="filters.deviceCode" placeholder="设备编码" clearable />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
+              <el-option label="严重" value="critical" />
+              <el-option label="警告" value="warning" />
+              <el-option label="提醒" value="info" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.status" placeholder="状态" clearable>
+              <el-option label="未确认" :value="0" />
+              <el-option label="已确认" :value="1" />
+              <el-option label="已抑制" :value="2" />
+              <el-option label="已关闭" :value="3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-input :model-value="alarmListAdvice" placeholder="处置建议" disabled />
+          </el-form-item>
+        </template>
+        <template #actions>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+        </template>
+      </StandardListFilterHeader>
     </PanelCard>
 
     <PanelCard
@@ -68,13 +60,13 @@
       :description="`当前 ${pagination.total} 条告警记录，支持选择、导出和批量排查。`"
       class="ops-table-card"
     >
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项`, `未确认 ${stats.unconfirmedAlarms} 项` ]">
+      <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `未确认 ${stats.unconfirmedAlarms} 项` ]">
         <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="alarmList.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+          <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+          <StandardButton action="refresh" link :disabled="alarmList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+          <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
       <div v-if="loading" class="ops-state">正在加载告警列表...</div>
@@ -103,10 +95,12 @@
           <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
-              <el-button v-if="row.status === 0" type="primary" link @click="handleConfirm(row)">确认</el-button>
-              <el-button v-if="row.status === 0" type="primary" link @click="handleSuppress(row)">抑制</el-button>
-              <el-button v-if="row.status !== 3" type="primary" link @click="handleClose(row)">关闭</el-button>
+              <StandardRowActions variant="table" gap="wide" wrap>
+                <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
+                <StandardActionLink v-if="row.status === 0" @click="handleConfirm(row)">确认</StandardActionLink>
+                <StandardActionLink v-if="row.status === 0" @click="handleSuppress(row)">抑制</StandardActionLink>
+                <StandardActionLink v-if="row.status !== 3" @click="handleClose(row)">关闭</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
@@ -150,6 +144,7 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
@@ -460,6 +455,3 @@ watch(detailVisible, (visible) => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 </style>
-
-
-

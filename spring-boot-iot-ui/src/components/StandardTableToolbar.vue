@@ -1,5 +1,10 @@
 <template>
-  <div class="standard-table-toolbar table-action-bar">
+  <div
+    class="standard-table-toolbar table-action-bar"
+    :class="{
+      'standard-table-toolbar--compact': compact
+    }"
+  >
     <div v-if="hasLeft" class="table-action-bar__left">
       <slot name="left">
         <span
@@ -26,9 +31,11 @@ type MetaItem = string | number | { key?: string | number; label: string | numbe
 const props = withDefaults(
   defineProps<{
     metaItems?: MetaItem[]
+    compact?: boolean
   }>(),
   {
-    metaItems: () => []
+    metaItems: () => [],
+    compact: false
   }
 )
 

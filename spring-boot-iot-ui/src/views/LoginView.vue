@@ -325,20 +325,25 @@ function finderOrigins(size: number) {
 </script>
 <style scoped>
 .login-page {
-  --panel-bg: rgba(255, 255, 255, 0.82);
-  --line-color: rgba(95, 118, 158, 0.2);
-  --text-main: #1f2d46;
+  --panel-bg: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  --line-color: color-mix(in srgb, var(--line-panel) 78%, transparent);
+  --text-main: var(--text-heading);
   --text-subtle: var(--text-caption);
-  --brand-blue: #1f6df0;
+  --brand-blue: var(--accent);
 
   position: relative;
   min-height: 100vh;
   overflow: hidden;
   color: var(--text-main);
   background:
-    radial-gradient(circle at 10% 8%, rgba(255, 186, 126, 0.44), transparent 30%),
-    radial-gradient(circle at 100% 0, rgba(156, 195, 255, 0.42), transparent 36%),
-    linear-gradient(146deg, #f4e8db 0%, #eaf2fc 42%, #c4def7 100%);
+    radial-gradient(circle at 10% 8%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 30%),
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent) 16%, transparent), transparent 36%),
+    linear-gradient(
+      146deg,
+      color-mix(in srgb, var(--brand) 12%, white) 0%,
+      color-mix(in srgb, var(--accent) 8%, white) 42%,
+      var(--bg) 100%
+    );
 }
 
 .login-page__glow {
@@ -353,7 +358,7 @@ function finderOrigins(size: number) {
   height: 28rem;
   left: -9rem;
   top: 14rem;
-  background: rgba(255, 157, 84, 0.18);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .login-page__glow--cool {
@@ -361,7 +366,7 @@ function finderOrigins(size: number) {
   height: 34rem;
   right: -10rem;
   bottom: -8rem;
-  background: rgba(72, 145, 255, 0.18);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .login-page__header,
@@ -389,8 +394,8 @@ function finderOrigins(size: number) {
   width: 2.15rem;
   height: 2.15rem;
   border-radius: 0.72rem;
-  background: linear-gradient(150deg, #ff7800, #ff9d51);
-  box-shadow: 0 10px 24px rgba(255, 126, 20, 0.24);
+  background: linear-gradient(150deg, var(--brand), var(--brand-bright));
+  box-shadow: var(--shadow-brand);
   position: relative;
 }
 
@@ -398,7 +403,7 @@ function finderOrigins(size: number) {
   content: '';
   position: absolute;
   inset: 5px;
-  border: 2px solid rgba(255, 255, 255, 0.8);
+  border: 2px solid color-mix(in srgb, var(--bg-card) 80%, transparent);
   border-radius: 0.5rem;
 }
 
@@ -409,7 +414,7 @@ function finderOrigins(size: number) {
 }
 
 .login-page__region {
-  color: #42597f;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -429,13 +434,13 @@ function finderOrigins(size: number) {
   line-height: 1.15;
   letter-spacing: 0.03em;
   font-weight: 700;
-  color: #2a354a;
+  color: var(--text-heading);
 }
 
 .login-hero p {
   margin: 1.05rem auto 0;
   max-width: 48rem;
-  color: #5f7392;
+  color: var(--text-secondary);
   font-size: 1.36rem;
   line-height: 1.75;
 }
@@ -443,10 +448,10 @@ function finderOrigins(size: number) {
 .auth-panel {
   display: grid;
   grid-template-columns: 38% 1px 1fr;
-  border-radius: 0;
+  border-radius: calc(var(--radius-2xl) + 2px);
   background: var(--panel-bg);
-  border: 1px solid rgba(131, 156, 198, 0.18);
-  box-shadow: 0 24px 64px rgba(22, 48, 88, 0.13);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 56px color-mix(in srgb, var(--accent) 12%, transparent);
   backdrop-filter: blur(4px);
 }
 
@@ -464,7 +469,7 @@ function finderOrigins(size: number) {
 
 .auth-panel__left-tip {
   margin: 0.75rem 0 0;
-  color: #2876ec;
+  color: var(--accent);
   font-size: 1.18rem;
 }
 
@@ -474,8 +479,9 @@ function finderOrigins(size: number) {
   aspect-ratio: 1;
   margin-top: 1.35rem;
   padding: 0.95rem;
-  border: 1px solid rgba(81, 109, 149, 0.16);
-  background: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--panel-border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-card) 94%, white);
 }
 
 .qr-stage__scanner {
@@ -483,8 +489,8 @@ function finderOrigins(size: number) {
   left: 0.95rem;
   right: 0.95rem;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #2b82ff, transparent);
-  box-shadow: 0 0 10px rgba(32, 126, 255, 0.52);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 34%, transparent);
   animation: scan-line 2.7s linear infinite;
 }
 
@@ -502,7 +508,7 @@ function finderOrigins(size: number) {
 
 .qr-grid__cell--filled,
 .qr-grid__cell--finder {
-  background: #17243a;
+  background: var(--text-heading);
 }
 
 .auth-panel__left-copy {
@@ -530,7 +536,7 @@ function finderOrigins(size: number) {
   padding: 0.1rem 0;
   font-size: 1.32rem;
   font-weight: 600;
-  color: #4e6487;
+  color: var(--text-secondary);
   border-bottom: 2px solid transparent;
 }
 
@@ -550,23 +556,23 @@ function finderOrigins(size: number) {
 }
 
 .auth-form__field span {
-  color: #667d9f;
+  color: var(--text-caption);
   font-size: 1.03rem;
 }
 
 .auth-form__field input {
   height: 3.25rem;
-  border: 1px solid rgba(99, 122, 158, 0.2);
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1d2f4b;
+  border: 1px solid var(--line-panel);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-card) 92%, white);
+  color: var(--text-heading);
   font-size: 1.14rem;
 }
 
 .auth-form__field input:focus-visible {
   outline: none;
-  border-color: rgba(31, 109, 240, 0.6);
-  box-shadow: 0 0 0 3px rgba(31, 109, 240, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .password-field {
@@ -577,10 +583,10 @@ function finderOrigins(size: number) {
 
 .password-field__toggle {
   min-width: 4.9rem;
-  border: 1px solid rgba(99, 122, 158, 0.2);
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.92);
-  color: #566b8d;
+  border: 1px solid var(--line-panel);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-soft) 92%, white);
+  color: var(--text-secondary);
   font-size: 1.05rem;
 }
 
@@ -598,11 +604,15 @@ function finderOrigins(size: number) {
   width: 100%;
   min-height: 3.35rem;
   justify-content: center;
-  border-radius: 0;
-  background: linear-gradient(135deg, #1f6df0, #327ff8);
-  box-shadow: 0 10px 24px rgba(31, 109, 240, 0.25);
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--shadow-brand);
   font-size: 1.2rem;
   letter-spacing: 0.04em;
+}
+
+.auth-form__submit:hover {
+  background: var(--button-primary-hover-bg);
 }
 
 .auth-form__submit:disabled {
@@ -618,13 +628,13 @@ function finderOrigins(size: number) {
 }
 
 .auth-form__links a {
-  color: #33506f;
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 1.03rem;
 }
 
 .auth-form__links a:hover {
-  color: #1f6df0;
+  color: var(--accent);
 }
 
 @keyframes scan-line {
@@ -697,4 +707,3 @@ function finderOrigins(size: number) {
   }
 }
 </style>
-

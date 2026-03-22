@@ -125,22 +125,10 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (device == null) {
             throw new BizException("设备不存在: " + upMessage.getDeviceCode());
         }
-        String actualProtocolCode = hasText(upMessage.getProtocolCode()) ? upMessage.getProtocolCode() : device.getProtocolCode();
-        if (!hasText(actualProtocolCode) || device.getProtocolCode() == null || !device.getProtocolCode().equals(actualProtocolCode)) {
-            throw new BizException("设备协议不匹配: " + upMessage.getDeviceCode());
-        }
-        upMessage.setProtocolCode(actualProtocolCode);
-
         Product product = getRequiredProduct(device);
         ensureProductEnabledForAccess(product);
-        String productKey = product.getProductKey();
-        if (!hasText(upMessage.getProductKey())) {
-            upMessage.setProductKey(productKey);
-        }
-        if (!hasText(productKey) || !hasText(upMessage.getProductKey())
-                || !upMessage.getProductKey().equalsIgnoreCase(productKey)) {
-            throw new BizException("设备所属产品不匹配: " + upMessage.getDeviceCode());
-        }
+        validateProductMatched(upMessage, device, product);
+        validateProtocolMatched(upMessage, device, product);
 
         saveMessageLog(device, upMessage);
         if (isCommandReply(upMessage)) {
@@ -202,6 +190,47 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (product != null && ProductStatusEnum.DISABLED.getCode().equals(product.getStatus())) {
             throw new BizException("产品已停用，拒绝设备接入: " + product.getProductKey());
         }
+    }
+
+    private void validateProductMatched(DeviceUpMessage upMessage, Device device, Product product) {
+        String expectedProductKey = normalizeText(product == null ? null : product.getProductKey());
+        String actualProductKey = hasText(upMessage.getProductKey())
+                ? upMessage.getProductKey().trim()
+                : expectedProductKey;
+        if (!hasText(expectedProductKey) || !hasText(actualProductKey)
+                || !expectedProductKey.equalsIgnoreCase(actualProductKey)) {
+            throw new BizException("设备所属产品不匹配: " + device.getDeviceCode()
+                    + ", expected=" + displayText(expectedProductKey)
+                    + ", actual=" + displayText(actualProductKey));
+        }
+        upMessage.setProductKey(expectedProductKey);
+    }
+
+    private void validateProtocolMatched(DeviceUpMessage upMessage, Device device, Product product) {
+        String deviceProtocolCode = normalizeText(device == null ? null : device.getProtocolCode());
+        String productProtocolCode = normalizeText(product == null ? null : product.getProtocolCode());
+        if (hasText(deviceProtocolCode) && hasText(productProtocolCode)
+                && !deviceProtocolCode.equalsIgnoreCase(productProtocolCode)) {
+            throw new BizException("设备协议配置异常: " + device.getDeviceCode()
+                    + ", deviceProtocol=" + deviceProtocolCode
+                    + ", productProtocol=" + productProtocolCode);
+        }
+
+        String expectedProtocolCode = hasText(deviceProtocolCode) ? deviceProtocolCode : productProtocolCode;
+        String actualProtocolCode = hasText(upMessage.getProtocolCode())
+                ? upMessage.getProtocolCode().trim()
+                : expectedProtocolCode;
+        if (!hasText(expectedProtocolCode)) {
+            throw new BizException("设备接入协议未配置: " + device.getDeviceCode()
+                    + ", deviceProtocol=" + displayText(deviceProtocolCode)
+                    + ", productProtocol=" + displayText(productProtocolCode));
+        }
+        if (!hasText(actualProtocolCode) || !expectedProtocolCode.equalsIgnoreCase(actualProtocolCode)) {
+            throw new BizException("设备协议不匹配: " + device.getDeviceCode()
+                    + ", expected=" + expectedProtocolCode
+                    + ", actual=" + displayText(actualProtocolCode));
+        }
+        upMessage.setProtocolCode(expectedProtocolCode);
     }
 
     private Device findDeviceByCode(String deviceCode) {
@@ -604,5 +633,13 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String normalizeText(String value) {
+        return hasText(value) ? value.trim() : null;
+    }
+
+    private String displayText(String value) {
+        return hasText(value) ? value.trim() : "<empty>";
     }
 }

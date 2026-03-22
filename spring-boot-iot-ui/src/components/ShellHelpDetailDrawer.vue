@@ -87,7 +87,7 @@
 
     <template #footer>
       <StandardActionGroup>
-        <el-button v-if="record?.primaryPath" type="primary" @click="emit('navigate', record.primaryPath)">进入页面</el-button>
+        <StandardButton v-if="record?.primaryPath" action="confirm" @click="emit('navigate', record.primaryPath)">进入页面</StandardButton>
       </StandardActionGroup>
     </template>
   </StandardDetailDrawer>

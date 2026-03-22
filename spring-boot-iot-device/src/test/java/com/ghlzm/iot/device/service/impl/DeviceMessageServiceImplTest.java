@@ -202,14 +202,77 @@ class DeviceMessageServiceImplTest {
         device.setProductId(1001L);
         device.setDeviceCode("demo-device-03");
         device.setProtocolCode("tcp-hex");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProtocolCode("tcp-hex");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
         when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
 
         DeviceUpMessage upMessage = buildMessage("mqtt-json", "demo-product", "demo-device-03",
                 Map.of("temperature", 25), "property", "/sys/demo-product/demo-device-03/thing/property/post");
 
         BizException ex = assertThrows(BizException.class, () -> deviceMessageService.handleUpMessage(upMessage));
-        assertEquals("设备协议不匹配: demo-device-03", ex.getMessage());
+        assertEquals("设备协议不匹配: demo-device-03, expected=tcp-hex, actual=mqtt-json", ex.getMessage());
+        verify(productMapper).selectById(1001L);
+        verifyNoInteractions(productModelMapper, deviceMessageLogMapper, devicePropertyMapper);
+    }
+
+    @Test
+    void handleUpMessageShouldThrowWhenDeviceProductUnboundBeforeProtocolValidation() {
+        Device device = new Device();
+        device.setId(2006L);
+        device.setTenantId(1L);
+        device.setProductId(null);
+        device.setDeviceCode("demo-device-06");
+        device.setProtocolCode("");
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+
+        DeviceUpMessage upMessage = buildMessage("mqtt-json", "demo-product", "demo-device-06",
+                Map.of("temperature", 25), "property", "$dp");
+
+        BizException ex = assertThrows(BizException.class, () -> deviceMessageService.handleUpMessage(upMessage));
+        assertEquals("设备未绑定产品: demo-device-06", ex.getMessage());
         verifyNoInteractions(productMapper, productModelMapper, deviceMessageLogMapper, devicePropertyMapper);
+    }
+
+    @Test
+    void handleUpMessageShouldFallbackToProductProtocolWhenDeviceProtocolBlank() {
+        Device device = new Device();
+        device.setId(2007L);
+        device.setTenantId(1L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-07");
+        device.setProtocolCode("");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProtocolCode("mqtt-json");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        ProductModel propertyModel = new ProductModel();
+        propertyModel.setIdentifier("temperature");
+        propertyModel.setModelName("temperature");
+        propertyModel.setDataType("double");
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(propertyModel));
+        when(devicePropertyMapper.selectOne(any())).thenReturn(null);
+
+        DeviceUpMessage upMessage = buildMessage("mqtt-json", "demo-product", "demo-device-07",
+                Map.of("temperature", 26.5), "property", "$dp");
+
+        deviceMessageService.handleUpMessage(upMessage);
+
+        verify(deviceMessageLogMapper).insert(any(DeviceMessageLog.class));
+        verify(devicePropertyMapper).insert(any(DeviceProperty.class));
+        verify(deviceOnlineSessionService).recordOnlineHeartbeat(any(Device.class), any(LocalDateTime.class));
     }
 
     @Test
