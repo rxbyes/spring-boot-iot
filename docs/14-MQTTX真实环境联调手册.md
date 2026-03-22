@@ -217,5 +217,7 @@ iot:device:session:demo-device-01
 - 修复清单导出可执行 `python scripts/audit-device-contracts.py --device-prefix SK11 --export-repair-csv logs/repair-checklists/sk11-device-contracts.csv`。
 - 审核后的修复清单执行可使用 `python scripts/audit-device-contracts.py --repair-file logs/repair-checklists/sk11-device-contracts.csv --apply`。
 - 标准 trace 回放可执行 `python scripts/replay-mqtt-trace.py --trace-id 97daeef362184d349330e48b4401d3ea`；若失败归档落库，优先查看 `contractSnapshot` 中的 `expectedProtocolCode / actualProtocolCode / protocolSource`。
+- 若当前 dev 实例是通过本地 SOCKS 代理连接 Broker，trace 回放也要补上 `--socks-proxy-host`、`--socks-proxy-port`，必要时同时用 `--app-base-url`、`--mqtt-broker-url` 指向隔离验收实例，确保“检查健康的实例”和“发包的路径”一致。
+- 若健康检查正常、代理路径也一致，但脚本仍只拿到 `PUBACK` 且查不到对应 payload 的 `iot_device_message_log / iot_device_access_error_log`，当前共享 Broker 可能不会把平台侧手工 publish 的 `$dp` 报文回投给 consumer；此时要切换到真实设备、专用模拟器或可控 Broker 环境继续验收。
 - 同一深部位移样本出现两套告警/事件留痕：先核对共享环境是否仍有未升级旧版 consumer 同时在线；已升级实例会使用分布式锁，但无法约束旧实例继续按旧逻辑写入。
 - 若切换到其他真实环境，只覆盖 `IOT_MQTT_*`、`IOT_MYSQL_*`、`IOT_REDIS_*` 环境变量，并同步核对 AES 商户密钥配置。

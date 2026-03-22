@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mqtt-broker-url", help="Override MQTT broker url. Defaults to application-dev.yml / env.")
     parser.add_argument("--mqtt-username", help="Override MQTT username. Defaults to application-dev.yml / env.")
     parser.add_argument("--mqtt-password", help="Override MQTT password. Defaults to application-dev.yml / env.")
+    parser.add_argument("--socks-proxy-type", choices=["socks5", "socks4"], help="Optional SOCKS proxy type for MQTT publish.")
+    parser.add_argument("--socks-proxy-host", help="Optional SOCKS proxy host for MQTT publish.")
+    parser.add_argument("--socks-proxy-port", type=int, help="Optional SOCKS proxy port for MQTT publish.")
+    parser.add_argument("--socks-proxy-username", help="Optional SOCKS proxy username for MQTT publish.")
+    parser.add_argument("--socks-proxy-password", help="Optional SOCKS proxy password for MQTT publish.")
     parser.add_argument("--app-base-url", help="Override app base url, for example http://127.0.0.1:9999.")
     parser.add_argument("--timeout-seconds", type=int, default=15, help="Polling timeout after publish.")
     parser.add_argument("--poll-interval-seconds", type=int, default=1, help="Polling interval after publish.")
@@ -69,8 +74,30 @@ def extract_default(text: str, env_name: str) -> str:
     return match.group(1).strip()
 
 
+def parse_socks_proxy_url(proxy_url: str | None) -> Dict[str, str]:
+    if not proxy_url:
+        return {}
+    parsed = urlparse(proxy_url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in ("socks5", "socks5h", "socks4", "socks4a"):
+        return {}
+    if not parsed.hostname:
+        raise RuntimeError(f"Invalid SOCKS proxy url: {proxy_url}")
+    proxy_type = "socks5" if scheme.startswith("socks5") else "socks4"
+    return {
+        "mqtt_socks_proxy_type": proxy_type,
+        "mqtt_socks_proxy_host": parsed.hostname,
+        "mqtt_socks_proxy_port": str(parsed.port or 1080),
+        "mqtt_socks_proxy_username": parsed.username or "",
+        "mqtt_socks_proxy_password": parsed.password or "",
+    }
+
+
 def resolve_runtime_args(args: argparse.Namespace) -> Dict[str, str]:
     defaults = load_dev_defaults()
+    proxy_defaults = parse_socks_proxy_url(
+        os.getenv("IOT_MQTT_SOCKS_PROXY_URL") or os.getenv("ALL_PROXY") or os.getenv("all_proxy")
+    )
     jdbc_url = args.jdbc_url or os.getenv("IOT_MYSQL_URL") or defaults["jdbc_url"]
     user = args.user or os.getenv("IOT_MYSQL_USERNAME") or defaults["user"]
     password = args.password or os.getenv("IOT_MYSQL_PASSWORD") or defaults["password"]
@@ -78,6 +105,45 @@ def resolve_runtime_args(args: argparse.Namespace) -> Dict[str, str]:
     mqtt_username = args.mqtt_username or os.getenv("IOT_MQTT_USERNAME") or defaults["mqtt_username"]
     mqtt_password = args.mqtt_password or os.getenv("IOT_MQTT_PASSWORD") or defaults["mqtt_password"]
     app_base_url = args.app_base_url or defaults["app_base_url"]
+    mqtt_socks_proxy_type = (
+        args.socks_proxy_type
+        or os.getenv("IOT_MQTT_SOCKS_PROXY_TYPE")
+        or os.getenv("SOCKS_PROXY_TYPE")
+        or proxy_defaults.get("mqtt_socks_proxy_type")
+        or ""
+    )
+    mqtt_socks_proxy_host = (
+        args.socks_proxy_host
+        or os.getenv("IOT_MQTT_SOCKS_PROXY_HOST")
+        or os.getenv("SOCKS_PROXY_HOST")
+        or proxy_defaults.get("mqtt_socks_proxy_host")
+        or ""
+    )
+    mqtt_socks_proxy_port = str(
+        args.socks_proxy_port
+        or os.getenv("IOT_MQTT_SOCKS_PROXY_PORT")
+        or os.getenv("SOCKS_PROXY_PORT")
+        or proxy_defaults.get("mqtt_socks_proxy_port")
+        or ""
+    ).strip()
+    mqtt_socks_proxy_username = (
+        args.socks_proxy_username
+        or os.getenv("IOT_MQTT_SOCKS_PROXY_USERNAME")
+        or os.getenv("SOCKS_PROXY_USERNAME")
+        or proxy_defaults.get("mqtt_socks_proxy_username")
+        or ""
+    )
+    mqtt_socks_proxy_password = (
+        args.socks_proxy_password
+        or os.getenv("IOT_MQTT_SOCKS_PROXY_PASSWORD")
+        or os.getenv("SOCKS_PROXY_PASSWORD")
+        or proxy_defaults.get("mqtt_socks_proxy_password")
+        or ""
+    )
+    if mqtt_socks_proxy_host and not mqtt_socks_proxy_port:
+        mqtt_socks_proxy_port = "1080"
+    if mqtt_socks_proxy_port and not mqtt_socks_proxy_host:
+        raise RuntimeError("SOCKS proxy port is provided but host is empty")
 
     parsed = urlparse(jdbc_url.replace("jdbc:mysql://", "mysql://", 1))
     database = parsed.path.lstrip("/")
@@ -92,6 +158,11 @@ def resolve_runtime_args(args: argparse.Namespace) -> Dict[str, str]:
         "mqtt_broker_url": mqtt_broker_url,
         "mqtt_username": mqtt_username,
         "mqtt_password": mqtt_password,
+        "mqtt_socks_proxy_type": mqtt_socks_proxy_type,
+        "mqtt_socks_proxy_host": mqtt_socks_proxy_host,
+        "mqtt_socks_proxy_port": mqtt_socks_proxy_port,
+        "mqtt_socks_proxy_username": mqtt_socks_proxy_username,
+        "mqtt_socks_proxy_password": mqtt_socks_proxy_password,
         "app_base_url": app_base_url.rstrip("/"),
     }
 
@@ -246,6 +317,47 @@ def disconnect_packet() -> bytes:
     return bytes([0xE0, 0x00])
 
 
+def describe_publish_transport(runtime: Dict[str, str]) -> str:
+    proxy_host = runtime.get("mqtt_socks_proxy_host")
+    if proxy_host:
+        proxy_type = runtime.get("mqtt_socks_proxy_type") or "socks5"
+        proxy_port = runtime.get("mqtt_socks_proxy_port") or "1080"
+        return f"{proxy_type}://{proxy_host}:{proxy_port}"
+    return "direct"
+
+
+def open_mqtt_socket(runtime: Dict[str, str], host: str, port: int) -> socket.socket:
+    proxy_host = runtime.get("mqtt_socks_proxy_host")
+    if not proxy_host:
+        return socket.create_connection((host, port), timeout=10)
+
+    try:
+        import socks
+    except ImportError as exc:
+        raise RuntimeError(
+            "SOCKS proxy is configured but PySocks is not installed. "
+            "Run `python3 -m pip install PySocks` first."
+        ) from exc
+
+    proxy_type_name = runtime.get("mqtt_socks_proxy_type") or "socks5"
+    proxy_type = socks.SOCKS5 if proxy_type_name == "socks5" else socks.SOCKS4
+    sock = socks.socksocket()
+    sock.set_proxy(
+        proxy_type,
+        proxy_host,
+        int(runtime.get("mqtt_socks_proxy_port") or 1080),
+        username=runtime.get("mqtt_socks_proxy_username") or None,
+        password=runtime.get("mqtt_socks_proxy_password") or None,
+    )
+    sock.settimeout(10)
+    try:
+        sock.connect((host, port))
+        return sock
+    except Exception:
+        sock.close()
+        raise
+
+
 def publish_mqtt(runtime: Dict[str, str], topic: str, payload: bytes) -> None:
     broker = urlparse(runtime["mqtt_broker_url"])
     if broker.scheme not in ("tcp", "mqtt"):
@@ -257,7 +369,7 @@ def publish_mqtt(runtime: Dict[str, str], topic: str, payload: bytes) -> None:
 
     client_id = f"codex-replay-{int(time.time())}"
     packet_id = 1
-    with socket.create_connection((host, port), timeout=10) as sock:
+    with open_mqtt_socket(runtime, host, port) as sock:
         sock.settimeout(10)
         sock.sendall(connect_packet(client_id, runtime["mqtt_username"], runtime["mqtt_password"]))
         connack = sock.recv(4)
@@ -372,6 +484,7 @@ def main() -> int:
         print(json.dumps({
             "status": status,
             "health": health,
+            "publishTransport": describe_publish_transport(runtime),
             "original": original,
             "publishedAt": start_time.isoformat(sep=" ", timespec="seconds"),
             "result": result,
