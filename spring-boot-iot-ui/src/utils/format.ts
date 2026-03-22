@@ -31,6 +31,47 @@ export function prettyJson(value: unknown): string {
   return json ?? '';
 }
 
+export function prettyXml(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (!looksLikeXml(trimmed) || !isValidXml(trimmed)) {
+    return value;
+  }
+
+  const normalized = trimmed.replace(/>\s*</g, '>\n<').split('\n');
+  let depth = 0;
+  const lines = normalized.map((line) => {
+    const current = line.trim();
+    if (!current) {
+      return '';
+    }
+
+    if (isClosingXmlTag(current)) {
+      depth = Math.max(depth - 1, 0);
+    }
+
+    const formatted = `${'  '.repeat(depth)}${current}`;
+    if (isOpeningXmlTag(current)) {
+      depth += 1;
+    }
+    return formatted;
+  }).filter(Boolean);
+
+  return lines.join('\n');
+}
+
+export function looksLikeJson(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+}
+
+export function looksLikeXml(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith('<') && trimmed.endsWith('>');
+}
+
 export function parseJsonSafely<T>(value: string): T | null {
   try {
     return JSON.parse(value) as T;
@@ -53,4 +94,26 @@ export function truncateText(value: string, maxLength = 64): string {
   }
 
   return `${value.slice(0, maxLength)}...`;
+}
+
+function isValidXml(value: string): boolean {
+  if (typeof DOMParser === 'undefined') {
+    return true;
+  }
+
+  const parser = new DOMParser();
+  const document = parser.parseFromString(value, 'application/xml');
+  return !document.querySelector('parsererror');
+}
+
+function isClosingXmlTag(value: string): boolean {
+  return /^<\//.test(value);
+}
+
+function isOpeningXmlTag(value: string): boolean {
+  return (
+    /^<[^!?/][^>]*>$/.test(value) &&
+    !/\/>$/.test(value) &&
+    !/<[^>]+>.*<\/[^>]+>$/.test(value)
+  );
 }

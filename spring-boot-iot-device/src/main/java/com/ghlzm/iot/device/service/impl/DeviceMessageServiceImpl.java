@@ -21,6 +21,7 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
+import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -67,6 +68,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final ProductModelMapper productModelMapper;
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
+    private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final IotProperties iotProperties;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -78,6 +80,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     ProductModelMapper productModelMapper,
                                     CommandRecordService commandRecordService,
                                     DeviceFileService deviceFileService,
+                                    DeviceOnlineSessionService deviceOnlineSessionService,
                                     IotProperties iotProperties,
                                     ApplicationEventPublisher eventPublisher) {
         this.deviceMapper = deviceMapper;
@@ -87,6 +90,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.productModelMapper = productModelMapper;
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
+        this.deviceOnlineSessionService = deviceOnlineSessionService;
         this.iotProperties = iotProperties;
         this.eventPublisher = eventPublisher;
     }
@@ -420,6 +424,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private void updateDeviceOnlineStatus(Device device, DeviceUpMessage upMessage) {
         LocalDateTime reportTime = upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp();
+        deviceOnlineSessionService.recordOnlineHeartbeat(device, reportTime);
 
         Device update = new Device();
         update.setId(device.getId());

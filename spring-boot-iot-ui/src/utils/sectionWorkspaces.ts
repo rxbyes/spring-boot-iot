@@ -92,7 +92,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     cards: [
       { path: '/products', label: '产品定义中心', description: '维护产品台账、接入协议与设备归属基线。', short: '产', keywords: ['产品定义中心', '产品台账', '产品建档'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', short: '设', keywords: ['设备资产中心', '设备资产', '设备档案'] },
-      { path: '/reporting', label: '链路验证中心', description: '发起 HTTP 上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证'] },
+      { path: '/reporting', label: '链路验证中心', description: '按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
       { path: '/system-log', label: '异常观测台', description: '排查 system_error、MQTT 异常和后台链路问题。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },
       { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic'] },
       { path: '/file-debug', label: '数据校验台', description: '查看文件快照与固件聚合调试结果。', short: '校', keywords: ['数据校验台', '文件校验', '固件调试'] }

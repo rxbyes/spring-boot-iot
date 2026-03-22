@@ -17,6 +17,8 @@ import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.event.DeviceRiskEvaluationEvent;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.framework.config.IotProperties;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +56,13 @@ public class DeepDisplacementAutoClosureService {
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String AUTO_RULE_NAME = "deep-displacement-auto-closure";
     private static final String AUTO_SOURCE = "deep-displacement-auto-closure";
+    private static final long AUTO_CLOSURE_LOCK_LEASE_SECONDS = 15L;
+    private static final List<String> EMERGENCY_PLAN_SCENE_KEYWORDS = List.of(
+            "深部位移", "深层位移", "位移监测", "位移", "滑坡", "边坡", "地灾", "地质灾害", "变形监测"
+    );
+    private static final List<String> EMERGENCY_PLAN_SECONDARY_KEYWORDS = List.of(
+            "滑动", "坡面", "累计变形", "变形", "dispsx", "dispsy"
+    );
 
     private final AlarmRecordService alarmRecordService;
     private final EventRecordService eventRecordService;
@@ -62,6 +72,7 @@ public class DeepDisplacementAutoClosureService {
     private final EmergencyPlanMapper emergencyPlanMapper;
     private final DevicePropertyMapper devicePropertyMapper;
     private final IotProperties iotProperties;
+    private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeepDisplacementAutoClosureService(AlarmRecordService alarmRecordService,
@@ -71,7 +82,8 @@ public class DeepDisplacementAutoClosureService {
                                               LinkageRuleMapper linkageRuleMapper,
                                               EmergencyPlanMapper emergencyPlanMapper,
                                               DevicePropertyMapper devicePropertyMapper,
-                                              IotProperties iotProperties) {
+                                              IotProperties iotProperties,
+                                              RedissonClient redissonClient) {
         this.alarmRecordService = alarmRecordService;
         this.eventRecordService = eventRecordService;
         this.riskPointMapper = riskPointMapper;
@@ -80,6 +92,7 @@ public class DeepDisplacementAutoClosureService {
         this.emergencyPlanMapper = emergencyPlanMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.iotProperties = iotProperties;
+        this.redissonClient = redissonClient;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -158,27 +171,37 @@ public class DeepDisplacementAutoClosureService {
         if (!severity.shouldCreateAlarm()) {
             return;
         }
-        if (existsDuplicateAlarm(event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel())) {
-            log.debug("深部位移自动闭环命中冷却窗口, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
+        DuplicateLockHandle duplicateLock = tryAcquireDuplicateLock(event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
+        if (!duplicateLock.acquired()) {
+            log.debug("深部位移自动闭环并发锁已被占用, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
                     event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
             return;
         }
+        try {
+            if (existsDuplicateAlarm(event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel())) {
+                log.debug("深部位移自动闭环命中冷却窗口, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
+                        event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
+                return;
+            }
 
-        List<Map<String, Object>> matchedLinkageRules = matchLinkageRules(event.getTenantId(), binding.getMetricIdentifier(), absoluteValue);
-        EmergencyPlan matchedPlan = matchEmergencyPlan(event.getTenantId(), severity);
+            List<Map<String, Object>> matchedLinkageRules = matchLinkageRules(event.getTenantId(), binding.getMetricIdentifier(), absoluteValue);
+            EmergencyPlan matchedPlan = matchEmergencyPlan(event.getTenantId(), event, riskPoint, binding, severity);
 
-        AlarmRecord alarmRecord = buildAlarmRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan);
-        alarmRecordService.addAlarm(alarmRecord);
+            AlarmRecord alarmRecord = buildAlarmRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan);
+            alarmRecordService.addAlarm(alarmRecord);
 
-        if (!severity.shouldCreateEvent()) {
-            return;
+            if (!severity.shouldCreateEvent()) {
+                return;
+            }
+
+            Long dispatchUser = resolveDispatchUser(riskPoint);
+            EventRecord eventRecord = buildEventRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan,
+                    alarmRecord.getId(), alarmRecord.getAlarmCode(), dispatchUser);
+            eventRecordService.addEvent(eventRecord);
+            eventRecordService.dispatchEvent(eventRecord.getId(), dispatchUser, dispatchUser);
+        } finally {
+            releaseDuplicateLock(duplicateLock.lock());
         }
-
-        Long dispatchUser = resolveDispatchUser(riskPoint);
-        EventRecord eventRecord = buildEventRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan,
-                alarmRecord.getId(), alarmRecord.getAlarmCode(), dispatchUser);
-        eventRecordService.addEvent(eventRecord);
-        eventRecordService.dispatchEvent(eventRecord.getId(), dispatchUser, dispatchUser);
     }
 
     private boolean existsDuplicateAlarm(String deviceCode, String metricIdentifier, String alarmLevel) {
@@ -200,6 +223,46 @@ public class DeepDisplacementAutoClosureService {
                 ? null
                 : iotProperties.getAlarm().getAutoClosure().getCooldownMinutes();
         return configured == null || configured < 0 ? 30 : configured;
+    }
+
+    private DuplicateLockHandle tryAcquireDuplicateLock(String deviceCode,
+                                                        String metricIdentifier,
+                                                        String alarmLevel,
+                                                        String traceId) {
+        if (redissonClient == null) {
+            return DuplicateLockHandle.proceedWithoutLock();
+        }
+        String lockKey = "iot:alarm:auto-closure:" + defaultString(deviceCode) + ":" + defaultString(metricIdentifier) + ":" + defaultString(alarmLevel);
+        try {
+            RLock lock = redissonClient.getLock(lockKey);
+            boolean locked = lock.tryLock(0, AUTO_CLOSURE_LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
+            if (!locked) {
+                return DuplicateLockHandle.skipped();
+            }
+            return DuplicateLockHandle.acquired(lock);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            log.warn("深部位移自动闭环获取并发锁被中断, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
+                    deviceCode, metricIdentifier, alarmLevel, traceId);
+            return DuplicateLockHandle.skipped();
+        } catch (Exception ex) {
+            log.warn("深部位移自动闭环获取并发锁失败，回退为无锁模式, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
+                    deviceCode, metricIdentifier, alarmLevel, traceId, ex);
+            return DuplicateLockHandle.proceedWithoutLock();
+        }
+    }
+
+    private void releaseDuplicateLock(RLock lock) {
+        if (lock == null) {
+            return;
+        }
+        try {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        } catch (Exception ex) {
+            log.warn("深部位移自动闭环释放并发锁失败", ex);
+        }
     }
 
     private List<Map<String, Object>> matchLinkageRules(Long tenantId, String metricIdentifier, BigDecimal absoluteValue) {
@@ -265,7 +328,11 @@ public class DeepDisplacementAutoClosureService {
         return compare(absoluteValue, threshold, op.trim());
     }
 
-    private EmergencyPlan matchEmergencyPlan(Long tenantId, AutoClosureSeverity severity) {
+    private EmergencyPlan matchEmergencyPlan(Long tenantId,
+                                             DeviceRiskEvaluationEvent event,
+                                             RiskPoint riskPoint,
+                                             RiskPointDevice binding,
+                                             AutoClosureSeverity severity) {
         List<EmergencyPlan> candidates = emergencyPlanMapper.selectList(
                 new LambdaQueryWrapper<EmergencyPlan>()
                         .eq(EmergencyPlan::getDeleted, 0)
@@ -273,17 +340,27 @@ public class DeepDisplacementAutoClosureService {
                         .eq(tenantId != null, EmergencyPlan::getTenantId, tenantId)
                         .orderByDesc(EmergencyPlan::getCreateTime)
         );
-        Optional<EmergencyPlan> exact = candidates.stream()
+        Set<String> contextKeywords = buildEmergencyPlanContextKeywords(event, riskPoint, binding);
+        Optional<EmergencyPlanMatch> exact = selectScopedEmergencyPlan(candidates.stream()
                 .filter(plan -> severity.getAlarmLevel().equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
-                .findFirst();
+                .toList(), contextKeywords);
         if (exact.isPresent()) {
-            return exact.get();
+            logMatchedEmergencyPlan(event, riskPoint, binding, severity, exact.get());
+            return exact.get().plan();
         }
         String fallbackLevel = fallbackPlanLevel(severity);
-        return candidates.stream()
+        EmergencyPlanMatch matchedPlan = selectScopedEmergencyPlan(candidates.stream()
                 .filter(plan -> fallbackLevel.equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
-                .findFirst()
+                .toList(), contextKeywords)
                 .orElse(null);
+        if (matchedPlan == null) {
+            log.info("深部位移自动闭环未命中场景化应急预案, deviceCode={}, riskPointCode={}, metricIdentifier={}, severity={}, traceId={}",
+                    event.getDeviceCode(), riskPoint.getRiskPointCode(), binding.getMetricIdentifier(), severity.name(), event.getTraceId());
+            logEmergencyPlanCandidates(event, riskPoint, binding, severity, candidates, contextKeywords);
+            return null;
+        }
+        logMatchedEmergencyPlan(event, riskPoint, binding, severity, matchedPlan);
+        return matchedPlan.plan();
     }
 
     private String fallbackPlanLevel(AutoClosureSeverity severity) {
@@ -292,6 +369,199 @@ public class DeepDisplacementAutoClosureService {
             case ORANGE, YELLOW -> "warning";
             case BLUE -> "info";
         };
+    }
+
+    private Optional<EmergencyPlanMatch> selectScopedEmergencyPlan(List<EmergencyPlan> candidates, Set<String> contextKeywords) {
+        return candidates.stream()
+                .map(plan -> evaluateEmergencyPlan(plan, contextKeywords))
+                .filter(EmergencyPlanMatch::eligible)
+                .sorted((left, right) -> Integer.compare(right.score(), left.score()))
+                .findFirst();
+    }
+
+    private int scoreEmergencyPlan(EmergencyPlan plan, Set<String> contextKeywords) {
+        return evaluateEmergencyPlan(plan, contextKeywords).score();
+    }
+
+    private EmergencyPlanMatch evaluateEmergencyPlan(EmergencyPlan plan, Set<String> contextKeywords) {
+        if (plan == null) {
+            return EmergencyPlanMatch.empty(null);
+        }
+        String planName = normalizeSceneText(plan.getPlanName());
+        String searchableText = normalizeSceneText(String.join(" ",
+                defaultString(plan.getPlanName()),
+                defaultString(plan.getDescription()),
+                defaultString(plan.getResponseSteps()),
+                defaultString(plan.getContactList())
+        ));
+        if (!StringUtils.hasText(searchableText)) {
+            return EmergencyPlanMatch.empty(plan);
+        }
+        List<String> sceneMatches = collectMatchedKeywords(planName, searchableText, EMERGENCY_PLAN_SCENE_KEYWORDS);
+        List<String> secondaryMatches = collectMatchedKeywords(planName, searchableText, EMERGENCY_PLAN_SECONDARY_KEYWORDS);
+        boolean sceneQualified = !sceneMatches.isEmpty() || !secondaryMatches.isEmpty();
+        if (!sceneQualified) {
+            return new EmergencyPlanMatch(plan, 0, false, sceneMatches, secondaryMatches, List.of());
+        }
+        List<String> contextMatches = collectMatchedKeywords(planName, searchableText, contextKeywords);
+        int score = 0;
+        score += scoreKeywordMatches(planName, EMERGENCY_PLAN_SCENE_KEYWORDS, 120);
+        score += scoreKeywordMatches(searchableText, EMERGENCY_PLAN_SCENE_KEYWORDS, 60);
+        score += scoreKeywordMatches(planName, EMERGENCY_PLAN_SECONDARY_KEYWORDS, 40);
+        score += scoreKeywordMatches(searchableText, EMERGENCY_PLAN_SECONDARY_KEYWORDS, 20);
+        score += scoreKeywordMatches(planName, contextKeywords, 80);
+        score += scoreKeywordMatches(searchableText, contextKeywords, 30);
+        return new EmergencyPlanMatch(plan, score, true, sceneMatches, secondaryMatches, contextMatches);
+    }
+
+    private int scoreKeywordMatches(String content, Iterable<String> keywords, int scorePerMatch) {
+        if (!StringUtils.hasText(content)) {
+            return 0;
+        }
+        int score = 0;
+        for (String keyword : keywords) {
+            if (StringUtils.hasText(keyword) && content.contains(keyword.toLowerCase(Locale.ROOT))) {
+                score += scorePerMatch;
+            }
+        }
+        return score;
+    }
+
+    private List<String> collectMatchedKeywords(String primaryContent,
+                                                String secondaryContent,
+                                                Iterable<String> keywords) {
+        if (keywords == null) {
+            return List.of();
+        }
+        List<String> matched = new ArrayList<>();
+        for (String keyword : keywords) {
+            if (!StringUtils.hasText(keyword)) {
+                continue;
+            }
+            String normalized = keyword.toLowerCase(Locale.ROOT);
+            if ((StringUtils.hasText(primaryContent) && primaryContent.contains(normalized))
+                    || (StringUtils.hasText(secondaryContent) && secondaryContent.contains(normalized))) {
+                matched.add(keyword);
+            }
+        }
+        return matched;
+    }
+
+    private void logMatchedEmergencyPlan(DeviceRiskEvaluationEvent event,
+                                         RiskPoint riskPoint,
+                                         RiskPointDevice binding,
+                                         AutoClosureSeverity severity,
+                                         EmergencyPlanMatch match) {
+        if (!log.isInfoEnabled() || match == null || match.plan() == null) {
+            return;
+        }
+        log.info("深部位移自动闭环命中场景化应急预案, deviceCode={}, riskPointCode={}, metricIdentifier={}, severity={}, planId={}, planName={}, score={}, sceneKeywords={}, secondaryKeywords={}, contextKeywords={}, traceId={}",
+                event == null ? null : event.getDeviceCode(),
+                riskPoint == null ? null : riskPoint.getRiskPointCode(),
+                binding == null ? null : binding.getMetricIdentifier(),
+                severity == null ? null : severity.name(),
+                match.plan().getId(),
+                match.plan().getPlanName(),
+                match.score(),
+                match.sceneKeywords(),
+                match.secondaryKeywords(),
+                match.contextKeywords(),
+                event == null ? null : event.getTraceId());
+    }
+
+    private void logEmergencyPlanCandidates(DeviceRiskEvaluationEvent event,
+                                            RiskPoint riskPoint,
+                                            RiskPointDevice binding,
+                                            AutoClosureSeverity severity,
+                                            List<EmergencyPlan> candidates,
+                                            Set<String> contextKeywords) {
+        if (!log.isDebugEnabled() || candidates == null || candidates.isEmpty()) {
+            return;
+        }
+        List<String> scoredPlans = candidates.stream()
+                .map(plan -> evaluateEmergencyPlan(plan, contextKeywords))
+                .filter(match -> match != null && match.plan() != null)
+                .sorted((left, right) -> Integer.compare(right.score(), left.score()))
+                .map(match -> "id=" + match.plan().getId()
+                        + ",name=" + match.plan().getPlanName()
+                        + ",level=" + match.plan().getRiskLevel()
+                        + ",eligible=" + match.eligible()
+                        + ",score=" + match.score()
+                        + ",scene=" + match.sceneKeywords()
+                        + ",secondary=" + match.secondaryKeywords()
+                        + ",context=" + match.contextKeywords())
+                .limit(5)
+                .toList();
+        log.debug("深部位移自动闭环预案候选打分, deviceCode={}, riskPointCode={}, metricIdentifier={}, severity={}, contextKeywords={}, topCandidates={}, traceId={}",
+                event == null ? null : event.getDeviceCode(),
+                riskPoint == null ? null : riskPoint.getRiskPointCode(),
+                binding == null ? null : binding.getMetricIdentifier(),
+                severity == null ? null : severity.name(),
+                contextKeywords,
+                scoredPlans,
+                event == null ? null : event.getTraceId());
+    }
+
+    private Set<String> buildEmergencyPlanContextKeywords(DeviceRiskEvaluationEvent event,
+                                                          RiskPoint riskPoint,
+                                                          RiskPointDevice binding) {
+        Set<String> keywords = new LinkedHashSet<>();
+        addEmergencyPlanContextKeyword(keywords, riskPoint == null ? null : riskPoint.getRiskPointCode());
+        addEmergencyPlanContextKeyword(keywords, riskPoint == null ? null : riskPoint.getRiskPointName());
+        addEmergencyPlanContextKeyword(keywords, binding == null ? null : binding.getMetricIdentifier());
+        addEmergencyPlanContextKeyword(keywords, binding == null ? null : binding.getMetricName());
+        addEmergencyPlanContextKeyword(keywords, event == null ? null : event.getProductKey());
+        if (binding != null && hasAnyKeyword(binding.getMetricIdentifier(), "dispsx", "dispsy")) {
+            keywords.add("位移");
+            keywords.add("变形");
+            keywords.add("滑动");
+            keywords.add("坡面");
+        }
+        if (binding != null && hasAnyKeyword(binding.getMetricName(), "滑动")) {
+            keywords.add("滑动");
+        }
+        if (binding != null && hasAnyKeyword(binding.getMetricName(), "坡面")) {
+            keywords.add("坡面");
+        }
+        if (binding != null && hasAnyKeyword(binding.getMetricName(), "变形")) {
+            keywords.add("变形");
+        }
+        if (riskPoint != null && hasAnyKeyword(riskPoint.getRiskPointName(), "边坡", "滑坡")) {
+            keywords.add("边坡");
+            keywords.add("滑坡");
+        }
+        if (event != null && hasAnyKeyword(event.getProductKey(), "deep", "displacement", "slope", "landslide")) {
+            keywords.add("深部位移");
+            keywords.add("位移");
+        }
+        return keywords;
+    }
+
+    private void addEmergencyPlanContextKeyword(Set<String> keywords, String rawKeyword) {
+        String normalized = normalizeSceneText(rawKeyword);
+        if (StringUtils.hasText(normalized)) {
+            keywords.add(normalized);
+        }
+    }
+
+    private boolean hasAnyKeyword(String content, String... keywords) {
+        String normalized = normalizeSceneText(content);
+        if (!StringUtils.hasText(normalized) || keywords == null) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (StringUtils.hasText(keyword) && normalized.contains(keyword.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeSceneText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
     }
 
     private void refreshRiskPointLevel(Long riskPointId) {
@@ -509,6 +779,10 @@ public class DeepDisplacementAutoClosureService {
         return level == null ? "" : level.trim();
     }
 
+    private String defaultString(String value) {
+        return value == null ? "" : value;
+    }
+
     private Object firstNonNull(Object... candidates) {
         for (Object candidate : candidates) {
             if (candidate != null) {
@@ -547,5 +821,30 @@ public class DeepDisplacementAutoClosureService {
 
     private String toPlainString(BigDecimal value) {
         return value == null ? null : value.stripTrailingZeros().toPlainString();
+    }
+
+    private record EmergencyPlanMatch(EmergencyPlan plan,
+                                      int score,
+                                      boolean eligible,
+                                      List<String> sceneKeywords,
+                                      List<String> secondaryKeywords,
+                                      List<String> contextKeywords) {
+        private static EmergencyPlanMatch empty(EmergencyPlan plan) {
+            return new EmergencyPlanMatch(plan, 0, false, List.of(), List.of(), List.of());
+        }
+    }
+
+    private record DuplicateLockHandle(RLock lock, boolean acquired) {
+        private static DuplicateLockHandle acquired(RLock lock) {
+            return new DuplicateLockHandle(lock, true);
+        }
+
+        private static DuplicateLockHandle proceedWithoutLock() {
+            return new DuplicateLockHandle(null, true);
+        }
+
+        private static DuplicateLockHandle skipped() {
+            return new DuplicateLockHandle(null, false);
+        }
     }
 }

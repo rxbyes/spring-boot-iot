@@ -7,6 +7,7 @@
       'shell-sidebar-nav--mobile-open': isMobile && mobileMenuOpen
     }"
     :aria-hidden="isMobile && !mobileMenuOpen"
+    :inert="isMobile && !mobileMenuOpen ? '' : undefined"
   >
     <div class="shell-sidebar-nav__context">
       <p class="shell-sidebar-nav__eyebrow">当前工作台</p>
@@ -14,37 +15,63 @@
     </div>
 
     <nav class="shell-sidebar-nav__menu" aria-label="二级导航">
-      <el-tooltip
-        v-for="item in group.items"
-        :key="item.to"
-        placement="right"
-        effect="light"
-        :content="item.caption || item.label"
-        :disabled="!sidebarCollapsed"
-      >
+      <template v-for="item in group.items" :key="item.to">
+        <el-tooltip
+          v-if="showCollapsedTooltips"
+          placement="right"
+          effect="light"
+          :content="item.caption || item.label"
+        >
+          <RouterLink
+            :to="item.to"
+            class="shell-sidebar-nav__item"
+            :class="{ 'shell-sidebar-nav__item--active': currentRoutePath === item.to }"
+            :title="getItemTitle(item)"
+            :aria-label="getItemAriaLabel(item)"
+          >
+            <span class="shell-sidebar-nav__marker">{{ sidebarCollapsed ? item.short : '' }}</span>
+            <span class="shell-sidebar-nav__content">
+              <strong>{{ item.label }}</strong>
+            </span>
+          </RouterLink>
+        </el-tooltip>
+
         <RouterLink
+          v-else
           :to="item.to"
           class="shell-sidebar-nav__item"
           :class="{ 'shell-sidebar-nav__item--active': currentRoutePath === item.to }"
-          :title="item.caption ? `${item.label}：${item.caption}` : item.label"
-          :aria-label="item.caption ? `${item.label}，${item.caption}` : item.label"
+          :title="getItemTitle(item)"
+          :aria-label="getItemAriaLabel(item)"
         >
           <span class="shell-sidebar-nav__marker">{{ sidebarCollapsed ? item.short : '' }}</span>
           <span class="shell-sidebar-nav__content">
             <strong>{{ item.label }}</strong>
           </span>
         </RouterLink>
-      </el-tooltip>
+      </template>
     </nav>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import type { ShellSidebarNavProps } from '../types/shell';
+import type { WorkspaceNavItem } from '../utils/sectionWorkspaces';
 
-defineProps<ShellSidebarNavProps>();
+const props = defineProps<ShellSidebarNavProps>();
+
+const showCollapsedTooltips = computed(() => props.sidebarCollapsed && !props.isMobile);
+
+function getItemTitle(item: WorkspaceNavItem) {
+  return item.caption ? `${item.label}：${item.caption}` : item.label;
+}
+
+function getItemAriaLabel(item: WorkspaceNavItem) {
+  return item.caption ? `${item.label}，${item.caption}` : item.label;
+}
 </script>
 
 <style scoped>

@@ -46,11 +46,19 @@ public class MqttConnectionListener {
     }
 
     public void onConnectComplete(boolean reconnect, String serverUri) {
-        log.info("MQTT 客户端已连接, reconnect={}, serverUri={}", reconnect, serverUri);
+        onConnectComplete(reconnect, serverUri, null);
+    }
+
+    public void onConnectComplete(boolean reconnect, String serverUri, String clientId) {
+        log.info("MQTT 客户端已连接, clientId={}, reconnect={}, serverUri={}", clientId, reconnect, serverUri);
     }
 
     public void onSubscribe(List<String> topics) {
-        log.info("MQTT 客户端已订阅主题: {}", topics);
+        onSubscribe(topics, null);
+    }
+
+    public void onSubscribe(List<String> topics, String clientId) {
+        log.info("MQTT 客户端已订阅主题, clientId={}, topics={}", clientId, topics);
     }
 
     public void onMessageReceived(String topic, int payloadSize) {
@@ -63,12 +71,19 @@ public class MqttConnectionListener {
     }
 
     public void onConnectionLost(Throwable cause) {
-        log.warn("MQTT 连接已断开: {}", cause == null ? "unknown" : cause.getMessage());
+        onConnectionLost(cause, null);
+    }
+
+    public void onConnectionLost(Throwable cause, String clientId) {
+        log.warn("MQTT 连接已断开, clientId={}, reason={}", clientId, cause == null ? "unknown" : cause.getMessage());
         if (cause != null) {
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("event", "connectionLost");
+            putIfHasText(context, "clientId", clientId);
             recordBackendException(
                     "MqttMessageConsumer#connectionLost",
                     "connection",
-                    Map.of("event", "connectionLost"),
+                    context,
                     cause
             );
         }
@@ -79,11 +94,18 @@ public class MqttConnectionListener {
     }
 
     public void onStartupFailed(Throwable throwable) {
-        log.error("MQTT 客户端启动失败", throwable);
+        onStartupFailed(throwable, null);
+    }
+
+    public void onStartupFailed(Throwable throwable, String clientId) {
+        log.error("MQTT 客户端启动失败, clientId={}", clientId, throwable);
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("event", "startupFailed");
+        putIfHasText(context, "clientId", clientId);
         recordBackendException(
                 "MqttMessageConsumer#start",
                 "startup",
-                Map.of("event", "startupFailed"),
+                context,
                 throwable
         );
     }
@@ -99,11 +121,19 @@ public class MqttConnectionListener {
     }
 
     public void onSubscribeFailed(List<String> topics, Throwable throwable) {
-        log.error("MQTT 客户端订阅主题失败, topics={}", topics, throwable);
+        onSubscribeFailed(topics, throwable, null);
+    }
+
+    public void onSubscribeFailed(List<String> topics, Throwable throwable, String clientId) {
+        log.error("MQTT 客户端订阅主题失败, clientId={}, topics={}", clientId, topics, throwable);
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("event", "subscribeFailed");
+        context.put("topics", topics);
+        putIfHasText(context, "clientId", clientId);
         recordBackendException(
                 "MqttMessageConsumer#subscribeConfiguredTopics",
                 "subscribe",
-                Map.of("event", "subscribeFailed", "topics", topics),
+                context,
                 throwable
         );
     }

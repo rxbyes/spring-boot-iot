@@ -140,8 +140,8 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
   {
     id: 'help-reporting-link',
     category: 'technical',
-    title: 'HTTP 上报联调指引',
-    description: '通过链路验证中心模拟明文或密文上报，核验协议识别、长度计算与主链路解析。',
+    title: 'HTTP / MQTT 联调指引',
+    description: '通过链路验证中心按设备编码反查接入契约，执行 HTTP / MQTT 明文或密文模拟上报，并核验格式化、协议识别与主链路解析。',
     path: '/reporting',
     audienceKeys: ['developer', 'ops', 'super-admin'],
     relatedPaths: ['/reporting']

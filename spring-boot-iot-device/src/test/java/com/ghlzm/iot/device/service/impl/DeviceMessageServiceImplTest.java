@@ -15,6 +15,7 @@ import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
+import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.context.ApplicationEventPublisher;
@@ -60,6 +61,8 @@ class DeviceMessageServiceImplTest {
     @Mock
     private DeviceFileService deviceFileService;
     @Mock
+    private DeviceOnlineSessionService deviceOnlineSessionService;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private DeviceMessageServiceImpl deviceMessageService;
@@ -78,6 +81,7 @@ class DeviceMessageServiceImplTest {
                 productModelMapper,
                 commandRecordService,
                 deviceFileService,
+                deviceOnlineSessionService,
                 iotProperties,
                 eventPublisher
         );
@@ -124,6 +128,7 @@ class DeviceMessageServiceImplTest {
         assertEquals("double", propertyCaptor.getValue().getValueType());
         assertEquals("26.5", propertyCaptor.getValue().getPropertyValue());
         verify(devicePropertyMapper, never()).updateById(any(DeviceProperty.class));
+        verify(deviceOnlineSessionService).recordOnlineHeartbeat(any(Device.class), any(LocalDateTime.class));
 
         ArgumentCaptor<Device> deviceCaptor = ArgumentCaptor.forClass(Device.class);
         verify(deviceMapper).updateById(deviceCaptor.capture());

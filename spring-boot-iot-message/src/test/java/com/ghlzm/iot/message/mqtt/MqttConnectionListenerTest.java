@@ -68,13 +68,29 @@ class MqttConnectionListenerTest {
         RuntimeException ex = new RuntimeException("subscribe failed");
         List<String> topics = List.of("/sys/+/+/thing/property/post");
 
-        listener.onSubscribeFailed(topics, ex);
+        listener.onSubscribeFailed(topics, ex, "shared-client-dev-01");
 
         BackendExceptionEvent event = captured.get();
         assertNotNull(event);
         assertEquals("MqttMessageConsumer#subscribeConfiguredTopics", event.operationMethod());
         assertEquals("subscribe", event.requestUrl());
         assertEquals(topics, event.context().get("topics"));
+        assertEquals("shared-client-dev-01", event.context().get("clientId"));
+        assertSame(ex, event.throwable());
+    }
+
+    @Test
+    void shouldRecordConnectionLostClientId() {
+        AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
+        MqttConnectionListener listener = newListener(captured, new AtomicReference<>());
+        RuntimeException ex = new RuntimeException("connection reset");
+
+        listener.onConnectionLost(ex, "shared-client-dev-02");
+
+        BackendExceptionEvent event = captured.get();
+        assertNotNull(event);
+        assertEquals("MqttMessageConsumer#connectionLost", event.operationMethod());
+        assertEquals("shared-client-dev-02", event.context().get("clientId"));
         assertSame(ex, event.throwable());
     }
 

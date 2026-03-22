@@ -1,174 +1,176 @@
 <template>
-  <div class="audit-log-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <div>
-            <span>{{ pageTitle }}</span>
-            <p class="page-description">{{ pageDescription }}</p>
-          </div>
-        </div>
+  <div class="audit-log-view">
+    <StandardWorkbenchPanel
+      :title="pageTitle"
+      :description="pageDescription"
+      show-filters
+      show-notices
+      show-toolbar
+      show-pagination
+    >
+      <template #filters>
+        <el-form :model="searchForm" label-width="100px" class="search-form">
+          <el-row :gutter="20">
+            <el-col v-if="isBusinessMode" :span="8">
+              <el-form-item label="操作用户">
+                <el-input
+                  v-model="searchForm.userName"
+                  placeholder="请输入操作用户"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col v-if="isBusinessMode" :span="8">
+              <el-form-item label="操作类型">
+                <el-select v-model="searchForm.operationType" placeholder="请选择操作类型" clearable>
+                  <el-option
+                    v-for="item in businessOperationTypeOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item :label="isSystemMode ? '异常模块' : '操作模块'">
+                <el-input
+                  v-model="searchForm.operationModule"
+                  :placeholder="isSystemMode ? '请输入异常模块' : '请输入操作模块'"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col v-if="isSystemMode" :span="8">
+              <el-form-item label="请求通道">
+                <el-select v-model="searchForm.requestMethod" placeholder="请选择请求通道" clearable>
+                  <el-option
+                    v-for="item in systemRequestMethodOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col v-if="isSystemMode" :span="8">
+              <el-form-item label="目标 / URL">
+                <el-input
+                  v-model="searchForm.requestUrl"
+                  placeholder="请输入 topic、生命周期目标或请求地址"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="8">
+              <el-form-item label="TraceId">
+                <el-input
+                  v-model="searchForm.traceId"
+                  placeholder="请输入 TraceId"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col v-if="isSystemMode" :span="8">
+              <el-form-item label="设备编码">
+                <el-input
+                  v-model="searchForm.deviceCode"
+                  placeholder="请输入设备编码"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col v-if="isSystemMode" :span="8">
+              <el-form-item label="产品标识">
+                <el-input
+                  v-model="searchForm.productKey"
+                  placeholder="请输入产品标识"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row v-if="isSystemMode" :gutter="20">
+            <el-col :span="8">
+              <el-form-item label="异常编码">
+                <el-input
+                  v-model="searchForm.errorCode"
+                  placeholder="请输入异常编码"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="异常类型">
+                <el-input
+                  v-model="searchForm.exceptionClass"
+                  placeholder="请输入异常类名"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="8">
+              <el-form-item label="操作结果">
+                <el-select v-model="searchForm.operationResult" placeholder="请选择操作结果" clearable>
+                  <el-option label="成功" :value="1" />
+                  <el-option label="失败" :value="0" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row>
+            <el-col :span="24" class="text-right">
+              <el-button @click="handleReset">重置</el-button>
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+            </el-col>
+          </el-row>
+        </el-form>
       </template>
 
-      <!-- 搜索表单 -->
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col v-if="isBusinessMode" :span="8">
-            <el-form-item label="操作用户">
-              <el-input
-                v-model="searchForm.userName"
-                placeholder="请输入操作用户"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col v-if="isBusinessMode" :span="8">
-            <el-form-item label="操作类型">
-              <el-select v-model="searchForm.operationType" placeholder="请选择操作类型" clearable>
-                <el-option
-                  v-for="item in businessOperationTypeOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="isSystemMode ? '异常模块' : '操作模块'">
-              <el-input
-                v-model="searchForm.operationModule"
-                :placeholder="isSystemMode ? '请输入异常模块' : '请输入操作模块'"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col v-if="isSystemMode" :span="8">
-            <el-form-item label="请求通道">
-              <el-select v-model="searchForm.requestMethod" placeholder="请选择请求通道" clearable>
-                <el-option
-                  v-for="item in systemRequestMethodOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col v-if="isSystemMode" :span="8">
-            <el-form-item label="目标 / URL">
-              <el-input
-                v-model="searchForm.requestUrl"
-                placeholder="请输入 topic、生命周期目标或请求地址"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="TraceId">
-              <el-input
-                v-model="searchForm.traceId"
-                placeholder="请输入 TraceId"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col v-if="isSystemMode" :span="8">
-            <el-form-item label="设备编码">
-              <el-input
-                v-model="searchForm.deviceCode"
-                placeholder="请输入设备编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col v-if="isSystemMode" :span="8">
-            <el-form-item label="产品标识">
-              <el-input
-                v-model="searchForm.productKey"
-                placeholder="请输入产品标识"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row v-if="isSystemMode" :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="异常编码">
-              <el-input
-                v-model="searchForm.errorCode"
-                placeholder="请输入异常编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="异常类型">
-              <el-input
-                v-model="searchForm.exceptionClass"
-                placeholder="请输入异常类名"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="操作结果">
-              <el-select v-model="searchForm.operationResult" placeholder="请选择操作结果" clearable>
-                <el-option label="成功" :value="1" />
-                <el-option label="失败" :value="0" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+      <template #notices>
+        <el-alert
+          :title="viewTip"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+        <el-alert
+          :title="statsSummaryText"
+          type="success"
+          :closable="false"
+          show-icon
+          class="stats-alert"
+        />
+      </template>
 
-      <el-alert
-        :title="viewTip"
-        type="info"
-        :closable="false"
-        show-icon
-        class="view-alert"
-      />
-      <el-alert
-        :title="statsSummaryText"
-        type="success"
-        :closable="false"
-        show-icon
-        class="stats-alert"
-      />
+      <template #toolbar>
+        <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+          <template #right>
+            <el-button v-if="isSystemMode" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
+              链路追踪台
+            </el-button>
+            <el-button link @click="openExportColumnSetting">导出列设置</el-button>
+            <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
+            <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
+            <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
+            <el-button link @click="handleRefresh">刷新列表</el-button>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
-        <template #right>
-          <el-button v-if="isSystemMode" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
-            链路追踪台
-          </el-button>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
-
-      <!-- 表格 -->
       <el-table
         ref="tableRef"
         v-loading="loading"
@@ -223,36 +225,37 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="pagination"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+          class="pagination"
+        />
+      </template>
+    </StandardWorkbenchPanel>
 
-      <AuditLogDetailDrawer
-        v-model="detailVisible"
-        :title="detailDialogTitle"
-        :detail="detailData"
-        :loading="detailLoading"
-        :error-message="detailErrorMessage"
-      />
+    <AuditLogDetailDrawer
+      v-model="detailVisible"
+      :title="detailDialogTitle"
+      :detail="detailData"
+      :loading="detailLoading"
+      :error-message="detailErrorMessage"
+    />
 
-      <CsvColumnSettingDialog
-        v-model="exportColumnDialogVisible"
-        :title="`${pageTitle}导出列设置`"
-        :options="exportColumnOptions"
-        :selected-keys="selectedExportColumnKeys"
-        :preset-storage-key="exportColumnStorageKey"
-        :presets="exportPresets"
-        @confirm="handleExportColumnConfirm"
-      />
-    </PanelCard>
+    <CsvColumnSettingDialog
+      v-model="exportColumnDialogVisible"
+      :title="`${pageTitle}导出列设置`"
+      :options="exportColumnOptions"
+      :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
+      @confirm="handleExportColumnConfirm"
+    />
   </div>
 </template>
 
@@ -265,10 +268,10 @@ import type { RequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
-import PanelCard from '@/components/PanelCard.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
@@ -772,11 +775,3 @@ watch(detailVisible, (visible) => {
   }
 })
 </script>
-
-<style scoped>
-.page-description {
-  margin: 6px 0 0;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-</style>

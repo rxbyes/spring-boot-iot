@@ -18,6 +18,7 @@ mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 关键日志应包含：
 - MQTT 客户端连接成功
 - 默认订阅 topic 成功
+- 若未显式设置 `IOT_MQTT_CLIENT_ID`，日志中的有效 `clientId` 应带 `主机/PID` 运行时后缀
 - 无 Broker 认证失败或重连异常
 
 ## 3. 准备测试数据
@@ -144,6 +145,7 @@ Payload：
 - 8 个子设备分别可查到 `dispsX` / `dispsY` 最新值
 - 8 个子设备 `online_status`、`last_report_time` 被刷新
 - 若已执行初始化脚本，可在风险点绑定中查到 8 个子设备与 `dispsX` / `dispsY`
+- 若继续做红色闭环验收，`iot_alarm_record.remark.planId` 与 `iot_event_record.review_notes.emergencyPlan` 只允许命中深部位移场景化预案；若库里仅有无关通用预案，则应为空
 
 ## 7. HTTP / 数据验证
 
@@ -202,4 +204,5 @@ iot:device:session:demo-device-01
 - 后端收到消息但未进入主链路：重点排查设备不存在、设备协议不匹配、产品与设备绑定不一致。
 - 标准 topic 无效：检查 `productKey`、`deviceCode` 是否与数据库一致。
 - `$dp` 无效：检查 payload 中的 `deviceCode` 是否存在，且设备协议是否为 `mqtt-json`。
+- 同一深部位移样本出现两套告警/事件留痕：先核对共享环境是否仍有未升级旧版 consumer 同时在线；已升级实例会使用分布式锁，但无法约束旧实例继续按旧逻辑写入。
 - 若切换到其他真实环境，只覆盖 `IOT_MQTT_*`、`IOT_MYSQL_*`、`IOT_REDIS_*` 环境变量，并同步核对 AES 商户密钥配置。

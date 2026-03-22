@@ -33,6 +33,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     private volatile boolean running;
     private MqttClient mqttClient;
+    private String effectiveClientId;
 
     public MqttMessageConsumer(IotProperties iotProperties,
                                UpMessageDispatcher upMessageDispatcher,
@@ -61,9 +62,10 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
         }
 
         try {
+            effectiveClientId = resolveClientId();
             mqttClient = new MqttClient(
                     iotProperties.getMqtt().getBrokerUrl(),
-                    resolveClientId(),
+                    effectiveClientId,
                     new MemoryPersistence()
             );
             mqttClient.setCallback(this);
@@ -71,7 +73,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             subscribeConfiguredTopics();
             running = true;
         } catch (MqttException ex) {
-            mqttConnectionListener.onStartupFailed(ex);
+            mqttConnectionListener.onStartupFailed(ex, effectiveClientId);
         }
     }
 
@@ -117,7 +119,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     @Override
     public void connectComplete(boolean reconnect, String serverURI) {
         running = true;
-        mqttConnectionListener.onConnectComplete(reconnect, serverURI);
+        mqttConnectionListener.onConnectComplete(reconnect, serverURI, effectiveClientId);
         if (reconnect) {
             subscribeConfiguredTopics();
         }
@@ -126,7 +128,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     @Override
     public void connectionLost(Throwable cause) {
         running = false;
-        mqttConnectionListener.onConnectionLost(cause);
+        mqttConnectionListener.onConnectionLost(cause, effectiveClientId);
     }
 
     @Override
@@ -199,17 +201,14 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             for (String topic : topics) {
                 mqttClient.subscribe(topic, iotProperties.getMqtt().getQos());
             }
-            mqttConnectionListener.onSubscribe(topics);
+            mqttConnectionListener.onSubscribe(topics, effectiveClientId);
         } catch (MqttException ex) {
-            mqttConnectionListener.onSubscribeFailed(topics, ex);
+            mqttConnectionListener.onSubscribeFailed(topics, ex, effectiveClientId);
         }
     }
 
     private String resolveClientId() {
-        if (iotProperties.getMqtt().getClientId() != null && !iotProperties.getMqtt().getClientId().isBlank()) {
-            return iotProperties.getMqtt().getClientId();
-        }
-        return "spring-boot-iot-mqtt-consumer";
+        return MqttClientIdResolver.resolve(iotProperties.getMqtt().getClientId());
     }
 
     private MqttConnectOptions buildConnectOptions() {

@@ -1,100 +1,104 @@
 <template>
-  <div class="message-trace-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <div>
-            <span>链路追踪台</span>
-            <p class="page-description">按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。</p>
-          </div>
-        </div>
+  <div class="message-trace-view">
+    <StandardWorkbenchPanel
+      title="链路追踪台"
+      description="按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。"
+      show-filters
+      show-notices
+      show-toolbar
+      show-pagination
+    >
+      <template #filters>
+        <el-form :model="searchForm" label-width="96px" class="search-form">
+          <el-row :gutter="20">
+            <el-col :span="8">
+              <el-form-item label="设备编码">
+                <el-input
+                  v-model="searchForm.deviceCode"
+                  placeholder="请输入设备编码"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="产品标识">
+                <el-input
+                  v-model="searchForm.productKey"
+                  placeholder="请输入产品标识"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="TraceId">
+                <el-input
+                  v-model="searchForm.traceId"
+                  placeholder="请输入 TraceId"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="8">
+              <el-form-item label="消息类型">
+                <el-select v-model="searchForm.messageType" placeholder="请选择消息类型" clearable>
+                  <el-option
+                    v-for="item in messageTypeOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="16">
+              <el-form-item label="Topic">
+                <el-input
+                  v-model="searchForm.topic"
+                  placeholder="请输入 Topic 关键字"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row>
+            <el-col :span="24" class="text-right">
+              <el-button @click="handleReset">重置</el-button>
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+            </el-col>
+          </el-row>
+        </el-form>
       </template>
 
-      <el-form :model="searchForm" label-width="96px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="设备编码">
-              <el-input
-                v-model="searchForm.deviceCode"
-                placeholder="请输入设备编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="产品标识">
-              <el-input
-                v-model="searchForm.productKey"
-                placeholder="请输入产品标识"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="TraceId">
-              <el-input
-                v-model="searchForm.traceId"
-                placeholder="请输入 TraceId"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="消息类型">
-              <el-select v-model="searchForm.messageType" placeholder="请选择消息类型" clearable>
-                <el-option
-                  v-for="item in messageTypeOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="16">
-            <el-form-item label="Topic">
-              <el-input
-                v-model="searchForm.topic"
-                placeholder="请输入 Topic 关键字"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+      <template #notices>
+        <el-alert
+          title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
 
-      <el-alert
-        title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
-        type="info"
-        :closable="false"
-        show-icon
-        class="view-alert"
-      />
-
-      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
-        <template #right>
-          <el-button
-            link
-            :disabled="!canJumpWithSearch"
-            @click="jumpToSystemLog()"
-          >
-            跳转异常观测台
-          </el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #toolbar>
+        <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
+          <template #right>
+            <el-button
+              link
+              :disabled="!canJumpWithSearch"
+              @click="jumpToSystemLog()"
+            >
+              跳转异常观测台
+            </el-button>
+            <el-button link @click="handleRefresh">刷新列表</el-button>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         v-loading="loading"
@@ -130,25 +134,28 @@
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="pagination"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+          class="pagination"
+        />
+      </template>
+    </StandardWorkbenchPanel>
 
-      <StandardDetailDrawer
-        v-model="detailVisible"
-        eyebrow="Message Trace Detail"
-        :title="detailTitle"
-        :subtitle="detailSubtitle"
-        :tags="detailTags"
-        :empty="!hasDetail"
-      >
+    <StandardDetailDrawer
+      v-model="detailVisible"
+      eyebrow="Message Trace Detail"
+      :title="detailTitle"
+      :subtitle="detailSubtitle"
+      :tags="detailTags"
+      :empty="!hasDetail"
+    >
         <section class="detail-panel detail-panel--hero">
           <div class="detail-section-header">
             <div>
@@ -242,8 +249,7 @@
             <strong class="detail-notice__value">{{ detailRouteAdvice }}</strong>
           </div>
         </section>
-      </StandardDetailDrawer>
-    </PanelCard>
+    </StandardDetailDrawer>
   </div>
 </template>
 
@@ -253,11 +259,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceMessageLog } from '@/types/api';
 import { formatDateTime, prettyJson, truncateText } from '@/utils/format';
@@ -466,11 +472,3 @@ onMounted(() => {
   loadTableData();
 });
 </script>
-
-<style scoped>
-.page-description {
-  margin: 6px 0 0;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-</style>

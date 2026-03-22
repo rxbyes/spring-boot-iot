@@ -3,6 +3,7 @@ package com.ghlzm.iot.device.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import lombok.Data;
@@ -26,14 +27,17 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final DeviceMapper deviceMapper;
+    private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceSessionServiceImpl(StringRedisTemplate stringRedisTemplate,
                                     DeviceMapper deviceMapper,
+                                    DeviceOnlineSessionService deviceOnlineSessionService,
                                     IotProperties iotProperties) {
         this.stringRedisTemplate = stringRedisTemplate;
         this.deviceMapper = deviceMapper;
+        this.deviceOnlineSessionService = deviceOnlineSessionService;
         this.iotProperties = iotProperties;
     }
 
@@ -63,11 +67,16 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
 
     @Override
     public void offline(String deviceCode) {
+        offline(deviceCode, LocalDateTime.now());
+    }
+
+    @Override
+    public void offline(String deviceCode, LocalDateTime offlineTime) {
         if (!hasText(deviceCode)) {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = offlineTime == null ? LocalDateTime.now() : offlineTime;
         DeviceSessionRecord sessionRecord = getSessionRecord(deviceCode);
         if (sessionRecord == null) {
             sessionRecord = new DeviceSessionRecord();
@@ -195,6 +204,7 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
         update.setOnlineStatus(0);
         update.setLastOfflineTime(now);
         deviceMapper.updateById(update);
+        deviceOnlineSessionService.closeActiveSession(device, now, null);
     }
 
     private Device findDevice(String deviceCode) {
