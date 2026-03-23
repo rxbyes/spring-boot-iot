@@ -319,6 +319,35 @@
     </section>
 
     <PanelCard
+        class="reporting-card reporting-card--timeline"
+        eyebrow="链路验证中心"
+        title="处理时间线"
+        description="以 session/trace 复盘固定 Pipeline 阶段，HTTP 直接展示，MQTT 在回流绑定后展示完整处理链路。"
+    >
+      <div class="reporting-timeline-toolbar">
+        <StandardInlineState
+            :tone="messageFlowInlineTone"
+            :message="messageFlowStatusMessage"
+        />
+        <StandardActionGroup>
+          <StandardButton action="refresh" link :disabled="!messageFlowSessionId" @click="handleRefreshMessageFlow">
+            刷新时间线
+          </StandardButton>
+          <StandardButton action="refresh" link :disabled="!messageFlowTraceId" @click="jumpToMessageTrace">
+            跳转链路追踪台
+          </StandardButton>
+        </StandardActionGroup>
+      </div>
+
+      <StandardTraceTimeline
+          :timeline="messageFlowTimeline"
+          :loading="messageFlowLoading"
+          :empty-title="messageFlowEmptyTitle"
+          :empty-description="messageFlowEmptyDescription"
+      />
+    </PanelCard>
+
+    <PanelCard
         class="reporting-card reporting-card--follow-up"
         eyebrow="链路验证中心"
         title="发送后建议检查"
@@ -330,10 +359,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
+import { messageApi } from '../api/message';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
@@ -341,8 +372,15 @@ import StandardFlowRail from '../components/StandardFlowRail.vue';
 import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardInlineSectionHeader from '../components/StandardInlineSectionHeader.vue';
+import StandardTraceTimeline from '../components/StandardTraceTimeline.vue';
 import { recordActivity } from '../stores/activity';
-import type { Device, HttpReportPayload, MqttReportPublishPayload } from '../types/api';
+import type {
+  Device,
+  HttpReportPayload,
+  MessageFlowSession,
+  MessageFlowTimeline,
+  MqttReportPublishPayload
+} from '../types/api';
 import { looksLikeXml, parseJsonSafely, prettyJson, prettyXml } from '../utils/format';
 import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
 import {
@@ -368,6 +406,8 @@ interface ReportFormState {
 }
 
 type FeedbackTone = 'neutral' | 'info' | 'success' | 'danger';
+
+const router = useRouter();
 
 const createDefaultForm = (): ReportFormState => ({
   deviceCode: '',
@@ -473,6 +513,10 @@ const deviceLookupError = ref('');
 const hasAttemptedSubmit = ref(false);
 const lastResponse = ref<unknown>(INITIAL_RESPONSE);
 const framePanelExpanded = ref(true);
+const messageFlowSessionId = ref('');
+const messageFlowSession = ref<MessageFlowSession | null>(null);
+const messageFlowLoading = ref(false);
+let messageFlowPollTimer: number | null = null;
 
 const filteredTemplates = computed(() => filterTemplatesByMode(templates, reportMode.value));
 const resolvedProductKey = computed(() => normalizedText(resolvedDevice.value?.productKey));
@@ -778,6 +822,46 @@ const plaintextFrameHexPreview = computed(() => {
   return formatFrameHexPreview(plaintextFrame.value.frameBytes);
 });
 const responsePreview = computed(() => prettyJson(lastResponse.value));
+const messageFlowTimeline = computed<MessageFlowTimeline | null>(() => messageFlowSession.value?.timeline || null);
+const messageFlowTraceId = computed(() =>
+    normalizedText(messageFlowSession.value?.traceId) || normalizedText(messageFlowTimeline.value?.traceId)
+);
+const messageFlowInlineTone = computed<'info' | 'error'>(() =>
+    messageFlowSession.value?.status === 'FAILED' ? 'error' : 'info'
+);
+const messageFlowStatusMessage = computed(() => {
+  if (!messageFlowSessionId.value) {
+    return '发送成功后，这里会展示固定 Pipeline 的阶段状态、耗时、处理类/方法和关键摘要。';
+  }
+  if (messageFlowLoading.value) {
+    return '正在同步最新处理时间线，请稍候。';
+  }
+  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    return 'MQTT 模拟已发布，正在等待消费回流绑定 traceId。';
+  }
+  if (messageFlowSession.value?.status === 'FAILED') {
+    return '本次处理链路已失败，可在下方时间线查看失败阶段与异常摘要。';
+  }
+  if (messageFlowTimeline.value) {
+    return '处理时间线已就绪，可直接查看阶段顺序，或跳转链路追踪台继续联动排查。';
+  }
+  return '当前 session 还没有可展示的处理时间线。';
+});
+const messageFlowEmptyTitle = computed(() => {
+  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    return '等待消费回流';
+  }
+  return '暂无处理时间线';
+});
+const messageFlowEmptyDescription = computed(() => {
+  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    return 'MQTT 模拟发布成功后，会在消费链路完成 decode 并命中 fingerprint 绑定后展示完整 trace timeline。';
+  }
+  if (messageFlowSessionId.value && !messageFlowTimeline.value) {
+    return '当前 session 还没有 timeline，可能仍在处理、已过期，或尚未完成 trace 绑定。';
+  }
+  return '发送成功后，这里会显示阶段状态、耗时、处理类/方法和关键摘要。';
+});
 
 watch(
     () => reportForm.deviceCode,
@@ -808,6 +892,7 @@ onMounted(() => {
 function resetResolvedDeviceState() {
   resolvedDevice.value = null;
   deviceLookupError.value = '';
+  resetMessageFlowState();
 }
 
 function applyTemplate(template: TemplateOption) {
@@ -920,6 +1005,7 @@ async function handleSendReport() {
   }
 
   isSending.value = true;
+  resetMessageFlowState();
   const deviceCode = normalizedText(reportForm.deviceCode);
   const topic = normalizedText(reportForm.topic);
   const requestPayloadPreview =
@@ -962,6 +1048,11 @@ async function handleSendReport() {
     }
 
     lastResponse.value = response;
+    const submitSessionId = normalizedText(response.data?.sessionId);
+    if (submitSessionId) {
+      messageFlowSessionId.value = submitSessionId;
+      await loadMessageFlowSession(submitSessionId, transportMode.value === 'mqtt');
+    }
     ElMessage.success(`${transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP'} 模拟上报成功`);
     recordActivity({
       module: '链路验证中心',
@@ -1000,6 +1091,69 @@ async function handleSendReport() {
   }
 }
 
+function resetMessageFlowState() {
+  clearMessageFlowTimer();
+  messageFlowSessionId.value = '';
+  messageFlowSession.value = null;
+}
+
+function clearMessageFlowTimer() {
+  if (messageFlowPollTimer !== null) {
+    window.clearTimeout(messageFlowPollTimer);
+    messageFlowPollTimer = null;
+  }
+}
+
+function scheduleMessageFlowPoll(sessionId: string) {
+  clearMessageFlowTimer();
+  messageFlowPollTimer = window.setTimeout(() => {
+    loadMessageFlowSession(sessionId, true).catch(() => undefined);
+  }, 1500);
+}
+
+async function loadMessageFlowSession(sessionId: string, allowPolling = false) {
+  if (!sessionId) {
+    return;
+  }
+  messageFlowLoading.value = true;
+  try {
+    const response = await messageApi.getMessageFlowSession(sessionId);
+    messageFlowSession.value = response.data || null;
+    if (allowPolling && response.data?.correlationPending && !normalizedText(response.data.traceId)) {
+      scheduleMessageFlowPoll(sessionId);
+    } else {
+      clearMessageFlowTimer();
+    }
+  } catch (error) {
+    clearMessageFlowTimer();
+    ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
+  } finally {
+    messageFlowLoading.value = false;
+  }
+}
+
+async function handleRefreshMessageFlow() {
+  if (!messageFlowSessionId.value) {
+    return;
+  }
+  await loadMessageFlowSession(
+      messageFlowSessionId.value,
+      Boolean(messageFlowSession.value?.correlationPending && !messageFlowTraceId.value)
+  );
+}
+
+function jumpToMessageTrace() {
+  if (!messageFlowTraceId.value) {
+    return;
+  }
+  router.push({
+    path: '/message-trace',
+    query: {
+      traceId: messageFlowTraceId.value
+    }
+  });
+}
+
 function toggleFramePanel() {
   framePanelExpanded.value = !framePanelExpanded.value;
 }
@@ -1024,6 +1178,10 @@ async function copyText(value: string, successMessage: string) {
 function normalizedText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
+
+onBeforeUnmount(() => {
+  clearMessageFlowTimer();
+});
 </script>
 
 <style scoped>
@@ -1316,6 +1474,12 @@ function normalizedText(value: unknown): string {
   color: var(--text-caption);
   font-size: 0.84rem;
   line-height: 1.6;
+}
+
+.reporting-timeline-toolbar {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 .reporting-note-list {

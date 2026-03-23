@@ -55,6 +55,56 @@ export interface MessageTraceStats {
   topTopics: StatsBucket[];
 }
 
+export interface MessageFlowStep {
+  stage: string;
+  handlerClass?: string | null;
+  handlerMethod?: string | null;
+  status?: string | null;
+  costMs?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  summary?: Record<string, unknown> | null;
+  errorClass?: string | null;
+  errorMessage?: string | null;
+  branch?: string | null;
+}
+
+export interface MessageFlowTimeline {
+  traceId?: string | null;
+  sessionId?: string | null;
+  flowType?: string | null;
+  status?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+  protocolCode?: string | null;
+  messageType?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  totalCostMs?: number | null;
+  steps: MessageFlowStep[];
+}
+
+export interface MessageFlowSession {
+  sessionId?: string | null;
+  transportMode?: string | null;
+  status?: string | null;
+  submittedAt?: string | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  topic?: string | null;
+  correlationPending?: boolean | null;
+  timeline?: MessageFlowTimeline | null;
+}
+
+export interface MessageFlowSubmitResult {
+  sessionId?: string | null;
+  traceId?: string | null;
+  status?: string | null;
+  timelineAvailable?: boolean | null;
+  correlationPending?: boolean | null;
+}
+
 export interface DeviceAccessErrorStats {
   total: number;
   recentHourCount: number;

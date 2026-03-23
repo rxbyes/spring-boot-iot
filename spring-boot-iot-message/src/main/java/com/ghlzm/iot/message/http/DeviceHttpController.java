@@ -1,9 +1,11 @@
 package com.ghlzm.iot.message.http;
 
 import com.ghlzm.iot.common.response.R;
-import com.ghlzm.iot.framework.observability.TraceContextHolder;
-import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
-import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult;
+import com.ghlzm.iot.message.http.vo.MessageFlowSubmitResultVO;
+import com.ghlzm.iot.message.pipeline.MessageFlowExecutionResult;
+import com.ghlzm.iot.message.pipeline.UpMessageProcessingPipeline;
+import com.ghlzm.iot.message.pipeline.UpMessageProcessingRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,26 +21,26 @@ import java.util.Locale;
 @RestController
 public class DeviceHttpController {
 
-    private final UpMessageDispatcher upMessageDispatcher;
+    private final UpMessageProcessingPipeline upMessageProcessingPipeline;
 
-    public DeviceHttpController(UpMessageDispatcher upMessageDispatcher) {
-        this.upMessageDispatcher = upMessageDispatcher;
+    public DeviceHttpController(UpMessageProcessingPipeline upMessageProcessingPipeline) {
+        this.upMessageProcessingPipeline = upMessageProcessingPipeline;
     }
 
     @PostMapping("/api/message/http/report")
-    public R<?> report(@RequestBody @Valid DeviceReportRequest request) {
-        RawDeviceMessage raw = new RawDeviceMessage();
-        raw.setProtocolCode(request.getProtocolCode());
-        raw.setProductKey(request.getProductKey());
-        raw.setTraceId(TraceContextHolder.currentOrCreate());
-        raw.setDeviceCode(request.getDeviceCode());
-        raw.setTopic(request.getTopic());
-        raw.setClientId(request.getClientId());
-        raw.setTenantId(request.getTenantId());
-        raw.setPayload(resolvePayloadBytes(request));
+    public R<MessageFlowSubmitResultVO> report(@RequestBody @Valid DeviceReportRequest request) {
+        UpMessageProcessingRequest pipelineRequest = new UpMessageProcessingRequest();
+        pipelineRequest.setTransportMode("HTTP");
+        pipelineRequest.setProtocolCode(request.getProtocolCode());
+        pipelineRequest.setProductKey(request.getProductKey());
+        pipelineRequest.setDeviceCode(request.getDeviceCode());
+        pipelineRequest.setTopic(request.getTopic());
+        pipelineRequest.setClientId(request.getClientId());
+        pipelineRequest.setTenantId(request.getTenantId());
+        pipelineRequest.setPayload(resolvePayloadBytes(request));
 
-        upMessageDispatcher.dispatch(raw);
-        return R.ok();
+        MessageFlowExecutionResult result = upMessageProcessingPipeline.process(pipelineRequest);
+        return R.ok(toSubmitResultVO(result.getSubmitResult()));
     }
 
     private byte[] resolvePayloadBytes(DeviceReportRequest request) {
@@ -56,5 +58,15 @@ public class DeviceHttpController {
             return StandardCharsets.ISO_8859_1;
         }
         return StandardCharsets.UTF_8;
+    }
+
+    private MessageFlowSubmitResultVO toSubmitResultVO(MessageFlowSubmitResult submitResult) {
+        MessageFlowSubmitResultVO resultVO = new MessageFlowSubmitResultVO();
+        resultVO.setSessionId(submitResult.getSessionId());
+        resultVO.setTraceId(submitResult.getTraceId());
+        resultVO.setStatus(submitResult.getStatus());
+        resultVO.setTimelineAvailable(submitResult.getTimelineAvailable());
+        resultVO.setCorrelationPending(submitResult.getCorrelationPending());
+        return resultVO;
     }
 }

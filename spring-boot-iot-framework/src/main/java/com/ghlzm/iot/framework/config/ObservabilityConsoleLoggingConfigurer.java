@@ -1,5 +1,7 @@
 package com.ghlzm.iot.framework.config;
 
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowLoggingConstants;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.logging.LogLevel;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class ObservabilityConsoleLoggingConfigurer {
 
     private final IotProperties iotProperties;
+    private final MessageFlowProperties messageFlowProperties;
 
     @PostConstruct
     void initialize() {
@@ -35,6 +38,10 @@ public class ObservabilityConsoleLoggingConfigurer {
         loggingSystem.setLogLevel(
                 DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME,
                 diagnostic != null && Boolean.TRUE.equals(diagnostic.getAccessFileEnabled()) ? LogLevel.INFO : LogLevel.OFF
+        );
+        loggingSystem.setLogLevel(
+                MessageFlowLoggingConstants.MESSAGE_FLOW_LOGGER_NAME,
+                Boolean.TRUE.equals(messageFlowProperties.getEnabled()) ? LogLevel.INFO : LogLevel.OFF
         );
     }
 }

@@ -35,6 +35,11 @@ public class DeviceUpMessage {
     private String topic;
 
     /**
+     * 历史 MQTT 负载的数据格式类型。
+     */
+    private String dataFormatType;
+
+    /**
      * 属性类上报统一放入 properties。
      */
     private Map<String, Object> properties;

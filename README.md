@@ -34,10 +34,12 @@
 ## 当前交付基线
 
 - Phase 1~3 主链路已形成长期稳定基线。
+- 设备接入主链路当前已重构为固定 `Pipeline`：HTTP / MQTT 统一按 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE` 执行，不再依赖“旁路日志推断”判断阶段顺序。
 - Phase 4 已完成并纳入真实环境验收基线的能力，以告警、事件、风险策略、报表分析、系统治理和系统内容治理为主。
 - `/risk-monitoring`、`/risk-monitoring-gis` 已完成代码落地，但是否计入已交付范围，继续以 [docs/19-第四阶段交付边界与复验进展.md](docs/19-第四阶段交付边界与复验进展.md) 为准。
 - 通知中心当前已具备 `system_error` 自动消息、工单相关自动消息，以及高优未读桥接既有通知渠道能力。
 - 可观测当前已补齐规则化运维告警闭环：通过 `iot.observability.alerting` 在现有审计、MQTT 运行态、接入失败聚合和站内信桥接统计之上评估 4 类固定规则，并通过新场景 `observability_alert` 复用既有通知渠道。
+- `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
 - `/in-app-message` 当前已在同页补齐“桥接效果运营”专区，可直接查看桥接成功率、待重试记录、渠道/来源分布、桥接日志与逐次尝试明细。
 - 帮助中心当前按“权威资料层 + 消费层”治理：`docs/` 继续做权威源，`/api/system/help-doc/**` 做角色化消费层。
 
@@ -45,6 +47,7 @@
 
 - 唯一验收基线：`spring-boot-iot-admin/src/main/resources/application-dev.yml`
 - 可通过环境变量覆盖数据库、Redis、MQTT、TDengine 和可观测配置
+- Redis 当前同时承担 `message-flow` 时间线短期留存；若 Redis 不可用，本轮链路时间线验收视为环境阻塞，不回退到仅控制台日志模式
 - 不允许回退到旧 H2 验收 profile、独立 H2 schema 脚本或 H2-only 验收路径
 - 当真实环境访问受阻时，必须明确报告环境阻塞，不用降级链路替代验收结论
 

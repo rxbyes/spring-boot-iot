@@ -4,11 +4,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ReportWorkbenchView from '@/views/ReportWorkbenchView.vue';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '@/api/iot';
+import { messageApi } from '@/api/message';
+
+const { mockRouter } = vi.hoisted(() => ({
+  mockRouter: {
+    push: vi.fn()
+  }
+}));
+
+vi.mock('vue-router', () => ({
+  useRouter: () => mockRouter
+}));
 
 vi.mock('@/api/iot', () => ({
   getDeviceByCode: vi.fn(),
   reportByHttp: vi.fn(),
   reportByMqtt: vi.fn()
+}));
+
+vi.mock('@/api/message', () => ({
+  messageApi: {
+    getMessageFlowSession: vi.fn(),
+    getMessageFlowTrace: vi.fn()
+  }
 }));
 
 vi.mock('@/stores/activity', () => ({
@@ -131,6 +149,24 @@ const StandardFlowRailStub = defineComponent({
   `
 });
 
+const StandardTraceTimelineStub = defineComponent({
+  name: 'StandardTraceTimeline',
+  props: ['timeline', 'loading', 'emptyTitle', 'emptyDescription'],
+  template: `
+    <section class="standard-trace-timeline-stub">
+      <p v-if="loading">loading</p>
+      <template v-else-if="timeline">
+        <strong>{{ timeline.traceId }}</strong>
+        <span v-for="step in timeline.steps" :key="step.stage">{{ step.stage }}</span>
+      </template>
+      <template v-else>
+        <strong>{{ emptyTitle }}</strong>
+        <p>{{ emptyDescription }}</p>
+      </template>
+    </section>
+  `
+});
+
 function installLocalStorageMock() {
   Object.defineProperty(window, 'localStorage', {
     configurable: true,
@@ -152,7 +188,8 @@ function mountView() {
         StandardInfoGrid: StandardInfoGridStub,
         StandardActionGroup: StandardActionGroupStub,
         StandardFlowRail: StandardFlowRailStub,
-        StandardInlineSectionHeader: StandardInlineSectionHeaderStub
+        StandardInlineSectionHeader: StandardInlineSectionHeaderStub,
+        StandardTraceTimeline: StandardTraceTimelineStub
       }
     }
   });
@@ -173,9 +210,12 @@ async function queryDevice(wrapper: ReturnType<typeof mountView>, deviceCode = '
 
 describe('ReportWorkbenchView', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.mocked(getDeviceByCode).mockReset();
     vi.mocked(reportByHttp).mockReset();
     vi.mocked(reportByMqtt).mockReset();
+    vi.mocked(messageApi.getMessageFlowSession).mockReset();
+    mockRouter.push.mockReset();
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
   });
@@ -288,5 +328,188 @@ describe('ReportWorkbenchView', () => {
     expect(typeof payload?.payload).toBe('string');
     expect(payload?.payload.length).toBeGreaterThan(0);
     expect(wrapper.text()).toContain('"msg": "success"');
+  });
+
+  it('shows the timeline immediately after a successful http report', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1,
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        productKey: 'demo-product',
+        protocolCode: 'mqtt-json'
+      }
+    });
+    vi.mocked(reportByHttp).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-http-001',
+        traceId: 'trace-http-001',
+        status: 'COMPLETED',
+        timelineAvailable: true,
+        correlationPending: false
+      }
+    });
+    vi.mocked(messageApi.getMessageFlowSession).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-http-001',
+        transportMode: 'HTTP',
+        status: 'COMPLETED',
+        submittedAt: '2026-03-23 10:00:00',
+        traceId: 'trace-http-001',
+        deviceCode: 'demo-device-01',
+        topic: '/message/http/report',
+        correlationPending: false,
+        timeline: {
+          traceId: 'trace-http-001',
+          sessionId: 'session-http-001',
+          flowType: 'HTTP',
+          status: 'COMPLETED',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          topic: '/message/http/report',
+          protocolCode: 'mqtt-json',
+          messageType: 'property',
+          startedAt: '2026-03-23 10:00:00',
+          finishedAt: '2026-03-23 10:00:01',
+          totalCostMs: 88,
+          steps: [
+            {
+              stage: 'INGRESS',
+              handlerClass: 'UpMessageProcessingPipeline',
+              handlerMethod: 'ingress',
+              status: 'SUCCESS',
+              costMs: 1,
+              startedAt: '2026-03-23 10:00:00',
+              finishedAt: '2026-03-23 10:00:00',
+              summary: {},
+              errorClass: '',
+              errorMessage: '',
+              branch: ''
+            }
+          ]
+        }
+      }
+    });
+
+    const wrapper = mountView();
+    await queryDevice(wrapper);
+    await wrapper.find('form').trigger('submit.prevent');
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowSession).toHaveBeenCalledWith('session-http-001');
+    expect(wrapper.text()).toContain('处理时间线已就绪，可直接查看阶段顺序，或跳转链路追踪台继续联动排查。');
+    expect(wrapper.text()).toContain('trace-http-001');
+    expect(wrapper.text()).toContain('INGRESS');
+  });
+
+  it('polls the mqtt session until the trace is bound', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1,
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        productKey: 'demo-product',
+        protocolCode: 'mqtt-json'
+      }
+    });
+    vi.mocked(reportByMqtt).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-mqtt-001',
+        status: 'PUBLISHED',
+        timelineAvailable: false,
+        correlationPending: true
+      }
+    });
+    vi.mocked(messageApi.getMessageFlowSession)
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          sessionId: 'session-mqtt-001',
+          transportMode: 'MQTT',
+          status: 'PUBLISHED',
+          submittedAt: '2026-03-23 10:05:00',
+          traceId: '',
+          deviceCode: 'demo-device-01',
+          topic: '$dp',
+          correlationPending: true,
+          timeline: null
+        }
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          sessionId: 'session-mqtt-001',
+          transportMode: 'MQTT',
+          status: 'COMPLETED',
+          submittedAt: '2026-03-23 10:05:00',
+          traceId: 'trace-mqtt-001',
+          deviceCode: 'demo-device-01',
+          topic: '$dp',
+          correlationPending: false,
+          timeline: {
+            traceId: 'trace-mqtt-001',
+            sessionId: 'session-mqtt-001',
+            flowType: 'MQTT',
+            status: 'COMPLETED',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            topic: '$dp',
+            protocolCode: 'mqtt-json',
+            messageType: 'property',
+            startedAt: '2026-03-23 10:05:00',
+            finishedAt: '2026-03-23 10:05:01',
+            totalCostMs: 96,
+            steps: [
+              {
+                stage: 'PROTOCOL_DECODE',
+                handlerClass: 'MqttJsonProtocolAdapter',
+                handlerMethod: 'decode',
+                status: 'SUCCESS',
+                costMs: 12,
+                startedAt: '2026-03-23 10:05:00',
+                finishedAt: '2026-03-23 10:05:00',
+                summary: {},
+                errorClass: '',
+                errorMessage: '',
+                branch: ''
+              }
+            ]
+          }
+        }
+      });
+
+    const wrapper = mountView();
+    await queryDevice(wrapper);
+    vi.useFakeTimers();
+    await findButtonByText(wrapper, 'MQTT')!.trigger('click');
+    await nextTick();
+    await wrapper.find('form').trigger('submit.prevent');
+    await Promise.resolve();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('MQTT 模拟已发布，正在等待消费回流绑定 traceId。');
+    expect(messageApi.getMessageFlowSession).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowSession).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain('trace-mqtt-001');
+    expect(wrapper.text()).toContain('PROTOCOL_DECODE');
+    vi.useRealTimers();
   });
 });

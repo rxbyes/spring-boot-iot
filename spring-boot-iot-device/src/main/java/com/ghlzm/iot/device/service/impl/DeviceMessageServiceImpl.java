@@ -13,6 +13,11 @@ import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.service.handler.DeviceContractStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceMessageLogStageHandler;
+import com.ghlzm.iot.device.service.handler.DevicePayloadApplyStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceRiskDispatchStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
@@ -22,6 +27,7 @@ import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -78,6 +84,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final JdbcTemplate jdbcTemplate;
     private final IotProperties iotProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final DeviceContractStageHandler deviceContractStageHandler;
+    private final DeviceMessageLogStageHandler deviceMessageLogStageHandler;
+    private final DevicePayloadApplyStageHandler devicePayloadApplyStageHandler;
+    private final DeviceStateStageHandler deviceStateStageHandler;
+    private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
@@ -90,7 +101,12 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     DeviceOnlineSessionService deviceOnlineSessionService,
                                     JdbcTemplate jdbcTemplate,
                                     IotProperties iotProperties,
-                                    ApplicationEventPublisher eventPublisher) {
+                                    ApplicationEventPublisher eventPublisher,
+                                    DeviceContractStageHandler deviceContractStageHandler,
+                                    DeviceMessageLogStageHandler deviceMessageLogStageHandler,
+                                    DevicePayloadApplyStageHandler devicePayloadApplyStageHandler,
+                                    DeviceStateStageHandler deviceStateStageHandler,
+                                    DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler) {
         this.deviceMapper = deviceMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -102,6 +118,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.jdbcTemplate = jdbcTemplate;
         this.iotProperties = iotProperties;
         this.eventPublisher = eventPublisher;
+        this.deviceContractStageHandler = deviceContractStageHandler;
+        this.deviceMessageLogStageHandler = deviceMessageLogStageHandler;
+        this.devicePayloadApplyStageHandler = devicePayloadApplyStageHandler;
+        this.deviceStateStageHandler = deviceStateStageHandler;
+        this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
     }
 
     @Override
@@ -152,28 +173,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void handleUpMessage(DeviceUpMessage upMessage) {
-        Device device = findDeviceByCode(upMessage.getDeviceCode());
-        if (device == null) {
-            throw new BizException("设备不存在: " + upMessage.getDeviceCode());
-        }
-        Product product = getRequiredProduct(device);
-        ensureProductEnabledForAccess(product);
-        validateProductMatched(upMessage, device, product);
-        validateProtocolMatched(upMessage, device, product);
-
-        saveMessageLog(device, upMessage);
-        if (isCommandReply(upMessage)) {
-            handleCommandReply(device, upMessage);
-            updateDeviceOnlineStatus(device, upMessage);
-            handleChildMessages(upMessage);
-            return;
-        }
-
-        // 文件/固件场景先交给文件服务处理，避免混入普通属性更新。
-        deviceFileService.handleFilePayload(device, upMessage);
-        updateLatestProperties(device, upMessage);
-        updateDeviceOnlineStatus(device, upMessage);
-        publishRiskEvaluationEvent(device, upMessage);
+        DeviceProcessingTarget target = deviceContractStageHandler.resolve(upMessage);
+        deviceMessageLogStageHandler.save(target);
+        devicePayloadApplyStageHandler.apply(target);
+        deviceStateStageHandler.refresh(target);
+        deviceRiskDispatchStageHandler.dispatch(target);
         handleChildMessages(upMessage);
     }
 

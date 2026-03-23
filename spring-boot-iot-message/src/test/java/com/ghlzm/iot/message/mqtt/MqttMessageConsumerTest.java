@@ -4,10 +4,11 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
 import com.ghlzm.iot.framework.config.IotProperties;
-import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult;
+import com.ghlzm.iot.message.pipeline.MessageFlowExecutionResult;
+import com.ghlzm.iot.message.pipeline.UpMessageProcessingPipeline;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,11 +33,9 @@ import static org.mockito.Mockito.when;
 class MqttMessageConsumerTest {
 
     @Mock
-    private UpMessageDispatcher upMessageDispatcher;
+    private UpMessageProcessingPipeline upMessageProcessingPipeline;
     @Mock
     private MqttTopicRouter mqttTopicRouter;
-    @Mock
-    private DeviceSessionService deviceSessionService;
     @Mock
     private MqttConnectionListener mqttConnectionListener;
     @Mock
@@ -56,9 +56,8 @@ class MqttMessageConsumerTest {
         properties.getObservability().getPerformance().setSlowMqttThresholdMs(5L);
         MqttMessageConsumer consumer = new MqttMessageConsumer(
                 properties,
-                upMessageDispatcher,
+                upMessageProcessingPipeline,
                 mqttTopicRouter,
-                deviceSessionService,
                 mqttConnectionListener,
                 mqttConsumerRuntimeState
         );
@@ -68,16 +67,26 @@ class MqttMessageConsumerTest {
         rawDeviceMessage.setProductKey("demo-product");
         rawDeviceMessage.setClientId("demo-device-01");
         rawDeviceMessage.setMessageType("property");
-        when(mqttTopicRouter.toRawMessage(any(), any())).thenReturn(rawDeviceMessage);
         doAnswer(invocation -> {
             LockSupport.parkNanos(20_000_000L);
             DeviceUpMessage upMessage = new DeviceUpMessage();
-            upMessage.setTraceId(rawDeviceMessage.getTraceId());
+            upMessage.setTraceId("trace-demo-001");
             upMessage.setDeviceCode("demo-device-01");
             upMessage.setProductKey("demo-product");
             upMessage.setMessageType("property");
-            return upMessage;
-        }).when(upMessageDispatcher).dispatch(rawDeviceMessage);
+            MessageFlowSubmitResult submitResult = new MessageFlowSubmitResult();
+            submitResult.setSessionId("session-demo-001");
+            submitResult.setTraceId("trace-demo-001");
+            submitResult.setStatus("COMPLETED");
+            submitResult.setTimelineAvailable(true);
+            submitResult.setCorrelationPending(false);
+
+            MessageFlowExecutionResult executionResult = new MessageFlowExecutionResult();
+            executionResult.setSubmitResult(submitResult);
+            executionResult.setRawDeviceMessage(rawDeviceMessage);
+            executionResult.setUpMessage(upMessage);
+            return executionResult;
+        }).when(upMessageProcessingPipeline).process(any());
 
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();

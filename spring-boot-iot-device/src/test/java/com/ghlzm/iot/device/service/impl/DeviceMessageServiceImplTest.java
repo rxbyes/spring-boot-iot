@@ -16,6 +16,12 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.DeviceSessionService;
+import com.ghlzm.iot.device.service.handler.DeviceContractStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceMessageLogStageHandler;
+import com.ghlzm.iot.device.service.handler.DevicePayloadApplyStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceRiskDispatchStageHandler;
+import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -69,6 +75,8 @@ class DeviceMessageServiceImplTest {
     @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
     @Mock
+    private DeviceSessionService deviceSessionService;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private JdbcTemplate jdbcTemplate;
@@ -81,6 +89,26 @@ class DeviceMessageServiceImplTest {
         IotProperties.Device deviceConfig = new IotProperties.Device();
         deviceConfig.setActivateDefault(true);
         iotProperties.setDevice(deviceConfig);
+        DeviceContractStageHandler deviceContractStageHandler =
+                new DeviceContractStageHandler(deviceMapper, productMapper);
+        DeviceMessageLogStageHandler deviceMessageLogStageHandler =
+                new DeviceMessageLogStageHandler(deviceMessageLogMapper);
+        DevicePayloadApplyStageHandler devicePayloadApplyStageHandler =
+                new DevicePayloadApplyStageHandler(
+                        devicePropertyMapper,
+                        productModelMapper,
+                        commandRecordService,
+                        deviceFileService
+                );
+        DeviceStateStageHandler deviceStateStageHandler =
+                new DeviceStateStageHandler(
+                        deviceMapper,
+                        deviceOnlineSessionService,
+                        deviceSessionService,
+                        iotProperties
+                );
+        DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler =
+                new DeviceRiskDispatchStageHandler(eventPublisher);
         deviceMessageService = new DeviceMessageServiceImpl(
                 deviceMapper,
                 deviceMessageLogMapper,
@@ -92,7 +120,12 @@ class DeviceMessageServiceImplTest {
                 deviceOnlineSessionService,
                 jdbcTemplate,
                 iotProperties,
-                eventPublisher
+                eventPublisher,
+                deviceContractStageHandler,
+                deviceMessageLogStageHandler,
+                devicePayloadApplyStageHandler,
+                deviceStateStageHandler,
+                deviceRiskDispatchStageHandler
         );
     }
 

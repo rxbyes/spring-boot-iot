@@ -3,6 +3,9 @@ import { buildQueryString } from './query';
 import type {
   DeviceMessageLog,
   HttpReportPayload,
+  MessageFlowSession,
+  MessageFlowSubmitResult,
+  MessageFlowTimeline,
   MessageTraceStats,
   PageResult
 } from '../types/api';
@@ -25,10 +28,18 @@ export const messageApi = {
    * HTTP模拟上报
    */
   reportByHttp(payload: HttpReportPayload) {
-    return request<null>('/api/message/http/report', {
+    return request<MessageFlowSubmitResult>('/api/message/http/report', {
       method: 'POST',
       body: payload
     });
+  },
+
+  getMessageFlowSession(sessionId: string) {
+    return request<MessageFlowSession>(`/api/device/message-flow/session/${sessionId}`);
+  },
+
+  getMessageFlowTrace(traceId: string) {
+    return request<MessageFlowTimeline>(`/api/device/message-flow/trace/${traceId}`);
   },
 
   /**

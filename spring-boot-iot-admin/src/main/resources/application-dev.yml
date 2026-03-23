@@ -110,6 +110,10 @@ iot:
     system-error-notify-enabled: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED:true}
     notification-timeout-ms: ${IOT_OBSERVABILITY_NOTIFICATION_TIMEOUT_MS:3000}
     system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
+    message-flow:
+      enabled: ${IOT_OBSERVABILITY_MESSAGE_FLOW_ENABLED:true}
+      ttl-hours: ${IOT_OBSERVABILITY_MESSAGE_FLOW_TTL_HOURS:24}
+      session-match-window-seconds: ${IOT_OBSERVABILITY_MESSAGE_FLOW_SESSION_MATCH_WINDOW_SECONDS:120}
     console:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
       mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}

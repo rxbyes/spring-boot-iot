@@ -8,6 +8,7 @@ import type {
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
+  MessageFlowSubmitResult,
   DeviceOption,
   DeviceProperty,
   DeviceReplacePayload,
@@ -126,8 +127,8 @@ export function getDeviceMessageLogs(deviceCode: string): Promise<ApiEnvelope<De
   return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`)
 }
 
-export function reportByHttp(payload: HttpReportPayload): Promise<ApiEnvelope<null>> {
-  return request<null>('/api/message/http/report', {
+export function reportByHttp(payload: HttpReportPayload): Promise<ApiEnvelope<MessageFlowSubmitResult>> {
+  return request<MessageFlowSubmitResult>('/api/message/http/report', {
     method: 'POST',
     body: payload
   })

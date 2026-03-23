@@ -285,6 +285,25 @@
         <section class="detail-panel">
           <div class="detail-section-header">
             <div>
+              <h3>处理时间线</h3>
+              <p>按 traceId 异步拉取 Redis 时间线，复盘固定 Pipeline 的阶段顺序、耗时与处理类/方法。</p>
+            </div>
+          </div>
+          <StandardTraceTimeline
+            :timeline="detailTimeline"
+            :loading="timelineLoading"
+            :empty-title="detailTimelineEmptyTitle"
+            :empty-description="detailTimelineEmptyDescription"
+          />
+          <div v-if="timelineExpired" class="detail-notice">
+            <span class="detail-notice__label">降级提示</span>
+            <strong class="detail-notice__value">时间线已过期，仅保留消息日志。</strong>
+          </div>
+        </section>
+
+        <section class="detail-panel">
+          <div class="detail-section-header">
+            <div>
               <h3>消息内容</h3>
               <p>使用统一深色报文块承载 Payload，长 JSON、原始报文和多行内容在查看时更清晰。</p>
             </div>
@@ -317,10 +336,11 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import type { DeviceMessageLog, MessageTraceStats } from '@/types/api';
+import type { DeviceMessageLog, MessageFlowTimeline, MessageTraceStats } from '@/types/api';
 import { formatDateTime, prettyJson } from '@/utils/format';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
@@ -365,9 +385,11 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTo
 
 const loading = ref(false);
 const statsLoading = ref(false);
+const timelineLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
+const detailTimeline = ref<MessageFlowTimeline | null>(null);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
   recentHourCount: 0,
@@ -383,6 +405,27 @@ const createEmptyTraceStats = (): MessageTraceStats => ({
 const traceStats = ref<MessageTraceStats>(createEmptyTraceStats());
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
+const timelineExpired = computed(() =>
+  Boolean(hasDetail.value && detailData.value.traceId && !timelineLoading.value && !detailTimeline.value)
+);
+const detailTimelineEmptyTitle = computed(() => {
+  if (timelineExpired.value) {
+    return '时间线已过期，仅保留消息日志';
+  }
+  if (detailData.value.traceId) {
+    return '当前 trace 尚无可用时间线';
+  }
+  return '当前消息未携带 traceId';
+});
+const detailTimelineEmptyDescription = computed(() => {
+  if (timelineExpired.value) {
+    return 'Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。';
+  }
+  if (detailData.value.traceId) {
+    return '正在等待时间线生成，或当前 trace 对应的 Redis 时间线不存在。';
+  }
+  return '没有 traceId 时，只能查看消息日志本身，无法继续拉取处理时间线。';
+});
 const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
 const detailSubtitle = computed(() => detailData.value.topic || '查看接入消息详情');
 const detailDisplayTime = computed(() => formatDateTime(detailData.value.reportTime || detailData.value.createTime));
@@ -621,6 +664,7 @@ function handlePageChange(page: number) {
 function openDetail(row: DeviceMessageLog) {
   detailData.value = { ...row };
   detailVisible.value = true;
+  loadDetailTimeline(row.traceId);
 }
 
 function canJumpWithRow(row: DeviceMessageLog) {
@@ -676,6 +720,23 @@ function formatInlineText(value?: string | null) {
   return normalized || '--';
 }
 
+async function loadDetailTimeline(traceId?: string | null) {
+  detailTimeline.value = null;
+  if (!traceId) {
+    return;
+  }
+  timelineLoading.value = true;
+  try {
+    const response = await messageApi.getMessageFlowTrace(traceId);
+    detailTimeline.value = response.data || null;
+  } catch (error) {
+    detailTimeline.value = null;
+    ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
+  } finally {
+    timelineLoading.value = false;
+  }
+}
+
 watch(
   () => [
     route.query.mode,
@@ -703,6 +764,8 @@ watch(
 watch(detailVisible, (visible) => {
   if (!visible) {
     detailData.value = {};
+    detailTimeline.value = null;
+    timelineLoading.value = false;
   }
 });
 

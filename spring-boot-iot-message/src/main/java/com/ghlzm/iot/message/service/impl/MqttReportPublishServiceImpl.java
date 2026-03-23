@@ -6,12 +6,20 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowFingerprintSupport;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStatuses;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
 import com.ghlzm.iot.message.mqtt.MqttDownMessagePublisher;
 import com.ghlzm.iot.message.mqtt.MqttMessageConsumer;
 import com.ghlzm.iot.message.service.MqttReportPublishService;
 import com.ghlzm.iot.message.service.model.MqttReportPublishCommand;
 import com.ghlzm.iot.message.support.MessagePayloadEncodingSupport;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 /**
  * MQTT 原始上行模拟发布服务实现。
@@ -24,21 +32,27 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
     private final MqttMessageConsumer mqttMessageConsumer;
     private final MqttDownMessagePublisher mqttDownMessagePublisher;
     private final IotProperties iotProperties;
+    private final MessageFlowProperties messageFlowProperties;
+    private final MessageFlowTimelineStore messageFlowTimelineStore;
 
     public MqttReportPublishServiceImpl(DeviceService deviceService,
                                         ProductService productService,
                                         MqttMessageConsumer mqttMessageConsumer,
                                         MqttDownMessagePublisher mqttDownMessagePublisher,
-                                        IotProperties iotProperties) {
+                                        IotProperties iotProperties,
+                                        MessageFlowProperties messageFlowProperties,
+                                        MessageFlowTimelineStore messageFlowTimelineStore) {
         this.deviceService = deviceService;
         this.productService = productService;
         this.mqttMessageConsumer = mqttMessageConsumer;
         this.mqttDownMessagePublisher = mqttDownMessagePublisher;
         this.iotProperties = iotProperties;
+        this.messageFlowProperties = messageFlowProperties;
+        this.messageFlowTimelineStore = messageFlowTimelineStore;
     }
 
     @Override
-    public void publish(MqttReportPublishCommand command) {
+    public MessageFlowSubmitResult publish(MqttReportPublishCommand command) {
         if (command == null) {
             throw new BizException("MQTT 模拟上报参数不能为空");
         }
@@ -57,7 +71,38 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
                 command.getPayload(),
                 command.getPayloadEncoding()
         );
+        MessageFlowSubmitResult submitResult = buildSubmitResult(command, payloadBytes);
         mqttDownMessagePublisher.publishRaw(command.getTopic(), payloadBytes, actualQos, retained);
+        return submitResult;
+    }
+
+    private MessageFlowSubmitResult buildSubmitResult(MqttReportPublishCommand command, byte[] payloadBytes) {
+        MessageFlowSubmitResult submitResult = new MessageFlowSubmitResult();
+        String sessionId = java.util.UUID.randomUUID().toString().replace("-", "");
+        submitResult.setSessionId(sessionId);
+        submitResult.setStatus(MessageFlowStatuses.SESSION_PUBLISHED);
+        submitResult.setTimelineAvailable(Boolean.FALSE);
+        submitResult.setCorrelationPending(Boolean.TRUE);
+
+        if (Boolean.TRUE.equals(messageFlowProperties.getEnabled())) {
+            MessageFlowSession session = new MessageFlowSession();
+            session.setSessionId(sessionId);
+            session.setTransportMode("MQTT");
+            session.setStatus(MessageFlowStatuses.SESSION_PUBLISHED);
+            session.setSubmittedAt(LocalDateTime.now());
+            session.setDeviceCode(command.getDeviceCode());
+            session.setTopic(command.getTopic());
+            session.setCorrelationPending(Boolean.TRUE);
+            messageFlowTimelineStore.saveSession(session);
+
+            String fingerprint = MessageFlowFingerprintSupport.buildFingerprint(
+                    command.getTopic(),
+                    command.getDeviceCode(),
+                    payloadBytes
+            );
+            messageFlowTimelineStore.bindFingerprint(fingerprint, sessionId);
+        }
+        return submitResult;
     }
 
     private void ensureProductMatched(String productKey, Product product, String deviceCode) {

@@ -1,5 +1,7 @@
 package com.ghlzm.iot.framework.config;
 
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowLoggingConstants;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingSystem;
@@ -17,14 +19,17 @@ class ObservabilityConsoleLoggingConfigurerTest {
         properties.getObservability().getConsole().setMybatisSessionEnabled(false);
         properties.getObservability().getDiagnostic().setSqlFileEnabled(false);
         properties.getObservability().getDiagnostic().setAccessFileEnabled(false);
+        MessageFlowProperties messageFlowProperties = new MessageFlowProperties();
+        messageFlowProperties.setEnabled(false);
         LoggingSystem loggingSystem = mock(LoggingSystem.class);
 
-        new ObservabilityConsoleLoggingConfigurer(properties).configure(loggingSystem);
+        new ObservabilityConsoleLoggingConfigurer(properties, messageFlowProperties).configure(loggingSystem);
 
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SQL_LOGGER_NAME, LogLevel.OFF);
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SESSION_LOGGER_NAME, LogLevel.OFF);
         verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_SQL_LOGGER_NAME, LogLevel.OFF);
         verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME, LogLevel.OFF);
+        verify(loggingSystem).setLogLevel(MessageFlowLoggingConstants.MESSAGE_FLOW_LOGGER_NAME, LogLevel.OFF);
         verifyNoMoreInteractions(loggingSystem);
     }
 
@@ -35,14 +40,17 @@ class ObservabilityConsoleLoggingConfigurerTest {
         properties.getObservability().getConsole().setMybatisSessionEnabled(true);
         properties.getObservability().getDiagnostic().setSqlFileEnabled(true);
         properties.getObservability().getDiagnostic().setAccessFileEnabled(true);
+        MessageFlowProperties messageFlowProperties = new MessageFlowProperties();
+        messageFlowProperties.setEnabled(true);
         LoggingSystem loggingSystem = mock(LoggingSystem.class);
 
-        new ObservabilityConsoleLoggingConfigurer(properties).configure(loggingSystem);
+        new ObservabilityConsoleLoggingConfigurer(properties, messageFlowProperties).configure(loggingSystem);
 
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SQL_LOGGER_NAME, LogLevel.TRACE);
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SESSION_LOGGER_NAME, LogLevel.DEBUG);
         verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_SQL_LOGGER_NAME, LogLevel.INFO);
         verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME, LogLevel.INFO);
+        verify(loggingSystem).setLogLevel(MessageFlowLoggingConstants.MESSAGE_FLOW_LOGGER_NAME, LogLevel.INFO);
         verifyNoMoreInteractions(loggingSystem);
     }
 }

@@ -1,12 +1,13 @@
 package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
-import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
-import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
+import com.ghlzm.iot.message.pipeline.MessageFlowExecutionResult;
+import com.ghlzm.iot.message.pipeline.UpMessageProcessingPipeline;
+import com.ghlzm.iot.message.pipeline.UpMessageProcessingRequest;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -34,9 +35,8 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
 
     private final IotProperties iotProperties;
-    private final UpMessageDispatcher upMessageDispatcher;
+    private final UpMessageProcessingPipeline upMessageProcessingPipeline;
     private final MqttTopicRouter mqttTopicRouter;
-    private final DeviceSessionService deviceSessionService;
     private final MqttConnectionListener mqttConnectionListener;
     private final MqttConsumerRuntimeState mqttConsumerRuntimeState;
 
@@ -45,15 +45,13 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     private String effectiveClientId;
 
     public MqttMessageConsumer(IotProperties iotProperties,
-                               UpMessageDispatcher upMessageDispatcher,
+                               UpMessageProcessingPipeline upMessageProcessingPipeline,
                                MqttTopicRouter mqttTopicRouter,
-                               DeviceSessionService deviceSessionService,
                                MqttConnectionListener mqttConnectionListener,
                                MqttConsumerRuntimeState mqttConsumerRuntimeState) {
         this.iotProperties = iotProperties;
-        this.upMessageDispatcher = upMessageDispatcher;
+        this.upMessageProcessingPipeline = upMessageProcessingPipeline;
         this.mqttTopicRouter = mqttTopicRouter;
-        this.deviceSessionService = deviceSessionService;
         this.mqttConnectionListener = mqttConnectionListener;
         this.mqttConsumerRuntimeState = mqttConsumerRuntimeState;
     }
@@ -154,10 +152,13 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                     ? 0
                     : message.getPayload().length);
             mqttConsumerRuntimeState.markMessageReceived();
-            rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
-            rawDeviceMessage.setTraceId(traceId);
-
-            upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
+            UpMessageProcessingRequest pipelineRequest = new UpMessageProcessingRequest();
+            pipelineRequest.setTransportMode("MQTT");
+            pipelineRequest.setTopic(topic);
+            pipelineRequest.setPayload(message == null ? null : message.getPayload());
+            MessageFlowExecutionResult executionResult = upMessageProcessingPipeline.process(pipelineRequest);
+            rawDeviceMessage = executionResult.getRawDeviceMessage();
+            upMessage = executionResult.getUpMessage();
             mqttConsumerRuntimeState.markDispatchSuccess(upMessage.getTraceId());
             String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
                     ? upMessage.getDeviceCode()
@@ -167,8 +168,6 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             String resolvedClientId = hasText(rawDeviceMessage.getClientId())
                     ? rawDeviceMessage.getClientId()
                     : resolvedDeviceCode;
-            deviceSessionService.online(resolvedDeviceCode, resolvedClientId);
-            deviceSessionService.refreshLastSeen(resolvedDeviceCode, resolvedClientId, topic);
             mqttConnectionListener.onDeviceSessionRefreshed(resolvedDeviceCode, resolvedClientId, topic);
         } catch (Exception ex) {
             dispatchException = ex;

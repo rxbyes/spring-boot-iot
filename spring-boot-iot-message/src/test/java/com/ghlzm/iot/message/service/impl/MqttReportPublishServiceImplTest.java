@@ -6,6 +6,11 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStatuses;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
 import com.ghlzm.iot.message.mqtt.MqttDownMessagePublisher;
 import com.ghlzm.iot.message.mqtt.MqttMessageConsumer;
 import com.ghlzm.iot.message.service.model.MqttReportPublishCommand;
@@ -19,8 +24,12 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,6 +45,8 @@ class MqttReportPublishServiceImplTest {
     private MqttMessageConsumer mqttMessageConsumer;
     @Mock
     private MqttDownMessagePublisher mqttDownMessagePublisher;
+    @Mock
+    private MessageFlowTimelineStore messageFlowTimelineStore;
 
     @Test
     void publishShouldRejectWhenMqttClientDisconnected() {
@@ -46,7 +57,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
@@ -70,7 +83,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
@@ -94,7 +109,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
@@ -117,7 +134,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         service.publish(buildCommand("plain-text"));
@@ -146,7 +165,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
@@ -169,7 +190,9 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         MqttReportPublishCommand command = buildCommand(new String(rawPacket, StandardCharsets.ISO_8859_1));
@@ -201,14 +224,16 @@ class MqttReportPublishServiceImplTest {
                 productService,
                 mqttMessageConsumer,
                 mqttDownMessagePublisher,
-                buildIotProperties()
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowTimelineStore
         );
 
         MqttReportPublishCommand command = buildCommand("plain-text");
         command.setQos(2);
         command.setRetained(true);
 
-        service.publish(command);
+        MessageFlowSubmitResult submitResult = service.publish(command);
 
         verify(mqttDownMessagePublisher).publishRaw(
                 "$dp",
@@ -221,6 +246,54 @@ class MqttReportPublishServiceImplTest {
                 org.mockito.Mockito.any(),
                 org.mockito.Mockito.anyInt(),
                 org.mockito.Mockito.anyBoolean()
+        );
+        assertEquals(MessageFlowStatuses.SESSION_PUBLISHED, submitResult.getStatus());
+        assertFalse(Boolean.TRUE.equals(submitResult.getTimelineAvailable()));
+        assertTrue(Boolean.TRUE.equals(submitResult.getCorrelationPending()));
+    }
+
+    @Test
+    void publishShouldCreatePendingSessionAndFingerprintWhenMessageFlowEnabled() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+
+        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
+        when(productService.getRequiredById(1001L)).thenReturn(product);
+
+        MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
+                deviceService,
+                productService,
+                mqttMessageConsumer,
+                mqttDownMessagePublisher,
+                buildIotProperties(),
+                buildMessageFlowProperties(true),
+                messageFlowTimelineStore
+        );
+
+        MessageFlowSubmitResult submitResult = service.publish(buildCommand("plain-text"));
+
+        assertEquals(MessageFlowStatuses.SESSION_PUBLISHED, submitResult.getStatus());
+        assertFalse(Boolean.TRUE.equals(submitResult.getTimelineAvailable()));
+        assertTrue(Boolean.TRUE.equals(submitResult.getCorrelationPending()));
+        assertTrue(submitResult.getSessionId() != null && !submitResult.getSessionId().isBlank());
+
+        ArgumentCaptor<MessageFlowSession> sessionCaptor = ArgumentCaptor.forClass(MessageFlowSession.class);
+        verify(messageFlowTimelineStore).saveSession(sessionCaptor.capture());
+        MessageFlowSession session = sessionCaptor.getValue();
+        assertEquals(submitResult.getSessionId(), session.getSessionId());
+        assertEquals("MQTT", session.getTransportMode());
+        assertEquals(MessageFlowStatuses.SESSION_PUBLISHED, session.getStatus());
+        assertEquals("demo-device-01", session.getDeviceCode());
+        assertEquals("$dp", session.getTopic());
+        assertTrue(Boolean.TRUE.equals(session.getCorrelationPending()));
+
+        verify(messageFlowTimelineStore).bindFingerprint(any(String.class), org.mockito.Mockito.eq(submitResult.getSessionId()));
+        verify(mqttDownMessagePublisher, times(1)).publishRaw(
+                "$dp",
+                "plain-text".getBytes(StandardCharsets.UTF_8),
+                1,
+                false
         );
     }
 
@@ -257,5 +330,13 @@ class MqttReportPublishServiceImplTest {
         mqtt.setQos(1);
         iotProperties.setMqtt(mqtt);
         return iotProperties;
+    }
+
+    private MessageFlowProperties buildMessageFlowProperties(boolean enabled) {
+        MessageFlowProperties properties = new MessageFlowProperties();
+        properties.setEnabled(enabled);
+        properties.setTtlHours(24);
+        properties.setSessionMatchWindowSeconds(120);
+        return properties;
     }
 }
