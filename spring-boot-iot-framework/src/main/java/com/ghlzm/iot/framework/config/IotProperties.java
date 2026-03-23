@@ -223,7 +223,14 @@ public class IotProperties {
         private Boolean systemErrorNotifyEnabled = Boolean.FALSE;
         private Integer notificationTimeoutMs = 3000;
         private Integer systemErrorNotifyCooldownSeconds = 300;
+        private Console console = new Console();
         private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
+
+        @Data
+        public static class Console {
+            private Boolean mybatisSqlEnabled = Boolean.FALSE;
+            private Boolean mybatisSessionEnabled = Boolean.FALSE;
+        }
 
         @Data
         public static class InAppUnreadBridge {

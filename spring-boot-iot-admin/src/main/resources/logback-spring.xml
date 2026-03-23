@@ -36,6 +36,12 @@
     </appender>
 
     <logger name="com.ghlzm.iot" level="DEBUG"/>
+    <logger name="mybatis.sql" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    <logger name="org.mybatis.spring" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

@@ -1400,7 +1400,6 @@ function syncAppliedFilters() {
 }
 
 function clearSearchForm() {
-  quickSearchKeyword.value = ''
   searchForm.deviceId = ''
   searchForm.productKey = ''
   searchForm.deviceCode = ''
@@ -2175,7 +2174,6 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
 }
 
 function handleSearch() {
-  applyQuickSearchKeywordToFilters()
   searchForm.deviceId = searchForm.deviceId.trim()
   searchForm.productKey = searchForm.productKey.trim()
   searchForm.deviceCode = searchForm.deviceCode.trim()

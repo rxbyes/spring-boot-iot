@@ -101,11 +101,14 @@ iot:
       red: 20
 
   observability:
-    system-error-notify-enabled: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED:false}
+    system-error-notify-enabled: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED:true}
     notification-timeout-ms: ${IOT_OBSERVABILITY_NOTIFICATION_TIMEOUT_MS:3000}
     system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
+    console:
+      mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
+      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
     in-app-unread-bridge:
-      enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:false}
+      enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:true}
       scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}
       high-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_HIGH_THRESHOLD_MINUTES:30}
       critical-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_CRITICAL_THRESHOLD_MINUTES:10}

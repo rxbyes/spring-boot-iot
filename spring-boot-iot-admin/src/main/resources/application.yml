@@ -33,7 +33,7 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
     cache-enabled: false
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: com.ghlzm.iot.framework.config.MybatisScopedSlf4jImpl
   global-config:
     db-config:
       id-type: assign_id
