@@ -41,6 +41,7 @@ public class MqttConsumerHealthIndicator implements HealthIndicator {
         details.put("brokerUrl", maskBrokerUrl(iotProperties.getMqtt() == null ? null : iotProperties.getMqtt().getBrokerUrl()));
         details.put("subscribeTopics", snapshot.subscribeTopics());
         details.put("lastConnectAt", snapshot.lastConnectAt());
+        details.put("lastDisconnectAt", snapshot.lastDisconnectAt());
         details.put("lastMessageAt", snapshot.lastMessageAt());
         details.put("lastDispatchSuccessAt", snapshot.lastDispatchSuccessAt());
         details.put("lastFailureAt", snapshot.lastFailureAt());

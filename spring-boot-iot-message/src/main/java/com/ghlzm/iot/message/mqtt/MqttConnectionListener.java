@@ -113,7 +113,7 @@ public class MqttConnectionListener {
             details.put("errorClass", cause.getClass().getSimpleName());
         }
         log.warn(ObservabilityEventLogSupport.summary("mqtt_connection", "failure", null, details));
-        runtimeState().ifPresent(state -> state.markFailure("connection", TraceContextHolder.getTraceId()));
+        runtimeState().ifPresent(state -> state.markDisconnected("connection", TraceContextHolder.getTraceId()));
         if (cause != null) {
             Map<String, Object> context = new LinkedHashMap<>();
             context.put("event", "connectionLost");
@@ -144,7 +144,7 @@ public class MqttConnectionListener {
         details.put("clientId", clientId);
         details.put("errorClass", throwable == null ? null : throwable.getClass().getSimpleName());
         log.error(ObservabilityEventLogSupport.summary("mqtt_startup", "failure", null, details), throwable);
-        runtimeState().ifPresent(state -> state.markFailure("startup", TraceContextHolder.getTraceId()));
+        runtimeState().ifPresent(state -> state.markDisconnected("startup", TraceContextHolder.getTraceId()));
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("event", "startupFailed");
         putIfHasText(context, "clientId", clientId);

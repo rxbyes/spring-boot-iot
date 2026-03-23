@@ -94,7 +94,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', short: '设', keywords: ['设备资产中心', '设备资产', '设备档案'] },
       { path: '/reporting', label: '链路验证中心', description: '按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
       { path: '/system-log', label: '异常观测台', description: '排查 system_error、MQTT 异常和后台链路问题。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },
-      { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic'] },
+      { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路，并切换查看失败归档。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic', '失败归档', '接入失败'] },
       { path: '/file-debug', label: '数据校验台', description: '查看文件快照与固件聚合调试结果。', short: '校', keywords: ['数据校验台', '文件校验', '固件调试'] }
     ],
     steps: ['先完成产品定义与协议绑定。', '再维护设备资产与认证信息。', '通过链路验证、链路追踪和异常观测完成接入排障。']

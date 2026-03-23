@@ -5,6 +5,7 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.service.DeviceMessageService;
+import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -34,5 +35,10 @@ public class DeviceMessageLogController {
                                                          @RequestParam(defaultValue = "1") Integer pageNum,
                                                          @RequestParam(defaultValue = "10") Integer pageSize) {
         return R.ok(deviceMessageService.pageMessageTraceLogs(query, pageNum, pageSize));
+    }
+
+    @GetMapping("/api/device/message-trace/stats")
+    public R<DeviceMessageTraceStatsVO> getTraceStats(DeviceMessageTraceQuery query) {
+        return R.ok(deviceMessageService.getMessageTraceStats(query));
     }
 }

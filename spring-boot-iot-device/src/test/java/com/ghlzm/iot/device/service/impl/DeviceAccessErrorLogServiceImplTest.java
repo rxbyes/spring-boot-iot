@@ -6,15 +6,19 @@ import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO;
+import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +29,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -117,5 +122,59 @@ class DeviceAccessErrorLogServiceImplTest {
 
         assertEquals(2001L, log.getId());
         assertEquals("{\"expectedProtocolCode\":\"mqtt-json\"}", log.getContractSnapshot());
+    }
+
+    @Test
+    void getStatsShouldAggregateFailureSummary() {
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of(
+                "create_time", "trace_id", "device_code", "failure_stage", "error_code", "exception_class", "protocol_code", "topic"
+        )));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 7L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 2L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 9L;
+                    }
+                    return 12L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    if (sql.contains("failure_stage")) {
+                        return List.of(new DeviceStatsBucketVO("protocol_decode", "protocol_decode", 5L));
+                    }
+                    if (sql.contains("error_code")) {
+                        return List.of(new DeviceStatsBucketVO("400", "400", 3L));
+                    }
+                    if (sql.contains("exception_class")) {
+                        return List.of(new DeviceStatsBucketVO("BizException", "BizException", 2L));
+                    }
+                    if (sql.contains("protocol_code")) {
+                        return List.of(new DeviceStatsBucketVO("mqtt-json", "mqtt-json", 6L));
+                    }
+                    return List.of(new DeviceStatsBucketVO("$dp", "$dp", 4L));
+                });
+
+        DeviceAccessErrorStatsVO stats = service.getStats(new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery());
+
+        assertEquals(12L, stats.getTotal());
+        assertEquals(2L, stats.getRecentHourCount());
+        assertEquals(9L, stats.getRecent24HourCount());
+        assertEquals(7L, stats.getDistinctTraceCount());
+        assertEquals(4L, stats.getDistinctDeviceCount());
+        assertEquals("protocol_decode", stats.getTopFailureStages().get(0).getValue());
+        assertEquals("400", stats.getTopErrorCodes().get(0).getValue());
+        assertEquals("BizException", stats.getTopExceptionClasses().get(0).getValue());
+        assertEquals("mqtt-json", stats.getTopProtocolCodes().get(0).getValue());
+        assertEquals("$dp", stats.getTopTopics().get(0).getValue());
     }
 }

@@ -173,6 +173,9 @@
             <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
               链路追踪台
             </StandardButton>
+            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToAccessError()">
+              失败归档台
+            </StandardButton>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
             <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
@@ -802,6 +805,32 @@ const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
       deviceCode: target.deviceCode || undefined,
       productKey: target.productKey || undefined,
       topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined
+    }
+  })
+}
+
+const handleJumpToAccessError = (row?: AuditLogRecord) => {
+  const target = row || {
+    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
+    deviceCode: searchForm.deviceCode,
+    productKey: searchForm.productKey,
+    requestMethod: searchForm.requestMethod,
+    requestUrl: searchForm.requestUrl,
+    errorCode: searchForm.errorCode,
+    exceptionClass: searchForm.exceptionClass
+  }
+  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
+  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
+  router.push({
+    path: '/message-trace',
+    query: {
+      mode: 'access-error',
+      traceId: target.traceId || undefined,
+      deviceCode: target.deviceCode || undefined,
+      productKey: target.productKey || undefined,
+      topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined,
+      errorCode: 'errorCode' in target ? target.errorCode || undefined : undefined,
+      exceptionClass: 'exceptionClass' in target ? target.exceptionClass || undefined : undefined
     }
   })
 }

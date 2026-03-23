@@ -53,7 +53,6 @@ logging:
     mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageReadMapper.selectList: OFF
 
 
-
 iot:
   security:
     token-expire-seconds: ${IOT_SECURITY_TOKEN_EXPIRE_SECONDS:86400}
@@ -74,7 +73,7 @@ iot:
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
     default-subscribe-topics:
-      - "$dp"
+      - $dp
       - /sys/+/+/thing/property/post
       - /sys/+/+/thing/event/post
       - /sys/+/+/thing/property/reply
@@ -128,6 +127,26 @@ iot:
       scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}
       high-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_HIGH_THRESHOLD_MINUTES:30}
       critical-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_CRITICAL_THRESHOLD_MINUTES:10}
+    alerting:
+      enabled: ${IOT_OBSERVABILITY_ALERTING_ENABLED:false}
+      scene: ${IOT_OBSERVABILITY_ALERTING_SCENE:observability_alert}
+      evaluate-interval-seconds: ${IOT_OBSERVABILITY_ALERTING_EVALUATE_INTERVAL_SECONDS:60}
+      cooldown-minutes: ${IOT_OBSERVABILITY_ALERTING_COOLDOWN_MINUTES:30}
+      system-error:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_THRESHOLD:5}
+      mqtt-disconnect:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_MQTT_DISCONNECT_ENABLED:true}
+        duration-minutes: ${IOT_OBSERVABILITY_ALERTING_MQTT_DISCONNECT_DURATION_MINUTES:5}
+      failure-stage:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_THRESHOLD:10}
+      in-app-bridge:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_THRESHOLD:3}
 
   ota:
     enabled: false

@@ -17,11 +17,12 @@ class MqttConsumerRuntimeStateTest {
         state.markSubscribed(List.of("$dp", "/sys/+/+/thing/property/post"));
         state.markMessageReceived();
         state.markDispatchSuccess("trace-success-001");
-        state.markFailure("device_validate", "trace-failure-001");
+        state.markDisconnected("device_validate", "trace-failure-001");
 
         MqttConsumerRuntimeState.Snapshot snapshot = state.snapshot();
         assertEquals(List.of("$dp", "/sys/+/+/thing/property/post"), snapshot.subscribeTopics());
         assertNotNull(snapshot.lastConnectAt());
+        assertNotNull(snapshot.lastDisconnectAt());
         assertNotNull(snapshot.lastMessageAt());
         assertNotNull(snapshot.lastDispatchSuccessAt());
         assertNotNull(snapshot.lastFailureAt());

@@ -16,15 +16,20 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
+import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -36,6 +41,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -64,6 +70,8 @@ class DeviceMessageServiceImplTest {
     private DeviceOnlineSessionService deviceOnlineSessionService;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private JdbcTemplate jdbcTemplate;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -82,6 +90,7 @@ class DeviceMessageServiceImplTest {
                 commandRecordService,
                 deviceFileService,
                 deviceOnlineSessionService,
+                jdbcTemplate,
                 iotProperties,
                 eventPublisher
         );
@@ -446,6 +455,61 @@ class DeviceMessageServiceImplTest {
         verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
         assertEquals(List.of("84330701", "84330695"),
                 eventCaptor.getAllValues().stream().map(DeviceRiskEvaluationEvent::getDeviceCode).toList());
+    }
+
+    @Test
+    void getMessageTraceStatsShouldAggregateRecentSummary() {
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 11L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 5L;
+                    }
+                    if (sql.contains("message_type = ?")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 18L;
+                    }
+                    return 22L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    if (sql.contains("message_type")) {
+                        return List.of(new DeviceStatsBucketVO("property", "property", 12L));
+                    }
+                    if (sql.contains("product_key")) {
+                        return List.of(new DeviceStatsBucketVO("demo-product", "demo-product", 10L));
+                    }
+                    if (sql.contains("device_code")) {
+                        return List.of(new DeviceStatsBucketVO("demo-device-01", "demo-device-01", 8L));
+                    }
+                    return List.of(new DeviceStatsBucketVO(
+                            "/sys/demo-product/demo-device-01/thing/property/post",
+                            "/sys/demo-product/demo-device-01/thing/property/post",
+                            7L
+                    ));
+                });
+
+        DeviceMessageTraceStatsVO stats = deviceMessageService.getMessageTraceStats(new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery());
+
+        assertEquals(22L, stats.getTotal());
+        assertEquals(4L, stats.getRecentHourCount());
+        assertEquals(18L, stats.getRecent24HourCount());
+        assertEquals(11L, stats.getDistinctTraceCount());
+        assertEquals(5L, stats.getDistinctDeviceCount());
+        assertEquals(3L, stats.getDispatchFailureCount());
+        assertEquals("property", stats.getTopMessageTypes().get(0).getValue());
+        assertEquals("demo-product", stats.getTopProductKeys().get(0).getValue());
+        assertEquals("demo-device-01", stats.getTopDeviceCodes().get(0).getValue());
+        assertEquals("/sys/demo-product/demo-device-01/thing/property/post", stats.getTopTopics().get(0).getValue());
     }
 
     private DeviceUpMessage buildMessage(String protocolCode,

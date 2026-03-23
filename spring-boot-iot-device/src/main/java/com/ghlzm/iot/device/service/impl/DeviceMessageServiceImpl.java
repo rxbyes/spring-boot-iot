@@ -22,11 +22,14 @@ import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
+import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -41,6 +44,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,8 +59,10 @@ import java.util.stream.Collectors;
 public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceMessageServiceImpl.class);
+    private static final String TABLE_NAME = "iot_device_message_log";
     private static final Long DEFAULT_TENANT_ID = 1L;
     private static final Long UNKNOWN_DEVICE_ID = 0L;
+    private static final int MAX_PAGE_SIZE = 100;
     private static final String DISPATCH_FAILED_MESSAGE_TYPE = "dispatch_failed";
     private static final List<String> COMMAND_ID_ALIASES = List.of("commandId", "messageId");
     private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
@@ -69,6 +75,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final DeviceOnlineSessionService deviceOnlineSessionService;
+    private final JdbcTemplate jdbcTemplate;
     private final IotProperties iotProperties;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -81,6 +88,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     CommandRecordService commandRecordService,
                                     DeviceFileService deviceFileService,
                                     DeviceOnlineSessionService deviceOnlineSessionService,
+                                    JdbcTemplate jdbcTemplate,
                                     IotProperties iotProperties,
                                     ApplicationEventPublisher eventPublisher) {
         this.deviceMapper = deviceMapper;
@@ -91,6 +99,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
+        this.jdbcTemplate = jdbcTemplate;
         this.iotProperties = iotProperties;
         this.eventPublisher = eventPublisher;
     }
@@ -112,10 +121,32 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     @Override
     public PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize) {
         long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
-        long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize, 100);
+        long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize, MAX_PAGE_SIZE);
         Page<DeviceMessageLog> page = new Page<>(safePageNum, safePageSize);
         Page<DeviceMessageLog> result = deviceMessageLogMapper.selectPage(page, buildMessageTraceQueryWrapper(query));
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
+    }
+
+    @Override
+    public DeviceMessageTraceStatsVO getMessageTraceStats(DeviceMessageTraceQuery query) {
+        DeviceMessageTraceStatsVO stats = new DeviceMessageTraceStatsVO();
+        QuerySpec querySpec = buildMessageTraceQuerySpec(query);
+
+        stats.setTotal(queryCount(querySpec, null));
+        if (stats.getTotal() == null || stats.getTotal() < 1) {
+            return stats;
+        }
+
+        stats.setRecentHourCount(queryRecentCount(querySpec, 1));
+        stats.setRecent24HourCount(queryRecentCount(querySpec, 24));
+        stats.setDistinctTraceCount(queryDistinctCount(querySpec, "trace_id"));
+        stats.setDistinctDeviceCount(queryDistinctCount(querySpec, "device_code"));
+        stats.setDispatchFailureCount(queryCount(querySpec, " AND message_type = ?", DISPATCH_FAILED_MESSAGE_TYPE));
+        stats.setTopMessageTypes(queryTopBuckets(querySpec, "message_type"));
+        stats.setTopProductKeys(queryTopBuckets(querySpec, "product_key"));
+        stats.setTopDeviceCodes(queryTopBuckets(querySpec, "device_code"));
+        stats.setTopTopics(queryTopBuckets(querySpec, "topic"));
+        return stats;
     }
 
     @Override
@@ -333,6 +364,67 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
     }
 
+    private Long queryCount(QuerySpec querySpec, String extraCondition, Object... extraParams) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ")
+                .append(TABLE_NAME)
+                .append(querySpec.whereClause());
+        List<Object> params = new ArrayList<>(querySpec.params());
+        appendExtraCondition(sql, params, extraCondition, extraParams);
+        Long value = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return value == null ? 0L : value;
+    }
+
+    private Long queryRecentCount(QuerySpec querySpec, int hours) {
+        if (hours < 1) {
+            return 0L;
+        }
+        return queryCount(
+                querySpec,
+                " AND COALESCE(report_time, create_time) >= DATE_SUB(NOW(), INTERVAL " + hours + " HOUR)"
+        );
+    }
+
+    private Long queryDistinctCount(QuerySpec querySpec, String column) {
+        String sql = "SELECT COUNT(DISTINCT " + column + ") FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''";
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, querySpec.params().toArray());
+        return value == null ? 0L : value;
+    }
+
+    private List<DeviceStatsBucketVO> queryTopBuckets(QuerySpec querySpec, String column) {
+        String bucketExpression = "TRIM(" + column + ")";
+        String sql = "SELECT " + bucketExpression + " AS bucket_value, COUNT(1) AS bucket_count"
+                + " FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''"
+                + " GROUP BY " + bucketExpression
+                + " ORDER BY bucket_count DESC, bucket_value ASC"
+                + " LIMIT 5";
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new DeviceStatsBucketVO(
+                        rs.getString("bucket_value"),
+                        rs.getString("bucket_value"),
+                        rs.getLong("bucket_count")
+                ),
+                querySpec.params().toArray()
+        );
+    }
+
+    private void appendExtraCondition(StringBuilder sql, List<Object> params, String extraCondition, Object... extraParams) {
+        if (!hasText(extraCondition)) {
+            return;
+        }
+        sql.append(extraCondition);
+        if (extraParams == null || extraParams.length == 0) {
+            return;
+        }
+        for (Object extraParam : extraParams) {
+            params.add(extraParam);
+        }
+    }
+
     private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query) {
         LambdaQueryWrapper<DeviceMessageLog> queryWrapper = new LambdaQueryWrapper<>();
         if (query != null) {
@@ -355,6 +447,36 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         queryWrapper.orderByDesc(DeviceMessageLog::getReportTime)
                 .orderByDesc(DeviceMessageLog::getCreateTime);
         return queryWrapper;
+    }
+
+    private QuerySpec buildMessageTraceQuerySpec(DeviceMessageTraceQuery query) {
+        StringBuilder where = new StringBuilder(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (query == null) {
+            return new QuerySpec(where.toString(), params);
+        }
+        appendTextEquals(where, params, "device_code", query.getDeviceCode());
+        appendTextEquals(where, params, "product_key", query.getProductKey());
+        appendTextEquals(where, params, "trace_id", query.getTraceId());
+        appendTextEquals(where, params, "message_type", query.getMessageType());
+        appendTextLike(where, params, "topic", query.getTopic());
+        return new QuerySpec(where.toString(), params);
+    }
+
+    private void appendTextEquals(StringBuilder where, List<Object> params, String column, String value) {
+        if (!hasText(value)) {
+            return;
+        }
+        where.append(" AND ").append(column).append(" = ?");
+        params.add(value.trim());
+    }
+
+    private void appendTextLike(StringBuilder where, List<Object> params, String column, String value) {
+        if (!hasText(value)) {
+            return;
+        }
+        where.append(" AND ").append(column).append(" LIKE ?");
+        params.add("%" + value.trim() + "%");
     }
 
     private void saveMessageLog(Device device, DeviceUpMessage upMessage) {
@@ -641,5 +763,8 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private String displayText(String value) {
         return hasText(value) ? value.trim() : "<empty>";
+    }
+
+    private record QuerySpec(String whereClause, List<Object> params) {
     }
 }

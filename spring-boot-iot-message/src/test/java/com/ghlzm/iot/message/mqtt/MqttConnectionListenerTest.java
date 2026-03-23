@@ -1,6 +1,8 @@
 package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
@@ -113,13 +115,25 @@ class MqttConnectionListenerTest {
             }
 
             @Override
-            public com.ghlzm.iot.common.response.PageResult<com.ghlzm.iot.device.entity.DeviceAccessErrorLog> pageLogs(
+            public PageResult<DeviceAccessErrorLog> pageLogs(
                     com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public com.ghlzm.iot.device.entity.DeviceAccessErrorLog getById(Long id) {
+            public com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO getStats(
+                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<DeviceAccessErrorLogService.FailureStageCount> listFailureStageCountsSince(
+                    java.util.Date startTime) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public DeviceAccessErrorLog getById(Long id) {
                 throw new UnsupportedOperationException();
             }
         });

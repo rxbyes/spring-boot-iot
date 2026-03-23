@@ -13,6 +13,7 @@ public class MqttConsumerRuntimeState {
 
     private volatile List<String> subscribeTopics = List.of();
     private volatile LocalDateTime lastConnectAt;
+    private volatile LocalDateTime lastDisconnectAt;
     private volatile LocalDateTime lastMessageAt;
     private volatile LocalDateTime lastDispatchSuccessAt;
     private volatile LocalDateTime lastFailureAt;
@@ -21,6 +22,7 @@ public class MqttConsumerRuntimeState {
 
     public synchronized void markConnected() {
         lastConnectAt = LocalDateTime.now();
+        lastDisconnectAt = null;
     }
 
     public synchronized void markSubscribed(List<String> topics) {
@@ -33,6 +35,11 @@ public class MqttConsumerRuntimeState {
 
     public synchronized void markDispatchSuccess(String traceId) {
         lastDispatchSuccessAt = LocalDateTime.now();
+    }
+
+    public synchronized void markDisconnected(String failureStage, String traceId) {
+        lastDisconnectAt = LocalDateTime.now();
+        markFailure(failureStage, traceId);
     }
 
     public synchronized void markFailure(String failureStage, String traceId) {
@@ -49,6 +56,7 @@ public class MqttConsumerRuntimeState {
         return new Snapshot(
                 subscribeTopics,
                 lastConnectAt,
+                lastDisconnectAt,
                 lastMessageAt,
                 lastDispatchSuccessAt,
                 lastFailureAt,
@@ -59,6 +67,7 @@ public class MqttConsumerRuntimeState {
 
     public record Snapshot(List<String> subscribeTopics,
                            LocalDateTime lastConnectAt,
+                           LocalDateTime lastDisconnectAt,
                            LocalDateTime lastMessageAt,
                            LocalDateTime lastDispatchSuccessAt,
                            LocalDateTime lastFailureAt,

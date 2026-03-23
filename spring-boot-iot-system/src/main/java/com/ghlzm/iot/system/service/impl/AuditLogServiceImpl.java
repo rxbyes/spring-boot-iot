@@ -130,6 +130,23 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     }
 
     @Override
+    public Long countSystemErrorsSince(Date startTime) {
+        Set<String> columns = auditLogSchemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(null), false, columns);
+        if (querySpec.emptyResult()) {
+            return 0L;
+        }
+        if (startTime == null) {
+            return queryCount(querySpec, null);
+        }
+        String timeColumn = resolveColumn(columns, "operation_time", "create_time");
+        if (timeColumn == null) {
+            return 0L;
+        }
+        return queryCount(querySpec, " AND " + timeColumn + " >= ?", new Timestamp(startTime.getTime()));
+    }
+
+    @Override
     public Map<String, Object> getBusinessAuditStats(AuditLog log) {
         Set<String> columns = auditLogSchemaSupport.getColumns();
         QuerySpec querySpec = buildQuerySpec(log, true, columns);

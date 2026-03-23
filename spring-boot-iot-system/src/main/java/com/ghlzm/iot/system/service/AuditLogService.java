@@ -5,6 +5,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +33,11 @@ public interface AuditLogService extends IService<AuditLog> {
        * 查询 system_error 统计概览。
        */
       SystemErrorStatsVO getSystemErrorStats(AuditLog log);
+
+      /**
+       * 统计指定时间之后的 system_error 数量。
+       */
+      Long countSystemErrorsSince(Date startTime);
 
       Map<String, Object> getBusinessAuditStats(AuditLog log);
 

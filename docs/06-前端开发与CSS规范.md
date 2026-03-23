@@ -6,7 +6,7 @@
 > 上游来源：`spring-boot-iot-ui` 当前实现、共享组件、shell 编排和视觉 token。
 > 下游消费：页面开发、重构收口、前端治理计划、skills。
 > 变更触发条件：共享组件模式变化、壳层结构变化、设计 token 变化、详情/列表交互规则变化。
-> 更新时间：2026-03-22
+> 更新时间：2026-03-23
 
 ## 1. 技术栈与目录
 
@@ -64,7 +64,7 @@
 - 桥接筛选中的渠道下拉当前只允许展示 `webhook / wechat / feishu / dingtalk` 四类渠道，并继续直接复用 `/api/system/channel/list` 结果过滤；不要在前端另维护一份私有渠道字典。
 - 桥接响应摘要、目标摘要和尝试明细当前必须继续使用安全文本切片展示，不得在治理页用 `v-html` 直接注入后端响应内容。
 - 系统内容编排页遇到后端 `code=500` 或依赖表/升级脚本类技术异常时，页面提示只保留友好文案，不直接透出 `sql/upgrade/*.sql`、缺表名或内部排障原文；真实升级步骤仍以 [07-部署运行与配置说明.md](./07-部署运行与配置说明.md) 为准。
-- `/channel` 当前维护的 `config.scenes` 需继续与后端自动场景同源：`system_error` 用于后台异常通知，`in_app_unread_bridge` 用于高优未读阈值后的渠道桥接；前端只负责提示和示例 JSON，不在页面内额外维护第二套桥接规则。
+- `/channel` 当前维护的 `config.scenes` 需继续与后端自动场景同源：`system_error` 用于后台异常通知，`observability_alert` 用于规则化运维告警，`in_app_unread_bridge` 用于高优未读阈值后的渠道桥接；`ChannelView` 的提示文案与示例 JSON 必须同步这三类场景，前端只负责提示和示例，不在页面内额外维护第二套告警/桥接规则。
 - 系统内容编排页中的“关联页面”候选项必须优先复用共享 workspace schema 派生结果，不得在页面内再维护另一份私有路由字典，避免帮助中心和命令面板对同一路径出现两套文案。
 - `AppShell` 只通过 `src/composables/useShellOrchestrator.ts` 承接壳层编排；后续若新增壳层交互、导航规则或路由副作用，应优先扩展对应 composable，并最终由 orchestrator 统一装配，不再回到壳层主文件直接拼接多组状态。
 - `useShellHeaderInteractions.ts` 统一承接摘要弹层、列表抽屉、详情抽屉、请求取消、未读统计刷新与抽屉互斥逻辑；路由切换后的浮层收口继续交由 `useShellRouteChangeEffects.ts`，避免壳层回到组件内多点 watch 的旧实现。

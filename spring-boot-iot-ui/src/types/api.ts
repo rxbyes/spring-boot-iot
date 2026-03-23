@@ -42,6 +42,32 @@ export interface BusinessAuditStats {
   topOperationTypes: StatsBucket[];
 }
 
+export interface MessageTraceStats {
+  total: number;
+  recentHourCount: number;
+  recent24HourCount: number;
+  distinctTraceCount: number;
+  distinctDeviceCount: number;
+  dispatchFailureCount: number;
+  topMessageTypes: StatsBucket[];
+  topProductKeys: StatsBucket[];
+  topDeviceCodes: StatsBucket[];
+  topTopics: StatsBucket[];
+}
+
+export interface DeviceAccessErrorStats {
+  total: number;
+  recentHourCount: number;
+  recent24HourCount: number;
+  distinctTraceCount: number;
+  distinctDeviceCount: number;
+  topFailureStages: StatsBucket[];
+  topErrorCodes: StatsBucket[];
+  topExceptionClasses: StatsBucket[];
+  topProtocolCodes: StatsBucket[];
+  topTopics: StatsBucket[];
+}
+
 export interface Product {
   id: IdType;
   productKey: string;
@@ -164,6 +190,7 @@ export interface DeviceAccessErrorLog {
   errorCode?: string | null;
   exceptionClass?: string | null;
   errorMessage?: string | null;
+  contractSnapshot?: string | null;
   createTime?: string | null;
 }
 

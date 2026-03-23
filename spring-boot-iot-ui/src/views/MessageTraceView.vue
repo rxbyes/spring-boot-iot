@@ -1,14 +1,32 @@
 <template>
   <div class="message-trace-view">
+    <AccessErrorArchivePanel
+      v-if="isAccessErrorMode"
+      :view-mode="pageMode"
+      :view-mode-options="pageModeOptions"
+      @change-view-mode="handlePageModeChange"
+    />
+
     <StandardWorkbenchPanel
+      v-else
       title="链路追踪台"
       description="按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardChoiceGroup
+          :model-value="pageMode"
+          :options="pageModeOptions"
+          responsive
+          @update:modelValue="handlePageModeChange"
+        />
+      </template>
+
       <template #filters>
         <StandardListFilterHeader
           :model="searchForm"
@@ -87,17 +105,34 @@
       </template>
 
       <template #notices>
-        <el-alert
-          title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
+        <div class="message-trace-notice-grid">
+          <el-alert
+            title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            :title="statsSummaryText"
+            type="success"
+            :closable="false"
+            show-icon
+            class="stats-alert"
+          />
+        </div>
       </template>
 
       <template #toolbar>
-        <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `当前页 ${tableData.length} 条` ]">
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `当前结果 ${pagination.total} 条`,
+            `近1小时 ${traceStats.recentHourCount} 条`,
+            `近24小时 ${traceStats.recent24HourCount} 条`,
+            `失败摘要 ${traceStats.dispatchFailureCount} 条`
+          ]"
+        >
           <template #right>
             <StandardButton
               action="refresh"
@@ -275,6 +310,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
+import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
@@ -284,11 +320,22 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import type { DeviceMessageLog } from '@/types/api';
+import type { DeviceMessageLog, MessageTraceStats } from '@/types/api';
 import { formatDateTime, prettyJson } from '@/utils/format';
+
+type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
 const router = useRouter();
+const pageModeOptions = [
+  { label: '链路追踪', value: 'message-trace' as const },
+  { label: '失败归档', value: 'access-error' as const }
+];
+const pageMode = computed<ObservabilityViewMode>(() =>
+  route.query.mode === 'access-error' ? 'access-error' : 'message-trace'
+);
+const isAccessErrorMode = computed(() => pageMode.value === 'access-error');
+const isMessageTraceMode = computed(() => pageMode.value === 'message-trace');
 
 const messageTypeOptions = [
   { label: '属性上报', value: 'report' },
@@ -317,9 +364,23 @@ const showAdvancedFilters = ref(false);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 
 const loading = ref(false);
+const statsLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
+const createEmptyTraceStats = (): MessageTraceStats => ({
+  total: 0,
+  recentHourCount: 0,
+  recent24HourCount: 0,
+  distinctTraceCount: 0,
+  distinctDeviceCount: 0,
+  dispatchFailureCount: 0,
+  topMessageTypes: [],
+  topProductKeys: [],
+  topDeviceCodes: [],
+  topTopics: []
+});
+const traceStats = ref<MessageTraceStats>(createEmptyTraceStats());
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
 const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
@@ -383,6 +444,14 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`;
 });
+const statsSummaryText = computed(() => {
+  if (statsLoading.value) {
+    return '正在加载链路统计概览...';
+  }
+  const topMessageType = traceStats.value.topMessageTypes[0]?.label || '--';
+  const topDeviceCode = traceStats.value.topDeviceCodes[0]?.label || '--';
+  return `链路总量 ${traceStats.value.total}，近1小时 ${traceStats.value.recentHourCount}，近24小时 ${traceStats.value.recent24HourCount}，Trace ${traceStats.value.distinctTraceCount}，设备 ${traceStats.value.distinctDeviceCount}，高频消息 ${topMessageType}，高频设备 ${topDeviceCode}`;
+});
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;
@@ -394,6 +463,19 @@ function applyQuickSearchKeywordToFilters() {
 
 function syncAdvancedFilterState() {
   showAdvancedFilters.value = Boolean(searchForm.topic.trim());
+}
+
+function handlePageModeChange(value: ObservabilityViewMode | string | number | boolean) {
+  if (value !== 'message-trace' && value !== 'access-error') {
+    return;
+  }
+  router.replace({
+    path: '/message-trace',
+    query: {
+      ...route.query,
+      mode: value === 'access-error' ? 'access-error' : undefined
+    }
+  });
 }
 
 function readQueryValue(key: keyof MessageTraceQueryParams) {
@@ -411,19 +493,28 @@ function applyRouteQuery() {
   syncAdvancedFilterState();
 }
 
-function buildQueryParams(): MessageTraceQueryParams {
+function buildFilterQueryParams(): MessageTraceQueryParams {
   return {
     deviceCode: appliedFilters.deviceCode,
     productKey: appliedFilters.productKey,
     traceId: appliedFilters.traceId,
     messageType: appliedFilters.messageType,
-    topic: appliedFilters.topic,
+    topic: appliedFilters.topic
+  };
+}
+
+function buildQueryParams(): MessageTraceQueryParams {
+  return {
+    ...buildFilterQueryParams(),
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   };
 }
 
 async function loadTableData() {
+  if (!isMessageTraceMode.value) {
+    return;
+  }
   loading.value = true;
   try {
     const response = await messageApi.pageMessageTraceLogs(buildQueryParams());
@@ -436,6 +527,25 @@ async function loadTableData() {
     ElMessage.error(error instanceof Error ? error.message : '获取链路追踪失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadTraceStats() {
+  if (!isMessageTraceMode.value) {
+    return;
+  }
+  statsLoading.value = true;
+  try {
+    traceStats.value = createEmptyTraceStats();
+    const response = await messageApi.pageMessageTraceStats(buildFilterQueryParams());
+    if (response.code === 200 && response.data) {
+      traceStats.value = { ...createEmptyTraceStats(), ...response.data };
+    }
+  } catch (error) {
+    traceStats.value = createEmptyTraceStats();
+    ElMessage.error(error instanceof Error ? error.message : '获取链路统计失败');
+  } finally {
+    statsLoading.value = false;
   }
 }
 
@@ -457,6 +567,7 @@ function triggerSearch(resetPageFirst = false) {
     resetPage();
   }
   loadTableData();
+  loadTraceStats();
 }
 
 function handleSearch() {
@@ -470,6 +581,7 @@ function handleReset() {
 
 function handleRefresh() {
   loadTableData();
+  loadTraceStats();
 }
 
 function handleQuickSearch() {
@@ -566,6 +678,7 @@ function formatInlineText(value?: string | null) {
 
 watch(
   () => [
+    route.query.mode,
     route.query.deviceCode,
     route.query.productKey,
     route.query.traceId,
@@ -576,10 +689,14 @@ watch(
     if (JSON.stringify(current) === JSON.stringify(previous)) {
       return;
     }
+    if (!isMessageTraceMode.value) {
+      return;
+    }
     applyRouteQuery();
     resetPage();
     syncAppliedFilters();
     loadTableData();
+    loadTraceStats();
   }
 );
 
@@ -590,9 +707,13 @@ watch(detailVisible, (visible) => {
 });
 
 onMounted(() => {
+  if (!isMessageTraceMode.value) {
+    return;
+  }
   applyRouteQuery();
   syncAppliedFilters();
   loadTableData();
+  loadTraceStats();
 });
 </script>
 
@@ -607,6 +728,11 @@ onMounted(() => {
 
 .message-trace-quick-search-tag__chip {
   margin: 0;
+}
+
+.message-trace-notice-grid {
+  display: grid;
+  gap: 0.72rem;
 }
 
 </style>

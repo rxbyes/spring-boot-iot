@@ -227,6 +227,7 @@ public class IotProperties {
         private Diagnostic diagnostic = new Diagnostic();
         private Performance performance = new Performance();
         private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
+        private Alerting alerting = new Alerting();
 
         @Data
         public static class Console {
@@ -253,6 +254,45 @@ public class IotProperties {
             private Integer scanIntervalSeconds = 60;
             private Integer highThresholdMinutes = 30;
             private Integer criticalThresholdMinutes = 10;
+        }
+
+        @Data
+        public static class Alerting {
+            private Boolean enabled = Boolean.FALSE;
+            private String scene = "observability_alert";
+            private Integer evaluateIntervalSeconds = 60;
+            private Integer cooldownMinutes = 30;
+            private SystemError systemError = new SystemError();
+            private MqttDisconnect mqttDisconnect = new MqttDisconnect();
+            private FailureStage failureStage = new FailureStage();
+            private InAppBridge inAppBridge = new InAppBridge();
+
+            @Data
+            public static class SystemError {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer windowMinutes = 10;
+                private Integer threshold = 5;
+            }
+
+            @Data
+            public static class MqttDisconnect {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer durationMinutes = 5;
+            }
+
+            @Data
+            public static class FailureStage {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer windowMinutes = 10;
+                private Integer threshold = 10;
+            }
+
+            @Data
+            public static class InAppBridge {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer windowMinutes = 10;
+                private Integer threshold = 3;
+            }
         }
     }
 
