@@ -46,6 +46,13 @@ logging:
   level:
     root: info
     com.ghlzm.iot: debug
+    mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.NotificationChannelMapper: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.MenuMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.HelpDocumentMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageReadMapper.selectList: OFF
+
+
 
 iot:
   security:
@@ -106,7 +113,7 @@ iot:
     system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
     console:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
-      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
+      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:false}
     in-app-unread-bridge:
       enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:true}
       scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}

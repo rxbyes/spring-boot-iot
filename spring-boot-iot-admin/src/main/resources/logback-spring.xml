@@ -38,6 +38,9 @@
     <logger name="com.ghlzm.iot" level="DEBUG"/>
     <logger name="mybatis.sql" additivity="false">
         <appender-ref ref="CONSOLE"/>
+        <!--        不写入log文件-->
+        <!--        <appender-ref ref="INFO_FILE"/>-->
+        <!--        <appender-ref ref="ERROR_FILE"/>-->
     </logger>
     <logger name="org.mybatis.spring" additivity="false">
         <appender-ref ref="CONSOLE"/>
