@@ -52,8 +52,8 @@ class MqttReportPublishServiceImplTest {
     private MessageFlowTimelineStore messageFlowTimelineStore;
 
     @Test
-    void publishShouldRejectWhenMqttClientDisconnected() {
-        when(mqttMessageConsumer.isConnected()).thenReturn(false);
+    void publishShouldRejectWhenBrokerUnavailable() {
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(false);
 
         MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
                 deviceService,
@@ -67,8 +67,8 @@ class MqttReportPublishServiceImplTest {
         );
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
-        assertEquals("MQTT 客户端未连接，无法执行模拟上报", ex.getMessage());
-        verify(mqttMessageConsumer).isConnected();
+        assertEquals("MQTT broker 未配置，无法执行模拟上报", ex.getMessage());
+        verify(mqttMessageConsumer).isPublishCapable();
         verifyNoInteractions(deviceService, productService, mqttDownMessagePublisher);
     }
 
@@ -78,7 +78,7 @@ class MqttReportPublishServiceImplTest {
         Product product = buildProduct();
         product.setProductKey("other-product");
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 
@@ -95,7 +95,7 @@ class MqttReportPublishServiceImplTest {
 
         BizException ex = assertThrows(BizException.class, () -> service.publish(buildCommand("plain-text")));
         assertEquals("模拟上报 productKey 与设备所属产品不匹配: demo-device-01", ex.getMessage());
-        verify(mqttMessageConsumer).isConnected();
+        verify(mqttMessageConsumer).isPublishCapable();
         verify(deviceService).getRequiredByCode("demo-device-01");
         verify(productService).getRequiredById(1001L);
         verifyNoInteractions(mqttDownMessagePublisher);
@@ -106,7 +106,7 @@ class MqttReportPublishServiceImplTest {
         Device device = buildDevice();
         device.setProductId(0L);
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
 
         MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
@@ -131,7 +131,7 @@ class MqttReportPublishServiceImplTest {
         device.setProtocolCode("");
         Product product = buildProduct();
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 
@@ -163,7 +163,7 @@ class MqttReportPublishServiceImplTest {
         Product product = buildProduct();
         product.setProtocolCode("tcp-hex");
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 
@@ -189,7 +189,7 @@ class MqttReportPublishServiceImplTest {
         Product product = buildProduct();
         byte[] rawPacket = new byte[]{0x02, 0x01, (byte) 0xC8, 0x7B, 0x7D};
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 
@@ -224,7 +224,7 @@ class MqttReportPublishServiceImplTest {
         Device device = buildDevice();
         Product product = buildProduct();
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 
@@ -267,7 +267,7 @@ class MqttReportPublishServiceImplTest {
         Device device = buildDevice();
         Product product = buildProduct();
 
-        when(mqttMessageConsumer.isConnected()).thenReturn(true);
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
         when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
         when(productService.getRequiredById(1001L)).thenReturn(product);
 

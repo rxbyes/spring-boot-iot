@@ -6,7 +6,7 @@ import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
-import com.ghlzm.iot.telemetry.service.impl.TdengineTelemetryStorageService;
+import com.ghlzm.iot.telemetry.service.impl.TdengineTelemetryFacade;
 import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 class TelemetryPersistStageHandlerTest {
 
     @Mock
-    private TdengineTelemetryStorageService tdengineTelemetryStorageService;
+    private TdengineTelemetryFacade tdengineTelemetryFacade;
 
     private IotProperties iotProperties;
     private TelemetryPersistStageHandler telemetryPersistStageHandler;
@@ -35,7 +35,7 @@ class TelemetryPersistStageHandlerTest {
     @BeforeEach
     void setUp() {
         iotProperties = new IotProperties();
-        telemetryPersistStageHandler = new TelemetryPersistStageHandler(iotProperties, tdengineTelemetryStorageService);
+        telemetryPersistStageHandler = new TelemetryPersistStageHandler(iotProperties, tdengineTelemetryFacade);
     }
 
     @Test
@@ -46,20 +46,24 @@ class TelemetryPersistStageHandlerTest {
 
         assertTrue(result.isSkipped());
         assertEquals("STORAGE_TYPE_MYSQL", result.getBranch());
-        verifyNoInteractions(tdengineTelemetryStorageService);
+        verifyNoInteractions(tdengineTelemetryFacade);
     }
 
     @Test
     void persistShouldDelegateToTdengineForPropertyPayload() {
         iotProperties.getTelemetry().setStorageType("tdengine");
+        iotProperties.getTelemetry().setTdengineMode("legacy-compatible");
         DeviceProcessingTarget target = buildTarget("property", Map.of("temperature", 26.5, "humidity", 68), false);
-        when(tdengineTelemetryStorageService.persist(target)).thenReturn(TelemetryPersistResult.persisted(2));
+        when(tdengineTelemetryFacade.persist(target)).thenReturn(
+                TelemetryPersistResult.persisted("LEGACY_COMPATIBLE", "legacy-compatible", 2, 1, 2, 0, 0)
+        );
 
         TelemetryPersistResult result = telemetryPersistStageHandler.persist(target);
 
         assertFalse(result.isSkipped());
         assertEquals(2, result.getPointCount());
-        verify(tdengineTelemetryStorageService).persist(target);
+        assertEquals("legacy-compatible", result.getStorageMode());
+        verify(tdengineTelemetryFacade).persist(target);
     }
 
     @Test
@@ -73,7 +77,7 @@ class TelemetryPersistStageHandlerTest {
         assertEquals("MESSAGE_TYPE_REPLY", replyResult.getBranch());
         assertEquals("FILE_PAYLOAD", fileResult.getBranch());
         assertEquals("EMPTY_PROPERTIES", emptyResult.getBranch());
-        verifyNoInteractions(tdengineTelemetryStorageService);
+        verifyNoInteractions(tdengineTelemetryFacade);
     }
 
     private DeviceProcessingTarget buildTarget(String messageType, Map<String, Object> properties, boolean filePayload) {

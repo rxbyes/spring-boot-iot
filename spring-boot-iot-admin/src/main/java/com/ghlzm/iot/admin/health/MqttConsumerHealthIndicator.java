@@ -32,12 +32,19 @@ public class MqttConsumerHealthIndicator implements HealthIndicator {
     public Health health() {
         boolean enabled = iotProperties.getMqtt() != null && Boolean.TRUE.equals(iotProperties.getMqtt().getEnabled());
         boolean connected = mqttMessageConsumer.isConnected();
+        boolean clusterSingletonEnabled = mqttMessageConsumer.isClusterSingletonEnabled();
+        boolean leader = mqttMessageConsumer.isLeader();
         MqttConsumerRuntimeState.Snapshot snapshot = mqttConsumerRuntimeState.snapshot();
 
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("running", mqttMessageConsumer.isRunning());
+        details.put("consumerActive", mqttMessageConsumer.isConsumerActive());
         details.put("connected", connected);
         details.put("clientId", mqttMessageConsumer.getEffectiveClientId());
+        details.put("leadershipMode", mqttMessageConsumer.getLeadershipMode());
+        details.put("leader", leader);
+        details.put("clusterSingletonEnabled", clusterSingletonEnabled);
+        details.put("clusterLeaderOwnerId", mqttMessageConsumer.getCurrentLeaderOwnerId().orElse(null));
         details.put("brokerUrl", maskBrokerUrl(iotProperties.getMqtt() == null ? null : iotProperties.getMqtt().getBrokerUrl()));
         details.put("subscribeTopics", snapshot.subscribeTopics());
         details.put("lastConnectAt", snapshot.lastConnectAt());
@@ -50,6 +57,9 @@ public class MqttConsumerHealthIndicator implements HealthIndicator {
 
         if (!enabled) {
             return Health.unknown().withDetails(details).build();
+        }
+        if (clusterSingletonEnabled && !leader) {
+            return Health.up().withDetails(details).build();
         }
         return connected ? Health.up().withDetails(details).build() : Health.down().withDetails(details).build();
     }

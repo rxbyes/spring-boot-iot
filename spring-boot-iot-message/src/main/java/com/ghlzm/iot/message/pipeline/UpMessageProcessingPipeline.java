@@ -218,8 +218,7 @@ public class UpMessageProcessingPipeline {
             context.fingerprint = fingerprint;
             Optional<String> matchedSessionId = getMatchedSessionId(fingerprint);
             if (matchedSessionId.isPresent()) {
-                context.sessionId = matchedSessionId.get();
-                context.timeline.setSessionId(context.sessionId);
+                rebindTimelineSessionId(context, matchedSessionId.get());
                 context.session = buildOrLoadSession(context.sessionId);
                 context.session.setSessionId(context.sessionId);
                 context.session.setTransportMode(context.request.getTransportMode());
@@ -350,7 +349,12 @@ public class UpMessageProcessingPipeline {
         int persistedPointCount = 0;
         int skippedTargetCount = 0;
         int failedTargetCount = 0;
+        int legacyStableCount = 0;
+        int legacyColumnCount = 0;
+        int normalizedFallbackCount = 0;
+        int skippedMetricCount = 0;
         String branch = null;
+        String storageMode = null;
         String errorClass = null;
         String errorMessage = null;
 
@@ -362,12 +366,25 @@ public class UpMessageProcessingPipeline {
                     if (branch == null && persistResult != null && hasText(persistResult.getBranch())) {
                         branch = persistResult.getBranch();
                     }
+                    if (storageMode == null && persistResult != null && hasText(persistResult.getStorageMode())) {
+                        storageMode = persistResult.getStorageMode();
+                    }
+                    if (persistResult != null) {
+                        skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
+                    }
                     continue;
                 }
                 persistedTargetCount++;
                 persistedPointCount += persistResult.getPointCount() == null ? 0 : persistResult.getPointCount();
+                legacyStableCount += nullSafeInt(persistResult.getLegacyStableCount());
+                legacyColumnCount += nullSafeInt(persistResult.getLegacyColumnCount());
+                normalizedFallbackCount += nullSafeInt(persistResult.getNormalizedFallbackCount());
+                skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
                 if (branch == null && hasText(persistResult.getBranch())) {
                     branch = persistResult.getBranch();
+                }
+                if (storageMode == null && hasText(persistResult.getStorageMode())) {
+                    storageMode = persistResult.getStorageMode();
                 }
             } catch (Exception ex) {
                 failedTargetCount++;
@@ -395,7 +412,18 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("persistedPointCount", persistedPointCount);
         result.getSummary().put("skippedTargetCount", skippedTargetCount);
         result.getSummary().put("failedTargetCount", failedTargetCount);
+        result.getSummary().put("legacyStableCount", legacyStableCount);
+        result.getSummary().put("legacyColumnCount", legacyColumnCount);
+        result.getSummary().put("normalizedFallbackCount", normalizedFallbackCount);
+        result.getSummary().put("skippedMetricCount", skippedMetricCount);
+        if (hasText(storageMode)) {
+            result.getSummary().put("storageMode", storageMode);
+        }
         return result;
+    }
+
+    private int nullSafeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private MessageFlowStageResult riskDispatch(ProcessingContext context) {
@@ -632,6 +660,28 @@ public class UpMessageProcessingPipeline {
             return Optional.empty();
         }
         return messageFlowTimelineStore.getSessionIdByFingerprint(fingerprint);
+    }
+
+    private void rebindTimelineSessionId(ProcessingContext context, String reboundSessionId) {
+        if (!hasText(reboundSessionId)) {
+            return;
+        }
+        String normalizedSessionId = reboundSessionId.trim();
+        String previousSessionId = context.sessionId;
+        context.sessionId = normalizedSessionId;
+        context.timeline.setSessionId(normalizedSessionId);
+        for (MessageFlowStep step : context.timeline.getSteps()) {
+            if (step == null || step.getSummary() == null || !step.getSummary().containsKey("sessionId")) {
+                continue;
+            }
+            Object summarySessionId = step.getSummary().get("sessionId");
+            if (summarySessionId == null
+                    || !hasText(String.valueOf(summarySessionId))
+                    || previousSessionId == null
+                    || previousSessionId.equals(String.valueOf(summarySessionId))) {
+                step.getSummary().put("sessionId", normalizedSessionId);
+            }
+        }
     }
 
     private MessageFlowSession buildOrLoadSession(String sessionId) {

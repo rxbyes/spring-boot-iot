@@ -60,8 +60,8 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
         if (command == null) {
             throw new BizException("MQTT 模拟上报参数不能为空");
         }
-        if (!mqttMessageConsumer.isConnected()) {
-            throw new BizException("MQTT 客户端未连接，无法执行模拟上报");
+        if (!mqttMessageConsumer.isPublishCapable()) {
+            throw new BizException("MQTT broker 未配置，无法执行模拟上报");
         }
 
         Device device = deviceService.getRequiredByCode(command.getDeviceCode());

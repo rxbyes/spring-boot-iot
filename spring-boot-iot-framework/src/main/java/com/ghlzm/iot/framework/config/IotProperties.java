@@ -62,6 +62,26 @@ public class IotProperties {
         private Integer connectionTimeout = 10;
         private Integer keepAliveInterval = 30;
         private List<String> defaultSubscribeTopics;
+        /**
+         * 是否启用集群单活 MQTT consumer，避免多实例重复消费同一条上行消息。
+         */
+        private Boolean clusterSingletonEnabled = Boolean.TRUE;
+        /**
+         * Redis 中的 MQTT consumer 集群锁 Key。
+         */
+        private String clusterLockKey = "iot:mqtt:consumer:leader";
+        /**
+         * 集群锁租约时长，单位秒。
+         */
+        private Integer clusterLockTtlSeconds = 30;
+        /**
+         * leader 租约续期周期，单位秒。
+         */
+        private Integer clusterLockRenewIntervalSeconds = 10;
+        /**
+         * standby 节点尝试争抢 leader 的周期，单位秒。
+         */
+        private Integer clusterLockAcquireIntervalSeconds = 5;
     }
 
     @Data
@@ -146,6 +166,16 @@ public class IotProperties {
     @Data
     public static class Telemetry {
         private String storageType = "mysql";
+        /**
+         * TDengine 存储模式：
+         * legacy-compatible 优先写既有 stable，未映射指标再兼容回退到通用表；
+         * normalized-table 只写通用表。
+         */
+        private String tdengineMode = "legacy-compatible";
+        /**
+         * legacy stable 未覆盖到的指标是否继续写入通用兼容表。
+         */
+        private Boolean legacyNormalizedFallbackEnabled = Boolean.TRUE;
         private String latestCachePrefix = "iot:telemetry:latest:";
         private String tsPrefix = "iot:telemetry:ts:";
     }

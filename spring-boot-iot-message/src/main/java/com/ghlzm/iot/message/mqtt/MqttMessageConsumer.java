@@ -24,6 +24,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * MQTT 消息接入消费者。
@@ -31,6 +37,7 @@ import java.util.List;
 @Component
 public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended {
 
+    private static final Logger log = LoggerFactory.getLogger(MqttMessageConsumer.class);
     private static final Logger diagnosticAccessLog =
             LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
 
@@ -39,26 +46,35 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     private final MqttTopicRouter mqttTopicRouter;
     private final MqttConnectionListener mqttConnectionListener;
     private final MqttConsumerRuntimeState mqttConsumerRuntimeState;
+    private final MqttClusterLeadershipService mqttClusterLeadershipService;
 
-    private volatile boolean running;
+    private volatile boolean lifecycleRunning;
+    private volatile boolean consumerActive;
+    private volatile boolean leader;
     private MqttClient mqttClient;
     private String effectiveClientId;
+    private String leadershipOwnerId;
+    private volatile ScheduledExecutorService leadershipScheduler;
+    private volatile long lastLeadershipAcquireAt;
+    private volatile long lastLeadershipRenewAt;
 
     public MqttMessageConsumer(IotProperties iotProperties,
                                UpMessageProcessingPipeline upMessageProcessingPipeline,
                                MqttTopicRouter mqttTopicRouter,
                                MqttConnectionListener mqttConnectionListener,
-                               MqttConsumerRuntimeState mqttConsumerRuntimeState) {
+                               MqttConsumerRuntimeState mqttConsumerRuntimeState,
+                               MqttClusterLeadershipService mqttClusterLeadershipService) {
         this.iotProperties = iotProperties;
         this.upMessageProcessingPipeline = upMessageProcessingPipeline;
         this.mqttTopicRouter = mqttTopicRouter;
         this.mqttConnectionListener = mqttConnectionListener;
         this.mqttConsumerRuntimeState = mqttConsumerRuntimeState;
+        this.mqttClusterLeadershipService = mqttClusterLeadershipService;
     }
 
     @Override
     public void start() {
-        if (running) {
+        if (lifecycleRunning) {
             return;
         }
         if (!Boolean.TRUE.equals(iotProperties.getMqtt().getEnabled())) {
@@ -69,44 +85,40 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             mqttConnectionListener.onStartupSkipped("iot.mqtt.broker-url 未配置");
             return;
         }
-
-        try {
-            effectiveClientId = resolveClientId();
-            mqttClient = new MqttClient(
-                    iotProperties.getMqtt().getBrokerUrl(),
-                    effectiveClientId,
-                    new MemoryPersistence()
-            );
-            mqttClient.setCallback(this);
-            mqttClient.connect(buildConnectOptions());
-            subscribeConfiguredTopics();
-            running = true;
-        } catch (MqttException ex) {
-            mqttConnectionListener.onStartupFailed(ex, effectiveClientId);
+        effectiveClientId = resolveClientId();
+        leadershipOwnerId = effectiveClientId + ":" + UUID.randomUUID();
+        lifecycleRunning = true;
+        if (mqttClusterLeadershipService.isEnabled()) {
+            startLeadershipScheduler();
+            return;
         }
+        startLocalConsumer();
     }
 
     @Override
     public void stop() {
-        if (mqttClient == null) {
-            running = false;
-            return;
+        lifecycleRunning = false;
+        stopLeadershipScheduler();
+        synchronized (this) {
+            stopLocalConsumer();
         }
-        try {
-            if (mqttClient.isConnected()) {
-                mqttClient.disconnect();
+        if (leader && mqttClusterLeadershipService.isEnabled() && hasText(leadershipOwnerId)) {
+            try {
+                mqttClusterLeadershipService.releaseLeadership(leadershipOwnerId);
+            } catch (Exception ex) {
+                LinkedHashMap<String, Object> details = new LinkedHashMap<>();
+                details.put("ownerId", leadershipOwnerId);
+                details.put("reason", ex.getMessage());
+                logLeadershipEvent("release_failure", details);
+            } finally {
+                leader = false;
             }
-            mqttClient.close();
-        } catch (MqttException ex) {
-            mqttConnectionListener.onShutdownFailed(ex);
-        } finally {
-            running = false;
         }
     }
 
     @Override
     public boolean isRunning() {
-        return running;
+        return lifecycleRunning;
     }
 
     @Override
@@ -127,7 +139,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     @Override
     public void connectComplete(boolean reconnect, String serverURI) {
-        running = true;
+        consumerActive = true;
         mqttConnectionListener.onConnectComplete(reconnect, serverURI, effectiveClientId);
         if (reconnect) {
             subscribeConfiguredTopics();
@@ -136,7 +148,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     @Override
     public void connectionLost(Throwable cause) {
-        running = false;
+        consumerActive = false;
         mqttConnectionListener.onConnectionLost(cause, effectiveClientId);
     }
 
@@ -193,25 +205,208 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
      * 复用同一 MQTT 客户端执行下行发布。
      */
     public void publish(String topic, byte[] payload, int qos, boolean retained) {
-        if (mqttClient == null || !mqttClient.isConnected()) {
-            throw new BizException("MQTT 客户端未连接，无法发布消息");
+        if (mqttClient != null && mqttClient.isConnected()) {
+            publishViaClient(mqttClient, topic, payload, qos, retained);
+            return;
         }
-        try {
-            MqttMessage mqttMessage = new MqttMessage(payload);
-            mqttMessage.setQos(qos);
-            mqttMessage.setRetained(retained);
-            mqttClient.publish(topic, mqttMessage);
-        } catch (MqttException ex) {
-            throw new BizException("MQTT 消息发布失败");
-        }
+        publishViaEphemeralClient(topic, payload, qos, retained);
     }
 
     public boolean isConnected() {
         return mqttClient != null && mqttClient.isConnected();
     }
 
+    public boolean isConsumerActive() {
+        return consumerActive;
+    }
+
+    public boolean isLeader() {
+        return !mqttClusterLeadershipService.isEnabled() || leader;
+    }
+
+    public boolean isClusterSingletonEnabled() {
+        return mqttClusterLeadershipService.isEnabled();
+    }
+
+    public String getLeadershipMode() {
+        if (!mqttClusterLeadershipService.isEnabled()) {
+            return "SINGLE";
+        }
+        return leader ? "LEADER" : "STANDBY";
+    }
+
+    public Optional<String> getCurrentLeaderOwnerId() {
+        if (leader && hasText(leadershipOwnerId)) {
+            return Optional.of(leadershipOwnerId);
+        }
+        try {
+            return mqttClusterLeadershipService.getCurrentLeaderOwnerId();
+        } catch (Exception ex) {
+            return Optional.empty();
+        }
+    }
+
+    public boolean isPublishCapable() {
+        return iotProperties.getMqtt() != null
+                && Boolean.TRUE.equals(iotProperties.getMqtt().getEnabled())
+                && hasText(iotProperties.getMqtt().getBrokerUrl());
+    }
+
     public String getEffectiveClientId() {
         return effectiveClientId;
+    }
+
+    private void startLeadershipScheduler() {
+        if (leadershipScheduler != null && !leadershipScheduler.isShutdown()) {
+            return;
+        }
+        leadershipScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "mqtt-leadership-maintainer");
+            thread.setDaemon(true);
+            return thread;
+        });
+        leadershipScheduler.scheduleWithFixedDelay(this::maintainLeadershipSafely, 0L, 1L, TimeUnit.SECONDS);
+    }
+
+    private void stopLeadershipScheduler() {
+        ScheduledExecutorService scheduler = leadershipScheduler;
+        leadershipScheduler = null;
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+        }
+    }
+
+    private void maintainLeadershipSafely() {
+        try {
+            maintainLeadership();
+        } catch (Exception ex) {
+            LinkedHashMap<String, Object> details = new LinkedHashMap<>();
+            details.put("ownerId", leadershipOwnerId);
+            details.put("reason", ex.getMessage());
+            logLeadershipEvent("maintain_failure", details);
+        }
+    }
+
+    private void maintainLeadership() {
+        if (!lifecycleRunning || !mqttClusterLeadershipService.isEnabled()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (leader) {
+            if (now - lastLeadershipRenewAt >= mqttClusterLeadershipService.resolveRenewInterval().toMillis()) {
+                boolean renewed = mqttClusterLeadershipService.renewLeadership(leadershipOwnerId);
+                lastLeadershipRenewAt = now;
+                if (!renewed) {
+                    leader = false;
+                    logLeadershipEvent("lost", Map.of("ownerId", leadershipOwnerId));
+                    synchronized (this) {
+                        stopLocalConsumer();
+                    }
+                    return;
+                }
+            }
+            synchronized (this) {
+                if (!consumerActive) {
+                    startLocalConsumer();
+                }
+            }
+            return;
+        }
+        if (now - lastLeadershipAcquireAt < mqttClusterLeadershipService.resolveAcquireInterval().toMillis()) {
+            return;
+        }
+        lastLeadershipAcquireAt = now;
+        boolean acquired = mqttClusterLeadershipService.tryAcquireLeadership(leadershipOwnerId);
+        if (!acquired) {
+            synchronized (this) {
+                stopLocalConsumer();
+            }
+            return;
+        }
+        leader = true;
+        lastLeadershipRenewAt = now;
+        logLeadershipEvent("acquired", Map.of("ownerId", leadershipOwnerId));
+        synchronized (this) {
+            startLocalConsumer();
+        }
+    }
+
+    private synchronized void startLocalConsumer() {
+        if (!lifecycleRunning) {
+            return;
+        }
+        if (mqttClient != null && mqttClient.isConnected()) {
+            consumerActive = true;
+            return;
+        }
+        try {
+            closeClientQuietly(mqttClient);
+            mqttClient = new MqttClient(
+                    iotProperties.getMqtt().getBrokerUrl(),
+                    effectiveClientId,
+                    new MemoryPersistence()
+            );
+            mqttClient.setCallback(this);
+            mqttClient.connect(buildConnectOptions());
+            subscribeConfiguredTopics();
+            consumerActive = true;
+        } catch (MqttException ex) {
+            consumerActive = false;
+            mqttConnectionListener.onStartupFailed(ex, effectiveClientId);
+        }
+    }
+
+    private synchronized void stopLocalConsumer() {
+        closeClientQuietly(mqttClient);
+        mqttClient = null;
+        consumerActive = false;
+    }
+
+    private void closeClientQuietly(MqttClient client) {
+        if (client == null) {
+            return;
+        }
+        try {
+            if (client.isConnected()) {
+                client.disconnect();
+            }
+            client.close();
+        } catch (MqttException ex) {
+            mqttConnectionListener.onShutdownFailed(ex);
+        }
+    }
+
+    private void publishViaClient(MqttClient client, String topic, byte[] payload, int qos, boolean retained) {
+        try {
+            MqttMessage mqttMessage = new MqttMessage(payload);
+            mqttMessage.setQos(qos);
+            mqttMessage.setRetained(retained);
+            client.publish(topic, mqttMessage);
+        } catch (MqttException ex) {
+            throw new BizException("MQTT 消息发布失败");
+        }
+    }
+
+    private void publishViaEphemeralClient(String topic, byte[] payload, int qos, boolean retained) {
+        if (!isPublishCapable()) {
+            throw new BizException("MQTT broker 未配置，无法发布消息");
+        }
+        String publisherClientId = effectiveClientId + "-publisher-" + UUID.randomUUID().toString().replace("-", "");
+        MqttClient publisherClient = null;
+        try {
+            publisherClient = new MqttClient(
+                    iotProperties.getMqtt().getBrokerUrl(),
+                    publisherClientId,
+                    new MemoryPersistence()
+            );
+            publisherClient.connect(buildConnectOptions());
+            publishViaClient(publisherClient, topic, payload, qos, retained);
+            publisherClient.disconnect();
+        } catch (MqttException ex) {
+            throw new BizException("MQTT 消息发布失败");
+        } finally {
+            closeClientQuietly(publisherClient);
+        }
     }
 
     private void subscribeConfiguredTopics() {
@@ -227,6 +422,20 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
         } catch (MqttException ex) {
             mqttConnectionListener.onSubscribeFailed(topics, ex, effectiveClientId);
         }
+    }
+
+    private void logLeadershipEvent(String result, Map<String, Object> details) {
+        if (!log.isInfoEnabled()) {
+            return;
+        }
+        LinkedHashMap<String, Object> finalDetails = new LinkedHashMap<>();
+        finalDetails.put("traceId", TraceContextHolder.getTraceId());
+        finalDetails.put("clientId", effectiveClientId);
+        finalDetails.put("leadershipMode", getLeadershipMode());
+        if (details != null) {
+            finalDetails.putAll(details);
+        }
+        log.info(ObservabilityEventLogSupport.summary("mqtt_cluster_leadership", result, null, finalDetails));
     }
 
     private String resolveClientId() {

@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -73,37 +73,49 @@ class TdengineTelemetryStorageServiceTest {
         verify(jdbcTemplate, times(2)).update(sqlCaptor.capture(), argsCaptor.capture());
         assertEquals(2, argsCaptor.getAllValues().size());
         assertNotNull(argsCaptor.getAllValues().get(0)[0]);
-        assertEquals(2001L, argsCaptor.getAllValues().get(0)[2]);
+        assertEquals(argsCaptor.getAllValues().get(0)[1], argsCaptor.getAllValues().get(1)[1]);
+        assertNotEquals(argsCaptor.getAllValues().get(0)[0], argsCaptor.getAllValues().get(1)[0]);
+        assertEquals(2001L, argsCaptor.getAllValues().get(0)[3]);
     }
 
     @Test
     void listLatestPointsShouldMapTdengineRows() {
-        when(jdbcTemplate.query(anyString(), any(RowMapper.class), anyLong(), anyLong()))
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    @SuppressWarnings("unchecked")
-                    RowMapper<TelemetryLatestPoint> rowMapper = invocation.getArgument(1);
-                    org.mockito.stubbing.Answer<TelemetryLatestPoint> unused = null;
-                    org.mockito.MockedStatic<Timestamp> ignored = null;
                     var resultSet = org.mockito.Mockito.mock(java.sql.ResultSet.class);
-                    when(resultSet.getTimestamp("ts")).thenReturn(Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0)));
-                    when(resultSet.getString("device_code")).thenReturn("demo-device-01");
-                    when(resultSet.getString("product_key")).thenReturn("demo-product");
-                    when(resultSet.getString("metric_code")).thenReturn("temperature");
-                    when(resultSet.getString("metric_name")).thenReturn("温度");
-                    when(resultSet.getString("value_type")).thenReturn("double");
-                    when(resultSet.getString("value_text")).thenReturn("26.5");
-                    when(resultSet.getObject("value_long")).thenReturn(null);
-                    when(resultSet.getObject("value_double")).thenReturn(26.5D);
-                    when(resultSet.getObject("value_bool")).thenReturn(null);
-                    when(resultSet.getString("trace_id")).thenReturn("trace-001");
-                    return List.of(rowMapper.mapRow(resultSet, 0));
+                    when(resultSet.next()).thenReturn(true, true, true, false);
+                    when(resultSet.getTimestamp("reported_at")).thenReturn(
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0)),
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0)),
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0))
+                    );
+                    when(resultSet.getTimestamp("ts")).thenReturn(
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0, 0, 0)),
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 10, 0, 0, 1_000_000)),
+                            Timestamp.valueOf(LocalDateTime.of(2026, 3, 23, 9, 59, 59, 0))
+                    );
+                    when(resultSet.getString("device_code")).thenReturn("demo-device-01", "demo-device-01", "demo-device-01");
+                    when(resultSet.getString("product_key")).thenReturn("demo-product", "demo-product", "demo-product");
+                    when(resultSet.getString("metric_code")).thenReturn("humidity", "temperature", "temperature");
+                    when(resultSet.getString("metric_name")).thenReturn("湿度", "温度", "温度");
+                    when(resultSet.getString("value_type")).thenReturn("int", "int", "double", "double");
+                    when(resultSet.getString("value_text")).thenReturn("68", "26.5", "25.1");
+                    when(resultSet.getObject("value_long")).thenReturn("68", null, null);
+                    when(resultSet.getObject("value_double")).thenReturn(null, 26.5D, 25.1D);
+                    when(resultSet.getObject("value_bool")).thenReturn(null, null, null);
+                    when(resultSet.getString("trace_id")).thenReturn("trace-001", "trace-001", "trace-old");
+                    @SuppressWarnings("unchecked")
+                    org.springframework.jdbc.core.ResultSetExtractor<List<TelemetryLatestPoint>> extractor = invocation.getArgument(1);
+                    return extractor.extractData(resultSet);
                 });
 
         List<TelemetryLatestPoint> latestPoints = tdengineTelemetryStorageService.listLatestPoints(2001L);
 
-        assertEquals(1, latestPoints.size());
-        assertEquals("temperature", latestPoints.get(0).getMetricCode());
-        assertEquals(26.5D, latestPoints.get(0).getValue());
+        assertEquals(2, latestPoints.size());
+        assertEquals("humidity", latestPoints.get(0).getMetricCode());
+        assertEquals(68, latestPoints.get(0).getValue());
+        assertEquals("temperature", latestPoints.get(1).getMetricCode());
+        assertEquals(26.5D, latestPoints.get(1).getValue());
         verify(tdengineTelemetrySchemaSupport).ensureTable();
     }
 

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * TDengine 时序存储服务。
+ * TDengine 通用兼容表存储服务。
  */
 @Service
 public class TdengineTelemetryStorageService {
@@ -26,6 +26,7 @@ public class TdengineTelemetryStorageService {
     private static final String INSERT_SQL = """
             INSERT INTO iot_device_telemetry_point (
                 ts,
+                reported_at,
                 tenant_id,
                 device_id,
                 device_code,
@@ -42,12 +43,13 @@ public class TdengineTelemetryStorageService {
                 value_long,
                 value_double,
                 value_bool
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String SELECT_LATEST_SQL = """
             SELECT
                 p.ts,
+                p.reported_at,
                 p.device_code,
                 p.product_key,
                 p.metric_code,
@@ -59,16 +61,9 @@ public class TdengineTelemetryStorageService {
                 p.value_bool,
                 p.trace_id
             FROM iot_device_telemetry_point p
-            INNER JOIN (
-                SELECT metric_code, MAX(ts) AS max_ts
-                FROM iot_device_telemetry_point
-                WHERE device_id = ?
-                GROUP BY metric_code
-            ) latest
-                ON p.metric_code = latest.metric_code
-               AND p.ts = latest.max_ts
             WHERE p.device_id = ?
             ORDER BY p.metric_code ASC
+                   , p.ts DESC
             """;
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
@@ -85,16 +80,27 @@ public class TdengineTelemetryStorageService {
     }
 
     public TelemetryPersistResult persist(DeviceProcessingTarget target) {
-        tdengineTelemetrySchemaSupport.ensureTable();
-        JdbcTemplate jdbcTemplate = jdbcTemplateProvider.getJdbcTemplate();
         Map<String, DevicePropertyMetadata> metadataMap =
                 devicePropertyMetadataService.listPropertyMetadataMap(target.getDevice().getProductId());
+        return persist(target, target.getMessage().getProperties(), metadataMap);
+    }
+
+    public TelemetryPersistResult persist(DeviceProcessingTarget target,
+                                          Map<String, Object> properties,
+                                          Map<String, DevicePropertyMetadata> metadataMap) {
+        tdengineTelemetrySchemaSupport.ensureTable();
+        JdbcTemplate jdbcTemplate = jdbcTemplateProvider.getJdbcTemplate();
+        LocalDateTime reportedAt = resolveReportedAt(target);
         int pointCount = 0;
-        for (Map.Entry<String, Object> entry : target.getMessage().getProperties().entrySet()) {
+        if (properties == null || properties.isEmpty()) {
+            return TelemetryPersistResult.skipped("EMPTY_PROPERTIES", "normalized-table", 0);
+        }
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
             DevicePropertyMetadata metadata = metadataMap.get(entry.getKey());
             jdbcTemplate.update(
                     INSERT_SQL,
-                    Timestamp.valueOf(resolveReportedAt(target)),
+                    Timestamp.valueOf(resolveRowTimestamp(reportedAt, pointCount)),
+                    Timestamp.valueOf(reportedAt),
                     target.getDevice().getTenantId(),
                     target.getDevice().getId(),
                     truncate(target.getDevice().getDeviceCode(), 128),
@@ -114,7 +120,7 @@ public class TdengineTelemetryStorageService {
             );
             pointCount++;
         }
-        return TelemetryPersistResult.persisted(pointCount);
+        return TelemetryPersistResult.persisted("TDENGINE", "normalized-table", pointCount, 0, 0, pointCount, 0);
     }
 
     public List<TelemetryLatestPoint> listLatestPoints(Long deviceId) {
@@ -122,32 +128,45 @@ public class TdengineTelemetryStorageService {
         JdbcTemplate jdbcTemplate = jdbcTemplateProvider.getJdbcTemplate();
         return jdbcTemplate.query(
                 SELECT_LATEST_SQL,
-                (rs, rowNum) -> {
-                    TelemetryLatestPoint point = new TelemetryLatestPoint();
-                    Timestamp timestamp = rs.getTimestamp("ts");
-                    point.setReportedAt(timestamp == null ? null : timestamp.toLocalDateTime());
-                    point.setDeviceCode(rs.getString("device_code"));
-                    point.setProductKey(rs.getString("product_key"));
-                    point.setMetricCode(rs.getString("metric_code"));
-                    point.setMetricName(rs.getString("metric_name"));
-                    point.setValueType(rs.getString("value_type"));
-                    point.setValue(resolvePointValue(
-                            rs.getString("value_type"),
-                            rs.getString("value_text"),
-                            rs.getObject("value_long"),
-                            rs.getObject("value_double"),
-                            rs.getObject("value_bool")
-                    ));
-                    point.setTraceId(rs.getString("trace_id"));
-                    return point;
+                rs -> {
+                    Map<String, TelemetryLatestPoint> latestPointMap = new LinkedHashMap<>();
+                    while (rs.next()) {
+                        String metricCode = rs.getString("metric_code");
+                        if (latestPointMap.containsKey(metricCode)) {
+                            continue;
+                        }
+                        TelemetryLatestPoint point = new TelemetryLatestPoint();
+                        Timestamp reportedAt = rs.getTimestamp("reported_at");
+                        Timestamp fallbackTs = rs.getTimestamp("ts");
+                        Timestamp effectiveTs = reportedAt == null ? fallbackTs : reportedAt;
+                        point.setReportedAt(effectiveTs == null ? null : effectiveTs.toLocalDateTime());
+                        point.setDeviceCode(rs.getString("device_code"));
+                        point.setProductKey(rs.getString("product_key"));
+                        point.setMetricCode(metricCode);
+                        point.setMetricName(rs.getString("metric_name"));
+                        point.setValueType(rs.getString("value_type"));
+                        point.setValue(resolvePointValue(
+                                rs.getString("value_type"),
+                                rs.getString("value_text"),
+                                rs.getObject("value_long"),
+                                rs.getObject("value_double"),
+                                rs.getObject("value_bool")
+                        ));
+                        point.setTraceId(rs.getString("trace_id"));
+                        latestPointMap.put(metricCode, point);
+                    }
+                    return new ArrayList<>(latestPointMap.values());
                 },
-                deviceId,
                 deviceId
         );
     }
 
     private LocalDateTime resolveReportedAt(DeviceProcessingTarget target) {
         return target.getMessage().getTimestamp() == null ? LocalDateTime.now() : target.getMessage().getTimestamp();
+    }
+
+    private LocalDateTime resolveRowTimestamp(LocalDateTime reportedAt, int pointIndex) {
+        return reportedAt.plusNanos(pointIndex * 1_000_000L);
     }
 
     private String resolveMetricName(String identifier, DevicePropertyMetadata metadata) {
@@ -227,19 +246,82 @@ public class TdengineTelemetryStorageService {
                                      Object valueBool) {
         String normalizedType = valueType == null ? "" : valueType.trim().toLowerCase();
         if ("bool".equals(normalizedType)) {
-            return valueBool;
+            return coerceBooleanValue(valueBool != null ? valueBool : valueText);
         }
-        if ("int".equals(normalizedType) || "long".equals(normalizedType)) {
-            return valueLong;
+        if ("int".equals(normalizedType)) {
+            return coerceIntegerPointValue(valueLong != null ? valueLong : valueText);
+        }
+        if ("long".equals(normalizedType)) {
+            return coerceLongPointValue(valueLong != null ? valueLong : valueText);
         }
         if ("double".equals(normalizedType) || "float".equals(normalizedType)
                 || "decimal".equals(normalizedType) || "number".equals(normalizedType)) {
-            return valueDouble != null ? valueDouble : valueLong;
+            return coerceDoublePointValue(valueDouble != null ? valueDouble : valueLong);
         }
         if (valueText == null || valueText.isBlank()) {
             return null;
         }
         return tryReadJson(valueText);
+    }
+
+    private Object coerceIntegerPointValue(Object value) {
+        if (value instanceof Number number) {
+            long longValue = number.longValue();
+            if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) {
+                return (int) longValue;
+            }
+            return longValue;
+        }
+        if (value instanceof String text) {
+            try {
+                long longValue = Long.parseLong(text.trim());
+                if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) {
+                    return (int) longValue;
+                }
+                return longValue;
+            } catch (NumberFormatException ignored) {
+                return text;
+            }
+        }
+        return value;
+    }
+
+    private Object coerceLongPointValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException ignored) {
+                return text;
+            }
+        }
+        return value;
+    }
+
+    private Object coerceDoublePointValue(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Double.parseDouble(text.trim());
+            } catch (NumberFormatException ignored) {
+                return text;
+            }
+        }
+        return value;
+    }
+
+    private Object coerceBooleanValue(Object value) {
+        if (value instanceof Boolean) {
+            return value;
+        }
+        if (value instanceof String text) {
+            return Boolean.parseBoolean(text.trim());
+        }
+        return value;
     }
 
     private Object tryReadJson(String valueText) {

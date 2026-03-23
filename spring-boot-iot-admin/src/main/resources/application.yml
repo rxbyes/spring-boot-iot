@@ -106,6 +106,8 @@ iot:
 
 #  telemetry:
 #    storage-type: mysql
+#    tdengine-mode: legacy-compatible
+#    legacy-normalized-fallback-enabled: true
 #    latest-cache-prefix: iot:telemetry:latest:
 #    ts-prefix: iot:telemetry:ts:
 

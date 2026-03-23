@@ -36,9 +36,16 @@ iot:
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:public}
+    cluster-singleton-enabled: ${IOT_MQTT_CLUSTER_SINGLETON_ENABLED:true}
+    cluster-lock-key: ${IOT_MQTT_CLUSTER_LOCK_KEY:iot:mqtt:consumer:leader}
+    cluster-lock-ttl-seconds: ${IOT_MQTT_CLUSTER_LOCK_TTL_SECONDS:30}
+    cluster-lock-renew-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_RENEW_INTERVAL_SECONDS:10}
+    cluster-lock-acquire-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_ACQUIRE_INTERVAL_SECONDS:5}
 
   telemetry:
     storage-type: tdengine
+    tdengine-mode: legacy-compatible
+    legacy-normalized-fallback-enabled: true
 
   rule:
     enabled: true

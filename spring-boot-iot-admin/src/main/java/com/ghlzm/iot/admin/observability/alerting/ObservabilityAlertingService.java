@@ -150,6 +150,9 @@ public class ObservabilityAlertingService {
         if (iotProperties.getMqtt() == null || !Boolean.TRUE.equals(iotProperties.getMqtt().getEnabled())) {
             return;
         }
+        if (mqttMessageConsumer.isClusterSingletonEnabled() && !mqttMessageConsumer.isLeader()) {
+            return;
+        }
         if (mqttMessageConsumer.isConnected()) {
             return;
         }

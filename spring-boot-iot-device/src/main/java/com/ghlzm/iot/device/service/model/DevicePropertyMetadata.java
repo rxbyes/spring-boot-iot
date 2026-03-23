@@ -11,4 +11,12 @@ public class DevicePropertyMetadata {
     private String identifier;
     private String propertyName;
     private String dataType;
+    private TdengineLegacyMapping tdengineLegacyMapping;
+
+    @Data
+    public static class TdengineLegacyMapping {
+        private Boolean enabled = Boolean.TRUE;
+        private String stable;
+        private String column;
+    }
 }

@@ -18,6 +18,7 @@ public class TdengineTelemetrySchemaSupport {
     private static final String CREATE_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
                 ts TIMESTAMP,
+                reported_at TIMESTAMP,
                 tenant_id BIGINT,
                 device_id BIGINT,
                 device_code BINARY(128),
@@ -54,10 +55,30 @@ public class TdengineTelemetrySchemaSupport {
             }
             try {
                 jdbcTemplateProvider.getJdbcTemplate().execute(CREATE_TABLE_SQL);
+                ensureReportedAtColumn();
                 initialized.set(true);
             } catch (Exception ex) {
                 log.warn("初始化 TDengine 时序表失败，将在运行时重试, error={}", ex.getMessage());
             }
+        }
+    }
+
+    private void ensureReportedAtColumn() {
+        boolean hasReportedAt = Boolean.TRUE.equals(jdbcTemplateProvider.getJdbcTemplate().query(
+                "DESCRIBE " + TABLE_NAME,
+                rs -> {
+                    while (rs.next()) {
+                        if ("reported_at".equalsIgnoreCase(rs.getString(1))) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+        ));
+        if (!hasReportedAt) {
+            jdbcTemplateProvider.getJdbcTemplate().execute(
+                    "ALTER TABLE " + TABLE_NAME + " ADD COLUMN reported_at TIMESTAMP"
+            );
         }
     }
 }

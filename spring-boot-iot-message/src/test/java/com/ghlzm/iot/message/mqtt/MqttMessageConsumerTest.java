@@ -40,6 +40,8 @@ class MqttMessageConsumerTest {
     private MqttConnectionListener mqttConnectionListener;
     @Mock
     private MqttConsumerRuntimeState mqttConsumerRuntimeState;
+    @Mock
+    private MqttClusterLeadershipService mqttClusterLeadershipService;
 
     private final Logger logger = (Logger) LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
     private final Level originalLevel = logger.getLevel();
@@ -59,7 +61,8 @@ class MqttMessageConsumerTest {
                 upMessageProcessingPipeline,
                 mqttTopicRouter,
                 mqttConnectionListener,
-                mqttConsumerRuntimeState
+                mqttConsumerRuntimeState,
+                mqttClusterLeadershipService
         );
         RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
         rawDeviceMessage.setTopic("/sys/demo-product/demo-device-01/thing/property/post");

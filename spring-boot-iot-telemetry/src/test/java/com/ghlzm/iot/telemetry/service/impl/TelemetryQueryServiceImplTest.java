@@ -36,7 +36,7 @@ class TelemetryQueryServiceImplTest {
     @Mock
     private DevicePropertyMapper devicePropertyMapper;
     @Mock
-    private TdengineTelemetryStorageService tdengineTelemetryStorageService;
+    private TdengineTelemetryFacade tdengineTelemetryFacade;
 
     private IotProperties iotProperties;
     private TelemetryQueryServiceImpl telemetryQueryService;
@@ -49,18 +49,20 @@ class TelemetryQueryServiceImplTest {
                 deviceMapper,
                 productMapper,
                 devicePropertyMapper,
-                tdengineTelemetryStorageService
+                tdengineTelemetryFacade
         );
     }
 
     @Test
     void getLatestShouldReadTdengineWhenConfigured() {
         iotProperties.getTelemetry().setStorageType("tdengine");
-        when(deviceMapper.selectOne(any())).thenReturn(buildDevice());
-        when(productMapper.selectById(1001L)).thenReturn(buildProduct());
-        when(tdengineTelemetryStorageService.listLatestPoints(2001L)).thenReturn(List.of(
+        Device device = buildDevice();
+        Product product = buildProduct();
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(tdengineTelemetryFacade.listLatestPoints(device, product)).thenReturn(List.of(
                 latestPoint("temperature", 26.5D),
-                latestPoint("humidity", 68L)
+                latestPoint("humidity", 68)
         ));
 
         Map<String, Object> result = telemetryQueryService.getLatest(2001L);
@@ -69,8 +71,8 @@ class TelemetryQueryServiceImplTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> properties = (Map<String, Object>) result.get("properties");
         assertEquals(26.5D, properties.get("temperature"));
-        assertEquals(68L, properties.get("humidity"));
-        verify(tdengineTelemetryStorageService).listLatestPoints(2001L);
+        assertEquals(68, properties.get("humidity"));
+        verify(tdengineTelemetryFacade).listLatestPoints(device, product);
         verifyNoInteractions(devicePropertyMapper);
     }
 
@@ -91,7 +93,7 @@ class TelemetryQueryServiceImplTest {
         Map<String, Object> properties = (Map<String, Object>) result.get("properties");
         assertEquals(26.5D, properties.get("temperature"));
         assertEquals(Boolean.TRUE, properties.get("enabled"));
-        verifyNoInteractions(tdengineTelemetryStorageService);
+        verifyNoInteractions(tdengineTelemetryFacade);
     }
 
     @Test

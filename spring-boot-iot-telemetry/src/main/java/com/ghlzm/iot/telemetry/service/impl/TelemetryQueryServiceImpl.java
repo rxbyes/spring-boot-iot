@@ -29,18 +29,18 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final DeviceMapper deviceMapper;
     private final ProductMapper productMapper;
     private final DevicePropertyMapper devicePropertyMapper;
-    private final TdengineTelemetryStorageService tdengineTelemetryStorageService;
+    private final TdengineTelemetryFacade tdengineTelemetryFacade;
 
     public TelemetryQueryServiceImpl(IotProperties iotProperties,
                                      DeviceMapper deviceMapper,
                                      ProductMapper productMapper,
                                      DevicePropertyMapper devicePropertyMapper,
-                                     TdengineTelemetryStorageService tdengineTelemetryStorageService) {
+                                     TdengineTelemetryFacade tdengineTelemetryFacade) {
         this.iotProperties = iotProperties;
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.devicePropertyMapper = devicePropertyMapper;
-        this.tdengineTelemetryStorageService = tdengineTelemetryStorageService;
+        this.tdengineTelemetryFacade = tdengineTelemetryFacade;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     }
 
     private Map<String, Object> buildTdengineResponse(Device device, Product product) {
-        List<TelemetryLatestPoint> latestPoints = tdengineTelemetryStorageService.listLatestPoints(device.getId());
+        List<TelemetryLatestPoint> latestPoints = tdengineTelemetryFacade.listLatestPoints(device, product);
         Map<String, Object> properties = new LinkedHashMap<>();
         LocalDateTime latestReportedAt = null;
         String latestTraceId = null;

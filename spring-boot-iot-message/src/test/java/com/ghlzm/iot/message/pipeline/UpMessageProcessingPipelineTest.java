@@ -190,7 +190,10 @@ class UpMessageProcessingPipelineTest {
         MessageFlowExecutionResult result = pipeline.process(request);
 
         assertEquals("session-pending-001", result.getSubmitResult().getSessionId());
+        assertEquals("session-pending-001", result.getTimeline().getSessionId());
         assertEquals(MessageFlowStatuses.SESSION_COMPLETED, result.getSubmitResult().getStatus());
+        MessageFlowStep ingressStep = findStep(result.getTimeline(), MessageFlowStages.INGRESS);
+        assertEquals("session-pending-001", ingressStep.getSummary().get("sessionId"));
         MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
         assertEquals(Boolean.TRUE, decodeStep.getSummary().get("correlationMatched"));
 

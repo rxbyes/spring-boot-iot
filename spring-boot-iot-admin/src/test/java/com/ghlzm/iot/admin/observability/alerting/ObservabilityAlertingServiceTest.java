@@ -27,8 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,10 +63,10 @@ class ObservabilityAlertingServiceTest {
     void setUp() {
         iotProperties = new IotProperties();
         iotProperties.getObservability().getAlerting().setEnabled(true);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(auditLogService.countSystemErrorsSince(any())).thenReturn(0L);
-        when(deviceAccessErrorLogService.listFailureStageCountsSince(any())).thenReturn(List.of());
-        when(inAppMessageBridgeAlertQueryService.listFailedAttemptCountsSince(any())).thenReturn(List.of());
+        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(auditLogService.countSystemErrorsSince(any())).thenReturn(0L);
+        lenient().when(deviceAccessErrorLogService.listFailureStageCountsSince(any())).thenReturn(List.of());
+        lenient().when(inAppMessageBridgeAlertQueryService.listFailedAttemptCountsSince(any())).thenReturn(List.of());
         service = new ObservabilityAlertingService(
                 auditLogService,
                 deviceAccessErrorLogService,
@@ -101,6 +103,8 @@ class ObservabilityAlertingServiceTest {
         stubDispatchAlert();
         stubCooldownAcquired();
         iotProperties.getMqtt().setEnabled(true);
+        when(mqttMessageConsumer.isClusterSingletonEnabled()).thenReturn(true);
+        when(mqttMessageConsumer.isLeader()).thenReturn(true);
         when(mqttMessageConsumer.isConnected()).thenReturn(false);
         when(mqttMessageConsumer.getEffectiveClientId()).thenReturn("shared-client-dev-01");
         when(mqttConsumerRuntimeState.snapshot()).thenReturn(new MqttConsumerRuntimeState.Snapshot(
@@ -124,6 +128,17 @@ class ObservabilityAlertingServiceTest {
         assertEquals(6L, trigger.observedValue());
         assertEquals(5L, trigger.threshold());
         assertEquals(5, trigger.durationMinutes());
+    }
+
+    @Test
+    void shouldSkipMqttDisconnectTimeoutAlertForStandbyNode() {
+        iotProperties.getMqtt().setEnabled(true);
+        when(mqttMessageConsumer.isClusterSingletonEnabled()).thenReturn(true);
+        when(mqttMessageConsumer.isLeader()).thenReturn(false);
+
+        service.evaluateAlerts();
+
+        verifyNoInteractions(observabilityAlertNotificationService);
     }
 
     @Test
