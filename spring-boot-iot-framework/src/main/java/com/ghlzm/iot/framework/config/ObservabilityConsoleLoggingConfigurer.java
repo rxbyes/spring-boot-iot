@@ -27,5 +27,14 @@ public class ObservabilityConsoleLoggingConfigurer {
                 MybatisLoggingConstants.SESSION_LOGGER_NAME,
                 Boolean.TRUE.equals(console.getMybatisSessionEnabled()) ? LogLevel.DEBUG : LogLevel.OFF
         );
+        IotProperties.Observability.Diagnostic diagnostic = iotProperties.getObservability().getDiagnostic();
+        loggingSystem.setLogLevel(
+                DiagnosticLoggingConstants.DIAGNOSTIC_SQL_LOGGER_NAME,
+                diagnostic != null && Boolean.TRUE.equals(diagnostic.getSqlFileEnabled()) ? LogLevel.INFO : LogLevel.OFF
+        );
+        loggingSystem.setLogLevel(
+                DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME,
+                diagnostic != null && Boolean.TRUE.equals(diagnostic.getAccessFileEnabled()) ? LogLevel.INFO : LogLevel.OFF
+        );
     }
 }

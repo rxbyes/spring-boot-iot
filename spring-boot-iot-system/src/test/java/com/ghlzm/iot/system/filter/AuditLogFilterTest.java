@@ -1,11 +1,18 @@
 package com.ghlzm.iot.system.filter;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,6 +24,7 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,6 +37,41 @@ class AuditLogFilterTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void shouldWriteSlowHttpSummaryToDiagnosticLogger() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        IotProperties properties = new IotProperties();
+        properties.getObservability().getPerformance().setSlowHttpThresholdMs(5L);
+        AuditLogFilter filter = new AuditLogFilter(recorder.service(), properties);
+        Logger logger = (Logger) LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
+        Level originalLevel = logger.getLevel();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/system/channel/list");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                LockSupport.parkNanos(20_000_000L);
+                res.setContentType("application/json");
+                res.getWriter().write("{\"code\":200}");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertEquals(1, appender.list.size());
+            String message = appender.list.get(0).getFormattedMessage();
+            assertTrue(message.contains("event=\"slow_http_request\""));
+            assertTrue(message.contains("uri=\"/api/system/channel/list\""));
+            assertTrue(message.contains("status=200"));
+        } finally {
+            logger.setLevel(originalLevel);
+            logger.detachAndStopAllAppenders();
+        }
     }
 
     @Test

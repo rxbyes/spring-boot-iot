@@ -15,12 +15,16 @@ class ObservabilityConsoleLoggingConfigurerTest {
         IotProperties properties = new IotProperties();
         properties.getObservability().getConsole().setMybatisSqlEnabled(false);
         properties.getObservability().getConsole().setMybatisSessionEnabled(false);
+        properties.getObservability().getDiagnostic().setSqlFileEnabled(false);
+        properties.getObservability().getDiagnostic().setAccessFileEnabled(false);
         LoggingSystem loggingSystem = mock(LoggingSystem.class);
 
         new ObservabilityConsoleLoggingConfigurer(properties).configure(loggingSystem);
 
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SQL_LOGGER_NAME, LogLevel.OFF);
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SESSION_LOGGER_NAME, LogLevel.OFF);
+        verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_SQL_LOGGER_NAME, LogLevel.OFF);
+        verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME, LogLevel.OFF);
         verifyNoMoreInteractions(loggingSystem);
     }
 
@@ -29,12 +33,16 @@ class ObservabilityConsoleLoggingConfigurerTest {
         IotProperties properties = new IotProperties();
         properties.getObservability().getConsole().setMybatisSqlEnabled(true);
         properties.getObservability().getConsole().setMybatisSessionEnabled(true);
+        properties.getObservability().getDiagnostic().setSqlFileEnabled(true);
+        properties.getObservability().getDiagnostic().setAccessFileEnabled(true);
         LoggingSystem loggingSystem = mock(LoggingSystem.class);
 
         new ObservabilityConsoleLoggingConfigurer(properties).configure(loggingSystem);
 
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SQL_LOGGER_NAME, LogLevel.TRACE);
         verify(loggingSystem).setLogLevel(MybatisLoggingConstants.SESSION_LOGGER_NAME, LogLevel.DEBUG);
+        verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_SQL_LOGGER_NAME, LogLevel.INFO);
+        verify(loggingSystem).setLogLevel(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME, LogLevel.INFO);
         verifyNoMoreInteractions(loggingSystem);
     }
 }

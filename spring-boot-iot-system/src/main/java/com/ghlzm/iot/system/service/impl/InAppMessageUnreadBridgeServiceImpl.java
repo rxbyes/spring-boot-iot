@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.system.entity.InAppMessage;
 import com.ghlzm.iot.system.entity.InAppMessageBridgeAttemptLog;
 import com.ghlzm.iot.system.entity.InAppMessageBridgeLog;
@@ -145,6 +146,7 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
                     continue;
                 }
 
+                long startNs = System.nanoTime();
                 NotificationChannelDispatcher.DispatchResult result = notificationChannelDispatcher.send(channel, envelope);
                 InAppMessageBridgeLog updatedLog = saveBridgeLog(
                         existingLog,
@@ -158,11 +160,25 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
                 bridgeLogMap.put(bridgeLogKey, updatedLog);
 
                 if (result.success()) {
-                    log.info("站内消息未读桥接发送成功, messageId={}, channelCode={}, unreadCount={}",
-                            message.getId(), channel.channel().getChannelCode(), unreadUserIds.size());
+                    log.info(ObservabilityEventLogSupport.summary(
+                            "notification_dispatch",
+                            "success",
+                            elapsedMillis(startNs),
+                            buildDispatchDetails(message, channel, unreadUserIds.size(), result, null)
+                    ));
                 } else {
-                    log.warn("站内消息未读桥接发送失败, messageId={}, channelCode={}, reason={}",
-                            message.getId(), channel.channel().getChannelCode(), safeText(result.errorMessage(), result.responseBody()));
+                    log.warn(ObservabilityEventLogSupport.summary(
+                            "notification_dispatch",
+                            "failure",
+                            elapsedMillis(startNs),
+                            buildDispatchDetails(
+                                    message,
+                                    channel,
+                                    unreadUserIds.size(),
+                                    result,
+                                    truncate(safeText(result.errorMessage(), result.responseBody()), MAX_RESPONSE_BODY_LENGTH)
+                            )
+                    ));
                 }
             }
         }
@@ -468,5 +484,26 @@ public class InAppMessageUnreadBridgeServiceImpl implements InAppMessageUnreadBr
             return text;
         }
         return text.substring(0, maxLength) + "...(truncated)";
+    }
+
+    private Map<String, Object> buildDispatchDetails(InAppMessage message,
+                                                     NotificationChannelDispatcher.DispatchChannel channel,
+                                                     int unreadCount,
+                                                     NotificationChannelDispatcher.DispatchResult result,
+                                                     String responseSummary) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("scene", BRIDGE_SCENE);
+        details.put("messageId", message == null ? null : message.getId());
+        details.put("priority", message == null ? null : message.getPriority());
+        details.put("channelCode", channel == null ? null : channel.channel().getChannelCode());
+        details.put("channelType", channel == null ? null : channel.channel().getChannelType());
+        details.put("unreadCount", unreadCount);
+        details.put("statusCode", result == null ? null : result.statusCode());
+        details.put("response", responseSummary);
+        return details;
+    }
+
+    private long elapsedMillis(long startNs) {
+        return (System.nanoTime() - startNs) / 1_000_000L;
     }
 }

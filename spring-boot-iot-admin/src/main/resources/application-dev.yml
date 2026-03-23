@@ -113,7 +113,16 @@ iot:
     system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
     console:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
-      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:false}
+      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
+    diagnostic:
+#      用于承接慢 SQL 摘要
+      sql-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_SQL_FILE_ENABLED:true}
+#      用于承接慢 HTTP / 慢 MQTT 摘要
+      access-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_ACCESS_FILE_ENABLED:true}
+    performance:
+      slow-sql-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_SQL_THRESHOLD_MS:500}
+      slow-http-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_HTTP_THRESHOLD_MS:1000}
+      slow-mqtt-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_MQTT_THRESHOLD_MS:1000}
     in-app-unread-bridge:
       enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:true}
       scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}

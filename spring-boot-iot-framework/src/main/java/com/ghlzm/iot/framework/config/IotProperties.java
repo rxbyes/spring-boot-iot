@@ -224,12 +224,27 @@ public class IotProperties {
         private Integer notificationTimeoutMs = 3000;
         private Integer systemErrorNotifyCooldownSeconds = 300;
         private Console console = new Console();
+        private Diagnostic diagnostic = new Diagnostic();
+        private Performance performance = new Performance();
         private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
 
         @Data
         public static class Console {
             private Boolean mybatisSqlEnabled = Boolean.FALSE;
             private Boolean mybatisSessionEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class Diagnostic {
+            private Boolean sqlFileEnabled = Boolean.FALSE;
+            private Boolean accessFileEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class Performance {
+            private Long slowSqlThresholdMs = 500L;
+            private Long slowHttpThresholdMs = 1000L;
+            private Long slowMqttThresholdMs = 1000L;
         }
 
         @Data

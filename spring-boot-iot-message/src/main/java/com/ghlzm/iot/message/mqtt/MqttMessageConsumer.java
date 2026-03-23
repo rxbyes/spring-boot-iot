@@ -2,7 +2,9 @@ package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceSessionService;
+import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.message.dispatcher.UpMessageDispatcher;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -14,9 +16,12 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -24,6 +29,9 @@ import java.util.List;
  */
 @Component
 public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended {
+
+    private static final Logger diagnosticAccessLog =
+            LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
 
     private final IotProperties iotProperties;
     private final UpMessageDispatcher upMessageDispatcher;
@@ -136,7 +144,10 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     @Override
     public void messageArrived(String topic, MqttMessage message) {
+        long startNs = System.nanoTime();
         RawDeviceMessage rawDeviceMessage = null;
+        DeviceUpMessage upMessage = null;
+        Exception dispatchException = null;
         String traceId = TraceContextHolder.bindTraceId(null);
         try {
             mqttConnectionListener.onMessageReceived(topic, message == null || message.getPayload() == null
@@ -146,7 +157,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
             rawDeviceMessage.setTraceId(traceId);
 
-            DeviceUpMessage upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
+            upMessage = upMessageDispatcher.dispatch(rawDeviceMessage);
             mqttConsumerRuntimeState.markDispatchSuccess(upMessage.getTraceId());
             String resolvedDeviceCode = hasText(upMessage.getDeviceCode())
                     ? upMessage.getDeviceCode()
@@ -160,6 +171,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             deviceSessionService.refreshLastSeen(resolvedDeviceCode, resolvedClientId, topic);
             mqttConnectionListener.onDeviceSessionRefreshed(resolvedDeviceCode, resolvedClientId, topic);
         } catch (Exception ex) {
+            dispatchException = ex;
             mqttConnectionListener.onMessageDispatchFailed(
                     topic,
                     message == null ? null : message.getPayload(),
@@ -167,6 +179,8 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                     ex
             );
         } finally {
+            long costMs = (System.nanoTime() - startNs) / 1_000_000L;
+            maybeLogSlowDispatch(topic, rawDeviceMessage, upMessage, traceId, dispatchException, costMs);
             TraceContextHolder.clear();
         }
     }
@@ -237,5 +251,73 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private void maybeLogSlowDispatch(String topic,
+                                      RawDeviceMessage rawDeviceMessage,
+                                      DeviceUpMessage upMessage,
+                                      String traceId,
+                                      Exception dispatchException,
+                                      long costMs) {
+        long thresholdMs = resolveSlowMqttThresholdMs();
+        if (thresholdMs <= 0 || costMs < thresholdMs || !diagnosticAccessLog.isInfoEnabled()) {
+            return;
+        }
+        LinkedHashMap<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", resolveTraceId(traceId, rawDeviceMessage, upMessage));
+        details.put("topic", topic);
+        details.put("deviceCode", resolveDeviceCode(rawDeviceMessage, upMessage));
+        details.put("productKey", resolveProductKey(rawDeviceMessage, upMessage));
+        details.put("messageType", resolveMessageType(rawDeviceMessage, upMessage));
+        details.put("clientId", rawDeviceMessage == null ? null : rawDeviceMessage.getClientId());
+        if (dispatchException != null) {
+            details.put("errorClass", dispatchException.getClass().getSimpleName());
+        }
+        diagnosticAccessLog.info(ObservabilityEventLogSupport.summary(
+                "slow_mqtt_dispatch",
+                dispatchException == null ? "success" : "failure",
+                costMs,
+                details
+        ));
+    }
+
+    private long resolveSlowMqttThresholdMs() {
+        IotProperties.Observability observability = iotProperties.getObservability();
+        if (observability == null || observability.getPerformance() == null) {
+            return 0L;
+        }
+        Long thresholdMs = observability.getPerformance().getSlowMqttThresholdMs();
+        return thresholdMs == null ? 0L : thresholdMs;
+    }
+
+    private String resolveTraceId(String traceId, RawDeviceMessage rawDeviceMessage, DeviceUpMessage upMessage) {
+        if (upMessage != null && hasText(upMessage.getTraceId())) {
+            return upMessage.getTraceId();
+        }
+        if (rawDeviceMessage != null && hasText(rawDeviceMessage.getTraceId())) {
+            return rawDeviceMessage.getTraceId();
+        }
+        return traceId;
+    }
+
+    private String resolveDeviceCode(RawDeviceMessage rawDeviceMessage, DeviceUpMessage upMessage) {
+        if (upMessage != null && hasText(upMessage.getDeviceCode())) {
+            return upMessage.getDeviceCode();
+        }
+        return rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode();
+    }
+
+    private String resolveProductKey(RawDeviceMessage rawDeviceMessage, DeviceUpMessage upMessage) {
+        if (upMessage != null && hasText(upMessage.getProductKey())) {
+            return upMessage.getProductKey();
+        }
+        return rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey();
+    }
+
+    private String resolveMessageType(RawDeviceMessage rawDeviceMessage, DeviceUpMessage upMessage) {
+        if (upMessage != null && hasText(upMessage.getMessageType())) {
+            return upMessage.getMessageType();
+        }
+        return rawDeviceMessage == null ? null : rawDeviceMessage.getMessageType();
     }
 }

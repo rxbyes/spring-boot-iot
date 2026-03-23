@@ -19,6 +19,11 @@ public class MybatisPlusConfig {
     }
 
     @Bean
+    public SlowSqlLoggingInterceptor slowSqlLoggingInterceptor(IotProperties iotProperties) {
+        return new SlowSqlLoggingInterceptor(iotProperties);
+    }
+
+    @Bean
     public ConfigurationCustomizer mybatisConfigurationCustomizer() {
         return this::customizeMybatisConfiguration;
     }

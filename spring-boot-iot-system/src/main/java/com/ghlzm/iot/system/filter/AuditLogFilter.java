@@ -1,6 +1,10 @@
 package com.ghlzm.iot.system.filter;
 
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
+import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
+import com.ghlzm.iot.framework.observability.SensitiveLogSanitizer;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
@@ -10,6 +14,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -26,9 +33,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Date;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 系统接口审计日志过滤器。
@@ -37,33 +43,33 @@ import java.util.regex.Pattern;
 @Component
 public class AuditLogFilter extends OncePerRequestFilter {
 
+    private static final Logger diagnosticAccessLog =
+            LoggerFactory.getLogger(DiagnosticLoggingConstants.DIAGNOSTIC_ACCESS_LOGGER_NAME);
     private static final Long DEFAULT_TENANT_ID = 1L;
     private static final int MAX_CAPTURE_LENGTH = 4000;
     private static final int MAX_RESULT_MESSAGE_LENGTH = 500;
     private static final int MAX_REQUEST_URL_LENGTH = 255;
     private static final int MAX_OPERATION_METHOD_LENGTH = 255;
-    private static final Pattern JSON_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\"\\s*:\\s*\"[^\"]*\"");
-    private static final Pattern ESCAPED_JSON_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)\\\\\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\"[^\\\\\"]*\\\\\"");
-    private static final Pattern ESCAPED_JSON_SENSITIVE_GROUP_PATTERN = Pattern.compile(
-            "(?i)(\\\\\"(?:password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\")[^\\\\\"]*(\\\\\")");
-    private static final Pattern KV_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)(password|token|secret|authorization|accessToken|refreshToken|clientSecret)=([^&\\s]+)");
-    private static final Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile(
-            "(?i)(authorization\\s*:\\s*bearer\\s+)([^\\s,;]+)");
 
     private final AuditLogService auditLogService;
+    private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
-    public AuditLogFilter(AuditLogService auditLogService) {
+    @Autowired
+    public AuditLogFilter(AuditLogService auditLogService, IotProperties iotProperties) {
         this.auditLogService = auditLogService;
+        this.iotProperties = iotProperties;
+    }
+
+    AuditLogFilter(AuditLogService auditLogService) {
+        this(auditLogService, new IotProperties());
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        long startNs = System.nanoTime();
         ContentCachingRequestWrapper requestWrapper = request instanceof ContentCachingRequestWrapper
                 ? (ContentCachingRequestWrapper) request
                 : new ContentCachingRequestWrapper(request, MAX_CAPTURE_LENGTH);
@@ -77,12 +83,16 @@ public class AuditLogFilter extends OncePerRequestFilter {
             chainException = ex;
             throw ex;
         } finally {
-            recordAuditLog(requestWrapper, responseWrapper, chainException);
+            long costMs = (System.nanoTime() - startNs) / 1_000_000L;
+            recordAuditLog(requestWrapper, responseWrapper, chainException, costMs);
             responseWrapper.copyBodyToResponse();
         }
     }
 
-    private void recordAuditLog(HttpServletRequest request, HttpServletResponse response, Exception chainException) {
+    private void recordAuditLog(HttpServletRequest request,
+                                HttpServletResponse response,
+                                Exception chainException,
+                                long costMs) {
         if (!shouldRecord(request.getRequestURI())) {
             return;
         }
@@ -114,6 +124,8 @@ public class AuditLogFilter extends OncePerRequestFilter {
             // 审计失败不影响业务请求
             log.warn("写入审计日志失败, uri={}, error={}", request.getRequestURI(), saveEx.getMessage());
         }
+
+        maybeLogSlowRequest(auditLog, response, responseCapture, chainException, costMs);
     }
 
     private boolean shouldRecord(String uri) {
@@ -218,13 +230,13 @@ public class AuditLogFilter extends OncePerRequestFilter {
                                         ResponseCapture responseCapture) {
         if (chainException != null) {
             if (StringUtils.hasText(chainException.getMessage())) {
-                return truncate(chainException.getMessage(), MAX_RESULT_MESSAGE_LENGTH);
+                return truncate(SensitiveLogSanitizer.sanitize(chainException.getMessage()), MAX_RESULT_MESSAGE_LENGTH);
             }
             return chainException.getClass().getSimpleName();
         }
         if (responseCapture.businessCode() != null && responseCapture.businessCode() != R.SUCCESS) {
             if (StringUtils.hasText(responseCapture.businessMessage())) {
-                return truncate(maskSensitive(responseCapture.businessMessage()), MAX_RESULT_MESSAGE_LENGTH);
+                return truncate(SensitiveLogSanitizer.sanitize(responseCapture.businessMessage()), MAX_RESULT_MESSAGE_LENGTH);
             }
             return "业务失败: code=" + responseCapture.businessCode();
         }
@@ -268,22 +280,8 @@ public class AuditLogFilter extends OncePerRequestFilter {
         if (!StringUtils.hasText(text)) {
             return "";
         }
-        String sanitized = maskSensitive(text);
+        String sanitized = SensitiveLogSanitizer.sanitize(text);
         return truncate(sanitized, MAX_CAPTURE_LENGTH);
-    }
-
-    private String maskSensitive(String text) {
-        String masked = replaceWithPattern(text, JSON_SENSITIVE_PATTERN, "\"$1\":\"***\"");
-        masked = replaceWithPattern(masked, ESCAPED_JSON_SENSITIVE_PATTERN, "\\\\\"$1\\\\\":\\\\\"***\\\\\"");
-        masked = replaceWithPattern(masked, ESCAPED_JSON_SENSITIVE_GROUP_PATTERN, "$1***$2");
-        masked = replaceWithPattern(masked, KV_SENSITIVE_PATTERN, "$1=***");
-        masked = replaceWithPattern(masked, AUTHORIZATION_HEADER_PATTERN, "$1***");
-        return masked;
-    }
-
-    private String replaceWithPattern(String text, Pattern pattern, String replacement) {
-        Matcher matcher = pattern.matcher(text);
-        return matcher.replaceAll(replacement);
     }
 
     private String truncate(String text, int maxLength) {
@@ -304,6 +302,46 @@ public class AuditLogFilter extends OncePerRequestFilter {
             return realIp.trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private void maybeLogSlowRequest(AuditLog auditLog,
+                                     HttpServletResponse response,
+                                     ResponseCapture responseCapture,
+                                     Exception chainException,
+                                     long costMs) {
+        long thresholdMs = resolveSlowHttpThresholdMs();
+        if (thresholdMs <= 0 || costMs < thresholdMs || !diagnosticAccessLog.isInfoEnabled()) {
+            return;
+        }
+        LinkedHashMap<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", auditLog.getTraceId());
+        details.put("method", auditLog.getRequestMethod());
+        details.put("uri", auditLog.getRequestUrl());
+        details.put("status", response.getStatus());
+        details.put("operationModule", auditLog.getOperationModule());
+        details.put("operationMethod", auditLog.getOperationMethod());
+        details.put("userId", auditLog.getUserId());
+        if (responseCapture.businessCode() != null) {
+            details.put("businessCode", responseCapture.businessCode());
+        }
+        if (chainException != null) {
+            details.put("errorClass", chainException.getClass().getSimpleName());
+        }
+        diagnosticAccessLog.info(ObservabilityEventLogSupport.summary(
+                "slow_http_request",
+                Integer.valueOf(1).equals(auditLog.getOperationResult()) ? "success" : "failure",
+                costMs,
+                details
+        ));
+    }
+
+    private long resolveSlowHttpThresholdMs() {
+        IotProperties.Observability observability = iotProperties.getObservability();
+        if (observability == null || observability.getPerformance() == null) {
+            return 0L;
+        }
+        Long thresholdMs = observability.getPerformance().getSlowHttpThresholdMs();
+        return thresholdMs == null ? 0L : thresholdMs;
     }
 
     private record ResponseCapture(String responseResult, Integer businessCode, String businessMessage) {

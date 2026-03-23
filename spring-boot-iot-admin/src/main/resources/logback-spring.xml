@@ -3,17 +3,22 @@
 
     <property name="LOG_HOME" value="logs"/>
     <property name="APP_NAME" value="spring-boot-iot"/>
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} traceId=%X{traceId} - %msg%n"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.ghlzm.iot.framework.observability.SensitiveDataMaskingPatternLayout">
+                <pattern>${LOG_PATTERN}</pattern>
+            </layout>
         </encoder>
     </appender>
 
     <appender name="INFO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-info.log</file>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.ghlzm.iot.framework.observability.SensitiveDataMaskingPatternLayout">
+                <pattern>${LOG_PATTERN}</pattern>
+            </layout>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_HOME}/${APP_NAME}-info.%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -26,8 +31,10 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>ERROR</level>
         </filter>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.ghlzm.iot.framework.observability.SensitiveDataMaskingPatternLayout">
+                <pattern>${LOG_PATTERN}</pattern>
+            </layout>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_HOME}/${APP_NAME}-error.%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -35,15 +42,44 @@
         </rollingPolicy>
     </appender>
 
+    <appender name="DIAGNOSTIC_SQL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/diagnostic-sql.log</file>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.ghlzm.iot.framework.observability.SensitiveDataMaskingPatternLayout">
+                <pattern>${LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/diagnostic-sql.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="DIAGNOSTIC_ACCESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/diagnostic-access.log</file>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.ghlzm.iot.framework.observability.SensitiveDataMaskingPatternLayout">
+                <pattern>${LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/diagnostic-access.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+    </appender>
+
     <logger name="com.ghlzm.iot" level="DEBUG"/>
     <logger name="mybatis.sql" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <!--        不写入log文件-->
-        <!--        <appender-ref ref="INFO_FILE"/>-->
-        <!--        <appender-ref ref="ERROR_FILE"/>-->
     </logger>
     <logger name="org.mybatis.spring" additivity="false">
         <appender-ref ref="CONSOLE"/>
+    </logger>
+    <logger name="diagnostic.sql" additivity="false">
+        <appender-ref ref="DIAGNOSTIC_SQL_FILE"/>
+    </logger>
+    <logger name="diagnostic.access" additivity="false">
+        <appender-ref ref="DIAGNOSTIC_ACCESS_FILE"/>
     </logger>
 
     <root level="INFO">

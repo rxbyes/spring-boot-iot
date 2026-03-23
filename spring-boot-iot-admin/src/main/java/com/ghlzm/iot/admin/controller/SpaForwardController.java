@@ -1,7 +1,12 @@
 package com.ghlzm.iot.admin.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Set;
 
 /**
  * 前端 history 路由刷新兜底：
@@ -10,15 +15,36 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaForwardController {
 
-    private static final String FRONTEND_FIRST_SEGMENT_PATTERN =
-            "^(?!api$|actuator$|swagger-ui$|v3$|error$|assets$|doc\\\\.html$)[^.]+";
+    private static final Set<String> RESERVED_FIRST_SEGMENTS = Set.of(
+            "api",
+            "actuator",
+            "swagger-ui",
+            "v3",
+            "error",
+            "assets"
+    );
 
     @GetMapping({
             "/",
-            "/{path:" + FRONTEND_FIRST_SEGMENT_PATTERN + "}",
-            "/{path:" + FRONTEND_FIRST_SEGMENT_PATTERN + "}/**/{subPath:[^.]+}"
+            "/{*path}"
     })
-    public String forwardToIndex() {
+    public String forwardToIndex(HttpServletRequest request) {
+        if (!shouldForward(request == null ? null : request.getRequestURI())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
         return "forward:/index.html";
+    }
+
+    private boolean shouldForward(String requestUri) {
+        if (requestUri == null || "/".equals(requestUri)) {
+            return true;
+        }
+        String normalized = requestUri.startsWith("/") ? requestUri.substring(1) : requestUri;
+        if (normalized.isBlank() || normalized.contains(".")) {
+            return false;
+        }
+        int separatorIndex = normalized.indexOf('/');
+        String firstSegment = separatorIndex >= 0 ? normalized.substring(0, separatorIndex) : normalized;
+        return !RESERVED_FIRST_SEGMENTS.contains(firstSegment);
     }
 }

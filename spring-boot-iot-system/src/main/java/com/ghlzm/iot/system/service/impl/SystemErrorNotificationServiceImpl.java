@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.NotificationChannelDispatcher;
@@ -47,30 +48,70 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
 
         for (NotificationChannelDispatcher.DispatchChannel channel : notificationChannelDispatcher.listSceneChannels(SYSTEM_ERROR_SCENE)) {
             if (shouldThrottle(buildThrottleKey(channel.channel().getChannelCode(), event), channel.config().minIntervalSeconds())) {
-                log.debug("系统异常通知已节流, channelCode={}, requestUrl={}", channel.channel().getChannelCode(), event.requestUrl());
+                log.debug(ObservabilityEventLogSupport.summary(
+                        "notification_dispatch",
+                        "throttled",
+                        null,
+                        buildDispatchDetails(SYSTEM_ERROR_SCENE, channel, event, auditLog, null, "cooldown")
+                ));
                 continue;
             }
+            long startNs = System.nanoTime();
             NotificationChannelDispatcher.DispatchResult result =
                     notificationChannelDispatcher.send(channel, buildSystemErrorEnvelope(event, auditLog));
             if (!result.success()) {
-                log.warn("系统异常通知发送失败, channelCode={}, statusCode={}, response={}",
-                        channel.channel().getChannelCode(), result.statusCode(), truncate(safeText(result.responseBody(), result.errorMessage())));
+                log.warn(ObservabilityEventLogSupport.summary(
+                        "notification_dispatch",
+                        "failure",
+                        elapsedMillis(startNs),
+                        buildDispatchDetails(
+                                SYSTEM_ERROR_SCENE,
+                                channel,
+                                event,
+                                auditLog,
+                                result,
+                                truncate(safeText(result.responseBody(), result.errorMessage()))
+                        )
+                ));
                 continue;
             }
-            log.info("系统异常通知发送成功, channelCode={}, statusCode={}",
-                    channel.channel().getChannelCode(), result.statusCode());
+            log.info(ObservabilityEventLogSupport.summary(
+                    "notification_dispatch",
+                    "success",
+                    elapsedMillis(startNs),
+                    buildDispatchDetails(SYSTEM_ERROR_SCENE, channel, event, auditLog, result, null)
+            ));
         }
     }
 
     @Override
     public void sendTestNotification(String channelCode) {
         NotificationChannelDispatcher.DispatchChannel channel = notificationChannelDispatcher.requireTestChannel(channelCode);
+        long startNs = System.nanoTime();
         NotificationChannelDispatcher.DispatchResult result =
                 notificationChannelDispatcher.send(channel, buildTestEnvelope(channel.channel().getChannelCode(), channel.channel().getChannelType()));
         if (!result.success()) {
-            log.warn("测试通知发送失败, channelCode={}, statusCode={}, response={}",
-                    channel.channel().getChannelCode(), result.statusCode(), truncate(safeText(result.responseBody(), result.errorMessage())));
+            log.warn(ObservabilityEventLogSupport.summary(
+                    "notification_dispatch",
+                    "failure",
+                    elapsedMillis(startNs),
+                    buildDispatchDetails(
+                            "notification_test",
+                            channel,
+                            null,
+                            null,
+                            result,
+                            truncate(safeText(result.responseBody(), result.errorMessage()))
+                    )
+            ));
+            return;
         }
+        log.info(ObservabilityEventLogSupport.summary(
+                "notification_dispatch",
+                "success",
+                elapsedMillis(startNs),
+                buildDispatchDetails("notification_test", channel, null, null, result, null)
+        ));
     }
 
     private NotificationChannelDispatcher.NotificationEnvelope buildSystemErrorEnvelope(BackendExceptionEvent event, AuditLog auditLog) {
@@ -236,5 +277,28 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
 
     private String safeText(Object primary, Object fallback) {
         return primary == null ? safeText(fallback) : String.valueOf(primary);
+    }
+
+    private Map<String, Object> buildDispatchDetails(String scene,
+                                                     NotificationChannelDispatcher.DispatchChannel channel,
+                                                     BackendExceptionEvent event,
+                                                     AuditLog auditLog,
+                                                     NotificationChannelDispatcher.DispatchResult result,
+                                                     String responseSummary) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("scene", scene);
+        details.put("channelCode", channel == null ? null : channel.channel().getChannelCode());
+        details.put("channelType", channel == null ? null : channel.channel().getChannelType());
+        details.put("statusCode", result == null ? null : result.statusCode());
+        details.put("traceId", auditLog != null ? auditLog.getTraceId() : event == null ? null : event.context().get("traceId"));
+        details.put("requestUrl", auditLog != null ? auditLog.getRequestUrl() : event == null ? null : event.requestUrl());
+        details.put("operationMethod", auditLog != null ? auditLog.getOperationMethod() : event == null ? null : event.operationMethod());
+        details.put("auditLogId", auditLog == null ? null : auditLog.getId());
+        details.put("response", responseSummary);
+        return details;
+    }
+
+    private long elapsedMillis(long startNs) {
+        return (System.nanoTime() - startNs) / 1_000_000L;
     }
 }
