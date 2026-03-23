@@ -2,12 +2,12 @@ package com.ghlzm.iot.device.service.handler;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.device.entity.DeviceProperty;
-import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
-import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
+import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
+import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.slf4j.Logger;
@@ -18,11 +18,8 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * payload 处理 stage。
@@ -35,17 +32,17 @@ public class DevicePayloadApplyStageHandler {
     private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
 
     private final DevicePropertyMapper devicePropertyMapper;
-    private final ProductModelMapper productModelMapper;
+    private final DevicePropertyMetadataService devicePropertyMetadataService;
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DevicePayloadApplyStageHandler(DevicePropertyMapper devicePropertyMapper,
-                                          ProductModelMapper productModelMapper,
+                                          DevicePropertyMetadataService devicePropertyMetadataService,
                                           CommandRecordService commandRecordService,
                                           DeviceFileService deviceFileService) {
         this.devicePropertyMapper = devicePropertyMapper;
-        this.productModelMapper = productModelMapper;
+        this.devicePropertyMetadataService = devicePropertyMetadataService;
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
     }
@@ -118,11 +115,12 @@ public class DevicePayloadApplyStageHandler {
             return;
         }
 
-        Map<String, ProductModel> propertyModels = listPropertyModels(target.getDevice().getProductId());
+        Map<String, DevicePropertyMetadata> propertyMetadataMap =
+                devicePropertyMetadataService.listPropertyMetadataMap(target.getDevice().getProductId());
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             String identifier = entry.getKey();
             Object value = entry.getValue();
-            ProductModel productModel = propertyModels.get(identifier);
+            DevicePropertyMetadata propertyMetadata = propertyMetadataMap.get(identifier);
 
             DeviceProperty property = devicePropertyMapper.selectOne(
                     new LambdaQueryWrapper<DeviceProperty>()
@@ -136,17 +134,21 @@ public class DevicePayloadApplyStageHandler {
                 property.setTenantId(target.getDevice().getTenantId());
                 property.setDeviceId(target.getDevice().getId());
                 property.setIdentifier(identifier);
-                property.setPropertyName(productModel == null ? identifier : productModel.getModelName());
+                property.setPropertyName(resolvePropertyName(identifier, propertyMetadata));
                 property.setPropertyValue(value == null ? null : String.valueOf(value));
-                property.setValueType(resolveValueType(value, productModel));
+                property.setValueType(resolveValueType(value, propertyMetadata));
                 property.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
                 property.setCreateTime(LocalDateTime.now());
                 property.setUpdateTime(LocalDateTime.now());
                 devicePropertyMapper.insert(property);
             } else {
-                property.setPropertyName(productModel == null ? property.getPropertyName() : productModel.getModelName());
+                property.setPropertyName(resolvePropertyName(
+                        identifier,
+                        propertyMetadata,
+                        property.getPropertyName()
+                ));
                 property.setPropertyValue(value == null ? null : String.valueOf(value));
-                property.setValueType(resolveValueType(value, productModel));
+                property.setValueType(resolveValueType(value, propertyMetadata));
                 property.setReportTime(upMessage.getTimestamp() == null ? LocalDateTime.now() : upMessage.getTimestamp());
                 property.setUpdateTime(LocalDateTime.now());
                 devicePropertyMapper.updateById(property);
@@ -154,20 +156,22 @@ public class DevicePayloadApplyStageHandler {
         }
     }
 
-    private Map<String, ProductModel> listPropertyModels(Long productId) {
-        List<ProductModel> productModels = productModelMapper.selectList(
-                new LambdaQueryWrapper<ProductModel>()
-                        .eq(ProductModel::getProductId, productId)
-                        .eq(ProductModel::getModelType, "property")
-                        .eq(ProductModel::getDeleted, 0)
-        );
-        return productModels.stream()
-                .collect(Collectors.toMap(ProductModel::getIdentifier, Function.identity(), (left, right) -> left));
+    private String resolvePropertyName(String identifier, DevicePropertyMetadata propertyMetadata) {
+        return resolvePropertyName(identifier, propertyMetadata, identifier);
     }
 
-    private String resolveValueType(Object value, ProductModel productModel) {
-        if (productModel != null && hasText(productModel.getDataType())) {
-            return productModel.getDataType();
+    private String resolvePropertyName(String identifier,
+                                       DevicePropertyMetadata propertyMetadata,
+                                       String fallbackPropertyName) {
+        if (propertyMetadata != null && hasText(propertyMetadata.getPropertyName())) {
+            return propertyMetadata.getPropertyName();
+        }
+        return hasText(fallbackPropertyName) ? fallbackPropertyName : identifier;
+    }
+
+    private String resolveValueType(Object value, DevicePropertyMetadata propertyMetadata) {
+        if (propertyMetadata != null && hasText(propertyMetadata.getDataType())) {
+            return propertyMetadata.getDataType();
         }
         if (value == null) {
             return "string";

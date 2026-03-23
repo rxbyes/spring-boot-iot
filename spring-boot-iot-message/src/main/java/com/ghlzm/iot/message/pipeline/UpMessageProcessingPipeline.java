@@ -12,6 +12,7 @@ import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowFingerprintSupport;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowLoggingConstants;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStageResult;
@@ -27,6 +28,8 @@ import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
+import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
+import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,31 +55,37 @@ public class UpMessageProcessingPipeline {
             LoggerFactory.getLogger(MessageFlowLoggingConstants.MESSAGE_FLOW_LOGGER_NAME);
 
     private final MessageFlowProperties messageFlowProperties;
+    private final MessageFlowMetricsRecorder messageFlowMetricsRecorder;
     private final MessageFlowTimelineStore messageFlowTimelineStore;
     private final MqttTopicRouter mqttTopicRouter;
     private final ProtocolAdapterRegistry protocolAdapterRegistry;
     private final DeviceContractStageHandler deviceContractStageHandler;
     private final DeviceMessageLogStageHandler deviceMessageLogStageHandler;
     private final DevicePayloadApplyStageHandler devicePayloadApplyStageHandler;
+    private final TelemetryPersistStageHandler telemetryPersistStageHandler;
     private final DeviceStateStageHandler deviceStateStageHandler;
     private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
 
     public UpMessageProcessingPipeline(MessageFlowProperties messageFlowProperties,
+                                       MessageFlowMetricsRecorder messageFlowMetricsRecorder,
                                        MessageFlowTimelineStore messageFlowTimelineStore,
                                        MqttTopicRouter mqttTopicRouter,
                                        ProtocolAdapterRegistry protocolAdapterRegistry,
                                        DeviceContractStageHandler deviceContractStageHandler,
                                        DeviceMessageLogStageHandler deviceMessageLogStageHandler,
                                        DevicePayloadApplyStageHandler devicePayloadApplyStageHandler,
+                                       TelemetryPersistStageHandler telemetryPersistStageHandler,
                                        DeviceStateStageHandler deviceStateStageHandler,
                                        DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler) {
         this.messageFlowProperties = messageFlowProperties;
+        this.messageFlowMetricsRecorder = messageFlowMetricsRecorder;
         this.messageFlowTimelineStore = messageFlowTimelineStore;
         this.mqttTopicRouter = mqttTopicRouter;
         this.protocolAdapterRegistry = protocolAdapterRegistry;
         this.deviceContractStageHandler = deviceContractStageHandler;
         this.deviceMessageLogStageHandler = deviceMessageLogStageHandler;
         this.devicePayloadApplyStageHandler = devicePayloadApplyStageHandler;
+        this.telemetryPersistStageHandler = telemetryPersistStageHandler;
         this.deviceStateStageHandler = deviceStateStageHandler;
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
     }
@@ -92,6 +101,7 @@ public class UpMessageProcessingPipeline {
             executeStage(context, MessageFlowStages.DEVICE_CONTRACT, DeviceContractStageHandler.class.getSimpleName(), "resolve", () -> deviceContract(context));
             executeStage(context, MessageFlowStages.MESSAGE_LOG, DeviceMessageLogStageHandler.class.getSimpleName(), "save", () -> messageLog(context));
             executeStage(context, MessageFlowStages.PAYLOAD_APPLY, DevicePayloadApplyStageHandler.class.getSimpleName(), "apply", () -> payloadApply(context));
+            executeStage(context, MessageFlowStages.TELEMETRY_PERSIST, TelemetryPersistStageHandler.class.getSimpleName(), "persist", () -> telemetryPersist(context));
             executeStage(context, MessageFlowStages.DEVICE_STATE, DeviceStateStageHandler.class.getSimpleName(), "refresh", () -> deviceState(context));
             executeStage(context, MessageFlowStages.RISK_DISPATCH, DeviceRiskDispatchStageHandler.class.getSimpleName(), "dispatch", () -> riskDispatch(context));
             executeStage(context, MessageFlowStages.COMPLETE, getClass().getSimpleName(), "complete", () -> complete(context));
@@ -119,6 +129,7 @@ public class UpMessageProcessingPipeline {
         context.timeline.setDeviceCode(context.request.getDeviceCode());
         context.timeline.setProductKey(context.request.getProductKey());
         context.timeline.setProtocolCode(context.request.getProtocolCode());
+        messageFlowMetricsRecorder.recordSession(context.request.getTransportMode(), MessageFlowStatuses.SESSION_PROCESSING);
 
         if (isHttp(context)) {
             context.session = buildOrLoadSession(context.sessionId);
@@ -222,6 +233,7 @@ public class UpMessageProcessingPipeline {
                 context.session.setCorrelationPending(Boolean.FALSE);
                 saveSessionIfEnabled(context.session);
                 context.correlationMatched = true;
+                messageFlowMetricsRecorder.recordCorrelation(MessageFlowMetricsRecorder.CORRELATION_RESULT_MATCHED);
             }
         } else if (context.session != null) {
             context.session.setDeviceCode(upMessage.getDeviceCode());
@@ -322,6 +334,70 @@ public class UpMessageProcessingPipeline {
         return result;
     }
 
+    private MessageFlowStageResult telemetryPersist(ProcessingContext context) {
+        MessageFlowStageResult result = new MessageFlowStageResult();
+        if (context.targets.isEmpty()) {
+            result.setStatus(MessageFlowStatuses.STEP_SKIPPED);
+            result.setBranch("NO_TARGETS");
+            result.getSummary().put("persistedTargetCount", 0);
+            result.getSummary().put("persistedPointCount", 0);
+            result.getSummary().put("skippedTargetCount", 0);
+            result.getSummary().put("failedTargetCount", 0);
+            return result;
+        }
+
+        int persistedTargetCount = 0;
+        int persistedPointCount = 0;
+        int skippedTargetCount = 0;
+        int failedTargetCount = 0;
+        String branch = null;
+        String errorClass = null;
+        String errorMessage = null;
+
+        for (DeviceProcessingTarget target : context.targets) {
+            try {
+                TelemetryPersistResult persistResult = telemetryPersistStageHandler.persist(target);
+                if (persistResult == null || persistResult.isSkipped()) {
+                    skippedTargetCount++;
+                    if (branch == null && persistResult != null && hasText(persistResult.getBranch())) {
+                        branch = persistResult.getBranch();
+                    }
+                    continue;
+                }
+                persistedTargetCount++;
+                persistedPointCount += persistResult.getPointCount() == null ? 0 : persistResult.getPointCount();
+                if (branch == null && hasText(persistResult.getBranch())) {
+                    branch = persistResult.getBranch();
+                }
+            } catch (Exception ex) {
+                failedTargetCount++;
+                if (errorClass == null) {
+                    errorClass = ex.getClass().getSimpleName();
+                    errorMessage = ex.getMessage();
+                }
+                logTelemetryPersistFailure(target, ex);
+            }
+        }
+
+        if (failedTargetCount > 0) {
+            result.setStatus(MessageFlowStatuses.STEP_FAILED);
+            result.setErrorClass(errorClass);
+            result.setErrorMessage(errorMessage);
+            result.setBranch("NON_BLOCKING_FAILURE");
+        } else if (persistedPointCount == 0) {
+            result.setStatus(MessageFlowStatuses.STEP_SKIPPED);
+            result.setBranch(hasText(branch) ? branch : "NO_PROPERTIES");
+        } else {
+            result.setBranch(hasText(branch) ? branch : "TDENGINE");
+        }
+
+        result.getSummary().put("persistedTargetCount", persistedTargetCount);
+        result.getSummary().put("persistedPointCount", persistedPointCount);
+        result.getSummary().put("skippedTargetCount", skippedTargetCount);
+        result.getSummary().put("failedTargetCount", failedTargetCount);
+        return result;
+    }
+
     private MessageFlowStageResult riskDispatch(ProcessingContext context) {
         int publishedCount = 0;
         for (DeviceProcessingTarget target : context.targets) {
@@ -371,6 +447,10 @@ public class UpMessageProcessingPipeline {
         session.setCorrelationPending(Boolean.FALSE);
         context.session = session;
 
+        messageFlowMetricsRecorder.recordSession(
+                context.request.getTransportMode(),
+                throwable == null ? MessageFlowStatuses.SESSION_COMPLETED : MessageFlowStatuses.SESSION_FAILED
+        );
         saveSessionIfEnabled(session);
         saveTimelineIfEnabled(context.timeline);
         logSummary(context, throwable);
@@ -407,6 +487,12 @@ public class UpMessageProcessingPipeline {
             step.setFinishedAt(LocalDateTime.now());
             step.setCostMs(elapsedMs(step.getStartedAt(), step.getFinishedAt()));
             context.timeline.getSteps().add(step);
+            messageFlowMetricsRecorder.recordStageDuration(
+                    stage,
+                    context.request.getTransportMode(),
+                    step.getStatus(),
+                    step.getCostMs()
+            );
             if (stageResult != null && stageResult.getAdditionalSteps() != null) {
                 context.timeline.getSteps().addAll(stageResult.getAdditionalSteps());
             }
@@ -417,6 +503,12 @@ public class UpMessageProcessingPipeline {
             step.setFinishedAt(LocalDateTime.now());
             step.setCostMs(elapsedMs(step.getStartedAt(), step.getFinishedAt()));
             context.timeline.getSteps().add(step);
+            messageFlowMetricsRecorder.recordStageDuration(
+                    stage,
+                    context.request.getTransportMode(),
+                    step.getStatus(),
+                    step.getCostMs()
+            );
             throw ex;
         }
     }
@@ -588,6 +680,19 @@ public class UpMessageProcessingPipeline {
                 context.timeline.getTotalCostMs(),
                 details
         ));
+    }
+
+    private void logTelemetryPersistFailure(DeviceProcessingTarget target, Exception ex) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", target == null || target.getMessage() == null ? null : target.getMessage().getTraceId());
+        details.put("deviceCode", target == null || target.getDevice() == null ? null : target.getDevice().getDeviceCode());
+        details.put("productKey", target == null || target.getMessage() == null ? null : target.getMessage().getProductKey());
+        details.put("messageType", target == null || target.getMessage() == null ? null : target.getMessage().getMessageType());
+        details.put("topic", target == null || target.getMessage() == null ? null : target.getMessage().getTopic());
+        messageFlowLogger.warn(
+                ObservabilityEventLogSupport.summary("telemetry_persist", "failure", null, details),
+                ex
+        );
     }
 
     private boolean isHttp(ProcessingContext context) {

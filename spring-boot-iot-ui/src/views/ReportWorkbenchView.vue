@@ -348,6 +348,63 @@
     </PanelCard>
 
     <PanelCard
+        class="reporting-card reporting-card--recent"
+        eyebrow="链路验证中心"
+        title="最近提交"
+        description="保留最近一批 message-flow session，支持直接恢复时间线复盘，不必先手工记录 sessionId。"
+    >
+      <div class="reporting-recent-toolbar">
+        <StandardInlineState
+            tone="info"
+            :message="messageFlowRecentLoading ? '正在同步最近提交...' : '点击任一 session 可恢复对应时间线；MQTT pending 会继续按窗口轮询。'"
+        />
+        <StandardActionGroup>
+          <StandardButton action="refresh" link @click="loadRecentMessageFlows">
+            刷新最近提交
+          </StandardButton>
+        </StandardActionGroup>
+      </div>
+
+      <div v-if="!messageFlowRecentSessions.length" class="reporting-recent-empty">
+        {{ messageFlowRecentEmptyText }}
+      </div>
+
+      <div v-else class="reporting-recent-list">
+        <button
+            v-for="session in messageFlowRecentSessions"
+            :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
+            type="button"
+            class="reporting-recent-item"
+            :data-active="(session.sessionId || '') === messageFlowSessionId"
+            @click="restoreRecentSession(session)"
+        >
+          <div class="reporting-recent-item__header">
+            <strong>{{ session.sessionId || '--' }}</strong>
+            <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
+          </div>
+          <div class="reporting-recent-item__meta">
+            <span>设备 {{ session.deviceCode || '--' }}</span>
+            <span>{{ formatDateTime(session.submittedAt) }}</span>
+          </div>
+          <div class="reporting-recent-item__meta">
+            <span>{{ session.topic || '--' }}</span>
+            <span>
+              {{
+                session.traceId
+                    ? `Trace ${session.traceId}`
+                    : session.correlationPending
+                        ? '等待回流'
+                        : session.timelineAvailable
+                            ? 'Timeline 可用'
+                            : 'Timeline 缺失'
+              }}
+            </span>
+          </div>
+        </button>
+      </div>
+    </PanelCard>
+
+    <PanelCard
         class="reporting-card reporting-card--follow-up"
         eyebrow="链路验证中心"
         title="发送后建议检查"
@@ -377,11 +434,12 @@ import { recordActivity } from '../stores/activity';
 import type {
   Device,
   HttpReportPayload,
+  MessageFlowRecentSession,
   MessageFlowSession,
   MessageFlowTimeline,
   MqttReportPublishPayload
 } from '../types/api';
-import { looksLikeXml, parseJsonSafely, prettyJson, prettyXml } from '../utils/format';
+import { formatDateTime, looksLikeXml, parseJsonSafely, prettyJson, prettyXml } from '../utils/format';
 import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
 import {
   evaluateReportWorkbenchInput,
@@ -406,6 +464,8 @@ interface ReportFormState {
 }
 
 type FeedbackTone = 'neutral' | 'info' | 'success' | 'danger';
+
+const MESSAGE_FLOW_MATCH_WINDOW_MS = 120 * 1000;
 
 const router = useRouter();
 
@@ -515,7 +575,13 @@ const lastResponse = ref<unknown>(INITIAL_RESPONSE);
 const framePanelExpanded = ref(true);
 const messageFlowSessionId = ref('');
 const messageFlowSession = ref<MessageFlowSession | null>(null);
+const messageFlowRecentSessions = ref<MessageFlowRecentSession[]>([]);
 const messageFlowLoading = ref(false);
+const messageFlowRecentLoading = ref(false);
+const messageFlowLookupError = ref('');
+const messageFlowLookupMissing = ref(false);
+const messageFlowSubmittedTransportMode = ref<TransportMode | ''>('');
+const messageFlowExpectedTimeline = ref(false);
 let messageFlowPollTimer: number | null = null;
 
 const filteredTemplates = computed(() => filterTemplatesByMode(templates, reportMode.value));
@@ -826,8 +892,15 @@ const messageFlowTimeline = computed<MessageFlowTimeline | null>(() => messageFl
 const messageFlowTraceId = computed(() =>
     normalizedText(messageFlowSession.value?.traceId) || normalizedText(messageFlowTimeline.value?.traceId)
 );
+const messageFlowPendingTimedOut = computed(() => {
+  if (!messageFlowSession.value?.correlationPending || normalizedText(messageFlowTraceId.value)) {
+    return false;
+  }
+  const submittedAt = parseMessageFlowSubmittedAt(messageFlowSession.value?.submittedAt);
+  return submittedAt !== null && Date.now() - submittedAt >= MESSAGE_FLOW_MATCH_WINDOW_MS;
+});
 const messageFlowInlineTone = computed<'info' | 'error'>(() =>
-    messageFlowSession.value?.status === 'FAILED' ? 'error' : 'info'
+    messageFlowLookupError.value || messageFlowSession.value?.status === 'FAILED' ? 'error' : 'info'
 );
 const messageFlowStatusMessage = computed(() => {
   if (!messageFlowSessionId.value) {
@@ -836,7 +909,16 @@ const messageFlowStatusMessage = computed(() => {
   if (messageFlowLoading.value) {
     return '正在同步最新处理时间线，请稍候。';
   }
+  if (messageFlowLookupError.value) {
+    return 'message-flow 存储异常/Redis 不可用。';
+  }
+  if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
+    return '时间线不可用，优先排查 Redis/TTL。';
+  }
   if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    if (messageFlowPendingTimedOut.value) {
+      return 'MQTT 模拟已超出关联窗口，判定为未命中消费回流关联。';
+    }
     return 'MQTT 模拟已发布，正在等待消费回流绑定 traceId。';
   }
   if (messageFlowSession.value?.status === 'FAILED') {
@@ -845,22 +927,49 @@ const messageFlowStatusMessage = computed(() => {
   if (messageFlowTimeline.value) {
     return '处理时间线已就绪，可直接查看阶段顺序，或跳转链路追踪台继续联动排查。';
   }
+  if (messageFlowLookupMissing.value) {
+    return '当前 session 对应的时间线不存在或已过期。';
+  }
   return '当前 session 还没有可展示的处理时间线。';
 });
 const messageFlowEmptyTitle = computed(() => {
+  if (messageFlowLookupError.value) {
+    return 'message-flow 存储异常';
+  }
+  if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
+    return '时间线不可用';
+  }
   if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    if (messageFlowPendingTimedOut.value) {
+      return '未命中消费回流关联';
+    }
     return '等待消费回流';
   }
   return '暂无处理时间线';
 });
 const messageFlowEmptyDescription = computed(() => {
+  if (messageFlowLookupError.value) {
+    return '当前 session/trace 查询失败，优先排查 Redis 可用性和后端 message-flow 存储日志。';
+  }
+  if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
+    return 'HTTP 提交已返回 timelineAvailable=true，但后续 session 查询为空，优先排查 Redis TTL、key 可写性和 message-flow 存储异常。';
+  }
   if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+    if (messageFlowPendingTimedOut.value) {
+      return 'MQTT 模拟发布已超过 120 秒匹配窗口，当前判定 fingerprint 未命中真实消费回流。';
+    }
     return 'MQTT 模拟发布成功后，会在消费链路完成 decode 并命中 fingerprint 绑定后展示完整 trace timeline。';
   }
   if (messageFlowSessionId.value && !messageFlowTimeline.value) {
     return '当前 session 还没有 timeline，可能仍在处理、已过期，或尚未完成 trace 绑定。';
   }
   return '发送成功后，这里会显示阶段状态、耗时、处理类/方法和关键摘要。';
+});
+const messageFlowRecentEmptyText = computed(() => {
+  if (messageFlowRecentLoading.value) {
+    return '正在加载最近提交...';
+  }
+  return '最近还没有可恢复的 message-flow session。';
 });
 
 watch(
@@ -875,6 +984,7 @@ watch(
 );
 
 onMounted(() => {
+  loadRecentMessageFlows().catch(() => undefined);
   try {
     const lastTemplate = window.localStorage.getItem('reporting:lastTemplate');
     if (!lastTemplate) {
@@ -1048,11 +1158,14 @@ async function handleSendReport() {
     }
 
     lastResponse.value = response;
+    messageFlowSubmittedTransportMode.value = transportMode.value;
+    messageFlowExpectedTimeline.value = Boolean(response.data?.timelineAvailable);
     const submitSessionId = normalizedText(response.data?.sessionId);
     if (submitSessionId) {
       messageFlowSessionId.value = submitSessionId;
       await loadMessageFlowSession(submitSessionId, transportMode.value === 'mqtt');
     }
+    await loadRecentMessageFlows();
     ElMessage.success(`${transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP'} 模拟上报成功`);
     recordActivity({
       module: '链路验证中心',
@@ -1095,6 +1208,10 @@ function resetMessageFlowState() {
   clearMessageFlowTimer();
   messageFlowSessionId.value = '';
   messageFlowSession.value = null;
+  messageFlowLookupError.value = '';
+  messageFlowLookupMissing.value = false;
+  messageFlowSubmittedTransportMode.value = '';
+  messageFlowExpectedTimeline.value = false;
 }
 
 function clearMessageFlowTimer() {
@@ -1116,16 +1233,24 @@ async function loadMessageFlowSession(sessionId: string, allowPolling = false) {
     return;
   }
   messageFlowLoading.value = true;
+  messageFlowLookupError.value = '';
+  messageFlowLookupMissing.value = false;
   try {
     const response = await messageApi.getMessageFlowSession(sessionId);
     messageFlowSession.value = response.data || null;
-    if (allowPolling && response.data?.correlationPending && !normalizedText(response.data.traceId)) {
+    messageFlowLookupMissing.value = !response.data;
+    if (response.data?.transportMode && isTransportMode(response.data.transportMode)) {
+      messageFlowSubmittedTransportMode.value = response.data.transportMode.toLowerCase() as TransportMode;
+    }
+    if (allowPolling && shouldContinueMessageFlowPolling(response.data || null)) {
       scheduleMessageFlowPoll(sessionId);
     } else {
       clearMessageFlowTimer();
     }
   } catch (error) {
     clearMessageFlowTimer();
+    messageFlowSession.value = null;
+    messageFlowLookupError.value = error instanceof Error ? error.message : '获取处理时间线失败';
     ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
   } finally {
     messageFlowLoading.value = false;
@@ -1154,6 +1279,37 @@ function jumpToMessageTrace() {
   });
 }
 
+async function loadRecentMessageFlows() {
+  messageFlowRecentLoading.value = true;
+  try {
+    const response = await messageApi.getMessageFlowRecentSessions({ size: 6 });
+    messageFlowRecentSessions.value = response.data || [];
+  } catch {
+    messageFlowRecentSessions.value = [];
+  } finally {
+    messageFlowRecentLoading.value = false;
+  }
+}
+
+async function restoreRecentSession(session: MessageFlowRecentSession) {
+  const sessionId = normalizedText(session.sessionId);
+  if (!sessionId) {
+    return;
+  }
+  messageFlowSessionId.value = sessionId;
+  messageFlowSubmittedTransportMode.value = isTransportMode(session.transportMode)
+      ? session.transportMode.toLowerCase() as TransportMode
+      : '';
+  messageFlowExpectedTimeline.value = Boolean(session.timelineAvailable)
+      || messageFlowSubmittedTransportMode.value === 'http';
+  await loadMessageFlowSession(
+      sessionId,
+      messageFlowSubmittedTransportMode.value === 'mqtt'
+          && Boolean(session.correlationPending)
+          && !normalizedText(session.traceId)
+  );
+}
+
 function toggleFramePanel() {
   framePanelExpanded.value = !framePanelExpanded.value;
 }
@@ -1177,6 +1333,31 @@ async function copyText(value: string, successMessage: string) {
 
 function normalizedText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseMessageFlowSubmittedAt(value?: string | null): number | null {
+  const normalized = normalizedText(value);
+  if (!normalized) {
+    return null;
+  }
+  const parsed = Date.parse(normalized.includes('T') ? normalized : normalized.replace(' ', 'T'));
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function shouldContinueMessageFlowPolling(session: MessageFlowSession | null) {
+  if (!session?.correlationPending || normalizedText(session.traceId)) {
+    return false;
+  }
+  const submittedAt = parseMessageFlowSubmittedAt(session.submittedAt);
+  if (submittedAt === null) {
+    return true;
+  }
+  return Date.now() - submittedAt < MESSAGE_FLOW_MATCH_WINDOW_MS;
+}
+
+function isTransportMode(value: unknown): value is TransportMode {
+  const normalized = normalizedText(value);
+  return normalized === 'HTTP' || normalized === 'MQTT' || normalized === 'http' || normalized === 'mqtt';
 }
 
 onBeforeUnmount(() => {
@@ -1482,6 +1663,70 @@ onBeforeUnmount(() => {
   margin-bottom: 1rem;
 }
 
+.reporting-recent-toolbar {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.reporting-recent-empty {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--line-soft);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.reporting-recent-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.reporting-recent-item {
+  display: grid;
+  gap: 0.42rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 249, 252, 0.98));
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reporting-recent-item:hover {
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--line-soft));
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(12, 37, 63, 0.08);
+}
+
+.reporting-recent-item[data-active='true'] {
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 7%, white);
+}
+
+.reporting-recent-item__header,
+.reporting-recent-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.reporting-recent-item__header strong {
+  color: var(--text-heading);
+  font-size: 0.88rem;
+}
+
+.reporting-recent-item__header span,
+.reporting-recent-item__meta span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
 .reporting-note-list {
   display: grid;
   gap: 0.55rem;
@@ -1606,6 +1851,12 @@ onBeforeUnmount(() => {
 
   .reporting-toolbar__group,
   .reporting-quick-fill {
+    align-items: flex-start;
+  }
+
+  .reporting-recent-item__header,
+  .reporting-recent-item__meta {
+    flex-direction: column;
     align-items: flex-start;
   }
 

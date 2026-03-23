@@ -25,7 +25,8 @@ vi.mock('@/api/iot', () => ({
 vi.mock('@/api/message', () => ({
   messageApi: {
     getMessageFlowSession: vi.fn(),
-    getMessageFlowTrace: vi.fn()
+    getMessageFlowTrace: vi.fn(),
+    getMessageFlowRecentSessions: vi.fn()
   }
 }));
 
@@ -215,6 +216,12 @@ describe('ReportWorkbenchView', () => {
     vi.mocked(reportByHttp).mockReset();
     vi.mocked(reportByMqtt).mockReset();
     vi.mocked(messageApi.getMessageFlowSession).mockReset();
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockReset();
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
     mockRouter.push.mockReset();
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
@@ -409,7 +416,47 @@ describe('ReportWorkbenchView', () => {
     expect(wrapper.text()).toContain('INGRESS');
   });
 
+  it('shows a Redis or TTL hint when http submit expects timeline but session lookup returns empty', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1,
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        productKey: 'demo-product',
+        protocolCode: 'mqtt-json'
+      }
+    });
+    vi.mocked(reportByHttp).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-http-empty',
+        traceId: 'trace-http-empty',
+        status: 'COMPLETED',
+        timelineAvailable: true,
+        correlationPending: false
+      }
+    });
+    vi.mocked(messageApi.getMessageFlowSession).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    });
+
+    const wrapper = mountView();
+    await queryDevice(wrapper);
+    await wrapper.find('form').trigger('submit.prevent');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('时间线不可用，优先排查 Redis/TTL。');
+    expect(wrapper.text()).toContain('HTTP 提交已返回 timelineAvailable=true');
+  });
+
   it('polls the mqtt session until the trace is bound', async () => {
+    const recentSubmittedAt = new Date(Date.now() - 30_000).toISOString();
     vi.mocked(getDeviceByCode).mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -439,7 +486,7 @@ describe('ReportWorkbenchView', () => {
           sessionId: 'session-mqtt-001',
           transportMode: 'MQTT',
           status: 'PUBLISHED',
-          submittedAt: '2026-03-23 10:05:00',
+          submittedAt: recentSubmittedAt,
           traceId: '',
           deviceCode: 'demo-device-01',
           topic: '$dp',
@@ -454,7 +501,7 @@ describe('ReportWorkbenchView', () => {
           sessionId: 'session-mqtt-001',
           transportMode: 'MQTT',
           status: 'COMPLETED',
-          submittedAt: '2026-03-23 10:05:00',
+          submittedAt: recentSubmittedAt,
           traceId: 'trace-mqtt-001',
           deviceCode: 'demo-device-01',
           topic: '$dp',
@@ -489,27 +536,74 @@ describe('ReportWorkbenchView', () => {
             ]
           }
         }
-      });
+    });
 
     const wrapper = mountView();
     await queryDevice(wrapper);
-    vi.useFakeTimers();
     await findButtonByText(wrapper, 'MQTT')!.trigger('click');
     await nextTick();
     await wrapper.find('form').trigger('submit.prevent');
-    await Promise.resolve();
+    await flushPromises();
     await nextTick();
 
     expect(wrapper.text()).toContain('MQTT 模拟已发布，正在等待消费回流绑定 traceId。');
     expect(messageApi.getMessageFlowSession).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(1500);
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 1600));
     await nextTick();
 
     expect(messageApi.getMessageFlowSession).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).toContain('trace-mqtt-001');
     expect(wrapper.text()).toContain('PROTOCOL_DECODE');
-    vi.useRealTimers();
+  });
+
+  it('shows correlation miss when mqtt pending session exceeds the match window', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1,
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        productKey: 'demo-product',
+        protocolCode: 'mqtt-json'
+      }
+    });
+    vi.mocked(reportByMqtt).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-mqtt-timeout',
+        status: 'PUBLISHED',
+        timelineAvailable: false,
+        correlationPending: true
+      }
+    });
+    vi.mocked(messageApi.getMessageFlowSession).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        sessionId: 'session-mqtt-timeout',
+        transportMode: 'MQTT',
+        status: 'PUBLISHED',
+        submittedAt: '2024-03-23T10:05:00',
+        traceId: '',
+        deviceCode: 'demo-device-01',
+        topic: '$dp',
+        correlationPending: true,
+        timeline: null
+      }
+    });
+
+    const wrapper = mountView();
+    await queryDevice(wrapper);
+    await findButtonByText(wrapper, 'MQTT')!.trigger('click');
+    await nextTick();
+    await wrapper.find('form').trigger('submit.prevent');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('MQTT 模拟已超出关联窗口，判定为未命中消费回流关联。');
+    expect(wrapper.text()).toContain('MQTT 模拟发布已超过 120 秒匹配窗口');
   });
 });

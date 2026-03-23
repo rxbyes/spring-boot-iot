@@ -3,6 +3,8 @@ import { buildQueryString } from './query';
 import type {
   DeviceMessageLog,
   HttpReportPayload,
+  MessageFlowOpsOverview,
+  MessageFlowRecentSession,
   MessageFlowSession,
   MessageFlowSubmitResult,
   MessageFlowTimeline,
@@ -18,6 +20,14 @@ export interface MessageTraceQueryParams {
   topic?: string;
   pageNum?: number;
   pageSize?: number;
+}
+
+export interface MessageFlowRecentQueryParams {
+  size?: number;
+  deviceCode?: string;
+  topic?: string;
+  transportMode?: string;
+  status?: string;
 }
 
 /**
@@ -40,6 +50,16 @@ export const messageApi = {
 
   getMessageFlowTrace(traceId: string) {
     return request<MessageFlowTimeline>(`/api/device/message-flow/trace/${traceId}`);
+  },
+
+  getMessageFlowOpsOverview() {
+    return request<MessageFlowOpsOverview>('/api/device/message-flow/ops/overview');
+  },
+
+  getMessageFlowRecentSessions(params: MessageFlowRecentQueryParams = {}) {
+    const query = buildQueryString(params);
+    const path = `/api/device/message-flow/recent${query ? `?${query}` : ''}`;
+    return request<MessageFlowRecentSession[]>(path);
   },
 
   /**

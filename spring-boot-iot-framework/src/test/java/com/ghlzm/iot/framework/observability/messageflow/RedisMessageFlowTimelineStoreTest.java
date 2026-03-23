@@ -8,18 +8,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ZSetOperations;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class RedisMessageFlowTimelineStoreTest {
@@ -28,6 +32,8 @@ class RedisMessageFlowTimelineStoreTest {
     private StringRedisTemplate stringRedisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private ZSetOperations<String, String> zSetOperations;
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -40,7 +46,9 @@ class RedisMessageFlowTimelineStoreTest {
         messageFlowProperties.setEnabled(true);
         messageFlowProperties.setTtlHours(24);
         messageFlowProperties.setSessionMatchWindowSeconds(120);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        messageFlowProperties.setRecentSessionLimit(500);
+        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(stringRedisTemplate.opsForZSet()).thenReturn(zSetOperations);
         store = new RedisMessageFlowTimelineStore(stringRedisTemplate, messageFlowProperties);
     }
 
@@ -63,6 +71,7 @@ class RedisMessageFlowTimelineStoreTest {
         MessageFlowSession stored = objectMapper.readValue(jsonCaptor.getValue(), MessageFlowSession.class);
         assertEquals("session-001", stored.getSessionId());
         assertEquals("MQTT", stored.getTransportMode());
+        verify(zSetOperations).add("iot:message-flow:recent:sessions", "session-001", session.getSubmittedAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
     }
 
     @Test
@@ -113,5 +122,17 @@ class RedisMessageFlowTimelineStoreTest {
 
         when(valueOperations.get("iot:message-flow:fingerprint:fingerprint-missing")).thenReturn(null);
         assertFalse(store.getSessionIdByFingerprint("fingerprint-missing").isPresent());
+    }
+
+    @Test
+    void getRecentSessionIdsShouldUseReverseRangeAndAllowPruningExpiredMembers() {
+        when(zSetOperations.reverseRange("iot:message-flow:recent:sessions", 0, 2)).thenReturn(Set.of("session-003", "session-002", "session-001"));
+
+        List<String> sessionIds = store.getRecentSessionIds(3);
+
+        assertEquals(3, sessionIds.size());
+        assertTrue(sessionIds.contains("session-001"));
+        store.removeRecentSession("session-002");
+        verify(zSetOperations).remove("iot:message-flow:recent:sessions", "session-002");
     }
 }

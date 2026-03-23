@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStages;
@@ -23,6 +24,8 @@ import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
+import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +58,8 @@ import static org.mockito.Mockito.when;
 class UpMessageProcessingPipelineTest {
 
     @Mock
+    private MessageFlowMetricsRecorder messageFlowMetricsRecorder;
+    @Mock
     private MessageFlowTimelineStore messageFlowTimelineStore;
     @Mock
     private MqttTopicRouter mqttTopicRouter;
@@ -66,6 +71,8 @@ class UpMessageProcessingPipelineTest {
     private DeviceMessageLogStageHandler deviceMessageLogStageHandler;
     @Mock
     private DevicePayloadApplyStageHandler devicePayloadApplyStageHandler;
+    @Mock
+    private TelemetryPersistStageHandler telemetryPersistStageHandler;
     @Mock
     private DeviceStateStageHandler deviceStateStageHandler;
     @Mock
@@ -85,15 +92,19 @@ class UpMessageProcessingPipelineTest {
         lenient().when(messageFlowTimelineStore.getSessionIdByFingerprint(anyString())).thenReturn(Optional.empty());
         pipeline = new UpMessageProcessingPipeline(
                 messageFlowProperties,
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore,
                 mqttTopicRouter,
                 protocolAdapterRegistry,
                 deviceContractStageHandler,
                 deviceMessageLogStageHandler,
                 devicePayloadApplyStageHandler,
+                telemetryPersistStageHandler,
                 deviceStateStageHandler,
                 deviceRiskDispatchStageHandler
         );
+        lenient().when(telemetryPersistStageHandler.persist(any()))
+                .thenReturn(TelemetryPersistResult.skipped("EMPTY_PROPERTIES"));
     }
 
     @AfterEach
@@ -112,6 +123,7 @@ class UpMessageProcessingPipelineTest {
         when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
         when(deviceContractStageHandler.resolve(any())).thenReturn(target);
         when(devicePayloadApplyStageHandler.apply(target)).thenReturn(payloadApplyResult);
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(TelemetryPersistResult.persisted(1));
         when(deviceRiskDispatchStageHandler.dispatch(target)).thenReturn(true);
 
         MessageFlowExecutionResult result = pipeline.process(request);
@@ -129,6 +141,7 @@ class UpMessageProcessingPipelineTest {
                         MessageFlowStages.DEVICE_CONTRACT,
                         MessageFlowStages.MESSAGE_LOG,
                         MessageFlowStages.PAYLOAD_APPLY,
+                        MessageFlowStages.TELEMETRY_PERSIST,
                         MessageFlowStages.DEVICE_STATE,
                         MessageFlowStages.RISK_DISPATCH,
                         MessageFlowStages.COMPLETE
@@ -142,6 +155,7 @@ class UpMessageProcessingPipelineTest {
         assertEquals("PROPERTY", payloadStep.getBranch());
         assertEquals(1, payloadStep.getSummary().get("propertyCount"));
         verify(deviceMessageLogStageHandler).save(target);
+        verify(telemetryPersistStageHandler).persist(target);
         verify(deviceStateStageHandler).refresh(target);
         verify(deviceRiskDispatchStageHandler).dispatch(target);
 
@@ -169,6 +183,7 @@ class UpMessageProcessingPipelineTest {
         when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
         when(deviceContractStageHandler.resolve(any())).thenReturn(target);
         when(devicePayloadApplyStageHandler.apply(target)).thenReturn(payloadApplyResult);
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(TelemetryPersistResult.persisted(1));
         when(messageFlowTimelineStore.getSessionIdByFingerprint(anyString())).thenReturn(Optional.of("session-pending-001"));
         when(messageFlowTimelineStore.getSession("session-pending-001")).thenReturn(Optional.of(pendingSession));
 
@@ -201,6 +216,7 @@ class UpMessageProcessingPipelineTest {
         when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
         when(deviceContractStageHandler.resolve(any())).thenReturn(target);
         when(devicePayloadApplyStageHandler.apply(target)).thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(TelemetryPersistResult.skipped("EMPTY_PROPERTIES"));
 
         MessageFlowExecutionResult result = pipeline.process(request);
 
@@ -208,6 +224,33 @@ class UpMessageProcessingPipelineTest {
         assertEquals("legacy", routeStep.getSummary().get("routeType"));
         MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
         assertEquals("legacy", decodeStep.getSummary().get("routeType"));
+        MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
+        assertEquals(MessageFlowStatuses.STEP_SKIPPED, telemetryStep.getStatus());
+        assertEquals("EMPTY_PROPERTIES", telemetryStep.getBranch());
+    }
+
+    @Test
+    void processShouldKeepSessionCompletedWhenTelemetryPersistFails() {
+        UpMessageProcessingRequest request = buildHttpRequest();
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");
+        DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
+
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(target);
+        when(devicePayloadApplyStageHandler.apply(target))
+                .thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(target)).thenThrow(new BizException("TDengine unavailable"));
+        when(deviceRiskDispatchStageHandler.dispatch(target)).thenReturn(true);
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        assertEquals(MessageFlowStatuses.SESSION_COMPLETED, result.getSubmitResult().getStatus());
+        MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
+        assertEquals(MessageFlowStatuses.STEP_FAILED, telemetryStep.getStatus());
+        assertEquals("NON_BLOCKING_FAILURE", telemetryStep.getBranch());
+        verify(deviceStateStageHandler).refresh(target);
+        verify(deviceRiskDispatchStageHandler).dispatch(target);
     }
 
     @Test

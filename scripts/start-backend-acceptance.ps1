@@ -20,7 +20,19 @@ if (-not $mvnCmd) {
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] packaging backend with real dev baseline" |
     Tee-Object -FilePath $logFile -Append
 
-& $mvnCmd '-s' $mvnSettings 'clean' 'package' '-DskipTests' 2>&1 |
+$mavenArgs = @()
+if (Test-Path $mvnSettings) {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] detected Maven settings: $mvnSettings" |
+        Tee-Object -FilePath $logFile -Append
+    $mavenArgs += @('-s', $mvnSettings)
+} else {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] .mvn/settings.xml not found, fallback to plain mvn" |
+        Tee-Object -FilePath $logFile -Append
+}
+
+$mavenArgs += @('clean', 'package', '-DskipTests')
+
+& $mvnCmd @mavenArgs 2>&1 |
     Tee-Object -FilePath $logFile -Append
 
 if (-not (Test-Path $jarFile)) {

@@ -20,7 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 上行消息分发器。
+ * legacy 兼容上行分发器。
+ * <p>
+ * 当前 HTTP / MQTT 主链路统一由 {@code UpMessageProcessingPipeline} 承接；本类仅保留给仍依赖
+ * 旧调用方式的兼容入口和回归测试使用，不再作为 message-flow 主链路说明对象。
  */
 @Component
 public class UpMessageDispatcher {

@@ -16,6 +16,7 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.device.service.handler.DeviceContractStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceMessageLogStageHandler;
@@ -93,10 +94,12 @@ class DeviceMessageServiceImplTest {
                 new DeviceContractStageHandler(deviceMapper, productMapper);
         DeviceMessageLogStageHandler deviceMessageLogStageHandler =
                 new DeviceMessageLogStageHandler(deviceMessageLogMapper);
+        DevicePropertyMetadataService devicePropertyMetadataService =
+                new DevicePropertyMetadataServiceImpl(productModelMapper);
         DevicePayloadApplyStageHandler devicePayloadApplyStageHandler =
                 new DevicePayloadApplyStageHandler(
                         devicePropertyMapper,
-                        productModelMapper,
+                        devicePropertyMetadataService,
                         commandRecordService,
                         deviceFileService
                 );

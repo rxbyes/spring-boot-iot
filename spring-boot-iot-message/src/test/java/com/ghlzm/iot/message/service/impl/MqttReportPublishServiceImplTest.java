@@ -6,6 +6,7 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStatuses;
@@ -46,6 +47,8 @@ class MqttReportPublishServiceImplTest {
     @Mock
     private MqttDownMessagePublisher mqttDownMessagePublisher;
     @Mock
+    private MessageFlowMetricsRecorder messageFlowMetricsRecorder;
+    @Mock
     private MessageFlowTimelineStore messageFlowTimelineStore;
 
     @Test
@@ -59,6 +62,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -85,6 +89,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -111,6 +116,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -136,6 +142,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -167,6 +174,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -192,6 +200,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -226,6 +235,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 
@@ -268,6 +278,7 @@ class MqttReportPublishServiceImplTest {
                 mqttDownMessagePublisher,
                 buildIotProperties(),
                 buildMessageFlowProperties(true),
+                messageFlowMetricsRecorder,
                 messageFlowTimelineStore
         );
 

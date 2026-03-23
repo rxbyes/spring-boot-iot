@@ -24,7 +24,9 @@ vi.mock('@/api/message', () => ({
   messageApi: {
     pageMessageTraceLogs: vi.fn(),
     pageMessageTraceStats: vi.fn(),
-    getMessageFlowTrace: vi.fn()
+    getMessageFlowTrace: vi.fn(),
+    getMessageFlowOpsOverview: vi.fn(),
+    getMessageFlowRecentSessions: vi.fn()
   }
 }));
 
@@ -86,6 +88,25 @@ const StandardTableToolbarStub = defineComponent({
       <slot name="right" />
     </div>
   `
+});
+
+const PanelCardStub = defineComponent({
+  name: 'PanelCard',
+  props: ['eyebrow', 'title', 'description'],
+  template: `
+    <section class="panel-card-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3 v-if="title">{{ title }}</h3>
+      <p v-if="description">{{ description }}</p>
+      <slot />
+    </section>
+  `
+});
+
+const MetricCardStub = defineComponent({
+  name: 'MetricCard',
+  props: ['label', 'value'],
+  template: '<div class="metric-card-stub">{{ label }} {{ value }}</div>'
 });
 
 const StandardPaginationStub = defineComponent({
@@ -249,6 +270,53 @@ function createStatsResponse() {
   };
 }
 
+function createOpsOverviewResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      runtimeStartedAt: '2026-03-23 09:30:00',
+      sessionCounts: [{ transportMode: 'MQTT', status: 'COMPLETED', count: 3 }],
+      correlationCounts: [
+        { result: 'published', count: 4 },
+        { result: 'matched', count: 3 }
+      ],
+      lookupCounts: [{ target: 'trace', result: 'hit', count: 5 }],
+      stageMetrics: [
+        {
+          stage: 'INGRESS',
+          count: 3,
+          failureCount: 0,
+          skippedCount: 0,
+          avgCostMs: 10,
+          p95CostMs: 15,
+          maxCostMs: 18
+        }
+      ]
+    }
+  };
+}
+
+function createRecentSessionsResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: [
+      {
+        sessionId: 'session-recent-001',
+        traceId: 'trace-recent-001',
+        transportMode: 'MQTT',
+        status: 'COMPLETED',
+        submittedAt: '2026-03-23 10:05:00',
+        deviceCode: 'demo-device-01',
+        topic: '$dp',
+        correlationPending: false,
+        timelineAvailable: true
+      }
+    ]
+  };
+}
+
 function mountView() {
   return mount(MessageTraceView, {
     global: {
@@ -258,6 +326,8 @@ function mountView() {
       stubs: {
         AccessErrorArchivePanel: AccessErrorArchivePanelStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        PanelCard: PanelCardStub,
+        MetricCard: MetricCardStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
         StandardTableToolbar: StandardTableToolbarStub,
@@ -288,8 +358,12 @@ describe('MessageTraceView', () => {
     vi.mocked(messageApi.pageMessageTraceLogs).mockReset();
     vi.mocked(messageApi.pageMessageTraceStats).mockReset();
     vi.mocked(messageApi.getMessageFlowTrace).mockReset();
+    vi.mocked(messageApi.getMessageFlowOpsOverview).mockReset();
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockReset();
     vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue(createPageResponse());
     vi.mocked(messageApi.pageMessageTraceStats).mockResolvedValue(createStatsResponse());
+    vi.mocked(messageApi.getMessageFlowOpsOverview).mockResolvedValue(createOpsOverviewResponse());
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockResolvedValue(createRecentSessionsResponse());
   });
 
   it('loads and renders the trace timeline in the detail drawer', async () => {
@@ -359,5 +433,33 @@ describe('MessageTraceView', () => {
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
     expect(wrapper.text()).toContain('时间线已过期，仅保留消息日志。');
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
+  });
+
+  it('renders the ops overview and recent sessions helper', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
+    expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('完成链路 3');
+    expect(wrapper.text()).toContain('关联发布 4');
+    expect(wrapper.text()).toContain('session-recent-001');
+    expect(wrapper.text()).toContain('INGRESS');
+  });
+
+  it('shows storage error copy when timeline lookup fails', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockRejectedValue(new Error('redis down'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
   });
 });

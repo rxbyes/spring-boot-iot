@@ -81,7 +81,7 @@ iot:
       - /sys/+/+/thing/status/post
 
   telemetry:
-    storage-type: mysql
+    storage-type: tdengine
 
   device:
     sub-device-mappings:
@@ -114,6 +114,7 @@ iot:
       enabled: ${IOT_OBSERVABILITY_MESSAGE_FLOW_ENABLED:true}
       ttl-hours: ${IOT_OBSERVABILITY_MESSAGE_FLOW_TTL_HOURS:24}
       session-match-window-seconds: ${IOT_OBSERVABILITY_MESSAGE_FLOW_SESSION_MATCH_WINDOW_SECONDS:120}
+      recent-session-limit: ${IOT_OBSERVABILITY_MESSAGE_FLOW_RECENT_SESSION_LIMIT:500}
     console:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
       mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}

@@ -31,6 +31,7 @@ class UpMessageDispatcherTest {
 
     @Test
     void dispatchShouldEnrichRawMessageWithDecodedIdentityBeforeDeviceValidation() {
+        // compatibility 回归：旧 dispatcher 仍需在设备校验前补齐解码后的身份字段。
         UpMessageDispatcher dispatcher = new UpMessageDispatcher(protocolAdapterRegistry, deviceMessageService);
         RawDeviceMessage rawMessage = new RawDeviceMessage();
         rawMessage.setProtocolCode("mqtt-json");

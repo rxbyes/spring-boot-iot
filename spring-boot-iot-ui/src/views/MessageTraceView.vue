@@ -120,6 +120,103 @@
             show-icon
             class="stats-alert"
           />
+          <div class="message-trace-ops-grid">
+            <PanelCard
+              class="message-trace-ops-card"
+              eyebrow="message-flow"
+              title="运维看板"
+              description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
+            >
+              <div v-if="opsLoading" class="message-trace-ops-empty">
+                正在加载 message-flow 运维指标...
+              </div>
+              <template v-else>
+                <section class="message-trace-ops-metrics">
+                  <MetricCard
+                    v-for="item in opsOverviewMetrics"
+                    :key="item.label"
+                    :label="item.label"
+                    :value="item.value"
+                    :badge="item.badge"
+                    size="compact"
+                  />
+                </section>
+                <div class="message-trace-ops-runtime">
+                  runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
+                </div>
+                <div class="message-trace-stage-table-wrapper">
+                  <table class="message-trace-stage-table">
+                    <thead>
+                      <tr>
+                        <th>阶段</th>
+                        <th>执行</th>
+                        <th>失败</th>
+                        <th>跳过</th>
+                        <th>平均耗时</th>
+                        <th>P95</th>
+                        <th>最大耗时</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
+                        <td>{{ stage.stage }}</td>
+                        <td>{{ formatCount(stage.count) }}</td>
+                        <td>{{ formatCount(stage.failureCount) }}</td>
+                        <td>{{ formatCount(stage.skippedCount) }}</td>
+                        <td>{{ formatCost(stage.avgCostMs) }}</td>
+                        <td>{{ formatCost(stage.p95CostMs) }}</td>
+                        <td>{{ formatCost(stage.maxCostMs) }}</td>
+                      </tr>
+                      <tr v-if="opsOverview.stageMetrics.length === 0">
+                        <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </PanelCard>
+
+            <PanelCard
+              class="message-trace-ops-card"
+              eyebrow="message-flow"
+              title="最近会话"
+              description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
+            >
+              <div class="message-trace-recent-toolbar">
+                <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
+                  刷新最近会话
+                </StandardButton>
+              </div>
+              <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
+                正在加载最近会话...
+              </div>
+              <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
+                当前还没有可带入的 message-flow 会话。
+              </div>
+              <div v-else class="message-trace-recent-list">
+                <button
+                  v-for="session in recentMessageFlowSessions"
+                  :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
+                  type="button"
+                  class="message-trace-recent-item"
+                  @click="applyRecentMessageFlowSession(session)"
+                >
+                  <div class="message-trace-recent-item__header">
+                    <strong>{{ session.sessionId || '--' }}</strong>
+                    <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
+                  </div>
+                  <div class="message-trace-recent-item__meta">
+                    <span>{{ session.deviceCode || '--' }}</span>
+                    <span>{{ formatDateTime(session.submittedAt) }}</span>
+                  </div>
+                  <div class="message-trace-recent-item__meta">
+                    <span>{{ session.topic || '--' }}</span>
+                    <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
+                  </div>
+                </button>
+              </div>
+            </PanelCard>
+          </div>
         </div>
       </template>
 
@@ -330,6 +427,8 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
+import MetricCard from '@/components/MetricCard.vue';
+import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
@@ -340,7 +439,13 @@ import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import type { DeviceMessageLog, MessageFlowTimeline, MessageTraceStats } from '@/types/api';
+import type {
+  DeviceMessageLog,
+  MessageFlowOpsOverview,
+  MessageFlowRecentSession,
+  MessageFlowTimeline,
+  MessageTraceStats
+} from '@/types/api';
 import { formatDateTime, prettyJson } from '@/utils/format';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
@@ -386,10 +491,13 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTo
 const loading = ref(false);
 const statsLoading = ref(false);
 const timelineLoading = ref(false);
+const opsLoading = ref(false);
+const recentSessionsLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
 const detailTimeline = ref<MessageFlowTimeline | null>(null);
+const detailTimelineLookupError = ref(false);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
   recentHourCount: 0,
@@ -403,12 +511,24 @@ const createEmptyTraceStats = (): MessageTraceStats => ({
   topTopics: []
 });
 const traceStats = ref<MessageTraceStats>(createEmptyTraceStats());
+const createEmptyOpsOverview = (): MessageFlowOpsOverview => ({
+  runtimeStartedAt: '',
+  sessionCounts: [],
+  correlationCounts: [],
+  lookupCounts: [],
+  stageMetrics: []
+});
+const opsOverview = ref<MessageFlowOpsOverview>(createEmptyOpsOverview());
+const recentMessageFlowSessions = ref<MessageFlowRecentSession[]>([]);
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
 const timelineExpired = computed(() =>
-  Boolean(hasDetail.value && detailData.value.traceId && !timelineLoading.value && !detailTimeline.value)
+  Boolean(hasDetail.value && detailData.value.traceId && !timelineLoading.value && !detailTimeline.value && !detailTimelineLookupError.value)
 );
 const detailTimelineEmptyTitle = computed(() => {
+  if (detailTimelineLookupError.value) {
+    return 'message-flow 存储异常/Redis 不可用';
+  }
   if (timelineExpired.value) {
     return '时间线已过期，仅保留消息日志';
   }
@@ -418,6 +538,9 @@ const detailTimelineEmptyTitle = computed(() => {
   return '当前消息未携带 traceId';
 });
 const detailTimelineEmptyDescription = computed(() => {
+  if (detailTimelineLookupError.value) {
+    return '当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。';
+  }
   if (timelineExpired.value) {
     return 'Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。';
   }
@@ -494,6 +617,47 @@ const statsSummaryText = computed(() => {
   const topMessageType = traceStats.value.topMessageTypes[0]?.label || '--';
   const topDeviceCode = traceStats.value.topDeviceCodes[0]?.label || '--';
   return `链路总量 ${traceStats.value.total}，近1小时 ${traceStats.value.recentHourCount}，近24小时 ${traceStats.value.recent24HourCount}，Trace ${traceStats.value.distinctTraceCount}，设备 ${traceStats.value.distinctDeviceCount}，高频消息 ${topMessageType}，高频设备 ${topDeviceCode}`;
+});
+const opsOverviewMetrics = computed(() => {
+  const completedCount = sumSessionCount('COMPLETED');
+  const failedCount = sumSessionCount('FAILED');
+  const publishedCount = sumCorrelationCount('published');
+  const matchedCount = sumCorrelationCount('matched');
+  const missedCount = sumCorrelationCount('missed');
+  const lookupErrorCount = sumLookupCount('error');
+
+  return [
+    {
+      label: '完成链路',
+      value: formatCount(completedCount),
+      badge: { label: 'COMPLETED', tone: 'success' as const }
+    },
+    {
+      label: '失败链路',
+      value: formatCount(failedCount),
+      badge: { label: failedCount > 0 ? '需关注' : '稳定', tone: failedCount > 0 ? 'danger' as const : 'muted' as const }
+    },
+    {
+      label: '关联发布',
+      value: formatCount(publishedCount),
+      badge: { label: 'PUBLISHED', tone: 'brand' as const }
+    },
+    {
+      label: '关联命中',
+      value: formatCount(matchedCount),
+      badge: { label: matchedCount >= publishedCount && publishedCount > 0 ? '良好' : '持续观察', tone: matchedCount >= publishedCount && publishedCount > 0 ? 'success' as const : 'warning' as const }
+    },
+    {
+      label: '关联超时',
+      value: formatCount(missedCount),
+      badge: { label: missedCount > 0 ? 'MISS' : '无超时', tone: missedCount > 0 ? 'warning' as const : 'muted' as const }
+    },
+    {
+      label: 'Lookup 异常',
+      value: formatCount(lookupErrorCount),
+      badge: { label: lookupErrorCount > 0 ? '异常' : '正常', tone: lookupErrorCount > 0 ? 'danger' as const : 'success' as const }
+    }
+  ];
 });
 
 function syncQuickSearchKeywordFromFilters() {
@@ -592,6 +756,51 @@ async function loadTraceStats() {
   }
 }
 
+async function loadOpsOverview() {
+  if (!isMessageTraceMode.value) {
+    return;
+  }
+  opsLoading.value = true;
+  try {
+    opsOverview.value = createEmptyOpsOverview();
+    const response = await messageApi.getMessageFlowOpsOverview();
+    if (response.code === 200 && response.data) {
+      opsOverview.value = {
+        ...createEmptyOpsOverview(),
+        ...response.data,
+        sessionCounts: response.data.sessionCounts || [],
+        correlationCounts: response.data.correlationCounts || [],
+        lookupCounts: response.data.lookupCounts || [],
+        stageMetrics: response.data.stageMetrics || []
+      };
+    }
+  } catch (error) {
+    opsOverview.value = createEmptyOpsOverview();
+    ElMessage.error(error instanceof Error ? error.message : '获取 message-flow 运维指标失败');
+  } finally {
+    opsLoading.value = false;
+  }
+}
+
+async function loadRecentMessageFlowSessions() {
+  if (!isMessageTraceMode.value) {
+    return;
+  }
+  recentSessionsLoading.value = true;
+  try {
+    recentMessageFlowSessions.value = [];
+    const response = await messageApi.getMessageFlowRecentSessions({ size: 8 });
+    if (response.code === 200) {
+      recentMessageFlowSessions.value = response.data || [];
+    }
+  } catch (error) {
+    recentMessageFlowSessions.value = [];
+    ElMessage.error(error instanceof Error ? error.message : '获取最近 message-flow 会话失败');
+  } finally {
+    recentSessionsLoading.value = false;
+  }
+}
+
 function resetSearchForm() {
   searchForm.deviceCode = '';
   searchForm.productKey = '';
@@ -625,6 +834,8 @@ function handleReset() {
 function handleRefresh() {
   loadTableData();
   loadTraceStats();
+  loadOpsOverview();
+  loadRecentMessageFlowSessions();
 }
 
 function handleQuickSearch() {
@@ -664,7 +875,22 @@ function handlePageChange(page: number) {
 function openDetail(row: DeviceMessageLog) {
   detailData.value = { ...row };
   detailVisible.value = true;
+  detailTimelineLookupError.value = false;
   loadDetailTimeline(row.traceId);
+}
+
+function applyRecentMessageFlowSession(session: MessageFlowRecentSession) {
+  searchForm.deviceCode = session.deviceCode || '';
+  searchForm.topic = session.topic || '';
+  if (session.traceId) {
+    searchForm.traceId = session.traceId;
+    quickSearchKeyword.value = session.traceId;
+  } else {
+    searchForm.traceId = '';
+    quickSearchKeyword.value = '';
+  }
+  syncAdvancedFilterState();
+  triggerSearch(true);
 }
 
 function canJumpWithRow(row: DeviceMessageLog) {
@@ -722,6 +948,7 @@ function formatInlineText(value?: string | null) {
 
 async function loadDetailTimeline(traceId?: string | null) {
   detailTimeline.value = null;
+  detailTimelineLookupError.value = false;
   if (!traceId) {
     return;
   }
@@ -731,10 +958,40 @@ async function loadDetailTimeline(traceId?: string | null) {
     detailTimeline.value = response.data || null;
   } catch (error) {
     detailTimeline.value = null;
+    detailTimelineLookupError.value = true;
     ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
   } finally {
     timelineLoading.value = false;
   }
+}
+
+function sumSessionCount(status: string) {
+  return opsOverview.value.sessionCounts
+    .filter((item) => String(item.status || '').toUpperCase() === status)
+    .reduce((total, item) => total + Number(item.count || 0), 0);
+}
+
+function sumCorrelationCount(result: string) {
+  return opsOverview.value.correlationCounts
+    .filter((item) => String(item.result || '').toLowerCase() === result)
+    .reduce((total, item) => total + Number(item.count || 0), 0);
+}
+
+function sumLookupCount(result: string) {
+  return opsOverview.value.lookupCounts
+    .filter((item) => String(item.result || '').toLowerCase() === result)
+    .reduce((total, item) => total + Number(item.count || 0), 0);
+}
+
+function formatCount(value?: number | null) {
+  return `${Number(value || 0)}`;
+}
+
+function formatCost(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--';
+  }
+  return `${Math.round(Number(value) * 10) / 10} ms`;
 }
 
 watch(
@@ -758,6 +1015,8 @@ watch(
     syncAppliedFilters();
     loadTableData();
     loadTraceStats();
+    loadOpsOverview();
+    loadRecentMessageFlowSessions();
   }
 );
 
@@ -766,6 +1025,7 @@ watch(detailVisible, (visible) => {
     detailData.value = {};
     detailTimeline.value = null;
     timelineLoading.value = false;
+    detailTimelineLookupError.value = false;
   }
 });
 
@@ -777,6 +1037,8 @@ onMounted(() => {
   syncAppliedFilters();
   loadTableData();
   loadTraceStats();
+  loadOpsOverview();
+  loadRecentMessageFlowSessions();
 });
 </script>
 
@@ -796,6 +1058,146 @@ onMounted(() => {
 .message-trace-notice-grid {
   display: grid;
   gap: 0.72rem;
+}
+
+.message-trace-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 0.9rem;
+}
+
+.message-trace-ops-card {
+  min-width: 0;
+}
+
+.message-trace-ops-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.message-trace-ops-runtime {
+  margin-top: 0.85rem;
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+}
+
+.message-trace-ops-empty {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--line-soft);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.message-trace-stage-table-wrapper {
+  margin-top: 0.95rem;
+  overflow-x: auto;
+}
+
+.message-trace-stage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.message-trace-stage-table th,
+.message-trace-stage-table td {
+  padding: 0.68rem 0.72rem;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.message-trace-stage-table th {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.message-trace-stage-table td {
+  color: var(--text-secondary);
+}
+
+.message-trace-stage-table__empty {
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.message-trace-recent-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.8rem;
+}
+
+.message-trace-recent-list {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.message-trace-recent-item {
+  display: grid;
+  gap: 0.42rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 249, 252, 0.98));
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.message-trace-recent-item:hover {
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--line-soft));
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(12, 37, 63, 0.08);
+}
+
+.message-trace-recent-item__header,
+.message-trace-recent-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.message-trace-recent-item__header strong {
+  color: var(--text-heading);
+  font-size: 0.88rem;
+}
+
+.message-trace-recent-item__header span,
+.message-trace-recent-item__meta span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 1280px) {
+  .message-trace-ops-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .message-trace-ops-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .message-trace-ops-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .message-trace-recent-item__header,
+  .message-trace-recent-item__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 </style>

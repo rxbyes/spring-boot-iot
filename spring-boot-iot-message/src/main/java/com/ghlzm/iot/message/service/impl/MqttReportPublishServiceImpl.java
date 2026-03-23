@@ -7,6 +7,7 @@ import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowFingerprintSupport;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStatuses;
@@ -33,6 +34,7 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
     private final MqttDownMessagePublisher mqttDownMessagePublisher;
     private final IotProperties iotProperties;
     private final MessageFlowProperties messageFlowProperties;
+    private final MessageFlowMetricsRecorder messageFlowMetricsRecorder;
     private final MessageFlowTimelineStore messageFlowTimelineStore;
 
     public MqttReportPublishServiceImpl(DeviceService deviceService,
@@ -41,6 +43,7 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
                                         MqttDownMessagePublisher mqttDownMessagePublisher,
                                         IotProperties iotProperties,
                                         MessageFlowProperties messageFlowProperties,
+                                        MessageFlowMetricsRecorder messageFlowMetricsRecorder,
                                         MessageFlowTimelineStore messageFlowTimelineStore) {
         this.deviceService = deviceService;
         this.productService = productService;
@@ -48,6 +51,7 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
         this.mqttDownMessagePublisher = mqttDownMessagePublisher;
         this.iotProperties = iotProperties;
         this.messageFlowProperties = messageFlowProperties;
+        this.messageFlowMetricsRecorder = messageFlowMetricsRecorder;
         this.messageFlowTimelineStore = messageFlowTimelineStore;
     }
 
@@ -83,6 +87,8 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
         submitResult.setStatus(MessageFlowStatuses.SESSION_PUBLISHED);
         submitResult.setTimelineAvailable(Boolean.FALSE);
         submitResult.setCorrelationPending(Boolean.TRUE);
+        messageFlowMetricsRecorder.recordSession("MQTT", MessageFlowStatuses.SESSION_PUBLISHED);
+        messageFlowMetricsRecorder.recordCorrelation(MessageFlowMetricsRecorder.CORRELATION_RESULT_PUBLISHED);
 
         if (Boolean.TRUE.equals(messageFlowProperties.getEnabled())) {
             MessageFlowSession session = new MessageFlowSession();

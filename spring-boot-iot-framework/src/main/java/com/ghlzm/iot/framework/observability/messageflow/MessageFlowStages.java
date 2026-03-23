@@ -11,6 +11,7 @@ public final class MessageFlowStages {
     public static final String DEVICE_CONTRACT = "DEVICE_CONTRACT";
     public static final String MESSAGE_LOG = "MESSAGE_LOG";
     public static final String PAYLOAD_APPLY = "PAYLOAD_APPLY";
+    public static final String TELEMETRY_PERSIST = "TELEMETRY_PERSIST";
     public static final String DEVICE_STATE = "DEVICE_STATE";
     public static final String RISK_DISPATCH = "RISK_DISPATCH";
     public static final String COMPLETE = "COMPLETE";

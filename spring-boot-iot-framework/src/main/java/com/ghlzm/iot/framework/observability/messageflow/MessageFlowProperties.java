@@ -26,4 +26,9 @@ public class MessageFlowProperties {
      * 模拟发布和真实消费回流的 fingerprint 匹配窗口，单位秒。
      */
     private Integer sessionMatchWindowSeconds = 120;
+
+    /**
+     * Redis recent session 索引保留上限。
+     */
+    private Integer recentSessionLimit = 500;
 }

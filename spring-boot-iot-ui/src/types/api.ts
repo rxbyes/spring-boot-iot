@@ -97,6 +97,53 @@ export interface MessageFlowSession {
   timeline?: MessageFlowTimeline | null;
 }
 
+export interface MessageFlowSessionCount {
+  transportMode?: string | null;
+  status?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowCorrelationCount {
+  result?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowLookupCount {
+  target?: string | null;
+  result?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowStageMetric {
+  stage: string;
+  count?: number | null;
+  failureCount?: number | null;
+  skippedCount?: number | null;
+  avgCostMs?: number | null;
+  p95CostMs?: number | null;
+  maxCostMs?: number | null;
+}
+
+export interface MessageFlowOpsOverview {
+  runtimeStartedAt?: string | null;
+  sessionCounts: MessageFlowSessionCount[];
+  correlationCounts: MessageFlowCorrelationCount[];
+  lookupCounts: MessageFlowLookupCount[];
+  stageMetrics: MessageFlowStageMetric[];
+}
+
+export interface MessageFlowRecentSession {
+  sessionId?: string | null;
+  traceId?: string | null;
+  transportMode?: string | null;
+  status?: string | null;
+  submittedAt?: string | null;
+  deviceCode?: string | null;
+  topic?: string | null;
+  correlationPending?: boolean | null;
+  timelineAvailable?: boolean | null;
+}
+
 export interface MessageFlowSubmitResult {
   sessionId?: string | null;
   traceId?: string | null;

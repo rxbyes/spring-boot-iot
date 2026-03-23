@@ -1,5 +1,6 @@
 package com.ghlzm.iot.framework.observability.messageflow;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -18,4 +19,8 @@ public interface MessageFlowTimelineStore {
     void bindFingerprint(String fingerprint, String sessionId);
 
     Optional<String> getSessionIdByFingerprint(String fingerprint);
+
+    List<String> getRecentSessionIds(int limit);
+
+    void removeRecentSession(String sessionId);
 }

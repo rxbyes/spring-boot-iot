@@ -173,19 +173,26 @@ Payload：
   - 若未配置对应解密器，会返回清晰业务异常
 
 ## `$dp` 主链路说明
-`$dp` 主题收到消息后，当前运行时主链路为：
+`$dp` 主题收到消息后，当前运行时统一进入显式 `UpMessageProcessingPipeline`，主口径固定为：
 
-1. `MqttMessageConsumer`
-2. `MqttTopicRouter`
-3. `RawDeviceMessage`
-4. `UpMessageDispatcher`
-5. `MqttJsonProtocolAdapter`
-6. `DeviceMessageService`
+1. `INGRESS`
+2. `TOPIC_ROUTE`
+3. `PROTOCOL_DECODE`
+4. `DEVICE_CONTRACT`
+5. `MESSAGE_LOG`
+6. `PAYLOAD_APPLY`
+7. `TELEMETRY_PERSIST`
+8. `DEVICE_STATE`
+9. `RISK_DISPATCH`
+10. `COMPLETE`
 
 说明：
-- `message` 模块只负责接入和桥接
-- `protocol` 模块负责 topic / 帧 / JSON / AES 解密 / 属性拍平
-- `device` 模块负责消息日志落库、最新属性更新、设备在线状态更新
+- `message` 模块负责固定 Pipeline 编排；`MqttMessageConsumer` 和 `DeviceHttpController` 都统一进入同一条 Pipeline。
+- `TOPIC_ROUTE` 继续由 `MqttTopicRouter` 负责；HTTP 入口在该阶段固定标记为 `SKIPPED/DIRECT_HTTP`。
+- `PROTOCOL_DECODE` 继续由 `MqttJsonProtocolAdapter` 负责，不再顺带承担“流程展示”职责；阶段摘要固定输出 `routeType`、`messageType`、`dataFormatType`、`childMessageCount`、`filePayload`。
+- `device` 模块负责 `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 等显式 stage handler。
+- `telemetry` 模块负责 `TELEMETRY_PERSIST`，按标准化 `properties` 写 TDengine；`reply` / 文件载荷 / 空属性消息会跳过该步骤。
+- `UpMessageDispatcher` 当前仅保留为 legacy/compatibility 类和兼容性测试对象，不再作为 `$dp` 主链路说明对象。
 - 表 C.3 / C.4 在协议层会进一步标准化为：
   - `DeviceUpMessage.filePayload`
   - `DeviceFilePayload`
