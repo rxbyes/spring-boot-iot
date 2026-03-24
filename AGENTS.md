@@ -83,7 +83,9 @@ com.ghlzm.iot
 
 ## 智能助手协作入口规则
 - 你本人日常发任务时，优先使用 `docs/skills/ai-task-intake/SKILL.md` 中的“你本人专用版六条超短清单”。
+- 如果你已经明确知道任务场景，只想直接复制现成提示词，优先使用 `docs/17-智能助手任务发起模板速查.md`。
 - 如果六条超短清单装不下，再使用 `docs/09-GPT接管提示模板.md` 中的任务卡模板。
+- 如果你已经知道要做什么，但拿不准该调用哪些技能或按什么顺序协作，再查阅 `docs/10-智能助手技能与任务选型指南.md`。
 - 只有任务跨模块、跨验收、跨数据库，或短任务卡仍然装不下时，再使用 `docs/template/README.md` 索引的长模板。
 
 ## 工作区路径兼容规则
@@ -122,7 +124,7 @@ com.ghlzm.iot
 - 多租户 / 数据权限 / 组织范围：`docs/13-数据权限与多租户模型.md`
 - 第四阶段范围或交付边界：`docs/19-第四阶段交付边界与复验进展.md`、`docs/21-业务功能清单与验收标准.md`
 - 阶段规划 / 下一轮迭代：`docs/16-阶段规划与迭代路线图.md`、`docs/19-第四阶段交付边界与复验进展.md`
-- 智能助手协作 / 接手模板：`docs/skills/ai-task-intake/SKILL.md`、`docs/09-GPT接管提示模板.md`、`docs/template/README.md`
+- 智能助手协作 / 接手模板：`docs/skills/ai-task-intake/SKILL.md`、`docs/09-GPT接管提示模板.md`、`docs/10-智能助手技能与任务选型指南.md`、`docs/17-智能助手任务发起模板速查.md`、`docs/template/README.md`
 
 ### 不再视为主编码依赖
 - 兼容入口页
