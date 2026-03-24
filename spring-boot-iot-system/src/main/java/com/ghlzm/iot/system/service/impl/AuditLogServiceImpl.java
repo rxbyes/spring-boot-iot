@@ -31,6 +31,8 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     private static final String SYSTEM_ERROR_TYPE = "system_error";
     private static final String LEGACY_OPERATION_TYPE_COLUMN = "log_type";
     private static final String LEGACY_REQUEST_URL_COLUMN = "operation_uri";
+    private static final int RESULT_MESSAGE_MAX_LENGTH = 500;
+    private static final String TRUNCATED_SUFFIX = "...(truncated)";
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditLogSchemaSupport auditLogSchemaSupport;
@@ -125,6 +127,23 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         stats.setTopExceptionClasses(queryTopBuckets(querySpec, resolveColumn(columns, "exception_class")));
         stats.setTopErrorCodes(queryTopBuckets(querySpec, resolveColumn(columns, "error_code")));
         return stats;
+    }
+
+    @Override
+    public Long countSystemErrorsSince(Date startTime) {
+        Set<String> columns = auditLogSchemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(null), false, columns);
+        if (querySpec.emptyResult()) {
+            return 0L;
+        }
+        if (startTime == null) {
+            return queryCount(querySpec, null);
+        }
+        String timeColumn = resolveColumn(columns, "operation_time", "create_time");
+        if (timeColumn == null) {
+            return 0L;
+        }
+        return queryCount(querySpec, " AND " + timeColumn + " >= ?", new Timestamp(startTime.getTime()));
     }
 
     @Override
@@ -392,6 +411,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         if (target.getDeleted() == null) {
             target.setDeleted(0);
         }
+        target.setResultMessage(truncateResultMessage(target.getResultMessage()));
         return target;
     }
 
@@ -599,6 +619,16 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
             return new Timestamp(date.getTime());
         }
         return value;
+    }
+
+    private String truncateResultMessage(String resultMessage) {
+        if (!StringUtils.hasText(resultMessage) || resultMessage.length() <= RESULT_MESSAGE_MAX_LENGTH) {
+            return resultMessage;
+        }
+        if (RESULT_MESSAGE_MAX_LENGTH <= TRUNCATED_SUFFIX.length()) {
+            return resultMessage.substring(0, RESULT_MESSAGE_MAX_LENGTH);
+        }
+        return resultMessage.substring(0, RESULT_MESSAGE_MAX_LENGTH - TRUNCATED_SUFFIX.length()) + TRUNCATED_SUFFIX;
     }
 
     private record QuerySpec(String whereClause, List<Object> params, boolean emptyResult) {

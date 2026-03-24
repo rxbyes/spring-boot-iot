@@ -19,6 +19,38 @@ ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
+    "iot_device_access_error_log": """
+CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
+    id BIGINT NOT NULL COMMENT 'pk',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT 'protocol code',
+    request_method VARCHAR(16) DEFAULT NULL COMMENT 'request method',
+    failure_stage VARCHAR(32) DEFAULT NULL COMMENT 'failure stage',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT 'device code',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT 'product key',
+    gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT 'gateway device code',
+    sub_device_code VARCHAR(64) DEFAULT NULL COMMENT 'sub device code',
+    topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic route type',
+    message_type VARCHAR(32) DEFAULT NULL COMMENT 'message type',
+    topic VARCHAR(255) DEFAULT NULL COMMENT 'topic',
+    client_id VARCHAR(128) DEFAULT NULL COMMENT 'client id',
+    payload_size INT DEFAULT NULL COMMENT 'payload size',
+    payload_encoding VARCHAR(16) DEFAULT NULL COMMENT 'payload encoding',
+    payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT 'payload truncated',
+    raw_payload LONGTEXT DEFAULT NULL COMMENT 'raw payload',
+    error_code VARCHAR(64) DEFAULT NULL COMMENT 'error code',
+    exception_class VARCHAR(255) DEFAULT NULL COMMENT 'exception class',
+    error_message VARCHAR(500) DEFAULT NULL COMMENT 'error message',
+    contract_snapshot LONGTEXT DEFAULT NULL COMMENT 'contract snapshot',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_access_error_trace (trace_id),
+    KEY idx_access_error_device_time (device_code, create_time),
+    KEY idx_access_error_stage_time (failure_stage, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='device access error archive'
+""",
     "risk_point_device": """
 CREATE TABLE IF NOT EXISTS risk_point_device (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -64,6 +96,9 @@ CREATE TABLE IF NOT EXISTS sys_notification_channel (
 
 
 COLUMNS_TO_ADD: ColumnSpecMap = {
+    "iot_device_access_error_log": [
+        ("contract_snapshot", "LONGTEXT DEFAULT NULL COMMENT 'contract snapshot'"),
+    ],
     "iot_command_record": [
         ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
         ("product_key", "VARCHAR(64) DEFAULT NULL COMMENT 'product key'"),

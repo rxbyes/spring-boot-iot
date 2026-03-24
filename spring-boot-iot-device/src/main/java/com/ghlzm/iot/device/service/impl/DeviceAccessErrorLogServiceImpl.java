@@ -4,14 +4,23 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
+import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
+import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
+import com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO;
+import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -46,11 +55,21 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
 
     private final JdbcTemplate jdbcTemplate;
     private final DeviceAccessErrorLogSchemaSupport schemaSupport;
+    private final DeviceMapper deviceMapper;
+    private final ProductMapper productMapper;
+    private final IotProperties iotProperties;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceAccessErrorLogServiceImpl(JdbcTemplate jdbcTemplate,
-                                           DeviceAccessErrorLogSchemaSupport schemaSupport) {
+                                           DeviceAccessErrorLogSchemaSupport schemaSupport,
+                                           DeviceMapper deviceMapper,
+                                           ProductMapper productMapper,
+                                           IotProperties iotProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.schemaSupport = schemaSupport;
+        this.deviceMapper = deviceMapper;
+        this.productMapper = productMapper;
+        this.iotProperties = iotProperties;
     }
 
     @Override
@@ -87,6 +106,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             putValue(values, columns, "error_code", logRecord.getErrorCode());
             putValue(values, columns, "exception_class", logRecord.getExceptionClass());
             putValue(values, columns, "error_message", logRecord.getErrorMessage());
+            putValue(values, columns, "contract_snapshot", logRecord.getContractSnapshot());
             putValue(values, columns, "create_time", logRecord.getCreateTime());
             putValue(values, columns, "deleted", logRecord.getDeleted());
             if (values.isEmpty()) {
@@ -136,6 +156,66 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     }
 
     @Override
+    public DeviceAccessErrorStatsVO getStats(DeviceAccessErrorQuery query) {
+        DeviceAccessErrorStatsVO stats = new DeviceAccessErrorStatsVO();
+        Set<String> columns = schemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(query, columns);
+        if (querySpec.emptyResult()) {
+            return stats;
+        }
+
+        stats.setTotal(queryCount(querySpec, null));
+        if (stats.getTotal() == null || stats.getTotal() < 1) {
+            return stats;
+        }
+
+        stats.setRecentHourCount(queryRecentCount(querySpec, columns, 1));
+        stats.setRecent24HourCount(queryRecentCount(querySpec, columns, 24));
+        stats.setDistinctTraceCount(queryDistinctCount(querySpec, resolveColumn(columns, "trace_id")));
+        stats.setDistinctDeviceCount(queryDistinctCount(querySpec, resolveColumn(columns, "device_code")));
+        stats.setTopFailureStages(queryTopBuckets(querySpec, resolveColumn(columns, "failure_stage")));
+        stats.setTopErrorCodes(queryTopBuckets(querySpec, resolveColumn(columns, "error_code")));
+        stats.setTopExceptionClasses(queryTopBuckets(querySpec, resolveColumn(columns, "exception_class")));
+        stats.setTopProtocolCodes(queryTopBuckets(querySpec, resolveColumn(columns, "protocol_code")));
+        stats.setTopTopics(queryTopBuckets(querySpec, resolveColumn(columns, "topic")));
+        return stats;
+    }
+
+    @Override
+    public List<DeviceAccessErrorLogService.FailureStageCount> listFailureStageCountsSince(java.util.Date startTime) {
+        Set<String> columns = schemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(null, columns);
+        if (querySpec.emptyResult()) {
+            return List.of();
+        }
+        String stageColumn = resolveColumn(columns, "failure_stage");
+        String timeColumn = resolveColumn(columns, "create_time");
+        if (stageColumn == null || timeColumn == null) {
+            return List.of();
+        }
+        String bucketExpression = "TRIM(" + stageColumn + ")";
+        String sql = "SELECT " + bucketExpression + " AS stage_value, COUNT(1) AS stage_count"
+                + " FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + stageColumn + " IS NOT NULL AND TRIM(" + stageColumn + ") <> ''"
+                + (startTime == null ? "" : " AND " + timeColumn + " >= ?")
+                + " GROUP BY " + bucketExpression
+                + " ORDER BY stage_count DESC, stage_value ASC";
+        List<Object> params = new ArrayList<>(querySpec.params());
+        if (startTime != null) {
+            params.add(new Timestamp(startTime.getTime()));
+        }
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new DeviceAccessErrorLogService.FailureStageCount(
+                        rs.getString("stage_value"),
+                        rs.getLong("stage_count")
+                ),
+                params.toArray()
+        );
+    }
+
+    @Override
     public DeviceAccessErrorLog getById(Long id) {
         if (id == null) {
             return null;
@@ -159,6 +239,74 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
                 params.toArray()
         );
         return records.isEmpty() ? null : records.get(0);
+    }
+
+    private Long queryCount(QuerySpec querySpec, String extraCondition, Object... extraParams) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ")
+                .append(TABLE_NAME)
+                .append(querySpec.whereClause());
+        List<Object> params = new ArrayList<>(querySpec.params());
+        appendExtraCondition(sql, params, extraCondition, extraParams);
+        Long value = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return value == null ? 0L : value;
+    }
+
+    private Long queryRecentCount(QuerySpec querySpec, Set<String> columns, int hours) {
+        String timeColumn = resolveColumn(columns, "create_time");
+        if (timeColumn == null || hours < 1) {
+            return 0L;
+        }
+        return queryCount(
+                querySpec,
+                " AND " + timeColumn + " >= DATE_SUB(NOW(), INTERVAL " + hours + " HOUR)"
+        );
+    }
+
+    private Long queryDistinctCount(QuerySpec querySpec, String column) {
+        if (column == null) {
+            return 0L;
+        }
+        String sql = "SELECT COUNT(DISTINCT " + column + ") FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''";
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, querySpec.params().toArray());
+        return value == null ? 0L : value;
+    }
+
+    private List<DeviceStatsBucketVO> queryTopBuckets(QuerySpec querySpec, String column) {
+        if (column == null) {
+            return List.of();
+        }
+        String bucketExpression = "TRIM(" + column + ")";
+        String sql = "SELECT " + bucketExpression + " AS bucket_value, COUNT(1) AS bucket_count"
+                + " FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " AND " + column + " IS NOT NULL AND TRIM(" + column + ") <> ''"
+                + " GROUP BY " + bucketExpression
+                + " ORDER BY bucket_count DESC, bucket_value ASC"
+                + " LIMIT 5";
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new DeviceStatsBucketVO(
+                        rs.getString("bucket_value"),
+                        rs.getString("bucket_value"),
+                        rs.getLong("bucket_count")
+                ),
+                querySpec.params().toArray()
+        );
+    }
+
+    private void appendExtraCondition(StringBuilder sql, List<Object> params, String extraCondition, Object... extraParams) {
+        if (!StringUtils.hasText(extraCondition)) {
+            return;
+        }
+        sql.append(extraCondition);
+        if (extraParams == null || extraParams.length == 0) {
+            return;
+        }
+        for (Object extraParam : extraParams) {
+            params.add(extraParam);
+        }
     }
 
     private DeviceAccessErrorLog buildLogRecord(String topic,
@@ -194,6 +342,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         logRecord.setErrorCode(resolveErrorCode(throwable));
         logRecord.setExceptionClass(truncate(throwable.getClass().getName(), MAX_EXCEPTION_CLASS_LENGTH));
         logRecord.setErrorMessage(truncate(resolveErrorMessage(throwable), MAX_ERROR_MESSAGE_LENGTH));
+        logRecord.setContractSnapshot(buildContractSnapshot(rawDeviceMessage));
         logRecord.setCreateTime(LocalDateTime.now());
         logRecord.setDeleted(0);
         return logRecord;
@@ -297,6 +446,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         addSelect(selectColumns, columns, "error_code");
         addSelect(selectColumns, columns, "exception_class");
         addSelect(selectColumns, columns, "error_message");
+        addSelect(selectColumns, columns, "contract_snapshot");
         addSelect(selectColumns, columns, "create_time");
         addSelect(selectColumns, columns, "deleted");
         return String.join(", ", selectColumns);
@@ -382,6 +532,9 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         if (columns.contains("error_message")) {
             logRecord.setErrorMessage(rs.getString("error_message"));
         }
+        if (columns.contains("contract_snapshot")) {
+            logRecord.setContractSnapshot(rs.getString("contract_snapshot"));
+        }
         if (columns.contains("create_time")) {
             logRecord.setCreateTime(getLocalDateTime(rs, "create_time"));
         }
@@ -458,6 +611,87 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private String resolveText(String primary, String fallback) {
         String normalizedPrimary = trimToNull(primary);
         return normalizedPrimary != null ? normalizedPrimary : trimToNull(fallback);
+    }
+
+    private String buildContractSnapshot(RawDeviceMessage rawDeviceMessage) {
+        try {
+            return objectMapper.writeValueAsString(resolveContractSnapshot(rawDeviceMessage));
+        } catch (Exception ex) {
+            log.debug("序列化设备接入契约快照失败, error={}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private Map<String, Object> resolveContractSnapshot(RawDeviceMessage rawDeviceMessage) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        String actualProtocolCode = resolveText(
+                rawDeviceMessage == null ? null : rawDeviceMessage.getProtocolCode(),
+                iotProperties.getProtocol() == null ? null : iotProperties.getProtocol().getDefaultCode()
+        );
+        Device device = findDeviceByCode(rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode());
+        Product resolvedProduct = resolveProduct(device, rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey());
+        String deviceProtocolCode = trimToNull(device == null ? null : device.getProtocolCode());
+        String productProtocolCode = trimToNull(resolvedProduct == null ? null : resolvedProduct.getProtocolCode());
+        String expectedProtocolCode = actualProtocolCode;
+        String protocolSource = "router-default";
+        if (deviceProtocolCode != null) {
+            expectedProtocolCode = deviceProtocolCode;
+            protocolSource = "device";
+        } else if (productProtocolCode != null) {
+            expectedProtocolCode = productProtocolCode;
+            protocolSource = "product-fallback";
+        }
+
+        snapshot.put("routeType", trimToNull(rawDeviceMessage == null ? null : rawDeviceMessage.getTopicRouteType()));
+        snapshot.put("expectedProtocolCode", expectedProtocolCode);
+        snapshot.put("actualProtocolCode", actualProtocolCode);
+        snapshot.put("protocolSource", protocolSource);
+        snapshot.put("deviceProtocolCode", deviceProtocolCode);
+        snapshot.put("productProtocolCode", productProtocolCode);
+        snapshot.put("deviceProductId", device == null ? null : device.getProductId());
+        snapshot.put("resolvedProductId", resolvedProduct == null ? null : resolvedProduct.getId());
+        snapshot.put("productKey", resolveText(
+                resolvedProduct == null ? null : resolvedProduct.getProductKey(),
+                rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey()
+        ));
+        return snapshot;
+    }
+
+    private Device findDeviceByCode(String deviceCode) {
+        String normalizedDeviceCode = trimToNull(deviceCode);
+        if (normalizedDeviceCode == null) {
+            return null;
+        }
+        return deviceMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
+                .eq(Device::getDeviceCode, normalizedDeviceCode)
+                .eq(Device::getDeleted, 0)
+                .last("limit 1"));
+    }
+
+    private Product resolveProduct(Device device, String productKey) {
+        Product product = findProductById(device == null ? null : device.getProductId());
+        if (product != null) {
+            return product;
+        }
+        String normalizedProductKey = trimToNull(productKey);
+        if (normalizedProductKey == null) {
+            return null;
+        }
+        return productMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Product>()
+                .eq(Product::getProductKey, normalizedProductKey)
+                .eq(Product::getDeleted, 0)
+                .last("limit 1"));
+    }
+
+    private Product findProductById(Long productId) {
+        if (productId == null || productId <= 0) {
+            return null;
+        }
+        Product product = productMapper.selectById(productId);
+        if (product == null || Integer.valueOf(1).equals(product.getDeleted())) {
+            return null;
+        }
+        return product;
     }
 
     private String trimToNull(String value) {

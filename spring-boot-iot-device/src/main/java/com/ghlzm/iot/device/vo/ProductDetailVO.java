@@ -1,6 +1,7 @@
 package com.ghlzm.iot.device.vo;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import lombok.Data;
 
@@ -34,6 +35,18 @@ public class ProductDetailVO {
     private Long onlineDeviceCount;
 
     private LocalDateTime lastReportTime;
+
+    private Long todayActiveCount;
+
+    private Long sevenDaysActiveCount;
+
+    private Long thirtyDaysActiveCount;
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private Long avgOnlineDuration;
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private Long maxOnlineDuration;
 
     private LocalDateTime createTime;
 

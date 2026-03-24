@@ -7,6 +7,7 @@
       'shell-sidebar-nav--mobile-open': isMobile && mobileMenuOpen
     }"
     :aria-hidden="isMobile && !mobileMenuOpen"
+    :inert="isMobile && !mobileMenuOpen ? '' : undefined"
   >
     <div class="shell-sidebar-nav__context">
       <p class="shell-sidebar-nav__eyebrow">当前工作台</p>
@@ -14,44 +15,72 @@
     </div>
 
     <nav class="shell-sidebar-nav__menu" aria-label="二级导航">
-      <el-tooltip
-        v-for="item in group.items"
-        :key="item.to"
-        placement="right"
-        effect="light"
-        :content="item.caption || item.label"
-        :disabled="!sidebarCollapsed"
-      >
+      <template v-for="item in group.items" :key="item.to">
+        <el-tooltip
+          v-if="showCollapsedTooltips"
+          placement="right"
+          effect="light"
+          :content="item.caption || item.label"
+        >
+          <RouterLink
+            :to="item.to"
+            class="shell-sidebar-nav__item"
+            :class="{ 'shell-sidebar-nav__item--active': currentRoutePath === item.to }"
+            :title="getItemTitle(item)"
+            :aria-label="getItemAriaLabel(item)"
+          >
+            <span class="shell-sidebar-nav__marker">{{ sidebarCollapsed ? item.short : '' }}</span>
+            <span class="shell-sidebar-nav__content">
+              <strong>{{ item.label }}</strong>
+            </span>
+          </RouterLink>
+        </el-tooltip>
+
         <RouterLink
+          v-else
           :to="item.to"
           class="shell-sidebar-nav__item"
           :class="{ 'shell-sidebar-nav__item--active': currentRoutePath === item.to }"
-          :title="item.caption ? `${item.label}：${item.caption}` : item.label"
-          :aria-label="item.caption ? `${item.label}，${item.caption}` : item.label"
+          :title="getItemTitle(item)"
+          :aria-label="getItemAriaLabel(item)"
         >
           <span class="shell-sidebar-nav__marker">{{ sidebarCollapsed ? item.short : '' }}</span>
           <span class="shell-sidebar-nav__content">
             <strong>{{ item.label }}</strong>
           </span>
         </RouterLink>
-      </el-tooltip>
+      </template>
     </nav>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import type { ShellSidebarNavProps } from '../types/shell';
+import type { WorkspaceNavItem } from '../utils/sectionWorkspaces';
 
-defineProps<ShellSidebarNavProps>();
+const props = defineProps<ShellSidebarNavProps>();
+
+const showCollapsedTooltips = computed(() => props.sidebarCollapsed && !props.isMobile);
+
+function getItemTitle(item: WorkspaceNavItem) {
+  return item.caption ? `${item.label}：${item.caption}` : item.label;
+}
+
+function getItemAriaLabel(item: WorkspaceNavItem) {
+  return item.caption ? `${item.label}，${item.caption}` : item.label;
+}
 </script>
 
 <style scoped>
 .shell-sidebar-nav {
   border-right: 1px solid var(--panel-border);
   padding: 1rem 0.7rem 1.15rem;
-  background: linear-gradient(180deg, rgba(250, 251, 253, 0.98), rgba(246, 248, 251, 0.98));
+  background:
+    linear-gradient(180deg, var(--surface-soft), var(--surface-muted)),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 4%, transparent), transparent 42%);
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -97,7 +126,7 @@ defineProps<ShellSidebarNavProps>();
   gap: 0.62rem;
   align-items: center;
   text-decoration: none;
-  color: #334155;
+  color: var(--text-ink);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: 0.58rem 0.72rem 0.58rem 0.64rem;
@@ -129,7 +158,7 @@ defineProps<ShellSidebarNavProps>();
   font-size: 0;
   font-weight: 600;
   color: transparent;
-  background: rgba(148, 163, 184, 0.55);
+  background: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
   flex-shrink: 0;
 }
 
@@ -145,8 +174,8 @@ defineProps<ShellSidebarNavProps>();
 }
 
 .shell-sidebar-nav__item:hover {
-  border-color: #dfe5ee;
-  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--line-panel);
+  background: var(--bg-card);
   box-shadow: var(--shadow-card-soft);
 }
 
@@ -155,9 +184,11 @@ defineProps<ShellSidebarNavProps>();
 }
 
 .shell-sidebar-nav__item--active {
-  border-color: rgba(255, 106, 0, 0.16);
-  background: linear-gradient(90deg, rgba(255, 106, 0, 0.1), rgba(255, 255, 255, 0.98));
-  box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.04);
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--brand) 9%, white), color-mix(in srgb, var(--accent) 3%, white)),
+    var(--bg-card);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .shell-sidebar-nav__item--active::before {
@@ -188,17 +219,17 @@ defineProps<ShellSidebarNavProps>();
   border-radius: var(--radius-md);
   font-size: 0.72rem;
   color: var(--brand-deep);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__item:hover .shell-sidebar-nav__marker {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__item--active .shell-sidebar-nav__marker {
   color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, white);
 }
 
 .shell-sidebar-nav--collapsed .shell-sidebar-nav__content {

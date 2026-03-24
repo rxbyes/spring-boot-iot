@@ -7,8 +7,10 @@ import type {
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
+  MessageFlowSubmitResult,
   DeviceProperty,
   HttpReportPayload,
+  MqttReportPublishPayload,
   Product,
   ProductAddPayload
 } from '../types/api';
@@ -53,7 +55,14 @@ export function getDeviceMetricOptions(deviceId: string | number) {
 }
 
 export function reportByHttp(payload: HttpReportPayload) {
-  return request<null>('/api/message/http/report', {
+  return request<MessageFlowSubmitResult>('/api/message/http/report', {
+    method: 'POST',
+    body: payload
+  });
+}
+
+export function reportByMqtt(payload: MqttReportPublishPayload) {
+  return request<MessageFlowSubmitResult>('/api/message/mqtt/report/publish', {
     method: 'POST',
     body: payload
   });

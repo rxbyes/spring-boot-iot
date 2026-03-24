@@ -17,7 +17,7 @@ Read only what is needed from:
 - `AGENTS.md`
 - `docs/03-接口规范与接口清单.md`
 - `docs/06-前端开发与CSS规范.md`
-- `docs/15-frontend-optimization-plan.md`
+- `docs/15-前端优化与治理计划.md`
 - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
 - `spring-boot-iot-ui/src/api/iot.ts`
 - `spring-boot-iot-ui/src/types/api.ts`
@@ -27,7 +27,7 @@ Read only what is needed from:
 
 When operations center changes affect device workflows, route meaning, API usage explanation, maintenance guidance, or product navigation:
 - update the existing file `docs/06-前端开发与CSS规范.md`
-- update `docs/15-frontend-optimization-plan.md` when optimization rules, shared patterns, or style drift records change
+- update `docs/15-前端优化与治理计划.md` when optimization rules, shared patterns, or style drift records change
 - update matching files under `docs/` if behavior or workflow semantics changed
 - review and update `README.md` and `AGENTS.md` when their instructions or scope become outdated
 
@@ -100,7 +100,7 @@ Do not pretend remote control exists if it is only a placeholder.
 5. preserve audit panels
 6. update existing docs in place:
    - `docs/06-前端开发与CSS规范.md`
-   - `docs/15-frontend-optimization-plan.md` when shared frontend rules change
+   - `docs/15-前端优化与治理计划.md` when shared frontend rules change
    - related files under `docs/` if workflow/API meaning changed
    - `README.md` and `AGENTS.md` when needed
 7. run frontend build

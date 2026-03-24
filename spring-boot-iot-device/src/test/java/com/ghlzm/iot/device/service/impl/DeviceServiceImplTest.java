@@ -81,6 +81,38 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void addDeviceShouldRejectProductWithoutProtocol() {
+        Product product = new Product();
+        product.setId(1002L);
+        product.setProductKey("protocol-missing-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        product.setProtocolCode("");
+        product.setNodeType(1);
+        when(productService.getRequiredByProductKey("protocol-missing-product")).thenReturn(product);
+
+        DeviceAddDTO dto = buildDeviceAddDTO("protocol-missing-product", "demo-device-03");
+
+        BizException ex = assertThrows(BizException.class, () -> deviceService.addDevice(dto));
+        assertEquals("产品未配置接入协议，禁止继续建档: protocol-missing-product", ex.getMessage());
+    }
+
+    @Test
+    void addDeviceShouldRejectProductWithoutNodeType() {
+        Product product = new Product();
+        product.setId(1003L);
+        product.setProductKey("node-missing-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(null);
+        when(productService.getRequiredByProductKey("node-missing-product")).thenReturn(product);
+
+        DeviceAddDTO dto = buildDeviceAddDTO("node-missing-product", "demo-device-04");
+
+        BizException ex = assertThrows(BizException.class, () -> deviceService.addDevice(dto));
+        assertEquals("产品未配置节点类型，禁止继续建档: node-missing-product", ex.getMessage());
+    }
+
+    @Test
     void deleteDeviceShouldUseLogicRemove() {
         Device device = new Device();
         device.setId(2001L);

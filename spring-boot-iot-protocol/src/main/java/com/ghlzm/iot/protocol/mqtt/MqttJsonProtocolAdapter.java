@@ -100,6 +100,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             String payloadMessageType = stringValue(map.get("messageType"));
             message.setMessageType(resolveMessageType(context, payloadMessageType, map, resolvedDeviceCode, decodedPayload.dataFormatType()));
             message.setTopic(context.getTopic());
+            message.setDataFormatType(decodedPayload.dataFormatType() == null
+                    ? null
+                    : decodedPayload.dataFormatType().name());
             LocalDateTime resolvedTimestamp = resolveTimestamp(map, resolvedDeviceCode);
             message.setTimestamp(resolvedTimestamp);
 

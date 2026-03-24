@@ -20,8 +20,10 @@
             <p>支持直接粘贴 CSV，也支持读取本地 CSV 文件。建议先下载模板，再按批次整理设备信息。</p>
           </div>
           <div class="device-import-actions">
-            <el-button link type="primary" @click="downloadTemplate">下载 CSV 模板</el-button>
-            <el-button link @click="triggerFileSelect">读取本地 CSV</el-button>
+            <StandardRowActions variant="editor" gap="comfortable">
+              <StandardActionLink @click="downloadTemplate">下载 CSV 模板</StandardActionLink>
+              <StandardActionLink @click="triggerFileSelect">读取本地 CSV</StandardActionLink>
+            </StandardRowActions>
             <input
               ref="fileInputRef"
               class="device-import-file-input"
@@ -165,19 +167,7 @@
         confirm-text="提交批量导入"
         @cancel="visible = false"
         @confirm="handleSubmit"
-      >
-        <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="visible = false">
-          取消
-        </el-button>
-        <el-button
-          type="primary"
-          class="standard-drawer-footer__button standard-drawer-footer__button--primary"
-          :loading="submitting"
-          @click="handleSubmit"
-        >
-          提交批量导入
-        </el-button>
-      </StandardDrawerFooter>
+      />
     </template>
   </StandardFormDrawer>
 </template>

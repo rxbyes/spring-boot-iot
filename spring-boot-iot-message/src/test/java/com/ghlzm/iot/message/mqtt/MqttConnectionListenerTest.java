@@ -1,6 +1,8 @@
 package com.ghlzm.iot.message.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
@@ -23,13 +25,15 @@ class MqttConnectionListenerTest {
         AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
         AtomicReference<ArchiveCall> archived = new AtomicReference<>();
         MqttConnectionListener listener = newListener(captured, archived);
-        BizException ex = new BizException("设备不存在: demo-device-02");
+        BizException ex = new BizException("设备未绑定产品: demo-device-02");
         RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
         rawDeviceMessage.setTraceId("trace-demo-001");
         rawDeviceMessage.setDeviceCode("demo-device-02");
         rawDeviceMessage.setProductKey("demo-product");
+        rawDeviceMessage.setProtocolCode("mqtt-json");
         rawDeviceMessage.setMessageType("property");
         rawDeviceMessage.setTopicRouteType("direct");
+        rawDeviceMessage.setClientId("demo-device-02");
 
         listener.onMessageDispatchFailed(
                 "/sys/demo-product/demo-device-02/thing/property/post",
@@ -48,8 +52,10 @@ class MqttConnectionListenerTest {
         assertEquals("trace-demo-001", event.context().get("traceId"));
         assertEquals("demo-device-02", event.context().get("deviceCode"));
         assertEquals("demo-product", event.context().get("productKey"));
+        assertEquals("mqtt-json", event.context().get("protocolCode"));
         assertEquals("property", event.context().get("messageType"));
         assertEquals("direct", event.context().get("topicRouteType"));
+        assertEquals("demo-device-02", event.context().get("clientId"));
         assertEquals("device_validate", event.context().get("failureStage"));
         assertSame(ex, event.throwable());
 
@@ -68,13 +74,29 @@ class MqttConnectionListenerTest {
         RuntimeException ex = new RuntimeException("subscribe failed");
         List<String> topics = List.of("/sys/+/+/thing/property/post");
 
-        listener.onSubscribeFailed(topics, ex);
+        listener.onSubscribeFailed(topics, ex, "shared-client-dev-01");
 
         BackendExceptionEvent event = captured.get();
         assertNotNull(event);
         assertEquals("MqttMessageConsumer#subscribeConfiguredTopics", event.operationMethod());
         assertEquals("subscribe", event.requestUrl());
         assertEquals(topics, event.context().get("topics"));
+        assertEquals("shared-client-dev-01", event.context().get("clientId"));
+        assertSame(ex, event.throwable());
+    }
+
+    @Test
+    void shouldRecordConnectionLostClientId() {
+        AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
+        MqttConnectionListener listener = newListener(captured, new AtomicReference<>());
+        RuntimeException ex = new RuntimeException("connection reset");
+
+        listener.onConnectionLost(ex, "shared-client-dev-02");
+
+        BackendExceptionEvent event = captured.get();
+        assertNotNull(event);
+        assertEquals("MqttMessageConsumer#connectionLost", event.operationMethod());
+        assertEquals("shared-client-dev-02", event.context().get("clientId"));
         assertSame(ex, event.throwable());
     }
 
@@ -93,13 +115,25 @@ class MqttConnectionListenerTest {
             }
 
             @Override
-            public com.ghlzm.iot.common.response.PageResult<com.ghlzm.iot.device.entity.DeviceAccessErrorLog> pageLogs(
+            public PageResult<DeviceAccessErrorLog> pageLogs(
                     com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public com.ghlzm.iot.device.entity.DeviceAccessErrorLog getById(Long id) {
+            public com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO getStats(
+                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<DeviceAccessErrorLogService.FailureStageCount> listFailureStageCountsSince(
+                    java.util.Date startTime) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public DeviceAccessErrorLog getById(Long id) {
                 throw new UnsupportedOperationException();
             }
         });

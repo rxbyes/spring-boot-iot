@@ -2,24 +2,33 @@ package com.ghlzm.iot.message.dispatcher;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceMessageService;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 上行消息分发器。
+ * legacy 兼容上行分发器。
+ * <p>
+ * 当前 HTTP / MQTT 主链路统一由 {@code UpMessageProcessingPipeline} 承接；本类仅保留给仍依赖
+ * 旧调用方式的兼容入口和回归测试使用，不再作为 message-flow 主链路说明对象。
  */
 @Component
 public class UpMessageDispatcher {
+
+    private static final Logger log = LoggerFactory.getLogger(UpMessageDispatcher.class);
 
     private final ProtocolAdapterRegistry protocolAdapterRegistry;
     private final DeviceMessageService deviceMessageService;
@@ -31,8 +40,15 @@ public class UpMessageDispatcher {
     }
 
     public DeviceUpMessage dispatch(RawDeviceMessage rawMessage) {
+        long startNs = System.nanoTime();
         ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(rawMessage.getProtocolCode());
         if (adapter == null) {
+            log.warn(ObservabilityEventLogSupport.summary(
+                    "protocol_decode",
+                    "failure",
+                    elapsedMillis(startNs),
+                    buildFailureDetails(rawMessage, "adapter_not_found", null)
+            ));
             throw new BizException("未找到协议适配器: " + rawMessage.getProtocolCode());
         }
 
@@ -53,37 +69,69 @@ public class UpMessageDispatcher {
         context.setClientId(rawMessage.getClientId());
         context.setMetadata(buildMetadata(rawMessage));
 
-        DeviceUpMessage upMessage = adapter.decode(rawMessage.getPayload(), context);
-        if (upMessage == null) {
-            throw new BizException("协议解析结果为空");
-        }
+        try {
+            DeviceUpMessage upMessage = adapter.decode(rawMessage.getPayload(), context);
+            if (upMessage == null) {
+                throw new BizException("协议解析结果为空");
+            }
 
-        if (!hasText(upMessage.getTenantId())) {
-            upMessage.setTenantId(rawMessage.getTenantId());
-        }
-        if (!hasText(upMessage.getProductKey())) {
-            upMessage.setProductKey(rawMessage.getProductKey());
-        }
-        if (!hasText(upMessage.getDeviceCode())) {
-            upMessage.setDeviceCode(rawMessage.getDeviceCode());
-        }
-        if (!hasText(upMessage.getMessageType())) {
-            upMessage.setMessageType(rawMessage.getMessageType());
-        }
-        if (!hasText(upMessage.getRawPayload())) {
-            upMessage.setRawPayload(new String(rawMessage.getPayload(), StandardCharsets.UTF_8));
-        }
-        if (upMessage.getTimestamp() == null) {
-            upMessage.setTimestamp(LocalDateTime.now());
-        }
-        if (!hasText(upMessage.getTraceId())) {
-            upMessage.setTraceId(traceId);
-        }
-        upMessage.setProtocolCode(rawMessage.getProtocolCode());
-        upMessage.setTopic(rawMessage.getTopic());
+            if (!hasText(upMessage.getTenantId())) {
+                upMessage.setTenantId(rawMessage.getTenantId());
+            }
+            if (!hasText(upMessage.getProductKey())) {
+                upMessage.setProductKey(rawMessage.getProductKey());
+            }
+            if (!hasText(upMessage.getDeviceCode())) {
+                upMessage.setDeviceCode(rawMessage.getDeviceCode());
+            }
+            if (!hasText(upMessage.getMessageType())) {
+                upMessage.setMessageType(rawMessage.getMessageType());
+            }
+            if (!hasText(upMessage.getRawPayload())) {
+                upMessage.setRawPayload(new String(rawMessage.getPayload(), StandardCharsets.UTF_8));
+            }
+            if (upMessage.getTimestamp() == null) {
+                upMessage.setTimestamp(LocalDateTime.now());
+            }
+            if (!hasText(upMessage.getTraceId())) {
+                upMessage.setTraceId(traceId);
+            }
+            upMessage.setProtocolCode(rawMessage.getProtocolCode());
+            upMessage.setTopic(rawMessage.getTopic());
+            enrichRawMessage(rawMessage, upMessage);
 
-        deviceMessageService.handleUpMessage(upMessage);
-        return upMessage;
+            deviceMessageService.handleUpMessage(upMessage);
+            return upMessage;
+        } catch (RuntimeException ex) {
+            log.warn(ObservabilityEventLogSupport.summary(
+                    resolveFailureEvent(ex),
+                    "failure",
+                    elapsedMillis(startNs),
+                    buildFailureDetails(rawMessage, resolveFailureReason(ex), ex)
+            ), ex);
+            throw ex;
+        }
+    }
+
+    private void enrichRawMessage(RawDeviceMessage rawMessage, DeviceUpMessage upMessage) {
+        if (rawMessage == null || upMessage == null) {
+            return;
+        }
+        if (hasText(upMessage.getDeviceCode())) {
+            rawMessage.setDeviceCode(upMessage.getDeviceCode());
+        }
+        if (hasText(upMessage.getProductKey())) {
+            rawMessage.setProductKey(upMessage.getProductKey());
+        }
+        if (hasText(upMessage.getMessageType())) {
+            rawMessage.setMessageType(upMessage.getMessageType());
+        }
+        if (!hasText(rawMessage.getClientId()) && hasText(upMessage.getDeviceCode())) {
+            rawMessage.setClientId(upMessage.getDeviceCode());
+        }
+        if (hasText(upMessage.getProtocolCode())) {
+            rawMessage.setProtocolCode(upMessage.getProtocolCode());
+        }
     }
 
     private Map<String, Object> buildMetadata(RawDeviceMessage rawMessage) {
@@ -102,5 +150,50 @@ public class UpMessageDispatcher {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private Map<String, Object> buildFailureDetails(RawDeviceMessage rawMessage, String reason, Throwable throwable) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", rawMessage == null ? TraceContextHolder.getTraceId() : rawMessage.getTraceId());
+        details.put("protocolCode", rawMessage == null ? null : rawMessage.getProtocolCode());
+        details.put("topic", rawMessage == null ? null : rawMessage.getTopic());
+        details.put("deviceCode", rawMessage == null ? null : rawMessage.getDeviceCode());
+        details.put("productKey", rawMessage == null ? null : rawMessage.getProductKey());
+        details.put("clientId", rawMessage == null ? null : rawMessage.getClientId());
+        details.put("messageType", rawMessage == null ? null : rawMessage.getMessageType());
+        details.put("reason", reason);
+        if (throwable != null) {
+            details.put("errorClass", throwable.getClass().getSimpleName());
+        }
+        return details;
+    }
+
+    private String resolveFailureEvent(RuntimeException ex) {
+        String message = ex == null || ex.getMessage() == null ? "" : ex.getMessage().toLowerCase();
+        if (message.contains("协议解析") || message.contains("decode")) {
+            return "protocol_decode";
+        }
+        if (message.contains("设备不存在")
+                || message.contains("协议不匹配")
+                || message.contains("协议未配置")
+                || message.contains("协议配置异常")
+                || message.contains("产品不匹配")
+                || message.contains("产品不存在")
+                || message.contains("未绑定产品")) {
+            return "device_contract_validation";
+        }
+        return "message_dispatch";
+    }
+
+    private String resolveFailureReason(RuntimeException ex) {
+        String message = ex == null ? null : ex.getMessage();
+        if (!hasText(message)) {
+            return ex == null ? null : ex.getClass().getSimpleName();
+        }
+        return message;
+    }
+
+    private long elapsedMillis(long startNs) {
+        return (System.nanoTime() - startNs) / 1_000_000L;
     }
 }

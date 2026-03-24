@@ -8,9 +8,9 @@
     <p class="empty-state__title">{{ title }}</p>
     <p class="empty-state__description">{{ description }}</p>
     <div v-if="action" class="empty-state__action">
-      <el-button @click="action.callback">
+      <StandardButton action="refresh" @click="action.callback">
         {{ action.label }}
-      </el-button>
+      </StandardButton>
     </div>
   </div>
 </template>

@@ -11,13 +11,33 @@ const ERROR_CODE_MAP: Record<number, string> = {
   401: '未授权，请重新登录',
   403: '拒绝访问',
   404: '请求资源不存在',
-  500: '服务器内部错误',
+  500: '系统繁忙，请稍后重试！',
   502: '网关错误',
   503: '服务不可用',
   504: '网关超时'
 };
 
 let authRedirectPromise: Promise<void> | null = null;
+let lastErrorToastMessage = '';
+let lastErrorToastAt = 0;
+const ERROR_TOAST_DEDUPE_MS = 1200;
+
+function resolveResponseErrorMessage(code: number, rawMessage?: string) {
+  if (code >= 500 && ERROR_CODE_MAP[code]) {
+    return ERROR_CODE_MAP[code];
+  }
+  return rawMessage || ERROR_CODE_MAP[code] || '请求失败';
+}
+
+function showErrorMessage(message: string) {
+  const now = Date.now();
+  if (message === lastErrorToastMessage && now - lastErrorToastAt < ERROR_TOAST_DEDUPE_MS) {
+    return;
+  }
+  lastErrorToastMessage = message;
+  lastErrorToastAt = now;
+  ElMessage.error(message);
+}
 
 function buildLoginRedirectQuery() {
   const currentRoute = router.currentRoute.value;
@@ -71,14 +91,15 @@ export const loadingRequestInterceptor: RequestInterceptor = {
 export const errorResponseInterceptor: ResponseInterceptor = {
   async onsuccess(data) {
     if (data.code !== 200) {
-      const message = data.msg || ERROR_CODE_MAP[data.code] || '请求失败';
+      const rawMessage = data.msg;
+      const message = resolveResponseErrorMessage(data.code, rawMessage);
       if (data.code === 401) {
         // 会话失效后统一清理鉴权状态并跳回登录页，避免页面停留在受保护路由或展示原始 401 JSON。
         await handleUnauthorized();
-        throw createRequestError(message, true, 401);
+        throw createRequestError(message, true, 401, rawMessage);
       }
-      ElMessage.error(message);
-      throw createRequestError(message, true, data.code);
+      showErrorMessage(message);
+      throw createRequestError(message, true, data.code, rawMessage);
     }
     return data;
   },

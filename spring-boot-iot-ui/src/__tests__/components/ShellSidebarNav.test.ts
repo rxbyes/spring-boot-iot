@@ -82,6 +82,7 @@ describe('ShellSidebarNav', () => {
     expect(items).toHaveLength(2);
     expect(items[0].classes()).toContain('shell-sidebar-nav__item--active');
     expect(items[1].classes()).not.toContain('shell-sidebar-nav__item--active');
+    expect(wrapper.findAll('.tooltip-stub')).toHaveLength(0);
   });
 
   it('shows collapsed markers and enables tooltip text when the sidebar is collapsed', () => {
@@ -101,5 +102,7 @@ describe('ShellSidebarNav', () => {
     });
 
     expect(wrapper.find('.shell-sidebar-nav').attributes('aria-hidden')).toBe('true');
+    expect(wrapper.find('.shell-sidebar-nav').attributes('inert')).toBe('');
+    expect(wrapper.findAll('.tooltip-stub')).toHaveLength(0);
   });
 });

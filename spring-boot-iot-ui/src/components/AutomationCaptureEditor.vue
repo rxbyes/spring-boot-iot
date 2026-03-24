@@ -2,7 +2,7 @@
   <div class="automation-capture-editor">
     <StandardInlineSectionHeader :title="title">
       <template #actions>
-        <el-button text @click="$emit('add')">{{ addText }}</el-button>
+        <StandardActionLink @click="$emit('add')">{{ addText }}</StandardActionLink>
       </template>
     </StandardInlineSectionHeader>
 
@@ -17,7 +17,7 @@
     >
       <el-input v-model="capture.variable" :placeholder="variablePlaceholder" />
       <el-input v-model="capture.path" :placeholder="pathPlaceholder" />
-      <el-button text type="danger" @click="$emit('remove', captureIndex)">移除</el-button>
+      <StandardActionLink @click="$emit('remove', captureIndex)">移除</StandardActionLink>
     </div>
   </div>
 </template>

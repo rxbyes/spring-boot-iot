@@ -2,6 +2,11 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 
 import App from './App.vue';
+import StandardActionLink from './components/StandardActionLink.vue';
+import StandardActionMenu from './components/StandardActionMenu.vue';
+import StandardButton from './components/StandardButton.vue';
+import StandardChoiceGroup from './components/StandardChoiceGroup.vue';
+import StandardRowActions from './components/StandardRowActions.vue';
 import router from './router/index';
 import { registerDefaultInterceptors } from './api/interceptors';
 import { permission } from './directives/permission';
@@ -23,5 +28,10 @@ app.use(router);
 
 // 注册按钮权限指令
 app.directive('permission', permission);
+app.component('StandardActionLink', StandardActionLink);
+app.component('StandardActionMenu', StandardActionMenu);
+app.component('StandardButton', StandardButton);
+app.component('StandardChoiceGroup', StandardChoiceGroup);
+app.component('StandardRowActions', StandardRowActions);
 
 app.mount('#app');

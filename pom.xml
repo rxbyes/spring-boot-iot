@@ -19,6 +19,7 @@
         <module>spring-boot-iot-device</module>
         <module>spring-boot-iot-protocol</module>
         <module>spring-boot-iot-message</module>
+        <module>spring-boot-iot-telemetry</module>
         <module>spring-boot-iot-rule</module>
         <module>spring-boot-iot-alarm</module>
         <module>spring-boot-iot-report</module>
@@ -203,6 +204,11 @@
             </dependency>
             <dependency>
                 <groupId>com.ghlzm.iot</groupId>
+                <artifactId>spring-boot-iot-telemetry</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.ghlzm.iot</groupId>
                 <artifactId>spring-boot-iot-alarm</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -217,6 +223,7 @@
                 <artifactId>ghlxk-spring-boot-starter-aes</artifactId>
                 <version>${ghlxk.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 

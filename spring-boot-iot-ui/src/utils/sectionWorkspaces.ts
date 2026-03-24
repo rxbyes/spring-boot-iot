@@ -92,9 +92,9 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     cards: [
       { path: '/products', label: '产品定义中心', description: '维护产品台账、接入协议与设备归属基线。', short: '产', keywords: ['产品定义中心', '产品台账', '产品建档'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', short: '设', keywords: ['设备资产中心', '设备资产', '设备档案'] },
-      { path: '/reporting', label: '链路验证中心', description: '发起 HTTP 上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证'] },
+      { path: '/reporting', label: '链路验证中心', description: '按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
       { path: '/system-log', label: '异常观测台', description: '排查 system_error、MQTT 异常和后台链路问题。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },
-      { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic'] },
+      { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路，并切换查看失败归档。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic', '失败归档', '接入失败'] },
       { path: '/file-debug', label: '数据校验台', description: '查看文件快照与固件聚合调试结果。', short: '校', keywords: ['数据校验台', '文件校验', '固件调试'] }
     ],
     steps: ['先完成产品定义与协议绑定。', '再维护设备资产与认证信息。', '通过链路验证、链路追踪和异常观测完成接入排障。']
@@ -150,10 +150,10 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看平台治理分组能力与常用入口',
     navShort: '概',
     title: '平台治理',
-    description: '围绕组织、账号、角色、导航、通知和审计组织平台治理能力。',
-    intro: '建议先维护组织与账号，再做角色权限和导航编排，最后通过通知编排与审计中心完成治理闭环。',
+    description: '围绕组织、账号、角色、导航、通知、帮助和审计组织平台治理能力。',
+    intro: '建议先维护组织与账号，再做角色权限和导航编排，随后补齐通知渠道、站内消息、帮助文档和审计中心治理闭环。',
     menuTitle: '平台治理',
-    menuHint: '覆盖组织、账号、角色、导航、区域、字典、通知与审计中心。',
+    menuHint: '覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。',
     matchKeys: ['system-governance', 'system-management', 'system-core'],
     matchLabels: ['平台治理', '系统管理', '系统治理'],
     cards: [
@@ -164,9 +164,11 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/region', label: '区域版图', description: '维护区域树、引用配置与筛选范围。', short: '区', keywords: ['区域版图', '区域管理', '区域树'] },
       { path: '/dict', label: '数据字典', description: '维护字典分类、编码和值域。', short: '字', keywords: ['数据字典', '字典配置', '字典'] },
       { path: '/channel', label: '通知编排', description: '维护通知渠道配置、启停和测试。', short: '通', keywords: ['通知编排', '通知渠道', '渠道配置'] },
+      { path: '/in-app-message', label: '站内消息', description: '维护通知中心消费的系统、业务和错误事件消息。', short: '信', keywords: ['站内消息', '通知中心', '消息编排'] },
+      { path: '/help-doc', label: '帮助文档', description: '维护帮助中心消费的业务、技术和 FAQ 资料。', short: '帮', keywords: ['帮助文档', '帮助中心', 'FAQ'] },
       { path: '/audit-log', label: '审计中心', description: '查看治理侧业务审计与关键操作记录。', short: '审', keywords: ['审计中心', '业务日志', '审计日志'] }
     ],
-    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '最后用通知编排与审计中心复核治理流程。']
+    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后配置通知渠道、站内消息和帮助文档。', '最后用审计中心复核治理流程。']
   },
   {
     key: 'quality-workbench',
@@ -241,7 +243,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['超级管理员'],
     defaultPath: '/system-management',
     preferredWorkspaceKeys: ['system-governance', 'risk-ops', 'iot-access'],
-    featuredPaths: ['/user', '/role', '/menu', '/audit-log', '/report-analysis'],
+    featuredPaths: ['/user', '/role', '/in-app-message', '/help-doc', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '平台治理',
     focusDescription: '优先进入组织、权限、导航和审计治理核心能力。'
@@ -265,7 +267,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['管理'],
     defaultPath: '/risk-disposal',
     preferredWorkspaceKeys: ['risk-ops', 'risk-config', 'system-governance'],
-    featuredPaths: ['/report-analysis', '/event-disposal', '/risk-point', '/audit-log'],
+    featuredPaths: ['/report-analysis', '/event-disposal', '/in-app-message', '/help-doc', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '经营统筹',
     focusDescription: '优先查看经营分析、闭环效率、策略覆盖和治理执行情况。'

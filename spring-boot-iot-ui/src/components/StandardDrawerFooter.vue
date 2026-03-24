@@ -4,14 +4,16 @@
 
     <div class="standard-drawer-footer__actions">
       <slot>
-        <el-button
+        <StandardButton
           v-if="showCancel"
+          action="cancel"
           class="standard-drawer-footer__button standard-drawer-footer__button--ghost"
           @click="emit('cancel')"
         >
           {{ cancelText }}
-        </el-button>
-        <el-button
+        </StandardButton>
+        <StandardButton
+          :action="danger ? 'delete' : 'confirm'"
           :type="confirmType"
           class="standard-drawer-footer__button"
           :class="{
@@ -23,7 +25,7 @@
           @click="emit('confirm')"
         >
           {{ confirmText }}
-        </el-button>
+        </StandardButton>
       </slot>
     </div>
   </div>

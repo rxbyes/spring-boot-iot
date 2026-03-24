@@ -277,9 +277,9 @@ Phase 5 将在 Phase 4 完成的风险监测预警处置平台基础上，进行
    - `spring-boot-iot-ui/src/api/productProperty.ts`
 
 3. **验收材料**
-   - `docs/test-scenarios.md`
-   - `docs/19-phase4-progress.md`
-   - `docs/21-business-functions-and-acceptance.md`
+   - `docs/真实环境测试与验收手册.md`
+   - `docs/19-第四阶段交付边界与复验进展.md`
+   - `docs/21-业务功能清单与验收标准.md`
    - `scripts/start-backend-acceptance.ps1`
    - `scripts/start-frontend-acceptance.ps1`
 

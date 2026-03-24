@@ -3,6 +3,12 @@ import { buildQueryString } from './query';
 import type {
   DeviceMessageLog,
   HttpReportPayload,
+  MessageFlowOpsOverview,
+  MessageFlowRecentSession,
+  MessageFlowSession,
+  MessageFlowSubmitResult,
+  MessageFlowTimeline,
+  MessageTraceStats,
   PageResult
 } from '../types/api';
 
@@ -16,6 +22,14 @@ export interface MessageTraceQueryParams {
   pageSize?: number;
 }
 
+export interface MessageFlowRecentQueryParams {
+  size?: number;
+  deviceCode?: string;
+  topic?: string;
+  transportMode?: string;
+  status?: string;
+}
+
 /**
  * 消息相关API
  */
@@ -24,10 +38,28 @@ export const messageApi = {
    * HTTP模拟上报
    */
   reportByHttp(payload: HttpReportPayload) {
-    return request<null>('/api/message/http/report', {
+    return request<MessageFlowSubmitResult>('/api/message/http/report', {
       method: 'POST',
       body: payload
     });
+  },
+
+  getMessageFlowSession(sessionId: string) {
+    return request<MessageFlowSession>(`/api/device/message-flow/session/${sessionId}`);
+  },
+
+  getMessageFlowTrace(traceId: string) {
+    return request<MessageFlowTimeline>(`/api/device/message-flow/trace/${traceId}`);
+  },
+
+  getMessageFlowOpsOverview() {
+    return request<MessageFlowOpsOverview>('/api/device/message-flow/ops/overview');
+  },
+
+  getMessageFlowRecentSessions(params: MessageFlowRecentQueryParams = {}) {
+    const query = buildQueryString(params);
+    const path = `/api/device/message-flow/recent${query ? `?${query}` : ''}`;
+    return request<MessageFlowRecentSession[]>(path);
   },
 
   /**
@@ -44,6 +76,15 @@ export const messageApi = {
     const query = buildQueryString(params);
     const path = `/api/device/message-trace/page${query ? `?${query}` : ''}`;
     return request<PageResult<DeviceMessageLog>>(path);
+  },
+
+  /**
+   * 查询消息追踪统计概览
+   */
+  pageMessageTraceStats(params: MessageTraceQueryParams = {}) {
+    const query = buildQueryString(params);
+    const path = `/api/device/message-trace/stats${query ? `?${query}` : ''}`;
+    return request<MessageTraceStats>(path);
   },
 
   /**

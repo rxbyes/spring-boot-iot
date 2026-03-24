@@ -1,6 +1,8 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.notification.InAppMessagePublishCommand;
+import com.ghlzm.iot.framework.notification.InAppMessagePublisher;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
@@ -15,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,14 +41,18 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
     private static final String SYSTEM_USER_NAME = "SYSTEM";
     private static final String SYSTEM_ERROR_TYPE = "system_error";
     private static final String DEFAULT_REQUEST_METHOD = "SYSTEM";
+    private static final List<String> SYSTEM_ERROR_ROLE_CODES = List.of("OPS_STAFF", "DEVELOPER_STAFF", "SUPER_ADMIN");
 
     private final AuditLogService auditLogService;
+    private final InAppMessagePublisher inAppMessagePublisher;
     private final SystemErrorNotificationService systemErrorNotificationService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public AuditLogBackendExceptionRecorder(AuditLogService auditLogService,
+                                            InAppMessagePublisher inAppMessagePublisher,
                                             SystemErrorNotificationService systemErrorNotificationService) {
         this.auditLogService = auditLogService;
+        this.inAppMessagePublisher = inAppMessagePublisher;
         this.systemErrorNotificationService = systemErrorNotificationService;
     }
 
@@ -79,6 +86,7 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
         auditLogService.addLog(auditLog);
+        publishInAppMessage(event, auditLog, now);
         try {
             systemErrorNotificationService.notifySystemError(event, auditLog);
         } catch (Exception ex) {
@@ -138,6 +146,52 @@ public class AuditLogBackendExceptionRecorder implements BackendExceptionRecorde
 
     private String defaultText(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private void publishInAppMessage(BackendExceptionEvent event, AuditLog auditLog, Date publishTime) {
+        try {
+            String traceId = StringUtils.hasText(auditLog.getTraceId()) ? auditLog.getTraceId() : TraceContextHolder.getTraceId();
+            String sourceId = StringUtils.hasText(traceId)
+                    ? traceId
+                    : "audit-log:" + (auditLog.getId() == null ? "unknown" : auditLog.getId());
+            String target = defaultText(auditLog.getRequestUrl(), "未知目标");
+            String summary = truncate(resolveResultMessage(event.throwable()), 180);
+            String content = """
+                    审计ID：%s
+                    TraceId：%s
+                    模块：%s
+                    方法：%s
+                    目标：%s
+                    异常类：%s
+                    错误码：%s
+                    建议动作：请前往异常观测台按 TraceId 或审计ID 排查，并结合链路追踪台确认上下游日志。
+                    """.formatted(
+                    auditLog.getId() == null ? "-" : auditLog.getId(),
+                    StringUtils.hasText(traceId) ? traceId : "-",
+                    defaultText(auditLog.getOperationModule(), "unknown"),
+                    defaultText(auditLog.getOperationMethod(), "unknown"),
+                    target,
+                    defaultText(auditLog.getExceptionClass(), event.throwable().getClass().getName()),
+                    defaultText(auditLog.getErrorCode(), "-")
+            );
+            inAppMessagePublisher.publish(InAppMessagePublishCommand.builder()
+                    .tenantId(DEFAULT_TENANT_ID)
+                    .messageType("error")
+                    .priority("high")
+                    .title("后台异常待排查")
+                    .summary(summary)
+                    .content(content)
+                    .targetType("role")
+                    .targetRoleCodes(SYSTEM_ERROR_ROLE_CODES)
+                    .relatedPath("/system-log")
+                    .sourceType(SYSTEM_ERROR_TYPE)
+                    .sourceId(sourceId)
+                    .publishTime(publishTime)
+                    .operatorId(1L)
+                    .build());
+        } catch (Exception ex) {
+            // 站内消息失败也不能影响异常记录主链路。
+        }
     }
 
     private String truncate(String text, int maxLength) {

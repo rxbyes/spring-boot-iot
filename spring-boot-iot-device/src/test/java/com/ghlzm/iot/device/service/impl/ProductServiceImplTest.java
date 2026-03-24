@@ -2,15 +2,20 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,12 +25,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,12 +42,14 @@ class ProductServiceImplTest {
 
     @Mock
     private DeviceMapper deviceMapper;
+    @Mock
+    private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
 
     @BeforeEach
     void setUp() {
-        productService = spy(new ProductServiceImpl(deviceMapper));
+        productService = spy(new ProductServiceImpl(deviceMapper, deviceOnlineSessionService));
     }
 
     @Test
@@ -99,12 +110,34 @@ class ProductServiceImplTest {
         statRow.setLastReportTime(lastReportTime);
         when(deviceMapper.selectProductStats(any())).thenReturn(List.of(statRow));
 
+        ProductActivityStatRow activityStatRow = new ProductActivityStatRow();
+        activityStatRow.setProductId(1001L);
+        activityStatRow.setTodayActiveCount(3L);
+        activityStatRow.setSevenDaysActiveCount(5L);
+        activityStatRow.setThirtyDaysActiveCount(8L);
+        ProductActivityStatRow durationStatRow = new ProductActivityStatRow();
+        durationStatRow.setProductId(1001L);
+        durationStatRow.setAvgOnlineDuration(120L);
+        durationStatRow.setMaxOnlineDuration(720L);
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        when(deviceMapper.selectProductActivityStat(1001L, todayStart, todayStart.minusDays(7), todayStart.minusDays(30)))
+                .thenReturn(activityStatRow);
+        when(deviceOnlineSessionService.loadProductDurationStat(eq(1001L), eq(todayStart.minusDays(30)), any(LocalDateTime.class)))
+                .thenReturn(durationStatRow);
+
         ProductDetailVO detail = productService.getDetailById(1001L);
 
         assertEquals(6L, detail.getDeviceCount());
         assertEquals(2L, detail.getOnlineDeviceCount());
         assertEquals(lastReportTime, detail.getLastReportTime());
+        assertEquals(3L, detail.getTodayActiveCount());
+        assertEquals(5L, detail.getSevenDaysActiveCount());
+        assertEquals(8L, detail.getThirtyDaysActiveCount());
+        assertEquals(120L, detail.getAvgOnlineDuration());
+        assertEquals(720L, detail.getMaxOnlineDuration());
         verify(deviceMapper).selectProductStats(any());
+        verify(deviceMapper).selectProductActivityStat(1001L, todayStart, todayStart.minusDays(7), todayStart.minusDays(30));
+        verify(deviceOnlineSessionService).loadProductDurationStat(eq(1001L), eq(todayStart.minusDays(30)), any(LocalDateTime.class));
     }
 
     @Test
@@ -137,5 +170,24 @@ class ProductServiceImplTest {
         assertEquals(8L, result.getRecords().get(0).getDeviceCount());
         assertEquals(3L, result.getRecords().get(0).getOnlineDeviceCount());
         verify(deviceMapper).selectProductStats(any());
+        verify(deviceMapper, never()).selectProductActivityStat(any(), any(), any(), any());
+        verifyNoInteractions(deviceOnlineSessionService);
+    }
+
+    @Test
+    void productDetailVoShouldKeepNullableOnlineDurationFieldsInJson() throws Exception {
+        ProductDetailVO detail = new ProductDetailVO();
+        detail.setId(1001L);
+        detail.setProductKey("demo-product");
+        detail.setAvgOnlineDuration(null);
+        detail.setMaxOnlineDuration(null);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.setSerializationInclusion(Include.NON_NULL);
+
+        String json = objectMapper.writeValueAsString(detail);
+
+        assertTrue(json.contains("\"avgOnlineDuration\":null"));
+        assertTrue(json.contains("\"maxOnlineDuration\":null"));
     }
 }

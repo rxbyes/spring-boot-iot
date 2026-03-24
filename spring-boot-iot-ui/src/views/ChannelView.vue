@@ -1,50 +1,59 @@
 <template>
   <div class="channel-view sys-mgmt-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>通知编排</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
-        </div>
+    <StandardWorkbenchPanel
+      title="通知编排"
+      description="统一维护通知渠道配置、启停和测试链路，支持同页治理导出与渠道验证。"
+      show-header-actions
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      show-pagination
+    >
+      <template #header-actions>
+        <StandardButton action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
       </template>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="渠道名称">
-              <el-input v-model="searchForm.channelName" placeholder="请输入渠道名称" clearable @keyup.enter="handleSearch" />
+      <template #filters>
+        <StandardListFilterHeader :model="searchForm">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="searchForm.channelName" placeholder="渠道名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="渠道编码">
-              <el-input v-model="searchForm.channelCode" placeholder="请输入渠道编码" clearable @keyup.enter="handleSearch" />
+            <el-form-item>
+              <el-input v-model="searchForm.channelCode" placeholder="渠道编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="渠道类型">
-              <el-select v-model="searchForm.channelType" placeholder="请选择渠道类型" clearable>
+            <el-form-item>
+              <el-select v-model="searchForm.channelType" placeholder="渠道类型" clearable>
                 <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+          </template>
+          <template #actions>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
-        <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+          <template #right>
+            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         ref="tableRef"
@@ -74,25 +83,27 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="success" link :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">
-              测试通知
-            </el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
+              <StandardActionLink :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">测试通知</StandardActionLink>
+              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </template>
 
       <StandardFormDrawer
         v-model="dialogVisible"
@@ -117,7 +128,7 @@
           <el-form-item label="配置 JSON" prop="config">
             <el-input v-model="formData.config" type="textarea" :rows="6" :placeholder="configPlaceholder" />
             <div class="form-tip">
-              webhook / 微信 / 飞书 / 钉钉 建议配置 `url`，系统异常自动通知需在 `scenes` 中包含 `system_error`。
+              webhook / 微信 / 飞书 / 钉钉 建议配置 `url`，后台异常需在 `scenes` 中包含 `system_error`，规则化运维告警需包含 `observability_alert`，高优未读桥接需包含 `in_app_unread_bridge`。
             </div>
           </el-form-item>
           <el-form-item label="状态" prop="status">
@@ -151,7 +162,7 @@
         :presets="exportPresets"
         @confirm="handleExportColumnConfirm"
       />
-    </PanelCard>
+    </StandardWorkbenchPanel>
   </div>
 </template>
 
@@ -160,12 +171,15 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -197,6 +211,11 @@ const selectedRows = ref<ChannelRecord[]>([])
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const searchForm = reactive({
+  channelName: '',
+  channelCode: '',
+  channelType: undefined as string | undefined
+})
+const appliedFilters = reactive({
   channelName: '',
   channelCode: '',
   channelType: undefined as string | undefined
@@ -249,10 +268,10 @@ const formRules = {
 }
 
 const configPlaceholders: Record<string, string> = {
-  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
-  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  webhook: '{\n  "url": "https://example.com/iot/webhook",\n  "headers": {\n    "Authorization": "Bearer demo-token"\n  },\n  "scenes": ["system_error", "observability_alert", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  dingtalk: '{\n  "url": "https://oapi.dingtalk.com/robot/send?access_token=xxx",\n  "scenes": ["system_error", "observability_alert", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  wechat: '{\n  "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",\n  "scenes": ["system_error", "observability_alert", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
+  feishu: '{\n  "url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",\n  "scenes": ["system_error", "observability_alert", "in_app_unread_bridge"],\n  "timeoutMs": 3000,\n  "minIntervalSeconds": 300\n}',
   email: '{\n  "host": "smtp.example.com",\n  "port": 465,\n  "from": "iot-alert@example.com"\n}',
   sms: '{\n  "provider": "demo",\n  "signName": "spring-boot-iot"\n}'
 }
@@ -283,14 +302,33 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 )
 const exportColumnDialogVisible = ref(false)
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: 'channelName', label: '渠道名称' },
+    { key: 'channelCode', label: '渠道编码' },
+    { key: 'channelType', label: (value) => `渠道类型：${getChannelTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => Boolean(value) }
+  ],
+  defaults: {
+    channelName: '',
+    channelCode: '',
+    channelType: undefined
+  }
+})
 
 const loadChannelPage = async () => {
   loading.value = true
   try {
     const res = await pageChannels({
-      channelName: searchForm.channelName || undefined,
-      channelCode: searchForm.channelCode || undefined,
-      channelType: searchForm.channelType || undefined,
+      channelName: appliedFilters.channelName || undefined,
+      channelCode: appliedFilters.channelCode || undefined,
+      channelType: appliedFilters.channelType || undefined,
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
@@ -305,10 +343,12 @@ const loadChannelPage = async () => {
 }
 
 onMounted(() => {
+  syncAppliedFilters()
   loadChannelPage()
 })
 
 const handleSearch = () => {
+  syncAppliedFilters()
   resetPage()
   clearSelection()
   loadChannelPage()
@@ -318,9 +358,21 @@ const handleReset = () => {
   searchForm.channelName = ''
   searchForm.channelCode = ''
   searchForm.channelType = undefined
+  syncAppliedFilters()
   resetPage()
   clearSelection()
   loadChannelPage()
+}
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key)
+  resetPage()
+  clearSelection()
+  loadChannelPage()
+}
+
+const handleClearAppliedFilters = () => {
+  handleReset()
 }
 
 const handleSelectionChange = (rows: ChannelRecord[]) => {

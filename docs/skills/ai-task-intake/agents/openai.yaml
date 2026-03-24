@@ -1,0 +1,4 @@
+interface:
+  display_name: "任务提问收口"
+  short_description: "把模糊需求收口成可直接投喂助手的任务卡"
+  default_prompt: "请使用 $ai-task-intake 帮我把当前 spring-boot-iot 需求整理成最短任务卡，并判断该先分析还是直接修改。"

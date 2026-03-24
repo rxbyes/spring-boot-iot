@@ -46,6 +46,12 @@ logging:
   level:
     root: info
     com.ghlzm.iot: debug
+    mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.NotificationChannelMapper: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.MenuMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.HelpDocumentMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageReadMapper.selectList: OFF
+
 
 iot:
   security:
@@ -60,11 +66,17 @@ iot:
       - http://192.168.*:*
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
-    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
-#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
+#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+    broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
+    # 默认共享 clientId 会在运行时追加主机/PID 后缀；如需固定值，请显式设置为自定义非默认值。
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
     username: ${IOT_MQTT_USERNAME:admin}
     password: ${IOT_MQTT_PASSWORD:1qaz2wsx}
+    cluster-singleton-enabled: ${IOT_MQTT_CLUSTER_SINGLETON_ENABLED:true}
+    cluster-lock-key: ${IOT_MQTT_CLUSTER_LOCK_KEY:iot:mqtt:consumer:leader}
+    cluster-lock-ttl-seconds: ${IOT_MQTT_CLUSTER_LOCK_TTL_SECONDS:30}
+    cluster-lock-renew-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_RENEW_INTERVAL_SECONDS:10}
+    cluster-lock-acquire-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_ACQUIRE_INTERVAL_SECONDS:5}
     default-subscribe-topics:
       - $dp
       - /sys/+/+/thing/property/post
@@ -74,7 +86,9 @@ iot:
       - /sys/+/+/thing/status/post
 
   telemetry:
-    storage-type: mysql
+    storage-type: tdengine
+    tdengine-mode: legacy-compatible
+    legacy-normalized-fallback-enabled: true
 
   device:
     sub-device-mappings:
@@ -91,6 +105,60 @@ iot:
   rule:
     enabled: false
 
+  alarm:
+    auto-closure:
+      enabled: true
+      cooldown-minutes: 30
+      yellow: 5
+      orange: 10
+      red: 20
+
+  observability:
+    system-error-notify-enabled: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_ENABLED:true}
+    notification-timeout-ms: ${IOT_OBSERVABILITY_NOTIFICATION_TIMEOUT_MS:3000}
+    system-error-notify-cooldown-seconds: ${IOT_OBSERVABILITY_SYSTEM_ERROR_NOTIFY_COOLDOWN_SECONDS:300}
+    message-flow:
+      enabled: ${IOT_OBSERVABILITY_MESSAGE_FLOW_ENABLED:true}
+      ttl-hours: ${IOT_OBSERVABILITY_MESSAGE_FLOW_TTL_HOURS:24}
+      session-match-window-seconds: ${IOT_OBSERVABILITY_MESSAGE_FLOW_SESSION_MATCH_WINDOW_SECONDS:120}
+      recent-session-limit: ${IOT_OBSERVABILITY_MESSAGE_FLOW_RECENT_SESSION_LIMIT:500}
+    console:
+      mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
+      mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
+    diagnostic:
+#      用于承接慢 SQL 摘要
+      sql-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_SQL_FILE_ENABLED:true}
+#      用于承接慢 HTTP / 慢 MQTT 摘要
+      access-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_ACCESS_FILE_ENABLED:true}
+    performance:
+      slow-sql-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_SQL_THRESHOLD_MS:500}
+      slow-http-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_HTTP_THRESHOLD_MS:1000}
+      slow-mqtt-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_MQTT_THRESHOLD_MS:1000}
+    in-app-unread-bridge:
+      enabled: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED:true}
+      scan-interval-seconds: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS:60}
+      high-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_HIGH_THRESHOLD_MINUTES:30}
+      critical-threshold-minutes: ${IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_CRITICAL_THRESHOLD_MINUTES:10}
+    alerting:
+      enabled: ${IOT_OBSERVABILITY_ALERTING_ENABLED:false}
+      scene: ${IOT_OBSERVABILITY_ALERTING_SCENE:observability_alert}
+      evaluate-interval-seconds: ${IOT_OBSERVABILITY_ALERTING_EVALUATE_INTERVAL_SECONDS:60}
+      cooldown-minutes: ${IOT_OBSERVABILITY_ALERTING_COOLDOWN_MINUTES:30}
+      system-error:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_SYSTEM_ERROR_THRESHOLD:5}
+      mqtt-disconnect:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_MQTT_DISCONNECT_ENABLED:true}
+        duration-minutes: ${IOT_OBSERVABILITY_ALERTING_MQTT_DISCONNECT_DURATION_MINUTES:5}
+      failure-stage:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_FAILURE_STAGE_THRESHOLD:10}
+      in-app-bridge:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_ENABLED:true}
+        window-minutes: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_WINDOW_MINUTES:10}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_THRESHOLD:3}
+
   ota:
     enabled: false
-

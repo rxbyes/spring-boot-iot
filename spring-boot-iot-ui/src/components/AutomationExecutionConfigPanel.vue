@@ -23,7 +23,7 @@
         <el-input v-model="target.browserPath" placeholder="可留空，走自动识别" />
       </el-form-item>
       <el-form-item label="问题文档">
-        <el-input v-model="target.issueDocPath" placeholder="docs/22-automation-test-issues-20260316.md" />
+        <el-input v-model="target.issueDocPath" placeholder="docs/archive/22-automation-test-issues-20260316.md" />
       </el-form-item>
       <el-form-item label="输出前缀">
         <el-input v-model="target.outputPrefix" placeholder="config-browser" />

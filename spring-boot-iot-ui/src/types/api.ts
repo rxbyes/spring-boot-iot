@@ -42,6 +42,129 @@ export interface BusinessAuditStats {
   topOperationTypes: StatsBucket[];
 }
 
+export interface MessageTraceStats {
+  total: number;
+  recentHourCount: number;
+  recent24HourCount: number;
+  distinctTraceCount: number;
+  distinctDeviceCount: number;
+  dispatchFailureCount: number;
+  topMessageTypes: StatsBucket[];
+  topProductKeys: StatsBucket[];
+  topDeviceCodes: StatsBucket[];
+  topTopics: StatsBucket[];
+}
+
+export interface MessageFlowStep {
+  stage: string;
+  handlerClass?: string | null;
+  handlerMethod?: string | null;
+  status?: string | null;
+  costMs?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  summary?: Record<string, unknown> | null;
+  errorClass?: string | null;
+  errorMessage?: string | null;
+  branch?: string | null;
+}
+
+export interface MessageFlowTimeline {
+  traceId?: string | null;
+  sessionId?: string | null;
+  flowType?: string | null;
+  status?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+  protocolCode?: string | null;
+  messageType?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  totalCostMs?: number | null;
+  steps: MessageFlowStep[];
+}
+
+export interface MessageFlowSession {
+  sessionId?: string | null;
+  transportMode?: string | null;
+  status?: string | null;
+  submittedAt?: string | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  topic?: string | null;
+  correlationPending?: boolean | null;
+  timeline?: MessageFlowTimeline | null;
+}
+
+export interface MessageFlowSessionCount {
+  transportMode?: string | null;
+  status?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowCorrelationCount {
+  result?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowLookupCount {
+  target?: string | null;
+  result?: string | null;
+  count?: number | null;
+}
+
+export interface MessageFlowStageMetric {
+  stage: string;
+  count?: number | null;
+  failureCount?: number | null;
+  skippedCount?: number | null;
+  avgCostMs?: number | null;
+  p95CostMs?: number | null;
+  maxCostMs?: number | null;
+}
+
+export interface MessageFlowOpsOverview {
+  runtimeStartedAt?: string | null;
+  sessionCounts: MessageFlowSessionCount[];
+  correlationCounts: MessageFlowCorrelationCount[];
+  lookupCounts: MessageFlowLookupCount[];
+  stageMetrics: MessageFlowStageMetric[];
+}
+
+export interface MessageFlowRecentSession {
+  sessionId?: string | null;
+  traceId?: string | null;
+  transportMode?: string | null;
+  status?: string | null;
+  submittedAt?: string | null;
+  deviceCode?: string | null;
+  topic?: string | null;
+  correlationPending?: boolean | null;
+  timelineAvailable?: boolean | null;
+}
+
+export interface MessageFlowSubmitResult {
+  sessionId?: string | null;
+  traceId?: string | null;
+  status?: string | null;
+  timelineAvailable?: boolean | null;
+  correlationPending?: boolean | null;
+}
+
+export interface DeviceAccessErrorStats {
+  total: number;
+  recentHourCount: number;
+  recent24HourCount: number;
+  distinctTraceCount: number;
+  distinctDeviceCount: number;
+  topFailureStages: StatsBucket[];
+  topErrorCodes: StatsBucket[];
+  topExceptionClasses: StatsBucket[];
+  topProtocolCodes: StatsBucket[];
+  topTopics: StatsBucket[];
+}
+
 export interface Product {
   id: IdType;
   productKey: string;
@@ -57,6 +180,12 @@ export interface Product {
   lastReportTime?: string | null;
   createTime?: string | null;
   updateTime?: string | null;
+  // 活跃度统计（详情页增强数据）
+  todayActiveCount?: number | null; // 今日活跃设备数
+  sevenDaysActiveCount?: number | null; // 7日活跃设备数
+  thirtyDaysActiveCount?: number | null; // 30日活跃设备数
+  avgOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
+  maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
 export interface Device {
@@ -158,6 +287,7 @@ export interface DeviceAccessErrorLog {
   errorCode?: string | null;
   exceptionClass?: string | null;
   errorMessage?: string | null;
+  contractSnapshot?: string | null;
   createTime?: string | null;
 }
 
@@ -283,6 +413,17 @@ export interface HttpReportPayload {
   topic?: string;
   clientId?: string;
   tenantId?: string;
+}
+
+export interface MqttReportPublishPayload {
+  protocolCode: string;
+  productKey: string;
+  deviceCode: string;
+  topic: string;
+  payload: string;
+  payloadEncoding?: string;
+  qos?: number;
+  retained?: boolean;
 }
 
 export interface ActivityDraft {

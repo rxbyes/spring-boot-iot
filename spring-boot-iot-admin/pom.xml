@@ -49,6 +49,10 @@
            <groupId>com.ghlzm.iot</groupId>
             <artifactId>spring-boot-iot-message</artifactId>
         </dependency>
+        <dependency>
+           <groupId>com.ghlzm.iot</groupId>
+            <artifactId>spring-boot-iot-telemetry</artifactId>
+        </dependency>
 
         <dependency>
            <groupId>com.ghlzm.iot</groupId>

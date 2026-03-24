@@ -6,11 +6,11 @@
   >
     <template #actions>
       <StandardActionGroup gap="sm">
-        <el-button @click="$emit('refresh')">刷新盘点</el-button>
-        <el-button @click="$emit('select-uncovered')">勾选未覆盖</el-button>
-        <el-button type="primary" @click="$emit('generate-selected')">生成勾选场景</el-button>
-        <el-button @click="$emit('generate-uncovered')">一键生成全部未覆盖</el-button>
-        <el-button @click="$emit('open-manual-page')">新增自定义页面</el-button>
+        <StandardButton action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
+        <StandardButton action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
+        <StandardButton action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
+        <StandardButton action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
+        <StandardButton action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
       </StandardActionGroup>
     </template>
 
@@ -28,6 +28,15 @@
     <p class="automation-page-discovery__caption">
       盘点来源：{{ inventorySourceText }}。当前会按路由去重，并把“当前计划未覆盖”的页面标记出来。
     </p>
+
+    <StandardTableToolbar
+      compact
+      :meta-items="[
+        `当前结果 ${pageInventory.length} 页`,
+        `已覆盖 ${pageInventory.filter((item) => isRouteCovered(item.route)).length} 页`,
+        `待补齐 ${pageInventory.filter((item) => !isRouteCovered(item.route)).length} 页`
+      ]"
+    />
 
     <el-table
       ref="tableRef"
@@ -72,14 +81,11 @@
       </StandardTableTextColumn>
       <el-table-column label="操作" width="100" fixed="right">
         <template #default="{ row }">
-          <el-button
-            v-if="row.source === 'manual'"
-            text
-            type="danger"
-            @click="$emit('remove-manual-page', row.id)"
-          >
-            删除
-          </el-button>
+          <StandardRowActions v-if="row.source === 'manual'" variant="table" gap="wide">
+            <StandardActionLink @click="$emit('remove-manual-page', row.id)">
+              删除
+            </StandardActionLink>
+          </StandardRowActions>
           <span v-else>—</span>
         </template>
       </el-table-column>
@@ -93,6 +99,7 @@ import MetricCard from './MetricCard.vue';
 import PanelCard from './PanelCard.vue';
 import StandardActionGroup from './StandardActionGroup.vue';
 import StandardTableTextColumn from './StandardTableTextColumn.vue';
+import StandardTableToolbar from './StandardTableToolbar.vue';
 import type { AutomationPageInventoryItem, AutomationScenarioTemplateType } from '../types/automation';
 
 type DiscoveryMetric = {

@@ -1,0 +1,866 @@
+﻿# 08 变更记录与技术债清单
+
+更新时间：2026-03-22
+
+## 0.0.6 2026-03-22 高优未读阈值后桥接通知渠道记录
+
+- 通知中心继续保持“全局壳层内的站内消息中心”定位，本轮没有新增消费端菜单、独立通知页面或新的多渠道编排产品。
+- 后端已补齐“高优未读阈值后桥接通知渠道”闭环：
+  - 新增 `sys_in_app_message_bridge_log`，用于记录每条站内消息在每个渠道上的桥接成功/失败、最近尝试时间、响应状态和尝试次数。
+  - 新增 `InAppMessageUnreadBridgeService` + 定时调度器，按 `high / critical` 消息阈值扫描仍未读对象。
+  - 新增 `NotificationChannelDispatcher`，统一复用既有 `webhook / wechat / feishu / dingtalk` 渠道配置解析和发送逻辑，避免 `system_error` 与未读桥接各写一套实现。
+- 当前桥接策略固定为：
+  - 只在消息发布后超过阈值且仍有未读对象时触发。
+  - 只对渠道 `config.scenes` 包含 `in_app_unread_bridge` 的渠道生效。
+  - 每条站内消息在每个渠道上“成功一次即闭环”，失败则按渠道 `minIntervalSeconds` 冷却后重试。
+- 当前新增配置项：
+  - `IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_ENABLED`
+  - `IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_SCAN_INTERVAL_SECONDS`
+  - `IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_HIGH_THRESHOLD_MINUTES`
+  - `IOT_OBSERVABILITY_IN_APP_UNREAD_BRIDGE_CRITICAL_THRESHOLD_MINUTES`
+- 当前仍保留的边界：
+  - 不做 WebSocket 实时推送。
+  - 不把通知中心改造成邮件/短信/Webhook 的统一多渠道产品。
+  - 不把渠道桥接做成面向单用户的外部直达能力，当前仍是“站内消息未读后桥接到既有群渠道”。
+
+## 0.0.7 2026-03-22 移动侧栏导航稳定性修复记录
+
+- 本轮修复针对移动端二级侧栏点击菜单后的壳层异常：
+  - 路由切换时，焦点此前可能仍停留在侧栏 `RouterLink` 上，随后侧栏立即进入 `aria-hidden` 隐藏态，浏览器会报“隐藏元素仍保留焦点”告警。
+  - 侧栏项此前无论是否折叠都统一包裹 `el-tooltip`，移动端普通导航也会经过 tooltip trigger 这层，放大了路由更新时的 DOM 冲突风险。
+- 本轮调整：
+  - `ShellSidebarNav.vue` 当前仅在“桌面折叠态”启用 tooltip；移动端和桌面展开态直接渲染路由链接。
+  - 移动端侧栏关闭态新增 `inert`，进一步把隐藏菜单从可交互树移出。
+  - `useShellRouteChangeEffects.ts` 当前会在移动端路由切换关闭菜单前，先主动移出仍停留在侧栏里的焦点。
+- 已执行验证：
+  - `cd spring-boot-iot-ui && npm test -- --run src/__tests__/components/ShellSidebarNav.test.ts src/__tests__/composables/useShellRouteChangeEffects.test.ts`
+  - `cd spring-boot-iot-ui && npm run build`
+- 已同步更新：
+  - `spring-boot-iot-ui/src/components/ShellSidebarNav.vue`
+  - `spring-boot-iot-ui/src/composables/useShellRouteChangeEffects.ts`
+  - `spring-boot-iot-ui/src/__tests__/components/ShellSidebarNav.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/composables/useShellRouteChangeEffects.test.ts`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+
+## 0.0.6 2026-03-22 链路验证中心标准收口与交互归位
+
+- 针对 `/reporting` 仍保留单页私有重橙色调试风格、重复 scoped CSS 和首屏错误感过强的问题，本轮已按接入智维现有工作台语法完成标准收口。
+- 本轮修复：
+  - `ReportWorkbenchView` 已改为更接近 `/products` 与壳层面板的"双主卡 + 分段 section"结构，左侧承载 `设备查询 / 模拟配置 / Payload 编辑 / 发送动作`，右侧承载 `诊断摘要 / 实际发送内容 / 明文帧预演 / 响应`。
+  - 页面摘要区和区块头已分别收口到 `StandardInfoGrid`、`StandardInlineSectionHeader` 和 `StandardActionGroup` 的共享语法，不再继续保留页面私有摘要卡、按钮行和区块标题实现。
+  - 页面内大面积写死品牌橙色值、重复样式块和重复选择器已清理，主色、辅助色、描边、底色和阴影全部回到全局 token。
+  - 设备查询已改回显式触发：输入设备编码后需点击"查询设备"或按回车，不再保留 800ms 防抖自动查询。
+  - 首屏当前保持中性引导态；发送校验错误只在用户触发发送后显示，不再在页面加载时直接展示红色问题横幅。
+- 已执行验证：
+  - `cd spring-boot-iot-ui && npm test -- --run src/__tests__/components/ReportWorkbenchView.test.ts`
+  - `cd spring-boot-iot-ui && npm run build`
+  - 浏览器复核：`http://192.168.1.27:5174/reporting`
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/ReportWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/__tests__/components/ReportWorkbenchView.test.ts`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.0.5 2026-03-22 通知中心生产契约与治理稳定性记录
+
+- 通知中心继续保持“全局壳层内的站内消息中心”定位，没有扩成独立消费页面或多渠道统一通知平台。
+- 后端已新增统一内部发布契约：
+  - `InAppMessagePublishCommand`
+  - `InAppMessagePublishResult`
+  - `InAppMessagePublisher`
+- `spring-boot-iot-system` 已实现统一发布器，并把自动消息生产接入到三条主链路：
+  - 后台异常审计链路：生成 `system_error` 站内错误消息，目标角色固定为 `OPS_STAFF / DEVELOPER_STAFF / SUPER_ADMIN`
+  - 事件派工：生成 `event_dispatch` 业务消息，目标用户为 `receiveUser`
+  - 工单接收 / 开始 / 完成：生成 `work_order` 业务消息，接收人与派工人按状态分别接收
+- `sys_in_app_message` 当前已补齐 `dedup_key` 与索引治理：
+  - 服务层去重规则固定为 `sourceType + sourceId + target fingerprint + messageType`
+  - 历史来源值 `system_maintenance / daily_report / governance_task` 已统一回填为 `manual / manual / governance`
+- 壳层通知中心稳定性已继续增强：
+  - 列表固定“未读优先 -> 优先级 -> 发布时间倒序”
+  - 登录后、标签页重新激活、通知摘要/列表打开、显式已读后都会刷新后端摘要
+  - 多标签页未读同步优先使用 `BroadcastChannel`，回退 `storage` 事件
+- 平台治理 `/in-app-message` 已补齐：
+  - 来源类型筛选
+  - 自动消息与手工消息区分展示
+  - 自动消息仅支持查看或停用
+  - 通知统计概览（来源分布、高未读消息、已读率）
+
+## 0.0.4 2026-03-22 帮助中心联动治理一期落地记录
+
+- 本轮把帮助中心和 `docs/` 文档体系正式拆成两层：
+  - `docs/` 继续作为研发、运维、测试和交付评审的权威资料层。
+  - `/api/system/help-doc/**` 继续作为面向角色和页面的消费层，只承载精简后的业务类、技术类、FAQ 资料。
+- `docs/README.md` 已补齐四类标签与映射关系：
+  - `帮助中心来源`
+  - `内部权威资料`
+  - `归档历史`
+  - `不入帮助中心`
+- 首批帮助文档样例已从 `4` 篇扩充到 `13` 篇：
+  - `business`：产品与设备建档、告警确认/抑制/关闭、事件派工闭环、风险策略配置、运营分析指标查看
+  - `technical`：HTTP 上报、MQTT Topic 与 `mqtt-json / $dp`、TraceId 排障、真实环境启动与依赖检查
+  - `faq`：产品/设备区别、页面或帮助不可见、通知中心与帮助中心使用方式、`401`/无权限/系统内容缺表提示
+- 新增治理结论：
+  - 帮助中心不是第二套真相源；若帮助中心与 `docs/` 口径冲突，以代码、SQL 和 `docs/` 权威文档为准。
+  - 帮助文档正文统一按“标题 / 适用角色 / 适用页面 / 使用场景 / 操作步骤 / 结果判断 / 常见问题 / 延伸阅读”模板编写。
+  - 帮助中心正文不得直接暴露数据库结构、升级脚本名、内网地址、历史路线图或其他只适合研发/运维内部掌握的内容。
+  - 后续若业务/API/配置变化，先更新权威来源文档，再评估是否同步改帮助中心消费稿。
+- 已同步更新：
+  - `README.md`
+  - `docs/README.md`
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `sql/init-data.sql`
+  - `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`
+
+## 0.0.3 2026-03-21 壳层通知 / 帮助消费端完整闭环记录
+
+- 壳层消费端继续保持“全局头部能力”定位，不新增菜单、不新增独立消费路由，完整闭环全部留在 `AppShell` 内完成。
+- `spring-boot-iot-system` 已新增 `GET /api/system/help-doc/access/page`，用于帮助中心“查看更多”列表抽屉的服务端分页检索；角色过滤、`currentPath` 优先级与现有 `access/list` 保持一致。
+- `spring-boot-iot-ui` 壳层交互已从“摘要弹层”补齐为“摘要弹层 + 列表抽屉 + 详情抽屉”：
+  - 通知中心支持 `all/system/business/error` 分类筛选、未读筛选、服务端分页、详情查看、单条已读、全部已读与关联页面跳转。
+  - 帮助中心支持 `all/business/technical/faq` 分类筛选、关键字搜索、服务端分页、详情查看、标题/摘要/关键词/正文高亮与关联页面跳转。
+- 通知未读语义已调整为显式已读：
+  - 打开摘要弹层不再自动调用 `read-all`。
+  - 打开详情抽屉也不会自动改成已读。
+  - 只有点击“标记已读”或“全部已读”时，才同步更新壳层未读徽标和后端已读状态。
+- `HeaderPopoverPanel.vue` 继续只消费统一 `ShellPopoverContent`，本轮仅补 footer action 渲染；接口字段仍通过 `shellPanelContent.ts` 与 `useShellHeaderInteractions.ts` 适配后进入组件。
+- 为避免抽屉残留与请求竞态，本轮已统一补齐：
+  - 请求取消与竞态覆盖。
+  - 摘要弹层、列表抽屉、详情抽屉的互斥收口。
+  - 路由切换与“进入页面”后的浮层关闭。
+- 已新增 / 更新测试覆盖：
+  - `HelpDocumentServiceImplTest`
+  - `InAppMessageServiceImplTest`
+  - `HeaderPopoverPanel.test.ts`
+  - `ShellNoticeCenterDrawer.test.ts`
+  - `ShellNoticeDetailDrawer.test.ts`
+  - `ShellHelpCenterDrawer.test.ts`
+  - `ShellHelpDetailDrawer.test.ts`
+  - `useShellHeaderInteractions.test.ts`
+  - `useShellOrchestrator.test.ts`
+  - `shellPanelContent.test.ts`
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+
+## 0.0.2 2026-03-21 系统内容 schema 守卫补齐记录
+
+- `spring-boot-iot-system` 已新增 `SystemContentSchemaSupport`，统一检查：
+  - `sys_help_document`
+  - `sys_in_app_message`
+  - `sys_in_app_message_read`
+- 系统内容能力在真实库缺表或缺列时，不再冒成 `BadSqlGrammarException` + 通用 `500`，而是改为返回明确业务错误：
+  - `系统内容依赖表缺失，请先执行 sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`
+  - 缺列场景会继续追加 `缺少列: ...`
+- `HelpDocumentServiceImpl` 与 `InAppMessageServiceImpl` 已在管理端和当前用户访问端统一接入 schema 守卫：
+  - 帮助中心/通知中心壳层继续沿用前端既有失败兜底，不需要额外改动
+  - 平台治理 `/help-doc`、`/in-app-message` 管理页现在也能直接暴露真实缺表原因，便于共享环境排障
+- `HelpDocumentController` 与 `InAppMessageController` 已把数字 `id` 路由收紧为数值匹配，避免 `/api/system/help-doc/access/page`、`/api/system/in-app-message/my/page` 等静态分页路径被详情路由误判成 `id`
+- `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql` 与 `sql/upgrade/20260321_phase5_system_content_menu_governance.sql` 已补齐历史库兼容：
+  - `sys_in_app_message` 已补 `dedup_key` 列与样例数据回填逻辑
+  - `sys_role_menu` 仍处于精简字段结构的历史库也可执行系统内容菜单治理脚本
+- 已新增单测覆盖：
+  - `SystemContentSchemaSupportTest`
+  - `HelpDocumentServiceImplTest` 缺表提示断言
+  - `InAppMessageServiceImplTest` 缺消息主表 / 已读表提示断言
+  - `HelpDocumentControllerTest`
+  - `InAppMessageControllerTest`
+- 已同步更新：
+  - `README.md`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/SystemContentSchemaSupport.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/HelpDocumentServiceImpl.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/InAppMessageServiceImpl.java`
+  - `spring-boot-iot-system/src/test/java/com/ghlzm/iot/system/service/impl/SystemContentSchemaSupportTest.java`
+  - `spring-boot-iot-system/src/test/java/com/ghlzm/iot/system/service/impl/HelpDocumentServiceImplTest.java`
+  - `spring-boot-iot-system/src/test/java/com/ghlzm/iot/system/service/impl/InAppMessageServiceImplTest.java`
+
+## 0.0.1 2026-03-21 平台治理编排页落地记录
+
+- 平台治理前端已新增两个系统内容编排页：
+  - `/in-app-message`：统一维护通知中心消费的 `系统事件 / 业务事件 / 错误事件` 消息。
+  - `/help-doc`：统一维护帮助中心消费的 `业务类 / 技术类 / FAQ` 资料。
+- 两个页面均已按系统治理列表页基线落地为“查询 + 分页列表 + 详情抽屉 + 表单抽屉”结构，并复用：
+  - `PanelCard`
+  - `StandardPagination`
+  - `StandardTableToolbar`
+  - `StandardTableTextColumn`
+  - `StandardDetailDrawer`
+  - `StandardFormDrawer`
+  - `StandardDrawerFooter`
+- 前端路由与工作台 schema 已同步补齐：
+  - `spring-boot-iot-ui/src/router/index.ts`
+  - `spring-boot-iot-ui/src/utils/sectionWorkspaces.ts`
+- 历史库升级路径已新增 `sql/upgrade/20260321_phase5_system_content_menu_governance.sql`，用于补齐平台治理菜单树中的 `站内消息 / 帮助文档` 页面与按钮权限，并为管理人员、超级管理员补齐授权。
+- 新增治理结论：
+  - 系统内容编排页必须继续复用壳层既有分类命名，不得新增第二套 `messageType / category` 口径。
+  - 系统内容编排页中的“关联页面”必须复用共享 workspace schema 生成候选项，避免帮助中心、命令面板和平台治理页对同一路径出现多套命名。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `sql/init-data.sql`
+  - `sql/upgrade/20260321_phase5_system_content_menu_governance.sql`
+  - `spring-boot-iot-ui/src/api/inAppMessage.ts`
+  - `spring-boot-iot-ui/src/api/helpDoc.ts`
+  - `spring-boot-iot-ui/src/router/index.ts`
+  - `spring-boot-iot-ui/src/utils/sectionWorkspaces.ts`
+  - `spring-boot-iot-ui/src/views/InAppMessageView.vue`
+  - `spring-boot-iot-ui/src/views/HelpDocView.vue`
+
+## 0.0 2026-03-21 站内消息 / 帮助文档后端最小闭环记录
+
+- `spring-boot-iot-system` 已补齐三张系统治理表：
+  - `sys_in_app_message`
+  - `sys_in_app_message_read`
+  - `sys_help_document`
+- 已新增两组后端能力：
+  - 站内消息管理端与当前用户消费端接口，支持 `系统事件 / 业务事件 / 错误事件` 三类消息、未读统计、已读与全部已读。
+  - 帮助文档管理端与当前用户访问端接口，支持 `业务类 / 技术类 / FAQ` 三类资料，并按当前角色和已授权菜单路径过滤。
+- 当前表设计优先“可用闭环”而不是过度关系化：
+  - 消息推送范围先用 `target_type + target_role_codes + target_user_ids` 表达。
+  - 帮助文档范围先用 `visible_role_codes + related_paths` 表达。
+- 已新增历史库升级脚本 `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`，用于为既有环境补齐三张表和最小演示数据。
+- 为解决 `spring-boot-iot-system` 模块在当前 JDK 17 环境下的 Mockito inline self-attach 阻塞，本轮补充 `spring-boot-iot-system/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`，显式切回 `mock-maker-subclass`，使系统治理模块单测可稳定运行。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `sql/init.sql`
+  - `sql/init-data.sql`
+  - `sql/upgrade/20260321_phase5_in_app_message_help_docs.sql`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/controller/InAppMessageController.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/controller/HelpDocumentController.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/entity/InAppMessage.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/entity/InAppMessageRead.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/entity/HelpDocument.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/mapper/InAppMessageMapper.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/mapper/InAppMessageReadMapper.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/mapper/HelpDocumentMapper.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/InAppMessageService.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/HelpDocumentService.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/InAppMessageServiceImpl.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/HelpDocumentServiceImpl.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/SystemContentAccessSupport.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/vo/InAppMessageAccessVO.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/vo/InAppMessageUnreadStatsVO.java`
+  - `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/vo/HelpDocumentAccessVO.java`
+  - `spring-boot-iot-system/src/test/java/com/ghlzm/iot/system/service/impl/InAppMessageServiceImplTest.java`
+  - `spring-boot-iot-system/src/test/java/com/ghlzm/iot/system/service/impl/HelpDocumentServiceImplTest.java`
+  - `spring-boot-iot-system/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`
+
+## 0.1 2026-03-21 壳层通知中心 / 帮助中心后端数据源接线记录
+
+- 前端壳层已优先接入系统治理域新增接口：
+  - `/api/system/in-app-message/my/page`
+  - `/api/system/in-app-message/my/unread-count`
+  - `/api/system/in-app-message/my/read-all`
+  - `/api/system/help-doc/access/list`
+- `useShellHeaderInteractions.ts` 当前改为“后端优先 + 本地兜底”模式：
+  - 通知中心已优先消费真实站内消息与未读统计。
+  - 帮助中心已优先消费真实帮助文档列表，并按 `currentPath` 提升当前页相关资料。
+  - 当后端接口不可用时，仍回退到上一轮角色化本地壳层内容，避免头部入口出现空面板。
+- `shellPanelContent.ts` 已新增远端数据到 `ShellPopoverContent` 的适配逻辑；壳层组件仍只消费统一 contract，不直接读取后端接口字段。
+- 通知中心当前保留“打开面板即清空未读徽标”的既有交互，但真实已读态已通过 `read-all` 接口同步回后端，不再只是本地临时状态。
+- 为覆盖新接线逻辑，前端已补充远端内容适配测试。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `spring-boot-iot-ui/src/api/inAppMessage.ts`
+  - `spring-boot-iot-ui/src/api/helpDoc.ts`
+  - `spring-boot-iot-ui/src/composables/useShellHeaderInteractions.ts`
+  - `spring-boot-iot-ui/src/utils/shellPanelContent.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/shellPanelContent.test.ts`
+
+## 0.2 2026-03-21 壳层通知中心 / 帮助中心角色化治理记录
+
+- 右上角 `通知中心` 已从静态最近操作列表升级为三段式壳层能力：统一聚合 `系统事件 / 业务事件 / 错误事件`，并按当前角色、工作台、最近操作和失败记录生成站内消息。
+- 右上角 `帮助中心` 已从静态入口列表升级为权限感知式资料面板：统一输出 `业务类 / 技术类 / FAQ` 三类资料，并按当前菜单权限过滤无权访问的功能入口。
+- `useShellHeaderInteractions.ts` 已改为消费独立内容解析工具 `spring-boot-iot-ui/src/utils/shellPanelContent.ts`，壳层主文件不再内联帮助/通知条目。
+- `HeaderPopoverPanel.vue` 已升级为“摘要 + 指标 + 分类条目”结构，统一复用品牌 token、分组标题、状态徽标和动作文案，避免头部交互继续停留在占位式单列表。
+- 已补齐回归测试：
+  - `HeaderPopoverPanel.test.ts`
+  - `useShellOrchestrator.test.ts`
+  - `shellPanelContent.test.ts`
+- 新增治理结论：
+  - 壳层通知/帮助属于全局能力，后续不得在单页另写一套右上角消息或帮助模块。
+  - 帮助/通知内容必须按角色和菜单权限过滤，禁止继续保留“看得到但点不进去”的伪入口。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `spring-boot-iot-ui/src/components/AppHeaderTools.vue`
+  - `spring-boot-iot-ui/src/components/AppShell.vue`
+  - `spring-boot-iot-ui/src/components/HeaderPopoverPanel.vue`
+  - `spring-boot-iot-ui/src/composables/useShellHeaderInteractions.ts`
+  - `spring-boot-iot-ui/src/types/shell.ts`
+  - `spring-boot-iot-ui/src/utils/shellPanelContent.ts`
+  - `spring-boot-iot-ui/src/__tests__/components/HeaderPopoverPanel.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/composables/useShellOrchestrator.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/shellPanelContent.test.ts`
+
+## 0.3 2026-03-21 产品详情活跃度统计补齐记录
+
+- `GET /api/device/product/{id}` 已补齐设备活跃度统计字段：`todayActiveCount`、`sevenDaysActiveCount`、`thirtyDaysActiveCount`。
+- 详情统计实现保持在 `spring-boot-iot-device` 模块内，由 `ProductServiceImpl` 调用 `DeviceMapper` 按 `product_id + last_report_time` 做单产品聚合；分页台账 `GET /api/device/product/page` 仍只走原有轻量统计，不回灌详情活跃度查询。
+- 活跃设备数统一按自然日窗口统计：今天零点、今天零点前 7 天、今天零点前 30 天。
+- 当前不交付 `avgOnlineDuration`、`maxOnlineDuration`：`iot_device` 只保存最新在线/离线时间，且 `last_online_time` 会在每次上报时刷新，不能稳定代表单次在线会话起点。
+- 若后续需要“每次在线时长”级别的精确分析，仍需新增独立在线会话表或在线日志表，不宜继续把历史会话分析压在 `iot_device` 最新状态表上。
+- 当前详情活跃度统计直接复用 `idx_device_deleted_product_stats`，不新增单独在线时长索引，也不要求执行额外升级脚本。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/05-自动化测试与质量保障.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/21-业务功能清单与验收标准.md`
+  - `spring-boot-iot-ui/docs/25-product-detail-active-metrics.md`
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/types/api.ts`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/mapper/DeviceMapper.java`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/service/impl/ProductServiceImpl.java`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/vo/ProductDetailVO.java`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/vo/ProductActivityStatRow.java`
+  - `spring-boot-iot-device/src/test/java/com/ghlzm/iot/device/service/impl/ProductServiceImplTest.java`
+
+## 0. 2026-03-20 工作台导航底座治理增量记录
+
+- 前端工作台导航、分组首页、角色默认落点与路由 `title/description` 已统一收口到 `spring-boot-iot-ui/src/utils/sectionWorkspaces.ts`，用于消除 `AppShell`、分组首页和路由表三处重复维护同一套菜单语义的问题。
+- `PermissionStore` 已补齐角色默认首页 fallback 逻辑；当历史环境返回空 `homePath` 或菜单树短暂缺失时，业务/管理继续优先进入 `风险运营`，运维/开发优先进入 `接入智维`，超级管理员优先进入 `平台治理`。
+- 顶部搜索已从常驻输入框升级为 `Ctrl/Cmd + K` 全局命令面板，按当前账号可见菜单和角色优先路径组织结果；首页与分组首页的角色化推荐也已开始复用同一套工作台 schema。
+- 已删除 `trackTab`、`TabsView` 与 tabs store 遗留逻辑，功能页顶部继续只保留面包屑，避免旧标签栏机制在后续迭代中回流。
+- `AppShell` 已继续拆分为 `ShellWorkspaceTabs`、`ShellSidebarNav`、`ShellBreadcrumb` 等壳层子组件；`src/config/sectionHomes.ts` 同步收口为对 `sectionWorkspaces.ts` 的兼容导出，避免导航配置再次分叉为两份实现。
+- `AppShell` 账号域与壳层视口状态已进一步下沉到 `useShellAccountCenter.ts`、`useShellViewport.ts`，账号中心/实名认证/登录方式/修改密码四个抽屉也已独立为 `ShellAccountDrawers.vue`，用于继续降低壳层主文件的模板和脚本复杂度。
+- `AppShell` 头部交互状态已继续下沉到 `useShellHeaderInteractions.ts`，统一承接消息通知、帮助中心、`Ctrl/Cmd + K` 命令面板、最近使用与快捷键/点击空白关闭逻辑；壳层主文件不再直接维护这部分交互细节。
+- `AppShell` 导航分组构建、当前激活分组、分组概览落点与一级分组切换逻辑已继续下沉到 `spring-boot-iot-ui/src/composables/useShellNavigation.ts`，统一承接游客态、动态菜单态和静态兜底态三类导航装配，壳层主文件继续收口为“只负责编排”。
+- `AppShell` 路由切换后的移动端菜单收起、头部面板重置与账号抽屉收口逻辑已继续下沉到 `spring-boot-iot-ui/src/composables/useShellRouteChangeEffects.ts`，壳层主文件不再直接声明路由副作用 watch。
+- `AppShell` 剩余的视口、账号域、导航、头部交互与路由副作用装配，已进一步收口到 `spring-boot-iot-ui/src/composables/useShellOrchestrator.ts`；壳层主文件改为只消费统一 orchestrator contract，不再直接依赖多组 composable。
+- 壳层共享 contract 已进一步沉淀到 `spring-boot-iot-ui/src/types/shell.ts`，统一承接壳层组件 props、命令面板/通知面板数据结构，以及 `useShellViewport`、`useShellAccountCenter`、`useShellNavigation`、`useShellHeaderInteractions`、`useShellOrchestrator` 的返回类型。
+- 已新增 `spring-boot-iot-ui/src/__tests__/composables/useShellNavigation.test.ts`，覆盖游客态导航、动态菜单分组装配、静态兜底导航与分组落点跳转，避免后续壳层导航治理回退。
+- 已新增 `spring-boot-iot-ui/src/__tests__/composables/useShellRouteChangeEffects.test.ts`，覆盖移动端与桌面态下的路由切换副作用，避免后续壳层编排调整时再次引入菜单抽屉残留或头部浮层未关闭的问题。
+- 已新增 `spring-boot-iot-ui/src/__tests__/composables/useShellOrchestrator.test.ts`，覆盖 orchestrator 对 `useShellHeaderInteractions` 与 `useShellRouteChangeEffects` 的参数编排契约，避免后续壳层继续瘦身时接线漂移。
+- 已新增 `spring-boot-iot-ui/src/__tests__/components/ShellWorkspaceTabs.test.ts`，覆盖一级工作台分区条的激活态与分组切换事件，避免后续导航 schema 调整后出现“高亮错误 / 点击无响应”的组件回退。
+- 已新增 `spring-boot-iot-ui/src/__tests__/components/ShellSidebarNav.test.ts`，覆盖左侧菜单激活态、折叠态短标识和移动端 `aria-hidden` 行为，避免后续壳层瘦身时破坏二级导航的可达性与识别性。
+- 已新增 `spring-boot-iot-ui/src/__tests__/components/ShellCommandPalette.test.ts`，覆盖命令面板关闭、查询更新、最近入口/分组入口跳转与空状态，避免 `Ctrl/Cmd + K` 入口在后续交互调整时回退。
+- 已同步更新：
+  - `README.md`
+  - `docs/05-自动化测试与质量保障.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `spring-boot-iot-ui/src/utils/sectionWorkspaces.ts`
+  - `spring-boot-iot-ui/src/stores/permission.ts`
+  - `spring-boot-iot-ui/src/router/index.ts`
+  - `spring-boot-iot-ui/src/components/AppShell.vue`
+  - `spring-boot-iot-ui/src/composables/useShellNavigation.ts`
+  - `spring-boot-iot-ui/src/types/shell.ts`
+  - `spring-boot-iot-ui/src/composables/useShellOrchestrator.ts`
+  - `spring-boot-iot-ui/src/composables/useShellRouteChangeEffects.ts`
+  - `spring-boot-iot-ui/src/components/ShellCommandPalette.vue`
+  - `spring-boot-iot-ui/src/views/SectionLandingView.vue`
+  - `spring-boot-iot-ui/src/views/CockpitView.vue`
+  - `spring-boot-iot-ui/src/__tests__/components/ShellWorkspaceTabs.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/components/ShellSidebarNav.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/components/ShellCommandPalette.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/sectionHomes.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/composables/useShellNavigation.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/composables/useShellOrchestrator.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/composables/useShellRouteChangeEffects.test.ts`
+
+## 0.1 2026-03-20 产品页二次收口增量记录
+
+- `/products` 已完成第二轮页面收口，继续作为前端布局治理试点。
+- 本轮页面层变更：
+  - 页面定位说明、主操作、筛选条、统计栏和产品数据列表已整合到同一张产品定义主卡片中，不再保留上下双卡结构。
+  - 删除 Hero 区重复启用/停用/在线指标，并把“新增产品”迁移到页面主标题右侧。
+  - 取消“产品台账”次级标题，筛选区收口为“产品名称 / 节点类型 / 产品状态”三项同列查询，移除展开/收起逻辑与说明性文案，并把筛选条直接嵌入主卡片说明区和统计栏之间。
+  - 筛选区已恢复响应式自适应布局，不再用固定宽度锁定输入框长度；桌面端保持字段间距，平板和手机端自动降列。
+  - 已执行筛选条件已补齐标签反馈区，支持单项移除和清空全部，避免查询提交后“页面已过滤但用户无感知”。
+  - 产品筛选条件与分页状态已同步写回路由 query，刷新、回退或从其他页面返回后，可继续恢复 `productName / nodeType / status / pageNum / pageSize`。
+  - 产品列表在快速切换筛选、分页、刷新或路由恢复时，已主动取消过期分页请求，避免旧响应回写覆盖当前结果。
+  - 产品新增、编辑、删除成功后，当前页会先做本地结果更新，再后台静默刷新校正分页与排序，减少等待整页重刷的停顿感。
+  - 产品页已继续修正“静默刷新被新鲜分页缓存短路”的问题；增删改成功后仍先复用当前页本地结果，但后台一定会继续发起一次静默校验请求，避免排序、分页和聚合字段校正被跳过。
+  - 产品结果区已补齐冷启动骨架屏；未命中缓存时不再只显示空白蒙层，而是先稳定展示接近最终结构的桌面表格骨架和移动卡片骨架，减少首屏跳动感。
+  - 产品列表在已有结果时的后台静默校验，已改为结果区上方的轻提示条；静默校验失败默认保留当前结果，并以内联错误提示替代打断式 toast，减少操作干扰。
+  - 已把 `/products` 页面里容易回归的筛选命中、详情缓存刷新判定、列表本地更新逻辑抽成纯函数模块，并补齐前端单测，避免后续继续在大组件里手改状态逻辑。
+  - 工具栏汇总已移除“在线设备”口径，只保留 `已选 / 启用 / 停用` 三项，避免产品定义页继续混入资产在线统计。
+  - 数据列表操作列已压缩宽度，并同步收紧“详情 / 编辑 / 查看设备 / 删除”的按钮间距，减少尾部空白。
+  - 产品列表已补齐移动端卡片模式：桌面端继续保留表格，窄屏切换为产品卡片列表，并保留勾选与更多操作入口。
+  - 产品列表区的加载态与空态已统一收口到同一个结果面板，并区分“尚未定义产品”和“当前筛选无结果”两类空状态；前者引导新增，后者引导清空筛选。
+  - 产品页查询/刷新时的结果区加载蒙层已改为浅色局部遮罩，并保留列表容器底板与圆角，避免短暂出现整块黑屏。
+  - 删除页面内全部库存表达，包括指标卡、表格列、详情抽屉提示和导出预设中的库存口径，统一改回产品台账与关联设备语义。
+  - 产品详情抽屉已补齐产品身份 Hero、摘要指标卡、分组字段卡与治理提醒，不再保留无分组的纯文本堆叠详情布局。
+  - 产品详情抽屉首屏已继续收口为“主信息焦点卡 + 次级摘要卡 + 分区识别 pill”结构，强化阅读焦点与视觉节奏。
+  - 产品详情抽屉已继续完成信息去重与分区收敛：设备规模只保留在“产品汇总”，协议/节点/格式只保留在“接入契约”，ID / Product Key / 厂商 / 建档时间只保留在“产品档案”。
+  - 产品详情抽屉已继续移除无意义中英混排文案，并统一压缩段落、卡片间距与内边距，减少视觉空洞感。
+  - 产品详情抽屉已继续把“接入契约”改为单列纵向卡片，把“产品档案”改为更宽的长值档案区，并把“维护与治理”拆成“当前建议 / 维护规则 / 变更前确认”三类卡片；创建时间已改为仅显示年月日。
+  - 产品详情抽屉本轮继续把副标题、区块说明、治理建议改为更通俗的业务表达，并统一收紧字号、行高、内边距和区块留白，让汇总/契约/档案/治理四块阅读节奏更一致。
+  - 产品详情抽屉本轮继续完成商业化间距收口：压缩了页眉到底部首个区块、区块到区块、卡片到卡片的纵向距离，并覆盖了共享 `info-chip` 带来的额外卡片高度；中段两列已改为顶部对齐，减少“卡片之间像被撑开”的松散感。
+  - 产品详情抽屉本轮继续完成风格重构：从“同质化卡片堆叠”切换为“汇总总览区 / 契约档案区 / 维护治理区”三段式版面，区块权重、底纹和标题层级已重新编排，整体观感从工具页提升到商业化工作台。
+  - 产品详情抽屉本轮继续把“补充说明”从档案卡中拆成独立宽卡，并统一契约卡、档案卡、治理卡的字号梯度、最小高度和区块间距，减少同一行卡片高低不齐的问题。
+  - 产品详情抽屉已支持“列表摘要秒开 + 完整详情补数”交互；点击详情时先展示列表已有字段，再异步补齐描述与完整档案，减少整屏空白等待。
+  - 产品详情抽屉已补齐本地详情缓存；同一产品在 `updateTime` 未变化时重复打开，将直接复用已缓存的完整详情，不再重复请求。
+  - 产品详情缓存已继续下沉到 `sessionStorage` 会话级持久化；从设备页或其他工作台返回 `/products` 后，再次打开同一产品的详情或编辑仍可先复用最近完整档案，再后台静默补数。
+  - 产品编辑抽屉已支持“摘要预填 + 后台补数”秒开模式；若用户已开始编辑，后台补回的最新档案不会自动覆盖当前表单。
+  - 产品列表已补齐“分页结果缓存 + 静默校验 + 下一页预取”试点能力；按 `productName / nodeType / status / pageNum / pageSize` 命中缓存时优先秒开当前页，显式刷新和增删改成功后会重建当前页缓存，减少 10 条分页场景下的往返等待。
+  - 产品列表分页缓存已继续下沉到 `sessionStorage` 会话级持久化；从其他工作台返回 `/products` 时，组件重新挂载仍可先恢复最近缓存，再后台静默校验，避免跨页返回后又重等同一页数据。
+  - 产品分页与详情中的关联设备统计已改为数据库聚合查询；默认 10 条分页不再把当前页产品下全部设备明细加载到应用层再汇总。
+  - 已新增 `iot_device` 统计聚合索引 `idx_device_deleted_product_stats`，用于支撑关联设备数、在线数和最近上报时间的分页聚合查询。
+- 本轮沉淀的治理规则：
+  - 列表页若只有 3 个以内高频筛选项，不再强行保留“更多条件”交互骨架。
+  - 当说明、主操作、筛选条、统计栏和列表都属于同一业务台账时，应优先收口为单卡结构；不要再拆成两张内容相邻、视觉层次却几乎相同的卡片。
+  - 当页面只保留一个全局主操作且台账卡不再展示独立标题时，主按钮应固定在页面主标题右侧；同一操作不得再在列表卡头重复出现。
+  - 当台账卡头已存在标题、主按钮和统计栏时，筛选条应优先直接内嵌其中；移动后应删除独立筛选卡标题和字段 label，避免首屏垂直层级继续膨胀。
+  - 手机端优先保证筛选项可自适应展开，不要用固定宽度锁死输入框；应通过响应式 grid 和统一 gap 保留字段间距，并在窄屏时自然降列。
+  - 已提交查询的筛选条件必须提供可见反馈，优先用可关闭标签显示“当前生效条件”；标签状态应以最近一次成功查询为准，而不是输入框里的草稿值。
+  - 产品定义页的汇总栏应只保留产品口径；`在线设备` 这类资产运行指标应交给设备资产中心、工作台或详情视图，不再作为产品页总览主指标。
+  - 当桌面端表格在手机上不可读时，应提供同源数据的卡片列表模式，而不是仅依赖横向滚动硬撑表格。
+  - 空状态必须按业务场景拆分：无建档数据时引导创建，筛选无结果时引导调整条件；不要再让列表页共用一条含糊的“暂无数据”提示。
+  - 卡片内刷新/查询属于局部加载场景时，应优先采用浅色局部蒙层，而不是直接复用全局深色遮罩变量；尤其在白底台账页中，必须避免刷新瞬间出现大面积黑屏。
+  - 高频台账页在冷启动或未命中缓存时，结果区应优先展示与最终列表结构接近的骨架屏，避免只留下白底容器和 spinner 造成主结构短暂塌空。
+  - 分页区已承担总数表达时，页面其他区域不得重复展示同义总数文案。
+  - Hero 区与统计栏不得重复展示同义启用/停用汇总；普通产品定义页不再额外挂载在线设备汇总卡。
+  - 非库存管理页面禁止混入“库存设备”“待补库存”等偏业务误导的文案。
+  - 产品、设备等资产台账详情抽屉必须延续“概览 Hero + 分组字段卡 + 治理提示”的统一结构，避免出现大字号纯文本纵向堆叠的样式回退。
+  - 详情抽屉首屏必须存在主信息焦点区，其余摘要指标只能做次级展开，禁止把全部状态卡平均铺满首屏造成阅读主次丢失。
+  - 详情抽屉中的同一属性必须尽量单点展示，禁止在标题、摘要卡、字段卡多处重复出现同一组状态或契约字段。
+  - 业务详情抽屉默认以中文标签为主，避免无意义英文 eyebrow、section label 和辅助 pill 造成产品观感割裂。
+  - 长编号、长 Key 等高频核对字段应优先放入更宽的档案区，并提供 hover 查看完整值；接入契约区优先单列展示，维护与治理区优先按治理层次拆卡。
+  - 详情抽屉若已完成结构分层，后续优化应优先继续收口文字大小、行间距、区块留白和文案口语化，不要让“结构正确但观感仍松散”的问题反复出现。
+  - 若详情抽屉同层级卡片仍出现“高的高、短的短”的失衡感，应优先统一 label / value / helper 的字号梯度，并把长说明拆到独立宽卡承接，不要继续把长文塞在档案卡里把整行节奏撑散。
+  - 当页面使用共享 `info-grid / info-chip` 作为详情卡片底座时，必须同步检查它是否带入了不适合该页面的默认 padding、gap、label margin 或 stretch 行为；若会放大卡片高度或破坏列间节奏，应在页面内显式覆盖。
+  - 当用户反馈“依旧难看”且问题集中在视觉主次时，应切换为另一套版式语言（例如分区大板块），不要停留在同一模板上的重复微调。
+  - 列表页展示关联设备数、在线数、最近上报等聚合字段时，后端应直接走数据库聚合返回结果；不要在 10 条分页场景下仍把当前页产品下全部设备明细拉回应用层再汇总。
+  - 列表页若需要支持刷新、回退或跨页面返回后的状态恢复，应把高频筛选项和分页状态同步到路由 query，不要把这些台账状态只留在组件内。
+  - 列表页在快速切筛选、分页、刷新或路由恢复时，应主动取消已过期请求，避免旧响应回写覆盖新结果。
+  - 列表页的新增、编辑、删除提交成功后，应优先本地更新当前页可见结果，再后台静默刷新校正排序和分页，不要每次都阻塞等待整页重刷后才反馈结果。
+  - 若列表页已接入分页缓存，增删改成功后的“后台静默刷新”不得被同一时刻刚写入的新鲜缓存短路；需要保留当前页本地结果秒开，但必须显式继续发起一次静默校验请求。
+  - 当列表页已展示可用结果，只是在后台静默校验最新数据时，应优先使用结果区上方的轻量页内提示；静默校验失败时默认继续保留当前结果，并改为页内错误提示，而不是直接弹出打断式 toast。
+  - 当页面局部状态逻辑已经涉及筛选命中、缓存是否失效、列表本地增删改和选中态同步时，应尽快抽成纯函数并补单测，不要继续把这类判定散落在单个大页面组件中。
+  - 详情抽屉若接口补数慢于列表摘要，应优先使用列表行已有字段秒开，再异步补齐完整详情，并以轻量提示说明状态，不要一律清空抽屉等待整屏 loading。
+  - 同一详情抽屉若频繁重复打开相同对象，应优先按 `id + updateTime` 复用本地缓存的完整详情；只有列表行版本时间变化或缓存信息不足时才重新请求。
+  - 若详情/编辑抽屉存在跨路由返回后继续重复打开同一对象的链路，完整详情缓存还应具备短时会话级持久化能力；不要让页面一卸载就退回“同一对象重复补数”的旧体验。
+  - 编辑抽屉若需要秒开，应优先使用列表摘要或本地缓存预填表单，再后台补齐最新详情；若用户已经开始编辑，后台返回的新数据不得自动覆盖当前输入。
+  - 默认 10 条分页的高频台账页若已同步路由 query 与请求取消，还应继续补齐“分页结果缓存 + 显式刷新失效 + 下一页预取”组合，避免用户在前后页往返时重复等待同一批结果。
+  - 若高频台账页存在跨路由返回场景，分页缓存还应具备短时会话级持久化能力；不要把缓存只放在组件内存里，导致页面销毁后优化效果立刻失效。
+- 已同步更新：
+  - `docs/04-数据库设计与初始化数据.md`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `sql/init.sql`
+  - `sql/upgrade/20260320_phase5_product_stats_indexes.sql`
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/main.ts`
+  - `spring-boot-iot-ui/src/api/product.ts`
+  - `spring-boot-iot-ui/src/views/productWorkbenchState.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/productWorkbenchState.test.ts`
+  - `docs/05-自动化测试与质量保障.md`
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+
+## 0.2 2026-03-20 深部位移 `$dp` 基准站拆分入链记录
+
+- `mqtt-json` 协议适配器已新增“基准站一包多测点”拆分能力：当配置 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}` 时，历史 `$dp` 报文里的逻辑测点会被拆成多个 `childMessages`。
+- 当前已覆盖南方测绘深部位移基准站场景：类型 `2`、长度大端序、解密后 `SK00FB0D1310195 -> L1_SW_1 ~ L1_SW_8 -> dispsX / dispsY` 可按真实子设备 `device_code` 分别入库。
+- `device` 模块已支持递归消费 `childMessages`：父消息继续保留原始日志与在线状态，子消息会按各自 `device_code` 写入 `iot_device_message_log`、`iot_device_property` 并刷新在线状态。
+- `application-dev.yml` 已补充 `SK00FB0D1310195` 的 8 个逻辑测点映射。
+- 已新增 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`，用于基于现有基准站自动初始化 8 个子设备，补齐 `dispsX` / `dispsY` 产品物模型，以及 1 个初始风险点和绑定关系。
+- 当前技术债仍然存在：
+  - 子设备映射暂时放在 `application-dev.yml`，只适合作为联调或历史兼容方案；长期应迁移到设备绑定主数据或设备元数据表。
+  - 当前激活 reactor 仍未包含 `spring-boot-iot-telemetry`，本轮兼容链路已完成 MySQL 最新属性与消息日志闭环，但未补齐 TDengine 时序落库。
+- 已同步更新：
+  - `README.md`
+  - `docs/05-protocol.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/14-MQTTX真实环境联调手册.md`
+  - `docs/21-业务功能清单与验收标准.md`
+  - `docs/真实环境测试与验收手册.md`
+  - `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`
+  - `spring-boot-iot-admin/src/main/resources/application-dev.yml`
+  - `spring-boot-iot-framework/src/main/java/com/ghlzm/iot/framework/config/IotProperties.java`
+  - `spring-boot-iot-protocol/src/main/java/com/ghlzm/iot/protocol/core/model/DeviceUpMessage.java`
+  - `spring-boot-iot-protocol/src/main/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapter.java`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/service/impl/DeviceMessageServiceImpl.java`
+  - `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapterTest.java`
+  - `spring-boot-iot-device/src/test/java/com/ghlzm/iot/device/service/impl/DeviceMessageServiceImplTest.java`
+
+## 0.3 2026-03-20 深部位移初始化脚本幂等修正
+
+- 真实环境复核时发现 `risk_point_device` 在深部位移初始化场景下可能出现重复绑定（同一 `risk_point_id + device_code + metric_identifier` 多条有效记录）。
+- 根因是 `20260320_phase4_deep_displacement_sub_devices_bootstrap.sql` 旧实现依赖 `ON DUPLICATE KEY UPDATE`，但 `risk_point_device` 未提供对应唯一键，重复执行脚本会继续插入新行。
+- 已修正脚本逻辑：
+  - 先清理目标风险点下 `dispsX/dispsY` 的重复有效绑定（保留最早一条）。
+  - 再通过 `LEFT JOIN risk_point_device` 仅补齐缺失绑定。
+- 修正后同一脚本可重复执行，不会再累计重复绑定数据。
+- 已同步更新：
+  - `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.4 2026-03-20 设备页单主卡收口增量记录
+
+- 对照 `ProductWorkbenchView` 与 `DeviceWorkbenchView` 的顶部布局和筛选结构后，本轮已完成“查询行主操作并轨 + 多条件自动收缩”：
+  - `ProductWorkbenchView` 的“新增产品”已并入查询行，顺序为 `查询 -> 重置 -> 新增产品`。
+  - `DeviceWorkbenchView` 的“新增设备 / 批量导入”已并入查询行，顺序为 `查询 -> 重置 -> 新增设备 -> 批量导入`。
+  - 设备页筛选已改为“默认 3 项 + 更多条件”结构：默认 `设备编码 / 设备名称 / 产品 Key`，折叠区承接 `设备 ID / 在线状态 / 激活状态 / 设备状态`。
+  - 旧布局中与当前结构不匹配的遗留样式块（`ops-kpi-grid`、`ops-inline-note`、`ops-filter-actions` 等）已清理。
+- 本轮同步沉淀防回退规则：列表页筛选项超过 3 个时，默认启用“常用条件 + 更多条件”折叠结构；若页面主操作直接服务当前列表查询，优先并入查询行，避免与主标题区重复。
+- 公共化策略本轮定版：先以产品定义中心模板在各列表页收口；当同类查询头在 3 个及以上页面重复时，再统一抽离 `ListFilterHeader`，避免在模板尚未稳定前过早抽象。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.5 2026-03-20 设备分页关联字段空指针修复
+
+- 修复了 `/api/device/page` 在关联字段为空时的空指针问题：当设备 `gatewayId` 或 `parentDeviceId` 为空，且关系设备 map 为空时，不再触发 `ImmutableCollections` 的 `Map.get(null)` 异常。
+- `DeviceServiceImpl` 已将空关系 map 返回口径从 `Map.of()` 调整为 `Collections.emptyMap()`，并在关联字段填充时增加 `null` 安全读取，避免分页转换阶段抛出系统异常。
+- 新增回归测试覆盖“关系 ID 为空 + 空 map”场景，确保设备分页在无父设备/无关联网关的正常数据下稳定返回。
+- 已同步更新：
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/service/impl/DeviceServiceImpl.java`
+  - `spring-boot-iot-device/src/test/java/com/ghlzm/iot/device/service/impl/DeviceServiceImplTest.java`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.6 2026-03-20 链路验证中心明文/密文上报改造
+
+- `ReportWorkbenchView` 已升级为双模式模拟：
+  - 明文模式：自动识别 C.1/C.2/C.3，自动计算 Byte2~Byte3 大端长度，并生成二进制帧预览。
+  - 密文模式：直接透传封包 JSON，不做类型和长度计算。
+- 明文识别规则按自然灾害技术标准补齐：
+  - 命中 `did/ds_id/at/desc` 识别为 C.3。
+  - 命中“时间戳 -> 值/对象”结构识别为 C.2。
+  - 其他按 C.1。
+- HTTP 上报模型新增可选 `payloadEncoding`，明文帧发送时使用 `ISO-8859-1`，后端按单字节映射恢复原始帧字节；旧调用不传该字段时继续按 UTF-8。
+- 新增前端纯函数测试覆盖类型识别、长度计算、C.3 文件流长度与帧构造。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/ReportWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/reportPayloadFrame.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/reportPayloadFrame.test.ts`
+  - `spring-boot-iot-ui/src/types/api.ts`
+  - `spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/http/DeviceReportRequest.java`
+  - `spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/http/DeviceHttpController.java`
+  - `spring-boot-iot-message/src/test/java/com/ghlzm/iot/message/http/DeviceHttpControllerTest.java`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.7 2026-03-20 产品/设备台账样式纠偏增量记录
+
+- 本轮按产品定义中心模板继续收口 `/products` 与 `/devices`：
+  - `ProductWorkbenchView` 查询行“新增产品”按钮改为与“查询”同主色实心样式，修复文案低对比度问题。
+  - `DeviceWorkbenchView` 查询行“新增设备”按钮改为与“查询”同主色实心样式，修复文案低对比度问题。
+  - 设备筛选头改为“字段区 + 动作区”两段结构，动作区统一承载 `查询 / 重置 / 新增设备 / 批量导入 / 展开全部筛选项（收起）`，展开与收起交互更接近阿里云台账筛选形态。
+  - 设备桌面表格已移除“父子关系”列，父设备/网关关系继续在详情与维护抽屉承接，避免主列表横向拥挤。
+  - 设备桌面表格“操作”列已从平铺多按钮收口为“详情 + 编辑 + 更多下拉”，与产品定义中心操作口径保持一致。
+  - 设备页补充了 `>=721px` 桌面表格强制显示兜底，移动卡片仅在窄屏启用，避免出现“表格下再套卡片”的重复展示感。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.8 2026-03-20 链路验证中心最小修复版交互收口
+
+- 本轮按“先最小修复”策略继续优化 `/reporting`：
+  - 页面结构改为双栏工作台：左栏输入与发送，右栏诊断摘要、折叠详情和请求响应。
+  - 模板入口按模式过滤，避免明文/密文模板混用导致输入混乱。
+  - 新增发送前阻断校验：必填项、明文 JSON、密文封包结构、C.3 Base64；校验不通过时禁用发送。
+  - 诊断区默认收口为关键结论，明细（十进制帧、十六进制帧、归一化 JSON、curl）按需展开。
+  - 输入校验错误与请求失败分区展示，避免错误来源混淆。
+  - 页面状态逻辑拆分为输入态/校验态/诊断态，减少模板散落 computed。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/ReportWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/reportWorkbenchState.ts`
+  - `spring-boot-iot-ui/src/__tests__/utils/reportWorkbenchState.test.ts`
+  - `spring-boot-iot-ui/src/__tests__/components/ReportWorkbenchView.test.ts`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.9 2026-03-21 设备资产结果区视觉去冗余
+
+- 用户反馈 `/devices` 列表区在主卡片内仍存在一层额外卡片底板，造成“结果区再套卡片”的重复层次。
+- 本轮已移除 `device-result-panel` 的渐变背景与圆角底板，仅保留列表主体和轻量加载遮罩，确保设备资产中心继续保持单主卡紧凑结构。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 0.10 2026-03-21 产品/设备查询头公共组件抽取
+
+- 本轮对照 `ProductWorkbenchView` 与 `DeviceWorkbenchView` 的设计风格、样式和加载模式后，确认两页已具备统一列表页基线，查询头差异可通过配置化组件收口。
+- 已新增公共组件 `StandardListFilterHeader`，统一承接：
+  - 主筛选字段行
+  - 可选高级筛选折叠区
+  - 查询动作区
+  - 展开/收起与提示文案
+- 已完成页面接入：
+  - `ProductWorkbenchView` 查询头改为复用 `StandardListFilterHeader`
+  - `DeviceWorkbenchView` 查询头改为复用 `StandardListFilterHeader`
+- 该组件可作为后续列表页的默认筛选头模板，减少重复布局开发并保持展示风格一致。
+- 已同步更新：
+  - `spring-boot-iot-ui/src/components/StandardListFilterHeader.vue`
+  - `spring-boot-iot-ui/src/views/ProductWorkbenchView.vue`
+  - `spring-boot-iot-ui/src/views/DeviceWorkbenchView.vue`
+  - `docs/06-前端开发与CSS规范.md`
+  - `docs/15-前端优化与治理计划.md`
+  - `docs/08-变更记录与技术债清单.md`
+
+## 1. 本轮文档治理结论
+
+本轮完成从“分散阶段文档”到“核心最小集”的重构，新增核心文档：
+
+- `docs/README.md`
+- `docs/01-系统概览与架构说明.md`
+- `docs/02-业务功能与流程说明.md`
+- `docs/03-接口规范与接口清单.md`
+- `docs/04-数据库设计与初始化数据.md`
+- `docs/05-自动化测试与质量保障.md`
+- `docs/06-前端开发与CSS规范.md`
+- `docs/07-部署运行与配置说明.md`
+- `docs/08-变更记录与技术债清单.md`
+
+核心目标：后续 GPT 与接手研发优先阅读 8~9 个核心文件即可进入开发状态。
+
+执行结果补充：
+
+- `docs/archive/` 已建立，废弃归档文档已物理迁入。
+- “合并后删除”类旧文档已改为原位短跳转页，旧链接不会立刻失效。
+- PowerShell 验收与冒烟脚本已改为按脚本位置自动定位仓库根目录，同时保留 Windows 10 共享环境示例路径 `E:\idea\ghatg\spring-boot-iot` 的文档说明，不再把该路径写死为唯一入口。
+- 已补充 `docs/09-GPT接管提示模板.md`，用于基于最小阅读集快速投喂 GPT / Codex。
+
+## 2. 第一阶段盘点结果（文档问题清单）
+
+### 2.1 重复与分散
+
+- 架构、模块、业务范围在 `00/01/02/21` 多处重复。
+- API 在 `04` 与 `21` 同时维护，存在重复与局部不一致风险。
+- 部署与验收口径分散在 `README`、`10`、`test-scenarios`、`19`。
+
+### 2.2 过时与冲突
+
+- `18-phase4-risk-platform-roadmap.md` 含“未开始/新增模块”描述，与代码和 `19` 冲突。
+- `20-phase5-roadmap.md` 包含大量规划态内容，易被误读为已交付。
+- `08-development-plan.md`、`09-todo.md`、`12-change-log.md` 过程痕迹较重，现状参考价值有限。
+
+### 2.3 缺失
+
+- `【文档缺失】` 单一“核心入口索引”此前不存在。
+- `【文档缺失】` 测试策略与质量门禁缺少独立统一文档。
+- `【文档缺失】` 前端 CSS/token/分页统一规范缺少精炼版文档。
+
+## 3. 原有文档处理执行矩阵
+
+说明：以下状态反映当前已执行结果。
+
+| 文件 | 建议 | 处理说明 |
+|---|---|---|
+| `docs/00-overview.md` | 已归档并原位转向 | 内容已并入 `01`、`02`、`docs/README.md` |
+| `docs/01-architecture.md` | 已归档并原位转向 | 核心架构已并入新 `01` |
+| `docs/02-module-structure.md` | 已归档并原位转向 | 模块边界已并入新 `01`、`02` |
+| `docs/03-database.md` | 已归档并原位转向 | 数据库口径已并入新 `04` |
+| `docs/04-api.md` | 已归档并原位转向 | 接口主索引已并入新 `03` |
+| `docs/05-protocol.md` | 保留 | 协议细节仍具高参考价值 |
+| `docs/06-thing-model.md` | 已归档并原位转向 | 物模型内容可并入新 `02`/`03` |
+| `docs/07-message-flow.md` | 已归档并原位转向 | 主流程已并入新 `02` |
+| `docs/08-development-plan.md` | 已归档 | 历史计划文档，过程噪音较多 |
+| `docs/09-todo.md` | 已归档 | 历史待办清单，时效性低 |
+| `docs/10-deploy.md` | 已归档并原位转向 | 部署配置已并入新 `07` |
+| `docs/11-codex-tasking.md` | 已归档 | 内容已被 `AGENTS.md` 与核心文档阅读规则覆盖 |
+| `docs/12-change-log.md` | 已归档并原位转向 | 变更记录已并入新 `08` |
+| `docs/13-frontend-debug-console.md` | 已归档 | 前端结构与规范已收口到新 `06` 与 `15` |
+| `docs/14-mqtt-live-runbook.md` | 已归档并原位转向 | 与 `14-MQTTX真实环境联调手册.md` 功能重叠 |
+| `docs/14-MQTTX真实环境联调手册.md` | 保留 | MQTTX 真实联调手册仍高价值 |
+| `docs/15-前端优化与治理计划.md` | 保留 | 前端设计治理过程文档，当前规则依赖其内容 |
+| `docs/15-phase2-summary.md` | 已归档 | 阶段总结，已失去主参考价值 |
+| `docs/16-phase3-roadmap.md` | 已归档 | 历史路线图，建议归档 |
+| `docs/17-command-closure-roadmap.md` | 已归档 | 历史路线图，建议归档 |
+| `docs/18-phase4-risk-platform-roadmap.md` | 已归档 | 与 `19` 冲突风险高 |
+| `docs/19-第四阶段交付边界与复验进展.md` | 保留 | 当前 Phase 进度权威文档 |
+| `docs/20-phase5-roadmap.md` | 已归档 | 规划态内容多，建议归档并单独维护产品路线图 |
+| `docs/21-业务功能清单与验收标准.md` | 保留 | 验收矩阵完整，适合作为历史与验收参考 |
+| `docs/22-automation-test-issues-20260316.md` | 保留 | 自动化问题台账，可持续追踪 |
+| `docs/appendix/code-style.md` | 保留 | 规范类附录可继续使用 |
+| `docs/appendix/glossary.md` | 保留 | 术语附录可继续使用 |
+| `docs/appendix/naming-conventions.md` | 保留 | 命名附录可继续使用 |
+| `docs/architecture-diagram.md` | 已归档 | 文本版架构图信息已被新 `01` / `02` 覆盖 |
+| `docs/codex-roadmap-phase1.md` | 已归档 | 历史执行记录 |
+| `docs/codex-roadmap-phase2.md` | 已归档 | 历史执行记录 |
+| `docs/codex-workflow.md` | 已归档 | 协作流程已并入 `AGENTS.md` 与 `docs/README.md` |
+| `docs/device-simulator.md` | 保留 | 联调辅助文档 |
+| `docs/protocol-examples.md` | 保留 | 协议样例可作为测试输入基线 |
+| `docs/真实环境测试与验收手册.md` | 保留 | 真实环境验收场景主文档 |
+| `docs/skills/frontend-commercial-product/SKILL.md` | 保留 | skill 资产 |
+| `docs/skills/ops-center-page/SKILL.md` | 保留 | skill 资产 |
+| `docs/skills/risk-cockpit-page/SKILL.md` | 保留 | skill 资产 |
+| `docs/skills/risk-workbench-page/SKILL.md` | 保留 | skill 资产 |
+
+## 3.2 2026-03-20 设备页列表体验推广记录
+
+- `/devices` 已继续承接 `/products` 的高频台账体验方案，并在本轮改造后完成单主卡收口：页面说明、筛选条、统计栏和台账结果区同卡承载。
+- 设备列表页已补齐完整路由 query 恢复：`deviceId / productKey / deviceCode / deviceName / onlineStatus / activateStatus / deviceStatus / pageNum / pageSize` 会随查询、翻页、改页大小同步回写，回退、刷新和跨页返回后可继续恢复同一台账视图。
+- `spring-boot-iot-ui/src/api/device.ts` 已补齐 `signal` 透传，设备列表分页请求与详情请求开始支持取消过期请求，避免快速切筛选、翻页或重复打开详情时旧响应回写覆盖当前结果。
+- 设备列表页已补齐“分页结果缓存 + 静默校验 + 下一页预取”能力：按筛选条件、页码、页大小命中缓存时优先秒开当前页，再后台校验最新数据，并按需预取下一页。
+- 设备列表分页缓存已继续下沉到 `sessionStorage` 会话级持久化；从洞察页、详情链路或其他工作台返回 `/devices` 时，组件重新挂载仍会先恢复最近缓存，再后台静默校验。
+- 设备列表结果区已补齐冷启动骨架屏和页内轻提示：未命中缓存时先展示接近最终结构的表格骨架，已有结果时刷新改为页内提示条，不再直接整块深色遮罩。
+- 设备列表空状态已区分“当前还没有设备资产”和“当前筛选无结果”两类，并分别提供新增设备或清空筛选的下一步动作。
+- 设备页新增、批量导入、删除、批量删除、设备更换和编辑提交成功后，都会先保留当前可见结果，再显式发起一次强制静默校验；分页缓存不会再把这次后台刷新短路掉。
+- 设备页已移除初始挂载时的产品选项预加载；产品下拉数据改为新增/编辑/更换抽屉首次打开时再懒加载，减少列表首屏的无关请求。
+- 设备页本轮继续补齐父子拓扑试点：新增/编辑抽屉、设备更换抽屉、批量导入模板与详情/列表展示已统一增加父设备与关联网关入口，避免“能落库但页面无入口”或“能展示但无法修改”的双向缺口。
+- 设备页本轮同步收口了中英混排的 eyebrow，并把结果区总数说明从卡片描述中移除，避免和分页总数表达重复。
+- 设备页筛选区现已收口为“默认 3 项 + 更多条件”结构：默认保留设备编码、设备名称、产品 Key，设备 ID、在线状态、激活状态、设备状态 收入“更多条件”并支持展开/收起。
+- 本轮新增回归：
+  - `spring-boot-iot-ui/src/__tests__/utils/deviceWorkbenchState.test.ts`
+  - 覆盖设备列表缓存 key、TTL、`sessionStorage` 恢复、下一页预取判定、加载策略判定，以及本地行更新纯函数。
+  - 已补充设备详情缓存条目序列化、恢复和 TTL 判定，避免详情抽屉缓存链路后续回退。
+- 当前仍保留的优化空间：
+  - `/devices` 已补齐移动端卡片列表，桌面表格与移动卡片共享同一份选中态与批量操作状态，不再继续依赖表格横向压缩承接窄屏。
+  - 设备详情抽屉已补齐“摘要秒开 + 完整详情补数 + 本地详情缓存”闭环；同一对象重复打开或跨路由返回后，会优先复用最近详情快照，再后台补数校验最新数据。
+  - 设备编辑抽屉已补齐“摘要预填 + 后台补数 + 脏表单保护”闭环；新增/编辑抽屉首次打开时会立即展示表单，再后台补齐最新设备档案，且产品下拉请求会按轮次去重，避免同一时刻重复加载。
+  - 设备新增/编辑提交成功后已补齐“当前页结果本地回写 + 后台静默校验”闭环；命中过滤条件时会先同步当前可见行、分页总数和选中态，再后台校正分页与排序，减少列表短暂停留旧值的割裂感。
+  - 设备删除、批量删除和设备更换成功后也已补齐“本地回写 + 后台静默校验”链路；删除类操作会先本地移除当前页可见行并同步总数，设备更换会先按已知语义更新旧设备停用态、生成新设备摘要快照并秒开详情，再后台校正最终分页与排序。
+  - 设备更换抽屉已补齐“摘要预填秒开 + 后台补数”模式，本轮已关闭该项体验债。
+  - 若后续新增筛选项超过当前密度，应先评估是否真的高频；非高频条件优先通过路由 query 或联动页承接，避免回退到“折叠筛选 + 提示条”双层结构。
+
+## 4. 技术债与风险清单（按优先级）
+
+### P0
+
+1. 风险监测功能交付口径未最终闭环（代码已在，验收未闭环）。
+2. 文档权威源分散，旧路线图易误导新成员。
+3. `【待确认】` 文档归档后的二级链接是否仍需进一步做批量重写或自动校验。
+
+### P1
+
+1. `iot_message_log` 视图命名与物理表 `iot_device_message_log` 双轨并存。
+2. 部分接口风格未完全 REST 化（更新/删除使用 `POST`）。
+3. 自动化测试覆盖偏后端，端到端质量门禁缺少统一准入策略。
+4. `【已缓解】` 前端一级导航已重构为 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五类工作台，但旧升级脚本、旧验收文档仍需持续同步，避免多版本口径并存。
+5. 设备资产中心仍有后续能力待补齐，当前剩余技术债聚焦在远程维护与维修工单联动。
+
+### P2
+
+1. 非活跃模块（gateway/telemetry/ota）与主 Reactor 的边界说明仍需进一步产品化。
+2. 前端整站统一组件化仍需继续防回退治理；未来新增页面和自动化测试中心编排编辑器的局部交互仍可能重新引入旧列表工具条、原生文本列或散装确认弹窗写法。
+
+## 5. 后续治理建议
+
+1. 以新核心文档为主，低价值协作/过程文档直接归档，避免继续占用 GPT 与接手研发的扫描成本。
+2. 建立文档变更审查规则：涉及接口/库表/配置变更时必须同步更新 `01`~`08`。
+3. 为 `sql/upgrade` 增加“适用前提 + 回滚建议”说明页，降低生产变更风险。
+4. 在 CI 中加入最小文档一致性检查（接口路径与 Controller 映射抽检）。
+
+## 6. 本次重构变更记录
+
+- 2026-03-18：完成核心文档体系重建与历史文档处置建议矩阵。
+- 2026-03-18：引入状态标记 `【根据代码推断】`、`【待确认】`、`【文档缺失】`，用于降低认知歧义。
+- 2026-03-18：完成历史文档物理归档与旧入口转向页落地。
+- 2026-03-18：PowerShell 验收与冒烟脚本改为按脚本位置自动定位仓库根目录。
+- 2026-03-18：明确最小阅读集与按任务补充阅读规则，并将 `11`、`13`、`architecture-diagram`、`codex-workflow` 改为归档处理。
+- 2026-03-18：新增 `09-GPT接管提示模板.md`，提供标准版 / 极简版 / 场景附加片段 / 文档治理、功能开发、Bug 修复、前端改造、接口开发、数据库脚本六类场景化快捷模板。
+- 2026-03-19：前端页面治理新增 `StandardTableToolbar`、`StandardTableTextColumn`、`StandardDrawerFooter` 与 `confirmAction` 基座，并同步把共享抽屉与分组概览页配色对齐到统一 brand/accent token 体系。
+- 2026-03-19：继续完成 `UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`RealTimeMonitoringView` 的统一组件化迁移，实时监测页分页状态已切换到共享 `useServerPagination`。
+- 2026-03-19：继续完成 `MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView` 的统一组件化迁移，风险配置页、日志页与 GIS 工作台统一切换到共享工具栏、文本列、抽屉底部按钮与确认交互。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 的页面盘点表格列与“导入计划 / 新增自定义页面”抽屉底部动作统一，自动化测试中心不再保留原生 `show-overflow-tooltip` 列和散装抽屉底部按钮实现。
+- 2026-03-19：继续完成 `DeviceInsightView` 的设备属性快照表格列统一，风险对象洞察页的长文本与时间列已切换到共享 `StandardTableTextColumn` 口径。
+- 2026-03-19：新增 `StandardInfoGrid`，并完成 `ProductWorkbenchView`、`ReportWorkbenchView` 的查询结果摘要卡与协议预演摘要卡收口，避免继续手写分散的 `info-grid/info-chip` 结构。
+- 2026-03-19：继续完成 `DeviceWorkbenchView`、`FilePayloadDebugView` 的查询摘要卡统一，并修正 `StandardInfoGrid` 的窄屏响应式列数处理，避免共享摘要卡在移动端被固定列数压坏布局。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 的“计划概况”和 `ReportAnalysisView` 的 KPI 指标卡收口，统一切换到共享 `MetricCard`，报表页和自动化编排页不再各自维护一套数值卡样式。
+- 2026-03-19：继续完成 `AutomationTestCenterView` “页面盘点与脚手架生成”区域的盘点指标卡收口，当前页面的计划概况与盘点概况均已切换到共享 `MetricCard`，页面私有 `metric-list / metric-item` 实现已删除。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 的局部样式 token 收口，命令预览框、建议卡、场景卡、步骤卡、空态块和首屏标签芯片已从写死色值切回 `--brand / --accent / --panel-border / --text-*` 体系，自动化工场不再单独维护一套浅蓝色面板配色。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 重复结构抽取，步骤中的两处“变量捕获”编辑块已统一收口到 `src/components/AutomationCaptureEditor.vue`，父页面不再重复维护相同的标题、空态、输入行和移除按钮模板。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 步骤编排区拆分，原页面内联 `step-editor` 模板已提炼为 `src/components/AutomationStepEditor.vue`；父页面仅保留步骤移动、类型切换、截图目标切换与新增捕获的状态编排，不再直接承载整块步骤表单模板。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 场景编排区拆分，原页面内联 `scenario-card` 模板已提炼为 `src/components/AutomationScenarioEditor.vue`；父页面现在只保留场景顺序、复制/删除以及步骤 shape 维护等编排逻辑，不再直接承载场景基础信息、业务点、首屏接口和步骤块模板。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 抽屉区域拆分，`导入计划` 与 `新增自定义页面` 已分别提炼为 `src/components/AutomationPlanImportDrawer.vue`、`src/components/AutomationManualPageDrawer.vue`；父页面移除了对应的本地输入状态、重置 watch 和表单布局样式，继续向“父页只做编排、子组件承接结构”收口。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 配置/盘点区拆分，`执行配置`、`测试建议`、`页面盘点与脚手架生成` 已分别提炼为 `src/components/AutomationExecutionConfigPanel.vue`、`src/components/AutomationSuggestionPanel.vue`、`src/components/AutomationPageDiscoveryPanel.vue`；父页面不再直接承载对应的表单、建议列表与盘点表格模板，仅保留盘点刷新、勾选补齐、手工页持久化和脚手架生成等状态编排逻辑。
+- 2026-03-19：继续完成 `AutomationTestCenterView` 父级状态抽离，场景 shape 修正、盘点刷新、未覆盖勾选、计划导入/导出、手工页持久化与场景编排等脚本逻辑已提炼为 `src/composables/useAutomationPlanBuilder.ts`；视图页脚本现在只保留组件装配与 composable 解构，自动化工场正式从“大脚本容器页”收口为“装配页”。
+- 2026-03-19：新增 `StandardInlineSectionHeader`，并完成 `AutomationTestCenterView` 场景编排编辑器中“业务点梳理 / 首屏接口 / 步骤编排 / 场景卡头 / 步骤卡头 / 变量捕获”标题栏收口，自动化工场不再重复维护同类区块头部布局。
+- 2026-03-19：新增 `StandardActionGroup`，并在 `AutomationTestCenterView`、`ProductWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`DeviceInsightView` 以及 `DeviceWorkbenchView` 的非冲突按钮区中替换按钮组局部样式与内联间距，工作台和编排页不再继续复制 `button-row + style`、`action-row + 局部 class`。
+- 2026-03-19：新增 `StandardFlowRail`，并完成 `ReportWorkbenchView`、`FutureLabView` 的流程导引和路线桥接收口，工作台/规划页不再重复手写 `flow-rail` 步骤模板。
+- 2026-03-19：继续完成统一组件化收尾治理，已清理 `ProductWorkbenchView` 在切换 `StandardInfoGrid` 后遗留的失效 `info-chip` scoped CSS，并将 `ReportWorkbenchView`、`DeviceInsightView`、`DeviceWorkbenchView` 的局部蓝色渐变/边框色改为 brand/accent token 驱动；`DeviceWorkbenchView` 顶部 Hero 按钮区仍因同片段冲突暂保持原样。
+- 2026-03-19：完成角色化菜单重构落地，前端导航、默认首页、初始化菜单种子和增量升级脚本已统一到“接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场”五类工作台口径。
+- 2026-03-19：补齐 `sql/init-data.sql` 演示账号矩阵，新增 `biz_demo`、`manager_demo`、`ops_demo`、`dev_demo` 四个角色化演示账号，并将 `sys_user_role` 改为按 `username` / `role_code` 动态绑定，便于历史库和新库统一初始化测试数据。
+- 2026-03-19：新增 `sql/upgrade/20260319_phase5_demo_text_repair.sql`，用于修复真实共享库里演示账号、角色名称与新增按钮菜单中文被写成 `????` 的问题；根因确认为 Windows 终端链路把内联中文字面量写成了 `0x3F`，因此脚本统一改用 `SET NAMES utf8mb4` + utf8mb4 十六进制字面量幂等回写。
+- 2026-03-19：继续收口 `AppShell` 功能页导航头，五个工作台下的功能页顶部仅保留阿里云式面包屑，并移除最近访问标签栏；分组首页不再额外渲染壳层页头，同时同步清理主标题、同组横向导航及“当前分区 / 页面类型 / 可见菜单 / 返回概览”等低价值说明卡，进一步降低首屏噪音。
+- 2026-03-19：继续收口 `AppShell` 壳层滚动行为，五个一级工作台下的二级菜单改为固定左栏，正文超出一屏时统一由右侧 `cloud-content` 独立滚动；移动端抽屉式侧栏同步避让头部高度，页面根容器 `.page-stack / .standard-list-view / .ops-workbench / .section-landing / .report-analysis-view` 也统一补齐 `min-width: 0` 基线，避免再出现“左栏跟随正文一起滚动”或内容区横向外溢的页面级分叉实现。
+- 2026-03-19：修复登录后强制刷新落入原始 `401` JSON 的问题；后端安全链已放行 SPA 壳层路由并新增 `index.html` 前端回退控制器，前端请求层补齐 HTTP `401` 统一登出跳转，路由守卫对未授权/无资源链接统一回到 `/login`，`application-dev.yml` 的 token 有效期同步调整为 24 小时默认值；同日继续把 SPA 回退范围从单层路由扩展到多层前端 history 路由。
+- 2026-03-19：补齐 `GET /api/device/product/list` 后端接口，避免“设备资产中心”加载产品列表时将字面量 `list` 误命中 `/api/device/product/{id}` 并触发 `参数类型错误: id`；README 与接口清单已同步更新。
+- 2026-03-19：继续修复刷新后误回登录页的问题；前端登录恢复改为优先复用本地持久化的 `token + authContext`，不再把首次路由进入强依赖到 `/api/auth/me` 立刻成功，同时把强制刷新校验中的非 `401` 异常与真正的登录失效区分开，避免启动期瞬时异常把有效会话误清空。
+- 2026-03-19：补齐设备资产中心首个可用闭环：后端新增设备分页/更新/删除/批量删除接口，前端 `/devices` 重构为标准设备资产列表页，并同步补齐设备按钮权限初始化、历史升级脚本与验收文档；批量导入、设备更换、远程维护仍保留为后续技术债。
+- 2026-03-19：继续补齐设备资产中心第二轮闭环：后端新增 `POST /api/device/batch-add`、`POST /api/device/{id}/replace`，前端 `/devices` 新增批量导入抽屉、设备更换抽屉和导入结果回显，并同步补齐 `iot:devices:import`、`iot:devices:replace` 按钮权限初始化与历史库升级脚本；当前剩余技术债收口为远程维护与维修工单联动。
+- 2026-03-19：补齐产品定义中心首个可用闭环：后端新增产品分页/更新/删除接口并回写产品关联设备统计，前端 `/products` 重构为标准产品台账页，并同步补齐产品按钮权限初始化、历史升级脚本与验收文档；产品物模型设计器、批量导入、上下架审批与版本治理仍保留为后续规划。
+- 2026-03-19：继续把 `/products` 作为前端布局治理试点，收口首屏冗余说明和中英混排 eyebrow，引入共享 `MetricCard` 紧凑规格与“常用条件 + 更多条件”可展开筛选结构，并同步清理产品页重复 scoped 样式；`docs/06-前端开发与CSS规范.md`、`docs/15-前端优化与治理计划.md` 已补充对应治理规则。
+- 2026-03-19：继续收口 `/products` 首屏层级，移除 Hero 区重复启用/停用/在线指标，取消独立筛选卡，并把“产品名称 / 节点类型 / 产品状态 + 查询 / 重置”直接嵌入产品台账卡头与统计栏之间；字段 label 同步移除，避免产品定义页继续保留冗余纵向占位。
+- 2026-03-19：继续收口 `/products` 主视线，把“新增产品”提升到页面主标题右侧，移除“产品台账”次级标题，并把筛选项改成更短的定宽输入布局，避免列表首屏继续被标题和过长筛选框拉散。
+- 2026-03-19：继续修正 `/products` 的终态结构，把页面说明、主操作、筛选条、统计栏和产品数据列表整合到同一张主卡片中，同时把筛选区恢复为响应式自适应布局，并压缩操作列宽度与按钮间距，进一步减少手机端挤压和桌面端尾部空白。
+- 2026-03-19：继续按产品定义页口径收口 `/products`，移除工具栏中的在线设备汇总，把操作列改为“详情 / 编辑 / 更多”，并补齐手机端产品卡片列表与卡片勾选，避免窄屏继续依赖桌面表格硬撑。
+- 2026-03-19：补充产品建档口径文档，明确“产品是接入模板、设备是实例资产”的关系，并沉淀 `productKey` / `productName` / `manufacturer` 的定义规则、命名建议、拆分原则及南方测试/中海达场景示例；同时把“已落地规则”和“建议治理规则”区分到 README、业务文档、接口文档和库表文档中。
+- 2026-03-19：把产品停用治理从文档口径落到后端规则：产品停用前新增“启用设备”校验，`GET /api/device/product/list` 只返回启用产品，停用产品会被拒绝继续用于设备建档、批量导入、设备更换建档、设备上报接入和 MQTT 下行指令下发；并补齐对应单测与验收文档口径。
+- 2026-03-19：按“浏览器侧后端接口只能通过 `/api(?:/|$)` 访问”的约定继续收口接口入口；前端 HTTP 上报已切换到 `POST /api/message/http/report`，历史 `/message/**`、`/device/**` 开发代理入口已移除，旧路径只允许通过前端兼容层归一到 `/api/**`，避免强制刷新或手工访问非 `/api` 路径时直接落到后端错误响应。
+- 2026-03-19：统一后端本地启动文档口径：README、部署说明与 AGENTS 均改为“先执行 `mvn -s .mvn/settings.xml clean install -DskipTests`，再启动 `spring-boot-iot-admin`”，并分别补充 macOS/Linux、Windows CMD、Windows PowerShell 的启动命令，避免多模块依赖类未先编译安装导致的缺类问题。
+- 2026-03-20：继续收口 `/devices` 替换抽屉打开链路：替换表单已改为“列表摘要/本地缓存秒开 + 后台补全最新源设备档案 + 脏表单保护 + 请求过期保护”，并在抽屉顶部补充轻量状态提示；打开时不再阻塞等待完整详情和下拉选项全部返回。
+- 2026-03-20：复查设备页布局后继续维持“Hero + 独立筛选卡 + 结果卡”结构；当前筛选项密度仍高于 `/products`，强行并卡会压缩首屏结果区。下一步更高价值的前端收口转向“批量导入成功后的当前页本地回写 + 静默校验”。
+- 2026-03-20：补齐设备资产中心父子拓扑维护试点：后端新增设备/更新/更换/设备选项接口统一支持 `parentDeviceId / parentDeviceCode` 与关联网关回填，前端 `/devices` 在新增、批量导入、编辑、更换、列表和详情中统一增加父设备/网关入口；README、业务说明、接口清单和前端治理文档已同步更新。
+
+## 0.8 2026-03-21 深部位移自动闭环（平台内）落地记录
+
+- 在 `$dp -> 解密/解析 -> 子设备映射 -> 入库` 主链路之后，新增了“风险判定事件 -> 自动闭环编排”服务端链路，不新增对外 API。
+- `spring-boot-iot-device` 现会在属性落库完成后发布 `DeviceRiskEvaluationEvent`，避免 `device` 模块反向依赖 `alarm`。
+- `spring-boot-iot-alarm` 新增深部位移自动闭环编排：
+  - 按 `risk_point_device` 绑定匹配测点。
+  - 按毫米绝对值执行红橙黄蓝判级：蓝 `< 5`、黄 `[5,10)`、橙 `[10,20)`、红 `>= 20`。
+  - 黄橙红建告警，橙/红自动转事件并自动派工。
+  - 同一 `deviceCode + metricIdentifier + level` 30 分钟内不重复建告警。
+  - 风险点等级按全部绑定测点最新值的最高等级回写：红 `critical`、橙/黄 `warning`、蓝 `info`。
+  - 联动规则命中结果写入 `iot_alarm_record.remark`，应急预案与联动命中详情写入 `iot_event_record.review_notes`。
+- `application-dev.yml` 新增 `iot.alarm.auto-closure.*` 默认阈值与冷却配置。
+- 为解决当前 JDK 17 环境下 Mockito inline self-attach 阻塞，本轮在 `device`、`alarm` 模块测试资源中显式切回 `mock-maker-subclass`，使现有单测与新增闭环测试可在本地稳定执行。
+- 已同步更新：
+  - `README.md`
+  - `docs/02-业务功能与流程说明.md`
+  - `docs/03-接口规范与接口清单.md`
+  - `docs/07-部署运行与配置说明.md`
+  - `docs/08-变更记录与技术债清单.md`
+  - `docs/19-第四阶段交付边界与复验进展.md`
+  - `docs/21-业务功能清单与验收标准.md`
+  - `spring-boot-iot-framework/src/main/java/com/ghlzm/iot/framework/config/IotProperties.java`
+  - `spring-boot-iot-admin/src/main/resources/application-dev.yml`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/event/DeviceRiskEvaluationEvent.java`
+  - `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/service/impl/DeviceMessageServiceImpl.java`
+  - `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/auto/AutoClosureSeverity.java`
+  - `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/auto/DeepDisplacementAutoClosureListener.java`
+  - `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/auto/DeepDisplacementAutoClosureService.java`
+  - `spring-boot-iot-device/src/test/java/com/ghlzm/iot/device/service/impl/DeviceMessageServiceImplTest.java`
+  - `spring-boot-iot-alarm/src/test/java/com/ghlzm/iot/alarm/auto/AutoClosureSeverityTest.java`
+  - `spring-boot-iot-alarm/src/test/java/com/ghlzm/iot/alarm/auto/DeepDisplacementAutoClosureServiceTest.java`
+  - `spring-boot-iot-device/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`
+  - `spring-boot-iot-alarm/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`

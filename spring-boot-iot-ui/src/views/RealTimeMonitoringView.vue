@@ -63,8 +63,8 @@
           </el-col>
         </el-row>
         <div class="ops-filter-actions">
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
         </div>
       </el-form>
     </PanelCard>
@@ -79,8 +79,8 @@
         :meta-items="[`当前页 ${displayedCount} 项`, `告警 ${alarmCount} 项`, `无数据 ${noDataCount} 项`]"
       >
         <template #right>
-          <el-button link @click="handleReset">重置筛选</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
+          <StandardButton action="reset" link @click="handleReset">重置筛选</StandardButton>
+          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -124,7 +124,9 @@
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="openDetail(row.bindingId)">查看详情</el-button>
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="openDetail(row.bindingId)">详情</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>

@@ -25,6 +25,11 @@ DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
 
 DROP TABLE IF EXISTS sys_audit_log;
+DROP TABLE IF EXISTS sys_help_document;
+DROP TABLE IF EXISTS sys_in_app_message_bridge_attempt_log;
+DROP TABLE IF EXISTS sys_in_app_message_bridge_log;
+DROP TABLE IF EXISTS sys_in_app_message_read;
+DROP TABLE IF EXISTS sys_in_app_message;
 DROP TABLE IF EXISTS sys_notification_channel;
 DROP TABLE IF EXISTS sys_dict_item;
 DROP TABLE IF EXISTS sys_dict;
@@ -278,6 +283,116 @@ CREATE TABLE sys_notification_channel (
     KEY idx_channel_deleted_type_sort (deleted, channel_type, sort_no, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知渠道表';
 
+CREATE TABLE sys_in_app_message (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    message_type VARCHAR(32) NOT NULL COMMENT '消息类型 system/business/error',
+    priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级 critical/high/medium/low',
+    title VARCHAR(128) NOT NULL COMMENT '消息标题',
+    summary VARCHAR(500) DEFAULT NULL COMMENT '消息摘要',
+    content LONGTEXT DEFAULT NULL COMMENT '消息正文',
+    target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围 all/role/user',
+    target_role_codes VARCHAR(500) DEFAULT NULL COMMENT '目标角色编码，逗号分隔',
+    target_user_ids VARCHAR(500) DEFAULT NULL COMMENT '目标用户ID，逗号分隔',
+    related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',
+    source_type VARCHAR(64) DEFAULT NULL COMMENT '来源类型',
+    source_id VARCHAR(64) DEFAULT NULL COMMENT '来源业务ID',
+    dedup_key VARCHAR(32) DEFAULT NULL COMMENT '去重键',
+    publish_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+    expire_time DATETIME DEFAULT NULL COMMENT '过期时间',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1发布中 0停用',
+    sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
+    PRIMARY KEY (id),
+    KEY idx_in_app_message_deleted_status_time (deleted, status, publish_time, id),
+    KEY idx_in_app_message_deleted_type_time (deleted, message_type, publish_time, id),
+    KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id),
+    KEY idx_in_app_message_source (source_type, source_id),
+    KEY idx_in_app_message_tenant_dedup (tenant_id, dedup_key, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息表';
+
+CREATE TABLE sys_in_app_message_read (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    message_id BIGINT NOT NULL COMMENT '消息ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    read_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '已读时间',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_in_app_message_read_user (tenant_id, message_id, user_id),
+    KEY idx_in_app_message_read_user_time (user_id, read_time, message_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息已读表';
+
+CREATE TABLE sys_in_app_message_bridge_log (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    message_id BIGINT NOT NULL COMMENT '消息ID',
+    channel_code VARCHAR(64) NOT NULL COMMENT '渠道编码',
+    bridge_scene VARCHAR(64) NOT NULL COMMENT '桥接场景',
+    unread_count INT NOT NULL DEFAULT 0 COMMENT '最近一次桥接时的未读人数',
+    recipient_snapshot VARCHAR(500) DEFAULT NULL COMMENT '未读对象摘要',
+    bridge_status TINYINT NOT NULL DEFAULT 0 COMMENT '桥接状态 0失败/待重试 1成功',
+    response_status_code INT DEFAULT NULL COMMENT '最近一次响应状态码',
+    response_body VARCHAR(1000) DEFAULT NULL COMMENT '最近一次响应摘要',
+    last_attempt_time DATETIME DEFAULT NULL COMMENT '最近一次尝试时间',
+    success_time DATETIME DEFAULT NULL COMMENT '成功时间',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT '尝试次数',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_in_app_message_bridge_message_channel (tenant_id, message_id, channel_code, bridge_scene),
+    KEY idx_in_app_message_bridge_status_time (bridge_status, last_attempt_time),
+    KEY idx_in_app_message_bridge_message (message_id, channel_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息未读桥接日志表';
+
+CREATE TABLE sys_in_app_message_bridge_attempt_log (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    bridge_log_id BIGINT NOT NULL COMMENT '桥接日志ID',
+    message_id BIGINT NOT NULL COMMENT '消息ID',
+    channel_code VARCHAR(64) NOT NULL COMMENT '渠道编码',
+    bridge_scene VARCHAR(64) NOT NULL COMMENT '桥接场景',
+    attempt_no INT NOT NULL COMMENT '尝试序号',
+    bridge_status TINYINT NOT NULL DEFAULT 0 COMMENT '桥接状态 0失败 1成功',
+    unread_count INT NOT NULL DEFAULT 0 COMMENT '本次桥接时的未读人数',
+    recipient_snapshot VARCHAR(500) DEFAULT NULL COMMENT '本次桥接时的未读对象摘要',
+    response_status_code INT DEFAULT NULL COMMENT '本次响应状态码',
+    response_body VARCHAR(1000) DEFAULT NULL COMMENT '本次响应摘要',
+    attempt_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '尝试时间',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_in_app_message_bridge_attempt (bridge_log_id, attempt_no),
+    KEY idx_in_app_message_bridge_attempt_log_time (bridge_log_id, attempt_time DESC),
+    KEY idx_in_app_message_bridge_attempt_message (message_id, channel_code, attempt_time DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息桥接尝试明细表';
+
+CREATE TABLE sys_help_document (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    doc_category VARCHAR(32) NOT NULL COMMENT '文档分类 business/technical/faq',
+    title VARCHAR(128) NOT NULL COMMENT '文档标题',
+    summary VARCHAR(500) DEFAULT NULL COMMENT '文档摘要',
+    content LONGTEXT NOT NULL COMMENT '文档正文',
+    keywords VARCHAR(500) DEFAULT NULL COMMENT '关键词，逗号分隔',
+    related_paths VARCHAR(500) DEFAULT NULL COMMENT '关联页面路径，逗号分隔',
+    visible_role_codes VARCHAR(500) DEFAULT NULL COMMENT '可见角色编码，逗号分隔',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0停用',
+    sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
+    PRIMARY KEY (id),
+    KEY idx_help_document_deleted_category_sort (deleted, doc_category, sort_no, id),
+    KEY idx_help_document_deleted_status_sort (deleted, status, sort_no, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='帮助文档表';
+
 CREATE TABLE sys_audit_log (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -394,6 +509,27 @@ CREATE TABLE iot_device (
     KEY idx_device_deleted_product_stats (deleted, product_id, last_report_time, online_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
 
+CREATE TABLE iot_device_online_session (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    online_time DATETIME NOT NULL COMMENT '会话开始时间',
+    last_seen_time DATETIME DEFAULT NULL COMMENT '会话最后活跃时间',
+    offline_time DATETIME DEFAULT NULL COMMENT '会话结束时间',
+    duration_minutes BIGINT DEFAULT NULL COMMENT '在线时长（分钟）',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_online_session_device_active (deleted, device_id, offline_time),
+    KEY idx_online_session_product_time (deleted, product_id, online_time, offline_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备在线会话表';
+
 CREATE TABLE iot_device_property (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -428,6 +564,37 @@ CREATE TABLE iot_device_message_log (
     KEY idx_trace_id (trace_id),
     KEY idx_device_code_time (device_code, report_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备消息日志表';
+
+CREATE TABLE iot_device_access_error_log (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+    request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',
+    failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',
+    sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
+    topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',
+    message_type VARCHAR(32) DEFAULT NULL COMMENT '消息类型',
+    topic VARCHAR(255) DEFAULT NULL COMMENT 'topic',
+    client_id VARCHAR(128) DEFAULT NULL COMMENT '客户端ID',
+    payload_size INT DEFAULT NULL COMMENT 'payload 大小',
+    payload_encoding VARCHAR(16) DEFAULT NULL COMMENT 'payload 编码',
+    payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT 'payload 是否截断',
+    raw_payload LONGTEXT DEFAULT NULL COMMENT '原始 payload',
+    error_code VARCHAR(64) DEFAULT NULL COMMENT '错误码',
+    exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',
+    error_message VARCHAR(500) DEFAULT NULL COMMENT '错误消息',
+    contract_snapshot LONGTEXT DEFAULT NULL COMMENT '设备契约快照',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_access_error_trace (trace_id),
+    KEY idx_access_error_device_time (device_code, create_time),
+    KEY idx_access_error_stage_time (failure_stage, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备接入失败归档表';
 
 CREATE TABLE iot_command_record (
     id BIGINT NOT NULL COMMENT '主键',

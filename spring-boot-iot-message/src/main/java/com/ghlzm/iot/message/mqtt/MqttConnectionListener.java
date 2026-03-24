@@ -4,6 +4,7 @@ import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
@@ -30,66 +31,136 @@ public class MqttConnectionListener {
     private final ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider;
     private final ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider;
     private final ObjectProvider<DeviceMessageService> deviceMessageServiceProvider;
+    private final ObjectProvider<MqttConsumerRuntimeState> mqttConsumerRuntimeStateProvider;
 
     @Autowired
     public MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
                                   ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider,
-                                  ObjectProvider<DeviceMessageService> deviceMessageServiceProvider) {
+                                  ObjectProvider<DeviceMessageService> deviceMessageServiceProvider,
+                                  ObjectProvider<MqttConsumerRuntimeState> mqttConsumerRuntimeStateProvider) {
         this.backendExceptionRecorderProvider = backendExceptionRecorderProvider;
         this.deviceAccessErrorLogServiceProvider = deviceAccessErrorLogServiceProvider;
         this.deviceMessageServiceProvider = deviceMessageServiceProvider;
+        this.mqttConsumerRuntimeStateProvider = mqttConsumerRuntimeStateProvider;
     }
 
     MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
                            ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider) {
-        this(backendExceptionRecorderProvider, deviceAccessErrorLogServiceProvider, null);
+        this(backendExceptionRecorderProvider, deviceAccessErrorLogServiceProvider, null, null);
     }
 
     public void onConnectComplete(boolean reconnect, String serverUri) {
-        log.info("MQTT 客户端已连接, reconnect={}, serverUri={}", reconnect, serverUri);
+        onConnectComplete(reconnect, serverUri, null);
+    }
+
+    public void onConnectComplete(boolean reconnect, String serverUri, String clientId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("clientId", clientId);
+        details.put("reconnect", reconnect);
+        details.put("serverUri", serverUri);
+        log.info(ObservabilityEventLogSupport.summary("mqtt_connection", "success", null, details));
+        runtimeState().ifPresent(MqttConsumerRuntimeState::markConnected);
     }
 
     public void onSubscribe(List<String> topics) {
-        log.info("MQTT 客户端已订阅主题: {}", topics);
+        onSubscribe(topics, null);
+    }
+
+    public void onSubscribe(List<String> topics, String clientId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("clientId", clientId);
+        details.put("topicCount", topics == null ? 0 : topics.size());
+        details.put("topics", topics);
+        log.info(ObservabilityEventLogSupport.summary("mqtt_subscribe", "success", null, details));
+        runtimeState().ifPresent(state -> state.markSubscribed(topics));
     }
 
     public void onMessageReceived(String topic, int payloadSize) {
-        log.info("MQTT 收到上行消息, topic={}, payloadSize={}", topic, payloadSize);
+        if (!log.isTraceEnabled()) {
+            return;
+        }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("topic", topic);
+        details.put("payloadSize", payloadSize);
+        log.trace(ObservabilityEventLogSupport.summary("mqtt_receive", "success", null, details));
     }
 
     public void onMessageDispatched(String topic, String deviceCode, String messageType, String traceId) {
-        log.info("MQTT 上行消息进入主链路成功, topic={}, deviceCode={}, messageType={}, traceId={}",
-                topic, deviceCode, messageType, traceId);
+        if (!log.isTraceEnabled()) {
+            return;
+        }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", traceId);
+        details.put("topic", topic);
+        details.put("deviceCode", deviceCode);
+        details.put("messageType", messageType);
+        log.trace(ObservabilityEventLogSupport.summary("mqtt_dispatch", "success", null, details));
     }
 
     public void onConnectionLost(Throwable cause) {
-        log.warn("MQTT 连接已断开: {}", cause == null ? "unknown" : cause.getMessage());
+        onConnectionLost(cause, null);
+    }
+
+    public void onConnectionLost(Throwable cause, String clientId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("clientId", clientId);
+        details.put("reason", cause == null ? "unknown" : cause.getMessage());
         if (cause != null) {
+            details.put("errorClass", cause.getClass().getSimpleName());
+        }
+        log.warn(ObservabilityEventLogSupport.summary("mqtt_connection", "failure", null, details));
+        runtimeState().ifPresent(state -> state.markDisconnected("connection", TraceContextHolder.getTraceId()));
+        if (cause != null) {
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("event", "connectionLost");
+            putIfHasText(context, "clientId", clientId);
             recordBackendException(
                     "MqttMessageConsumer#connectionLost",
                     "connection",
-                    Map.of("event", "connectionLost"),
+                    context,
                     cause
             );
         }
     }
 
     public void onStartupSkipped(String reason) {
-        log.info("跳过 MQTT 客户端启动: {}", reason);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("reason", reason);
+        log.info(ObservabilityEventLogSupport.summary("mqtt_startup", "skipped", null, details));
     }
 
     public void onStartupFailed(Throwable throwable) {
-        log.error("MQTT 客户端启动失败", throwable);
+        onStartupFailed(throwable, null);
+    }
+
+    public void onStartupFailed(Throwable throwable, String clientId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("clientId", clientId);
+        details.put("errorClass", throwable == null ? null : throwable.getClass().getSimpleName());
+        log.error(ObservabilityEventLogSupport.summary("mqtt_startup", "failure", null, details), throwable);
+        runtimeState().ifPresent(state -> state.markDisconnected("startup", TraceContextHolder.getTraceId()));
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("event", "startupFailed");
+        putIfHasText(context, "clientId", clientId);
         recordBackendException(
                 "MqttMessageConsumer#start",
                 "startup",
-                Map.of("event", "startupFailed"),
+                context,
                 throwable
         );
     }
 
     public void onShutdownFailed(Throwable throwable) {
-        log.error("MQTT 客户端关闭失败", throwable);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("errorClass", throwable == null ? null : throwable.getClass().getSimpleName());
+        log.error(ObservabilityEventLogSupport.summary("mqtt_shutdown", "failure", null, details), throwable);
         recordBackendException(
                 "MqttMessageConsumer#stop",
                 "shutdown",
@@ -99,18 +170,48 @@ public class MqttConnectionListener {
     }
 
     public void onSubscribeFailed(List<String> topics, Throwable throwable) {
-        log.error("MQTT 客户端订阅主题失败, topics={}", topics, throwable);
+        onSubscribeFailed(topics, throwable, null);
+    }
+
+    public void onSubscribeFailed(List<String> topics, Throwable throwable, String clientId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("clientId", clientId);
+        details.put("topics", topics);
+        details.put("errorClass", throwable == null ? null : throwable.getClass().getSimpleName());
+        log.error(ObservabilityEventLogSupport.summary("mqtt_subscribe", "failure", null, details), throwable);
+        runtimeState().ifPresent(state -> state.markFailure("subscribe", TraceContextHolder.getTraceId()));
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("event", "subscribeFailed");
+        context.put("topics", topics);
+        putIfHasText(context, "clientId", clientId);
         recordBackendException(
                 "MqttMessageConsumer#subscribeConfiguredTopics",
                 "subscribe",
-                Map.of("event", "subscribeFailed", "topics", topics),
+                context,
                 throwable
         );
     }
 
     public void onMessageDispatchFailed(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
-        log.error("MQTT 消息分发失败, topic={}", topic, throwable);
         String failureStage = resolveFailureStage(rawDeviceMessage, throwable);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", rawDeviceMessage == null ? TraceContextHolder.getTraceId() : rawDeviceMessage.getTraceId());
+        details.put("topic", topic);
+        details.put("failureStage", failureStage);
+        if (rawDeviceMessage != null) {
+            details.put("deviceCode", rawDeviceMessage.getDeviceCode());
+            details.put("productKey", rawDeviceMessage.getProductKey());
+            details.put("protocolCode", rawDeviceMessage.getProtocolCode());
+            details.put("messageType", rawDeviceMessage.getMessageType());
+            details.put("clientId", rawDeviceMessage.getClientId());
+        }
+        details.put("errorClass", throwable == null ? null : throwable.getClass().getSimpleName());
+        log.error(ObservabilityEventLogSupport.summary("mqtt_dispatch", "failure", null, details), throwable);
+        runtimeState().ifPresent(state -> state.markFailure(
+                failureStage,
+                rawDeviceMessage == null ? null : rawDeviceMessage.getTraceId()
+        ));
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("event", "messageDispatchFailed");
         context.put("topic", topic);
@@ -119,8 +220,12 @@ public class MqttConnectionListener {
             putIfHasText(context, "traceId", rawDeviceMessage.getTraceId());
             putIfHasText(context, "deviceCode", rawDeviceMessage.getDeviceCode());
             putIfHasText(context, "productKey", rawDeviceMessage.getProductKey());
+            putIfHasText(context, "protocolCode", rawDeviceMessage.getProtocolCode());
             putIfHasText(context, "messageType", rawDeviceMessage.getMessageType());
             putIfHasText(context, "topicRouteType", rawDeviceMessage.getTopicRouteType());
+            putIfHasText(context, "clientId", rawDeviceMessage.getClientId());
+            putIfHasText(context, "gatewayDeviceCode", rawDeviceMessage.getGatewayDeviceCode());
+            putIfHasText(context, "subDeviceCode", rawDeviceMessage.getSubDeviceCode());
         }
         archiveFailureTrace(topic, payload, rawDeviceMessage);
         archiveAccessFailure(topic, payload, rawDeviceMessage, failureStage, throwable);
@@ -133,7 +238,22 @@ public class MqttConnectionListener {
     }
 
     public void onDeviceSessionRefreshed(String deviceCode, String clientId, String topic) {
-        log.debug("MQTT 设备会话已刷新, deviceCode={}, clientId={}, topic={}", deviceCode, clientId, topic);
+        if (!log.isTraceEnabled()) {
+            return;
+        }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("deviceCode", deviceCode);
+        details.put("clientId", clientId);
+        details.put("topic", topic);
+        log.trace(ObservabilityEventLogSupport.summary("mqtt_session_refresh", "success", null, details));
+    }
+
+    private java.util.Optional<MqttConsumerRuntimeState> runtimeState() {
+        if (mqttConsumerRuntimeStateProvider == null) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.ofNullable(mqttConsumerRuntimeStateProvider.getIfAvailable());
     }
 
     private void archiveAccessFailure(String topic,
@@ -211,7 +331,13 @@ public class MqttConnectionListener {
         if (errorText.contains("协议解析") || errorText.contains("decode")) {
             return "protocol_decode";
         }
-        if (errorText.contains("设备不存在") || errorText.contains("协议不匹配") || errorText.contains("产品不匹配")) {
+        if (errorText.contains("设备不存在")
+                || errorText.contains("协议不匹配")
+                || errorText.contains("协议未配置")
+                || errorText.contains("协议配置异常")
+                || errorText.contains("产品不匹配")
+                || errorText.contains("产品不存在")
+                || errorText.contains("未绑定产品")) {
             return "device_validate";
         }
         return "message_dispatch";

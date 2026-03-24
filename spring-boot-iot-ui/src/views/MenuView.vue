@@ -1,71 +1,69 @@
 <template>
   <div class="menu-view sys-mgmt-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="menu-view__header">
-          <div class="menu-view__header-content">
-            <span>导航编排</span>
-            <small>导航编排页负责维护树结构与元数据，角色菜单范围请在角色权限页授权。</small>
-          </div>
-          <div class="menu-view__header-actions">
-            <el-button v-permission="'system:role:update'" @click="goToRolePage">前往角色授权</el-button>
-            <el-button v-permission="'system:menu:add'" type="primary" @click="openAddRoot">新增菜单</el-button>
-          </div>
-        </div>
+    <StandardWorkbenchPanel
+      title="导航编排"
+      description="导航编排页负责维护树结构与元数据，角色菜单范围请在角色权限页授权。"
+      show-header-actions
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
+    >
+      <template #header-actions>
+        <StandardButton v-permission="'system:role:update'" action="refresh" @click="goToRolePage">前往角色授权</StandardButton>
+        <StandardButton v-permission="'system:menu:add'" action="add" @click="openAddRoot">新增菜单</StandardButton>
       </template>
 
-      <el-form :model="filters" label-width="90px" class="search-form menu-view__filters">
-        <el-row :gutter="16">
-          <el-col :span="6">
-            <el-form-item label="菜单名称">
-              <el-input v-model="filters.menuName" clearable placeholder="请输入菜单名称" @keyup.enter="handleSearch" />
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.menuName" clearable placeholder="菜单名称" @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="菜单编码">
-              <el-input v-model="filters.menuCode" clearable placeholder="请输入菜单编码" @keyup.enter="handleSearch" />
+            <el-form-item>
+              <el-input v-model="filters.menuCode" clearable placeholder="菜单编码" @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="类型">
-              <el-select v-model="filters.type" clearable placeholder="全部类型">
+            <el-form-item>
+              <el-select v-model="filters.type" clearable placeholder="类型">
                 <el-option label="目录" :value="0" />
                 <el-option label="页面" :value="1" />
                 <el-option label="按钮" :value="2" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="">
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
+          </template>
+          <template #actions>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-      <el-alert
-        v-if="!isFilterMode"
-        title="默认仅分页加载根菜单，展开行时按需加载子菜单。"
-        type="info"
-        :closable="false"
-        show-icon
-        class="menu-view__alert"
-      />
-      <el-alert
-        v-else
-        title="搜索模式返回扁平分页结果，不再全量加载菜单树。"
-        type="info"
-        :closable="false"
-        show-icon
-        class="menu-view__alert"
-      />
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
 
-      <StandardTableToolbar :meta-items="[ `当前结果 ${pagination.total} 条` ]">
-        <template #right>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #notices>
+        <el-alert
+          :title="menuModeNotice"
+          type="info"
+          :closable="false"
+          show-icon
+          class="menu-view__alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条` ]">
+          <template #right>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         v-loading="loading"
@@ -96,27 +94,31 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sort" label="排序" width="80" />
+        <StandardTableTextColumn prop="sort" label="排序" :width="80" />
         <el-table-column label="操作" width="240" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button v-permission="'system:menu:update'" type="primary" link @click="openEdit(row.id)">编辑</el-button>
-            <el-button v-permission="'system:menu:add'" type="primary" link @click="openAddChild(row.id)">新增子级</el-button>
-            <el-button v-permission="'system:menu:delete'" type="danger" link @click="removeMenu(row.id)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink v-permission="'system:menu:update'" @click="openEdit(row.id)">编辑</StandardActionLink>
+              <StandardActionLink v-permission="'system:menu:add'" @click="openAddChild(row.id)">新增子级</StandardActionLink>
+              <StandardActionLink v-permission="'system:menu:delete'" @click="removeMenu(row.id)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination menu-view__pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
-    </PanelCard>
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </template>
+    </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="dialogVisible"
@@ -173,18 +175,18 @@
           @confirm="submitForm"
         >
           <template #default>
-            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
+            <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
               取消
-            </el-button>
-            <el-button
+            </StandardButton>
+            <StandardButton
               v-permission="dialogMode === 'edit' ? 'system:menu:update' : 'system:menu:add'"
-              type="primary"
+              action="confirm"
               class="standard-drawer-footer__button standard-drawer-footer__button--primary"
               :loading="submitLoading"
               @click="submitForm"
             >
               {{ dialogMode === 'edit' ? '确认保存' : '确认新增' }}
-            </el-button>
+            </StandardButton>
           </template>
         </StandardDrawerFooter>
       </template>
@@ -198,12 +200,15 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
-import PanelCard from '@/components/PanelCard.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 
@@ -218,6 +223,11 @@ const formRef = ref()
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
 const filters = reactive({
+  menuName: '',
+  menuCode: '',
+  type: undefined as number | undefined
+})
+const appliedFilters = reactive({
   menuName: '',
   menuCode: '',
   type: undefined as number | undefined
@@ -243,7 +253,32 @@ const rules = {
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
-const isFilterMode = computed(() => Boolean(filters.menuName.trim() || filters.menuCode.trim() || filters.type !== undefined))
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'menuName', label: '菜单名称' },
+    { key: 'menuCode', label: '菜单编码' },
+    { key: 'type', label: (value) => `类型：${typeText(value)}`, clearValue: undefined, isActive: (value) => value !== undefined }
+  ],
+  defaults: {
+    menuName: '',
+    menuCode: '',
+    type: undefined
+  }
+})
+
+const isFilterMode = computed(() => Boolean(appliedFilters.menuName.trim() || appliedFilters.menuCode.trim() || appliedFilters.type !== undefined))
+const menuModeNotice = computed(() =>
+  isFilterMode.value
+    ? '搜索模式返回扁平分页结果，不再全量加载菜单树。'
+    : '默认仅分页加载根菜单，展开行时按需加载子菜单。'
+)
 
 const treeProps = {
   children: 'children',
@@ -275,9 +310,9 @@ async function loadMenuPage() {
   loading.value = true
   try {
     const res = await pageMenus({
-      menuName: filters.menuName || undefined,
-      menuCode: filters.menuCode || undefined,
-      type: filters.type,
+      menuName: appliedFilters.menuName || undefined,
+      menuCode: appliedFilters.menuCode || undefined,
+      type: appliedFilters.type,
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
@@ -306,6 +341,7 @@ async function loadChildren(row: Menu, _treeNode: unknown, resolve: (data: Menu[
 }
 
 function handleSearch() {
+  syncAppliedFilters()
   resetPage()
   loadMenuPage()
 }
@@ -314,12 +350,23 @@ function handleReset() {
   filters.menuName = ''
   filters.menuCode = ''
   filters.type = undefined
+  syncAppliedFilters()
   resetPage()
   loadMenuPage()
 }
 
 function handleRefresh() {
   loadMenuPage()
+}
+
+function handleRemoveAppliedFilter(key: string) {
+  removeAppliedFilter(key)
+  resetPage()
+  loadMenuPage()
+}
+
+function handleClearAppliedFilters() {
+  handleReset()
 }
 
 function goToRolePage() {
@@ -411,31 +458,14 @@ function handlePageChange(page: number) {
 }
 
 onMounted(() => {
+  syncAppliedFilters()
   loadMenuPage()
 })
 </script>
 
 <style scoped>
-.menu-view__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.menu-view__header-content {
-  display: grid;
-  gap: 4px;
-}
-
-.menu-view__header-content small {
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
-}
-
-.menu-view__header-actions {
-  display: flex;
-  gap: 12px;
+.menu-view :deep(.standard-workbench-panel__pagination) {
+  margin-top: 1rem;
 }
 
 </style>

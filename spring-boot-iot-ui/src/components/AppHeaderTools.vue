@@ -2,11 +2,11 @@
   <div class="header-status">
     <div class="header-tools" aria-label="系统工具">
       <button type="button" class="tool-text tool-text--notice" :class="{ 'tool-text--active': showNoticePanel }" aria-label="打开消息通知" title="消息通知" :aria-expanded="showNoticePanel" :aria-controls="noticePanelId" @click="$emit('toggle-notice')">
-        <span class="tool-text__label">通知</span>
-        <span v-if="unreadNoticeCount > 0" class="tool-text__badge">{{ unreadNoticeCount }}</span>
+        <span class="tool-text__label">通知中心</span>
+        <span v-if="unreadNoticeCount > 0" class="tool-text__badge">{{ unreadNoticeCount > 99 ? '99+' : unreadNoticeCount }}</span>
       </button>
       <button type="button" class="tool-text tool-text--help" :class="{ 'tool-text--active': showHelpPanel }" aria-label="打开帮助中心" title="帮助中心" :aria-expanded="showHelpPanel" :aria-controls="helpPanelId" @click="$emit('toggle-help')">
-        <span class="tool-text__label">帮助</span>
+        <span class="tool-text__label">帮助中心</span>
       </button>
     </div>
 

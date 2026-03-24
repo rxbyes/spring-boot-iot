@@ -5,6 +5,7 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.entity.NotificationChannel;
+import com.ghlzm.iot.system.service.NotificationChannelDispatcher;
 import com.ghlzm.iot.system.service.NotificationChannelService;
 import com.ghlzm.iot.system.service.NotificationHttpClient;
 import org.junit.jupiter.api.Test;
@@ -108,11 +109,15 @@ class SystemErrorNotificationServiceImplTest {
     private SystemErrorNotificationServiceImpl newService(IotProperties properties,
                                                           List<NotificationChannel> channels,
                                                           RecordingHttpClient httpClient) {
-        return new SystemErrorNotificationServiceImpl(
+        NotificationChannelDispatcher dispatcher = new NotificationChannelDispatcherImpl(
                 notificationChannelService(channels),
                 httpClient,
                 properties,
                 JsonMapper.builder().findAndAddModules().build()
+        );
+        return new SystemErrorNotificationServiceImpl(
+                dispatcher,
+                properties
         );
     }
 

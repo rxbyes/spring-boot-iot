@@ -1,53 +1,62 @@
 <template>
   <div class="dict-view sys-mgmt-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>数据字典</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
-        </div>
+    <StandardWorkbenchPanel
+      title="数据字典"
+      description="统一维护字典分类、编码和值域，字典项通过右侧抽屉继续管理。"
+      show-header-actions
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      show-pagination
+    >
+      <template #header-actions>
+        <StandardButton action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
       </template>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="字典名称">
-              <el-input v-model="searchForm.dictName" placeholder="请输入字典名称" clearable @keyup.enter="handleSearch" />
+      <template #filters>
+        <StandardListFilterHeader :model="searchForm">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="searchForm.dictName" placeholder="字典名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="字典编码">
-              <el-input v-model="searchForm.dictCode" placeholder="请输入字典编码" clearable @keyup.enter="handleSearch" />
+            <el-form-item>
+              <el-input v-model="searchForm.dictCode" placeholder="字典编码" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="字典类型">
-              <el-select v-model="searchForm.dictType" placeholder="请选择字典类型" clearable>
+            <el-form-item>
+              <el-select v-model="searchForm.dictType" placeholder="字典类型" clearable>
                 <el-option label="文本" value="text" />
                 <el-option label="数字" value="number" />
                 <el-option label="布尔" value="boolean" />
                 <el-option label="日期" value="date" />
               </el-select>
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+          </template>
+          <template #actions>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
-        <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项` ]">
+          <template #right>
+            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         ref="tableRef"
@@ -79,23 +88,27 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="primary" link @click="handleItems(row)">字典项</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
+              <StandardActionLink @click="handleItems(row)">字典项</StandardActionLink>
+              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          class="pagination"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </template>
 
       <StandardFormDrawer
         v-model="dialogVisible"
@@ -150,14 +163,14 @@
         size="58rem"
         @close="handleItemsDialogClose"
       >
-        <StandardTableToolbar :meta-items="[ `已选 ${selectedItemRows.length} 项` ]">
+        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedItemRows.length} 项` ]">
           <template #right>
-            <el-button link @click="handleAddItem">新增字典项</el-button>
-            <el-button link @click="openItemExportColumnSetting">导出列设置</el-button>
-            <el-button link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</el-button>
-            <el-button link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</el-button>
-            <el-button link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</el-button>
-            <el-button link @click="handleRefreshItems">刷新列表</el-button>
+            <StandardButton action="add" link @click="handleAddItem">新增字典项</StandardButton>
+            <StandardButton action="refresh" link @click="openItemExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedItemRows.length === 0" @click="handleExportSelectedItems">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="itemsTableData.length === 0" @click="handleExportCurrentItems">导出当前结果</StandardButton>
+            <StandardButton action="reset" link :disabled="selectedItemRows.length === 0" @click="clearItemSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefreshItems">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
         <el-table
@@ -187,8 +200,10 @@
           <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
           <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleEditItem(row)">编辑</el-button>
-              <el-button type="danger" link @click="handleDeleteItem(row)">删除</el-button>
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="handleEditItem(row)">编辑</StandardActionLink>
+                <StandardActionLink @click="handleDeleteItem(row)">删除</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
@@ -245,7 +260,7 @@
         :presets="itemExportPresets"
         @confirm="handleItemExportColumnConfirm"
       />
-    </PanelCard>
+    </StandardWorkbenchPanel>
   </div>
 </template>
 
@@ -254,12 +269,14 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 import {
   loadCsvColumnSelection,
@@ -268,6 +285,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import {
   addDict,
@@ -307,6 +325,11 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useS
 const currentDictName = ref('')
 
 const searchForm = reactive({
+  dictName: '',
+  dictCode: '',
+  dictType: undefined as string | undefined
+})
+const appliedFilters = reactive({
   dictName: '',
   dictCode: '',
   dictType: undefined as string | undefined
@@ -388,14 +411,33 @@ const selectedItemExportColumnKeys = ref<string[]>(
   )
 )
 const itemExportColumnDialogVisible = ref(false)
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: 'dictName', label: '字典名称' },
+    { key: 'dictCode', label: '字典编码' },
+    { key: 'dictType', label: (value) => `字典类型：${getDictTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => Boolean(value) }
+  ],
+  defaults: {
+    dictName: '',
+    dictCode: '',
+    dictType: undefined
+  }
+})
 
 const loadDictPage = async () => {
   loading.value = true
   try {
     const res = await pageDicts({
-      dictName: searchForm.dictName || undefined,
-      dictCode: searchForm.dictCode || undefined,
-      dictType: searchForm.dictType || undefined,
+      dictName: appliedFilters.dictName || undefined,
+      dictCode: appliedFilters.dictCode || undefined,
+      dictType: appliedFilters.dictType || undefined,
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
@@ -410,10 +452,12 @@ const loadDictPage = async () => {
 }
 
 onMounted(() => {
+  syncAppliedFilters()
   loadDictPage()
 })
 
 const handleSearch = () => {
+  syncAppliedFilters()
   resetPage()
   clearSelection()
   loadDictPage()
@@ -423,9 +467,21 @@ const handleReset = () => {
   searchForm.dictName = ''
   searchForm.dictCode = ''
   searchForm.dictType = undefined
+  syncAppliedFilters()
   resetPage()
   clearSelection()
   loadDictPage()
+}
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key)
+  resetPage()
+  clearSelection()
+  loadDictPage()
+}
+
+const handleClearAppliedFilters = () => {
+  handleReset()
 }
 
 const handleSelectionChange = (rows: Dict[]) => {

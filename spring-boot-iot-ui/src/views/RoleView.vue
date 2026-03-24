@@ -1,64 +1,112 @@
 <template>
   <div class="role-view sys-mgmt-view standard-list-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <div class="card-header__content">
-            <span>角色权限</span>
-            <small>在角色页统一维护基础信息、页面菜单与按钮权限，导航结构以导航编排页维护结果为准。</small>
-          </div>
-          <el-button v-permission="'system:role:add'" type="primary" @click="handleAdd" :icon="Plus">新增角色</el-button>
-        </div>
+    <StandardWorkbenchPanel
+      title="角色权限"
+      description="在角色页统一维护基础信息、页面菜单与按钮权限，导航结构以导航编排页维护结果为准。"
+      show-header-actions
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      show-pagination
+    >
+      <template #header-actions>
+        <StandardButton
+          v-permission="'system:role:add'"
+          action="add"
+          @click="handleAdd"
+          :icon="Plus"
+          >新增角色</StandardButton
+        >
       </template>
 
-      <el-form :model="searchForm" label-width="100px" class="search-form">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="角色名称">
+      <template #filters>
+        <StandardListFilterHeader :model="searchForm">
+          <template #primary>
+            <el-form-item>
               <el-input
                 v-model="searchForm.roleName"
-                placeholder="请输入角色名称"
+                placeholder="角色名称"
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="角色编码">
+            <el-form-item>
               <el-input
                 v-model="searchForm.roleCode"
-                placeholder="请输入角色编码"
+                placeholder="角色编码"
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="状态">
-              <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
+            <el-form-item>
+              <el-select
+                v-model="searchForm.status"
+                placeholder="状态"
+                clearable
+              >
                 <el-option label="启用" :value="1" />
                 <el-option label="禁用" :value="0" />
               </el-select>
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" class="text-right">
-            <el-button @click="handleReset">重置</el-button>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+          </template>
+          <template #actions>
+            <StandardButton action="reset" @click="handleReset"
+              >重置</StandardButton
+            >
+            <StandardButton action="query" @click="handleSearch"
+              >查询</StandardButton
+            >
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-      <StandardTableToolbar :meta-items="[ `已选 ${selectedRows.length} 项` ]">
-        <template #right>
-          <el-button link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</el-button>
-          <el-button link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="[`已选 ${selectedRows.length} 项`]"
+        >
+          <template #right>
+            <StandardButton
+              action="refresh"
+              link
+              @click="openExportColumnSetting"
+              >导出列设置</StandardButton
+            >
+            <StandardButton
+              action="batch"
+              link
+              :disabled="selectedRows.length === 0"
+              @click="handleExportSelected"
+              >导出选中</StandardButton
+            >
+            <StandardButton
+              action="refresh"
+              link
+              :disabled="tableData.length === 0"
+              @click="handleExportCurrent"
+              >导出当前结果</StandardButton
+            >
+            <StandardButton
+              action="reset"
+              link
+              :disabled="selectedRows.length === 0"
+              @click="clearSelection"
+              >清空选中</StandardButton
+            >
+            <StandardButton action="refresh" link @click="handleRefresh"
+              >刷新列表</StandardButton
+            >
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <el-table
         ref="tableRef"
@@ -70,202 +118,320 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="roleName" label="角色名称" :width="160" />
-        <StandardTableTextColumn prop="roleCode" label="角色编码" :width="170" />
-        <StandardTableTextColumn prop="description" label="角色描述" :min-width="220" />
+        <StandardTableTextColumn
+          prop="roleName"
+          label="角色名称"
+          :width="160"
+        />
+        <StandardTableTextColumn
+          prop="roleCode"
+          label="角色编码"
+          :width="170"
+        />
+        <StandardTableTextColumn
+          prop="description"
+          label="角色描述"
+          :min-width="220"
+        />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
+              {{ row.status === 1 ? "启用" : "禁用" }}
             </el-tag>
           </template>
         </el-table-column>
-        <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
-        <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
-        <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
+        <StandardTableTextColumn
+          prop="createTime"
+          label="创建时间"
+          :width="180"
+        />
+        <StandardTableTextColumn
+          prop="updateTime"
+          label="更新时间"
+          :width="180"
+        />
+        <el-table-column
+          label="操作"
+          width="220"
+          fixed="right"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <el-button v-permission="'system:role:update'" type="primary" link @click="handleEdit(row)">编辑/授权</el-button>
-            <el-button v-permission="'system:role:delete'" type="danger" link @click="handleDelete(row)">删除</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink
+                v-permission="'system:role:update'"
+                @click="handleEdit(row)"
+                >编辑/授权</StandardActionLink
+              >
+              <StandardActionLink
+                v-permission="'system:role:delete'"
+                @click="handleDelete(row)"
+                >删除</StandardActionLink
+              >
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
 
-      <StandardPagination
-        v-model:current-page="pagination.pageNum"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="pagination"
-      />
+      <template #pagination>
+        <StandardPagination
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+          class="pagination"
+        />
+      </template>
+    </StandardWorkbenchPanel>
 
-      <StandardFormDrawer
-        v-model="dialogVisible"
-        eyebrow="System Form"
-        :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护角色基础信息、菜单权限与按钮授权。"
-        size="68rem"
-        @close="handleDialogClose"
-      >
-        <div class="role-form-layout">
-          <el-form
-            ref="formRef"
-            :model="formData"
-            :rules="formRules"
-            label-width="100px"
-            class="role-form-layout__basic"
-          >
-            <el-form-item label="角色名称" prop="roleName">
-              <el-input v-model="formData.roleName" placeholder="请输入角色名称" />
-            </el-form-item>
-            <el-form-item label="角色编码" prop="roleCode">
-              <el-input v-model="formData.roleCode" placeholder="请输入角色编码" />
-            </el-form-item>
-            <el-form-item label="角色描述" prop="description">
-              <el-input
-                v-model="formData.description"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入角色描述"
-              />
-            </el-form-item>
-            <el-form-item label="状态" prop="status">
-              <el-radio-group v-model="formData.status">
-                <el-radio :value="1">启用</el-radio>
-                <el-radio :value="0">禁用</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="授权摘要">
-              <div class="role-auth-summary">
-                <span class="role-auth-summary__count">已选 {{ checkedMenuCount }} 项菜单/按钮</span>
-                <div v-if="checkedMenuSummary.length" class="role-auth-summary__tags">
-                  <el-tag v-for="label in checkedMenuSummary" :key="label" size="small" effect="plain">
-                    {{ label }}
-                  </el-tag>
-                  <span v-if="checkedMenuCount > checkedMenuSummary.length" class="role-auth-summary__more">
-                    +{{ checkedMenuCount - checkedMenuSummary.length }}
-                  </span>
-                </div>
-                <span v-else class="role-auth-summary__empty">未配置菜单权限时，登录后将看不到业务导航。</span>
-              </div>
-            </el-form-item>
-          </el-form>
-
-          <section class="role-form-layout__auth">
-            <div class="role-auth-panel">
-              <div class="role-auth-panel__header">
-                <div>
-                  <h3>菜单与按钮授权</h3>
-                  <p>目录节点仅用于展示层级；勾选页面或按钮时，后端会自动补齐所需父级菜单。</p>
-                </div>
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" link @click="refreshMenuTree">刷新菜单树</el-button>
-              </div>
-
-              <el-alert
-                type="info"
-                show-icon
-                :closable="false"
-                title="导航编排负责维护菜单树与路由元数据；角色权限负责为角色分配可访问页面和按钮权限。"
-              />
-
-              <div class="role-auth-toolbar">
-                <el-input
-                  v-model="menuKeyword"
-                  clearable
-                  placeholder="筛选菜单名称 / 编码 / 路由"
-                  class="role-auth-toolbar__search"
-                />
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" @click="handleCheckAllMenus" :disabled="menuSelectableIds.length === 0">全选</el-button>
-                <el-button v-permission="formData.id ? 'system:role:update' : 'system:role:add'" @click="handleClearMenus" :disabled="checkedMenuCount === 0">清空</el-button>
-              </div>
-
-              <div v-loading="menuTreeLoading" class="role-auth-tree">
-                <el-tree
-                  ref="menuTreeRef"
-                  node-key="id"
-                  show-checkbox
-                  default-expand-all
-                  check-strictly
-                  highlight-current
-                  :data="menuTreeData"
-                  :props="menuTreeProps"
-                  :filter-node-method="filterMenuTreeNode"
-                  empty-text="暂无可授权菜单"
-                  @check="handleMenuCheck"
+    <StandardFormDrawer
+      v-model="dialogVisible"
+      eyebrow="System Form"
+      :title="dialogTitle"
+      subtitle="统一通过右侧抽屉维护角色基础信息、菜单权限与按钮授权。"
+      size="68rem"
+      @close="handleDialogClose"
+    >
+      <div class="role-form-layout">
+        <el-form
+          ref="formRef"
+          :model="formData"
+          :rules="formRules"
+          label-width="100px"
+          class="role-form-layout__basic"
+        >
+          <el-form-item label="角色名称" prop="roleName">
+            <el-input
+              v-model="formData.roleName"
+              placeholder="请输入角色名称"
+            />
+          </el-form-item>
+          <el-form-item label="角色编码" prop="roleCode">
+            <el-input
+              v-model="formData.roleCode"
+              placeholder="请输入角色编码"
+            />
+          </el-form-item>
+          <el-form-item label="角色描述" prop="description">
+            <el-input
+              v-model="formData.description"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入角色描述"
+            />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-radio-group v-model="formData.status">
+              <el-radio :value="1">启用</el-radio>
+              <el-radio :value="0">禁用</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="授权摘要">
+            <div class="role-auth-summary">
+              <span class="role-auth-summary__count"
+                >已选 {{ checkedMenuCount }} 项菜单/按钮</span
+              >
+              <div
+                v-if="checkedMenuSummary.length"
+                class="role-auth-summary__tags"
+              >
+                <el-tag
+                  v-for="label in checkedMenuSummary"
+                  :key="label"
+                  size="small"
+                  effect="plain"
                 >
-                  <template #default="{ data }">
-                    <div class="role-tree-node">
-                      <div class="role-tree-node__main">
-                        <span class="role-tree-node__name">{{ data.menuName }}</span>
-                        <el-tag size="small" effect="plain" :type="menuTypeTagType(data.type)">
-                          {{ menuTypeLabel(data.type) }}
-                        </el-tag>
-                        <span v-if="data.disabled" class="role-tree-node__disabled-tip">目录节点自动补齐</span>
-                      </div>
-                      <div class="role-tree-node__meta">
-                        <code v-if="data.menuCode">{{ data.menuCode }}</code>
-                        <code v-if="data.path">{{ data.path }}</code>
-                      </div>
-                    </div>
-                  </template>
-                </el-tree>
+                  {{ label }}
+                </el-tag>
+                <span
+                  v-if="checkedMenuCount > checkedMenuSummary.length"
+                  class="role-auth-summary__more"
+                >
+                  +{{ checkedMenuCount - checkedMenuSummary.length }}
+                </span>
               </div>
+              <span v-else class="role-auth-summary__empty"
+                >未配置菜单权限时，登录后将看不到业务导航。</span
+              >
             </div>
-          </section>
-        </div>
+          </el-form-item>
+        </el-form>
 
-        <template #footer>
-          <StandardDrawerFooter @cancel="dialogVisible = false">
-            <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="dialogVisible = false">
-              取消
-            </el-button>
-            <el-button
-              v-permission="formData.id ? 'system:role:update' : 'system:role:add'"
-              type="primary"
-              class="standard-drawer-footer__button standard-drawer-footer__button--primary"
-              @click="handleSubmit"
-              :loading="submitLoading"
-            >
-              确定
-            </el-button>
-          </StandardDrawerFooter>
-        </template>
-      </StandardFormDrawer>
+        <section class="role-form-layout__auth">
+          <div class="role-auth-panel">
+            <div class="role-auth-panel__header">
+              <div>
+                <h3>菜单与按钮授权</h3>
+                <p>
+                  目录节点仅用于展示层级；勾选页面或按钮时，后端会自动补齐所需父级菜单。
+                </p>
+              </div>
+              <StandardButton
+                v-permission="
+                  formData.id ? 'system:role:update' : 'system:role:add'
+                "
+                action="refresh"
+                link
+                @click="refreshMenuTree"
+                >刷新菜单树</StandardButton
+              >
+            </div>
 
-      <CsvColumnSettingDialog
-        v-model="exportColumnDialogVisible"
-        title="角色权限导出列设置"
-        :options="exportColumnOptions"
-        :selected-keys="selectedExportColumnKeys"
-        :preset-storage-key="exportColumnStorageKey"
-        :presets="exportPresets"
-        @confirm="handleExportColumnConfirm"
-      />
-    </PanelCard>
+            <el-alert
+              type="info"
+              show-icon
+              :closable="false"
+              title="导航编排负责维护菜单树与路由元数据；角色权限负责为角色分配可访问页面和按钮权限。"
+            />
+
+            <div class="role-auth-toolbar">
+              <el-input
+                v-model="menuKeyword"
+                clearable
+                placeholder="筛选菜单名称 / 编码 / 路由"
+                class="role-auth-toolbar__search"
+              />
+              <StandardButton
+                v-permission="
+                  formData.id ? 'system:role:update' : 'system:role:add'
+                "
+                action="batch"
+                @click="handleCheckAllMenus"
+                :disabled="menuSelectableIds.length === 0"
+                >全选</StandardButton
+              >
+              <StandardButton
+                v-permission="
+                  formData.id ? 'system:role:update' : 'system:role:add'
+                "
+                action="reset"
+                @click="handleClearMenus"
+                :disabled="checkedMenuCount === 0"
+                >清空</StandardButton
+              >
+            </div>
+
+            <div v-loading="menuTreeLoading" class="role-auth-tree">
+              <el-tree
+                ref="menuTreeRef"
+                node-key="id"
+                show-checkbox
+                default-expand-all
+                check-strictly
+                highlight-current
+                :data="menuTreeData"
+                :props="menuTreeProps"
+                :filter-node-method="filterMenuTreeNode"
+                empty-text="暂无可授权菜单"
+                @check="handleMenuCheck"
+              >
+                <template #default="{ data }">
+                  <div class="role-tree-node">
+                    <div class="role-tree-node__main">
+                      <span class="role-tree-node__name">{{
+                        data.menuName
+                      }}</span>
+                      <el-tag
+                        size="small"
+                        effect="plain"
+                        :type="menuTypeTagType(data.type)"
+                      >
+                        {{ menuTypeLabel(data.type) }}
+                      </el-tag>
+                      <span
+                        v-if="data.disabled"
+                        class="role-tree-node__disabled-tip"
+                        >目录节点自动补齐</span
+                      >
+                    </div>
+                    <div class="role-tree-node__meta">
+                      <code v-if="data.menuCode">{{ data.menuCode }}</code>
+                      <code v-if="data.path">{{ data.path }}</code>
+                    </div>
+                  </div>
+                </template>
+              </el-tree>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <template #footer>
+        <StandardDrawerFooter @cancel="dialogVisible = false">
+          <StandardButton
+            action="cancel"
+            class="standard-drawer-footer__button standard-drawer-footer__button--ghost"
+            @click="dialogVisible = false"
+          >
+            取消
+          </StandardButton>
+          <StandardButton
+            v-permission="
+              formData.id ? 'system:role:update' : 'system:role:add'
+            "
+            action="confirm"
+            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
+            @click="handleSubmit"
+            :loading="submitLoading"
+          >
+            确定
+          </StandardButton>
+        </StandardDrawerFooter>
+      </template>
+    </StandardFormDrawer>
+
+    <CsvColumnSettingDialog
+      v-model="exportColumnDialogVisible"
+      title="角色权限导出列设置"
+      :options="exportColumnOptions"
+      :selected-keys="selectedExportColumnKeys"
+      :preset-storage-key="exportColumnStorageKey"
+      :presets="exportPresets"
+      @confirm="handleExportColumnConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
-import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
-import PanelCard from '@/components/PanelCard.vue';
-import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
-import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
-import StandardPagination from '@/components/StandardPagination.vue';
-import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
-import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
-import { useServerPagination } from '@/composables/useServerPagination';
-import { listMenuTree } from '@/api/menu';
-import { addRole, deleteRole, getRole, pageRoles, updateRole, type Role } from '@/api/role';
-import type { MenuTreeNode } from '@/types/auth';
-import { loadCsvColumnSelection, resolveCsvColumns, saveCsvColumnSelection, toCsvColumnOptions } from '@/utils/csvColumns';
-import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
-import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
-import { resolveRoleCheckedMenuIds, resolveRoleMenuSummary } from '@/utils/menuAuth';
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { ElMessage } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
+import CsvColumnSettingDialog from "@/components/CsvColumnSettingDialog.vue";
+import StandardAppliedFiltersBar from "@/components/StandardAppliedFiltersBar.vue";
+import StandardDrawerFooter from "@/components/StandardDrawerFooter.vue";
+import StandardFormDrawer from "@/components/StandardFormDrawer.vue";
+import StandardListFilterHeader from "@/components/StandardListFilterHeader.vue";
+import StandardPagination from "@/components/StandardPagination.vue";
+import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
+import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
+import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
+import { useServerPagination } from "@/composables/useServerPagination";
+import { listMenuTree } from "@/api/menu";
+import {
+  addRole,
+  deleteRole,
+  getRole,
+  pageRoles,
+  updateRole,
+  type Role,
+} from "@/api/role";
+import type { MenuTreeNode } from "@/types/auth";
+import {
+  loadCsvColumnSelection,
+  resolveCsvColumns,
+  saveCsvColumnSelection,
+  toCsvColumnOptions,
+} from "@/utils/csvColumns";
+import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
+import { confirmDelete, isConfirmCancelled } from "@/utils/confirm";
+import {
+  resolveRoleCheckedMenuIds,
+  resolveRoleMenuSummary,
+} from "@/utils/menuAuth";
 
 interface SearchFormState {
   roleName: string;
@@ -290,12 +456,18 @@ interface RoleMenuTreeNode extends MenuTreeNode {
 const formRef = ref();
 const tableRef = ref();
 const menuTreeRef = ref();
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
+  useServerPagination();
 
 const searchForm = reactive<SearchFormState>({
-  roleName: '',
-  roleCode: '',
-  status: undefined
+  roleName: "",
+  roleCode: "",
+  status: undefined,
+});
+const appliedFilters = reactive<SearchFormState>({
+  roleName: "",
+  roleCode: "",
+  status: undefined,
 });
 
 const tableData = ref<Role[]>([]);
@@ -303,50 +475,91 @@ const selectedRows = ref<Role[]>([]);
 const loading = ref(false);
 const submitLoading = ref(false);
 const dialogVisible = ref(false);
-const dialogTitle = ref('新增角色');
+const dialogTitle = ref("新增角色");
 
 const exportColumns: CsvColumn<Role>[] = [
-  { key: 'roleName', label: '角色名称' },
-  { key: 'roleCode', label: '角色编码' },
-  { key: 'description', label: '角色描述' },
-  { key: 'status', label: '状态', formatter: (value) => (Number(value) === 1 ? '启用' : '禁用') },
-  { key: 'createTime', label: '创建时间' },
-  { key: 'updateTime', label: '更新时间' }
+  { key: "roleName", label: "角色名称" },
+  { key: "roleCode", label: "角色编码" },
+  { key: "description", label: "角色描述" },
+  {
+    key: "status",
+    label: "状态",
+    formatter: (value) => (Number(value) === 1 ? "启用" : "禁用"),
+  },
+  { key: "createTime", label: "创建时间" },
+  { key: "updateTime", label: "更新时间" },
 ];
-const exportColumnStorageKey = 'role-view';
+const exportColumnStorageKey = "role-view";
 const exportColumnOptions = toCsvColumnOptions(exportColumns);
 const exportPresets = [
-  { label: '默认模板', keys: exportColumns.map((column) => String(column.key)) },
-  { label: '运维模板', keys: ['roleName', 'roleCode', 'status', 'updateTime'] },
-  { label: '管理模板', keys: ['roleName', 'roleCode', 'description', 'status', 'createTime'] }
+  {
+    label: "默认模板",
+    keys: exportColumns.map((column) => String(column.key)),
+  },
+  { label: "运维模板", keys: ["roleName", "roleCode", "status", "updateTime"] },
+  {
+    label: "管理模板",
+    keys: ["roleName", "roleCode", "description", "status", "createTime"],
+  },
 ];
 const selectedExportColumnKeys = ref<string[]>(
   loadCsvColumnSelection(
     exportColumnStorageKey,
-    exportColumns.map((column) => String(column.key))
-  )
+    exportColumns.map((column) => String(column.key)),
+  ),
 );
 const exportColumnDialogVisible = ref(false);
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
 const menuTreeData = ref<RoleMenuTreeNode[]>([]);
-const menuKeyword = ref('');
+const menuKeyword = ref("");
 
 const formData = ref<RoleFormData>(createEmptyRoleForm());
 const menuTreeProps = {
-  label: 'menuName',
-  children: 'children',
-  disabled: 'disabled'
+  label: "menuName",
+  children: "children",
+  disabled: "disabled",
 };
 
 const checkedMenuCount = computed(() => formData.value.menuIds.length);
-const checkedMenuSummary = computed(() => resolveRoleMenuSummary(rawMenuTree.value, formData.value.menuIds, 8));
-const menuSelectableIds = computed(() => resolveRoleCheckedMenuIds(rawMenuTree.value, flattenMenuIds(rawMenuTree.value)));
+const checkedMenuSummary = computed(() =>
+  resolveRoleMenuSummary(rawMenuTree.value, formData.value.menuIds, 8),
+);
+const menuSelectableIds = computed(() =>
+  resolveRoleCheckedMenuIds(
+    rawMenuTree.value,
+    flattenMenuIds(rawMenuTree.value),
+  ),
+);
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter,
+} = useListAppliedFilters({
+  form: searchForm,
+  applied: appliedFilters,
+  fields: [
+    { key: "roleName", label: "角色名称" },
+    { key: "roleCode", label: "角色编码" },
+    {
+      key: "status",
+      label: (value) => `状态：${Number(value) === 1 ? "启用" : "禁用"}`,
+      clearValue: undefined,
+      isActive: (value) => value !== undefined,
+    },
+  ],
+  defaults: {
+    roleName: "",
+    roleCode: "",
+    status: undefined,
+  },
+});
 
 const formRules = {
-  roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
-  roleCode: [{ required: true, message: '请输入角色编码', trigger: 'blur' }]
+  roleName: [{ required: true, message: "请输入角色名称", trigger: "blur" }],
+  roleCode: [{ required: true, message: "请输入角色编码", trigger: "blur" }],
 };
 
 watch(menuKeyword, (keyword) => {
@@ -356,11 +569,11 @@ watch(menuKeyword, (keyword) => {
 function createEmptyRoleForm(): RoleFormData {
   return {
     id: undefined,
-    roleName: '',
-    roleCode: '',
-    description: '',
+    roleName: "",
+    roleCode: "",
+    description: "",
     status: 1,
-    menuIds: []
+    menuIds: [],
   };
 }
 
@@ -382,7 +595,7 @@ function buildRoleMenuTree(nodes: MenuTreeNode[]): RoleMenuTreeNode[] {
   return nodes.map((node) => ({
     ...node,
     disabled: node.type === 0,
-    children: buildRoleMenuTree(node.children || [])
+    children: buildRoleMenuTree(node.children || []),
   }));
 }
 
@@ -390,18 +603,21 @@ async function getRoles() {
   loading.value = true;
   try {
     const res = await pageRoles({
-      roleName: searchForm.roleName || undefined,
-      roleCode: searchForm.roleCode || undefined,
-      status: typeof searchForm.status === 'number' ? searchForm.status : undefined,
+      roleName: appliedFilters.roleName || undefined,
+      roleCode: appliedFilters.roleCode || undefined,
+      status:
+        typeof appliedFilters.status === "number"
+          ? appliedFilters.status
+          : undefined,
       pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
+      pageSize: pagination.pageSize,
     });
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data);
     }
   } catch (error) {
-    console.error('获取角色列表失败', error);
-    ElMessage.error((error as Error).message || '获取角色列表失败');
+    console.error("获取角色列表失败", error);
+    ElMessage.error((error as Error).message || "获取角色列表失败");
   } finally {
     loading.value = false;
   }
@@ -420,8 +636,8 @@ async function loadMenuAuthTree() {
     menuTreeData.value = [];
     return false;
   } catch (error) {
-    console.error('获取菜单树失败', error);
-    ElMessage.error((error as Error).message || '获取菜单树失败');
+    console.error("获取菜单树失败", error);
+    ElMessage.error((error as Error).message || "获取菜单树失败");
     return false;
   } finally {
     menuTreeLoading.value = false;
@@ -429,7 +645,10 @@ async function loadMenuAuthTree() {
 }
 
 function applyCheckedMenuIds(menuIds: number[]) {
-  formData.value.menuIds = resolveRoleCheckedMenuIds(rawMenuTree.value, menuIds);
+  formData.value.menuIds = resolveRoleCheckedMenuIds(
+    rawMenuTree.value,
+    menuIds,
+  );
   nextTick(() => {
     menuTreeRef.value?.setCheckedKeys(formData.value.menuIds);
     if (menuKeyword.value) {
@@ -448,15 +667,19 @@ async function openRoleDialog(title: string, role: RoleFormData) {
 }
 
 function handleSearch() {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   getRoles();
 }
 
 function handleReset() {
-  searchForm.roleName = '';
-  searchForm.roleCode = '';
+  searchForm.roleName = "";
+  searchForm.roleCode = "";
   searchForm.status = undefined;
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   getRoles();
 }
 
@@ -474,6 +697,17 @@ function handleRefresh() {
   getRoles();
 }
 
+function handleRemoveAppliedFilter(key: string) {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  getRoles();
+}
+
+function handleClearAppliedFilters() {
+  handleReset();
+}
+
 function openExportColumnSetting() {
   exportColumnDialogVisible.value = true;
 }
@@ -488,58 +722,67 @@ function getResolvedExportColumns() {
 }
 
 function handleExportSelected() {
-  downloadRowsAsCsv('角色权限-选中项.csv', selectedRows.value, getResolvedExportColumns());
+  downloadRowsAsCsv(
+    "角色权限-选中项.csv",
+    selectedRows.value,
+    getResolvedExportColumns(),
+  );
 }
 
 function handleExportCurrent() {
-  downloadRowsAsCsv('角色权限-当前结果.csv', tableData.value, getResolvedExportColumns());
+  downloadRowsAsCsv(
+    "角色权限-当前结果.csv",
+    tableData.value,
+    getResolvedExportColumns(),
+  );
 }
 
 async function handleAdd() {
-  menuKeyword.value = '';
-  await openRoleDialog('新增角色', createEmptyRoleForm());
+  menuKeyword.value = "";
+  await openRoleDialog("新增角色", createEmptyRoleForm());
 }
 
 async function handleEdit(row: Role) {
-  menuKeyword.value = '';
+  menuKeyword.value = "";
   try {
     const res = await getRole(row.id as number);
     if (res.code === 200 && res.data) {
-      await openRoleDialog('编辑角色 / 菜单授权', {
+      await openRoleDialog("编辑角色 / 菜单授权", {
         id: Number(res.data.id),
         roleName: res.data.roleName,
         roleCode: res.data.roleCode,
-        description: res.data.description || '',
+        description: res.data.description || "",
         status: Number(res.data.status ?? 1),
-        menuIds: Array.isArray(res.data.menuIds) ? res.data.menuIds : []
+        menuIds: Array.isArray(res.data.menuIds) ? res.data.menuIds : [],
       });
     }
   } catch (error) {
-    console.error('获取角色详情失败', error);
-    ElMessage.error((error as Error).message || '获取角色详情失败');
+    console.error("获取角色详情失败", error);
+    ElMessage.error((error as Error).message || "获取角色详情失败");
   }
 }
 
 async function handleDelete(row: Role) {
   try {
-    await confirmDelete('角色', row.roleName);
+    await confirmDelete("角色", row.roleName);
     const res = await deleteRole(row.id as number);
     if (res.code === 200) {
-      ElMessage.success('删除成功');
+      ElMessage.success("删除成功");
       getRoles();
     }
   } catch (error) {
     if (isConfirmCancelled(error)) {
       return;
     }
-    console.error('删除失败', error);
-    ElMessage.error((error as Error).message || '删除失败');
+    console.error("删除失败", error);
+    ElMessage.error((error as Error).message || "删除失败");
   }
 }
 
 function collectCheckedMenuIds(): number[] {
-  const checkedKeys = (menuTreeRef.value?.getCheckedKeys(false) || []) as number[];
-  return checkedKeys.filter((menuId) => typeof menuId === 'number');
+  const checkedKeys = (menuTreeRef.value?.getCheckedKeys(false) ||
+    []) as number[];
+  return checkedKeys.filter((menuId) => typeof menuId === "number");
 }
 
 function handleMenuCheck() {
@@ -564,7 +807,7 @@ async function refreshMenuTree() {
   }
   await nextTick();
   applyCheckedMenuIds(currentCheckedIds);
-  ElMessage.success('菜单树已刷新');
+  ElMessage.success("菜单树已刷新");
 }
 
 function filterMenuTreeNode(keyword: string, data: RoleMenuTreeNode) {
@@ -582,25 +825,25 @@ function filterMenuTreeNode(keyword: string, data: RoleMenuTreeNode) {
 
 function menuTypeLabel(type?: number) {
   if (type === 0) {
-    return '目录';
+    return "目录";
   }
   if (type === 1) {
-    return '页面';
+    return "页面";
   }
   if (type === 2) {
-    return '按钮';
+    return "按钮";
   }
-  return '未定义';
+  return "未定义";
 }
 
 function menuTypeTagType(type?: number) {
   if (type === 1) {
-    return 'success';
+    return "success";
   }
   if (type === 2) {
-    return 'warning';
+    return "warning";
   }
-  return 'info';
+  return "info";
 }
 
 async function handleSubmit() {
@@ -619,17 +862,19 @@ async function handleSubmit() {
   try {
     const payload = {
       ...formData.value,
-      menuIds: [...formData.value.menuIds]
+      menuIds: [...formData.value.menuIds],
     };
     const res = payload.id ? await updateRole(payload) : await addRole(payload);
     if (res.code === 200) {
-      ElMessage.success(payload.id ? '更新成功，相关用户重新登录后将刷新菜单权限' : '新增成功');
+      ElMessage.success(
+        payload.id ? "更新成功，相关用户重新登录后将刷新菜单权限" : "新增成功",
+      );
       dialogVisible.value = false;
       getRoles();
     }
   } catch (error) {
-    console.error('提交失败', error);
-    ElMessage.error((error as Error).message || '提交失败');
+    console.error("提交失败", error);
+    ElMessage.error((error as Error).message || "提交失败");
   } finally {
     submitLoading.value = false;
   }
@@ -638,7 +883,7 @@ async function handleSubmit() {
 function handleDialogClose() {
   formRef.value?.resetFields();
   menuTreeRef.value?.setCheckedKeys([]);
-  menuKeyword.value = '';
+  menuKeyword.value = "";
   formData.value = createEmptyRoleForm();
 }
 
@@ -658,23 +903,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.card-header__content {
-  display: grid;
-  gap: 4px;
-}
-
-.card-header__content small {
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
-}
-
 .role-form-layout {
   display: grid;
   grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);

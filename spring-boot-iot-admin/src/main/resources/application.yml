@@ -33,7 +33,7 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
     cache-enabled: false
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: com.ghlzm.iot.framework.config.MybatisScopedSlf4jImpl
   global-config:
     db-config:
       id-type: assign_id
@@ -85,6 +85,7 @@ iot:
 #    connection-timeout: 10
 #    keep-alive-interval: 30
 #    default-subscribe-topics:
+#      - "$dp"
 #      - /sys/+/+/thing/property/post
 #      - /sys/+/+/thing/event/post
 #      - /sys/+/+/thing/property/reply
@@ -105,6 +106,8 @@ iot:
 
 #  telemetry:
 #    storage-type: mysql
+#    tdengine-mode: legacy-compatible
+#    legacy-normalized-fallback-enabled: true
 #    latest-cache-prefix: iot:telemetry:latest:
 #    ts-prefix: iot:telemetry:ts:
 

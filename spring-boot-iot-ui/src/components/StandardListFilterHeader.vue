@@ -1,7 +1,7 @@
 <template>
   <div class="standard-list-filter-header">
     <el-form :model="model" class="standard-list-filter-header__form" @submit.prevent>
-      <div class="standard-list-filter-header__row" :style="layoutVars">
+      <div ref="primaryRowRef" class="standard-list-filter-header__row" :style="layoutVars">
         <slot name="primary" />
       </div>
 
@@ -17,14 +17,13 @@
         <StandardActionGroup gap="sm" class="standard-list-filter-header__actions">
           <slot name="actions" />
         </StandardActionGroup>
-        <el-button
-          v-if="showAdvancedToggle && hasAdvancedSlot"
-          link
+        <StandardActionLink
+          v-if="showFilterToggle"
           class="standard-list-filter-header__toggle"
-          @click="emit('toggle-advanced')"
+          @click="handleToggleFilters"
         >
-          {{ showAdvanced ? collapseText : expandText }}
-        </el-button>
+          {{ filtersExpanded ? collapseText : expandText }}
+        </StandardActionLink>
         <span v-if="advancedHint" class="standard-list-filter-header__hint">{{ advancedHint }}</span>
       </div>
     </el-form>
@@ -32,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useSlots } from 'vue'
+import { computed, nextTick, onMounted, onUpdated, ref, useSlots, watch } from 'vue'
 import StandardActionGroup from '@/components/StandardActionGroup.vue'
 
 interface Props {
@@ -44,16 +43,18 @@ interface Props {
   collapseText?: string
   primaryColumns?: string
   advancedColumns?: string
+  primaryVisibleCount?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showAdvanced: false,
   showAdvancedToggle: false,
   advancedHint: '',
-  expandText: '展开更多条件',
-  collapseText: '收起更多条件',
-  primaryColumns: 'repeat(3, minmax(220px, 1fr))',
-  advancedColumns: 'repeat(4, minmax(160px, 1fr))'
+  expandText: '展开全部筛选项',
+  collapseText: '收起筛选项',
+  primaryColumns: 'repeat(4, minmax(220px, 1fr))',
+  advancedColumns: 'repeat(4, minmax(160px, 1fr))',
+  primaryVisibleCount: 4
 })
 
 const emit = defineEmits<{
@@ -61,13 +62,69 @@ const emit = defineEmits<{
 }>()
 
 const slots = useSlots()
+const primaryRowRef = ref<HTMLElement | null>(null)
+const primaryFieldCount = ref(0)
+const primaryExpanded = ref(false)
 
 const hasAdvancedSlot = computed(() => Boolean(slots.advanced))
+const hasAdvancedToggle = computed(() => props.showAdvancedToggle && hasAdvancedSlot.value)
+const hasPrimaryOverflow = computed(() => primaryFieldCount.value > props.primaryVisibleCount)
+const filtersExpanded = computed(() => primaryExpanded.value || props.showAdvanced)
+const showFilterToggle = computed(() => hasPrimaryOverflow.value || hasAdvancedToggle.value)
 
 const layoutVars = computed(() => ({
   '--slfh-primary-columns': props.primaryColumns,
   '--slfh-advanced-columns': props.advancedColumns
 }))
+
+function resolvePrimaryFields() {
+  const container = primaryRowRef.value
+  if (!container) {
+    primaryFieldCount.value = 0
+    return []
+  }
+
+  return Array.from(container.querySelectorAll<HTMLElement>('.el-form-item')).filter(
+    (field) => field.parentElement === container
+  )
+}
+
+function syncPrimaryFieldVisibility() {
+  const fields = resolvePrimaryFields()
+  primaryFieldCount.value = fields.length
+
+  fields.forEach((field, index) => {
+    const shouldHide = hasPrimaryOverflow.value && !filtersExpanded.value && index >= props.primaryVisibleCount
+    field.classList.toggle('standard-list-filter-header__primary-field--hidden', shouldHide)
+  })
+}
+
+function handleToggleFilters() {
+  const nextExpanded = !filtersExpanded.value
+  if (hasPrimaryOverflow.value) {
+    primaryExpanded.value = nextExpanded
+  }
+  if (hasAdvancedToggle.value) {
+    emit('toggle-advanced')
+  }
+}
+
+watch(
+  () => [props.showAdvanced, props.primaryVisibleCount, primaryExpanded.value],
+  async () => {
+    await nextTick()
+    syncPrimaryFieldVisibility()
+  }
+)
+
+onMounted(async () => {
+  await nextTick()
+  syncPrimaryFieldVisibility()
+})
+
+onUpdated(() => {
+  syncPrimaryFieldVisibility()
+})
 </script>
 
 <style scoped>
@@ -89,6 +146,10 @@ const layoutVars = computed(() => ({
 .standard-list-filter-header__row :deep(.el-form-item) {
   margin-bottom: 0;
   min-width: 0;
+}
+
+.standard-list-filter-header__row :deep(.standard-list-filter-header__primary-field--hidden) {
+  display: none;
 }
 
 .standard-list-filter-header__advanced {

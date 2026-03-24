@@ -374,7 +374,7 @@ function createRuntimeOptions(rawOptions = {}) {
       rawOptions.commandHint || process.env.IOT_AUTO_COMMAND_HINT || 'npm run acceptance:browser',
     issueDocPath:
       rawOptions.issueDocPath ||
-      path.join(workspaceRoot, 'docs', '22-automation-test-issues-20260316.md'),
+      path.join(workspaceRoot, 'docs', 'archive', '22-automation-test-issues-20260316.md'),
     pageReadyTimeout: rawOptions.pageReadyTimeout || 25000,
     responseTimeout: rawOptions.responseTimeout || 15000,
     viewport: rawOptions.viewport || DEFAULT_VIEWPORT,

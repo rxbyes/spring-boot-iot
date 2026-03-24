@@ -6,10 +6,12 @@
       :description="scenario.businessFlow || '请补充该场景的业务主线。'"
     >
       <template #actions>
-        <el-button text @click="$emit('move-scenario', -1)" :disabled="scenarioIndex === 0">上移</el-button>
-        <el-button text @click="$emit('move-scenario', 1)" :disabled="scenarioIndex === scenarioCount - 1">下移</el-button>
-        <el-button text @click="$emit('copy-scenario')">复制</el-button>
-        <el-button text type="danger" @click="$emit('remove-scenario')">删除</el-button>
+        <StandardRowActions variant="editor" gap="comfortable">
+          <StandardActionLink :disabled="scenarioIndex === 0" @click="$emit('move-scenario', -1)">上移</StandardActionLink>
+          <StandardActionLink :disabled="scenarioIndex === scenarioCount - 1" @click="$emit('move-scenario', 1)">下移</StandardActionLink>
+          <StandardActionLink @click="$emit('copy-scenario')">复制</StandardActionLink>
+          <StandardActionLink @click="$emit('remove-scenario')">删除</StandardActionLink>
+        </StandardRowActions>
       </template>
     </StandardInlineSectionHeader>
 
@@ -58,7 +60,7 @@
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="业务点梳理">
         <template #actions>
-          <el-button text @click="scenario.featurePoints.push('')">新增业务点</el-button>
+          <StandardActionLink @click="scenario.featurePoints.push('')">新增业务点</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <div v-if="scenario.featurePoints.length === 0" class="automation-scenario-editor__empty">
@@ -73,14 +75,14 @@
           v-model="scenario.featurePoints[pointIndex]"
           placeholder="例如：新增、查询、详情、导出、状态切换"
         />
-        <el-button text type="danger" @click="scenario.featurePoints.splice(pointIndex, 1)">移除</el-button>
+        <StandardActionLink @click="scenario.featurePoints.splice(pointIndex, 1)">移除</StandardActionLink>
       </div>
     </section>
 
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="首屏接口">
         <template #actions>
-          <el-button text @click="$emit('add-initial-api')">新增接口</el-button>
+          <StandardActionLink @click="$emit('add-initial-api')">新增接口</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <div v-if="scenario.initialApis.length === 0" class="automation-scenario-editor__empty">
@@ -107,14 +109,14 @@
           <span>可选接口</span>
           <el-switch v-model="api.optional" />
         </label>
-        <el-button text type="danger" @click="scenario.initialApis.splice(apiIndex, 1)">移除</el-button>
+        <StandardActionLink @click="scenario.initialApis.splice(apiIndex, 1)">移除</StandardActionLink>
       </div>
     </section>
 
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="步骤编排">
         <template #actions>
-          <el-button text @click="$emit('add-step')">新增步骤</el-button>
+          <StandardActionLink @click="$emit('add-step')">新增步骤</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <AutomationStepEditor

@@ -197,17 +197,17 @@
         @cancel="visible = false"
         @confirm="handleSubmit"
       >
-        <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="visible = false">
+        <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="visible = false">
           取消
-        </el-button>
-        <el-button
-          type="primary"
+        </StandardButton>
+        <StandardButton
+          action="confirm"
           class="standard-drawer-footer__button standard-drawer-footer__button--primary"
           :loading="submitting"
           @click="handleSubmit"
         >
           提交设备更换
-        </el-button>
+        </StandardButton>
       </StandardDrawerFooter>
     </template>
   </StandardFormDrawer>

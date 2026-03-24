@@ -292,7 +292,7 @@ RawDeviceMessage
 1. 更新 docs/04-api.md
 2. 更新 docs/05-protocol.md
 3. 更新 docs/device-simulator.md
-4. 更新 docs/test-scenarios.md
+4. 更新 docs/真实环境测试与验收手册.md
 5. 更新 docs/12-change-log.md
 6. 整理 config 中未合并文件
 7. 增加 MQTT 联调样例

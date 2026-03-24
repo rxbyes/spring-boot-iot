@@ -4,23 +4,31 @@ import com.ghlzm.iot.auth.dto.LoginDTO;
 import com.ghlzm.iot.auth.service.AuthService;
 import com.ghlzm.iot.auth.vo.LoginResultVO;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.security.JwtTokenService;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 认证服务实现。
  */
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     /**
      * 历史初始化脚本中的占位密码。
@@ -45,12 +53,25 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResultVO login(LoginDTO dto, HttpServletRequest request) {
+        long startNs = System.nanoTime();
         User user = resolveLoginUser(dto);
         if (user == null || !isPasswordMatched(dto.getPassword(), user.getPassword())) {
+            log.warn(ObservabilityEventLogSupport.summary(
+                    "auth_login",
+                    "failure",
+                    elapsedMillis(startNs),
+                    buildLoginDetails(dto, request, null, "invalid_credentials")
+            ));
             throw new BizException(401, "账号或密码错误");
         }
 
         if (!Integer.valueOf(1).equals(user.getStatus())) {
+            log.warn(ObservabilityEventLogSupport.summary(
+                    "auth_login",
+                    "failure",
+                    elapsedMillis(startNs),
+                    buildLoginDetails(dto, request, user, "user_disabled")
+            ));
             throw new BizException(403, "用户已禁用");
         }
 
@@ -70,6 +91,12 @@ public class AuthServiceImpl implements AuthService {
         result.setUsername(user.getUsername());
         result.setRealName(user.getRealName());
         result.setAuthContext(permissionService.getUserAuthContext(user.getId()));
+        log.info(ObservabilityEventLogSupport.summary(
+                "auth_login",
+                "success",
+                elapsedMillis(startNs),
+                buildLoginDetails(dto, request, user, null)
+        ));
         return result;
     }
 
@@ -138,5 +165,47 @@ public class AuthServiceImpl implements AuthService {
             return realIp.trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private Map<String, Object> buildLoginDetails(LoginDTO dto,
+                                                  HttpServletRequest request,
+                                                  User user,
+                                                  String reason) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("traceId", TraceContextHolder.getTraceId());
+        details.put("loginType", dto == null ? null : dto.getLoginType());
+        details.put("principal", resolveLoginPrincipal(dto));
+        details.put("clientIp", request == null ? null : resolveClientIp(request));
+        if (user != null) {
+            details.put("userId", user.getId());
+            details.put("username", user.getUsername());
+        }
+        details.put("reason", reason);
+        return details;
+    }
+
+    private String resolveLoginPrincipal(LoginDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        if ("phone".equalsIgnoreCase(dto.getLoginType())) {
+            return maskPhone(dto.getPhone());
+        }
+        return StringUtils.hasText(dto.getUsername()) ? dto.getUsername().trim() : null;
+    }
+
+    private String maskPhone(String phone) {
+        if (!StringUtils.hasText(phone)) {
+            return null;
+        }
+        String normalized = phone.trim();
+        if (normalized.length() <= 7) {
+            return normalized;
+        }
+        return normalized.substring(0, 3) + "****" + normalized.substring(normalized.length() - 4);
+    }
+
+    private long elapsedMillis(long startNs) {
+        return (System.nanoTime() - startNs) / 1_000_000L;
     }
 }

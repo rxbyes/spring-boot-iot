@@ -65,8 +65,9 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
   {
     route: '/reporting',
     title: '链路验证中心',
-    caption: '模拟 HTTP 上报并校验接入链路解析结果。',
-    matcher: '/api/message/http/report'
+    caption: '按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报并校验接入链路解析结果。',
+    readySelector: '#report-device-code',
+    matcher: '/api/message/'
   },
   {
     route: '/insight',
@@ -304,7 +305,7 @@ function createDefaultTarget() {
     password: '123456',
     browserPath: '',
     headless: true,
-    issueDocPath: 'docs/22-automation-test-issues-20260316.md',
+    issueDocPath: 'docs/archive/22-automation-test-issues-20260316.md',
     outputPrefix: 'config-browser',
     baselineDir: 'config/automation/baselines',
     scenarioScopes: ['delivery', 'baseline'],
@@ -997,6 +998,9 @@ function inferReadySelector(route: string, title: string): string {
   if (normalizedRoute === '/devices') {
     return '#device-product-key';
   }
+  if (normalizedRoute === '/reporting') {
+    return '#report-device-code';
+  }
   if (matchKeywords(buildFingerprint(route, title), ['列表', '管理'])) {
     return '.el-table, [data-testid="console-page-title"]';
   }
@@ -1009,7 +1013,7 @@ function inferApiMatcher(route: string): string {
     '/': '/api/cockpit/',
     '/products': '/api/device/product/',
     '/devices': '/api/device/',
-    '/reporting': '/api/message/http/report',
+    '/reporting': '/api/message/',
     '/system-log': '/api/system/audit-log/',
     '/alarm-center': '/api/alarm/',
     '/event-disposal': '/api/event/',
@@ -1414,4 +1418,3 @@ export function saveAutomationInventory(items: AutomationPageInventoryItem[]): v
   const normalized = items.map((item) => normalizeInventoryItem(item, 'manual'));
   window.localStorage.setItem(AUTOMATION_PAGE_INVENTORY_STORAGE_KEY, JSON.stringify(normalized));
 }
-

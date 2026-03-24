@@ -39,8 +39,8 @@
           </el-col>
         </el-row>
         <div class="ops-filter-actions">
-          <el-button type="primary" @click="loadPoints">刷新点位</el-button>
-          <el-button @click="handleReset">重置筛选</el-button>
+          <StandardButton action="refresh" @click="loadPoints">刷新点位</StandardButton>
+          <StandardButton action="reset" @click="handleReset">重置筛选</StandardButton>
         </div>
       </el-form>
     </PanelCard>
@@ -55,7 +55,7 @@
         :meta-items="[`已定位 ${locatedPoints.length} 个`, `活跃告警 ${activeAlarmTotal} 条`, `在线设备 ${onlineDeviceTotal} 台`]"
       >
         <template #right>
-          <el-button link @click="loadPoints">刷新点位</el-button>
+          <StandardButton action="refresh" link @click="loadPoints">刷新点位</StandardButton>
         </template>
       </StandardTableToolbar>
 
@@ -74,15 +74,17 @@
             {{ formatCoordinate(row.longitude, row.latitude) }}
           </template>
         </StandardTableTextColumn>
-        <el-table-column label="活跃告警" width="100">
+        <StandardTableTextColumn prop="activeAlarmCount" label="活跃告警" :width="100">
           <template #default="{ row }">{{ row.activeAlarmCount ?? 0 }}</template>
-        </el-table-column>
-        <el-table-column label="在线设备" width="100">
+        </StandardTableTextColumn>
+        <StandardTableTextColumn prop="onlineDeviceCount" label="在线设备" :width="100">
           <template #default="{ row }">{{ row.onlineDeviceCount ?? 0 }}</template>
-        </el-table-column>
+        </StandardTableTextColumn>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openDetailByRiskPoint(row.riskPointId)">查看详情</el-button>
+            <StandardRowActions variant="table" gap="wide">
+              <StandardActionLink @click="openDetailByRiskPoint(row.riskPointId)">详情</StandardActionLink>
+            </StandardRowActions>
           </template>
         </el-table-column>
       </el-table>
@@ -109,7 +111,9 @@
             <span>活跃告警 {{ point.activeAlarmCount ?? 0 }}</span>
           </div>
           <div class="ops-resource-card__footer">
-            <el-button type="primary" link @click="openDetailByRiskPoint(point.riskPointId)">查看详情</el-button>
+            <StandardRowActions variant="card" gap="wide">
+              <StandardActionLink @click="openDetailByRiskPoint(point.riskPointId)">详情</StandardActionLink>
+            </StandardRowActions>
           </div>
         </article>
       </div>

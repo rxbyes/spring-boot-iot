@@ -27,6 +27,39 @@ describe('useShellRouteChangeEffects', () => {
     expect(closeAccountOverlays).toHaveBeenCalledTimes(1);
   });
 
+  it('blurs focused elements inside the mobile sidebar before closing it', async () => {
+    const sidebar = document.createElement('aside');
+    sidebar.className = 'shell-sidebar-nav shell-sidebar-nav--mobile';
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.textContent = 'Products';
+    sidebar.appendChild(link);
+    document.body.appendChild(sidebar);
+    link.focus();
+
+    const currentRoutePath = ref('/products');
+    const isMobile = ref(true);
+    const mobileMenuOpen = ref(true);
+    const resetHeaderOverlays = vi.fn();
+    const closeAccountOverlays = vi.fn();
+
+    useShellRouteChangeEffects({
+      currentRoutePath,
+      isMobile,
+      mobileMenuOpen,
+      resetHeaderOverlays,
+      closeAccountOverlays
+    });
+
+    currentRoutePath.value = '/devices';
+    await nextTick();
+
+    expect(document.activeElement).not.toBe(link);
+    expect(mobileMenuOpen.value).toBe(false);
+
+    sidebar.remove();
+  });
+
   it('keeps the desktop menu state but still resets overlays on route change', async () => {
     const routeRef = ref('/risk-disposal');
     const isMobile = ref(false);

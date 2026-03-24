@@ -5,6 +5,7 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
 import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
+import com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,11 @@ public class DeviceAccessErrorLogController {
                                                         @RequestParam(defaultValue = "1") Integer pageNum,
                                                         @RequestParam(defaultValue = "10") Integer pageSize) {
         return R.ok(deviceAccessErrorLogService.pageLogs(query, pageNum, pageSize));
+    }
+
+    @GetMapping("/stats")
+    public R<DeviceAccessErrorStatsVO> getStats(DeviceAccessErrorQuery query) {
+        return R.ok(deviceAccessErrorLogService.getStats(query));
     }
 
     @GetMapping("/{id}")

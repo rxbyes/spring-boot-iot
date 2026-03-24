@@ -101,7 +101,7 @@
 
 ## 初始化与升级顺序
 ### 初始化
-1. 执行 [sql/init.sql](../sql/init.sql)
+1. 执行 [sql/init.sql](../../sql/init.sql)
 2. 如需样例数据，再执行 `sql/init-data.sql`（包含 IoT 主链路、风险平台、系统管理、动态菜单与超级管理员授权的真实联调基础数据）
 3. 新库场景到此即可，不必再执行 `sql/upgrade/`。
 
@@ -161,4 +161,4 @@
 - 历史共享库若仍停留在旧结构，服务层会按实际存在列动态读写 `sys_audit_log`，并兼容旧字段别名 `log_type` / `operation_uri`，保证列表、分页、详情、删除和新增审计不因缺列直接失败。
 - 若旧库尚未补齐 `trace_id`、`device_code`、`product_key`、`error_code`、`exception_class`，系统日志高级检索能力会按现有字段降级；执行 `20260316_phase4_real_env_schema_alignment.sql` 后可恢复完整排障字段。
 
-具体 SQL 核对模板见 [docs/21-business-functions-and-acceptance.md](21-business-functions-and-acceptance.md)。
+具体 SQL 核对模板见 [docs/21-业务功能清单与验收标准.md](../21-业务功能清单与验收标准.md)。

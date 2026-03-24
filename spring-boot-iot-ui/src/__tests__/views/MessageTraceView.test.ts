@@ -1,0 +1,465 @@
+import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
+import { mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import MessageTraceView from '@/views/MessageTraceView.vue';
+import { messageApi } from '@/api/message';
+
+const { mockRoute, mockRouter } = vi.hoisted(() => ({
+  mockRoute: {
+    query: {} as Record<string, unknown>
+  },
+  mockRouter: {
+    push: vi.fn(),
+    replace: vi.fn()
+  }
+}));
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute,
+  useRouter: () => mockRouter
+}));
+
+vi.mock('@/api/message', () => ({
+  messageApi: {
+    pageMessageTraceLogs: vi.fn(),
+    pageMessageTraceStats: vi.fn(),
+    getMessageFlowTrace: vi.fn(),
+    getMessageFlowOpsOverview: vi.fn(),
+    getMessageFlowRecentSessions: vi.fn()
+  }
+}));
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('element-plus')>();
+  return {
+    ...actual,
+    ElMessage: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn()
+    }
+  };
+});
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const StandardWorkbenchPanelStub = defineComponent({
+  name: 'StandardWorkbenchPanel',
+  props: ['title', 'description'],
+  template: `
+    <section class="message-trace-workbench-stub">
+      <header>
+        <h2>{{ title }}</h2>
+        <p>{{ description }}</p>
+        <slot name="header-actions" />
+      </header>
+      <div><slot name="filters" /></div>
+      <div><slot name="applied-filters" /></div>
+      <div><slot name="notices" /></div>
+      <div><slot name="toolbar" /></div>
+      <div><slot /></div>
+      <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="message-trace-filter-stub">
+      <div><slot name="primary" /></div>
+      <div><slot name="advanced" /></div>
+      <div><slot name="actions" /></div>
+    </section>
+  `
+});
+
+const StandardAppliedFiltersBarStub = defineComponent({
+  name: 'StandardAppliedFiltersBar',
+  template: '<div class="message-trace-applied-filters-stub" />'
+});
+
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <div class="message-trace-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </div>
+  `
+});
+
+const PanelCardStub = defineComponent({
+  name: 'PanelCard',
+  props: ['eyebrow', 'title', 'description'],
+  template: `
+    <section class="panel-card-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3 v-if="title">{{ title }}</h3>
+      <p v-if="description">{{ description }}</p>
+      <slot />
+    </section>
+  `
+});
+
+const MetricCardStub = defineComponent({
+  name: 'MetricCard',
+  props: ['label', 'value'],
+  template: '<div class="metric-card-stub">{{ label }} {{ value }}</div>'
+});
+
+const StandardPaginationStub = defineComponent({
+  name: 'StandardPagination',
+  template: '<div class="message-trace-pagination-stub" />'
+});
+
+const StandardChoiceGroupStub = defineComponent({
+  name: 'StandardChoiceGroup',
+  props: ['options', 'modelValue'],
+  emits: ['update:modelValue'],
+  template: `
+    <div class="message-trace-choice-group-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        type="button"
+        @click="$emit('update:modelValue', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+  `
+});
+
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  props: ['disabled'],
+  emits: ['click'],
+  template: `
+    <button type="button" :disabled="Boolean(disabled)" @click="$emit('click')">
+      <slot />
+    </button>
+  `
+});
+
+const StandardRowActionsStub = defineComponent({
+  name: 'StandardRowActions',
+  template: '<div class="message-trace-row-actions-stub"><slot /></div>'
+});
+
+const StandardActionLinkStub = defineComponent({
+  name: 'StandardActionLink',
+  props: ['disabled'],
+  emits: ['click'],
+  template: `
+    <button type="button" :disabled="Boolean(disabled)" @click="$emit('click')">
+      <slot />
+    </button>
+  `
+});
+
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['modelValue', 'title', 'subtitle', 'empty'],
+  emits: ['update:modelValue'],
+  template: `
+    <section v-if="modelValue" class="message-trace-detail-drawer-stub">
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+    </section>
+  `
+});
+
+const StandardTraceTimelineStub = defineComponent({
+  name: 'StandardTraceTimeline',
+  props: ['timeline', 'loading', 'emptyTitle', 'emptyDescription'],
+  template: `
+    <section class="message-trace-timeline-stub">
+      <p v-if="loading">loading</p>
+      <template v-else-if="timeline">
+        <strong>{{ timeline.traceId }}</strong>
+        <span v-for="step in timeline.steps" :key="step.stage">{{ step.stage }}</span>
+      </template>
+      <template v-else>
+        <strong>{{ emptyTitle }}</strong>
+        <p>{{ emptyDescription }}</p>
+      </template>
+    </section>
+  `
+});
+
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label'],
+  template: '<div class="standard-table-text-column-stub">{{ label }}</div>'
+});
+
+const AccessErrorArchivePanelStub = defineComponent({
+  name: 'AccessErrorArchivePanel',
+  template: '<section class="access-error-archive-panel-stub" />'
+});
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: ['data'],
+  setup(props) {
+    provide('tableRows', computed(() => props.data ?? []));
+    return {};
+  },
+  template: '<section class="el-table-stub"><slot /></section>'
+});
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  setup() {
+    const rows = inject('tableRows', ref([]));
+    return { rows };
+  },
+  template: `
+    <div class="el-table-column-stub">
+      <div v-for="(row, index) in rows" :key="index" class="el-table-column-stub__row">
+        <slot :row="row" />
+      </div>
+    </div>
+  `
+});
+
+function createPageResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 1,
+      pageNum: 1,
+      pageSize: 10,
+      records: [
+        {
+          id: 1,
+          traceId: 'trace-001',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          messageType: 'report',
+          topic: '/sys/demo-product/demo-device-01/thing/property/post',
+          payload: '{"temperature":26.5}',
+          reportTime: '2026-03-23 10:00:00',
+          createTime: '2026-03-23 10:00:00'
+        }
+      ]
+    }
+  };
+}
+
+function createStatsResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 1,
+      recentHourCount: 1,
+      recent24HourCount: 1,
+      distinctTraceCount: 1,
+      distinctDeviceCount: 1,
+      dispatchFailureCount: 0,
+      topMessageTypes: [{ value: 'report', label: 'report', count: 1 }],
+      topProductKeys: [{ value: 'demo-product', label: 'demo-product', count: 1 }],
+      topDeviceCodes: [{ value: 'demo-device-01', label: 'demo-device-01', count: 1 }],
+      topTopics: [{ value: '/sys/demo-product/demo-device-01/thing/property/post', label: '/sys/demo-product/demo-device-01/thing/property/post', count: 1 }]
+    }
+  };
+}
+
+function createOpsOverviewResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      runtimeStartedAt: '2026-03-23 09:30:00',
+      sessionCounts: [{ transportMode: 'MQTT', status: 'COMPLETED', count: 3 }],
+      correlationCounts: [
+        { result: 'published', count: 4 },
+        { result: 'matched', count: 3 }
+      ],
+      lookupCounts: [{ target: 'trace', result: 'hit', count: 5 }],
+      stageMetrics: [
+        {
+          stage: 'INGRESS',
+          count: 3,
+          failureCount: 0,
+          skippedCount: 0,
+          avgCostMs: 10,
+          p95CostMs: 15,
+          maxCostMs: 18
+        }
+      ]
+    }
+  };
+}
+
+function createRecentSessionsResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: [
+      {
+        sessionId: 'session-recent-001',
+        traceId: 'trace-recent-001',
+        transportMode: 'MQTT',
+        status: 'COMPLETED',
+        submittedAt: '2026-03-23 10:05:00',
+        deviceCode: 'demo-device-01',
+        topic: '$dp',
+        correlationPending: false,
+        timelineAvailable: true
+      }
+    ]
+  };
+}
+
+function mountView() {
+  return mount(MessageTraceView, {
+    global: {
+      directives: {
+        loading: () => undefined
+      },
+      stubs: {
+        AccessErrorArchivePanel: AccessErrorArchivePanelStub,
+        StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        PanelCard: PanelCardStub,
+        MetricCard: MetricCardStub,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
+        StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
+        StandardTableToolbar: StandardTableToolbarStub,
+        StandardPagination: StandardPaginationStub,
+        StandardChoiceGroup: StandardChoiceGroupStub,
+        StandardButton: StandardButtonStub,
+        StandardRowActions: StandardRowActionsStub,
+        StandardActionLink: StandardActionLinkStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
+        StandardTraceTimeline: StandardTraceTimelineStub,
+        StandardTableTextColumn: StandardTableTextColumnStub,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub
+      }
+    }
+  });
+}
+
+function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
+  return wrapper.findAll('button').find((button) => button.text().includes(text));
+}
+
+describe('MessageTraceView', () => {
+  beforeEach(() => {
+    mockRoute.query = {};
+    mockRouter.push.mockReset();
+    mockRouter.replace.mockReset();
+    vi.mocked(messageApi.pageMessageTraceLogs).mockReset();
+    vi.mocked(messageApi.pageMessageTraceStats).mockReset();
+    vi.mocked(messageApi.getMessageFlowTrace).mockReset();
+    vi.mocked(messageApi.getMessageFlowOpsOverview).mockReset();
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockReset();
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue(createPageResponse());
+    vi.mocked(messageApi.pageMessageTraceStats).mockResolvedValue(createStatsResponse());
+    vi.mocked(messageApi.getMessageFlowOpsOverview).mockResolvedValue(createOpsOverviewResponse());
+    vi.mocked(messageApi.getMessageFlowRecentSessions).mockResolvedValue(createRecentSessionsResponse());
+  });
+
+  it('loads and renders the trace timeline in the detail drawer', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: [
+          {
+            stage: 'INGRESS',
+            handlerClass: 'UpMessageProcessingPipeline',
+            handlerMethod: 'ingress',
+            status: 'SUCCESS',
+            costMs: 1,
+            startedAt: '2026-03-23 10:00:00',
+            finishedAt: '2026-03-23 10:00:00',
+            summary: {},
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
+    expect(wrapper.text()).toContain('trace-001');
+    expect(wrapper.text()).toContain('INGRESS');
+    expect(wrapper.text()).not.toContain('时间线已过期，仅保留消息日志。');
+  });
+
+  it('shows the degraded hint when the trace timeline has expired', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
+    expect(wrapper.text()).toContain('时间线已过期，仅保留消息日志。');
+    expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
+  });
+
+  it('renders the ops overview and recent sessions helper', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
+    expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('完成链路 3');
+    expect(wrapper.text()).toContain('关联发布 4');
+    expect(wrapper.text()).toContain('session-recent-001');
+    expect(wrapper.text()).toContain('INGRESS');
+  });
+
+  it('shows storage error copy when timeline lookup fails', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockRejectedValue(new Error('redis down'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
+  });
+});

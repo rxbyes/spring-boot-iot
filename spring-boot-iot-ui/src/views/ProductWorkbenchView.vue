@@ -1,25 +1,27 @@
 <template>
-  <div class="product-asset-view ops-workbench standard-list-view">
-    <PanelCard class="ops-hero-card ops-table-card product-workbench-card">
-      <template #header>
-        <div class="product-hero-card__header">
-          <div class="product-hero-card__heading">
-            <h2 class="product-hero-card__title">产品定义中心</h2>
-            <p class="product-hero-card__caption">聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。</p>
-          </div>
-        </div>
-      </template>
-
-      <div class="product-workbench-card__filters">
+  <div class="product-asset-view">
+    <StandardWorkbenchPanel
+      title="产品定义中心"
+      description="聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      :show-inline-state="showListInlineState"
+      show-pagination
+    >
+      <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
+            <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
             <el-form-item>
               <el-input
-                id="query-product-name"
-                v-model="searchForm.productName"
-                placeholder="产品名称"
+                id="quick-search"
+                v-model="quickSearchKeyword"
+                placeholder="快速搜索（产品名称、厂商）"
                 clearable
-                @keyup.enter="handleSearch"
+                prefix-icon="Search"
+                @keyup.enter="handleQuickSearch"
+                @clear="handleClearQuickSearch"
               />
             </el-form-item>
             <el-form-item>
@@ -36,64 +38,112 @@
             </el-form-item>
           </template>
           <template #actions>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
-            <el-button @click="handleReset">重置</el-button>
-            <el-button v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton v-permission="'iot:products:add'" action="add" @click="handleAdd">新增产品</StandardButton>
           </template>
         </StandardListFilterHeader>
-      </div>
-
-      <div v-if="hasAppliedFilters" class="product-applied-filters">
-        <span class="product-applied-filters__label">已生效筛选</span>
-        <div class="product-applied-filters__list">
-          <el-tag
-            v-for="tag in activeFilterTags"
-            :key="tag.key"
-            closable
-            class="product-applied-filters__tag"
-            @close="removeAppliedFilter(tag.key)"
-          >
-            {{ tag.label }}
+        <!-- 快速搜索标签 -->
+        <div v-if="quickSearchKeyword" class="product-quick-search-tag">
+          <el-tag closable class="product-quick-search-tag__chip" @close="handleClearQuickSearch">
+            快速搜索：{{ quickSearchKeyword }}
           </el-tag>
         </div>
-        <el-button link class="product-applied-filters__clear" @click="handleClearAppliedFilters">清空全部</el-button>
-      </div>
+      </template>
 
-      <StandardTableToolbar
-        :meta-items="[
-          `已选 ${selectedRows.length} 项`,
-          `启用 ${enabledProductCount} 个`,
-          `停用 ${disabledProductCount} 个`
-        ]"
-      >
-        <template #right>
-          <el-button v-permission="'iot:products:export'" link @click="openExportColumnSetting">导出列设置</el-button>
-          <el-button v-permission="'iot:products:export'" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
-            导出选中
-          </el-button>
-          <el-button v-permission="'iot:products:export'" link :disabled="tableData.length === 0" @click="handleExportCurrent">
-            导出当前结果
-          </el-button>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="removeAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
 
-      <div
-        v-if="showListInlineState"
-        :class="[
-          'product-list-inline-state',
-          { 'product-list-inline-state--error': listRefreshState === 'error' }
-        ]"
-      >
-        {{ listRefreshMessage }}
-      </div>
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `已选 ${selectedRows.length} 项`,
+            `启用 ${enabledProductCount} 个`,
+            `停用 ${disabledProductCount} 个`
+          ]"
+        >
+          <template #right>
+            <!-- 视图切换下拉菜单 -->
+            <el-dropdown
+              v-permission="'iot:products:view'"
+              @command="(command) => handleViewTypeChange(command)"
+            >
+              <StandardActionLink>
+                <span>{{ viewTypeName }}</span>
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </StandardActionLink>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="table">
+                    <el-icon><List /></el-icon>
+                    <span>表格视图</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="card">
+                    <el-icon><Grid /></el-icon>
+                    <span>卡片视图</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <!-- 批量操作下拉菜单 -->
+            <el-dropdown
+              v-permission="'iot:products:update'"
+              :disabled="selectedRows.length === 0"
+              trigger="click"
+              @command="(command) => handleBatchCommand(command, selectedRows)"
+            >
+              <StandardActionLink :disabled="selectedRows.length === 0">
+                <span>批量操作</span>
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </StandardActionLink>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="enable" divided>
+                    <el-icon><Top /></el-icon>
+                    <span>启用</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="disable">
+                    <el-icon><Bottom /></el-icon>
+                    <span>停用</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete">
+                    <el-icon><Delete /></el-icon>
+                    <span>删除</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <StandardButton v-permission="'iot:products:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
+            <StandardButton v-permission="'iot:products:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
+              导出选中
+            </StandardButton>
+            <StandardButton v-permission="'iot:products:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">
+              导出当前结果
+            </StandardButton>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
+
+      <template #inline-state>
+        <StandardInlineState
+          :message="listRefreshMessage"
+          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+        />
+      </template>
 
       <div
         v-loading="loading && hasRecords"
         class="product-result-panel"
         element-loading-text="正在刷新产品列表"
-        element-loading-background="rgba(248, 250, 255, 0.78)"
+        element-loading-background="var(--loading-mask-bg)"
       >
         <div v-if="showListSkeleton" class="product-loading-state" aria-live="polite" aria-busy="true">
           <div class="product-loading-state__summary">
@@ -140,7 +190,8 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <div class="product-mobile-list">
+          <!-- 卡片视图 -->
+          <div v-if="viewType === 'card'" class="product-card-view">
             <div class="product-mobile-list__grid">
               <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
                 <div class="product-mobile-card__header">
@@ -180,99 +231,84 @@
                   </div>
                 </div>
 
-                <div class="product-mobile-card__actions">
-                  <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
-                    <el-button type="primary" link>
-                      更多
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
+                <StandardRowActions variant="card" gap="comfortable" class="product-mobile-card__actions">
+                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
+                  <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                  <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
+                </StandardRowActions>
               </article>
             </div>
           </div>
 
-          <el-table
-            ref="tableRef"
-            class="product-desktop-table"
-            :data="tableData"
-            border
-            stripe
-            @selection-change="handleSelectionChange"
-          >
-            <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
-            <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
-            <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
-            <el-table-column prop="nodeType" label="节点类型" width="120">
-              <template #default="{ row }">
-                <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
-              </template>
-            </el-table-column>
-            <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
-            <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
-            <el-table-column prop="status" label="产品状态" width="110">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
-            <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
-            </StandardTableTextColumn>
-            <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-            </StandardTableTextColumn>
-            <el-table-column label="操作" width="180" fixed="right" :show-overflow-tooltip="false">
-              <template #default="{ row }">
-                <div class="product-table-actions">
-                  <el-button type="primary" link @click="handleOpenDetail(row)">详情</el-button>
-                  <el-button v-permission="'iot:products:update'" type="primary" link @click="handleEdit(row)">编辑</el-button>
-                  <el-dropdown trigger="click" @command="(command) => handleRowAction(command, row)">
-                    <el-button type="primary" link>
-                      更多
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="devices">查看设备</el-dropdown-item>
-                        <el-dropdown-item v-permission="'iot:products:delete'" command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+          <!-- 表格视图 -->
+          <template v-if="viewType === 'table'">
+            <el-table
+              ref="tableRef"
+              class="product-desktop-table"
+              :data="tableData"
+              border
+              stripe
+              @selection-change="handleSelectionChange"
+            >
+              <el-table-column type="selection" width="48" />
+              <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
+              <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
+              <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
+              <el-table-column prop="nodeType" label="节点类型" width="120">
+                <template #default="{ row }">
+                  <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
+                </template>
+              </el-table-column>
+              <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
+              <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
+              <el-table-column prop="status" label="产品状态" width="110">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
+              <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
+                <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+              </StandardTableTextColumn>
+              <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
+                <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+              </StandardTableTextColumn>
+              <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
+                <template #default="{ row }">
+                  <StandardRowActions variant="table" gap="wide">
+                    <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
+                    <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                    <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
+                  </StandardRowActions>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
         </template>
 
         <div v-else-if="!loading" class="product-empty-state">
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="product-empty-state__actions">
-            <el-button v-if="hasAppliedFilters" @click="handleClearAppliedFilters">清空筛选条件</el-button>
-            <el-button v-else v-permission="'iot:products:add'" type="primary" @click="handleAdd">新增产品</el-button>
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else v-permission="'iot:products:add'" action="add" @click="handleAdd">新增产品</StandardButton>
           </div>
         </div>
       </div>
 
-      <div v-if="pagination.total > 0" class="ops-pagination">
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </PanelCard>
+      <template #pagination>
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </template>
+    </StandardWorkbenchPanel>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -286,14 +322,14 @@
       :empty="!detailData"
     >
       <template #header-actions>
-        <el-button
+        <StandardButton
           v-permission="'iot:products:update'"
-          type="primary"
+          action="confirm"
           size="small"
           @click="handleEditFromDetail"
         >
           编辑
-        </el-button>
+        </StandardButton>
       </template>
       <div v-if="detailData" class="product-detail-layout">
         <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
@@ -388,6 +424,21 @@
           </div>
         </section>
 
+        <!-- 活跃度统计区段 -->
+        <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
+          <header class="product-detail-zone__header">
+            <span class="product-detail-zone__kicker">设备活跃度</span>
+            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
+          </header>
+          <div class="product-detail-active-grid">
+            <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
+              <span class="product-detail-active-metric__label">{{ metric.label }}</span>
+              <strong class="product-detail-active-metric__value">{{ metric.value }}</strong>
+              <p class="product-detail-active-metric__hint">{{ metric.hint }}</p>
+            </article>
+          </div>
+        </section>
+
         <section class="product-detail-zone product-detail-zone--governance">
           <header class="product-detail-zone__header">
             <span class="product-detail-zone__kicker">维护与治理</span>
@@ -425,17 +476,17 @@
 
       <template #footer>
         <StandardDrawerFooter @cancel="detailVisible = false">
-          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
+          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
             关闭
-          </el-button>
-          <el-button
-            type="primary"
+          </StandardButton>
+          <StandardButton
+            action="confirm"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
             :disabled="!detailData?.productKey"
-            @click="handleJumpToDevices(detailData)"
+            @click="detailData && handleOpenDeviceListDrawer(detailData)"
           >
             查看设备
-          </el-button>
+          </StandardButton>
         </StandardDrawerFooter>
       </template>
     </StandardDetailDrawer>
@@ -516,19 +567,19 @@
           @cancel="formVisible = false"
           @confirm="handleSubmit"
         >
-          <el-button class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
+          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
             取消
-          </el-button>
-          <el-button
+          </StandardButton>
+          <StandardButton
             id="product-submit-button"
             v-permission="submitPermission"
-            type="primary"
+            action="confirm"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
             :loading="submitLoading"
             @click="handleSubmit"
           >
             {{ submitButtonText }}
-          </el-button>
+          </StandardButton>
         </StandardDrawerFooter>
       </template>
     </StandardFormDrawer>
@@ -542,26 +593,44 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
+
+    <DeviceListDrawer
+      v-model="deviceListDrawerVisible"
+      :title="currentProduct?.productName || currentProduct?.productKey || '设备列表'"
+      :eyebrow="currentProduct?.productName ? '产品关联设备' : '设备列表'"
+      :devices="deviceListData"
+      :total-devices="deviceListTotal"
+      :online-devices="deviceListOnlineCount"
+      :offline-devices="deviceListOfflineCount"
+      :loading="devicesLoading"
+      :devices-loading="devicesLoading"
+      @view-device="handleViewDevice"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ArrowDown, Bottom, Delete, Grid, List, Top } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
+import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import { productApi } from '@/api/product'
-import { ElMessageBox } from 'element-plus'
+import { deviceApi } from '@/api/device'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { usePermissionStore } from '@/stores/permission'
 import type { PageResult, Product, ProductAddPayload } from '@/types/api'
 import {
   buildProductPageCacheKey,
@@ -596,7 +665,7 @@ import {
   saveCsvColumnSelection,
   toCsvColumnOptions
 } from '@/utils/csvColumns'
-import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime } from '@/utils/format'
 
 function formatCount(value?: number | null) {
@@ -634,8 +703,16 @@ type ProductFilterKey = keyof ProductSearchForm
 
 interface ProductFormState extends ProductAddPayload {}
 
+interface ProductRowAction {
+  key?: string
+  command: 'devices' | 'delete'
+  label: string
+  permission?: string
+}
+
 const route = useRoute()
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -645,13 +722,25 @@ const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+
+// 设备列表抽屉相关状态
+import type { Device } from '@/types/api'
+const deviceListDrawerVisible = ref(false)
+const deviceListData = ref<Device[]>([])
+const deviceListTotal = ref(0)
+const deviceListOnlineCount = ref(0)
+const deviceListOfflineCount = ref(0)
+const devicesLoading = ref(false)
+
+// 当前选择的产品
+const currentProduct = ref<Product | null>(null)
 const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
 const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
-const detailRefreshErrorMessage = ref('')
+// detailRefreshErrorMessage 已移除，不再
 const editingProductId = ref<string | number | null>(null)
 
 const tableData = ref<Product[]>([])
@@ -691,6 +780,26 @@ const appliedFilters = reactive<ProductSearchForm>({
   status: undefined
 })
 
+const quickSearchKeyword = computed({
+  get: () => searchForm.productName,
+  set: (value: string) => {
+    searchForm.productName = value
+  }
+})
+
+// 视图类型：table 或 card
+const viewType = ref<'table' | 'card'>('table')
+
+const viewTypeName = computed(() => {
+  return viewType.value === 'table' ? '表格视图' : '卡片视图'
+})
+
+function handleViewTypeChange(command: string) {
+  if (command === 'table' || command === 'card') {
+    viewType.value = command
+  }
+}
+
 const createDefaultFormData = (): ProductFormState => ({
   productKey: '',
   productName: '',
@@ -716,6 +825,12 @@ const disabledProductCount = computed(() => tableData.value.filter((item) => ite
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
 const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const productRowActions = computed<ProductRowAction[]>(() =>
+  [
+    { key: 'devices', command: 'devices', label: '查看设备' },
+    { key: 'delete', command: 'delete', label: '删除', permission: 'iot:products:delete' }
+  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+)
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()
@@ -903,6 +1018,69 @@ const detailChangeChecklist = computed(() => [
   '最后确认调整后不会影响设备建档和上报链路。'
 ])
 
+// 活跃度统计计算属性
+const hasActiveMetrics = computed(() => {
+  if (!detailData.value) return false
+  const hasActiveCount = detailData.value.todayActiveCount != null || detailData.value.sevenDaysActiveCount != null || detailData.value.thirtyDaysActiveCount != null
+  const hasOnlineDuration = detailData.value.avgOnlineDuration != null || detailData.value.maxOnlineDuration != null
+  return hasActiveCount || hasOnlineDuration
+})
+
+const detailActiveMetrics = computed(() => {
+  const metrics: Array<{ key: string; label: string; value: string; hint: string }> = []
+  
+  // 活跃设备数
+  if (detailData.value?.todayActiveCount != null) {
+    metrics.push({
+      key: 'todayActiveCount',
+      label: '今日活跃',
+      value: String(detailData.value.todayActiveCount),
+      hint: '今天上报过数据的设备数量'
+    })
+  }
+  
+  if (detailData.value?.sevenDaysActiveCount != null) {
+    metrics.push({
+      key: 'sevenDaysActiveCount',
+      label: '7日活跃',
+      value: String(detailData.value.sevenDaysActiveCount),
+      hint: '最近7天上报过数据的设备数量'
+    })
+  }
+  
+  if (detailData.value?.thirtyDaysActiveCount != null) {
+    metrics.push({
+      key: 'thirtyDaysActiveCount',
+      label: '30日活跃',
+      value: String(detailData.value.thirtyDaysActiveCount),
+      hint: '最近30天上报过数据的设备数量'
+    })
+  }
+  
+  // 在线时长
+  if (detailData.value?.avgOnlineDuration != null) {
+    const hours = Math.round(detailData.value.avgOnlineDuration / 60)
+    metrics.push({
+      key: 'avgOnlineDuration',
+      label: '平均在线时长',
+      value: `${hours}小时`,
+      hint: '设备平均每次在线时长'
+    })
+  }
+  
+  if (detailData.value?.maxOnlineDuration != null) {
+    const hours = Math.round(detailData.value.maxOnlineDuration / 60)
+    metrics.push({
+      key: 'maxOnlineDuration',
+      label: '最长在线时长',
+      value: `${hours}小时`,
+      hint: '设备单次最长在线时长'
+    })
+  }
+  
+  return metrics
+})
+
 const formRules: FormRules<ProductFormState> = {
   productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }],
   productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
@@ -1036,14 +1214,11 @@ function removeCachedProductDetail(row?: Partial<Product> | null) {
 }
 
 function resolveDetailSnapshot(row: Product, cachedDetail: Product | null) {
-  if (cachedDetail) {
-    return {
-      ...cachedDetail,
-      ...row,
-      description: cachedDetail.description ?? row.description ?? null
-    }
+  // 使用列表返回的 row 数据作为快照，确保详情页始终有数据显示
+  return {
+    ...row,
+    description: cachedDetail?.description ?? row.description ?? null
   }
-  return buildDetailPreview(row)
 }
 
 function abortListRequest() {
@@ -1334,6 +1509,26 @@ function matchesCurrentFilters(product: Product) {
   })
 }
 
+// 快速搜索：支持产品名称、厂商关键词搜索
+function handleQuickSearch() {
+  const keyword = searchForm.productName.trim()
+  if (!keyword) {
+    return
+  }
+
+  searchForm.productName = keyword
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
+}
+
+function handleClearQuickSearch() {
+  searchForm.productName = ''
+  resetPage()
+  clearSelection()
+  void syncListRouteQuery()
+}
+
 function replaceSelectedRowSnapshot(product: Product) {
   selectedRows.value = replaceSelectedProductSnapshot(selectedRows.value, product)
 }
@@ -1603,42 +1798,42 @@ async function openDetail(row: Product) {
   detailVisible.value = true
   detailLoading.value = false
   detailErrorMessage.value = ''
-  detailRefreshErrorMessage.value = ''
   detailData.value = detailSnapshot
 
-  if (!shouldRefreshProductDetail(row, cachedDetail)) {
+  // 如果没有缓存或者需要刷新详情，则发起后台补数请求
+  if (!cachedDetail && shouldRefreshProductDetail(row, cachedDetail)) {
+    const controller = new AbortController()
+    detailAbortController = controller
+    detailRefreshing.value = true
+
+    try {
+      const res = await productApi.getProductById(row.id, {
+        signal: controller.signal
+      })
+      if (requestId !== latestDetailRequestId) {
+        return
+      }
+      if (res.code === 200 && res.data) {
+        detailData.value = res.data
+        cacheProductDetail(res.data)
+      }
+    } catch (error) {
+      if (requestId !== latestDetailRequestId || isAbortError(error)) {
+        return
+      }
+      // 静默失败，不显示红色提示，保持现有数据（detailSnapshot）
+      console.warn('完整详情补充失败', error)
+    } finally {
+      if (requestId === latestDetailRequestId) {
+        detailLoading.value = false
+        detailRefreshing.value = false
+      }
+      if (detailAbortController === controller) {
+        detailAbortController = null
+      }
+    }
+  } else {
     detailRefreshing.value = false
-    return
-  }
-
-  const controller = new AbortController()
-  detailAbortController = controller
-  detailRefreshing.value = true
-
-  try {
-    const res = await productApi.getProductById(row.id, {
-      signal: controller.signal
-    })
-    if (requestId !== latestDetailRequestId) {
-      return
-    }
-    if (res.code === 200 && res.data) {
-      detailData.value = res.data
-      cacheProductDetail(res.data)
-    }
-  } catch (error) {
-    if (requestId !== latestDetailRequestId || isAbortError(error)) {
-      return
-    }
-    detailRefreshErrorMessage.value = error instanceof Error ? error.message : '完整详情补充失败，当前先展示列表摘要。'
-  } finally {
-    if (requestId === latestDetailRequestId) {
-      detailLoading.value = false
-      detailRefreshing.value = false
-    }
-    if (detailAbortController === controller) {
-      detailAbortController = null
-    }
   }
 }
 
@@ -1777,9 +1972,49 @@ function handleEditFromDetail() {
   handleEdit(detailData.value)
 }
 
+// 打开设备列表抽屉
+function handleOpenDeviceListDrawer(row: Product) {
+  currentProduct.value = row
+  deviceListDrawerVisible.value = true
+  void loadDeviceList(row.productKey)
+}
+
+// 查看设备
+function handleViewDevice(device: Device) {
+  console.log('view device', device)
+  // TODO: 实现查看设备的逻辑
+}
+
+// 加载设备列表
+async function loadDeviceList(productKey: string) {
+  devicesLoading.value = true
+  try {
+    const res = await deviceApi.pageDevices({
+      productKey,
+      pageNum: 1,
+      pageSize: 100
+    })
+    if (res.code === 200 && res.data) {
+      const devices = res.data.records || []
+      deviceListData.value = devices
+      deviceListTotal.value = res.data.total || 0
+      deviceListOnlineCount.value = devices.filter((d) => d.onlineStatus === 1).length
+      deviceListOfflineCount.value = devices.filter((d) => d.onlineStatus !== 1).length
+    }
+  } catch (error) {
+    console.error('获取设备列表失败', error)
+    deviceListData.value = []
+    deviceListTotal.value = 0
+    deviceListOnlineCount.value = 0
+    deviceListOfflineCount.value = 0
+  } finally {
+    devicesLoading.value = false
+  }
+}
+
 function handleRowAction(command: string | number | object, row: Product) {
   if (command === 'devices') {
-    handleJumpToDevices(row)
+    handleOpenDeviceListDrawer(row)
     return
   }
   if (command === 'delete') {
@@ -1787,16 +2022,133 @@ function handleRowAction(command: string | number | object, row: Product) {
   }
 }
 
-function handleJumpToDevices(row?: Product | null) {
-  if (!row?.productKey) {
+async function handleBatchCommand(command: string, rows: Product[]) {
+  const rowCount = rows.length
+  if (rowCount === 0) {
     return
   }
-  void router.push({
-    path: '/devices',
-    query: {
-      productKey: row.productKey
+
+  try {
+    if (command === 'enable') {
+      await confirmAction({
+        title: '确认启用',
+        message: `确定要启用选中的 ${rowCount} 个产品吗？启用后可正常接入设备`,
+        type: 'warning',
+        confirmButtonText: '确定'
+      })
+
+      // 辅助函数：将 null 转换为 undefined
+      function normalizeProductPayload(row: Product): ProductAddPayload {
+        return {
+          productKey: row.productKey,
+          productName: row.productName,
+          protocolCode: row.protocolCode,
+          nodeType: row.nodeType,
+          dataFormat: row.dataFormat ?? undefined,
+          manufacturer: row.manufacturer ?? undefined,
+          description: row.description ?? undefined,
+          status: row.status ?? 1
+        }
+      }
+
+      // 批量启用
+      for (const row of rows) {
+        await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 1 }))
+      }
+      ElMessage.success(`已启用 ${rowCount} 个产品`)
+      rows.forEach((row) => {
+        const updatedRow = { ...row, status: 1 }
+        mergeLocalTableRow(updatedRow)
+        replaceSelectedRowSnapshot(updatedRow)
+      })
+      void loadProductPage({ silent: true })
+    } else if (command === 'disable') {
+      await confirmAction({
+        title: '确认停用',
+        message: `确定要停用选中的 ${rowCount} 个产品吗？停用后将无法新增设备，但不影响现有设备`,
+        type: 'warning',
+        confirmButtonText: '确定'
+      })
+
+      // 辅助函数：将 null 转换为 undefined
+      function normalizeProductPayload(row: Product): ProductAddPayload {
+        return {
+          productKey: row.productKey,
+          productName: row.productName,
+          protocolCode: row.protocolCode,
+          nodeType: row.nodeType,
+          dataFormat: row.dataFormat ?? undefined,
+          manufacturer: row.manufacturer ?? undefined,
+          description: row.description ?? undefined,
+          status: row.status ?? 1
+        }
+      }
+
+      // 批量停用
+      for (const row of rows) {
+        await productApi.updateProduct(row.id, normalizeProductPayload({ ...row, status: 0 }))
+      }
+      ElMessage.success(`已停用 ${rowCount} 个产品`)
+      rows.forEach((row) => {
+        const updatedRow = { ...row, status: 0 }
+        mergeLocalTableRow(updatedRow)
+        replaceSelectedRowSnapshot(updatedRow)
+      })
+      void loadProductPage({ silent: true })
+    } else if (command === 'delete') {
+      await handleDeleteBatch(rows)
     }
-  })
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('批量操作失败', error)
+    ElMessage.error(error instanceof Error ? error.message : '批量操作失败')
+  }
+}
+
+async function handleDeleteBatch(rows: Product[]) {
+  try {
+    await confirmAction({
+      title: '确认删除',
+      message: `确定要删除选中的 ${rows.length} 个产品吗？此操作不可恢复`,
+      type: 'warning',
+      confirmButtonText: '确定'
+    })
+
+    // 批量删除
+    await Promise.all(rows.map((row) => productApi.deleteProduct(row.id)))
+    ElMessage.success(`已删除 ${rows.length} 个产品`)
+
+    rows.forEach((row) => {
+      removeCachedProductDetail(row)
+      removeLocalTableRow(row)
+      removeSelectedRowSnapshot(row)
+    })
+
+    setTotal(pagination.total - rows.length)
+    
+    // 如果当前页没有数据了，翻到上一页
+    if (tableData.value.length === 0 && pagination.pageNum > 1) {
+      clearProductPageCache()
+      setPageNum(pagination.pageNum - 1)
+      clearSelection()
+      await syncListRouteQuery()
+      return
+    }
+
+    rebuildVisibleProductPageCache()
+    if (tableData.value.length === 0) {
+      clearSelection()
+    }
+    void loadProductPage({ silent: true, force: true })
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    console.error('批量删除产品失败', error)
+    ElMessage.error(error instanceof Error ? error.message : '批量删除产品失败')
+  }
 }
 
 async function handleDelete(row: Product) {
@@ -1917,7 +2269,7 @@ watch(detailVisible, (visible) => {
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''
-  detailRefreshErrorMessage.value = ''
+  // detailRefreshErrorMessage 已移除
   detailData.value = null
 })
 
@@ -1949,6 +2301,7 @@ onMounted(async () => {
 
 <style scoped>
 .product-asset-view {
+  display: grid;
   gap: 16px;
 }
 
@@ -2015,9 +2368,9 @@ onMounted(async () => {
 }
 
 .product-form-inline-state--warning {
-  border-color: #d48806;
-  color: #d48806;
-  background: color-mix(in srgb, #d48806 4%, white);
+  border-color: var(--warning);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 4%, white);
 }
 
 .product-form-inline-state--error {
@@ -2247,18 +2600,18 @@ onMounted(async () => {
 }
 
 .product-detail-overview-metric__trend--up {
-  color: #52c41a;
-  background: color-mix(in srgb, #52c41a 12%, transparent);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
 .product-detail-overview-metric__trend--down {
-  color: #ff4d4f;
-  background: color-mix(in srgb, #ff4d4f 12%, transparent);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 .product-detail-overview-metric__trend--same {
-  color: #d48806;
-  background: color-mix(in srgb, #d48806 12%, transparent);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
 .product-detail-ledger-grid {
@@ -2515,67 +2868,342 @@ onMounted(async () => {
   line-height: 1.52;
 }
 
-.product-hero-card__header {
+/* 快速搜索标签 */
+.product-quick-search-tag {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
-.product-hero-card__heading {
+.product-quick-search-tag__chip {
+  cursor: pointer;
+}
+
+/* ============================================
+   卡片视图 - 精致现代风格
+   ============================================ */
+.product-card-view {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+/* 卡片网格布局 */
+.product-card-view .product-mobile-list__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* 卡片容器 - 精致卡片设计 */
+.product-card-view .product-mobile-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(228, 235, 246, 0.65);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 3px rgba(24, 45, 77, 0.02);
+  transition:
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.product-card-view .product-mobile-card:hover {
+  box-shadow:
+    0 8px 24px rgba(24, 45, 77, 0.08),
+    0 4px 12px rgba(24, 45, 77, 0.04);
+  transform: translateY(-2px);
+  border-color: rgba(78, 89, 105, 0.15);
+}
+
+/* 卡片选中状态 */
+.product-card-view .product-mobile-card.selected {
+  border-color: var(--brand);
+  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
+}
+
+/* ============================================
+   卡片头部 - 棋盘布局
+   ============================================ */
+.product-card-view .product-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/* 卡片复选框 */
+.product-card-view .product-mobile-card__header .el-checkbox {
+  grid-row: 1 / span 2;
+  margin: 0;
+}
+
+/* 卡片标题区域 */
+.product-card-view .product-mobile-card__heading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
 }
 
-.product-hero-card__title {
+.product-card-view .product-mobile-card__title {
+  color: #1a1d21;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.product-card-view .product-mobile-card__sub {
+  overflow: hidden;
+  color: #7d8692;
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 卡片状态标签 */
+.product-card-view .product-mobile-card__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   卡片视图 - 精致现代风格
+   ============================================ */
+.product-card-view {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+/* 卡片网格布局 */
+.product-card-view .product-mobile-list__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* 卡片容器 - 精致卡片设计 */
+.product-card-view .product-mobile-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(228, 235, 246, 0.65);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 3px rgba(24, 45, 77, 0.02);
+  transition:
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease,
+    box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 卡片悬停效果 */
+.product-card-view .product-mobile-card:hover {
+  box-shadow:
+    0 12px 32px rgba(24, 45, 77, 0.08),
+    0 6px 16px rgba(24, 45, 77, 0.04);
+  transform: translateY(-4px);
+  border-color: rgba(78, 89, 105, 0.15);
+}
+
+/* 卡片选中状态 */
+.product-card-view .product-mobile-card.selected {
+  border-color: var(--brand);
+  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
+}
+
+/* 卡片选中伪元素装饰 */
+.product-card-view .product-mobile-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ============================================
+   卡片头部 - 棋盘布局
+   ============================================ */
+.product-card-view .product-mobile-card__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/* 卡片复选框 */
+.product-card-view .product-mobile-card__header .el-checkbox {
+  grid-row: 1 / span 2;
   margin: 0;
-  color: var(--text-heading);
-  font-size: 1.08rem;
 }
 
-.product-hero-card__caption {
-  margin: 0.35rem 0 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.6;
+/* 卡片标题区域 */
+.product-card-view .product-mobile-card__heading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
 }
 
-.product-workbench-card__filters {
-  margin-bottom: 0.72rem;
+.product-card-view .product-mobile-card__title {
+  color: #1a1d21;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
 }
 
-.product-applied-filters {
+.product-card-view .product-mobile-card__sub {
+  overflow: hidden;
+  color: #7d8692;
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 卡片状态标签 */
+.product-card-view .product-mobile-card__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   卡片元数据标签组
+   ============================================ */
+.product-card-view .product-mobile-card__meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem 0.75rem;
-  margin-bottom: 0.72rem;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.product-applied-filters__label {
-  color: var(--text-caption-2);
-  font-size: 12px;
+.product-card-view .product-mobile-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid rgba(228, 235, 246, 0.7);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #525a66;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.product-card-view .product-mobile-card__meta-item:first-child {
+  background: rgba(78, 89, 105, 0.04);
+  border-color: rgba(78, 89, 105, 0.1);
+  color: #3e4651;
+}
+
+/* ============================================
+   卡片信息网格
+   ============================================ */
+.product-card-view .product-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-grow: 1;
+}
+
+.product-card-view .product-mobile-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(228, 235, 246, 0.6);
+  border-radius: 8px;
+  background: #fcfdfd;
+}
+
+.product-card-view .product-mobile-card__field span {
+  color: #95a0ae;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.product-card-view .product-mobile-card__field strong {
+  overflow: hidden;
+  color: #1a1d21;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.product-applied-filters__list {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  min-width: 0;
+/* ============================================
+   卡片操作区域
+   ============================================ */
+.product-card-view .product-mobile-card__actions {
+  padding-top: 12px;
+  border-top: 1px solid rgba(228, 235, 246, 0.5);
 }
 
-.product-applied-filters__tag {
-  margin: 0;
+/* 响应式卡片视图 */
+.product-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
 }
 
-.product-applied-filters__clear {
-  margin-left: auto;
-  padding-inline: 0.08rem;
+/* 卡片视图响应式 - 桌面端显示 */
+@media (min-width: 721px) {
+  .product-card-view {
+    display: flex;
+  }
+  
+  .product-mobile-list {
+    display: none;
+  }
 }
 
+/* 卡片视图响应式 - 移动端显示 */
+@media (max-width: 720px) {
+  .product-card-view {
+    display: none;
+  }
+  
+  .product-mobile-list {
+    display: block;
+  }
+}
+
+/* 响应式卡片视图 */
 .product-mobile-list {
   display: none;
   margin-bottom: 0.72rem;
@@ -2867,32 +3495,8 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.product-mobile-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  justify-content: flex-start;
-}
-
-.product-mobile-card__actions :deep(.el-button) {
-  margin-left: 0;
-  padding-inline: 0.1rem;
-}
-
 .product-desktop-table {
   display: block;
-}
-
-.product-table-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.18rem;
-  white-space: nowrap;
-}
-
-.product-table-actions :deep(.el-button) {
-  margin-left: 0;
-  padding-inline: 0.08rem;
 }
 
 @media (max-width: 1080px) {
@@ -2908,11 +3512,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
-  .product-hero-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .product-detail-archive-grid,
   .product-detail-overview-metrics,
   .product-detail-governance-grid {
@@ -2930,14 +3529,6 @@ onMounted(async () => {
 
   .product-detail-contract-item__value {
     font-size: 1.52rem;
-  }
-
-  .product-applied-filters {
-    align-items: flex-start;
-  }
-
-  .product-applied-filters__clear {
-    margin-left: 0;
   }
 
   .product-mobile-list {
@@ -2966,6 +3557,54 @@ onMounted(async () => {
 
   100% {
     background-position: -100% 50%;
+  }
+}
+
+/* ============================================
+   设备活跃度统计
+   ============================================ */
+.product-detail-active-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.product-detail-active-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.product-detail-active-metric__label {
+  color: var(--text-caption-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.product-detail-active-metric__value {
+  color: var(--text-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.product-detail-active-metric__hint {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .product-detail-active-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

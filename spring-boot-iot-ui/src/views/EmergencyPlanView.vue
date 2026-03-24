@@ -7,7 +7,7 @@
       class="ops-hero-card"
     >
       <template #actions>
-        <el-button type="primary" @click="handleAdd">新增预案</el-button>
+        <StandardButton action="add" @click="handleAdd">新增预案</StandardButton>
       </template>
       <div class="ops-kpi-grid">
         <MetricCard label="预案总数" :value="String(pagination.total)" :badge="{ label: '预案库', tone: 'brand' }" />
@@ -20,63 +20,71 @@
       </div>
     </PanelCard>
 
-    <PanelCard
-      eyebrow="Plan Filters"
-      title="筛选条件"
-      description="优先关注严重风险预案和启用中的执行方案，确保关键场景下可快速调用并落实响应步骤。"
-      class="ops-filter-card"
+    <StandardWorkbenchPanel
+      title="应急预案列表"
+      :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <el-form :model="filters" label-position="top" class="ops-filter-form">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="预案名称">
-              <el-input v-model="filters.planName" placeholder="请输入预案名称" clearable @keyup.enter="handleSearch" />
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
+              <el-input v-model="filters.planName" placeholder="预案名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="风险等级">
-              <el-select v-model="filters.riskLevel" placeholder="请选择风险等级" clearable>
+            <el-form-item>
+              <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
                 <el-option label="严重" value="critical" />
                 <el-option label="警告" value="warning" />
                 <el-option label="提醒" value="info" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="请选择状态" clearable>
+            <el-form-item>
+              <el-select v-model="filters.status" placeholder="状态" clearable>
                 <el-option label="启用" :value="0" />
                 <el-option label="停用" :value="1" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="治理建议">
-              <el-input :model-value="planAdvice" disabled />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <div class="ops-filter-actions">
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </div>
-      </el-form>
-    </PanelCard>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-    <PanelCard
-      eyebrow="Plan List"
-      title="应急预案列表"
-      :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
-      class="ops-table-card"
-    >
-      <StandardTableToolbar
-        :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
-      >
-        <template #right>
-          <el-button link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</el-button>
-          <el-button link @click="handleRefresh">刷新列表</el-button>
-        </template>
-      </StandardTableToolbar>
+      <template #applied-filters>
+        <StandardAppliedFiltersBar
+          :tags="activeFilterTags"
+          @remove="handleRemoveAppliedFilter"
+          @clear="handleClearAppliedFilters"
+        />
+      </template>
+
+      <template #notices>
+        <el-alert
+          :title="planAdvice"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+        >
+          <template #right>
+            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <div v-if="loading" class="ops-state">正在加载应急预案列表...</div>
       <div v-else-if="planList.length === 0" class="ops-state">暂无符合条件的应急预案</div>
@@ -104,12 +112,16 @@
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
+                <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
+              </StandardRowActions>
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -120,7 +132,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -200,11 +212,15 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
+import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
@@ -217,6 +233,11 @@ const tableRef = ref();
 const selectedRows = ref<EmergencyPlan[]>([]);
 
 const filters = reactive({
+  planName: '',
+  riskLevel: '',
+  status: '' as '' | number
+});
+const appliedFilters = reactive({
   planName: '',
   riskLevel: '',
   status: '' as '' | number
@@ -297,13 +318,33 @@ const getStatusText = (status: number) => {
   }
 };
 
+const {
+  tags: activeFilterTags,
+  hasAppliedFilters,
+  syncAppliedFilters,
+  removeFilter: removeAppliedFilter
+} = useListAppliedFilters({
+  form: filters,
+  applied: appliedFilters,
+  fields: [
+    { key: 'planName', label: '预案名称' },
+    { key: 'riskLevel', label: (value) => `风险等级：${getRiskLevelText(String(value || ''))}` },
+    { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
+  ],
+  defaults: {
+    planName: '',
+    riskLevel: '',
+    status: '' as '' | number
+  }
+});
+
 const loadPlanList = async () => {
   loading.value = true;
   try {
     const res = await pagePlanList({
-      planName: filters.planName || undefined,
-      riskLevel: filters.riskLevel || undefined,
-      status: filters.status === '' ? undefined : Number(filters.status),
+      planName: appliedFilters.planName || undefined,
+      riskLevel: appliedFilters.riskLevel || undefined,
+      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     });
@@ -318,7 +359,9 @@ const loadPlanList = async () => {
 };
 
 const handleSearch = () => {
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadPlanList();
 };
 
@@ -326,7 +369,9 @@ const handleReset = () => {
   filters.planName = '';
   filters.riskLevel = '';
   filters.status = '';
+  syncAppliedFilters();
   resetPage();
+  clearSelection();
   void loadPlanList();
 };
 
@@ -352,6 +397,17 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadPlanList();
+};
+
+const handleRemoveAppliedFilter = (key: string) => {
+  removeAppliedFilter(key);
+  resetPage();
+  clearSelection();
+  void loadPlanList();
+};
+
+const handleClearAppliedFilters = () => {
+  handleReset();
 };
 
 const resetPlanForm = () => {
@@ -420,6 +476,7 @@ const handleFormClose = () => {
 };
 
 onMounted(() => {
+  syncAppliedFilters();
   void loadPlanList();
 });
 </script>
@@ -432,4 +489,3 @@ onMounted(() => {
   border: 1px solid rgba(41, 60, 92, 0.1);
 }
 </style>
-

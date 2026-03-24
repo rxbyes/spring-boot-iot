@@ -39,8 +39,8 @@
           <li>失败结果继续落盘到 `logs/acceptance`，可复用现有报告归档链路。</li>
         </ul>
         <StandardActionGroup gap="sm">
-          <el-button type="primary" @click="copyCommand">复制命令</el-button>
-          <el-button @click="downloadPlan">导出 JSON</el-button>
+          <StandardButton action="confirm" @click="copyCommand">复制命令</StandardButton>
+          <StandardButton action="reset" @click="downloadPlan">导出 JSON</StandardButton>
         </StandardActionGroup>
       </PanelCard>
 
@@ -85,11 +85,11 @@
       >
         <template #actions>
           <StandardActionGroup gap="sm">
-            <el-button type="primary" @click="addScenario('pageSmoke')">新增页面冒烟模板</el-button>
-            <el-button @click="addScenario('formSubmit')">新增表单提交模板</el-button>
-            <el-button @click="addScenario('listDetail')">新增列表详情模板</el-button>
-            <el-button @click="showImportDialog = true">导入计划</el-button>
-            <el-button @click="resetPlan">恢复默认计划</el-button>
+            <StandardButton action="add" @click="addScenario('pageSmoke')">新增页面冒烟模板</StandardButton>
+            <StandardButton action="add" plain @click="addScenario('formSubmit')">新增表单提交模板</StandardButton>
+            <StandardButton action="add" plain @click="addScenario('listDetail')">新增列表详情模板</StandardButton>
+            <StandardButton action="batch" @click="showImportDialog = true">导入计划</StandardButton>
+            <StandardButton action="reset" @click="resetPlan">恢复默认计划</StandardButton>
           </StandardActionGroup>
         </template>
 
@@ -122,12 +122,19 @@
 
     <section class="two-column-grid">
       <PanelCard eyebrow="Preview" title="场景预览" description="这里用于快速查看每个场景的覆盖粒度。">
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `当前场景 ${scenarioPreviews.length} 个`,
+            `含断言 ${scenarioPreviews.filter((item) => item.hasAssertion).length} 个`
+          ]"
+        />
         <el-table :data="scenarioPreviews" size="small" border>
-          <el-table-column prop="key" label="编码" min-width="160" />
-          <el-table-column prop="scope" label="范围" width="110" />
-          <el-table-column prop="stepCount" label="步骤" width="90" />
-          <el-table-column prop="apiCount" label="接口" width="90" />
-          <el-table-column prop="featureCount" label="业务点" width="100" />
+          <StandardTableTextColumn prop="key" label="编码" :min-width="160" />
+          <StandardTableTextColumn prop="scope" label="范围" :width="110" />
+          <StandardTableTextColumn prop="stepCount" label="步骤" :width="90" />
+          <StandardTableTextColumn prop="apiCount" label="接口" :width="90" />
+          <StandardTableTextColumn prop="featureCount" label="业务点" :width="100" />
           <el-table-column label="断言" width="90">
             <template #default="{ row }">
               <el-tag :type="row.hasAssertion ? 'success' : 'warning'">
@@ -172,6 +179,8 @@ import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
+import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import { useAutomationPlanBuilder } from '../composables/useAutomationPlanBuilder';
 
 const {
@@ -289,4 +298,3 @@ const {
 
 }
 </style>
-
