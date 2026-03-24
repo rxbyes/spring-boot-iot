@@ -26,6 +26,7 @@ import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
@@ -247,6 +248,7 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));
         result.getSummary().put("filePayload", upMessage.getFilePayload() != null);
         result.getSummary().put("correlationMatched", context.correlationMatched);
+        appendProtocolMetadataSummary(result.getSummary(), upMessage.getProtocolMetadata());
         return result;
     }
 
@@ -352,9 +354,13 @@ public class UpMessageProcessingPipeline {
         int legacyStableCount = 0;
         int legacyColumnCount = 0;
         int normalizedFallbackCount = 0;
+        int legacyMappedMetricCount = 0;
+        int legacyUnmappedMetricCount = 0;
+        int fallbackMetricCount = 0;
         int skippedMetricCount = 0;
         String branch = null;
         String storageMode = null;
+        String fallbackReason = null;
         String errorClass = null;
         String errorMessage = null;
 
@@ -379,12 +385,18 @@ public class UpMessageProcessingPipeline {
                 legacyStableCount += nullSafeInt(persistResult.getLegacyStableCount());
                 legacyColumnCount += nullSafeInt(persistResult.getLegacyColumnCount());
                 normalizedFallbackCount += nullSafeInt(persistResult.getNormalizedFallbackCount());
+                legacyMappedMetricCount += nullSafeInt(persistResult.getLegacyMappedMetricCount());
+                legacyUnmappedMetricCount += nullSafeInt(persistResult.getLegacyUnmappedMetricCount());
+                fallbackMetricCount += nullSafeInt(persistResult.getFallbackMetricCount());
                 skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
                 if (branch == null && hasText(persistResult.getBranch())) {
                     branch = persistResult.getBranch();
                 }
                 if (storageMode == null && hasText(persistResult.getStorageMode())) {
                     storageMode = persistResult.getStorageMode();
+                }
+                if (fallbackReason == null && hasText(persistResult.getFallbackReason())) {
+                    fallbackReason = persistResult.getFallbackReason();
                 }
             } catch (Exception ex) {
                 failedTargetCount++;
@@ -415,9 +427,15 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("legacyStableCount", legacyStableCount);
         result.getSummary().put("legacyColumnCount", legacyColumnCount);
         result.getSummary().put("normalizedFallbackCount", normalizedFallbackCount);
+        result.getSummary().put("legacyMappedMetricCount", legacyMappedMetricCount);
+        result.getSummary().put("legacyUnmappedMetricCount", legacyUnmappedMetricCount);
+        result.getSummary().put("fallbackMetricCount", fallbackMetricCount);
         result.getSummary().put("skippedMetricCount", skippedMetricCount);
         if (hasText(storageMode)) {
             result.getSummary().put("storageMode", storageMode);
+        }
+        if (hasText(fallbackReason)) {
+            result.getSummary().put("fallbackReason", fallbackReason);
         }
         return result;
     }
@@ -652,6 +670,31 @@ public class UpMessageProcessingPipeline {
         }
         if (!hasText(childMessage.getRawPayload())) {
             childMessage.setRawPayload(parentMessage.getRawPayload());
+        }
+        if (childMessage.getProtocolMetadata() == null && parentMessage.getProtocolMetadata() != null) {
+            childMessage.setProtocolMetadata(parentMessage.getProtocolMetadata());
+        }
+    }
+
+    private void appendProtocolMetadataSummary(Map<String, Object> summary,
+                                               DeviceUpProtocolMetadata protocolMetadata) {
+        if (summary == null || protocolMetadata == null) {
+            return;
+        }
+        if (hasText(protocolMetadata.getAppId())) {
+            summary.put("appId", protocolMetadata.getAppId());
+        }
+        if (protocolMetadata.getFamilyCodes() != null && !protocolMetadata.getFamilyCodes().isEmpty()) {
+            summary.put("familyCodes", protocolMetadata.getFamilyCodes());
+        }
+        if (hasText(protocolMetadata.getNormalizationStrategy())) {
+            summary.put("normalizationStrategy", protocolMetadata.getNormalizationStrategy());
+        }
+        if (hasText(protocolMetadata.getTimestampSource())) {
+            summary.put("timestampSource", protocolMetadata.getTimestampSource());
+        }
+        if (protocolMetadata.getChildSplitApplied() != null) {
+            summary.put("childSplitApplied", protocolMetadata.getChildSplitApplied());
         }
     }
 

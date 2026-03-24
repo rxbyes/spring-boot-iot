@@ -1,5 +1,9 @@
 package com.ghlzm.iot.telemetry.service.impl;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.Product;
@@ -11,11 +15,13 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -25,6 +31,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +51,8 @@ class TdengineTelemetryFacadeTest {
 
     private IotProperties iotProperties;
     private TdengineTelemetryFacade facade;
+    private final Logger logger = (Logger) LoggerFactory.getLogger(TdengineTelemetryFacade.class);
+    private final Level originalLevel = logger.getLevel();
 
     @BeforeEach
     void setUp() {
@@ -60,12 +69,24 @@ class TdengineTelemetryFacadeTest {
         );
     }
 
+    @AfterEach
+    void tearDown() {
+        logger.setLevel(originalLevel);
+        logger.detachAndStopAllAppenders();
+    }
+
     @Test
     void persistShouldCombineLegacyAndNormalizedFallback() {
         DeviceProcessingTarget target = buildTarget(Map.of("temperature", 26.5D, "humidity", 68D, "noise", 4.2D));
         when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(metadataMap());
         when(legacyTdengineTelemetryWriter.persist(any(), any(), any()))
-                .thenReturn(LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome.of(1, Set.of("temperature", "humidity")));
+                .thenReturn(LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome.of(
+                        1,
+                        Set.of("temperature", "humidity"),
+                        2,
+                        1,
+                        Set.of("MISSING_TDENGINE_LEGACY_MAPPING")
+                ));
         when(tdengineTelemetryStorageService.persist(any(), any(), any()))
                 .thenReturn(TelemetryPersistResult.persisted("TDENGINE", "normalized-table", 1, 0, 0, 1, 0));
 
@@ -77,7 +98,40 @@ class TdengineTelemetryFacadeTest {
         assertEquals(1, result.getLegacyStableCount());
         assertEquals(2, result.getLegacyColumnCount());
         assertEquals(1, result.getNormalizedFallbackCount());
+        assertEquals(2, result.getLegacyMappedMetricCount());
+        assertEquals(1, result.getLegacyUnmappedMetricCount());
+        assertEquals(1, result.getFallbackMetricCount());
+        assertEquals("MISSING_TDENGINE_LEGACY_MAPPING", result.getFallbackReason());
         assertEquals(0, result.getSkippedMetricCount());
+    }
+
+    @Test
+    void persistShouldLogValidateOnlySnapshotWithoutChangingResult() {
+        iotProperties.getTelemetry().setLegacyMappingValidateOnly(true);
+        DeviceProcessingTarget target = buildTarget(Map.of("temperature", 26.5D, "humidity", 68D, "noise", 4.2D));
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(metadataMap());
+        when(legacyTdengineTelemetryWriter.persist(any(), any(), any()))
+                .thenReturn(LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome.of(
+                        1,
+                        Set.of("temperature"),
+                        1,
+                        2,
+                        Set.of("MISSING_TDENGINE_LEGACY_MAPPING")
+                ));
+        when(tdengineTelemetryStorageService.persist(any(), any(), any()))
+                .thenReturn(TelemetryPersistResult.persisted("TDENGINE", "normalized-table", 2, 0, 0, 2, 0));
+
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+
+        TelemetryPersistResult result = facade.persist(target);
+
+        assertEquals("LEGACY_WITH_NORMALIZED_FALLBACK", result.getBranch());
+        assertTrue(appender.list.stream().anyMatch(event -> event.getFormattedMessage().contains("legacy_mapping_validate_only")
+                && event.getFormattedMessage().contains("oldMappedMetricCount=2")
+                && event.getFormattedMessage().contains("newMappedMetricCount=1")));
     }
 
     @Test

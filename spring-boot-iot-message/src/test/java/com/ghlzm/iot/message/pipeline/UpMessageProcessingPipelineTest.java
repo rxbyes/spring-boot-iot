@@ -35,8 +35,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -212,6 +214,14 @@ class UpMessageProcessingPipelineTest {
         UpMessageProcessingRequest request = buildMqttRequest("$dp", "plain-text");
         RawDeviceMessage rawDeviceMessage = buildRawMessage("$dp", "legacy", "demo-device-01", "demo-product");
         DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "$dp");
+        attachProtocolMetadata(upMessage, Map.of(
+                "appId", "62000001",
+                "familyCodes", List.of("L1_GP_1", "L4_NW_1"),
+                "normalizationStrategy", "LEGACY_DP",
+                "timestampSource", "PAYLOAD_TIMESTAMP",
+                "childSplitApplied", Boolean.FALSE,
+                "routeType", "legacy"
+        ));
         DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
 
         when(mqttTopicRouter.toRawMessage(anyString(), any(MqttMessage.class))).thenReturn(rawDeviceMessage);
@@ -227,9 +237,48 @@ class UpMessageProcessingPipelineTest {
         assertEquals("legacy", routeStep.getSummary().get("routeType"));
         MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
         assertEquals("legacy", decodeStep.getSummary().get("routeType"));
+        assertEquals("62000001", decodeStep.getSummary().get("appId"));
+        assertEquals(List.of("L1_GP_1", "L4_NW_1"), decodeStep.getSummary().get("familyCodes"));
+        assertEquals("LEGACY_DP", decodeStep.getSummary().get("normalizationStrategy"));
+        assertEquals("PAYLOAD_TIMESTAMP", decodeStep.getSummary().get("timestampSource"));
         MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
         assertEquals(MessageFlowStatuses.STEP_SKIPPED, telemetryStep.getStatus());
         assertEquals("EMPTY_PROPERTIES", telemetryStep.getBranch());
+    }
+
+    @Test
+    void processShouldExposeLegacyFallbackReasonInTelemetrySummary() {
+        UpMessageProcessingRequest request = buildHttpRequest();
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");
+        DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
+        TelemetryPersistResult persistResult = TelemetryPersistResult.persisted(
+                "LEGACY_WITH_NORMALIZED_FALLBACK",
+                "legacy-compatible",
+                3,
+                1,
+                2,
+                1,
+                0
+        );
+        persistResult.setLegacyMappedMetricCount(2);
+        persistResult.setLegacyUnmappedMetricCount(1);
+        persistResult.setFallbackMetricCount(1);
+        persistResult.setFallbackReason("MISSING_TDENGINE_LEGACY_MAPPING");
+
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(target);
+        when(devicePayloadApplyStageHandler.apply(target))
+                .thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(persistResult);
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
+        assertEquals(2, telemetryStep.getSummary().get("legacyMappedMetricCount"));
+        assertEquals(1, telemetryStep.getSummary().get("legacyUnmappedMetricCount"));
+        assertEquals(1, telemetryStep.getSummary().get("fallbackMetricCount"));
+        assertEquals("MISSING_TDENGINE_LEGACY_MAPPING", telemetryStep.getSummary().get("fallbackReason"));
     }
 
     @Test
@@ -407,5 +456,33 @@ class UpMessageProcessingPipelineTest {
                 .filter(step -> stage.equals(step.getStage()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private void attachProtocolMetadata(DeviceUpMessage upMessage, Map<String, Object> values) {
+        try {
+            Class<?> metadataClass = Class.forName("com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata");
+            Object metadata = metadataClass.getDeclaredConstructor().newInstance();
+            for (Map.Entry<String, Object> entry : values.entrySet()) {
+                setBeanProperty(metadata, "set" + capitalize(entry.getKey()), entry.getValue());
+            }
+            DeviceUpMessage.class.getMethod("setProtocolMetadata", metadataClass).invoke(upMessage, metadata);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected DeviceUpMessage protocol metadata support", ex);
+        }
+    }
+
+    private void setBeanProperty(Object target, String setterName, Object value) throws ReflectiveOperationException {
+        Method setter = Arrays.stream(target.getClass().getMethods())
+                .filter(method -> method.getName().equals(setterName) && method.getParameterCount() == 1)
+                .findFirst()
+                .orElseThrow(() -> new NoSuchMethodException(setterName));
+        setter.invoke(target, value);
+    }
+
+    private String capitalize(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 }

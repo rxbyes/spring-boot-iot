@@ -166,6 +166,11 @@ Payload：
     - 子消息按映射后的真实 `deviceCode` 分别进入 `device` 模块落库
     - 当逻辑测点值为 `时间戳 -> 对象` 结构时，子消息属性会写成对象内字段，例如 `dispsX`、`dispsY`
     - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性会回落为该逻辑测点自身
+  - 当前 `$dp` 内部解码已拆成固定职责段，但对外仍统一产出 `DeviceUpMessage`：
+    - `LegacyDpEnvelopeDecoder`：外层解包、解密、二次帧解析
+    - `LegacyDpFamilyResolver`：只从 payload 顶层和设备体识别家族码
+    - `LegacyDpPropertyNormalizer`：输出稳定属性键、时间戳和 `messageType`
+    - `LegacyDpChildMessageSplitter`：按 `iot.device.sub-device-mappings` 拆分子消息
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
@@ -190,8 +195,21 @@ Payload：
 - `message` 模块负责固定 Pipeline 编排；`MqttMessageConsumer` 和 `DeviceHttpController` 都统一进入同一条 Pipeline。
 - `TOPIC_ROUTE` 继续由 `MqttTopicRouter` 负责；HTTP 入口在该阶段固定标记为 `SKIPPED/DIRECT_HTTP`。
 - `PROTOCOL_DECODE` 继续由 `MqttJsonProtocolAdapter` 负责，不再顺带承担“流程展示”职责；阶段摘要固定输出 `routeType`、`messageType`、`dataFormatType`、`childMessageCount`、`filePayload`。
+- 当前 `$dp` 兼容链路在 `DeviceUpMessage` 中额外挂载 `protocolMetadata`；当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，`PROTOCOL_DECODE.summary` 还会回写以下治理字段：
+  - `appId`：仅加密 `$dp` 外层包存在时返回
+  - `familyCodes`：从 legacy payload 中识别出的家族码列表
+  - `normalizationStrategy`：默认 `LEGACY_DP`；若 `iot.protocol.legacy-dp.normalizer-v2-enabled=false`，则回写 `LEGACY_DP_COMPAT`
+  - `timestampSource`：当前区分 `PAYLOAD_TIMESTAMP` 与 `SERVER_TIME`
+  - `childSplitApplied`：是否命中了基准站一包多测点拆分
 - `device` 模块负责 `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 等显式 stage handler。
 - `telemetry` 模块负责 `TELEMETRY_PERSIST`，按标准化 `properties` 写 TDengine；`reply` / 文件载荷 / 空属性消息会跳过该步骤。
+- `legacy-compatible` 模式下，`TELEMETRY_PERSIST.summary` 当前额外输出：
+  - `legacyMappedMetricCount`
+  - `legacyUnmappedMetricCount`
+  - `fallbackMetricCount`
+  - `fallbackReason`
+  用于把 `NORMALIZED_FALLBACK_ONLY` 从“默认成功”改回“治理信号”。
+- `iot.telemetry.legacy-mapping-validate-only=true` 时，`TdengineTelemetryFacade` 会额外输出 `legacy_mapping_validate_only` 日志，对比“旧 metadata 快照”与“当前显式映射服务”的 old/new 命中差异，但不会改变本次 `TELEMETRY_PERSIST` 的分支判定、落库结果和对外 API 结构。
 - `UpMessageDispatcher` 当前仅保留为 legacy/compatibility 类和兼容性测试对象，不再作为 `$dp` 主链路说明对象。
 - 表 C.3 / C.4 在协议层会进一步标准化为：
   - `DeviceUpMessage.filePayload`
