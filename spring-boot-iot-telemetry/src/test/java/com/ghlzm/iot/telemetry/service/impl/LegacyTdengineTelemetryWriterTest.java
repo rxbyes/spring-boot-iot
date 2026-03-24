@@ -3,7 +3,7 @@ package com.ghlzm.iot.telemetry.service.impl;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
-import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,9 +66,9 @@ class LegacyTdengineTelemetryWriterTest {
         when(deviceMetadataResolver.resolveSubTableName(deviceMetadata, "s1_zt_1")).thenReturn("tb_s1_zt_1_SN001");
 
         LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome outcome = writer.persist(
-                buildTarget(Map.of("temperature", 26.5D, "humidity", 68D)),
-                Map.of("temperature", 26.5D, "humidity", 68D),
-                metadataMap()
+                buildTarget(Map.of("temperature", 26.5D, "humidity", 68D, "noise", 4.2D)),
+                Map.of("temperature", 26.5D, "humidity", 68D, "noise", 4.2D),
+                mappingMap()
         );
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
@@ -78,7 +79,9 @@ class LegacyTdengineTelemetryWriterTest {
         assertTrue(sqlCaptor.getAllValues().get(0).contains("CREATE TABLE IF NOT EXISTS tb_s1_zt_1_SN001 USING s1_zt_1"));
         assertTrue(sqlCaptor.getAllValues().get(1).contains("INSERT INTO tb_s1_zt_1_SN001"));
         assertEquals(1, outcome.getStableCount());
-        assertEquals(2, outcome.getMetricCount());
+        assertEquals(2, outcome.getLegacyMappedMetricCount());
+        assertEquals(1, outcome.getLegacyUnmappedMetricCount());
+        assertEquals(TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED, outcome.getUnmappedMetricReasons().get("noise"));
         assertEquals(5, argsCaptor.getValue().length);
     }
 
@@ -104,20 +107,26 @@ class LegacyTdengineTelemetryWriterTest {
         return target;
     }
 
-    private Map<String, DevicePropertyMetadata> metadataMap() {
-        Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
-        metadataMap.put("temperature", metadata("temperature", "s1_zt_1", "temp"));
-        metadataMap.put("humidity", metadata("humidity", "s1_zt_1", "humidity"));
-        return metadataMap;
+    private Map<String, TelemetryMetricMapping> mappingMap() {
+        Map<String, TelemetryMetricMapping> mappingMap = new LinkedHashMap<>();
+        mappingMap.put("temperature", mapping("temperature", "s1_zt_1", "temp"));
+        mappingMap.put("humidity", mapping("humidity", "s1_zt_1", "humidity"));
+        mappingMap.put("noise", fallbackMapping("noise", TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED));
+        return mappingMap;
     }
 
-    private DevicePropertyMetadata metadata(String identifier, String stable, String column) {
-        DevicePropertyMetadata metadata = new DevicePropertyMetadata();
-        metadata.setIdentifier(identifier);
-        DevicePropertyMetadata.TdengineLegacyMapping mapping = new DevicePropertyMetadata.TdengineLegacyMapping();
+    private TelemetryMetricMapping mapping(String identifier, String stable, String column) {
+        TelemetryMetricMapping mapping = new TelemetryMetricMapping();
+        mapping.setMetricCode(identifier);
         mapping.setStable(stable);
         mapping.setColumn(column);
-        metadata.setTdengineLegacyMapping(mapping);
-        return metadata;
+        return mapping;
+    }
+
+    private TelemetryMetricMapping fallbackMapping(String identifier, String reason) {
+        TelemetryMetricMapping mapping = new TelemetryMetricMapping();
+        mapping.setMetricCode(identifier);
+        mapping.setFallbackReasons(List.of(reason));
+        return mapping;
     }
 }

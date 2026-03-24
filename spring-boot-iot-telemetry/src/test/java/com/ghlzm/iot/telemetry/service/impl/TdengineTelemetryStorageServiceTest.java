@@ -19,8 +19,10 @@ import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -79,6 +81,27 @@ class TdengineTelemetryStorageServiceTest {
     }
 
     @Test
+    void persistShouldGenerateDistinctRowTimestampsAcrossSameReportedAtMessages() {
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "temperature", metadata("temperature", "温度", "double")
+        ));
+
+        DeviceProcessingTarget firstTarget = buildTarget(Map.of("temperature", 26.5), "trace-001");
+        DeviceProcessingTarget secondTarget = buildTarget(Map.of("temperature", 27.1), "trace-002");
+
+        tdengineTelemetryStorageService.persist(firstTarget);
+        tdengineTelemetryStorageService.persist(secondTarget);
+
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate, times(2)).update(anyString(), argsCaptor.capture());
+        Set<Object> rowTimestamps = new LinkedHashSet<>();
+        for (Object[] args : argsCaptor.getAllValues()) {
+            rowTimestamps.add(args[0]);
+        }
+        assertEquals(2, rowTimestamps.size());
+    }
+
+    @Test
     void listLatestPointsShouldMapTdengineRows() {
         when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), anyLong()))
                 .thenAnswer(invocation -> {
@@ -117,9 +140,16 @@ class TdengineTelemetryStorageServiceTest {
         assertEquals("temperature", latestPoints.get(1).getMetricCode());
         assertEquals(26.5D, latestPoints.get(1).getValue());
         verify(tdengineTelemetrySchemaSupport).ensureTable();
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(org.springframework.jdbc.core.ResultSetExtractor.class), anyLong());
+        assertEquals(true, sqlCaptor.getValue().contains("p.reported_at DESC"));
     }
 
     private DeviceProcessingTarget buildTarget(Map<String, Object> properties) {
+        return buildTarget(properties, "trace-001");
+    }
+
+    private DeviceProcessingTarget buildTarget(Map<String, Object> properties, String traceId) {
         Device device = new Device();
         device.setId(2001L);
         device.setTenantId(1L);
@@ -134,7 +164,7 @@ class TdengineTelemetryStorageServiceTest {
         message.setProductKey("demo-product");
         message.setDeviceCode("demo-device-01");
         message.setProtocolCode("mqtt-json");
-        message.setTraceId("trace-001");
+        message.setTraceId(traceId);
         message.setMessageType("property");
         message.setTopic("/sys/demo-product/demo-device-01/thing/property/post");
         message.setTimestamp(LocalDateTime.of(2026, 3, 23, 10, 0));

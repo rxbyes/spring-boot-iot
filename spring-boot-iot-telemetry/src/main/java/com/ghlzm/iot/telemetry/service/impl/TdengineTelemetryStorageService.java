@@ -11,11 +11,14 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * TDengine 通用兼容表存储服务。
@@ -63,6 +66,7 @@ public class TdengineTelemetryStorageService {
             FROM iot_device_telemetry_point p
             WHERE p.device_id = ?
             ORDER BY p.metric_code ASC
+                   , p.reported_at DESC
                    , p.ts DESC
             """;
 
@@ -70,6 +74,7 @@ public class TdengineTelemetryStorageService {
     private final TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport;
     private final DevicePropertyMetadataService devicePropertyMetadataService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final AtomicLong lastPersistedRowTimestampMillis = new AtomicLong();
 
     public TdengineTelemetryStorageService(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                            TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport,
@@ -99,7 +104,7 @@ public class TdengineTelemetryStorageService {
             DevicePropertyMetadata metadata = metadataMap.get(entry.getKey());
             jdbcTemplate.update(
                     INSERT_SQL,
-                    Timestamp.valueOf(resolveRowTimestamp(reportedAt, pointCount)),
+                    Timestamp.valueOf(resolveRowTimestamp()),
                     Timestamp.valueOf(reportedAt),
                     target.getDevice().getTenantId(),
                     target.getDevice().getId(),
@@ -165,8 +170,12 @@ public class TdengineTelemetryStorageService {
         return target.getMessage().getTimestamp() == null ? LocalDateTime.now() : target.getMessage().getTimestamp();
     }
 
-    private LocalDateTime resolveRowTimestamp(LocalDateTime reportedAt, int pointIndex) {
-        return reportedAt.plusNanos(pointIndex * 1_000_000L);
+    private LocalDateTime resolveRowTimestamp() {
+        long uniqueMillis = lastPersistedRowTimestampMillis.updateAndGet(previousMillis -> {
+            long currentMillis = System.currentTimeMillis();
+            return currentMillis > previousMillis ? currentMillis : previousMillis + 1;
+        });
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(uniqueMillis), ZoneId.systemDefault());
     }
 
     private String resolveMetricName(String identifier, DevicePropertyMetadata metadata) {
