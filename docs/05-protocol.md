@@ -170,7 +170,13 @@ Payload：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
   - 当前已支持 `application-dev.yml` 中配置的 `62000001`
-  - 若未配置对应解密器，会返回清晰业务异常
+- 若未配置对应解密器，会返回清晰业务异常
+- 2026-03-24 起，`MqttJsonProtocolAdapter` 对 legacy `$dp` 保留 v1/v2 双轨内部实现。
+- 默认兼容路径仍为 v1：继续复用 adapter 内原有 inline helper。
+- v2 路径复用 `LegacyDpFamilyResolver`、`LegacyDpPropertyNormalizer`、`LegacyDpChildMessageSplitter`。
+- `iot.telemetry.legacy-mapping-validate-only=true` 时会并行执行 old/new 比对并输出差异日志，但 decode 结果继续沿用 v1。
+- `iot.protocol.legacy-dp.normalizer-v2-enabled=true` 后，才会把 legacy `$dp` 的标准化与子消息拆分切换到 v2。
+- 以上切换只发生在协议层内部，不改变 `MqttMessageConsumer`、固定 Pipeline 顺序、控制器接口或外部 API 结构。
 
 ## `$dp` 主链路说明
 `$dp` 主题收到消息后，当前运行时统一进入显式 `UpMessageProcessingPipeline`，主口径固定为：
@@ -190,6 +196,8 @@ Payload：
 - `message` 模块负责固定 Pipeline 编排；`MqttMessageConsumer` 和 `DeviceHttpController` 都统一进入同一条 Pipeline。
 - `TOPIC_ROUTE` 继续由 `MqttTopicRouter` 负责；HTTP 入口在该阶段固定标记为 `SKIPPED/DIRECT_HTTP`。
 - `PROTOCOL_DECODE` 继续由 `MqttJsonProtocolAdapter` 负责，不再顺带承担“流程展示”职责；阶段摘要固定输出 `routeType`、`messageType`、`dataFormatType`、`childMessageCount`、`filePayload`。
+- 当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，legacy `$dp` 的 `PROTOCOL_DECODE` 还会输出 `appId`、`familyCodes`、`normalizationStrategy`、`timestampSource`、`childSplitApplied`。
+- 当 `iot.protocol.legacy-dp.family-observability-enabled=false` 时，legacy `$dp` 仍正常解码与入库，但不再附带协议元数据。
 - `device` 模块负责 `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 等显式 stage handler。
 - `telemetry` 模块负责 `TELEMETRY_PERSIST`，按标准化 `properties` 写 TDengine；`reply` / 文件载荷 / 空属性消息会跳过该步骤。
 - `UpMessageDispatcher` 当前仅保留为 legacy/compatibility 类和兼容性测试对象，不再作为 `$dp` 主链路说明对象。

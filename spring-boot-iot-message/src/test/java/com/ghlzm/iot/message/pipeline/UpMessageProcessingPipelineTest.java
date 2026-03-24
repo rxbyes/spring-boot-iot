@@ -22,6 +22,7 @@ import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStor
 import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
@@ -212,6 +213,14 @@ class UpMessageProcessingPipelineTest {
         UpMessageProcessingRequest request = buildMqttRequest("$dp", "plain-text");
         RawDeviceMessage rawDeviceMessage = buildRawMessage("$dp", "legacy", "demo-device-01", "demo-product");
         DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "$dp");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setAppId("62000001");
+        protocolMetadata.setFamilyCodes(List.of("S1_ZT_1"));
+        protocolMetadata.setNormalizationStrategy("LEGACY_DP");
+        protocolMetadata.setTimestampSource("PAYLOAD_LATEST_TIMESTAMP");
+        protocolMetadata.setChildSplitApplied(Boolean.FALSE);
+        protocolMetadata.setRouteType("legacy");
+        upMessage.setProtocolMetadata(protocolMetadata);
         DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
 
         when(mqttTopicRouter.toRawMessage(anyString(), any(MqttMessage.class))).thenReturn(rawDeviceMessage);
@@ -227,9 +236,49 @@ class UpMessageProcessingPipelineTest {
         assertEquals("legacy", routeStep.getSummary().get("routeType"));
         MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
         assertEquals("legacy", decodeStep.getSummary().get("routeType"));
+        assertEquals("62000001", decodeStep.getSummary().get("appId"));
+        assertEquals(List.of("S1_ZT_1"), decodeStep.getSummary().get("familyCodes"));
+        assertEquals("LEGACY_DP", decodeStep.getSummary().get("normalizationStrategy"));
+        assertEquals("PAYLOAD_LATEST_TIMESTAMP", decodeStep.getSummary().get("timestampSource"));
+        assertEquals(Boolean.FALSE, decodeStep.getSummary().get("childSplitApplied"));
         MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
         assertEquals(MessageFlowStatuses.STEP_SKIPPED, telemetryStep.getStatus());
         assertEquals("EMPTY_PROPERTIES", telemetryStep.getBranch());
+    }
+
+    @Test
+    void processShouldExposeTelemetryGovernanceSummary() {
+        UpMessageProcessingRequest request = buildHttpRequest();
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");
+        DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
+        TelemetryPersistResult persistResult = TelemetryPersistResult.persisted(
+                "LEGACY_WITH_NORMALIZED_FALLBACK",
+                "legacy-compatible",
+                3,
+                1,
+                2,
+                1,
+                0
+        );
+        persistResult.setLegacyMappedMetricCount(2);
+        persistResult.setLegacyUnmappedMetricCount(1);
+        persistResult.setFallbackMetricCount(1);
+        persistResult.setFallbackReasons(List.of("LEGACY_MAPPING_NOT_CONFIGURED"));
+
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(target);
+        when(devicePayloadApplyStageHandler.apply(target))
+                .thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(persistResult);
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
+        assertEquals(2, telemetryStep.getSummary().get("legacyMappedMetricCount"));
+        assertEquals(1, telemetryStep.getSummary().get("legacyUnmappedMetricCount"));
+        assertEquals(1, telemetryStep.getSummary().get("fallbackMetricCount"));
+        assertEquals(List.of("LEGACY_MAPPING_NOT_CONFIGURED"), telemetryStep.getSummary().get("fallbackReasons"));
     }
 
     @Test

@@ -3,8 +3,7 @@ package com.ghlzm.iot.device.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
-import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
-import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import org.springframework.stereotype.Service;
 
@@ -13,20 +12,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 产品物模型属性元数据解析服务实现。
+ * 设备遥测映射读取服务实现。
  */
 @Service
-public class DevicePropertyMetadataServiceImpl implements DevicePropertyMetadataService {
+public class DeviceTelemetryMappingServiceImpl implements DeviceTelemetryMappingService {
 
     private final ProductModelMapper productModelMapper;
     private final DeviceTelemetryMappingResolver telemetryMappingResolver = new DeviceTelemetryMappingResolver();
 
-    public DevicePropertyMetadataServiceImpl(ProductModelMapper productModelMapper) {
+    public DeviceTelemetryMappingServiceImpl(ProductModelMapper productModelMapper) {
         this.productModelMapper = productModelMapper;
     }
 
     @Override
-    public Map<String, DevicePropertyMetadata> listPropertyMetadataMap(Long productId) {
+    public Map<String, TelemetryMetricMapping> listMetricMappingMap(Long productId) {
         if (productId == null) {
             return Map.of();
         }
@@ -38,20 +37,16 @@ public class DevicePropertyMetadataServiceImpl implements DevicePropertyMetadata
                         .orderByAsc(ProductModel::getSortNo)
                         .orderByAsc(ProductModel::getIdentifier)
         );
-        Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
+        Map<String, TelemetryMetricMapping> mappingMap = new LinkedHashMap<>();
         for (ProductModel productModel : productModels) {
             if (productModel.getIdentifier() == null || productModel.getIdentifier().isBlank()) {
                 continue;
             }
-            DevicePropertyMetadata metadata = new DevicePropertyMetadata();
-            metadata.setIdentifier(productModel.getIdentifier());
-            metadata.setPropertyName(productModel.getModelName());
-            metadata.setDataType(productModel.getDataType());
-            TelemetryMetricMapping telemetryMetricMapping =
-                    telemetryMappingResolver.resolve(productModel.getIdentifier(), productModel.getSpecsJson());
-            metadata.setTdengineLegacyMapping(telemetryMappingResolver.toLegacyMapping(telemetryMetricMapping));
-            metadataMap.put(metadata.getIdentifier(), metadata);
+            mappingMap.put(
+                    productModel.getIdentifier(),
+                    telemetryMappingResolver.resolve(productModel.getIdentifier(), productModel.getSpecsJson())
+            );
         }
-        return metadataMap;
+        return mappingMap;
     }
 }

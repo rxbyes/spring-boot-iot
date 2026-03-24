@@ -3,6 +3,7 @@ package com.ghlzm.iot.telemetry.service.impl;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,7 @@ class LegacyTdengineTelemetryReaderTest {
         deviceMetadata.setLocation("A01");
         when(deviceMetadataResolver.resolve(any())).thenReturn(deviceMetadata);
 
-        List<TelemetryLatestPoint> points = reader.listLatestPoints(buildDevice(), buildProduct(), metadataMap());
+        List<TelemetryLatestPoint> points = reader.listLatestPoints(buildDevice(), buildProduct(), metadataMap(), mappingMap());
 
         assertEquals(2, points.size());
         assertEquals("temperature", points.get(0).getMetricCode());
@@ -109,6 +110,13 @@ class LegacyTdengineTelemetryReaderTest {
         return metadataMap;
     }
 
+    private Map<String, TelemetryMetricMapping> mappingMap() {
+        Map<String, TelemetryMetricMapping> mappingMap = new LinkedHashMap<>();
+        mappingMap.put("temperature", mapping("temperature", "s1_zt_1", "temp"));
+        mappingMap.put("humidity", mapping("humidity", "s1_zt_1", "humidity"));
+        return mappingMap;
+    }
+
     private DevicePropertyMetadata metadata(String identifier,
                                             String propertyName,
                                             String dataType,
@@ -123,5 +131,13 @@ class LegacyTdengineTelemetryReaderTest {
         mapping.setColumn(column);
         metadata.setTdengineLegacyMapping(mapping);
         return metadata;
+    }
+
+    private TelemetryMetricMapping mapping(String metricCode, String stable, String column) {
+        TelemetryMetricMapping mapping = new TelemetryMetricMapping();
+        mapping.setMetricCode(metricCode);
+        mapping.setStable(stable);
+        mapping.setColumn(column);
+        return mapping;
     }
 }

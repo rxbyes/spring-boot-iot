@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-03-23
+> 更新时间：2026-03-24
 
 ## 项目简介
 
@@ -145,7 +145,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 - 帮助中心 / 系统内容： [docs/12-帮助文档与系统内容治理.md](docs/12-帮助文档与系统内容治理.md)
 - 多租户 / 数据权限： [docs/13-数据权限与多租户模型.md](docs/13-数据权限与多租户模型.md)
 - Phase 边界 / 下阶段规划： [docs/19-第四阶段交付边界与复验进展.md](docs/19-第四阶段交付边界与复验进展.md)、[docs/16-阶段规划与迭代路线图.md](docs/16-阶段规划与迭代路线图.md)
-- 智能助手协作： [docs/skills/ai-task-intake/SKILL.md](docs/skills/ai-task-intake/SKILL.md)、[docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md)、[docs/template/README.md](docs/template/README.md)
+- 智能助手协作： [docs/skills/ai-task-intake/SKILL.md](docs/skills/ai-task-intake/SKILL.md)、[docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md)、[docs/10-智能助手技能与任务选型指南.md](docs/10-智能助手技能与任务选型指南.md)、[docs/17-智能助手任务发起模板速查.md](docs/17-%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B%E4%BB%BB%E5%8A%A1%E5%8F%91%E8%B5%B7%E6%A8%A1%E6%9D%BF%E9%80%9F%E6%9F%A5.md)、[docs/template/README.md](docs/template/README.md)
 - 不再作为编码主依赖：兼容入口页、`docs/archive/*`、历史台账页、`docs/template/*` 薄包装页
 
 ## 当前维护规则
@@ -159,6 +159,8 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 ## 相关入口
 
 - 文档总入口： [docs/README.md](docs/README.md)
+- 智能助手技能选型： [docs/10-智能助手技能与任务选型指南.md](docs/10-智能助手技能与任务选型指南.md)
+- 智能助手任务模板速查： [docs/17-智能助手任务发起模板速查.md](docs/17-%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B%E4%BB%BB%E5%8A%A1%E5%8F%91%E8%B5%B7%E6%A8%A1%E6%9D%BF%E9%80%9F%E6%9F%A5.md)
 - 可观测与通知治理： [docs/11-可观测性、日志追踪与消息通知治理.md](docs/11-可观测性、日志追踪与消息通知治理.md)
 - 帮助文档与系统内容治理： [docs/12-帮助文档与系统内容治理.md](docs/12-帮助文档与系统内容治理.md)
 - 阶段规划与迭代路线： [docs/16-阶段规划与迭代路线图.md](docs/16-阶段规划与迭代路线图.md)

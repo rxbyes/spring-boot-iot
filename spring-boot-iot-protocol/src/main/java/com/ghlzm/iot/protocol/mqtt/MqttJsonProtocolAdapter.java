@@ -1,16 +1,21 @@
 package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
-import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
-import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
-import com.ghlzm.iot.protocol.core.model.DeviceFirmwarePacket;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -20,11 +25,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * MQTT JSON 协议适配器。
@@ -36,6 +42,8 @@ import java.util.Map;
  */
 @Component
 public class MqttJsonProtocolAdapter implements ProtocolAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(MqttJsonProtocolAdapter.class);
 
     private static final List<String> PRODUCT_KEY_ALIASES = List.of(
             "productKey", "product_code", "productCode", "product_key", "pk"
@@ -66,17 +74,51 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private final MqttPayloadSecurityValidator mqttPayloadSecurityValidator;
     private final MqttFirmwarePacketParser mqttFirmwarePacketParser;
     private final IotProperties iotProperties;
+    private final LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder;
+    private final LegacyDpFamilyResolver legacyDpFamilyResolver;
+    private final LegacyDpPropertyNormalizer legacyDpPropertyNormalizer;
+    private final LegacyDpChildMessageSplitter legacyDpChildMessageSplitter;
 
+    @Autowired
     public MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry,
                                    MqttPayloadFrameParser mqttPayloadFrameParser,
                                    MqttPayloadSecurityValidator mqttPayloadSecurityValidator,
                                    MqttFirmwarePacketParser mqttFirmwarePacketParser,
                                    IotProperties iotProperties) {
+        this(
+                mqttPayloadDecryptorRegistry,
+                mqttPayloadFrameParser,
+                mqttPayloadSecurityValidator,
+                mqttFirmwarePacketParser,
+                iotProperties,
+                new LegacyDpFamilyResolver(),
+                new LegacyDpPropertyNormalizer(),
+                new LegacyDpChildMessageSplitter()
+        );
+    }
+
+    MqttJsonProtocolAdapter(MqttPayloadDecryptorRegistry mqttPayloadDecryptorRegistry,
+                            MqttPayloadFrameParser mqttPayloadFrameParser,
+                            MqttPayloadSecurityValidator mqttPayloadSecurityValidator,
+                            MqttFirmwarePacketParser mqttFirmwarePacketParser,
+                            IotProperties iotProperties,
+                            LegacyDpFamilyResolver legacyDpFamilyResolver,
+                            LegacyDpPropertyNormalizer legacyDpPropertyNormalizer,
+                            LegacyDpChildMessageSplitter legacyDpChildMessageSplitter) {
         this.mqttPayloadDecryptorRegistry = mqttPayloadDecryptorRegistry;
         this.mqttPayloadFrameParser = mqttPayloadFrameParser;
         this.mqttPayloadSecurityValidator = mqttPayloadSecurityValidator;
         this.mqttFirmwarePacketParser = mqttFirmwarePacketParser;
         this.iotProperties = iotProperties;
+        this.legacyDpEnvelopeDecoder = new LegacyDpEnvelopeDecoder(
+                mqttPayloadDecryptorRegistry,
+                mqttPayloadFrameParser,
+                mqttPayloadSecurityValidator,
+                mqttFirmwarePacketParser
+        );
+        this.legacyDpFamilyResolver = legacyDpFamilyResolver;
+        this.legacyDpPropertyNormalizer = legacyDpPropertyNormalizer;
+        this.legacyDpChildMessageSplitter = legacyDpChildMessageSplitter;
     }
 
     @Override
@@ -88,23 +130,59 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     @SuppressWarnings("unchecked")
     public DeviceUpMessage decode(byte[] payload, ProtocolContext context) {
         try {
-            DecodedPayload decodedPayload = decodePayload(payload);
+            LegacyDpEnvelopeDecoder.DecodedPayload decodedPayload = legacyDpEnvelopeDecoder.decode(payload);
             Map<String, Object> map = decodedPayload.payload();
             DeviceUpMessage message = new DeviceUpMessage();
             message.setTenantId(context.getTenantCode());
             // 标准 topic 优先，历史兼容 topic 再回退到 payload 字段或设备报文根节点提取。
             String resolvedDeviceCode = resolveDeviceCode(context, map);
+            boolean legacyDp = isLegacyDp(context);
+            List<String> familyCodes = List.of();
             message.setProductKey(resolveIdentity(context.getProductKey(), map, PRODUCT_KEY_ALIASES));
             message.setDeviceCode(resolvedDeviceCode);
+            LegacyDpNormalizeResult normalizeResult = null;
+            LegacyDpNormalizeResult legacyV1NormalizeResult = null;
+            LegacyDpNormalizeResult legacyV2NormalizeResult = null;
+            TimestampResolution timestampResolution;
+            boolean childSplitApplied = false;
+            if (decodedPayload.dataFormatType() != MqttDataFormatType.STANDARD_TYPE_3) {
+                if (legacyDp) {
+                    if (shouldUseLegacyDpV1Path()) {
+                        legacyV1NormalizeResult = buildLegacyV1NormalizeResult(map, resolvedDeviceCode);
+                    }
+                    if (shouldEvaluateLegacyDpV2Path()) {
+                        legacyV2NormalizeResult = buildLegacyV2NormalizeResult(map, resolvedDeviceCode);
+                    }
+                    normalizeResult = selectLegacyNormalizeResult(legacyV1NormalizeResult, legacyV2NormalizeResult);
+                } else {
+                    familyCodes = legacyDpFamilyResolver.resolveFamilyCodes(map, resolvedDeviceCode);
+                    normalizeResult = legacyDpPropertyNormalizer.normalize(map, resolvedDeviceCode, familyCodes);
+                }
+                familyCodes = normalizeResult == null || normalizeResult.familyCodes() == null
+                        ? List.of()
+                        : normalizeResult.familyCodes();
+                timestampResolution = new TimestampResolution(
+                        normalizeResult.timestamp(),
+                        normalizeResult.timestampSource()
+                );
+            } else {
+                familyCodes = legacyDpFamilyResolver.resolveFamilyCodes(map, resolvedDeviceCode);
+                timestampResolution = resolveTimestamp(map, resolvedDeviceCode);
+            }
             // MQTT 场景优先使用 topic 解析出的 messageType，payload 中的 messageType 作为回退信息。
             String payloadMessageType = stringValue(map.get("messageType"));
-            message.setMessageType(resolveMessageType(context, payloadMessageType, map, resolvedDeviceCode, decodedPayload.dataFormatType()));
+            message.setMessageType(resolveMessageType(
+                    context,
+                    payloadMessageType,
+                    map,
+                    decodedPayload.dataFormatType(),
+                    normalizeResult == null ? null : normalizeResult.messageType()
+            ));
             message.setTopic(context.getTopic());
             message.setDataFormatType(decodedPayload.dataFormatType() == null
                     ? null
                     : decodedPayload.dataFormatType().name());
-            LocalDateTime resolvedTimestamp = resolveTimestamp(map, resolvedDeviceCode);
-            message.setTimestamp(resolvedTimestamp);
+            message.setTimestamp(timestampResolution.timestamp());
 
             if (decodedPayload.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3) {
                 // 表 C.3 / C.4 属于文件或升级分包类消息，当前先收口到事件元数据，
@@ -112,19 +190,59 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                 message.setFilePayload(decodedPayload.filePayload());
                 message.setEvents(buildFileEvents(map));
             } else {
-                Map<String, Object> properties = resolveProperties(map, resolvedDeviceCode);
-                ConfiguredChildMessages configuredChildMessages = buildConfiguredChildMessages(
-                        map,
-                        resolvedDeviceCode,
-                        message.getTenantId(),
-                        message.getProductKey(),
-                        message.getMessageType(),
-                        message.getTopic(),
-                        resolvedTimestamp
-                );
-                if (!configuredChildMessages.messages().isEmpty()) {
-                    properties = removeChildLogicalProperties(properties, configuredChildMessages.logicalCodes());
-                    message.setChildMessages(configuredChildMessages.messages());
+                Map<String, Object> properties = normalizeResult == null
+                        ? Map.of()
+                        : normalizeResult.properties();
+                SplitExecutionResult splitResult;
+                if (legacyDp) {
+                    SplitExecutionResult legacyV1SplitResult = shouldUseLegacyDpV1Path()
+                            ? buildLegacyV1SplitExecutionResult(
+                            map,
+                            resolvedDeviceCode,
+                            message.getTenantId(),
+                            message.getProductKey(),
+                            message.getMessageType(),
+                            message.getTopic(),
+                            timestampResolution.timestamp()
+                    )
+                            : null;
+                    SplitExecutionResult legacyV2SplitResult = shouldEvaluateLegacyDpV2Path()
+                            ? buildLegacyV2SplitExecutionResult(
+                            map,
+                            resolvedDeviceCode,
+                            message.getTenantId(),
+                            message.getProductKey(),
+                            message.getMessageType(),
+                            message.getTopic(),
+                            timestampResolution.timestamp()
+                    )
+                            : null;
+                    if (isLegacyDpValidateOnlyEnabled()) {
+                        maybeLogLegacyDpValidationDiff(
+                                context,
+                                resolvedDeviceCode,
+                                legacyV1NormalizeResult,
+                                legacyV2NormalizeResult,
+                                legacyV1SplitResult,
+                                legacyV2SplitResult
+                        );
+                    }
+                    splitResult = selectLegacySplitResult(legacyV1SplitResult, legacyV2SplitResult);
+                } else {
+                    splitResult = buildLegacyV2SplitExecutionResult(
+                            map,
+                            resolvedDeviceCode,
+                            message.getTenantId(),
+                            message.getProductKey(),
+                            message.getMessageType(),
+                            message.getTopic(),
+                            timestampResolution.timestamp()
+                    );
+                }
+                if (!splitResult.messages().isEmpty()) {
+                    properties = removeChildLogicalProperties(properties, splitResult.logicalCodes());
+                    message.setChildMessages(splitResult.messages());
+                    childSplitApplied = true;
                 }
                 if (!properties.isEmpty()) {
                     message.setProperties(properties);
@@ -136,6 +254,18 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                 message.setEvents((Map<String, Object>) events);
             }
 
+            DeviceUpProtocolMetadata protocolMetadata = buildProtocolMetadata(
+                    context,
+                    decodedPayload,
+                    map,
+                    resolvedDeviceCode,
+                    familyCodes,
+                    timestampResolution.source(),
+                    childSplitApplied
+            );
+            if (protocolMetadata != null) {
+                message.setProtocolMetadata(protocolMetadata);
+            }
             message.setRawPayload(decodedPayload.rawPayload());
             return message;
         } catch (BizException ex) {
@@ -154,18 +284,188 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         }
     }
 
+    private boolean isLegacyDp(ProtocolContext context) {
+        return context != null
+                && ("$dp".equals(context.getTopic())
+                || "legacy".equalsIgnoreCase(context.getTopicRouteType()));
+    }
+
+    private boolean shouldUseLegacyDpV1Path() {
+        return isLegacyDpValidateOnlyEnabled() || !isLegacyDpNormalizerV2Enabled();
+    }
+
+    private boolean shouldEvaluateLegacyDpV2Path() {
+        return isLegacyDpValidateOnlyEnabled() || isLegacyDpNormalizerV2Enabled();
+    }
+
+    private boolean isLegacyDpNormalizerV2Enabled() {
+        IotProperties.Protocol protocol = iotProperties == null ? null : iotProperties.getProtocol();
+        IotProperties.Protocol.LegacyDp legacyDp = protocol == null ? null : protocol.getLegacyDp();
+        return legacyDp != null && Boolean.TRUE.equals(legacyDp.getNormalizerV2Enabled());
+    }
+
+    private boolean isLegacyDpFamilyObservabilityEnabled() {
+        IotProperties.Protocol protocol = iotProperties == null ? null : iotProperties.getProtocol();
+        IotProperties.Protocol.LegacyDp legacyDp = protocol == null ? null : protocol.getLegacyDp();
+        return legacyDp == null || !Boolean.FALSE.equals(legacyDp.getFamilyObservabilityEnabled());
+    }
+
+    private boolean isLegacyDpValidateOnlyEnabled() {
+        IotProperties.Telemetry telemetry = iotProperties == null ? null : iotProperties.getTelemetry();
+        return telemetry != null && Boolean.TRUE.equals(telemetry.getLegacyMappingValidateOnly());
+    }
+
+    private LegacyDpNormalizeResult buildLegacyV1NormalizeResult(Map<String, Object> payload,
+                                                                 String resolvedDeviceCode) {
+        List<String> familyCodes = resolveFamilyCodes(payload, resolvedDeviceCode);
+        Map<String, Object> properties = resolveProperties(payload, resolvedDeviceCode);
+        TimestampResolution timestampResolution = resolveTimestamp(payload, resolvedDeviceCode);
+        return new LegacyDpNormalizeResult(
+                familyCodes,
+                properties,
+                inferLegacyMessageType(payload, resolvedDeviceCode),
+                timestampResolution.timestamp(),
+                timestampResolution.source()
+        );
+    }
+
+    private LegacyDpNormalizeResult buildLegacyV2NormalizeResult(Map<String, Object> payload,
+                                                                 String resolvedDeviceCode) {
+        List<String> familyCodes = legacyDpFamilyResolver.resolveFamilyCodes(payload, resolvedDeviceCode);
+        return legacyDpPropertyNormalizer.normalize(payload, resolvedDeviceCode, familyCodes);
+    }
+
+    private LegacyDpNormalizeResult selectLegacyNormalizeResult(LegacyDpNormalizeResult legacyV1NormalizeResult,
+                                                                LegacyDpNormalizeResult legacyV2NormalizeResult) {
+        if (isLegacyDpValidateOnlyEnabled()) {
+            return legacyV1NormalizeResult;
+        }
+        if (isLegacyDpNormalizerV2Enabled()) {
+            return legacyV2NormalizeResult;
+        }
+        return legacyV1NormalizeResult;
+    }
+
+    private SplitExecutionResult buildLegacyV1SplitExecutionResult(Map<String, Object> payload,
+                                                                   String resolvedDeviceCode,
+                                                                   String tenantId,
+                                                                   String productKey,
+                                                                   String messageType,
+                                                                   String topic,
+                                                                   LocalDateTime fallbackTimestamp) {
+        ConfiguredChildMessages configuredChildMessages = buildConfiguredChildMessages(
+                payload,
+                resolvedDeviceCode,
+                tenantId,
+                productKey,
+                messageType,
+                topic,
+                fallbackTimestamp
+        );
+        return new SplitExecutionResult(configuredChildMessages.messages(), configuredChildMessages.logicalCodes());
+    }
+
+    private SplitExecutionResult buildLegacyV2SplitExecutionResult(Map<String, Object> payload,
+                                                                   String resolvedDeviceCode,
+                                                                   String tenantId,
+                                                                   String productKey,
+                                                                   String messageType,
+                                                                   String topic,
+                                                                   LocalDateTime fallbackTimestamp) {
+        LegacyDpChildMessageSplitter.SplitResult splitResult = legacyDpChildMessageSplitter.split(
+                payload,
+                resolvedDeviceCode,
+                tenantId,
+                productKey,
+                messageType,
+                topic,
+                fallbackTimestamp,
+                resolveSubDeviceMappings(resolvedDeviceCode)
+        );
+        return new SplitExecutionResult(splitResult.messages(), splitResult.logicalCodes());
+    }
+
+    private SplitExecutionResult selectLegacySplitResult(SplitExecutionResult legacyV1SplitResult,
+                                                         SplitExecutionResult legacyV2SplitResult) {
+        if (isLegacyDpValidateOnlyEnabled()) {
+            return legacyV1SplitResult == null ? SplitExecutionResult.empty() : legacyV1SplitResult;
+        }
+        if (isLegacyDpNormalizerV2Enabled()) {
+            return legacyV2SplitResult == null ? SplitExecutionResult.empty() : legacyV2SplitResult;
+        }
+        return legacyV1SplitResult == null ? SplitExecutionResult.empty() : legacyV1SplitResult;
+    }
+
+    private void maybeLogLegacyDpValidationDiff(ProtocolContext context,
+                                                String resolvedDeviceCode,
+                                                LegacyDpNormalizeResult legacyV1NormalizeResult,
+                                                LegacyDpNormalizeResult legacyV2NormalizeResult,
+                                                SplitExecutionResult legacyV1SplitResult,
+                                                SplitExecutionResult legacyV2SplitResult) {
+        if (legacyV1NormalizeResult == null || legacyV2NormalizeResult == null) {
+            return;
+        }
+        List<String> diffFields = new ArrayList<>();
+        if (!Objects.equals(legacyV1NormalizeResult.familyCodes(), legacyV2NormalizeResult.familyCodes())) {
+            diffFields.add("familyCodes");
+        }
+        if (!Objects.equals(legacyV1NormalizeResult.properties(), legacyV2NormalizeResult.properties())) {
+            diffFields.add("properties");
+        }
+        if (!Objects.equals(legacyV1NormalizeResult.messageType(), legacyV2NormalizeResult.messageType())) {
+            diffFields.add("messageType");
+        }
+        if (!Objects.equals(legacyV1NormalizeResult.timestampSource(), legacyV2NormalizeResult.timestampSource())) {
+            diffFields.add("timestampSource");
+        }
+        if (!sameSplitResult(legacyV1SplitResult, legacyV2SplitResult)) {
+            diffFields.add("childMessages");
+        }
+        if (diffFields.isEmpty()) {
+            return;
+        }
+        log.warn(
+                "event=\"legacy_dp_normalizer_validation_diff\" topic=\"{}\" routeType=\"{}\" deviceCode=\"{}\" diffFields=\"{}\" v1Families=\"{}\" v2Families=\"{}\"",
+                context == null ? null : context.getTopic(),
+                context == null ? null : context.getTopicRouteType(),
+                resolvedDeviceCode,
+                String.join(",", diffFields),
+                legacyV1NormalizeResult.familyCodes(),
+                legacyV2NormalizeResult.familyCodes()
+        );
+    }
+
+    private boolean sameSplitResult(SplitExecutionResult left, SplitExecutionResult right) {
+        SplitExecutionResult safeLeft = left == null ? SplitExecutionResult.empty() : left;
+        SplitExecutionResult safeRight = right == null ? SplitExecutionResult.empty() : right;
+        if (!Objects.equals(safeLeft.logicalCodes(), safeRight.logicalCodes())) {
+            return false;
+        }
+        if (safeLeft.messages().size() != safeRight.messages().size()) {
+            return false;
+        }
+        for (int index = 0; index < safeLeft.messages().size(); index++) {
+            DeviceUpMessage leftMessage = safeLeft.messages().get(index);
+            DeviceUpMessage rightMessage = safeRight.messages().get(index);
+            if (!Objects.equals(leftMessage.getDeviceCode(), rightMessage.getDeviceCode())
+                    || !Objects.equals(leftMessage.getProperties(), rightMessage.getProperties())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private String resolveMessageType(ProtocolContext context,
                                       String payloadMessageType,
                                       Map<String, Object> payload,
-                                      String resolvedDeviceCode,
-                                      MqttDataFormatType dataFormatType) {
+                                      MqttDataFormatType dataFormatType,
+                                      String normalizedMessageType) {
         if (dataFormatType == MqttDataFormatType.STANDARD_TYPE_3) {
             return inferFileMessageType(payload);
         }
         if ("$dp".equals(context.getTopic())) {
-            String inferredType = inferLegacyMessageType(payload, resolvedDeviceCode);
-            if (inferredType != null && !inferredType.isBlank()) {
-                return inferredType;
+            if (normalizedMessageType != null && !normalizedMessageType.isBlank()) {
+                return normalizedMessageType;
             }
         }
         if (context.getMessageType() != null && !context.getMessageType().isBlank()) {
@@ -290,7 +590,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return true;
     }
 
-    private LocalDateTime resolveTimestamp(Map<String, Object> payload, String resolvedDeviceCode) {
+    private TimestampResolution resolveTimestamp(Map<String, Object> payload, String resolvedDeviceCode) {
         List<LocalDateTime> timestamps = new ArrayList<>();
         Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
                 ? devicePayload
@@ -298,9 +598,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         collectTimestamps(body, timestamps);
         if (!timestamps.isEmpty()) {
             timestamps.sort(LocalDateTime::compareTo);
-            return timestamps.get(timestamps.size() - 1);
+            return new TimestampResolution(timestamps.get(timestamps.size() - 1), "PAYLOAD_LATEST_TIMESTAMP");
         }
-        return LocalDateTime.now();
+        return new TimestampResolution(LocalDateTime.now(), "SERVER_NOW");
     }
 
     private void collectTimestamps(Object source, List<LocalDateTime> timestamps) {
@@ -566,6 +866,57 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return keys;
     }
 
+    private DeviceUpProtocolMetadata buildProtocolMetadata(ProtocolContext context,
+                                                           LegacyDpEnvelopeDecoder.DecodedPayload decodedPayload,
+                                                           Map<String, Object> payload,
+                                                           String resolvedDeviceCode,
+                                                           List<String> familyCodes,
+                                                           String timestampSource,
+                                                           boolean childSplitApplied) {
+        boolean legacyDp = isLegacyDp(context);
+        if (legacyDp && !isLegacyDpFamilyObservabilityEnabled()) {
+            return null;
+        }
+        if (!legacyDp && decodedPayload.appId() == null) {
+            return null;
+        }
+
+        DeviceUpProtocolMetadata metadata = new DeviceUpProtocolMetadata();
+        metadata.setAppId(decodedPayload.appId());
+        metadata.setFamilyCodes(familyCodes == null ? List.of() : familyCodes);
+        metadata.setNormalizationStrategy(legacyDp ? "LEGACY_DP" : "DIRECT_JSON");
+        metadata.setTimestampSource(timestampSource);
+        metadata.setChildSplitApplied(childSplitApplied);
+        metadata.setRouteType(context == null ? null : context.getTopicRouteType());
+        return metadata;
+    }
+
+    private List<String> resolveFamilyCodes(Map<String, Object> payload, String resolvedDeviceCode) {
+        if (payload == null || payload.isEmpty()) {
+            return List.of();
+        }
+
+        LinkedHashSet<String> familyCodes = new LinkedHashSet<>();
+        Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
+                ? devicePayload
+                : payload;
+        if (body instanceof Map<?, ?> bodyMap) {
+            for (Map.Entry<?, ?> entry : bodyMap.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) {
+                    continue;
+                }
+                if (RESERVED_PROPERTY_KEYS.contains(key)) {
+                    continue;
+                }
+                familyCodes.add(key);
+            }
+        }
+        if (familyCodes.isEmpty()) {
+            familyCodes.addAll(topLevelDataKeys(payload));
+        }
+        return familyCodes.isEmpty() ? List.of() : List.copyOf(familyCodes);
+    }
+
     private String inferFileMessageType(Map<String, Object> payload) {
         Object fileType = payload.get("file_type");
         if (fileType != null) {
@@ -585,151 +936,6 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return events;
     }
 
-    private DecodedPayload decodePayload(byte[] payload) throws Exception {
-        MqttPayloadFrameParser.ParsedFrame parsedFrame = mqttPayloadFrameParser.parse("mqtt-json", payload);
-        String payloadText = sanitizePayload(parsedFrame.jsonMessage());
-        Map<String, Object> payloadMap = objectMapper.readValue(payloadText, new TypeReference<>() {
-        });
-
-        if (isEncryptedEnvelope(payloadMap)) {
-            String appId = extractAppId(payloadMap);
-            String encryptedBody = extractEncryptedBody(payloadMap);
-            mqttPayloadSecurityValidator.validateEnvelope(appId, payloadMap, encryptedBody);
-            // 密文解开后，真实设备可能返回“类型字节 + 长度字节 + JSON”的二进制内容，
-            // 因此这里要再次经过帧解析，不能直接把明文当作纯 JSON 处理。
-            MqttPayloadFrameParser.ParsedFrame decryptedFrame = mqttPayloadFrameParser.parse(
-                    "mqtt-json-decrypted",
-                    mqttPayloadDecryptorRegistry.decryptBytesOrThrow(appId, encryptedBody)
-            );
-            String plaintext = sanitizePayload(decryptedFrame.jsonMessage());
-            Map<String, Object> decryptedMap = objectMapper.readValue(plaintext, new TypeReference<>() {
-            });
-            enrichByDataFormat(decryptedMap, decryptedFrame);
-            // 原始日志仍保留接入时的密文报文，便于审计与排障。
-            return new DecodedPayload(
-                    decryptedMap,
-                    payloadText,
-                    decryptedFrame.dataFormatType(),
-                    buildFilePayload(decryptedMap, decryptedFrame)
-            );
-        }
-
-        enrichByDataFormat(payloadMap, parsedFrame);
-        return new DecodedPayload(
-                payloadMap,
-                buildRawPayloadForLog(parsedFrame, payloadText, payloadMap),
-                parsedFrame.dataFormatType(),
-                buildFilePayload(payloadMap, parsedFrame)
-        );
-    }
-
-    private void enrichByDataFormat(Map<String, Object> payloadMap, MqttPayloadFrameParser.ParsedFrame parsedFrame) {
-        if (payloadMap == null || parsedFrame == null) {
-            return;
-        }
-        payloadMap.put("_dataFormatType", parsedFrame.dataFormatType().name());
-        if (parsedFrame.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3 && parsedFrame.binaryPayload() != null) {
-            payloadMap.put("_binaryLength", parsedFrame.binaryLength());
-            payloadMap.put("_fileStreamLength", parsedFrame.binaryLength());
-            payloadMap.put("_fileStreamBase64", Base64.getEncoder().encodeToString(parsedFrame.binaryPayload()));
-            if (shouldParseFirmwarePacket(payloadMap)) {
-                MqttFirmwarePacketParser.ParsedFirmwarePacket packet =
-                        mqttFirmwarePacketParser.parse("mqtt-json-firmware", parsedFrame.binaryPayload());
-                Map<String, Object> firmwarePacket = new LinkedHashMap<>();
-                firmwarePacket.put("packetIndex", packet.packetIndex());
-                firmwarePacket.put("packetSize", packet.packetSize());
-                firmwarePacket.put("totalPackets", packet.totalPackets());
-                firmwarePacket.put("packetDataBase64", Base64.getEncoder().encodeToString(packet.packetData()));
-                firmwarePacket.put("md5Length", packet.md5Length());
-                firmwarePacket.put("firmwareMd5", packet.firmwareMd5());
-                payloadMap.put("_firmwarePacket", firmwarePacket);
-            }
-        }
-    }
-
-    private boolean shouldParseFirmwarePacket(Map<String, Object> payloadMap) {
-        String fileType = stringValue(payloadMap.get("file_type"));
-        if (fileType != null) {
-            String normalized = fileType.trim().toLowerCase();
-            if ("bin".equals(normalized) || "firmware".equals(normalized) || "ota".equals(normalized)) {
-                return true;
-            }
-        }
-        String dsId = stringValue(payloadMap.get("ds_id"));
-        return dsId != null && (dsId.toLowerCase().contains("firmware") || dsId.toLowerCase().contains("ota"));
-    }
-
-    private String buildRawPayloadForLog(MqttPayloadFrameParser.ParsedFrame parsedFrame,
-                                         String payloadText,
-                                         Map<String, Object> payloadMap) throws Exception {
-        if (parsedFrame != null
-                && parsedFrame.dataFormatType() == MqttDataFormatType.STANDARD_TYPE_3
-                && parsedFrame.binaryPayload() != null) {
-            Map<String, Object> rawPayload = new LinkedHashMap<>();
-            rawPayload.put("dataFormatType", parsedFrame.dataFormatType().name());
-            rawPayload.put("descriptor", payloadMap);
-            rawPayload.put("binaryLength", parsedFrame.binaryLength());
-            rawPayload.put("binaryBase64", Base64.getEncoder().encodeToString(parsedFrame.binaryPayload()));
-            return objectMapper.writeValueAsString(rawPayload);
-        }
-        return payloadText;
-    }
-
-    private DeviceFilePayload buildFilePayload(Map<String, Object> payloadMap,
-                                               MqttPayloadFrameParser.ParsedFrame parsedFrame) {
-        if (payloadMap == null || parsedFrame == null || parsedFrame.dataFormatType() != MqttDataFormatType.STANDARD_TYPE_3) {
-            return null;
-        }
-
-        DeviceFilePayload filePayload = new DeviceFilePayload();
-        filePayload.setDeviceId(stringValue(payloadMap.get("did")));
-        filePayload.setDataSetId(stringValue(payloadMap.get("ds_id")));
-        filePayload.setFileType(stringValue(payloadMap.get("file_type")));
-        filePayload.setDescription(stringValue(payloadMap.get("desc")));
-        filePayload.setTimestamp(parseTimestamp(stringValue(payloadMap.get("at"))));
-        filePayload.setBinaryLength(parsedFrame.binaryLength());
-        filePayload.setBinaryPayload(parsedFrame.safeBinaryPayload());
-        filePayload.setDescriptor(new LinkedHashMap<>(payloadMap));
-
-        Object firmwarePacket = payloadMap.get("_firmwarePacket");
-        if (firmwarePacket instanceof Map<?, ?> firmwareMap) {
-            filePayload.setFirmwarePacket(toFirmwarePacket(firmwareMap));
-        }
-        return filePayload;
-    }
-
-    private DeviceFirmwarePacket toFirmwarePacket(Map<?, ?> firmwareMap) {
-        DeviceFirmwarePacket firmwarePacket = new DeviceFirmwarePacket();
-        firmwarePacket.setPacketIndex(integerValue(firmwareMap.get("packetIndex")));
-        firmwarePacket.setPacketSize(integerValue(firmwareMap.get("packetSize")));
-        firmwarePacket.setTotalPackets(integerValue(firmwareMap.get("totalPackets")));
-        firmwarePacket.setMd5Length(integerValue(firmwareMap.get("md5Length")));
-        firmwarePacket.setFirmwareMd5(stringValue(firmwareMap.get("firmwareMd5")));
-        Object packetDataBase64 = firmwareMap.get("packetDataBase64");
-        if (packetDataBase64 != null) {
-            firmwarePacket.setPacketData(Base64.getDecoder().decode(String.valueOf(packetDataBase64)));
-        }
-        return firmwarePacket;
-    }
-
-    private Integer integerValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        try {
-            return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    private String sanitizePayload(String payloadText) {
-        return JsonPayloadUtils.normalizeJsonDocument(payloadText);
-    }
-
     private String buildDecodeFailureMessage(Exception exception) {
         String detail = exception == null ? null : exception.getMessage();
         if (detail == null || detail.isBlank()) {
@@ -738,37 +944,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         return "MQTT JSON 协议解析失败: " + detail;
     }
 
-    private boolean isEncryptedEnvelope(Map<String, Object> payloadMap) {
-        return payloadMap.get("header") instanceof Map<?, ?>
-                && payloadMap.get("bodies") instanceof Map<?, ?>;
-    }
-
-    private String extractAppId(Map<String, Object> payloadMap) {
-        Object header = payloadMap.get("header");
-        if (header instanceof Map<?, ?> headerMap) {
-            Object appId = headerMap.get("appId");
-            if (appId != null) {
-                return String.valueOf(appId);
-            }
-        }
-        throw new BizException("加密 MQTT 报文缺少 header.appId");
-    }
-
-    private String extractEncryptedBody(Map<String, Object> payloadMap) {
-        Object bodies = payloadMap.get("bodies");
-        if (bodies instanceof Map<?, ?> bodyMap) {
-            Object encryptedBody = bodyMap.get("body");
-            if (encryptedBody != null) {
-                return String.valueOf(encryptedBody);
-            }
-        }
-        throw new BizException("加密 MQTT 报文缺少 bodies.body");
-    }
-
-    private record DecodedPayload(Map<String, Object> payload,
-                                  String rawPayload,
-                                  MqttDataFormatType dataFormatType,
-                                  DeviceFilePayload filePayload) {
+    private record TimestampResolution(LocalDateTime timestamp,
+                                       String source) {
     }
 
     private record LatestLogicalPayload(LocalDateTime timestamp,
@@ -779,6 +956,14 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private record TimestampedValue(String key,
                                     LocalDateTime timestamp,
                                     Object value) {
+    }
+
+    private record SplitExecutionResult(List<DeviceUpMessage> messages,
+                                        List<String> logicalCodes) {
+
+        private static SplitExecutionResult empty() {
+            return new SplitExecutionResult(List.of(), List.of());
+        }
     }
 
     private record ConfiguredChildMessages(List<DeviceUpMessage> messages,

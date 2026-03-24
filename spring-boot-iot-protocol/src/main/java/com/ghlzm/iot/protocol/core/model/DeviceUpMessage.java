@@ -62,6 +62,8 @@ public class DeviceUpMessage {
      */
     private DeviceFilePayload filePayload;
 
+    private DeviceUpProtocolMetadata protocolMetadata;
+
     private LocalDateTime timestamp;
 
     /**
