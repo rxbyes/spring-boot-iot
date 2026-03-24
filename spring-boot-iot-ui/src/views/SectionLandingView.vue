@@ -301,7 +301,7 @@ function buildBadge(label: string) {
   justify-content: center;
   min-height: 2.5rem;
   padding: 0 0.92rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--panel-border);
   color: var(--text-secondary);
   background: linear-gradient(180deg, #ffffff, #f7f9fc);
@@ -495,7 +495,7 @@ function buildBadge(label: string) {
   min-width: 3rem;
   height: 1.8rem;
   padding: 0 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 10%, transparent);
   color: var(--brand);
   font-size: 0.76rem;

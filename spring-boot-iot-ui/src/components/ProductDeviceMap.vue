@@ -292,7 +292,7 @@ watch(() => props.modelValue, (newVal) => {
   width: 100%;
   height: 400px;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   overflow: hidden;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
 }
@@ -347,9 +347,9 @@ watch(() => props.modelValue, (newVal) => {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-surface-soft-xs);
   z-index: 100;
 }
 

@@ -1153,7 +1153,7 @@ onMounted(() => {
 .message-trace-recent-item:hover {
   border-color: color-mix(in srgb, var(--brand) 22%, var(--line-soft));
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(12, 37, 63, 0.08);
+  box-shadow: var(--shadow-report-card-hover);
 }
 
 .message-trace-recent-item__header,

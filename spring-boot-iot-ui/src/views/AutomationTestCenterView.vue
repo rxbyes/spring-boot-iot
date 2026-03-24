@@ -248,7 +248,7 @@ const {
 
 .hero-chip-list span {
   padding: 0.35rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 5%, white);
   border: 1px solid color-mix(in srgb, var(--brand) 10%, white);
   color: var(--text-primary);

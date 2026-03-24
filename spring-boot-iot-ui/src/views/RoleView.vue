@@ -953,7 +953,7 @@ onMounted(async () => {
   overflow: auto;
   padding: 12px;
   border: 1px solid var(--el-border-color);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: var(--el-fill-color-blank);
 }
 
@@ -990,7 +990,7 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   background: var(--el-fill-color-light);
-  border-radius: 4px;
+  border-radius: calc(var(--radius-2xs) + 2px);
   padding: 2px 6px;
 }
 

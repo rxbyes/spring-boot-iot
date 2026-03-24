@@ -89,6 +89,8 @@ const ENTRY_DOC_EXPECTATIONS = {
     'docs/19-第四阶段交付边界与复验进展.md',
     'docs/16-阶段规划与迭代路线图.md',
     'docs/09-GPT接管提示模板.md',
+    'docs/10-智能助手技能与任务选型指南.md',
+    'docs/17-智能助手任务发起模板速查.md',
   ],
   'AGENTS.md': [
     'docs/README.md',
@@ -111,6 +113,8 @@ const ENTRY_DOC_EXPECTATIONS = {
     'docs/19-第四阶段交付边界与复验进展.md',
     'docs/16-阶段规划与迭代路线图.md',
     'docs/09-GPT接管提示模板.md',
+    'docs/10-智能助手技能与任务选型指南.md',
+    'docs/17-智能助手任务发起模板速查.md',
   ],
   'docs/README.md': [
     '../README.md',
@@ -133,6 +137,8 @@ const ENTRY_DOC_EXPECTATIONS = {
     '19-第四阶段交付边界与复验进展.md',
     '16-阶段规划与迭代路线图.md',
     '09-GPT接管提示模板.md',
+    '10-智能助手技能与任务选型指南.md',
+    '17-智能助手任务发起模板速查.md',
   ],
 };
 

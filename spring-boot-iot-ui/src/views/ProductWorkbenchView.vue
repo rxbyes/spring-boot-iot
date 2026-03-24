@@ -234,6 +234,13 @@
                 <StandardRowActions variant="card" gap="comfortable" class="product-mobile-card__actions">
                   <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                   <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                  <StandardActionLink
+                    v-permission="'iot:products:update'"
+                    data-testid="open-product-model-designer"
+                    @click="handleOpenProductModelDesigner(row)"
+                  >
+                    物模型设计器
+                  </StandardActionLink>
                   <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
                 </StandardRowActions>
               </article>
@@ -278,6 +285,13 @@
                   <StandardRowActions variant="table" gap="wide">
                     <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                     <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                    <StandardActionLink
+                      v-permission="'iot:products:update'"
+                      data-testid="open-product-model-designer"
+                      @click="handleOpenProductModelDesigner(row)"
+                    >
+                      物模型设计器
+                    </StandardActionLink>
                     <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
                   </StandardRowActions>
                 </template>
@@ -606,6 +620,11 @@
       :devices-loading="devicesLoading"
       @view-device="handleViewDevice"
     />
+
+    <ProductModelDesignerDrawer
+      v-model="productModelDesignerVisible"
+      :product="productModelTarget"
+    />
   </div>
 </template>
 
@@ -627,6 +646,7 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
+import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -731,6 +751,8 @@ const deviceListTotal = ref(0)
 const deviceListOnlineCount = ref(0)
 const deviceListOfflineCount = ref(0)
 const devicesLoading = ref(false)
+const productModelDesignerVisible = ref(false)
+const productModelTarget = ref<Product | null>(null)
 
 // 当前选择的产品
 const currentProduct = ref<Product | null>(null)
@@ -1979,6 +2001,11 @@ function handleOpenDeviceListDrawer(row: Product) {
   void loadDeviceList(row.productKey)
 }
 
+function handleOpenProductModelDesigner(row: Product) {
+  productModelTarget.value = row
+  productModelDesignerVisible.value = true
+}
+
 // 查看设备
 function handleViewDevice(device: Device) {
   console.log('view device', device)
@@ -2273,6 +2300,13 @@ watch(detailVisible, (visible) => {
   detailData.value = null
 })
 
+watch(productModelDesignerVisible, (visible) => {
+  if (visible) {
+    return
+  }
+  productModelTarget.value = null
+})
+
 watch(
   formData,
   () => {
@@ -2341,7 +2375,7 @@ onMounted(async () => {
   min-height: 2.6rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--brand);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
   color: var(--brand);
   font-size: 13px;
@@ -2360,7 +2394,7 @@ onMounted(async () => {
   min-height: 2.6rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--brand);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
   color: var(--brand);
   font-size: 13px;
@@ -2384,7 +2418,7 @@ onMounted(async () => {
   overflow: hidden;
   padding: 1.2rem 1.3rem;
   border: 1px solid var(--panel-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: #ffffff;
   box-shadow:
     0 3px 10px rgba(24, 45, 77, 0.04),
@@ -2461,7 +2495,7 @@ onMounted(async () => {
   min-width: 0;
   padding: 1rem 1.1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 12%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
@@ -2557,9 +2591,9 @@ onMounted(async () => {
   min-width: 0;
   padding: 0.9rem 1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .product-detail-overview-metric__label {
@@ -2596,7 +2630,7 @@ onMounted(async () => {
   font-weight: 700;
   line-height: 1;
   padding: 0.1em 0.3em;
-  border-radius: 3px;
+  border-radius: calc(var(--radius-2xs) + 1px);
 }
 
 .product-detail-overview-metric__trend--up {
@@ -2627,7 +2661,7 @@ onMounted(async () => {
   min-width: 0;
   padding: 1rem 1.1rem;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: #ffffff;
   box-shadow:
     0 2px 8px rgba(24, 45, 77, 0.04),
@@ -2681,9 +2715,9 @@ onMounted(async () => {
   min-width: 0;
   padding: 0.9rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .product-detail-contract-item__label {
@@ -2714,9 +2748,9 @@ onMounted(async () => {
   min-width: 0;
   padding: 0.9rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .product-detail-archive-item--full {
@@ -2785,9 +2819,9 @@ onMounted(async () => {
   margin-top: 0.3rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .product-detail-description-card__label {
@@ -2818,9 +2852,9 @@ onMounted(async () => {
   min-width: 0;
   padding: 0.95rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .product-detail-governance-card--lead {
@@ -2903,7 +2937,7 @@ onMounted(async () => {
   height: 100%;
   padding: 16px;
   border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
   box-shadow:
     0 2px 8px rgba(24, 45, 77, 0.04),
@@ -3002,7 +3036,7 @@ onMounted(async () => {
   height: 100%;
   padding: 16px;
   border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
   box-shadow:
     0 2px 8px rgba(24, 45, 77, 0.04),
@@ -3113,7 +3147,7 @@ onMounted(async () => {
   align-items: center;
   padding: 6px 12px;
   border: 1px solid rgba(228, 235, 246, 0.7);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: #ffffff;
   color: #525a66;
   font-size: 11px;
@@ -3144,7 +3178,7 @@ onMounted(async () => {
   gap: 4px;
   padding: 10px 12px;
   border: 1px solid rgba(228, 235, 246, 0.6);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: #fcfdfd;
 }
 
@@ -3289,7 +3323,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
 .product-loading-mobile-card {
@@ -3299,7 +3333,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .product-loading-mobile-card__header {
@@ -3417,7 +3451,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .product-mobile-card__header {
@@ -3575,9 +3609,9 @@ onMounted(async () => {
   gap: 6px;
   padding: 12px 14px;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .product-detail-active-metric__label {

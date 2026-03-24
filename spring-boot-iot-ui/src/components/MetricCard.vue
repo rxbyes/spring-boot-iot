@@ -37,7 +37,7 @@ withDefaults(
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.97)),
     radial-gradient(circle at top right, rgba(30, 128, 255, 0.08), transparent 50%);
-  box-shadow: 0 4px 12px rgba(31, 35, 41, 0.05);
+  box-shadow: var(--shadow-metric-card-soft);
   min-height: 10rem;
 }
 

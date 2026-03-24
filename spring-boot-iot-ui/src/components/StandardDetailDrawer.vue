@@ -178,7 +178,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
   color: var(--text-caption);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
 .detail-state--error {
@@ -273,7 +273,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-inset-highlight-72);
 }
 
 .standard-detail-drawer :deep(.detail-summary-card__label) {
@@ -309,7 +309,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .standard-detail-drawer :deep(.detail-field--full) {
@@ -368,7 +368,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-inset-highlight-72);
 }
 
 .standard-detail-drawer :deep(.detail-card__header) {
@@ -411,7 +411,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-inset-highlight-74);
 }
 
 .standard-detail-drawer :deep(.detail-notice--danger) {

@@ -238,7 +238,7 @@ function stringifyValue(value: unknown) {
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 12%, white);
   color: var(--brand-deep);
   font-weight: 700;
