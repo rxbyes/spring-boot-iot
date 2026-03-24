@@ -391,7 +391,7 @@ Required mapping:
 **Files:**
 - Output: `docs/superpowers/plans/2026-03-24-mqtt-tdengine-verification.md`
 
-- [ ] **Step 1: Write a one-page result matrix**
+- [x] **Step 1: Write a one-page result matrix**
 
 Required columns:
 - stage
@@ -401,13 +401,34 @@ Required columns:
 - observed result
 - pass/fail/blocker
 
-- [ ] **Step 2: State the final answer in one sentence**
+### Verification Matrix
+
+Verified on `2026-03-24` using `application-dev.yml`, live `127.0.0.1:9999` runtime, live MQTT `message-flow`, TDengine REST SQL, and focused regression tests.
+
+| stage | class/method | evidence source | sample trace/session | observed result | pass/fail/blocker |
+|---|---|---|---|---|---|
+| runtime baseline | `MqttMessageConsumer` / `/actuator/health/mqttConsumer` | live health API + config inspection | `2026-03-24 20:13` startup window | `status=UP`，`consumerActive=true`，`connected=true`，订阅包含 `$dp`；`application-dev.yml` 为 `storage-type=tdengine`、`tdengine-mode=legacy-compatible` | PASS |
+| fixed pipeline | `UpMessageProcessingPipeline#process` | live `GET /api/device/message-flow/session/{sessionId}` | `traceId=d4137f67b9e649daab586ffa7563ec90` / `sessionId=0c0f2284adb2430bb595d12b9a3940ab` | 阶段顺序为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE` | PASS |
+| protocol decode evidence | `MqttJsonProtocolAdapter#decode` | same live session timeline | same as above | `routeType=legacy`，`messageType=status`，`dataFormatType=STANDARD_TYPE_2`，`childMessageCount=0` | PASS |
+| stage-7 entry gate | `TelemetryPersistStageHandler#persist` | code inspection + focused tests | `TelemetryPersistStageHandlerTest` | 代码明确对 `storage-type != tdengine`、`reply`、文件载荷、空属性做跳过；其他属性消息继续持久化 | PASS |
+| TDengine landing branch | `TdengineTelemetryFacade#persist` | same live session timeline | same as above | `TELEMETRY_PERSIST.status=SUCCESS`，`branch=NORMALIZED_FALLBACK_ONLY`，`persistedPointCount=17`，`legacyStableCount=0`，`normalizedFallbackCount=17`，`storageMode=legacy-compatible` | PASS |
+| latest query cross-check | `TelemetryQueryServiceImpl#getLatest` | live `GET /api/device/code/{deviceCode}` + `GET /api/telemetry/latest` | `deviceCode=SK00EB0D1308289` / `deviceId=1925443622023450625` | `storageType=tdengine`，`reportTime=2026-03-24T20:14:37`，`traceId=d4137f67b9e649daab586ffa7563ec90`，属性集非空且与 session 样本一致 | PASS |
+| physical TDengine table | `TdengineTelemetryStorageService` | TDengine REST SQL (`http://8.130.107.120:6041/rest/sql`) | same trace/device | `iot_device_telemetry_point` 中可查到 `device_id=1925443622023450625`、`trace_id=d4137f67b9e649daab586ffa7563ec90` 的多条指标行 | PASS |
+| failure-path classification | `MqttJsonProtocolAdapter#decode` | live failed session timeline | `traceId=5d34666269af4273867dfc7b8cfdbf43` / `sessionId=d270bed4eca647d3a2f454c9040211b3` | 最近失败样本停在 `PROTOCOL_DECODE`，错误为 `mqtt-json-decrypted MQTT 负载不能为空`，不是 stage 7 失败 | PASS |
+| non-blocking stage-7 semantics | `UpMessageProcessingPipeline#telemetryPersist` | focused regression tests | `UpMessageProcessingPipelineTest` + `TelemetryPersistStageHandlerTest` + `TdengineTelemetryFacadeTest` | 测试证明 stage 7 发生 TDengine 异常时，时间线可记为 `FAILED/NON_BLOCKING_FAILURE`，但 session 继续 `COMPLETED` | PASS |
+| regression coverage | protocol/message/telemetry focused suite | fresh Maven run on `2026-03-24` | `MqttTopicParserTest,MqttJsonProtocolAdapterTest,MqttMessageConsumerTest,UpMessageProcessingPipelineTest,TelemetryPersistStageHandlerTest,TdengineTelemetryStorageServiceTest,LegacyTdengineTelemetryWriterTest,TdengineTelemetryFacadeTest` | 命令退出码 `0`，无失败 | PASS |
+
+- [x] **Step 2: State the final answer in one sentence**
 
 Required format:
 - `MQTT sensor data entered TDengine: YES/NO`
 - `landing path: legacy / fallback / mixed / blocked`
 
-- [ ] **Step 3: Record unresolved items explicitly**
+Result:
+
+`MQTT sensor data entered TDengine: YES; landing path: fallback`
+
+- [x] **Step 3: Record unresolved items explicitly**
 
 Examples:
 - no legacy-mapped sample observed in live environment
@@ -415,8 +436,20 @@ Examples:
 - runtime health unstable
 - only fallback table verified, legacy stable not verified
 
-- [ ] **Step 4: If blocked, record the blocker exactly and stop**
+Unresolved items:
+
+- 在 `2026-03-24 20:13-20:18` 这轮 live window 内，没有观察到 `LEGACY_COMPATIBLE` 或 `LEGACY_WITH_NORMALIZED_FALLBACK` 的正样本；本轮主正样本为 `NORMALIZED_FALLBACK_ONLY`。
+- 本机 `taos` CLI 在直接查询时崩溃为 `crash signal is 11`；物理表核验改为 TDengine REST SQL，未使用 H2 或伪造链路替代。
+- 最近 live failed MQTT session 没有出现 `TELEMETRY_PERSIST = NON_BLOCKING_FAILURE` 样本；stage 7 非阻塞语义由聚焦单测证明，而非 live failure session 证明。
+- 当前 live `message-flow` 仍只提供 `routeType/messageType/dataFormatType/...` 等现有字段；`familyCodes/appId/normalizationStrategy` 仍属于另一份 `$dp` 标准化重构计划的未交付项。
+
+- [x] **Step 4: If blocked, record the blocker exactly and stop**
 
 Required:
 - include exact API, stage, or datasource blocker
 - do not replace with H2-based conclusions
+
+Blocker status:
+
+- 本轮主结论未被阻塞；初始阻塞仅为本地 `http://127.0.0.1:9999` 未启动，随后已按 `application-dev.yml` 拉起 `dev` 实例并解除。
+- 本轮没有使用 H2、旧 H2 profile、独立 H2 schema 脚本或 synthetic-only 结论替代真实环境验证。
