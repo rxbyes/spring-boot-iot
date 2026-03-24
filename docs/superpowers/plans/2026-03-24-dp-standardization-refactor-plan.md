@@ -636,7 +636,6 @@ mvn -pl spring-boot-iot-telemetry "-DskipTests=false" "-Dtest=TelemetryPersistSt
 Expected:
 - 协议、消息、遥测三个模块关键回归通过
 
-<<<<<<< HEAD
 ### Task 7 执行快照（2026-03-24 23:29 CST）
 
 - 已完成共享运行态对齐：
@@ -751,8 +750,8 @@ mvn -pl spring-boot-iot-telemetry -DskipTests=false -Dtest=TelemetryPersistStage
 - `README.md` 与 `AGENTS.md` 已按规则复核；本轮仅更新计划执行快照，没有新增交付边界、模块职责或启动命令分支，因此仍不需要同步改动这两份文件。
 - 当前真实环境阻塞点已经进一步收敛为一类问题：已观测家族的 legacy 命中率仍为 `0`。
 - 在 Step 2 的 legacy/fallback 治理目标达成前，Task 7 Step 4 仍不应推进，旧 helper 逻辑也不应删除。
-=======
-## Task 7 Step 2 映射治理待办清单（codex/dev 合并版）
+
+#### Task 7 Step 2 映射治理待办清单（codex/dev 合并版）
 
 - Task 7 Step 2 当前先按“缺口台账 + 默认 dry-run 的 SQL 草案”收口，不直接产出面向真实环境的最终升级 SQL。
 - 对应草案文件为 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql`，当前只固化 `iot_product_model` property 基线和 `tdengineLegacy` 占位结构。
@@ -768,7 +767,7 @@ mvn -pl spring-boot-iot-telemetry -DskipTests=false -Dtest=TelemetryPersistStage
 | `south_gnss_monitor` | GNSS 位移 + 惯导指标补点 | `L1_GP_1.gpsTotalX`、`L1_GP_1.gpsTotalY`、`L1_GP_1.gpsTotalZ`、`L1_JS_1.gX` | 新增代表性 `property seed`，建议 identifier 先保持 live key | `l1_gp_1` 列命名口径未核验，当前不能直接切回 legacy |
 | `south_deep_displacement` | 现有 `dispsX / dispsY` 仅补占位结构，父级状态类单独补点 | 现有 `dispsX / dispsY`，补充 `S1_ZT_1.ext_power_volt` | 对现有 property 只补 `tdengineLegacy` 占位结构；父级状态类以代表性 seed 入草案 | 还需区分 split child 指标与父级状态类的最终 stable 列映射 |
 
-## Task 7 Step 2 下一步实现计划
+#### Task 7 Step 2 下一步实现计划
 
 1. 先执行 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql` 的 dry-run 预览，确认四类 `productKey` 在当前真实库里的 property 基线、已有 `tdengineLegacy` 和代表性缺口。
 2. 再把 live 窗口中尚未收录的完整 identifier 导出追加到草案，尤其是 `south_rtu` 的剩余裂缝点位和 `south_deep_displacement` 父级 `S1_ZT_1.*` 指标。
@@ -776,7 +775,6 @@ mvn -pl spring-boot-iot-telemetry -DskipTests=false -Dtest=TelemetryPersistStage
 4. 在映射核验完成前，继续把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态；草案 SQL 也不得直接作为真实环境最终升级脚本执行。
 5. 映射补齐后，重新执行 Task 7 的 live 验收，至少对 `south_rtu / south_multi_displacement / south_gnss_monitor / south_deep_displacement` 各补 1 个正样本，复核 `legacyStableCount` 是否恢复。
 6. 若后续需要新的隔离验收环境，优先在仓库根目录 `.worktrees/` 下创建 worktree，不再继续复用 `~/.codex/worktrees/2a61/...` 这类临时路径。
->>>>>>> cb867fb (Document TDengine mapping gap draft workflow)
 
 ## 推进顺序建议
 
