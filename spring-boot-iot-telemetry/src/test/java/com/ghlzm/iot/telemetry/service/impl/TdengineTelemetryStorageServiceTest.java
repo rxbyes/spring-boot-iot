@@ -19,15 +19,19 @@ import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,6 +83,53 @@ class TdengineTelemetryStorageServiceTest {
     }
 
     @Test
+    void persistShouldGenerateDistinctStorageTimestampsAcrossTargetsWithSameReportedAt() {
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "dispsX", metadata("dispsX", "X位移", "double"),
+                "dispsY", metadata("dispsY", "Y位移", "double")
+        ));
+
+        LocalDateTime reportedAt = LocalDateTime.of(2026, 3, 24, 15, 4, 2);
+        tdengineTelemetryStorageService.persist(buildTarget(
+                2001L,
+                "84330701",
+                "trace-split-001",
+                reportedAt,
+                Map.of("dispsX", -0.0445D, "dispsY", 0.0293D)
+        ));
+        tdengineTelemetryStorageService.persist(buildTarget(
+                2002L,
+                "84330695",
+                "trace-split-001",
+                reportedAt,
+                Map.of("dispsX", -0.0293D, "dispsY", 0.0330D)
+        ));
+
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate, times(4)).update(anyString(), argsCaptor.capture());
+
+        Set<Object> storageTimestamps = new LinkedHashSet<>();
+        for (Object[] args : argsCaptor.getAllValues()) {
+            storageTimestamps.add(args[0]);
+        }
+        assertEquals(4, storageTimestamps.size(),
+                "共享 fallback 表在同一 reportedAt 下也必须为每条 target 生成唯一 ts，避免后写覆盖先写");
+    }
+
+    @Test
+    void listLatestPointsShouldQueryByReportedAtBeforeStorageTimestamp() {
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), anyLong()))
+                .thenReturn(List.of());
+
+        tdengineTelemetryStorageService.listLatestPoints(2001L);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(org.springframework.jdbc.core.ResultSetExtractor.class), eq(2001L));
+        assertTrue(sqlCaptor.getValue().contains("p.reported_at DESC"));
+        assertTrue(sqlCaptor.getValue().contains("p.ts DESC"));
+    }
+
+    @Test
     void listLatestPointsShouldMapTdengineRows() {
         when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), anyLong()))
                 .thenAnswer(invocation -> {
@@ -120,11 +171,25 @@ class TdengineTelemetryStorageServiceTest {
     }
 
     private DeviceProcessingTarget buildTarget(Map<String, Object> properties) {
+        return buildTarget(
+                2001L,
+                "demo-device-01",
+                "trace-001",
+                LocalDateTime.of(2026, 3, 23, 10, 0),
+                properties
+        );
+    }
+
+    private DeviceProcessingTarget buildTarget(Long deviceId,
+                                               String deviceCode,
+                                               String traceId,
+                                               LocalDateTime timestamp,
+                                               Map<String, Object> properties) {
         Device device = new Device();
-        device.setId(2001L);
+        device.setId(deviceId);
         device.setTenantId(1L);
         device.setProductId(1001L);
-        device.setDeviceCode("demo-device-01");
+        device.setDeviceCode(deviceCode);
 
         Product product = new Product();
         product.setId(1001L);
@@ -132,12 +197,12 @@ class TdengineTelemetryStorageServiceTest {
 
         DeviceUpMessage message = new DeviceUpMessage();
         message.setProductKey("demo-product");
-        message.setDeviceCode("demo-device-01");
+        message.setDeviceCode(deviceCode);
         message.setProtocolCode("mqtt-json");
-        message.setTraceId("trace-001");
+        message.setTraceId(traceId);
         message.setMessageType("property");
-        message.setTopic("/sys/demo-product/demo-device-01/thing/property/post");
-        message.setTimestamp(LocalDateTime.of(2026, 3, 23, 10, 0));
+        message.setTopic("/sys/demo-product/" + deviceCode + "/thing/property/post");
+        message.setTimestamp(timestamp);
         message.setProperties(properties);
 
         DeviceProcessingTarget target = new DeviceProcessingTarget();

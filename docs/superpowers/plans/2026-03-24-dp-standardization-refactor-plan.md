@@ -623,42 +623,133 @@ Removal target:
 - 零散的 legacy 推断私有方法
 - 与新组件重复的旧 helper
 
-- [ ] **Step 5: 运行最终验证命令**
+- [x] **Step 5: 运行最终验证命令**
 
 Run:
 
 ```powershell
-mvn -s .mvn/settings.xml -pl spring-boot-iot-protocol "-DskipTests=false" "-Dtest=MqttJsonProtocolAdapterTest,MqttPayloadSecurityValidatorTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-mvn -s .mvn/settings.xml -pl spring-boot-iot-message "-DskipTests=false" "-Dtest=MqttMessageConsumerTest,UpMessageProcessingPipelineTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-mvn -s .mvn/settings.xml -pl spring-boot-iot-telemetry "-DskipTests=false" "-Dtest=TelemetryPersistStageHandlerTest,LegacyTdengineTelemetryWriterTest,TdengineTelemetryFacadeTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-protocol "-DskipTests=false" "-Dtest=MqttJsonProtocolAdapterTest,MqttPayloadSecurityValidatorTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-message "-DskipTests=false" "-Dtest=MqttMessageConsumerTest,UpMessageProcessingPipelineTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-telemetry "-DskipTests=false" "-Dtest=TelemetryPersistStageHandlerTest,LegacyTdengineTelemetryWriterTest,TdengineTelemetryFacadeTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 ```
 
 Expected:
 - 协议、消息、遥测三个模块关键回归通过
 
-### Task 7 执行快照（2026-03-24 22:34 CST）
+### Task 7 执行快照（2026-03-24 23:29 CST）
 
-- 已确认共享环境入口可用：
+- 已完成共享运行态对齐：
 
 ```bash
-curl -sS http://127.0.0.1:9999/actuator/health/mqttConsumer
 curl -sS http://127.0.0.1:9999/actuator/health
+curl -sS http://127.0.0.1:9999/actuator/health/mqttConsumer
 ```
 
-- 结果：共享 `9999` 实例 `mqttConsumer.status=UP`、`connected=true`、订阅主题包含 `$dp`，且最近会话中持续有真实 `$dp` 流量。
-- 已抽查真实会话：
+- 当前 `9999` 实例已明确来自本 worktree：
+  - `diskSpace.path=/Users/rxbyes/.codex/worktrees/2a61/spring-boot-iot/...`
+  - `mqttConsumer.status=UP`
+  - `connected=true`
+  - `leadershipMode=LEADER`
+  - `subscribeTopics` 包含 `$dp`
+- 当前 live `$dp` `message-flow/session/{sessionId}` 已暴露本轮新增协议元数据，`PROTOCOL_DECODE.summary` 可稳定看到 `appId / familyCodes / normalizationStrategy / timestampSource / childSplitApplied`。
+
+#### Task 7 Step 1 抽样验收实证
+
+| 家族焦点 | sessionId | traceId | deviceCode | `familyCodes` | `TELEMETRY_PERSIST.branch` | `/api/telemetry/latest` | TDengine fallback 取证 |
+|---|---|---|---|---|---|---|---|
+| `L1_JS_1 + L1_LF_1` | `9fd82ce723c74806a53363a30a9d1cef` | `713a1476166a4cbb8ef3d5e6f683b0a8` | `SK11E80D1307259AZ` | `["L1_JS_1","L1_LF_1"]` | `NORMALIZED_FALLBACK_ONLY` | `traceId=713a1476166a4cbb8ef3d5e6f683b0a8`，`propertyCount=24` | `iot_device_telemetry_point` 按 `device_code + trace_id` 可查 `4` 条 |
+| `L1_LF_2 + L1_LF_3` | `69a22aa38232494d82aff7dec52f0e75` | `220eeb9f6f824f05b53341f428bf7575` | `SK00EA0D1308009` | `["L1_LF_1","L1_LF_2","L1_LF_3"]` | `NORMALIZED_FALLBACK_ONLY` | 最新值已滚到 `traceId=0cba31ebac9a44d7b9b2cc086f57a246`，`propertyCount=22` | 按样本 `traceId` 可查 `3` 条 |
+| `S1_ZT_1` | `fdd6ffa7a3474fa08853688e6cb44587` | `0be3e661123b4bfcb182f7eb7ed86223` | `SK00EA0D1308009` | `["S1_ZT_1"]` | `NORMALIZED_FALLBACK_ONLY` | 同设备最新值已滚到 `traceId=0cba31ebac9a44d7b9b2cc086f57a246`，`propertyCount=22` | 按样本 `traceId` 可查 `16` 条 |
+
+- 上述三类代表家族已能在当前 worktree 实例上完成 `message-flow -> latest API -> TDengine fallback` 的闭环取证，但 `legacyStableCount` 仍然全部为 `0`，`fallbackReason` 均为 `MISSING_TDENGINE_LEGACY_MAPPING`。
+
+#### 深部位移 split 家族现状
+
+- 旧阻塞样本 `92d0d6b6cc214a718b0436eb0a055134 / 41ed04b0d68a4bc6ac413c33c9987aa9` 与 `d75b14a96d184f859aa63526a13c9550 / 420a14f3df444516a9a81bfeade1822a` 曾表现为：
+  - `PROTOCOL_DECODE.childMessageCount=8`
+  - `DEVICE_CONTRACT.childTargetCount=8`
+  - `PAYLOAD_APPLY` 出现 `8` 条 `CHILD_PROPERTY`
+  - `TELEMETRY_PERSIST.summary.persistedTargetCount=8`
+  - `TELEMETRY_PERSIST.summary.persistedPointCount=16`
+  - 但 TDengine fallback 表只剩最后一个 child `84330696` 的 `2` 条数据
+- 根因已定位并修复：`iot_device_telemetry_point` 是共享单表，旧实现按“单个 target 内 `reported_at + pointIndex`”生成 `ts`，导致同一父报文下 8 个 child target 反复复用同一组毫秒时间戳；TDengine 只保留最后一次写入的那组行。修复后：
+  - fallback 存储 `ts` 切为进程内全局单调存储时间戳，避免跨 target 覆盖
+  - `reported_at` 继续保留真实设备上报时间
+  - `/api/telemetry/latest` 查询顺序改为 `reported_at DESC, ts DESC`
+- 修复后已用新后端实例复验真实 split 会话 `8aa1ca29bd6345a985eae76e8d8246fe / 3897836665d14d33b3f2f40881787821`：
+  - `PROTOCOL_DECODE.childMessageCount=8`
+  - `TELEMETRY_PERSIST.summary.persistedTargetCount=8`
+  - `TELEMETRY_PERSIST.summary.persistedPointCount=16`
+  - `traceId=3897836665d14d33b3f2f40881787821` 在 TDengine fallback 表中可直接查到 `8` 个 child 设备、每个设备 `2` 条
+  - `8` 个 child 设备的 `/api/telemetry/latest` 都已追上同一条 split `traceId`
+
+| childDeviceCode | latestTraceId | latestPropertyCount | `traceId=3897836665d14d33b3f2f40881787821` 的 TDengine 计数 |
+|---|---|---:|---:|
+| `84330701` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330695` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330697` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330699` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330686` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330687` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330691` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+| `84330696` | `3897836665d14d33b3f2f40881787821` | 2 | 2 |
+
+- 结论：深部位移 split 家族的物理落库不一致已解除，Task 7 Step 1 当前只剩“未在 live 窗口看到的目标家族样本”与 Step 2 的 legacy 命中率问题，不再被 split 落库错误阻塞。
+
+#### Task 7 Step 2 live 窗口命中率
+
+- 按最近 `60` 条 `message-flow/recent` 采样，筛出 `48` 条已完成真实 `$dp` 会话，当前观察到的代表家族命中率如下：
+
+| familyCode | sessionCount | legacyHitSessions | fallbackHitSessions |
+|---|---:|---:|---:|
+| `S1_ZT_1` | 26 | 0 | 26 |
+| `L1_JS_1` | 13 | 0 | 13 |
+| `L1_QJ_1` | 13 | 0 | 13 |
+| `L1_LF_1` | 8 | 0 | 8 |
+| `L1_LF_2` | 5 | 0 | 5 |
+| `L1_LF_3` | 5 | 0 | 5 |
+| `L3_YL_1` | 2 | 0 | 2 |
+| `L1_SW_1` | 2 | 0 | 2 |
+
+- 同一窗口还额外观察到 `L1_LF_4` 至 `L1_LF_9`、`L1_SW_2` 至 `L1_SW_8`，命中情况也全部是 `legacy=0 / fallback>0`。
+- 当前窗口未观察到的目标家族包括：`L1_GP_1`、`QN_QB_ZT_1`、`L4_NW_1`、`HY_BSD_ZT_1`、`HY_BSD_ACK_1`。
+- `2026-03-24 23:45 CST` 已补做 MySQL + 运行态根因取证，结论已从“现象”收敛到“数据基线缺口”：
+  - `south_rtu`（`product_id=202603192100560259`）、`south_multi_displacement`（`product_id=202603192100560251`）、`south_gnss_monitor`（`product_id=202603192100560246`）在 `iot_product_model` 中当前 `property` 行数均为 `0`，因此 `DeviceTelemetryMappingServiceImpl` 读取不到任何 `specs_json.tdengineLegacy`。
+  - `south_deep_displacement`（`product_id=202603192100560250`）当前只有 `2` 条 `property` 物模型：`dispsX / dispsY`，且两条 `specs_json` 都只有 `{"unit":"mm"}`，没有 `tdengineLegacy`，因此 split child 的 `dispsX / dispsY` 也只能继续走 fallback。
+  - 代表设备近 `24h` 实际写入的标准化属性已远超现有物模型承载范围，例如 `SJ11F2148734232A` 写入了 `27` 个属性，包含 `L1_JS_1.gX / L1_QJ_1.angle / S1_ZT_1.ext_power_volt`；`SK00EA0D1308009` 写入了 `22` 个属性；这些 live 指标当前没有对应的产品物模型映射可供 legacy writer 命中。
+  - 运行态日志也与数据库结论一致：`traceId=b4f6ff37529840589eabc3696481e680` 处理 `south_rtu` live 报文时，`ProductModelMapper.selectList` 对 `product_id=202603192100560259` 的查询结果就是 `Total: 0`。
+  - 代表设备的 `metadata_json.tdengineLegacy` 目前也全部为空，但 `LegacyTdengineDeviceMetadataResolver` 对 `deviceSn/location/subTable` 有兜底回退；因此当前 `fallbackReason=MISSING_TDENGINE_LEGACY_MAPPING` 的主因仍是产品物模型缺失，而不是设备 metadata 缺失。
+
+| productKey | modelPropertyCount | `tdengineLegacy` count | liveIdentifierCount (24h) | 当前缺口样例 |
+|---|---:|---:|---:|---|
+| `south_rtu` | 0 | 0 | 35 | `L1_LF_1` 至 `L1_LF_9`、`S1_ZT_1.ext_power_volt`、`S1_ZT_1.sensor_state.L1_LF_1` |
+| `south_multi_displacement` | 0 | 0 | 26 | `L1_JS_1.gX`、`L1_QJ_1.angle`、`L1_LF_1.value`、`S1_ZT_1.pa_state` |
+| `south_gnss_monitor` | 0 | 0 | 31 | `L1_GP_1.gpsTotalX/Y/Z`、`L1_JS_1.gX`、`L1_QJ_1.angle` |
+| `south_deep_displacement` | 2 | 0 | 23 | live 有 `L1_SW_1.dispsX / L1_SW_1.dispsY` 与多项 `S1_ZT_1.*`，但物模型只有裸 `dispsX / dispsY` |
+
+- 结论：Task 7 Step 2 现阶段不能签收，而且当前阻塞已明确为真实环境数据治理问题，不是 `DeviceTelemetryMappingServiceImpl` 的解析 bug。要让 live 家族从 `fallback only` 回到 `legacy-compatible`，下一步必须先补齐 `iot_product_model.specs_json.tdengineLegacy` 与缺失的 property 基线，再复验命中率。
+
+#### Task 7 Step 5 回归验证
+
+- 已于 `2026-03-24 23:10 CST` 与 `2026-03-24 23:24 CST` 新鲜执行以下命令：
 
 ```bash
-# 先登录获取 Bearer token，再调用：
-curl -sS 'http://127.0.0.1:9999/api/device/message-flow/recent?size=30' -H "Authorization: Bearer <token>"
-curl -sS 'http://127.0.0.1:9999/api/device/message-flow/session/ac83a6967984491fb06745e09f65a1da' -H "Authorization: Bearer <token>"
+mvn -pl spring-boot-iot-protocol -DskipTests=false -Dtest=MqttJsonProtocolAdapterTest,MqttPayloadSecurityValidatorTest -Dsurefire.failIfNoSpecifiedTests=false test
+mvn -pl spring-boot-iot-message -DskipTests=false -Dtest=MqttMessageConsumerTest,UpMessageProcessingPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test
+mvn -pl spring-boot-iot-telemetry -DskipTests=false -Dtest=TelemetryPersistStageHandlerTest,LegacyTdengineTelemetryWriterTest,TdengineTelemetryFacadeTest -Dsurefire.failIfNoSpecifiedTests=false test
+mvn -pl spring-boot-iot-telemetry -DskipTests=false -Dtest=TelemetryPersistStageHandlerTest,LegacyTdengineTelemetryWriterTest,TdengineTelemetryFacadeTest,TdengineTelemetryStorageServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-- 观察：共享 `9999` 的真实 `$dp` `PROTOCOL_DECODE.summary` 仍只包含 `routeType / messageType / dataFormatType / childMessageCount / filePayload / correlationMatched`，没有本轮新增的 `appId / familyCodes / normalizationStrategy / timestampSource / childSplitApplied`。
-- 同时，`/actuator/health` 中 `diskSpace.path` 指向另一套共享工作区，而不是当前 worktree，说明该实例并非本分支代码。
-- `README.md` 与 `AGENTS.md` 已按规则复核；本轮没有新增交付边界、模块职责或启动命令分支，因此不需要同步改动这两份文件。
-- 结论：Task 7 Step 1 / Step 2 当前被“共享验收入口未对齐当前分支实例”阻塞。由于真实 `$dp` 正在持续接入，不能通过再起一个并行消费同一共享 Broker 的 live consumer 来补验收，否则会带来重复入库和重复风控分发风险。
-- 本轮已先完成 Step 3 文档更新；Step 4 旧逻辑清理与 Step 5 最终验证需等隔离验收实例、独立 Broker 或真实设备窗口对齐后再继续。
+- 结果：
+  - `spring-boot-iot-protocol`：`16` tests, `0` failures, `0` errors
+  - `spring-boot-iot-message`：`8` tests, `0` failures, `0` errors
+  - `spring-boot-iot-telemetry`：`9` tests, `0` failures, `0` errors
+  - `spring-boot-iot-telemetry`（含 `TdengineTelemetryStorageServiceTest` 新回归）：`13` tests, `0` failures, `0` errors
+- 说明：Task 7 Step 5 已完成；split 落库覆盖问题已通过“红灯测试 -> 绿灯测试 -> 真实环境会话复验”闭环确认。当前剩余阻塞只在 Step 2 的 legacy 命中率与未出现的目标家族样本，不再是 split 物理落库错误。
+
+- `README.md` 与 `AGENTS.md` 已按规则复核；本轮仅更新计划执行快照，没有新增交付边界、模块职责或启动命令分支，因此仍不需要同步改动这两份文件。
+- 当前真实环境阻塞点已经进一步收敛为一类问题：已观测家族的 legacy 命中率仍为 `0`。
+- 在 Step 2 的 legacy/fallback 治理目标达成前，Task 7 Step 4 仍不应推进，旧 helper 逻辑也不应删除。
 
 ## 推进顺序建议
 

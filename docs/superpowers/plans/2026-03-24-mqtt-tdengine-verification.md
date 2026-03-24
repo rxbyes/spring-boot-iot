@@ -439,6 +439,10 @@ Examples:
 Unresolved items:
 
 - 在 `2026-03-24 20:13-20:18` 这轮 live window 内，没有观察到 `LEGACY_COMPATIBLE` 或 `LEGACY_WITH_NORMALIZED_FALLBACK` 的正样本；本轮主正样本为 `NORMALIZED_FALLBACK_ONLY`。
+- `2026-03-24 23:45 CST` 已追加 MySQL 基线核验，确认当前 live 家族迟迟没有 legacy 命中并不是 reader/writer 代码漏读，而是源数据本身缺口：
+  - `south_rtu`、`south_multi_displacement`、`south_gnss_monitor` 这三类 live 产品在 `iot_product_model` 中当前 `property` 行数都是 `0`。
+  - `south_deep_displacement` 当前只有 `dispsX / dispsY` 两条 `property`，且 `specs_json` 没有 `tdengineLegacy`。
+  - 代表设备近 `24h` 已真实写入 `17-27` 个标准化属性，但当前产品物模型无法提供对应的 legacy stable/column 映射。
 - 本机 `taos` CLI 在直接查询时崩溃为 `crash signal is 11`；物理表核验改为 TDengine REST SQL，未使用 H2 或伪造链路替代。
 - 最近 live failed MQTT session 没有出现 `TELEMETRY_PERSIST = NON_BLOCKING_FAILURE` 样本；stage 7 非阻塞语义由聚焦单测证明，而非 live failure session 证明。
 - 当前 live `message-flow` 仍只提供 `routeType/messageType/dataFormatType/...` 等现有字段；`familyCodes/appId/normalizationStrategy` 仍属于另一份 `$dp` 标准化重构计划的未交付项。
@@ -452,4 +456,5 @@ Required:
 Blocker status:
 
 - 本轮主结论未被阻塞；初始阻塞仅为本地 `http://127.0.0.1:9999` 未启动，随后已按 `application-dev.yml` 拉起 `dev` 实例并解除。
+- 若后续要把本页结论从 `landing path: fallback` 推进到 `legacy` 或 `mixed`，当前精确阻塞点已经明确为真实环境数据源：`iot_product_model.specs_json.tdengineLegacy` 与相关 `property` 基线尚未覆盖 live 家族。
 - 本轮没有使用 H2、旧 H2 profile、独立 H2 schema 脚本或 synthetic-only 结论替代真实环境验证。
