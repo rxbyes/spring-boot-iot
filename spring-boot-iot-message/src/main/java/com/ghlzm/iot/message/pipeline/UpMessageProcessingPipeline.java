@@ -248,7 +248,27 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));
         result.getSummary().put("filePayload", upMessage.getFilePayload() != null);
         result.getSummary().put("correlationMatched", context.correlationMatched);
-        appendProtocolMetadataSummary(result.getSummary(), upMessage.getProtocolMetadata());
+        DeviceUpProtocolMetadata protocolMetadata = upMessage.getProtocolMetadata();
+        if (protocolMetadata != null) {
+            if (hasText(protocolMetadata.getRouteType())) {
+                result.getSummary().put("routeType", protocolMetadata.getRouteType());
+            }
+            if (hasText(protocolMetadata.getAppId())) {
+                result.getSummary().put("appId", protocolMetadata.getAppId());
+            }
+            if (protocolMetadata.getFamilyCodes() != null && !protocolMetadata.getFamilyCodes().isEmpty()) {
+                result.getSummary().put("familyCodes", protocolMetadata.getFamilyCodes());
+            }
+            if (hasText(protocolMetadata.getNormalizationStrategy())) {
+                result.getSummary().put("normalizationStrategy", protocolMetadata.getNormalizationStrategy());
+            }
+            if (hasText(protocolMetadata.getTimestampSource())) {
+                result.getSummary().put("timestampSource", protocolMetadata.getTimestampSource());
+            }
+            if (protocolMetadata.getChildSplitApplied() != null) {
+                result.getSummary().put("childSplitApplied", protocolMetadata.getChildSplitApplied());
+            }
+        }
         return result;
     }
 
@@ -358,9 +378,9 @@ public class UpMessageProcessingPipeline {
         int legacyUnmappedMetricCount = 0;
         int fallbackMetricCount = 0;
         int skippedMetricCount = 0;
+        List<String> fallbackReasons = new ArrayList<>();
         String branch = null;
         String storageMode = null;
-        String fallbackReason = null;
         String errorClass = null;
         String errorMessage = null;
 
@@ -376,7 +396,11 @@ public class UpMessageProcessingPipeline {
                         storageMode = persistResult.getStorageMode();
                     }
                     if (persistResult != null) {
+                        legacyMappedMetricCount += nullSafeInt(persistResult.getLegacyMappedMetricCount());
+                        legacyUnmappedMetricCount += nullSafeInt(persistResult.getLegacyUnmappedMetricCount());
+                        fallbackMetricCount += nullSafeInt(persistResult.getFallbackMetricCount());
                         skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
+                        mergeFallbackReasons(fallbackReasons, persistResult.getFallbackReasons());
                     }
                     continue;
                 }
@@ -389,14 +413,12 @@ public class UpMessageProcessingPipeline {
                 legacyUnmappedMetricCount += nullSafeInt(persistResult.getLegacyUnmappedMetricCount());
                 fallbackMetricCount += nullSafeInt(persistResult.getFallbackMetricCount());
                 skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
+                mergeFallbackReasons(fallbackReasons, persistResult.getFallbackReasons());
                 if (branch == null && hasText(persistResult.getBranch())) {
                     branch = persistResult.getBranch();
                 }
                 if (storageMode == null && hasText(persistResult.getStorageMode())) {
                     storageMode = persistResult.getStorageMode();
-                }
-                if (fallbackReason == null && hasText(persistResult.getFallbackReason())) {
-                    fallbackReason = persistResult.getFallbackReason();
                 }
             } catch (Exception ex) {
                 failedTargetCount++;
@@ -431,13 +453,25 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("legacyUnmappedMetricCount", legacyUnmappedMetricCount);
         result.getSummary().put("fallbackMetricCount", fallbackMetricCount);
         result.getSummary().put("skippedMetricCount", skippedMetricCount);
+        if (!fallbackReasons.isEmpty()) {
+            result.getSummary().put("fallbackReasons", fallbackReasons);
+        }
         if (hasText(storageMode)) {
             result.getSummary().put("storageMode", storageMode);
         }
-        if (hasText(fallbackReason)) {
-            result.getSummary().put("fallbackReason", fallbackReason);
-        }
         return result;
+    }
+
+    private void mergeFallbackReasons(List<String> target, List<String> incoming) {
+        if (target == null || incoming == null || incoming.isEmpty()) {
+            return;
+        }
+        for (String reason : incoming) {
+            if (!hasText(reason) || target.contains(reason)) {
+                continue;
+            }
+            target.add(reason);
+        }
     }
 
     private int nullSafeInt(Integer value) {
@@ -670,31 +704,6 @@ public class UpMessageProcessingPipeline {
         }
         if (!hasText(childMessage.getRawPayload())) {
             childMessage.setRawPayload(parentMessage.getRawPayload());
-        }
-        if (childMessage.getProtocolMetadata() == null && parentMessage.getProtocolMetadata() != null) {
-            childMessage.setProtocolMetadata(parentMessage.getProtocolMetadata());
-        }
-    }
-
-    private void appendProtocolMetadataSummary(Map<String, Object> summary,
-                                               DeviceUpProtocolMetadata protocolMetadata) {
-        if (summary == null || protocolMetadata == null) {
-            return;
-        }
-        if (hasText(protocolMetadata.getAppId())) {
-            summary.put("appId", protocolMetadata.getAppId());
-        }
-        if (protocolMetadata.getFamilyCodes() != null && !protocolMetadata.getFamilyCodes().isEmpty()) {
-            summary.put("familyCodes", protocolMetadata.getFamilyCodes());
-        }
-        if (hasText(protocolMetadata.getNormalizationStrategy())) {
-            summary.put("normalizationStrategy", protocolMetadata.getNormalizationStrategy());
-        }
-        if (hasText(protocolMetadata.getTimestampSource())) {
-            summary.put("timestampSource", protocolMetadata.getTimestampSource());
-        }
-        if (protocolMetadata.getChildSplitApplied() != null) {
-            summary.put("childSplitApplied", protocolMetadata.getChildSplitApplied());
         }
     }
 

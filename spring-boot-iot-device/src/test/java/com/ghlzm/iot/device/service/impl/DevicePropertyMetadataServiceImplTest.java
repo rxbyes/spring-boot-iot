@@ -2,9 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
-import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
-import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,14 +24,12 @@ class DevicePropertyMetadataServiceImplTest {
 
     @Mock
     private ProductModelMapper productModelMapper;
-    @Mock
-    private DeviceTelemetryMappingService deviceTelemetryMappingService;
 
     private DevicePropertyMetadataServiceImpl devicePropertyMetadataService;
 
     @BeforeEach
     void setUp() {
-        devicePropertyMetadataService = new DevicePropertyMetadataServiceImpl(productModelMapper, deviceTelemetryMappingService);
+        devicePropertyMetadataService = new DevicePropertyMetadataServiceImpl(productModelMapper);
     }
 
     @Test
@@ -41,9 +37,6 @@ class DevicePropertyMetadataServiceImplTest {
         when(productModelMapper.selectList(any())).thenReturn(List.of(
                 productModel("temperature", "温度", "double",
                         "{\"tdengineLegacy\":{\"enabled\":true,\"stable\":\"s1_zt_1\",\"column\":\"temp\"}}")
-        ));
-        when(deviceTelemetryMappingService.listMetricMappings(1001L)).thenReturn(Map.of(
-                "temperature", mapping("temperature", Boolean.TRUE, "s1_zt_1", "temp", null)
         ));
 
         Map<String, DevicePropertyMetadata> metadataMap = devicePropertyMetadataService.listPropertyMetadataMap(1001L);
@@ -64,11 +57,6 @@ class DevicePropertyMetadataServiceImplTest {
                 productModel("noise", "噪声", "double", "{\"tdengineLegacy\":{\"stable\":\"invalid-name!\"}}"),
                 productModel("status", "状态", "string", "{invalid-json}")
         ));
-        when(deviceTelemetryMappingService.listMetricMappings(1001L)).thenReturn(Map.of(
-                "humidity", mapping("humidity", Boolean.FALSE, "s1_zt_1", "humidity", "DISABLED"),
-                "noise", mapping("noise", Boolean.TRUE, null, null, "INVALID_STABLE"),
-                "status", mapping("status", Boolean.TRUE, null, null, "INVALID_SPECS_JSON")
-        ));
 
         Map<String, DevicePropertyMetadata> metadataMap = devicePropertyMetadataService.listPropertyMetadataMap(1001L);
 
@@ -84,20 +72,5 @@ class DevicePropertyMetadataServiceImplTest {
         productModel.setDataType(dataType);
         productModel.setSpecsJson(specsJson);
         return productModel;
-    }
-
-    private TelemetryMetricMapping mapping(String metricCode,
-                                           Boolean enabled,
-                                           String stable,
-                                           String column,
-                                           String reason) {
-        TelemetryMetricMapping mapping = new TelemetryMetricMapping();
-        mapping.setMetricCode(metricCode);
-        mapping.setEnabled(enabled);
-        mapping.setStable(stable);
-        mapping.setColumn(column);
-        mapping.setReason(reason);
-        mapping.setSource("PRODUCT_SPECS_TDENGINE_LEGACY");
-        return mapping;
     }
 }

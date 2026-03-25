@@ -2,7 +2,6 @@ package com.ghlzm.iot.telemetry.service.impl;
 
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
-import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
@@ -35,8 +34,6 @@ class LegacyTdengineTelemetryReaderTest {
     private JdbcTemplate jdbcTemplate;
     @Mock
     private LegacyTdengineDeviceMetadataResolver deviceMetadataResolver;
-    @Mock
-    private DeviceTelemetryMappingService deviceTelemetryMappingService;
 
     private LegacyTdengineTelemetryReader reader;
 
@@ -44,12 +41,7 @@ class LegacyTdengineTelemetryReaderTest {
     void setUp() {
         when(jdbcTemplateProvider.getJdbcTemplate()).thenReturn(jdbcTemplate);
         LegacyTdengineSchemaInspector schemaInspector = new LegacyTdengineSchemaInspector(jdbcTemplateProvider);
-        reader = new LegacyTdengineTelemetryReader(
-                jdbcTemplateProvider,
-                schemaInspector,
-                deviceMetadataResolver,
-                deviceTelemetryMappingService
-        );
+        reader = new LegacyTdengineTelemetryReader(jdbcTemplateProvider, schemaInspector, deviceMetadataResolver);
     }
 
     @Test
@@ -86,9 +78,8 @@ class LegacyTdengineTelemetryReaderTest {
         deviceMetadata.setDeviceSn("SN001");
         deviceMetadata.setLocation("A01");
         when(deviceMetadataResolver.resolve(any())).thenReturn(deviceMetadata);
-        when(deviceTelemetryMappingService.listMetricMappings(1001L)).thenReturn(mappingMap());
 
-        List<TelemetryLatestPoint> points = reader.listLatestPoints(buildDevice(), buildProduct(), metadataMap());
+        List<TelemetryLatestPoint> points = reader.listLatestPoints(buildDevice(), buildProduct(), metadataMap(), mappingMap());
 
         assertEquals(2, points.size());
         assertEquals("temperature", points.get(0).getMetricCode());
@@ -114,19 +105,9 @@ class LegacyTdengineTelemetryReaderTest {
 
     private Map<String, DevicePropertyMetadata> metadataMap() {
         Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
-        metadataMap.put("temperature", metadata("temperature", "温度", "double"));
-        metadataMap.put("humidity", metadata("humidity", "湿度", "double"));
+        metadataMap.put("temperature", metadata("temperature", "温度", "double", "s1_zt_1", "temp"));
+        metadataMap.put("humidity", metadata("humidity", "湿度", "double", "s1_zt_1", "humidity"));
         return metadataMap;
-    }
-
-    private DevicePropertyMetadata metadata(String identifier,
-                                            String propertyName,
-                                            String dataType) {
-        DevicePropertyMetadata metadata = new DevicePropertyMetadata();
-        metadata.setIdentifier(identifier);
-        metadata.setPropertyName(propertyName);
-        metadata.setDataType(dataType);
-        return metadata;
     }
 
     private Map<String, TelemetryMetricMapping> mappingMap() {
@@ -136,13 +117,27 @@ class LegacyTdengineTelemetryReaderTest {
         return mappingMap;
     }
 
+    private DevicePropertyMetadata metadata(String identifier,
+                                            String propertyName,
+                                            String dataType,
+                                            String stable,
+                                            String column) {
+        DevicePropertyMetadata metadata = new DevicePropertyMetadata();
+        metadata.setIdentifier(identifier);
+        metadata.setPropertyName(propertyName);
+        metadata.setDataType(dataType);
+        DevicePropertyMetadata.TdengineLegacyMapping mapping = new DevicePropertyMetadata.TdengineLegacyMapping();
+        mapping.setStable(stable);
+        mapping.setColumn(column);
+        metadata.setTdengineLegacyMapping(mapping);
+        return metadata;
+    }
+
     private TelemetryMetricMapping mapping(String metricCode, String stable, String column) {
         TelemetryMetricMapping mapping = new TelemetryMetricMapping();
         mapping.setMetricCode(metricCode);
         mapping.setStable(stable);
         mapping.setColumn(column);
-        mapping.setEnabled(Boolean.TRUE);
-        mapping.setSource("PRODUCT_SPECS_TDENGINE_LEGACY");
         return mapping;
     }
 }

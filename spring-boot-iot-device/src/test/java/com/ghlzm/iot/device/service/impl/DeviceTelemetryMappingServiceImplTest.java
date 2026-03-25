@@ -14,7 +14,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -33,43 +33,46 @@ class DeviceTelemetryMappingServiceImplTest {
     }
 
     @Test
-    void listMetricMappingsShouldParseLegacySpecsAndFlagInvalidEntries() {
+    void listMetricMappingMapShouldParseLegacyMappingAndMarkFallbackReasons() {
         when(productModelMapper.selectList(any())).thenReturn(List.of(
                 productModel("temperature", "{\"tdengineLegacy\":{\"enabled\":true,\"stable\":\"s1_zt_1\",\"column\":\"temp\"}}"),
                 productModel("humidity", "{\"tdengineLegacy\":{\"enabled\":false,\"stable\":\"s1_zt_1\",\"column\":\"humidity\"}}"),
-                productModel("noise", "{\"tdengineLegacy\":{\"column\":\"noise\"}}"),
-                productModel("status", "{invalid-json}"),
-                productModel("pressure", "{}")
+                productModel("noise", "{\"tdengineLegacy\":{\"stable\":\"invalid-name!\",\"column\":\"noise\"}}"),
+                productModel("status", "{\"tdengineLegacy\":{\"stable\":\"s1_zt_1\"}}"),
+                productModel("voltage", "{\"scale\":2}")
         ));
 
-        Map<String, TelemetryMetricMapping> mappingMap = deviceTelemetryMappingService.listMetricMappings(1001L);
+        Map<String, TelemetryMetricMapping> mappingMap = deviceTelemetryMappingService.listMetricMappingMap(1001L);
 
-        assertTrue(mappingMap.get("temperature").isLegacyUsable());
-        assertEquals("s1_zt_1", mappingMap.get("temperature").getStable());
-        assertEquals("temp", mappingMap.get("temperature").getColumn());
-        assertEquals("PRODUCT_SPECS_TDENGINE_LEGACY", mappingMap.get("temperature").getSource());
-        assertNull(mappingMap.get("temperature").getReason());
+        TelemetryMetricMapping temperature = mappingMap.get("temperature");
+        assertTrue(temperature.isLegacyMapped());
+        assertEquals("s1_zt_1", temperature.getStable());
+        assertEquals("temp", temperature.getColumn());
+        assertEquals(TelemetryMetricMapping.SOURCE_SPECS_JSON_TDENGINE_LEGACY, temperature.getSource());
+        assertTrue(temperature.getFallbackReasons().isEmpty());
 
-        assertFalse(mappingMap.get("humidity").isLegacyUsable());
-        assertEquals(Boolean.FALSE, mappingMap.get("humidity").getEnabled());
-        assertEquals("DISABLED", mappingMap.get("humidity").getReason());
+        TelemetryMetricMapping humidity = mappingMap.get("humidity");
+        assertFalse(humidity.isLegacyMapped());
+        assertEquals(Boolean.FALSE, humidity.getEnabled());
+        assertIterableEquals(List.of(TelemetryMetricMapping.REASON_MAPPING_DISABLED), humidity.getFallbackReasons());
 
-        assertFalse(mappingMap.get("noise").isLegacyUsable());
-        assertEquals("MISSING_STABLE", mappingMap.get("noise").getReason());
+        TelemetryMetricMapping noise = mappingMap.get("noise");
+        assertFalse(noise.isLegacyMapped());
+        assertIterableEquals(List.of(TelemetryMetricMapping.REASON_STABLE_INVALID), noise.getFallbackReasons());
 
-        assertFalse(mappingMap.get("status").isLegacyUsable());
-        assertEquals("INVALID_SPECS_JSON", mappingMap.get("status").getReason());
+        TelemetryMetricMapping status = mappingMap.get("status");
+        assertFalse(status.isLegacyMapped());
+        assertIterableEquals(List.of(TelemetryMetricMapping.REASON_COLUMN_MISSING), status.getFallbackReasons());
 
-        assertFalse(mappingMap.get("pressure").isLegacyUsable());
-        assertEquals("MISSING_TDENGINE_LEGACY_MAPPING", mappingMap.get("pressure").getReason());
+        TelemetryMetricMapping voltage = mappingMap.get("voltage");
+        assertFalse(voltage.isLegacyMapped());
+        assertIterableEquals(List.of(TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED), voltage.getFallbackReasons());
     }
 
     private ProductModel productModel(String identifier, String specsJson) {
         ProductModel productModel = new ProductModel();
         productModel.setIdentifier(identifier);
         productModel.setSpecsJson(specsJson);
-        productModel.setModelType("property");
-        productModel.setDeleted(0);
         return productModel;
     }
 }

@@ -2,7 +2,6 @@ package com.ghlzm.iot.telemetry.service.impl;
 
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
-import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
@@ -26,29 +25,23 @@ public class LegacyTdengineTelemetryReader {
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final LegacyTdengineSchemaInspector schemaInspector;
     private final LegacyTdengineDeviceMetadataResolver deviceMetadataResolver;
-    private final DeviceTelemetryMappingService deviceTelemetryMappingService;
 
     public LegacyTdengineTelemetryReader(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                          LegacyTdengineSchemaInspector schemaInspector,
-                                         LegacyTdengineDeviceMetadataResolver deviceMetadataResolver,
-                                         DeviceTelemetryMappingService deviceTelemetryMappingService) {
+                                         LegacyTdengineDeviceMetadataResolver deviceMetadataResolver) {
         this.jdbcTemplateProvider = jdbcTemplateProvider;
         this.schemaInspector = schemaInspector;
         this.deviceMetadataResolver = deviceMetadataResolver;
-        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
     }
 
     public List<TelemetryLatestPoint> listLatestPoints(Device device,
                                                        Product product,
-                                                       Map<String, DevicePropertyMetadata> metadataMap) {
-        if (metadataMap == null || metadataMap.isEmpty()) {
+                                                       Map<String, DevicePropertyMetadata> metadataMap,
+                                                       Map<String, TelemetryMetricMapping> mappingMap) {
+        if (metadataMap == null || metadataMap.isEmpty() || mappingMap == null || mappingMap.isEmpty()) {
             return List.of();
         }
-        Long productId = product == null ? device == null ? null : device.getProductId() : product.getId();
-        Map<String, List<MappedMetric>> mappedMetricsByStable = groupMappedMetrics(
-                metadataMap,
-                deviceTelemetryMappingService.listMetricMappings(productId)
-        );
+        Map<String, List<MappedMetric>> mappedMetricsByStable = groupMappedMetrics(metadataMap, mappingMap);
         if (mappedMetricsByStable.isEmpty()) {
             return List.of();
         }
@@ -92,13 +85,14 @@ public class LegacyTdengineTelemetryReader {
     private Map<String, List<MappedMetric>> groupMappedMetrics(Map<String, DevicePropertyMetadata> metadataMap,
                                                                Map<String, TelemetryMetricMapping> mappingMap) {
         Map<String, List<MappedMetric>> mappedMetricsByStable = new LinkedHashMap<>();
-        for (Map.Entry<String, DevicePropertyMetadata> entry : metadataMap.entrySet()) {
-            TelemetryMetricMapping mapping = mappingMap.get(entry.getKey());
-            if (mapping == null || !mapping.isLegacyUsable()) {
+        for (Map.Entry<String, TelemetryMetricMapping> entry : mappingMap.entrySet()) {
+            TelemetryMetricMapping mapping = entry.getValue();
+            DevicePropertyMetadata metadata = metadataMap.get(entry.getKey());
+            if (mapping == null || metadata == null || !mapping.isLegacyMapped()) {
                 continue;
             }
             mappedMetricsByStable.computeIfAbsent(mapping.getStable(), key -> new ArrayList<>())
-                    .add(new MappedMetric(entry.getKey(), mapping.getColumn(), entry.getValue()));
+                    .add(new MappedMetric(entry.getKey(), mapping.getColumn(), metadata));
         }
         return mappedMetricsByStable;
     }

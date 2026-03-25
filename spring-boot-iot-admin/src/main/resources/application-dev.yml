@@ -85,16 +85,16 @@ iot:
       - /sys/+/+/thing/service/reply
       - /sys/+/+/thing/status/post
 
+  protocol:
+    legacy-dp:
+      family-observability-enabled: ${IOT_PROTOCOL_LEGACY_DP_FAMILY_OBSERVABILITY_ENABLED:true}
+      normalizer-v2-enabled: ${IOT_PROTOCOL_LEGACY_DP_NORMALIZER_V2_ENABLED:false}
+
   telemetry:
     storage-type: tdengine
     tdengine-mode: legacy-compatible
     legacy-normalized-fallback-enabled: true
-    legacy-mapping-validate-only: ${IOT_TELEMETRY_LEGACY_MAPPING_VALIDATE_ONLY:false}
-
-  protocol:
-    legacy-dp:
-      family-observability-enabled: ${IOT_PROTOCOL_LEGACY_DP_FAMILY_OBSERVABILITY_ENABLED:true}
-      normalizer-v2-enabled: ${IOT_PROTOCOL_LEGACY_DP_NORMALIZER_V2_ENABLED:true}
+    legacy-mapping-validate-only: ${IOT_TELEMETRY_LEGACY_MAPPING_VALIDATE_ONLY:true}
 
   device:
     sub-device-mappings:

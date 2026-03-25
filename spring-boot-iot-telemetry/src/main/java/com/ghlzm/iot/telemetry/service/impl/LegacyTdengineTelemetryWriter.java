@@ -1,9 +1,7 @@
 package com.ghlzm.iot.telemetry.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
-import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -14,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,47 +23,38 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 按 legacy stable 结构写 TDengine。
+ * 按 legacy stable 结构写入 TDengine。
  */
 @Service
 public class LegacyTdengineTelemetryWriter {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyTdengineTelemetryWriter.class);
-    private static final String REASON_MISSING_TDENGINE_LEGACY_MAPPING = "MISSING_TDENGINE_LEGACY_MAPPING";
-    private static final String REASON_LEGACY_COLUMN_MISSING = "LEGACY_COLUMN_MISSING";
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final LegacyTdengineSchemaInspector schemaInspector;
     private final LegacyTdengineDeviceMetadataResolver deviceMetadataResolver;
-    private final DeviceTelemetryMappingService deviceTelemetryMappingService;
     private final Set<String> ensuredSubTables = ConcurrentHashMap.newKeySet();
 
     public LegacyTdengineTelemetryWriter(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                          LegacyTdengineSchemaInspector schemaInspector,
-                                         LegacyTdengineDeviceMetadataResolver deviceMetadataResolver,
-                                         DeviceTelemetryMappingService deviceTelemetryMappingService) {
+                                         LegacyTdengineDeviceMetadataResolver deviceMetadataResolver) {
         this.jdbcTemplateProvider = jdbcTemplateProvider;
         this.schemaInspector = schemaInspector;
         this.deviceMetadataResolver = deviceMetadataResolver;
-        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
     }
 
     public LegacyTdenginePersistOutcome persist(DeviceProcessingTarget target,
                                                 Map<String, Object> properties,
-                                                Map<String, DevicePropertyMetadata> metadataMap) {
+                                                Map<String, TelemetryMetricMapping> mappingMap) {
         if (properties == null || properties.isEmpty()) {
             return LegacyTdenginePersistOutcome.empty();
         }
-        WritePlanBuildResult buildResult = buildWritePlans(target, properties);
-        Map<String, StableWritePlan> plans = buildResult.plans();
-        if (plans.isEmpty()) {
-            return LegacyTdenginePersistOutcome.of(
-                    0,
-                    Set.of(),
-                    buildResult.mappedMetricCount(),
-                    buildResult.unmappedMetricCount(),
-                    buildResult.fallbackReasons()
-            );
+        BuildWritePlanResult buildResult = buildWritePlans(properties, mappingMap);
+        if (buildResult.isEmpty()) {
+            return LegacyTdenginePersistOutcome.empty();
+        }
+        if (buildResult.plans().isEmpty()) {
+            return LegacyTdenginePersistOutcome.of(0, Set.of(), buildResult.unmappedMetricReasons());
         }
 
         JdbcTemplate jdbcTemplate = jdbcTemplateProvider.getJdbcTemplate();
@@ -75,42 +63,31 @@ public class LegacyTdengineTelemetryWriter {
                 deviceMetadataResolver.resolve(target.getDevice());
 
         Set<String> persistedMetricCodes = new LinkedHashSet<>();
-        for (StableWritePlan plan : plans.values()) {
+        for (StableWritePlan plan : buildResult.plans().values()) {
             String subTable = deviceMetadataResolver.resolveSubTableName(deviceMetadata, plan.getStable());
             ensureSubTable(jdbcTemplate, subTable, plan.getStable(), deviceMetadata);
             jdbcTemplate.update(plan.buildInsertSql(subTable), plan.buildInsertArgs(reportedAt));
             persistedMetricCodes.addAll(plan.getMetricCodes());
         }
         return LegacyTdenginePersistOutcome.of(
-                plans.size(),
+                buildResult.plans().size(),
                 persistedMetricCodes,
-                buildResult.mappedMetricCount(),
-                buildResult.unmappedMetricCount(),
-                buildResult.fallbackReasons()
+                buildResult.unmappedMetricReasons()
         );
     }
 
-    private WritePlanBuildResult buildWritePlans(DeviceProcessingTarget target,
-                                                 Map<String, Object> properties) {
-        Map<String, TelemetryMetricMapping> mappingMap = target == null || target.getDevice() == null
-                ? Map.of()
-                : deviceTelemetryMappingService.listMetricMappings(target.getDevice().getProductId());
+    private BuildWritePlanResult buildWritePlans(Map<String, Object> properties,
+                                                 Map<String, TelemetryMetricMapping> mappingMap) {
         Map<String, StableWritePlan> plans = new LinkedHashMap<>();
-        Set<String> mappedMetricCodes = new LinkedHashSet<>();
-        Set<String> fallbackReasons = new LinkedHashSet<>();
-        int unmappedMetricCount = 0;
+        Map<String, String> unmappedMetricReasons = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
-            TelemetryMetricMapping mapping = mappingMap.get(entry.getKey());
+            TelemetryMetricMapping mapping = mappingMap == null ? null : mappingMap.get(entry.getKey());
             if (mapping == null) {
-                unmappedMetricCount++;
-                fallbackReasons.add(REASON_MISSING_TDENGINE_LEGACY_MAPPING);
+                unmappedMetricReasons.put(entry.getKey(), TelemetryMetricMapping.REASON_PROPERTY_METADATA_MISSING);
                 continue;
             }
-            if (!mapping.isLegacyUsable()) {
-                unmappedMetricCount++;
-                fallbackReasons.add(mapping.getReason() == null
-                        ? REASON_MISSING_TDENGINE_LEGACY_MAPPING
-                        : mapping.getReason());
+            if (!mapping.isLegacyMapped()) {
+                unmappedMetricReasons.put(entry.getKey(), resolveFallbackReason(mapping));
                 continue;
             }
             LegacyTdengineSchemaInspector.LegacyTdengineTableSchema schema =
@@ -118,15 +95,19 @@ public class LegacyTdengineTelemetryWriter {
             if (!schema.hasColumn(mapping.getColumn())) {
                 log.warn("TDengine legacy 映射列不存在, stable={}, column={}, metricCode={}",
                         mapping.getStable(), mapping.getColumn(), entry.getKey());
-                unmappedMetricCount++;
-                fallbackReasons.add(REASON_LEGACY_COLUMN_MISSING);
+                unmappedMetricReasons.put(entry.getKey(), TelemetryMetricMapping.REASON_SCHEMA_COLUMN_MISSING);
                 continue;
             }
             plans.computeIfAbsent(mapping.getStable(), stable -> new StableWritePlan(stable, schema))
-                    .put(mapping.getColumn(), entry.getKey(), convertColumnValue(schema.getColumnType(mapping.getColumn()), entry.getValue()));
-            mappedMetricCodes.add(entry.getKey());
+                    .put(mapping.getColumn(), entry.getKey(),
+                            convertColumnValue(schema.getColumnType(mapping.getColumn()), entry.getValue()));
         }
-        return new WritePlanBuildResult(plans, mappedMetricCodes.size(), unmappedMetricCount, fallbackReasons);
+        return new BuildWritePlanResult(plans, unmappedMetricReasons);
+    }
+
+    private String resolveFallbackReason(TelemetryMetricMapping mapping) {
+        String reason = mapping.primaryFallbackReason();
+        return reason == null ? TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED : reason;
     }
 
     private void ensureSubTable(JdbcTemplate jdbcTemplate,
@@ -231,59 +212,37 @@ public class LegacyTdengineTelemetryWriter {
     public static final class LegacyTdenginePersistOutcome {
         private final int stableCount;
         private final Set<String> persistedMetricCodes;
-        private final int mappedMetricCount;
-        private final int unmappedMetricCount;
-        private final Set<String> fallbackReasons;
+        private final Map<String, String> unmappedMetricReasons;
 
         private LegacyTdenginePersistOutcome(int stableCount,
                                              Set<String> persistedMetricCodes,
-                                             int mappedMetricCount,
-                                             int unmappedMetricCount,
-                                             Set<String> fallbackReasons) {
+                                             Map<String, String> unmappedMetricReasons) {
             this.stableCount = stableCount;
             this.persistedMetricCodes = Set.copyOf(persistedMetricCodes);
-            this.mappedMetricCount = mappedMetricCount;
-            this.unmappedMetricCount = unmappedMetricCount;
-            this.fallbackReasons = Set.copyOf(fallbackReasons);
+            this.unmappedMetricReasons = Map.copyOf(unmappedMetricReasons);
         }
 
         public static LegacyTdenginePersistOutcome empty() {
-            return new LegacyTdenginePersistOutcome(0, Set.of(), 0, 0, Set.of());
-        }
-
-        public static LegacyTdenginePersistOutcome of(int stableCount, Set<String> persistedMetricCodes) {
-            return new LegacyTdenginePersistOutcome(
-                    stableCount,
-                    persistedMetricCodes,
-                    persistedMetricCodes.size(),
-                    0,
-                    Set.of()
-            );
+            return new LegacyTdenginePersistOutcome(0, Set.of(), Map.of());
         }
 
         public static LegacyTdenginePersistOutcome of(int stableCount,
                                                       Set<String> persistedMetricCodes,
-                                                      int mappedMetricCount,
-                                                      int unmappedMetricCount,
-                                                      Set<String> fallbackReasons) {
-            return new LegacyTdenginePersistOutcome(
-                    stableCount,
-                    persistedMetricCodes,
-                    mappedMetricCount,
-                    unmappedMetricCount,
-                    fallbackReasons
-            );
+                                                      Map<String, String> unmappedMetricReasons) {
+            return new LegacyTdenginePersistOutcome(stableCount, persistedMetricCodes, unmappedMetricReasons);
         }
 
         public int getMetricCount() {
             return persistedMetricCodes.size();
         }
-    }
 
-    private record WritePlanBuildResult(Map<String, StableWritePlan> plans,
-                                        int mappedMetricCount,
-                                        int unmappedMetricCount,
-                                        Set<String> fallbackReasons) {
+        public int getLegacyMappedMetricCount() {
+            return persistedMetricCodes.size();
+        }
+
+        public int getLegacyUnmappedMetricCount() {
+            return unmappedMetricReasons.size();
+        }
     }
 
     private static final class StableWritePlan {
@@ -339,6 +298,13 @@ public class LegacyTdengineTelemetryWriter {
             }
             args.addAll(columnValues.values());
             return args.toArray();
+        }
+    }
+
+    private record BuildWritePlanResult(Map<String, StableWritePlan> plans, Map<String, String> unmappedMetricReasons) {
+
+        private boolean isEmpty() {
+            return plans.isEmpty() && unmappedMetricReasons.isEmpty();
         }
     }
 }

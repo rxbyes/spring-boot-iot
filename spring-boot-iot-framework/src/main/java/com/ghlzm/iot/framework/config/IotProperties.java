@@ -166,7 +166,7 @@ public class IotProperties {
         @Data
         public static class LegacyDp {
             private Boolean familyObservabilityEnabled = Boolean.TRUE;
-            private Boolean normalizerV2Enabled = Boolean.TRUE;
+            private Boolean normalizerV2Enabled = Boolean.FALSE;
         }
     }
 
@@ -183,9 +183,6 @@ public class IotProperties {
          * legacy stable 未覆盖到的指标是否继续写入通用兼容表。
          */
         private Boolean legacyNormalizedFallbackEnabled = Boolean.TRUE;
-        /**
-         * validate-only 模式下继续沿用当前落库结果，只输出 legacy 映射 old/new 差异日志。
-         */
         private Boolean legacyMappingValidateOnly = Boolean.FALSE;
         private String latestCachePrefix = "iot:telemetry:latest:";
         private String tsPrefix = "iot:telemetry:ts:";

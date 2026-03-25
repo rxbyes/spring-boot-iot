@@ -9,5 +9,8 @@ import java.util.Map;
  */
 public interface DeviceTelemetryMappingService {
 
-    Map<String, TelemetryMetricMapping> listMetricMappings(Long productId);
+    /**
+     * 查询产品下的遥测映射定义。
+     */
+    Map<String, TelemetryMetricMapping> listMetricMappingMap(Long productId);
 }

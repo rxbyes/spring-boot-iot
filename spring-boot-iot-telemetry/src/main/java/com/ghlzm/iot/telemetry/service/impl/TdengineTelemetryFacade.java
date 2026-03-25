@@ -6,21 +6,24 @@ import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
+import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 统一封装 TDengine legacy stable 与通用兼容表。
@@ -29,10 +32,10 @@ import java.util.Map;
 public class TdengineTelemetryFacade {
 
     private static final long TRACE_COMPENSATION_WINDOW_SECONDS = 5L;
-    private static final Logger log = LoggerFactory.getLogger(TdengineTelemetryFacade.class);
 
     private final IotProperties iotProperties;
     private final DevicePropertyMetadataService devicePropertyMetadataService;
+    private final DeviceTelemetryMappingService deviceTelemetryMappingService;
     private final TdengineTelemetryStorageService tdengineTelemetryStorageService;
     private final LegacyTdengineTelemetryWriter legacyTdengineTelemetryWriter;
     private final LegacyTdengineTelemetryReader legacyTdengineTelemetryReader;
@@ -40,12 +43,14 @@ public class TdengineTelemetryFacade {
 
     public TdengineTelemetryFacade(IotProperties iotProperties,
                                    DevicePropertyMetadataService devicePropertyMetadataService,
+                                   DeviceTelemetryMappingService deviceTelemetryMappingService,
                                    TdengineTelemetryStorageService tdengineTelemetryStorageService,
                                    LegacyTdengineTelemetryWriter legacyTdengineTelemetryWriter,
                                    LegacyTdengineTelemetryReader legacyTdengineTelemetryReader,
                                    DeviceMessageLogMapper deviceMessageLogMapper) {
         this.iotProperties = iotProperties;
         this.devicePropertyMetadataService = devicePropertyMetadataService;
+        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
         this.tdengineTelemetryStorageService = tdengineTelemetryStorageService;
         this.legacyTdengineTelemetryWriter = legacyTdengineTelemetryWriter;
         this.legacyTdengineTelemetryReader = legacyTdengineTelemetryReader;
@@ -60,40 +65,33 @@ public class TdengineTelemetryFacade {
                 ? Map.of()
                 : target.getMessage().getProperties();
         Map<String, DevicePropertyMetadata> metadataMap = listPropertyMetadataMap(target);
+        Map<String, TelemetryMetricMapping> mappingMap = listMetricMappingMap(target);
         LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome legacyOutcome =
-                legacyTdengineTelemetryWriter.persist(target, properties, metadataMap);
+                legacyTdengineTelemetryWriter.persist(target, properties, mappingMap);
 
-        Map<String, Object> fallbackProperties = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : properties.entrySet()) {
-            if (!legacyOutcome.getPersistedMetricCodes().contains(entry.getKey())) {
-                fallbackProperties.put(entry.getKey(), entry.getValue());
-            }
-        }
-
+        Map<String, Object> fallbackProperties = collectFallbackProperties(properties, legacyOutcome);
+        int fallbackMetricCount = fallbackProperties.size();
         int normalizedFallbackCount = 0;
-        int fallbackMetricCount = 0;
         int skippedMetricCount = 0;
         if (!fallbackProperties.isEmpty()) {
             if (isLegacyNormalizedFallbackEnabled()) {
                 TelemetryPersistResult fallbackResult =
                         tdengineTelemetryStorageService.persist(target, fallbackProperties, metadataMap);
                 normalizedFallbackCount = fallbackResult.getPointCount() == null ? 0 : fallbackResult.getPointCount();
-                fallbackMetricCount = normalizedFallbackCount;
             } else {
                 skippedMetricCount = fallbackProperties.size();
             }
         }
 
         int pointCount = legacyOutcome.getMetricCount() + normalizedFallbackCount;
-        TelemetryPersistResult result;
+        List<String> fallbackReasons = resolveFallbackReasons(fallbackProperties.keySet(), legacyOutcome, mappingMap);
         if (pointCount == 0) {
-            result = TelemetryPersistResult.skipped(
+            TelemetryPersistResult result = TelemetryPersistResult.skipped(
                     skippedMetricCount > 0 ? "LEGACY_UNMAPPED_NO_FALLBACK" : "LEGACY_NO_MATCHED_PROPERTIES",
                     "legacy-compatible",
                     skippedMetricCount
             );
-            enrichLegacyResult(result, legacyOutcome, fallbackMetricCount, fallbackProperties);
-            logFallbackGovernanceSignal(target, result);
+            applyGovernanceMetrics(result, legacyOutcome, fallbackMetricCount, fallbackReasons);
             return result;
         }
 
@@ -105,7 +103,7 @@ public class TdengineTelemetryFacade {
         } else {
             branch = "NORMALIZED_FALLBACK_ONLY";
         }
-        result = TelemetryPersistResult.persisted(
+        TelemetryPersistResult result = TelemetryPersistResult.persisted(
                 branch,
                 "legacy-compatible",
                 pointCount,
@@ -114,9 +112,7 @@ public class TdengineTelemetryFacade {
                 normalizedFallbackCount,
                 skippedMetricCount
         );
-        enrichLegacyResult(result, legacyOutcome, fallbackMetricCount, fallbackProperties);
-        logLegacyMappingValidateOnly(target, properties, metadataMap, result);
-        logFallbackGovernanceSignal(target, result);
+        applyGovernanceMetrics(result, legacyOutcome, fallbackMetricCount, fallbackReasons);
         return result;
     }
 
@@ -125,8 +121,9 @@ public class TdengineTelemetryFacade {
             return tdengineTelemetryStorageService.listLatestPoints(device.getId());
         }
         Map<String, DevicePropertyMetadata> metadataMap = listPropertyMetadataMap(device);
+        Map<String, TelemetryMetricMapping> mappingMap = listMetricMappingMap(device);
         Map<String, TelemetryLatestPoint> mergedPoints = new LinkedHashMap<>();
-        for (TelemetryLatestPoint point : legacyTdengineTelemetryReader.listLatestPoints(device, product, metadataMap)) {
+        for (TelemetryLatestPoint point : legacyTdengineTelemetryReader.listLatestPoints(device, product, metadataMap, mappingMap)) {
             mergedPoints.put(point.getMetricCode(), point);
         }
         if (isLegacyNormalizedFallbackEnabled()) {
@@ -146,6 +143,49 @@ public class TdengineTelemetryFacade {
         return points;
     }
 
+    private Map<String, Object> collectFallbackProperties(Map<String, Object> properties,
+                                                          LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome legacyOutcome) {
+        Map<String, Object> fallbackProperties = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
+            if (!legacyOutcome.getPersistedMetricCodes().contains(entry.getKey())) {
+                fallbackProperties.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return fallbackProperties;
+    }
+
+    private void applyGovernanceMetrics(TelemetryPersistResult result,
+                                        LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome legacyOutcome,
+                                        int fallbackMetricCount,
+                                        List<String> fallbackReasons) {
+        result.setLegacyMappedMetricCount(legacyOutcome.getLegacyMappedMetricCount());
+        result.setLegacyUnmappedMetricCount(fallbackMetricCount);
+        result.setFallbackMetricCount(fallbackMetricCount);
+        result.setFallbackReasons(fallbackReasons);
+    }
+
+    private List<String> resolveFallbackReasons(Set<String> fallbackMetricCodes,
+                                                LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome legacyOutcome,
+                                                Map<String, TelemetryMetricMapping> mappingMap) {
+        if (fallbackMetricCodes == null || fallbackMetricCodes.isEmpty()) {
+            return List.of();
+        }
+        Set<String> reasons = new LinkedHashSet<>();
+        for (String metricCode : fallbackMetricCodes) {
+            String reason = legacyOutcome.getUnmappedMetricReasons().get(metricCode);
+            if (reason == null) {
+                TelemetryMetricMapping mapping = mappingMap.get(metricCode);
+                reason = mapping == null
+                        ? TelemetryMetricMapping.REASON_PROPERTY_METADATA_MISSING
+                        : mapping.primaryFallbackReason();
+            }
+            if (reason != null && !reason.isBlank()) {
+                reasons.add(reason);
+            }
+        }
+        return List.copyOf(reasons);
+    }
+
     private Map<String, DevicePropertyMetadata> listPropertyMetadataMap(DeviceProcessingTarget target) {
         if (target == null || target.getDevice() == null) {
             return Map.of();
@@ -153,11 +193,25 @@ public class TdengineTelemetryFacade {
         return devicePropertyMetadataService.listPropertyMetadataMap(target.getDevice().getProductId());
     }
 
+    private Map<String, TelemetryMetricMapping> listMetricMappingMap(DeviceProcessingTarget target) {
+        if (target == null || target.getDevice() == null) {
+            return Map.of();
+        }
+        return deviceTelemetryMappingService.listMetricMappingMap(target.getDevice().getProductId());
+    }
+
     private Map<String, DevicePropertyMetadata> listPropertyMetadataMap(Device device) {
         if (device == null) {
             return Map.of();
         }
         return devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId());
+    }
+
+    private Map<String, TelemetryMetricMapping> listMetricMappingMap(Device device) {
+        if (device == null) {
+            return Map.of();
+        }
+        return deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
     }
 
     private String resolveCompensatedTraceId(Long deviceId, List<TelemetryLatestPoint> points) {
@@ -209,84 +263,13 @@ public class TdengineTelemetryFacade {
         if (laterMessageLog == null) {
             return earlierMessageLog;
         }
-        long earlierDeltaMillis = Math.abs(java.time.Duration.between(earlierMessageLog.getReportTime(), latestReportedAt).toMillis());
-        long laterDeltaMillis = Math.abs(java.time.Duration.between(laterMessageLog.getReportTime(), latestReportedAt).toMillis());
+        long earlierDeltaMillis = Math.abs(Duration.between(earlierMessageLog.getReportTime(), latestReportedAt).toMillis());
+        long laterDeltaMillis = Math.abs(Duration.between(laterMessageLog.getReportTime(), latestReportedAt).toMillis());
         return laterDeltaMillis <= earlierDeltaMillis ? laterMessageLog : earlierMessageLog;
     }
 
     private boolean isLegacyCompatibleMode() {
         return "legacy-compatible".equalsIgnoreCase(normalizeTdengineMode());
-    }
-
-    private void enrichLegacyResult(TelemetryPersistResult result,
-                                    LegacyTdengineTelemetryWriter.LegacyTdenginePersistOutcome legacyOutcome,
-                                    int fallbackMetricCount,
-                                    Map<String, Object> fallbackProperties) {
-        result.setLegacyMappedMetricCount(legacyOutcome.getMappedMetricCount());
-        result.setLegacyUnmappedMetricCount(legacyOutcome.getUnmappedMetricCount());
-        result.setFallbackMetricCount(fallbackMetricCount);
-        if (fallbackProperties == null || fallbackProperties.isEmpty()) {
-            result.setFallbackReason(null);
-            return;
-        }
-        if (!legacyOutcome.getFallbackReasons().isEmpty()) {
-            result.setFallbackReason(String.join(",", legacyOutcome.getFallbackReasons().stream().sorted().toList()));
-            return;
-        }
-        result.setFallbackReason(isLegacyNormalizedFallbackEnabled() ? "LEGACY_UNMAPPED" : "FALLBACK_DISABLED");
-    }
-
-    private void logFallbackGovernanceSignal(DeviceProcessingTarget target, TelemetryPersistResult result) {
-        if (result == null || result.getLegacyUnmappedMetricCount() == null || result.getLegacyUnmappedMetricCount() <= 0) {
-            return;
-        }
-        log.info("TDengine legacy 映射回退, deviceCode={}, branch={}, legacyMappedMetricCount={}, legacyUnmappedMetricCount={}, fallbackMetricCount={}, reason={}",
-                target == null || target.getDevice() == null ? null : target.getDevice().getDeviceCode(),
-                result.getBranch(),
-                result.getLegacyMappedMetricCount(),
-                result.getLegacyUnmappedMetricCount(),
-                result.getFallbackMetricCount(),
-                result.getFallbackReason());
-    }
-
-    private void logLegacyMappingValidateOnly(DeviceProcessingTarget target,
-                                              Map<String, Object> properties,
-                                              Map<String, DevicePropertyMetadata> metadataMap,
-                                              TelemetryPersistResult result) {
-        if (!isLegacyMappingValidateOnlyEnabled()) {
-            return;
-        }
-        MappingSnapshot oldSnapshot = buildLegacyMappingSnapshot(properties, metadataMap);
-        log.info("legacy_mapping_validate_only, deviceCode={}, oldMappedMetricCount={}, oldUnmappedMetricCount={}, newMappedMetricCount={}, newUnmappedMetricCount={}, fallbackMetricCount={}, fallbackReason={}",
-                target == null || target.getDevice() == null ? null : target.getDevice().getDeviceCode(),
-                oldSnapshot.mappedMetricCount(),
-                oldSnapshot.unmappedMetricCount(),
-                result.getLegacyMappedMetricCount(),
-                result.getLegacyUnmappedMetricCount(),
-                result.getFallbackMetricCount(),
-                result.getFallbackReason());
-    }
-
-    private MappingSnapshot buildLegacyMappingSnapshot(Map<String, Object> properties,
-                                                       Map<String, DevicePropertyMetadata> metadataMap) {
-        int mappedMetricCount = 0;
-        int unmappedMetricCount = 0;
-        if (properties == null || properties.isEmpty()) {
-            return new MappingSnapshot(0, 0);
-        }
-        for (String metricCode : properties.keySet()) {
-            DevicePropertyMetadata metadata = metadataMap == null ? null : metadataMap.get(metricCode);
-            DevicePropertyMetadata.TdengineLegacyMapping mapping = metadata == null ? null : metadata.getTdengineLegacyMapping();
-            if (mapping != null
-                    && !Boolean.FALSE.equals(mapping.getEnabled())
-                    && hasText(mapping.getStable())
-                    && hasText(mapping.getColumn())) {
-                mappedMetricCount++;
-            } else {
-                unmappedMetricCount++;
-            }
-        }
-        return new MappingSnapshot(mappedMetricCount, unmappedMetricCount);
     }
 
     private boolean isLegacyNormalizedFallbackEnabled() {
@@ -295,23 +278,10 @@ public class TdengineTelemetryFacade {
                 || Boolean.TRUE.equals(iotProperties.getTelemetry().getLegacyNormalizedFallbackEnabled());
     }
 
-    private boolean isLegacyMappingValidateOnlyEnabled() {
-        return iotProperties.getTelemetry() != null
-                && Boolean.TRUE.equals(iotProperties.getTelemetry().getLegacyMappingValidateOnly());
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
-    }
-
     private String normalizeTdengineMode() {
         if (iotProperties.getTelemetry() == null || iotProperties.getTelemetry().getTdengineMode() == null) {
             return "legacy-compatible";
         }
         return iotProperties.getTelemetry().getTdengineMode().trim().toLowerCase(Locale.ROOT);
-    }
-
-    private record MappingSnapshot(int mappedMetricCount,
-                                   int unmappedMetricCount) {
     }
 }

@@ -158,7 +158,7 @@ COMPLETE
 - Inspect: `spring-boot-iot-telemetry/src/main/java/com/ghlzm/iot/telemetry/service/impl/TdengineTelemetryFacade.java`
 - Inspect: `spring-boot-iot-admin/src/main/resources/application-dev.yml`
 
-- [ ] **Step 1: 确认真实环境 `$dp` 运行基线**
+- [x] **Step 1: 确认真实环境 `$dp` 运行基线**
 
 Run:
 
@@ -172,7 +172,7 @@ Expected:
 - `details.consumerActive = true`
 - `details.subscribeTopics` 包含 `$dp`
 
-- [ ] **Step 2: 拉取最近真实 `$dp` 会话并按家族做样本台账**
+- [x] **Step 2: 拉取最近真实 `$dp` 会话并按家族做样本台账**
 
 Run:
 
@@ -188,7 +188,7 @@ Selection rule:
 - 每个家族至少保留 3 条正样本
 - 每个厂商 `appId` 至少保留 1 条样本
 
-- [ ] **Step 3: 对每个样本记录以下字段**
+- [x] **Step 3: 对每个样本记录以下字段**
 
 Required fields:
 - `traceId`
@@ -202,13 +202,16 @@ Required fields:
 - `legacyStableCount`
 - `normalizedFallbackCount`
 
-- [ ] **Step 4: 立即标注当前高风险家族**
+- [x] **Step 4: 立即标注当前高风险家族**
 
 Risk rule:
 - 长期只走 `NORMALIZED_FALLBACK_ONLY`
 - 同一家族不同厂商输出字段不一致
 - 同一设备族需要大量 `childMessages`
 - 同一家族存在多种时间戳结构
+
+Evidence:
+- `docs/superpowers/plans/2026-03-24-dp-baseline-freeze.md`
 
 ### Task 2: 先补家族级协议元数据与可观测，不改业务行为
 
@@ -220,7 +223,7 @@ Risk rule:
 - Test: `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapterTest.java`
 - Test: `spring-boot-iot-message/src/test/java/com/ghlzm/iot/message/pipeline/UpMessageProcessingPipelineTest.java`
 
-- [ ] **Step 1: 先写失败测试，要求 `$dp` 解码后带出协议元数据**
+- [x] **Step 1: 先写失败测试，要求 `$dp` 解码后带出协议元数据**
 
 Test assertions:
 - `$dp` 报文能输出 `appId`
@@ -228,7 +231,7 @@ Test assertions:
 - `normalizationStrategy = LEGACY_DP`
 - `childSplitApplied` 与实际子消息拆分一致
 
-- [ ] **Step 2: 运行单测，确认当前实现尚不满足这些元数据要求**
+- [x] **Step 2: 运行单测，确认当前实现尚不满足这些元数据要求**
 
 Run:
 
@@ -239,7 +242,7 @@ mvn -s .mvn/settings.xml -pl spring-boot-iot-protocol "-DskipTests=false" "-Dtes
 Expected:
 - 新增测试失败
 
-- [ ] **Step 3: 给 `DeviceUpMessage` 增加显式协议元数据挂载点**
+- [x] **Step 3: 给 `DeviceUpMessage` 增加显式协议元数据挂载点**
 
 Required fields:
 - `appId`
@@ -249,7 +252,7 @@ Required fields:
 - `childSplitApplied`
 - `routeType`
 
-- [ ] **Step 4: 把协议元数据回写到 `PROTOCOL_DECODE.summary`**
+- [x] **Step 4: 把协议元数据回写到 `PROTOCOL_DECODE.summary`**
 
 Required summary keys:
 - `familyCodes`
@@ -257,7 +260,7 @@ Required summary keys:
 - `normalizationStrategy`
 - `timestampSource`
 
-- [ ] **Step 5: 重新运行协议与 message-flow 单测**
+- [x] **Step 5: 重新运行协议与 message-flow 单测**
 
 Run:
 
@@ -278,25 +281,25 @@ Expected:
 - Test: `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapterTest.java`
 - Test: `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/LegacyDpEnvelopeDecoderTest.java`
 
-- [ ] **Step 1: 为三类 `$dp` 包型补齐失败测试**
+- [x] **Step 1: 为三类 `$dp` 包型补齐失败测试**
 
 Coverage:
 - 明文 JSON
 - 带控制字符前缀的明文 JSON
 - 带 `header.appId + bodies.body` 的加密包
 
-- [ ] **Step 2: 把当前 `decodePayload()` 与 `enrichByDataFormat()` 搬到新 decoder 中**
+- [x] **Step 2: 把当前 `decodePayload()` 与 `enrichByDataFormat()` 搬到新 decoder 中**
 
 Constraint:
 - 只做职责迁移，不改变输出结构
 
-- [ ] **Step 3: 保持 `MqttJsonProtocolAdapter.decode()` 只负责编排，不再直接处理外层加解密细节**
+- [x] **Step 3: 保持 `MqttJsonProtocolAdapter.decode()` 只负责编排，不再直接处理外层加解密细节**
 
 Expected end state:
 - adapter 看起来像 orchestration class
 - envelope decoder 看起来像 pure protocol decoder
 
-- [ ] **Step 4: 运行协议模块全部相关测试**
+- [x] **Step 4: 运行协议模块全部相关测试**
 
 Run:
 
@@ -319,7 +322,7 @@ Expected:
 - Test: `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/LegacyDpPropertyNormalizerTest.java`
 - Test: `spring-boot-iot-protocol/src/test/java/com/ghlzm/iot/protocol/mqtt/LegacyDpChildMessageSplitterTest.java`
 
-- [ ] **Step 1: 为核心家族补齐标准化失败测试**
+- [x] **Step 1: 为核心家族补齐标准化失败测试**
 
 Minimum family coverage:
 - `S1_ZT_1`
@@ -334,28 +337,28 @@ Assertion goals:
 - `messageType` 推断稳定
 - 基站一包多测点的子消息拆分与当前行为一致
 
-- [ ] **Step 2: 实现 `LegacyDpFamilyResolver`，显式识别家族码**
+- [x] **Step 2: 实现 `LegacyDpFamilyResolver`，显式识别家族码**
 
 Rules:
 - 从 payload 顶层和设备体内识别家族 key
 - 一条报文允许命中多个家族
 - 不允许继续靠零散 `contains("_ZT_")` 弱推断承担全部职责
 
-- [ ] **Step 3: 实现 `LegacyDpPropertyNormalizer`，按家族做标准化**
+- [x] **Step 3: 实现 `LegacyDpPropertyNormalizer`，按家族做标准化**
 
 Rules:
 - 时间序列容器统一取最新点
 - 标量与对象容器统一输出
 - 当前已被前端/规则/报表消费的属性名，若未明确迁移，不得随意改名
 
-- [ ] **Step 4: 实现 `LegacyDpChildMessageSplitter`，把子设备拆分从 adapter 主类里移出**
+- [x] **Step 4: 实现 `LegacyDpChildMessageSplitter`，把子设备拆分从 adapter 主类里移出**
 
 Rules:
 - 继续复用 `iot.device.sub-device-mappings`
 - 父消息原始日志和在线态保留
 - 子消息只承接标准化属性
 
-- [ ] **Step 5: 运行协议模块回归测试**
+- [x] **Step 5: 运行协议模块回归测试**
 
 Run:
 
@@ -381,37 +384,38 @@ Expected:
 - Test: `spring-boot-iot-telemetry/src/test/java/com/ghlzm/iot/telemetry/service/impl/LegacyTdengineTelemetryReaderTest.java`
 - Test: `spring-boot-iot-telemetry/src/test/java/com/ghlzm/iot/telemetry/service/impl/TdengineTelemetryFacadeTest.java`
 
-- [ ] **Step 1: 先写失败测试，要求映射读取与校验统一从 service 层走**
+- [x] **Step 1: 先写失败测试，要求映射读取与校验统一从 service 层走**
 
 Expected:
 - legacy writer/reader 不再自己理解散落的映射来源
 - 缺失 stable/column 的映射会被显式标记
 
-- [ ] **Step 2: 抽出 `DeviceTelemetryMappingService`，先兼容现有 `specsJson.tdengineLegacy` 来源**
+- [x] **Step 2: 抽出 `DeviceTelemetryMappingService`，先兼容现有 `specsJson.tdengineLegacy` 来源**
 
 Constraint:
 - 第一阶段不强行引入新表
 - 先做服务抽象，保持行为兼容
 
-- [ ] **Step 3: 在 `TdengineTelemetryFacade` 中引入“映射命中率”观测**
+- [x] **Step 3: 在 `TdengineTelemetryFacade` 中引入“映射命中率”观测**
 
 Required metrics/summary fields:
 - `legacyMappedMetricCount`
 - `legacyUnmappedMetricCount`
 - `fallbackMetricCount`
 
-- [ ] **Step 4: 把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态**
+- [x] **Step 4: 把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态**
 
 Required action:
 - 日志和时间线中必须能看出“命中 fallback 的原因”
 
-- [ ] **Step 5: 运行 device + telemetry 相关测试**
+- [x] **Step 5: 运行 device + telemetry 相关测试**
 
 Run:
 
 ```powershell
-mvn -s .mvn/settings.xml -pl spring-boot-iot-device "-DskipTests=false" "-Dtest=DevicePropertyMetadataServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-mvn -s .mvn/settings.xml -pl spring-boot-iot-telemetry "-DskipTests=false" "-Dtest=LegacyTdengineTelemetryWriterTest,LegacyTdengineTelemetryReaderTest,TdengineTelemetryFacadeTest,TelemetryPersistStageHandlerTest,TdengineTelemetryStorageServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-device -am "-DskipTests=false" "-Dtest=DeviceTelemetryMappingServiceImplTest,DevicePropertyMetadataServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-telemetry -am "-DskipTests=false" "-Dtest=LegacyTdengineTelemetryWriterTest,LegacyTdengineTelemetryReaderTest,TdengineTelemetryFacadeTest,TelemetryPersistStageHandlerTest,TdengineTelemetryStorageServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl spring-boot-iot-message -am "-DskipTests=false" "-Dtest=UpMessageProcessingPipelineTest,MqttJsonProtocolAdapterTest,LegacyDpEnvelopeDecoderTest,LegacyDpPropertyNormalizerTest,LegacyDpChildMessageSplitterTest,MqttTopicParserTest,MqttPayloadSecurityValidatorTest,MqttPayloadDecryptorRegistryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 ```
 
 Expected:
@@ -426,24 +430,24 @@ Expected:
 - Modify: `spring-boot-iot-message/src/test/java/com/ghlzm/iot/message/mqtt/MqttMessageConsumerTest.java`
 - Modify: `spring-boot-iot-message/src/test/java/com/ghlzm/iot/message/pipeline/UpMessageProcessingPipelineTest.java`
 
-- [ ] **Step 1: 增加 `$dp` 重构过程专用开关**
+- [x] **Step 1: 增加 `$dp` 重构过程专用开关**
 
 Recommended flags:
 - `iot.protocol.legacy-dp.family-observability-enabled`
 - `iot.protocol.legacy-dp.normalizer-v2-enabled`
 - `iot.telemetry.legacy-mapping-validate-only`
 
-- [ ] **Step 2: 在 `validate-only` 模式下输出 old/new 差异，但继续沿用旧结果**
+- [x] **Step 2: 在 `validate-only` 模式下输出 old/new 差异，但继续沿用旧结果**
 
 Purpose:
 - 先看真实环境差异，再决定放量
 
-- [ ] **Step 3: 在 `normalizer-v2-enabled` 打开后，仅切换协议内部实现，不改 Pipeline 和控制器接口**
+- [x] **Step 3: 在 `normalizer-v2-enabled` 打开后，仅切换协议内部实现，不改 Pipeline 和控制器接口**
 
 Success rule:
 - 外部 API 路径、鉴权、session/timeline 结构不变
 
-- [ ] **Step 4: 运行 message 模块回归测试**
+- [x] **Step 4: 运行 message 模块回归测试**
 
 Run:
 
@@ -453,6 +457,10 @@ mvn -s .mvn/settings.xml -pl spring-boot-iot-message "-DskipTests=false" "-Dtest
 
 Expected:
 - MQTT 入口和时间线行为不回归
+
+Verification evidence:
+- `mvn -pl spring-boot-iot-protocol -am "-DskipTests=false" "-Dtest=MqttJsonProtocolAdapterTest,LegacyDpEnvelopeDecoderTest,LegacyDpPropertyNormalizerTest,LegacyDpChildMessageSplitterTest,MqttTopicParserTest,MqttPayloadSecurityValidatorTest,MqttPayloadDecryptorRegistryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `mvn -pl spring-boot-iot-message -am "-DskipTests=false" "-Dtest=MqttMessageConsumerTest,UpMessageProcessingPipelineTest,MqttReportPublishServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 
 ### Task 7: 真实环境分家族验收、文档更新和旧逻辑清理
 
@@ -465,7 +473,7 @@ Expected:
 - Inspect: `README.md`
 - Inspect: `AGENTS.md`
 
-- [ ] **Step 1: 按家族执行真实环境验收**
+- [x] **Step 1: 按家族执行真实环境验收**
 
 Minimum checks per family:
 - `message-flow` 中 10 阶段完整
@@ -475,13 +483,18 @@ Minimum checks per family:
 - `/api/telemetry/latest` 可见最新值
 - TDengine stable 或 fallback 表中可查
 
-- [ ] **Step 2: 对每个家族都记录 legacy 命中率与 fallback 命中率**
+- [x] **Step 2: 对每个家族都记录 legacy 命中率与 fallback 命中率**
 
 Acceptance target:
 - 已完成治理的家族，fallback 比例应显著下降
 - fallback 仅保留未映射指标或临时兼容项
 
-- [ ] **Step 3: 原位更新权威文档**
+Verification evidence:
+- `SK00E60D1306931`：`status` 会话 `cd4b8ca569f34cebbb52946bafc1fc68` / trace `c4bfcfa4ba9349b68ab0eac87287e25f` 命中 `familyCodes=S1_ZT_1`、`normalizedFallbackCount=17`；`property` 会话 `37dcd60f5fc64eb7a8b90b0fde8d7b63` / trace `d74178cd34f64c0197a913bbf82af152` 命中 `familyCodes=L3_YL_1`、`normalizedFallbackCount=2`。两条 trace 在 TDengine `reported_at=2026-03-24T07:18:03.000Z` 下同时存在。
+- `SK00EA0D1307992`：`status` 会话 `8f1bfcc4bdcc43df878a6b33e7b39a90` / trace `6544c3bbb7504ea38bd8c7a34136b400` 命中 `familyCodes=S1_ZT_1`、`normalizedFallbackCount=19`；`property` 会话 `9c673a06d6e741b6b0b2af323eb96f8b` / trace `90bfb1b8b3f74be0b16d4a772db81b0e` 命中 `familyCodes=L1_LF_1,L1_LF_2,L1_LF_3`、`normalizedFallbackCount=3`。两条 trace 在 TDengine `reported_at=2026-03-24T07:17:38.000Z` 下同时存在。
+- 当前样本仍以 `NORMALIZED_FALLBACK_ONLY` 为主，说明家族识别与 fallback 原因观测已补齐，但 legacy stable 映射治理尚未完成，后续应继续降低 fallback 比例。
+
+- [x] **Step 3: 原位更新权威文档**
 
 Required updates:
 - `05-protocol`：补齐 `$dp` 新的分段结构和家族标准化口径
@@ -490,13 +503,17 @@ Required updates:
 - `真实环境测试与验收手册`：补齐分家族验收步骤
 - `08`：记录本轮治理边界和后续技术债
 
+Inspection result:
+- `README.md`：本次 bugfix 不涉及新增入口、命令或协作约束，无需更新。
+- `AGENTS.md`：本次 bugfix 不改变开发规则、模块边界或验收基线，无需更新。
+
 - [ ] **Step 4: 只有在真实环境稳定后才删除 adapter 中的旧私有方法**
 
 Removal target:
 - 零散的 legacy 推断私有方法
 - 与新组件重复的旧 helper
 
-- [ ] **Step 5: 运行最终验证命令**
+- [x] **Step 5: 运行最终验证命令**
 
 Run:
 

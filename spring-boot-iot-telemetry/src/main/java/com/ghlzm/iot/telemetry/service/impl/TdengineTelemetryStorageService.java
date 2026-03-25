@@ -74,7 +74,7 @@ public class TdengineTelemetryStorageService {
     private final TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport;
     private final DevicePropertyMetadataService devicePropertyMetadataService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
-    private final AtomicLong lastStorageEpochMillis = new AtomicLong(0L);
+    private final AtomicLong lastPersistedRowTimestampMillis = new AtomicLong();
 
     public TdengineTelemetryStorageService(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                            TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport,
@@ -170,19 +170,12 @@ public class TdengineTelemetryStorageService {
         return target.getMessage().getTimestamp() == null ? LocalDateTime.now() : target.getMessage().getTimestamp();
     }
 
-    /**
-     * `ts` 是共享 fallback 表的存储主时间轴，必须跨 target 唯一。
-     * 真实设备时间继续保存在 `reported_at`，latest 查询优先按 `reported_at` 判定新旧。
-     */
     private LocalDateTime resolveRowTimestamp() {
-        long candidate = System.currentTimeMillis();
-        while (true) {
-            long previous = lastStorageEpochMillis.get();
-            long next = Math.max(candidate, previous + 1L);
-            if (lastStorageEpochMillis.compareAndSet(previous, next)) {
-                return LocalDateTime.ofInstant(Instant.ofEpochMilli(next), ZoneId.systemDefault());
-            }
-        }
+        long uniqueMillis = lastPersistedRowTimestampMillis.updateAndGet(previousMillis -> {
+            long currentMillis = System.currentTimeMillis();
+            return currentMillis > previousMillis ? currentMillis : previousMillis + 1;
+        });
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(uniqueMillis), ZoneId.systemDefault());
     }
 
     private String resolveMetricName(String identifier, DevicePropertyMetadata metadata) {
