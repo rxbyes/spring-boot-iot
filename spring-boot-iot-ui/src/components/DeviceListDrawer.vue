@@ -327,7 +327,7 @@ function handleViewDevice(device: Device) {
   color: var(--text-secondary);
   font-size: 12.5px;
   line-height: 1.6;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
 .device-state--error {
@@ -460,7 +460,7 @@ function handleViewDevice(device: Device) {
   border: 1px solid var(--panel-border);
   border-radius: 0.94rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.94));
-  box-shadow: 0 8px 18px rgba(24, 45, 77, 0.04);
+  box-shadow: var(--shadow-surface-soft-sm);
 }
 
 .device-drawer__table :deep(.el-table) {

@@ -1585,7 +1585,7 @@ onBeforeUnmount(() => {
   font-family: var(--font-mono);
   font-size: 0.84rem;
   line-height: 1.65;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
+  box-shadow: var(--shadow-input-inset-soft);
 }
 
 .reporting-textarea :deep(.el-textarea__inner:focus) {
@@ -1699,7 +1699,7 @@ onBeforeUnmount(() => {
 .reporting-recent-item:hover {
   border-color: color-mix(in srgb, var(--brand) 22%, var(--line-soft));
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(12, 37, 63, 0.08);
+  box-shadow: var(--shadow-report-card-hover);
 }
 
 .reporting-recent-item[data-active='true'] {

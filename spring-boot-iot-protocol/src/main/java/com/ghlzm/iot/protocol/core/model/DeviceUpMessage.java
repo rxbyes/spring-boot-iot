@@ -68,4 +68,9 @@ public class DeviceUpMessage {
      * 原始 JSON 字符串，便于消息日志原样落库。
      */
     private String rawPayload;
+
+    /**
+     * 协议层补充的治理/观测元数据。
+     */
+    private DeviceUpProtocolMetadata protocolMetadata;
 }

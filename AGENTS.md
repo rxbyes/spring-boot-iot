@@ -13,6 +13,7 @@ com.ghlzm.iot
 第一至第三阶段主链路是长期稳定基线。第四阶段风险平台能力仍在推进中，但已经具备可用的真实环境基线。
 当前设备接入固定 Pipeline 为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE`。
 当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`，`application-test.yml` 继续保留 `mysql`。
+产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验，但当前仍作为下一阶段设备中心增强，不并入 Phase 4 已交付范围。
 
 ### 当前构建模块基线
 当前父 `pom.xml` 激活 `12` 个模块：
@@ -34,6 +35,7 @@ com.ghlzm.iot
 ### 已验证业务基线
 当前已验证的基线包括：
 - 产品新增 / 查询
+- 产品物模型设计器（产品维度列表、新增、编辑、删除、类型切换、JSON 校验提示）
 - 设备新增 / 查询
 - HTTP 模拟设备上报
 - MQTT 真实接入
@@ -184,8 +186,10 @@ com.ghlzm.iot
 
 ## 推荐命令
 - 构建：`mvn -s .mvn/settings.xml clean install -DskipTests`；若仓库不存在 `.mvn/settings.xml`，直接改为 `mvn clean install -DskipTests`
+- 本地质量门禁：`node scripts/run-quality-gates.mjs`
 - 启动应用（macOS / Linux、Windows CMD）：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`；若仓库不存在 `.mvn/settings.xml`，直接省略 `-s .mvn/settings.xml`
 - 启动应用（Windows PowerShell）：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run "-Dspring-boot.run.profiles=dev"`；若仓库不存在 `.mvn/settings.xml`，直接省略 `-s .mvn/settings.xml`
+- 严格真实环境验收启动（跨模块改动推荐）：`mvn -pl spring-boot-iot-admin -am clean package -DskipTests` 后执行 `java -jar spring-boot-iot-admin/target/spring-boot-iot-admin-1.0.0-SNAPSHOT.jar --spring.profiles.active=dev`
 - 后端验收：`powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1`
 - 前端验收：`powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1`
 - message-flow 验收：`python scripts/run-message-flow-acceptance.py --expired-trace-id <已过期TraceId>`

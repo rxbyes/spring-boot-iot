@@ -2814,7 +2814,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
 .device-loading-mobile-card {
@@ -2824,7 +2824,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .device-loading-mobile-card__header {
@@ -2860,7 +2860,7 @@ onMounted(async () => {
   position: relative;
   overflow: hidden;
   display: inline-flex;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(220, 229, 241, 0.8);
 }
 
@@ -2922,7 +2922,7 @@ onMounted(async () => {
 .device-loading-square {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .device-mobile-list {
@@ -2941,7 +2941,7 @@ onMounted(async () => {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-inset-highlight-76);
 }
 
 .device-mobile-card__header {
@@ -3068,7 +3068,7 @@ onMounted(async () => {
   min-height: 2.6rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--brand);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
   color: var(--brand);
   font-size: 13px;
@@ -3114,7 +3114,7 @@ onMounted(async () => {
   min-height: 2.6rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--brand);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
   color: var(--brand);
   font-size: 13px;

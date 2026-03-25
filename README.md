@@ -6,14 +6,14 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-03-24
+> 更新时间：2026-03-25
 
 ## 项目简介
 
 `spring-boot-iot` 是一个基于 Spring Boot 4 + Java 17 的模块化单体 IoT 平台，当前覆盖：
 
 - 设备接入：产品定义、设备资产、HTTP / MQTT 上报、协议解析、消息日志、最新属性、在线状态、最小下行
-- 风险处置：告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
+- 风险处置：实时监测、GIS 态势图、告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
 - 平台治理：组织、用户、角色、菜单、区域、字典、通知渠道、站内消息、帮助文档、审计中心
 - 质量与协作：自动化工场、真实环境验收、智能助手接手模板、帮助中心消费层治理
 
@@ -40,8 +40,9 @@
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
 - `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认按 `legacy-compatible` 先读 legacy stable、再补 `iot_device_telemetry_point` 缺失指标，并对 legacy 结果按消息日志最佳努力回补 `traceId`；`mysql` 模式兼容回退到 `iot_device_property`。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
-- Phase 4 已完成并纳入真实环境验收基线的能力，以告警、事件、风险策略、报表分析、系统治理和系统内容治理为主。
-- `/risk-monitoring`、`/risk-monitoring-gis` 已完成代码落地，但是否计入已交付范围，继续以 [docs/19-第四阶段交付边界与复验进展.md](docs/19-第四阶段交付边界与复验进展.md) 为准。
+- Phase 4 已完成并纳入真实环境验收基线的能力，包括实时监测、GIS 态势图、告警、事件、风险策略、报表分析、系统治理和系统内容治理。
+- 当前共享开发环境已于 2026-03-24 完成 `/api/risk-monitoring/*`、`/risk-monitoring`、`/risk-monitoring-gis` 真实环境复验，风险监测基线正式纳入交付。
+- 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；当前仍作为设备中心下一阶段增强维护，不并入 Phase 4 已交付范围。
 - 通知中心当前已具备 `system_error` 自动消息、工单相关自动消息，以及高优未读桥接既有通知渠道能力。
 - 可观测当前已补齐规则化运维告警闭环：通过 `iot.observability.alerting` 在现有审计、MQTT 运行态、接入失败聚合和站内信桥接统计之上评估 4 类固定规则，并通过新场景 `observability_alert` 复用既有通知渠道。
 - `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
@@ -92,6 +93,15 @@ Windows PowerShell：
 mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
+若本轮需要严格验证刚修改过的上游模块是否已经进入运行时，优先改用 fat jar 启动：
+
+```bash
+mvn -pl spring-boot-iot-admin -am clean package -DskipTests
+java -jar spring-boot-iot-admin/target/spring-boot-iot-admin-1.0.0-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+- `spring-boot:run` 适合日常开发；跨模块真实环境取证时，fat jar 更容易避免 `device`、`alarm`、`framework` 等依赖模块仍引用旧类。
+
 ### 4. 启动前端
 
 ```bash
@@ -101,6 +111,15 @@ npm run acceptance:dev
 ```
 
 ### 5. 执行验收
+
+- 本地最小质量门禁脚本：
+
+```bash
+node scripts/run-quality-gates.mjs
+```
+
+  - Windows 底层脚本：`powershell -ExecutionPolicy Bypass -File scripts/run-quality-gates.ps1`
+  - macOS / Linux 底层脚本：`sh scripts/run-quality-gates.sh`
 
 - 后端验收脚本：
 

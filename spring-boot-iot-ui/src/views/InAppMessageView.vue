@@ -2129,7 +2129,7 @@ onMounted(() => {
 .in-app-message-view__insight-card,
 .in-app-message-view__bridge-filter-card {
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: var(--radius-3xl);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--brand-50) 48%, white) 0%, white 100%);
   padding: 1rem 1.1rem;
@@ -2225,7 +2225,7 @@ onMounted(() => {
   height: auto;
   padding: 1rem 1.15rem;
   border: 1px solid var(--panel-border);
-  border-radius: 22px;
+  border-radius: calc(var(--radius-3xl) + 2px);
   background:
     linear-gradient(135deg, rgba(247, 250, 255, 0.96), rgba(255, 255, 255, 0.98)),
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 10%, transparent), transparent 30%);

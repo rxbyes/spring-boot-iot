@@ -94,6 +94,8 @@ class DeviceMessageServiceImplTest {
                 new DeviceContractStageHandler(deviceMapper, productMapper);
         DeviceMessageLogStageHandler deviceMessageLogStageHandler =
                 new DeviceMessageLogStageHandler(deviceMessageLogMapper);
+        DeviceTelemetryMappingServiceImpl deviceTelemetryMappingService =
+                new DeviceTelemetryMappingServiceImpl(productModelMapper);
         DevicePropertyMetadataService devicePropertyMetadataService =
                 new DevicePropertyMetadataServiceImpl(productModelMapper);
         DevicePayloadApplyStageHandler devicePayloadApplyStageHandler =

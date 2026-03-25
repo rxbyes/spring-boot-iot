@@ -5,7 +5,9 @@ import type {
   IdType,
   PageResult,
   Product,
-  ProductAddPayload
+  ProductAddPayload,
+  ProductModel,
+  ProductModelUpsertPayload
 } from '../types/api';
 
 export interface ProductPageQueryParams {
@@ -87,6 +89,42 @@ export const productApi = {
    */
   deleteProduct(id: IdType) {
     return request<void>(`/api/device/product/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  /**
+   * 查询指定产品的物模型列表
+   */
+  listProductModels(productId: IdType) {
+    return request<ProductModel[]>(`/api/device/product/${productId}/models`);
+  },
+
+  /**
+   * 新增产品物模型
+   */
+  addProductModel(productId: IdType, payload: ProductModelUpsertPayload): Promise<ApiEnvelope<ProductModel>> {
+    return request<ProductModel>(`/api/device/product/${productId}/models`, {
+      method: 'POST',
+      body: payload
+    });
+  },
+
+  /**
+   * 更新产品物模型
+   */
+  updateProductModel(productId: IdType, modelId: IdType, payload: ProductModelUpsertPayload): Promise<ApiEnvelope<ProductModel>> {
+    return request<ProductModel>(`/api/device/product/${productId}/models/${modelId}`, {
+      method: 'PUT',
+      body: payload
+    });
+  },
+
+  /**
+   * 删除产品物模型
+   */
+  deleteProductModel(productId: IdType, modelId: IdType) {
+    return request<void>(`/api/device/product/${productId}/models/${modelId}`, {
       method: 'DELETE'
     });
   }

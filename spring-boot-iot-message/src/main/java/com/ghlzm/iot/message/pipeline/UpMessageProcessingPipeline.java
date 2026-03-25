@@ -26,6 +26,7 @@ import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
@@ -247,6 +248,27 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));
         result.getSummary().put("filePayload", upMessage.getFilePayload() != null);
         result.getSummary().put("correlationMatched", context.correlationMatched);
+        DeviceUpProtocolMetadata protocolMetadata = upMessage.getProtocolMetadata();
+        if (protocolMetadata != null) {
+            if (hasText(protocolMetadata.getRouteType())) {
+                result.getSummary().put("routeType", protocolMetadata.getRouteType());
+            }
+            if (hasText(protocolMetadata.getAppId())) {
+                result.getSummary().put("appId", protocolMetadata.getAppId());
+            }
+            if (protocolMetadata.getFamilyCodes() != null && !protocolMetadata.getFamilyCodes().isEmpty()) {
+                result.getSummary().put("familyCodes", protocolMetadata.getFamilyCodes());
+            }
+            if (hasText(protocolMetadata.getNormalizationStrategy())) {
+                result.getSummary().put("normalizationStrategy", protocolMetadata.getNormalizationStrategy());
+            }
+            if (hasText(protocolMetadata.getTimestampSource())) {
+                result.getSummary().put("timestampSource", protocolMetadata.getTimestampSource());
+            }
+            if (protocolMetadata.getChildSplitApplied() != null) {
+                result.getSummary().put("childSplitApplied", protocolMetadata.getChildSplitApplied());
+            }
+        }
         return result;
     }
 
@@ -352,7 +374,11 @@ public class UpMessageProcessingPipeline {
         int legacyStableCount = 0;
         int legacyColumnCount = 0;
         int normalizedFallbackCount = 0;
+        int legacyMappedMetricCount = 0;
+        int legacyUnmappedMetricCount = 0;
+        int fallbackMetricCount = 0;
         int skippedMetricCount = 0;
+        List<String> fallbackReasons = new ArrayList<>();
         String branch = null;
         String storageMode = null;
         String errorClass = null;
@@ -370,7 +396,11 @@ public class UpMessageProcessingPipeline {
                         storageMode = persistResult.getStorageMode();
                     }
                     if (persistResult != null) {
+                        legacyMappedMetricCount += nullSafeInt(persistResult.getLegacyMappedMetricCount());
+                        legacyUnmappedMetricCount += nullSafeInt(persistResult.getLegacyUnmappedMetricCount());
+                        fallbackMetricCount += nullSafeInt(persistResult.getFallbackMetricCount());
                         skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
+                        mergeFallbackReasons(fallbackReasons, persistResult.getFallbackReasons());
                     }
                     continue;
                 }
@@ -379,7 +409,11 @@ public class UpMessageProcessingPipeline {
                 legacyStableCount += nullSafeInt(persistResult.getLegacyStableCount());
                 legacyColumnCount += nullSafeInt(persistResult.getLegacyColumnCount());
                 normalizedFallbackCount += nullSafeInt(persistResult.getNormalizedFallbackCount());
+                legacyMappedMetricCount += nullSafeInt(persistResult.getLegacyMappedMetricCount());
+                legacyUnmappedMetricCount += nullSafeInt(persistResult.getLegacyUnmappedMetricCount());
+                fallbackMetricCount += nullSafeInt(persistResult.getFallbackMetricCount());
                 skippedMetricCount += nullSafeInt(persistResult.getSkippedMetricCount());
+                mergeFallbackReasons(fallbackReasons, persistResult.getFallbackReasons());
                 if (branch == null && hasText(persistResult.getBranch())) {
                     branch = persistResult.getBranch();
                 }
@@ -415,11 +449,29 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("legacyStableCount", legacyStableCount);
         result.getSummary().put("legacyColumnCount", legacyColumnCount);
         result.getSummary().put("normalizedFallbackCount", normalizedFallbackCount);
+        result.getSummary().put("legacyMappedMetricCount", legacyMappedMetricCount);
+        result.getSummary().put("legacyUnmappedMetricCount", legacyUnmappedMetricCount);
+        result.getSummary().put("fallbackMetricCount", fallbackMetricCount);
         result.getSummary().put("skippedMetricCount", skippedMetricCount);
+        if (!fallbackReasons.isEmpty()) {
+            result.getSummary().put("fallbackReasons", fallbackReasons);
+        }
         if (hasText(storageMode)) {
             result.getSummary().put("storageMode", storageMode);
         }
         return result;
+    }
+
+    private void mergeFallbackReasons(List<String> target, List<String> incoming) {
+        if (target == null || incoming == null || incoming.isEmpty()) {
+            return;
+        }
+        for (String reason : incoming) {
+            if (!hasText(reason) || target.contains(reason)) {
+                continue;
+            }
+            target.add(reason);
+        }
     }
 
     private int nullSafeInt(Integer value) {

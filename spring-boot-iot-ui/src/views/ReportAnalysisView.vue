@@ -553,7 +553,7 @@ onBeforeUnmount(() => {
       color: #6b7d95;
       font-size: 14px;
       border: 1px dashed #d8e4f5;
-      border-radius: 8px;
+      border-radius: calc(var(--radius-md) + 2px);
       background: linear-gradient(180deg, rgba(247, 251, 255, 0.72), rgba(241, 247, 255, 0.62));
 
       p {
@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
       button {
         min-height: 32px;
         padding: 0 14px;
-        border-radius: 6px;
+        border-radius: var(--radius-md);
         border: 1px solid #bed1ef;
         background: #fff;
         color: #1668dc;

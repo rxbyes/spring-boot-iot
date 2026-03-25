@@ -2,6 +2,8 @@ package com.ghlzm.iot.telemetry.service.model;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 时序落库结果。
  */
@@ -14,6 +16,10 @@ public class TelemetryPersistResult {
     private Integer legacyStableCount;
     private Integer legacyColumnCount;
     private Integer normalizedFallbackCount;
+    private Integer legacyMappedMetricCount;
+    private Integer legacyUnmappedMetricCount;
+    private Integer fallbackMetricCount;
+    private List<String> fallbackReasons = List.of();
     private Integer skippedMetricCount;
     private boolean skipped;
 
@@ -35,6 +41,10 @@ public class TelemetryPersistResult {
         result.setLegacyStableCount(legacyStableCount);
         result.setLegacyColumnCount(legacyColumnCount);
         result.setNormalizedFallbackCount(normalizedFallbackCount);
+        result.setLegacyMappedMetricCount(0);
+        result.setLegacyUnmappedMetricCount(0);
+        result.setFallbackMetricCount(0);
+        result.setFallbackReasons(List.of());
         result.setSkippedMetricCount(skippedMetricCount);
         return result;
     }
@@ -52,6 +62,10 @@ public class TelemetryPersistResult {
         result.setLegacyStableCount(0);
         result.setLegacyColumnCount(0);
         result.setNormalizedFallbackCount(0);
+        result.setLegacyMappedMetricCount(0);
+        result.setLegacyUnmappedMetricCount(0);
+        result.setFallbackMetricCount(0);
+        result.setFallbackReasons(List.of());
         result.setSkippedMetricCount(skippedMetricCount);
         return result;
     }

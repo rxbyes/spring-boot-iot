@@ -1,0 +1,87 @@
+$ErrorActionPreference = 'Stop'
+
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+$uiRoot = Join-Path $repoRoot 'spring-boot-iot-ui'
+$logDir = Join-Path $repoRoot 'logs'
+$logFile = Join-Path $logDir 'quality-gates.log'
+$mvnSettings = Join-Path $repoRoot '.mvn\settings.xml'
+
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+
+function Resolve-Executable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Candidates,
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    foreach ($candidate in $Candidates) {
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($command) {
+            return $command.Source
+        }
+    }
+
+    throw "$Description executable was not found in PATH."
+}
+
+function Write-Log {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message" |
+        Tee-Object -FilePath $logFile -Append
+}
+
+function Invoke-LoggedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Step,
+        [Parameter(Mandatory = $true)]
+        [string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)]
+        [string]$Executable,
+        [string[]]$Arguments = @()
+    )
+
+    Write-Log "START $Step"
+    Push-Location $WorkingDirectory
+    try {
+        & $Executable @Arguments 2>&1 |
+            Tee-Object -FilePath $logFile -Append
+        if ($LASTEXITCODE -ne 0) {
+            throw "$Step failed with exit code $LASTEXITCODE"
+        }
+    } finally {
+        Pop-Location
+    }
+    Write-Log "PASS $Step"
+}
+
+$mvnCmd = Resolve-Executable -Candidates @('mvn.cmd', 'mvn') -Description 'Maven'
+$npmCmd = Resolve-Executable -Candidates @('npm.cmd', 'npm') -Description 'npm'
+$nodeCmd = Resolve-Executable -Candidates @('node') -Description 'Node'
+
+$env:npm_config_cache = Join-Path $uiRoot '.npm-cache'
+
+$mavenArgs = @()
+if (Test-Path $mvnSettings) {
+    Write-Log "Detected Maven settings: $mvnSettings"
+    $mavenArgs += @('-s', $mvnSettings)
+} else {
+    Write-Log '.mvn/settings.xml not found, fallback to plain mvn'
+}
+$mavenArgs += @('clean', 'package', '-DskipTests')
+
+Write-Log 'Running local minimum quality gates'
+Invoke-LoggedCommand -Step 'maven clean package -DskipTests' -WorkingDirectory $repoRoot -Executable $mvnCmd -Arguments $mavenArgs
+Invoke-LoggedCommand -Step 'frontend build' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'build')
+Invoke-LoggedCommand -Step 'frontend component guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'component:guard')
+Invoke-LoggedCommand -Step 'frontend list guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'list:guard')
+Invoke-LoggedCommand -Step 'frontend style guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'style:guard')
+Invoke-LoggedCommand -Step 'docs topology check' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/docs/check-topology.mjs')
+Write-Log 'All local minimum quality gates passed'
