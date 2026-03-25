@@ -34,22 +34,35 @@ export interface Product {
 }
 
 export interface ProductModel {
-  id: number;
-  productId: number;
+  id: string | number;
+  productId: string | number;
+  modelType: 'property' | 'event' | 'service';
   identifier: string;
-  name: string;
-  description: string;
-  type: 'property' | 'event' | 'service';
-  required: boolean;
-  readOnly: boolean;
-  writeOnly: boolean;
-  valueType: string;
-  min: number | null;
-  max: number | null;
-  unit: string | null;
-  enumList: string | null;
-  createdAt: string;
-  updatedAt: string;
+  modelName: string;
+  dataType?: string | null;
+  specsJson?: string | null;
+  eventType?: string | null;
+  serviceInputJson?: string | null;
+  serviceOutputJson?: string | null;
+  sortNo?: number | null;
+  requiredFlag?: number | null;
+  description?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface ProductModelUpsertPayload {
+  modelType: 'property' | 'event' | 'service';
+  identifier: string;
+  modelName: string;
+  dataType?: string;
+  specsJson?: string;
+  eventType?: string;
+  serviceInputJson?: string;
+  serviceOutputJson?: string;
+  sortNo?: number;
+  requiredFlag?: number;
+  description?: string;
 }
 
 /**

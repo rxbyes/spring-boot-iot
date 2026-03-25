@@ -1,37 +1,22 @@
 package com.ghlzm.iot.protocol.mqtt;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
-import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
-import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
-import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
-import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
-import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,50 +25,9 @@ class MqttJsonProtocolAdapterTest {
     private final MqttJsonProtocolAdapter adapter = newAdapter(new IotProperties());
 
     @Test
-    void shouldBeCreatableAsSpringBean() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-            context.registerBean(IotProperties.class, IotProperties::new);
-            context.registerBean(MqttPayloadDecryptorRegistry.class, () -> new MqttPayloadDecryptorRegistry(List.of()));
-            context.registerBean(MqttPayloadFrameParser.class, MqttPayloadFrameParser::new);
-            context.registerBean(MqttFirmwarePacketParser.class, MqttFirmwarePacketParser::new);
-            context.registerBean(MqttMessageSignerRegistry.class, () -> new MqttMessageSignerRegistry(List.of()));
-            context.registerBean(MqttPayloadSecurityValidator.class, () -> new MqttPayloadSecurityValidator(
-                    context.getBean(IotProperties.class),
-                    context.getBean(MqttMessageSignerRegistry.class),
-                    new DefaultListableBeanFactory().getBeanProvider(org.springframework.data.redis.core.StringRedisTemplate.class)
-            ));
-            context.registerBean(MqttJsonProtocolAdapter.class);
-
-            context.refresh();
-
-            assertNotNull(context.getBean(MqttJsonProtocolAdapter.class));
-        }
-    }
-
-    @Test
-    void shouldNotRetainDuplicatedLegacyEnvelopeHelpersAfterExtraction() {
-        Set<String> declaredMethodNames = Arrays.stream(MqttJsonProtocolAdapter.class.getDeclaredMethods())
-                .map(method -> method.getName())
-                .collect(Collectors.toSet());
-
-        assertFalse(declaredMethodNames.contains("decodePayload"));
-        assertFalse(declaredMethodNames.contains("enrichByDataFormat"));
-        assertFalse(declaredMethodNames.contains("buildRawPayloadForLog"));
-        assertFalse(declaredMethodNames.contains("buildFilePayload"));
-        assertFalse(declaredMethodNames.contains("toFirmwarePacket"));
-        assertFalse(declaredMethodNames.contains("sanitizePayload"));
-        assertFalse(declaredMethodNames.contains("isEncryptedEnvelope"));
-        assertFalse(declaredMethodNames.contains("extractAppId"));
-        assertFalse(declaredMethodNames.contains("extractEncryptedBody"));
-        assertTrue(Arrays.stream(MqttJsonProtocolAdapter.class.getDeclaredClasses())
-                .noneMatch(type -> "DecodedPayload".equals(type.getSimpleName())));
-    }
-
-    @Test
     void shouldDecodeLegacyNestedPlaintextPayload() {
         ProtocolContext context = new ProtocolContext();
         context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
         context.setMessageType("property");
 
         DeviceUpMessage message = adapter.decode("""
@@ -94,59 +38,6 @@ class MqttJsonProtocolAdapterTest {
         assertEquals("property", message.getMessageType());
         assertEquals(3.2, message.getProperties().get("L1_GP_1.gpsTotalZ"));
         assertEquals(9.9, message.getProperties().get("L1_GP_1.gpsTotalX"));
-    }
-
-    @Test
-    void shouldAttachLegacyDpProtocolMetadataForPlaintextPayload() {
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        DeviceUpMessage message = adapter.decode(buildPacket((byte) 2, """
-                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9,"gpsTotalY":0.5}}}}
-                """), context);
-
-        DeviceUpProtocolMetadata metadata = message.getProtocolMetadata();
-        assertNotNull(metadata);
-        assertEquals("legacy", metadata.getRouteType());
-        assertEquals("LEGACY_DP", metadata.getNormalizationStrategy());
-        assertEquals("PAYLOAD_LATEST_TIMESTAMP", metadata.getTimestampSource());
-        assertEquals(List.of("L1_GP_1"), metadata.getFamilyCodes());
-        assertFalse(Boolean.TRUE.equals(metadata.getChildSplitApplied()));
-    }
-
-    @Test
-    void shouldCaptureAppIdInProtocolMetadataForEncryptedPayload() {
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        MqttJsonProtocolAdapter decryptingAdapter = newAdapter(
-                new IotProperties(),
-                List.of(new MqttPayloadDecryptor() {
-                    @Override
-                    public boolean supports(String appId) {
-                        return "62000001".equals(appId);
-                    }
-
-                    @Override
-                    public byte[] decryptBytes(String appId, String encryptedBody) {
-                        return buildPacket((byte) 2, """
-                                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2}}}}
-                                """);
-                    }
-                })
-        );
-
-        DeviceUpMessage message = decryptingAdapter.decode("""
-                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
-                """.getBytes(StandardCharsets.UTF_8), context);
-
-        assertNotNull(message.getProtocolMetadata());
-        assertEquals("62000001", message.getProtocolMetadata().getAppId());
-        assertEquals(List.of("L1_GP_1"), message.getProtocolMetadata().getFamilyCodes());
     }
 
     @Test
@@ -193,22 +84,94 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
-    void shouldDecodeLegacyStatusPayloadWithStableKeys() {
+    void shouldKeepStablePropertyNamesForCoreLegacyFamilies() {
         ProtocolContext context = new ProtocolContext();
         context.setTopic("$dp");
         context.setTopicRouteType("legacy");
         context.setMessageType("property");
 
         DeviceUpMessage message = adapter.decode(buildPacket((byte) 2, """
-                {"17165802":{"S1_ZT_1":{"2026-03-14T06:00:00.000Z":{"temp":16.2,"humidity":81.5,"sensor_state":"OK"}}}}
+                {"GW001":{"S1_ZT_1":{"2026-03-20T06:24:02.000Z":{"ext_power_volt":12.3,"sensor_state":1}},"L1_GP_1":{"2026-03-20T06:24:02.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}},"L1_QJ_1":{"2026-03-20T06:24:02.000Z":{"X":1.2,"Y":-0.4}},"L1_JS_1":{"2026-03-20T06:24:02.000Z":{"gX":0.11,"gY":0.22}},"L1_SW_1":{"2026-03-20T06:24:02.000Z":{"dispsX":-0.0445,"dispsY":0.0293}}}}
                 """), context);
 
-        assertEquals("17165802", message.getDeviceCode());
         assertEquals("status", message.getMessageType());
-        assertEquals(16.2, message.getProperties().get("S1_ZT_1.temp"));
-        assertEquals(81.5, message.getProperties().get("S1_ZT_1.humidity"));
-        assertEquals("OK", message.getProperties().get("S1_ZT_1.sensor_state"));
-        assertEquals(List.of("S1_ZT_1"), message.getProtocolMetadata().getFamilyCodes());
+        assertEquals(12.3, message.getProperties().get("S1_ZT_1.ext_power_volt"));
+        assertEquals(3.2, message.getProperties().get("L1_GP_1.gpsTotalZ"));
+        assertEquals(1.2, message.getProperties().get("L1_QJ_1.X"));
+        assertEquals(0.11, message.getProperties().get("L1_JS_1.gX"));
+        assertEquals(-0.0445, message.getProperties().get("L1_SW_1.dispsX"));
+    }
+
+    @Test
+    void shouldExposeProtocolMetadataForEncryptedLegacyDpPayload() {
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
+                new IotProperties(),
+                List.of(new StubDecryptor(
+                        "62000001",
+                        buildPacket((byte) 2, """
+                                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}},"L4_NW_1":{"2026-03-14T06:00:00.000Z":36.5}}}
+                                """)
+                ))
+        );
+
+        DeviceUpMessage message = configuredAdapter.decode("""
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
+                """.getBytes(StandardCharsets.UTF_8), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals("62000001", readMetadata(protocolMetadata, "getAppId"));
+        assertEquals(List.of("L1_GP_1", "L4_NW_1"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(Boolean.FALSE, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+    }
+
+    @Test
+    void shouldSuppressFamilyObservabilityMetadataWhenFlagDisabled() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setFamilyObservabilityEnabled(false);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = newAdapter(properties).decode(buildPacket((byte) 2, """
+                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}},"L4_NW_1":{"2026-03-14T06:00:00.000Z":36.5}}}
+                """), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(null, readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals(null, readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(null, readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals(null, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+    }
+
+    @Test
+    void shouldExposeCompatStrategyWhenNormalizerV2Disabled() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(false);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = newAdapter(properties).decode(buildPacket((byte) 2, """
+                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
+                """), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(List.of("L1_GP_1"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP_COMPAT", readMetadata(protocolMetadata, "getNormalizationStrategy"));
     }
 
     @Test
@@ -241,139 +204,13 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(-0.0293, message.getChildMessages().get(1).getProperties().get("dispsX"));
         assertEquals(0.0330, message.getChildMessages().get(1).getProperties().get("dispsY"));
         assertTrue(message.getProperties() == null || message.getProperties().isEmpty());
-    }
-
-    @Test
-    void shouldKeepLegacyV1PathWhenNormalizerV2IsDisabled() {
-        IotProperties properties = new IotProperties();
-        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(false);
-
-        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
-                properties,
-                List.of(),
-                new StubLegacyDpFamilyResolver(List.of("V2_FAMILY"), "status"),
-                new StubLegacyDpPropertyNormalizer(new LegacyDpNormalizeResult(
-                        List.of("V2_FAMILY"),
-                        Map.of("v2Metric", 99),
-                        "status",
-                        LocalDateTime.of(2026, 3, 20, 10, 0),
-                        "V2_TIMESTAMP"
-                )),
-                new LegacyDpChildMessageSplitter()
-        );
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
-                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
-                """), context);
-
-        assertEquals("property", message.getMessageType());
-        assertEquals(3.2, message.getProperties().get("L1_GP_1.gpsTotalZ"));
-        assertEquals(List.of("L1_GP_1"), message.getProtocolMetadata().getFamilyCodes());
-        assertFalse(message.getProperties().containsKey("v2Metric"));
-    }
-
-    @Test
-    void shouldValidateOnlyAgainstV2ButStillReturnLegacyV1Result() {
-        IotProperties properties = new IotProperties();
-        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
-        properties.getTelemetry().setLegacyMappingValidateOnly(true);
-
-        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
-                properties,
-                List.of(),
-                new StubLegacyDpFamilyResolver(List.of("V2_FAMILY"), "status"),
-                new StubLegacyDpPropertyNormalizer(new LegacyDpNormalizeResult(
-                        List.of("V2_FAMILY"),
-                        Map.of("v2Metric", 99),
-                        "status",
-                        LocalDateTime.of(2026, 3, 20, 10, 0),
-                        "V2_TIMESTAMP"
-                )),
-                new LegacyDpChildMessageSplitter()
-        );
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        Logger logger = (Logger) LoggerFactory.getLogger(MqttJsonProtocolAdapter.class);
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        Level originalLevel = logger.getLevel();
-        appender.start();
-        logger.addAppender(appender);
-        logger.setLevel(Level.WARN);
-        try {
-            DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
-                    {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
-                    """), context);
-
-            assertEquals("property", message.getMessageType());
-            assertEquals(3.2, message.getProperties().get("L1_GP_1.gpsTotalZ"));
-            assertEquals(List.of("L1_GP_1"), message.getProtocolMetadata().getFamilyCodes());
-            assertTrue(appender.list.stream()
-                    .map(ILoggingEvent::getFormattedMessage)
-                    .anyMatch(log -> log.contains("legacy_dp_normalizer_validation_diff")));
-        } finally {
-            logger.setLevel(originalLevel);
-            logger.detachAppender(appender);
-            appender.stop();
-        }
-    }
-
-    @Test
-    void shouldSwitchToV2PathWhenNormalizerV2IsEnabled() {
-        IotProperties properties = new IotProperties();
-        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
-
-        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
-                properties,
-                List.of(),
-                new StubLegacyDpFamilyResolver(List.of("V2_FAMILY"), "status"),
-                new StubLegacyDpPropertyNormalizer(new LegacyDpNormalizeResult(
-                        List.of("V2_FAMILY"),
-                        Map.of("v2Metric", 99),
-                        "status",
-                        LocalDateTime.of(2026, 3, 20, 10, 0),
-                        "V2_TIMESTAMP"
-                )),
-                new LegacyDpChildMessageSplitter()
-        );
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
-                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
-                """), context);
-
-        assertEquals("status", message.getMessageType());
-        assertEquals(99, message.getProperties().get("v2Metric"));
-        assertEquals(List.of("V2_FAMILY"), message.getProtocolMetadata().getFamilyCodes());
-        assertEquals("V2_TIMESTAMP", message.getProtocolMetadata().getTimestampSource());
-    }
-
-    @Test
-    void shouldSuppressLegacyProtocolMetadataWhenFamilyObservabilityIsDisabled() {
-        IotProperties properties = new IotProperties();
-        properties.getProtocol().getLegacyDp().setFamilyObservabilityEnabled(false);
-        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties);
-
-        ProtocolContext context = new ProtocolContext();
-        context.setTopic("$dp");
-        context.setTopicRouteType("legacy");
-        context.setMessageType("property");
-
-        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
-                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
-                """), context);
-
-        assertNull(message.getProtocolMetadata());
-        assertEquals(3.2, message.getProperties().get("L1_GP_1.gpsTotalZ"));
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(List.of("L1_SW_1", "L1_SW_2"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
     }
 
     @Test
@@ -467,23 +304,8 @@ class MqttJsonProtocolAdapterTest {
         return newAdapter(iotProperties, List.of());
     }
 
-    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
-                                               List<MqttPayloadDecryptor> decryptors) {
-        return newAdapter(
-                iotProperties,
-                decryptors,
-                new LegacyDpFamilyResolver(),
-                new LegacyDpPropertyNormalizer(),
-                new LegacyDpChildMessageSplitter()
-        );
-    }
-
-    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
-                                               List<MqttPayloadDecryptor> decryptors,
-                                               LegacyDpFamilyResolver familyResolver,
-                                               LegacyDpPropertyNormalizer propertyNormalizer,
-                                               LegacyDpChildMessageSplitter childMessageSplitter) {
-        return new MqttJsonProtocolAdapter(
+    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties, List<MqttPayloadDecryptor> decryptors) {
+        LegacyDpEnvelopeDecoder envelopeDecoder = new LegacyDpEnvelopeDecoder(
                 new MqttPayloadDecryptorRegistry(decryptors),
                 new MqttPayloadFrameParser(),
                 new MqttPayloadSecurityValidator(
@@ -491,50 +313,49 @@ class MqttJsonProtocolAdapterTest {
                         new MqttMessageSignerRegistry(List.of()),
                         new DefaultListableBeanFactory().getBeanProvider(org.springframework.data.redis.core.StringRedisTemplate.class)
                 ),
-                new MqttFirmwarePacketParser(),
-                iotProperties,
-                familyResolver,
-                propertyNormalizer,
-                childMessageSplitter
+                new MqttFirmwarePacketParser()
+        );
+        return new MqttJsonProtocolAdapter(
+                envelopeDecoder,
+                iotProperties
         );
     }
 
-    private static final class StubLegacyDpFamilyResolver extends LegacyDpFamilyResolver {
+    private Object getProtocolMetadata(DeviceUpMessage message) {
+        return invokeMethod(message, "getProtocolMetadata");
+    }
 
-        private final List<String> familyCodes;
-        private final String messageType;
+    private Object readMetadata(Object metadata, String getterName) {
+        return invokeMethod(metadata, getterName);
+    }
 
-        private StubLegacyDpFamilyResolver(List<String> familyCodes, String messageType) {
-            this.familyCodes = familyCodes;
-            this.messageType = messageType;
-        }
-
-        @Override
-        public List<String> resolveFamilyCodes(Map<String, Object> payload, String resolvedDeviceCode) {
-            return familyCodes;
-        }
-
-        @Override
-        public String inferMessageType(Map<String, Object> payload,
-                                       String resolvedDeviceCode,
-                                       List<String> familyCodes) {
-            return messageType;
+    private Object invokeMethod(Object target, String methodName) {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected method " + methodName + " on " + target.getClass().getName(), ex);
         }
     }
 
-    private static final class StubLegacyDpPropertyNormalizer extends LegacyDpPropertyNormalizer {
+    private static final class StubDecryptor implements MqttPayloadDecryptor {
 
-        private final LegacyDpNormalizeResult result;
+        private final String supportedAppId;
+        private final byte[] decryptedPayload;
 
-        private StubLegacyDpPropertyNormalizer(LegacyDpNormalizeResult result) {
-            this.result = result;
+        private StubDecryptor(String supportedAppId, byte[] decryptedPayload) {
+            this.supportedAppId = supportedAppId;
+            this.decryptedPayload = decryptedPayload;
         }
 
         @Override
-        public LegacyDpNormalizeResult normalize(Map<String, Object> payload,
-                                                 String resolvedDeviceCode,
-                                                 List<String> familyCodes) {
-            return result;
+        public boolean supports(String appId) {
+            return supportedAppId.equals(appId);
+        }
+
+        @Override
+        public byte[] decryptBytes(String appId, String encryptedBody) {
+            return decryptedPayload;
         }
     }
 }

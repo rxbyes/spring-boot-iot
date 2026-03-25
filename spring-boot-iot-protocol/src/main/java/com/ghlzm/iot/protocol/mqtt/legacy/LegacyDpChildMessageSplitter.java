@@ -1,42 +1,59 @@
 package com.ghlzm.iot.protocol.mqtt.legacy;
 
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * `$dp` 基站一包多测点子消息拆分器。
+ */
 public class LegacyDpChildMessageSplitter {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final LegacyDpFamilyResolver familyResolver = new LegacyDpFamilyResolver();
+    private final IotProperties iotProperties;
 
-    public SplitResult split(Map<String, Object> payload,
-                             String baseDeviceCode,
-                             String tenantId,
-                             String productKey,
-                             String messageType,
-                             String topic,
-                             LocalDateTime fallbackTimestamp,
-                             Map<String, String> subDeviceMappings) {
-        if (subDeviceMappings == null || subDeviceMappings.isEmpty()) {
-            return SplitResult.empty();
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties) {
+        this.iotProperties = iotProperties;
+    }
+
+    public LegacyDpNormalizeResult split(Map<String, Object> payload,
+                                         DeviceUpMessage parentMessage,
+                                         LegacyDpNormalizeResult normalizeResult) {
+        LegacyDpNormalizeResult result = normalizeResult == null ? new LegacyDpNormalizeResult() : normalizeResult;
+        if (parentMessage == null) {
+            result.setChildMessages(List.of());
+            result.setChildSplitApplied(Boolean.FALSE);
+            return result;
         }
-        Object basePayload = baseDeviceCode == null ? null : payload.get(baseDeviceCode);
+
+        Map<String, String> subDeviceMappings = resolveSubDeviceMappings(parentMessage.getDeviceCode());
+        if (subDeviceMappings.isEmpty()) {
+            result.setChildMessages(List.of());
+            result.setChildSplitApplied(Boolean.FALSE);
+            return result;
+        }
+
+        Object basePayload = parentMessage.getDeviceCode() == null ? null : payload.get(parentMessage.getDeviceCode());
         if (!(basePayload instanceof Map<?, ?> basePayloadMap)) {
-            return SplitResult.empty();
+            result.setChildMessages(List.of());
+            result.setChildSplitApplied(Boolean.FALSE);
+            return result;
         }
 
         List<DeviceUpMessage> childMessages = new ArrayList<>();
         List<String> logicalCodes = new ArrayList<>();
-        for (Map.Entry<String, String> entry : subDeviceMappings.entrySet()) {
+        List<Map.Entry<String, String>> mappingEntries = new ArrayList<>(subDeviceMappings.entrySet());
+        mappingEntries.sort(Map.Entry.comparingByKey());
+        for (Map.Entry<String, String> entry : mappingEntries) {
             String logicalCode = entry.getKey();
             String childDeviceCode = entry.getValue();
             if (logicalCode == null || logicalCode.isBlank() || childDeviceCode == null || childDeviceCode.isBlank()) {
@@ -49,18 +66,38 @@ public class LegacyDpChildMessageSplitter {
             }
 
             DeviceUpMessage childMessage = new DeviceUpMessage();
-            childMessage.setTenantId(tenantId);
-            childMessage.setProductKey(productKey);
+            childMessage.setTenantId(parentMessage.getTenantId());
+            childMessage.setProductKey(parentMessage.getProductKey());
             childMessage.setDeviceCode(childDeviceCode);
-            childMessage.setMessageType(messageType);
-            childMessage.setTopic(topic);
-            childMessage.setTimestamp(latestLogicalPayload.timestamp() == null ? fallbackTimestamp : latestLogicalPayload.timestamp());
+            childMessage.setMessageType(parentMessage.getMessageType());
+            childMessage.setTopic(parentMessage.getTopic());
+            childMessage.setTimestamp(latestLogicalPayload.timestamp() == null
+                    ? parentMessage.getTimestamp()
+                    : latestLogicalPayload.timestamp());
             childMessage.setProperties(latestLogicalPayload.properties());
             childMessage.setRawPayload(latestLogicalPayload.rawPayload());
             childMessages.add(childMessage);
             logicalCodes.add(logicalCode);
         }
-        return new SplitResult(childMessages, logicalCodes);
+
+        result.setChildMessages(childMessages);
+        if (childMessages.isEmpty()) {
+            result.setChildSplitApplied(Boolean.FALSE);
+            return result;
+        }
+
+        result.setChildSplitApplied(Boolean.TRUE);
+        result.setProperties(removeChildLogicalProperties(result.getProperties(), logicalCodes));
+        return result;
+    }
+
+    private Map<String, String> resolveSubDeviceMappings(String baseDeviceCode) {
+        if (baseDeviceCode == null || baseDeviceCode.isBlank() || iotProperties.getDevice() == null
+                || iotProperties.getDevice().getSubDeviceMappings() == null) {
+            return Map.of();
+        }
+        Map<String, String> configuredMappings = iotProperties.getDevice().getSubDeviceMappings().get(baseDeviceCode);
+        return configuredMappings == null || configuredMappings.isEmpty() ? Map.of() : configuredMappings;
     }
 
     private LatestLogicalPayload extractLatestLogicalPayload(String logicalCode, Object logicalPayload) {
@@ -87,13 +124,25 @@ public class LegacyDpChildMessageSplitter {
         return properties.isEmpty() ? null : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload);
     }
 
+    private boolean isTimestampContainer(Map<?, ?> source) {
+        if (source.isEmpty()) {
+            return false;
+        }
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (!(entry.getKey() instanceof String key) || !familyResolver.isTimestampKey(key)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private TimestampedValue selectLatestTimestampValue(Map<?, ?> source) {
         List<TimestampedValue> timestampedValues = new ArrayList<>();
         for (Map.Entry<?, ?> entry : source.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
                 continue;
             }
-            LocalDateTime timestamp = parseTimestamp(key);
+            LocalDateTime timestamp = familyResolver.parseTimestamp(key);
             if (timestamp != null) {
                 timestampedValues.add(new TimestampedValue(key, timestamp, entry.getValue()));
             }
@@ -156,32 +205,31 @@ public class LegacyDpChildMessageSplitter {
         }
     }
 
-    private boolean isTimestampContainer(Map<?, ?> source) {
-        if (source.isEmpty()) {
-            return false;
+    private Map<String, Object> removeChildLogicalProperties(Map<String, Object> properties, List<String> logicalCodes) {
+        if (properties == null || properties.isEmpty() || logicalCodes == null || logicalCodes.isEmpty()) {
+            return properties;
         }
-        for (Map.Entry<?, ?> entry : source.entrySet()) {
-            if (!(entry.getKey() instanceof String key) || parseTimestamp(key) == null) {
-                return false;
+        Map<String, Object> filteredProperties = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
+            if (isChildLogicalProperty(entry.getKey(), logicalCodes)) {
+                continue;
             }
+            filteredProperties.put(entry.getKey(), entry.getValue());
         }
-        return true;
+        return filteredProperties;
     }
 
-    private LocalDateTime parseTimestamp(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+    private boolean isChildLogicalProperty(String propertyKey, List<String> logicalCodes) {
+        if (propertyKey == null || propertyKey.isBlank()) {
+            return false;
         }
-        try {
-            return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
-        } catch (DateTimeParseException ignored) {
-            try {
-                long epochMillis = Long.parseLong(value);
-                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
-            } catch (NumberFormatException numberFormatException) {
-                return null;
+        for (String logicalCode : logicalCodes) {
+            if (logicalCode != null && !logicalCode.isBlank()
+                    && (propertyKey.equals(logicalCode) || propertyKey.startsWith(logicalCode + "."))) {
+                return true;
             }
         }
+        return false;
     }
 
     private record LatestLogicalPayload(LocalDateTime timestamp,
@@ -192,13 +240,5 @@ public class LegacyDpChildMessageSplitter {
     private record TimestampedValue(String key,
                                     LocalDateTime timestamp,
                                     Object value) {
-    }
-
-    public record SplitResult(List<DeviceUpMessage> messages,
-                              List<String> logicalCodes) {
-
-        private static SplitResult empty() {
-            return new SplitResult(List.of(), List.of());
-        }
     }
 }

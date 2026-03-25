@@ -832,7 +832,7 @@ const touchRecentPreset = (label: string) => {
   margin-bottom: 6px;
   padding: 6px 8px;
   background: var(--el-fill-color-light);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
 }
 
 .csv-column-setting__preset-label {
@@ -860,7 +860,7 @@ const touchRecentPreset = (label: string) => {
   justify-content: space-between;
   padding: 8px 10px;
   border: 1px solid var(--iot-border-color, #dcdfe6);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: var(--el-bg-color-page);
 }
 
@@ -884,7 +884,7 @@ const touchRecentPreset = (label: string) => {
   font-size: 12px;
   padding: 8px 10px;
   background: var(--el-fill-color-light);
-  border-radius: 8px;
+  border-radius: calc(var(--radius-md) + 2px);
 }
 
 .csv-import-preview__tabs {
@@ -917,7 +917,7 @@ const touchRecentPreset = (label: string) => {
   padding: 16px 18px;
   text-align: left;
   border: 1px solid rgba(42, 63, 95, 0.12);
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
   background: rgba(255, 255, 255, 0.84);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
@@ -925,12 +925,12 @@ const touchRecentPreset = (label: string) => {
 
 .csv-column-setting__strategy-card:hover {
   border-color: rgba(64, 158, 255, 0.45);
-  box-shadow: 0 10px 24px rgba(32, 55, 90, 0.08);
+  box-shadow: var(--shadow-surface-soft-md);
 }
 
 .csv-column-setting__strategy-card.is-active {
   border-color: #409eff;
-  box-shadow: 0 12px 28px rgba(64, 158, 255, 0.14);
+  box-shadow: var(--shadow-surface-brand-md);
   transform: translateY(-1px);
 }
 

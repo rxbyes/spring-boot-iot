@@ -141,9 +141,9 @@ function handleClose() {
 .standard-form-drawer :deep(.el-form) {
   padding: 1.15rem 1.2rem;
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: var(--radius-3xl);
   background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 14px 32px rgba(32, 55, 90, 0.05);
+  box-shadow: var(--shadow-form-surface);
 }
 
 .standard-form-drawer :deep(.el-form.ops-drawer-form) {

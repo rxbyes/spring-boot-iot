@@ -61,7 +61,7 @@ COMPLETE
 
 ## 当前问题清单
 
-1. `$dp` 复杂度过度集中在 [MqttJsonProtocolAdapter.java](E:/idea/ghatg/spring-boot-iot/spring-boot-iot-protocol/src/main/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapter.java)，单类同时承担解密、帧解析、安全校验、消息类型推断、属性扁平化和子消息拆分。
+1. `$dp` 复杂度过度集中在 [MqttJsonProtocolAdapter.java](../../../spring-boot-iot-protocol/src/main/java/com/ghlzm/iot/protocol/mqtt/MqttJsonProtocolAdapter.java)，单类同时承担解密、帧解析、安全校验、消息类型推断、属性扁平化和子消息拆分。
 2. 地灾家族识别逻辑是隐式散落的，`status/property` 推断、时间戳容器识别和属性拍平耦合在一起，新增厂商兼容时很容易继续堆分支。
 3. `TELEMETRY_PERSIST` 成功并不等于 legacy stable 命中成功；当前 `NORMALIZED_FALLBACK_ONLY` 很容易掩盖映射缺口。
 4. 遥测映射仍通过产品物模型 `specsJson.tdengineLegacy` 隐式表达，缺少统一校验入口、缺少治理维度，也不便统计“哪些家族长期只走 fallback”。
@@ -72,8 +72,8 @@ COMPLETE
 
 ### 1. 保持不变的边界
 
-- MQTT 接收入口继续由 [MqttMessageConsumer.java](E:/idea/ghatg/spring-boot-iot/spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/mqtt/MqttMessageConsumer.java) 负责。
-- 固定编排继续由 [UpMessageProcessingPipeline.java](E:/idea/ghatg/spring-boot-iot/spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/pipeline/UpMessageProcessingPipeline.java) 负责。
+- MQTT 接收入口继续由 [MqttMessageConsumer.java](../../../spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/mqtt/MqttMessageConsumer.java) 负责。
+- 固定编排继续由 [UpMessageProcessingPipeline.java](../../../spring-boot-iot-message/src/main/java/com/ghlzm/iot/message/pipeline/UpMessageProcessingPipeline.java) 负责。
 - `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 的模块归位不变。
 - `TELEMETRY_PERSIST` 仍然只消费标准化后的 `properties`，不反向理解厂商原始 payload。
 
@@ -526,6 +526,31 @@ mvn -s .mvn/settings.xml -pl spring-boot-iot-telemetry "-DskipTests=false" "-Dte
 Expected:
 - 协议、消息、遥测三个模块关键回归通过
 
+## Task 7 Step 2 映射治理待办清单（codex/dev 合并版）
+
+- Task 7 Step 2 当前先按“缺口台账 + 默认 dry-run 的 SQL 草案”收口，不直接产出面向真实环境的最终升级 SQL。
+- 对应草案文件为 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql`，当前只固化 `iot_product_model` property 基线和 `tdengineLegacy` 占位结构。
+- 当前草案严格遵守以下边界：
+  - 默认 `@apply_changes = 0`，只预览范围，不直接改库。
+  - `stable/column` 只保留在草案注释和 hint 字段中，不自动写入 `specs_json.tdengineLegacy`。
+  - 只有 TDengine REST / SQL 认证恢复并完成 `DESCRIBE <stable>` 复核后，才允许把对应指标从 `PENDING_TDENGINE_VERIFICATION` 升级为正式映射。
+
+| productKey | 当前草案关注点 | 代表性缺口 / 建议 identifier | 当前草案动作 | 当前阻塞 |
+|---|---|---|---|---|
+| `south_rtu` | 裂缝家族 + 状态类补点 | `L1_LF_1`、`L1_LF_2`、`L1_LF_3`、`S1_ZT_1.ext_power_volt` | 新增代表性 `property seed`，全部使用 `tdengineLegacy.enabled=false` 占位结构 | 还缺 live 全量 identifier 导出，`l1_lf_1 / s1_zt_1` 目标列名未核验 |
+| `south_multi_displacement` | 多维位移代表性指标补点 | `L1_JS_1.gX`、`L1_QJ_1.angle`、`L1_LF_1.value`、`S1_ZT_1.pa_state` | 新增代表性 `property seed`，保留 stable/column hint，不回写正式映射 | 倾角 / 加速度 / 状态类列名仍需 TDengine 实库核验 |
+| `south_gnss_monitor` | GNSS 位移 + 惯导指标补点 | `L1_GP_1.gpsTotalX`、`L1_GP_1.gpsTotalY`、`L1_GP_1.gpsTotalZ`、`L1_JS_1.gX` | 新增代表性 `property seed`，建议 identifier 先保持 live key | `l1_gp_1` 列命名口径未核验，当前不能直接切回 legacy |
+| `south_deep_displacement` | 现有 `dispsX / dispsY` 仅补占位结构，父级状态类单独补点 | 现有 `dispsX / dispsY`，补充 `S1_ZT_1.ext_power_volt` | 对现有 property 只补 `tdengineLegacy` 占位结构；父级状态类以代表性 seed 入草案 | 还需区分 split child 指标与父级状态类的最终 stable 列映射 |
+
+## Task 7 Step 2 下一步实现计划
+
+1. 先执行 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql` 的 dry-run 预览，确认四类 `productKey` 在当前真实库里的 property 基线、已有 `tdengineLegacy` 和代表性缺口。
+2. 再把 live 窗口中尚未收录的完整 identifier 导出追加到草案，尤其是 `south_rtu` 的剩余裂缝点位和 `south_deep_displacement` 父级 `S1_ZT_1.*` 指标。
+3. 待 TDengine REST / SQL 认证恢复后，逐 stable 执行 `DESCRIBE`，把草案中的 stable/column hint 收敛成真实映射，再决定哪些指标允许切换到 `enabled=true`。
+4. 在映射核验完成前，继续把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态；草案 SQL 也不得直接作为真实环境最终升级脚本执行。
+5. 映射补齐后，重新执行 Task 7 的 live 验收，至少对 `south_rtu / south_multi_displacement / south_gnss_monitor / south_deep_displacement` 各补 1 个正样本，复核 `legacyStableCount` 是否恢复。
+6. 若后续需要新的隔离验收环境，优先在仓库根目录 `.worktrees/` 下创建 worktree，不再继续复用 `~/.codex/worktrees/2a61/...` 这类临时路径。
+
 ## 推进顺序建议
 
 1. 先做 Task 1，冻结真实 `$dp` 基线和家族样本。
@@ -548,4 +573,3 @@ Expected:
 - 主要地灾家族都具备真实环境正样本与回归测试。
 - 已治理家族的 TDengine legacy stable 命中率提升，fallback 退回到安全网角色。
 - 文档、配置、真实环境验收手册与代码事实同步。
-

@@ -9,6 +9,7 @@ import com.ghlzm.iot.protocol.mqtt.MqttFirmwarePacketParser;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadDecryptorRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadFrameParser;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadSecurityValidator;
+import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -21,6 +22,10 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * `$dp` 外层解包/解密解码器。
+ */
+@Component
 public class LegacyDpEnvelopeDecoder {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -39,7 +44,7 @@ public class LegacyDpEnvelopeDecoder {
         this.mqttFirmwarePacketParser = mqttFirmwarePacketParser;
     }
 
-    public DecodedPayload decode(byte[] payload) throws Exception {
+    public DecodedEnvelope decode(byte[] payload) throws Exception {
         MqttPayloadFrameParser.ParsedFrame parsedFrame = mqttPayloadFrameParser.parse("mqtt-json", payload);
         String payloadText = sanitizePayload(parsedFrame.jsonMessage());
         Map<String, Object> payloadMap = objectMapper.readValue(payloadText, new TypeReference<>() {
@@ -57,7 +62,7 @@ public class LegacyDpEnvelopeDecoder {
             Map<String, Object> decryptedMap = objectMapper.readValue(plaintext, new TypeReference<>() {
             });
             enrichByDataFormat(decryptedMap, decryptedFrame);
-            return new DecodedPayload(
+            return new DecodedEnvelope(
                     decryptedMap,
                     payloadText,
                     decryptedFrame.dataFormatType(),
@@ -67,7 +72,7 @@ public class LegacyDpEnvelopeDecoder {
         }
 
         enrichByDataFormat(payloadMap, parsedFrame);
-        return new DecodedPayload(
+        return new DecodedEnvelope(
                 payloadMap,
                 buildRawPayloadForLog(parsedFrame, payloadText, payloadMap),
                 parsedFrame.dataFormatType(),
@@ -183,22 +188,6 @@ public class LegacyDpEnvelopeDecoder {
         return JsonPayloadUtils.normalizeJsonDocument(payloadText);
     }
 
-    private LocalDateTime parseTimestamp(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
-        } catch (DateTimeParseException ignored) {
-            try {
-                long epochMillis = Long.parseLong(value);
-                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
-            } catch (NumberFormatException numberFormatException) {
-                return null;
-            }
-        }
-    }
-
     private boolean isEncryptedEnvelope(Map<String, Object> payloadMap) {
         return payloadMap.get("header") instanceof Map<?, ?>
                 && payloadMap.get("bodies") instanceof Map<?, ?>;
@@ -226,14 +215,30 @@ public class LegacyDpEnvelopeDecoder {
         throw new BizException("加密 MQTT 报文缺少 bodies.body");
     }
 
+    private LocalDateTime parseTimestamp(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            try {
+                long epochMillis = Long.parseLong(value);
+                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
+            } catch (NumberFormatException numberFormatException) {
+                return null;
+            }
+        }
+    }
+
     private String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
     }
 
-    public record DecodedPayload(Map<String, Object> payload,
-                                 String rawPayload,
-                                 MqttDataFormatType dataFormatType,
-                                 DeviceFilePayload filePayload,
-                                 String appId) {
+    public record DecodedEnvelope(Map<String, Object> payload,
+                                  String rawPayload,
+                                  MqttDataFormatType dataFormatType,
+                                  DeviceFilePayload filePayload,
+                                  String appId) {
     }
 }

@@ -16,7 +16,7 @@ defineProps<{
 .signal-badge {
   align-items: center;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   gap: 0.45rem;
   letter-spacing: 0.04em;

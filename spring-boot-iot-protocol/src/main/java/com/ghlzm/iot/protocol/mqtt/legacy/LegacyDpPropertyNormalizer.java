@@ -1,17 +1,19 @@
 package com.ghlzm.iot.protocol.mqtt.legacy;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * `$dp` 历史地灾报文属性标准化器。
+ */
 public class LegacyDpPropertyNormalizer {
 
+    private static final List<String> LEGACY_STATUS_FIELD_ALIASES = List.of(
+            "ext_power_volt", "solar_volt", "battery_dump_energy", "signal_4g", "sensor_state", "lon", "lat"
+    );
     private static final List<String> PROPERTY_CONTAINER_ALIASES = List.of(
             "properties", "property", "data", "params", "reported"
     );
@@ -22,25 +24,22 @@ public class LegacyDpPropertyNormalizer {
             "_dataFormatType", "_fileStreamLength", "_fileStreamBase64", "_firmwarePacket", "_binaryLength"
     );
 
-    private final LegacyDpFamilyResolver familyResolver = new LegacyDpFamilyResolver();
+    private final LegacyDpFamilyResolver familyResolver;
+
+    public LegacyDpPropertyNormalizer(LegacyDpFamilyResolver familyResolver) {
+        this.familyResolver = familyResolver;
+    }
 
     @SuppressWarnings("unchecked")
-    public LegacyDpNormalizeResult normalize(Map<String, Object> payload,
-                                             String resolvedDeviceCode,
-                                             List<String> familyCodes) {
-        List<String> resolvedFamilyCodes = familyCodes == null || familyCodes.isEmpty()
-                ? familyResolver.resolveFamilyCodes(payload, resolvedDeviceCode)
-                : familyCodes;
-        Map<String, Object> properties = resolveProperties(payload, resolvedDeviceCode);
-        TimestampResolution timestampResolution = resolveTimestamp(payload, resolvedDeviceCode);
-        String messageType = familyResolver.inferMessageType(payload, resolvedDeviceCode, resolvedFamilyCodes);
-        return new LegacyDpNormalizeResult(
-                resolvedFamilyCodes,
-                properties,
-                messageType,
-                timestampResolution.timestamp(),
-                timestampResolution.source()
-        );
+    public LegacyDpNormalizeResult normalize(Map<String, Object> payload, String resolvedDeviceCode) {
+        LegacyDpNormalizeResult result = new LegacyDpNormalizeResult();
+        result.setProperties(resolveProperties(payload, resolvedDeviceCode));
+        ResolvedTimestamp resolvedTimestamp = resolveTimestamp(payload, resolvedDeviceCode);
+        result.setTimestamp(resolvedTimestamp.timestamp());
+        result.setTimestampSource(resolvedTimestamp.timestampSource());
+        result.setMessageType(inferLegacyMessageType(payload, resolvedDeviceCode));
+        result.setFamilyCodes(familyResolver.detectFamilyCodes(payload, resolvedDeviceCode));
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -83,7 +82,7 @@ public class LegacyDpPropertyNormalizer {
                     entries.add(Map.entry(key, entry.getValue()));
                 }
             }
-            entries.sort(Comparator.comparing(Map.Entry::getKey));
+            entries.sort((left, right) -> left.getKey().compareTo(right.getKey()));
             if (!entries.isEmpty()) {
                 Object latestValue = entries.get(entries.size() - 1).getValue();
                 if (latestValue instanceof Map<?, ?> latestMap) {
@@ -112,7 +111,19 @@ public class LegacyDpPropertyNormalizer {
         }
     }
 
-    private TimestampResolution resolveTimestamp(Map<String, Object> payload, String resolvedDeviceCode) {
+    private boolean isTimestampContainer(Map<?, ?> source) {
+        if (source.isEmpty()) {
+            return false;
+        }
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (!(entry.getKey() instanceof String key) || !familyResolver.isTimestampKey(key)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private ResolvedTimestamp resolveTimestamp(Map<String, Object> payload, String resolvedDeviceCode) {
         List<LocalDateTime> timestamps = new ArrayList<>();
         Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
                 ? devicePayload
@@ -120,9 +131,9 @@ public class LegacyDpPropertyNormalizer {
         collectTimestamps(body, timestamps);
         if (!timestamps.isEmpty()) {
             timestamps.sort(LocalDateTime::compareTo);
-            return new TimestampResolution(timestamps.get(timestamps.size() - 1), "PAYLOAD_LATEST_TIMESTAMP");
+            return new ResolvedTimestamp(timestamps.get(timestamps.size() - 1), "PAYLOAD_TIMESTAMP");
         }
-        return new TimestampResolution(LocalDateTime.now(), "SERVER_NOW");
+        return new ResolvedTimestamp(LocalDateTime.now(), "SERVER_TIME");
     }
 
     private void collectTimestamps(Object source, List<LocalDateTime> timestamps) {
@@ -130,8 +141,8 @@ public class LegacyDpPropertyNormalizer {
             return;
         }
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (entry.getKey() instanceof String key && isTimestampKey(key)) {
-                LocalDateTime parsed = parseTimestamp(key);
+            if (entry.getKey() instanceof String key && familyResolver.isTimestampKey(key)) {
+                LocalDateTime parsed = familyResolver.parseTimestamp(key);
                 if (parsed != null) {
                     timestamps.add(parsed);
                 }
@@ -139,7 +150,7 @@ public class LegacyDpPropertyNormalizer {
             if (entry.getKey() instanceof String key
                     && ("at".equalsIgnoreCase(key) || "timestamp".equalsIgnoreCase(key) || "ts".equalsIgnoreCase(key))
                     && entry.getValue() != null) {
-                LocalDateTime parsed = parseTimestamp(String.valueOf(entry.getValue()));
+                LocalDateTime parsed = familyResolver.parseTimestamp(String.valueOf(entry.getValue()));
                 if (parsed != null) {
                     timestamps.add(parsed);
                 }
@@ -148,39 +159,40 @@ public class LegacyDpPropertyNormalizer {
         }
     }
 
-    private boolean isTimestampContainer(Map<?, ?> source) {
-        if (source.isEmpty()) {
-            return false;
-        }
-        for (Map.Entry<?, ?> entry : source.entrySet()) {
-            if (!(entry.getKey() instanceof String key) || !isTimestampKey(key)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean isTimestampKey(String key) {
-        return parseTimestamp(key) != null;
-    }
-
-    private LocalDateTime parseTimestamp(String value) {
-        if (value == null || value.isBlank()) {
+    private String inferLegacyMessageType(Map<String, Object> payload, String resolvedDeviceCode) {
+        Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
+                ? devicePayload
+                : payload;
+        if (!(body instanceof Map<?, ?> bodyMap)) {
             return null;
         }
-        try {
-            return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
-        } catch (DateTimeParseException ignored) {
-            try {
-                long epochMillis = Long.parseLong(value);
-                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
-            } catch (NumberFormatException numberFormatException) {
-                return null;
+        for (Map.Entry<?, ?> entry : bodyMap.entrySet()) {
+            if (entry.getKey() instanceof String key && key.contains("_ZT_")) {
+                return "status";
             }
         }
+
+        for (String field : LEGACY_STATUS_FIELD_ALIASES) {
+            if (containsField(bodyMap, field)) {
+                return "status";
+            }
+        }
+        return "property";
     }
 
-    private record TimestampResolution(LocalDateTime timestamp,
-                                       String source) {
+    private boolean containsField(Map<?, ?> source, String expectedField) {
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (expectedField.equals(entry.getKey())) {
+                return true;
+            }
+            if (entry.getValue() instanceof Map<?, ?> nestedMap && containsField(nestedMap, expectedField)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private record ResolvedTimestamp(LocalDateTime timestamp,
+                                     String timestampSource) {
     }
 }

@@ -1,10 +1,19 @@
 package com.ghlzm.iot.protocol.mqtt.legacy;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
+/**
+ * `$dp` 地灾家族识别器。
+ */
 public class LegacyDpFamilyResolver {
 
     private static final List<String> RESERVED_PROPERTY_KEYS = List.of(
@@ -13,83 +22,57 @@ public class LegacyDpFamilyResolver {
             "topic", "clientId", "client_id", "timestamp", "ts", "header", "headers", "body", "bodies",
             "_dataFormatType", "_fileStreamLength", "_fileStreamBase64", "_firmwarePacket", "_binaryLength"
     );
-    private static final List<String> LEGACY_STATUS_FIELD_ALIASES = List.of(
-            "ext_power_volt", "solar_volt", "battery_dump_energy", "signal_4g", "sensor_state", "lon", "lat"
-    );
+    private static final Pattern FAMILY_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9]+(?:_[A-Za-z0-9]+){2,}$");
 
-    public List<String> resolveFamilyCodes(Map<String, Object> payload, String resolvedDeviceCode) {
+    public List<String> detectFamilyCodes(Map<String, Object> payload, String resolvedDeviceCode) {
         if (payload == null || payload.isEmpty()) {
             return List.of();
         }
-
-        LinkedHashSet<String> familyCodes = new LinkedHashSet<>();
+        Set<String> familyCodes = new LinkedHashSet<>();
+        collectFamilyCodes(payload, familyCodes);
         Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
                 ? devicePayload
                 : payload;
-        if (body instanceof Map<?, ?> bodyMap) {
-            for (Map.Entry<?, ?> entry : bodyMap.entrySet()) {
-                if (!(entry.getKey() instanceof String key)) {
-                    continue;
-                }
-                if (RESERVED_PROPERTY_KEYS.contains(key)) {
-                    continue;
-                }
+        collectFamilyCodes(body, familyCodes);
+        return new ArrayList<>(familyCodes);
+    }
+
+    public boolean isFamilyCode(String key) {
+        return key != null
+                && !key.isBlank()
+                && !RESERVED_PROPERTY_KEYS.contains(key)
+                && !isTimestampKey(key)
+                && FAMILY_CODE_PATTERN.matcher(key).matches();
+    }
+
+    public boolean isTimestampKey(String key) {
+        return parseTimestamp(key) != null;
+    }
+
+    public LocalDateTime parseTimestamp(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            try {
+                long epochMillis = Long.parseLong(value);
+                return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
+            } catch (NumberFormatException numberFormatException) {
+                return null;
+            }
+        }
+    }
+
+    private void collectFamilyCodes(Object source, Set<String> familyCodes) {
+        if (!(source instanceof Map<?, ?> map)) {
+            return;
+        }
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() instanceof String key && isFamilyCode(key)) {
                 familyCodes.add(key);
             }
         }
-        if (familyCodes.isEmpty()) {
-            familyCodes.addAll(topLevelDataKeys(payload));
-        }
-        return familyCodes.isEmpty() ? List.of() : List.copyOf(familyCodes);
-    }
-
-    public String inferMessageType(Map<String, Object> payload,
-                                   String resolvedDeviceCode,
-                                   List<String> familyCodes) {
-        if (familyCodes != null) {
-            for (String familyCode : familyCodes) {
-                if (familyCode != null && familyCode.contains("_ZT_")) {
-                    return "status";
-                }
-            }
-        }
-
-        Object body = resolvedDeviceCode != null && payload.get(resolvedDeviceCode) instanceof Map<?, ?> devicePayload
-                ? devicePayload
-                : payload;
-        if (!(body instanceof Map<?, ?> bodyMap)) {
-            return null;
-        }
-        for (String field : LEGACY_STATUS_FIELD_ALIASES) {
-            if (containsField(bodyMap, field)) {
-                return "status";
-            }
-        }
-        return "property";
-    }
-
-    private boolean containsField(Map<?, ?> source, String expectedField) {
-        for (Map.Entry<?, ?> entry : source.entrySet()) {
-            if (expectedField.equals(entry.getKey())) {
-                return true;
-            }
-            if (entry.getValue() instanceof Map<?, ?> nestedMap && containsField(nestedMap, expectedField)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private List<String> topLevelDataKeys(Map<String, Object> payload) {
-        List<String> keys = new ArrayList<>();
-        for (Map.Entry<String, Object> entry : payload.entrySet()) {
-            if (RESERVED_PROPERTY_KEYS.contains(entry.getKey())) {
-                continue;
-            }
-            if (entry.getValue() instanceof Map<?, ?>) {
-                keys.add(entry.getKey());
-            }
-        }
-        return keys;
     }
 }

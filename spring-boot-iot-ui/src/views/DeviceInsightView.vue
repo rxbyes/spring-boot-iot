@@ -653,7 +653,7 @@ async function refreshAll() {
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 6%, white));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.52);
+  box-shadow: var(--shadow-inset-outline-52);
 }
 
 .risk-banner p,

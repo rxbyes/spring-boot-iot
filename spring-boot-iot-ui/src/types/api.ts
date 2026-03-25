@@ -188,6 +188,26 @@ export interface Product {
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
+export type ProductModelType = 'property' | 'event' | 'service';
+
+export interface ProductModel {
+  id: IdType;
+  productId: IdType;
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  dataType?: string | null;
+  specsJson?: string | null;
+  eventType?: string | null;
+  serviceInputJson?: string | null;
+  serviceOutputJson?: string | null;
+  sortNo?: number | null;
+  requiredFlag?: number | null;
+  description?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
 export interface Device {
   id: IdType;
   productId?: IdType | null;
@@ -339,6 +359,20 @@ export interface ProductAddPayload {
   manufacturer?: string;
   description?: string;
   status?: number;
+}
+
+export interface ProductModelUpsertPayload {
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  dataType?: string;
+  specsJson?: string;
+  eventType?: string;
+  serviceInputJson?: string;
+  serviceOutputJson?: string;
+  sortNo?: number;
+  requiredFlag?: number;
+  description?: string;
 }
 
 export interface DeviceAddPayload {

@@ -506,7 +506,7 @@ function resolveGatewayPreview() {
   min-height: 2.6rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--brand);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 4%, white);
   color: var(--brand);
   font-size: 13px;

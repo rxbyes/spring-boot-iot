@@ -512,6 +512,6 @@ watch(detailVisible, (visible) => {
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
   border: 1px solid rgba(41, 60, 92, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-inset-highlight-72);
 }
 </style>
