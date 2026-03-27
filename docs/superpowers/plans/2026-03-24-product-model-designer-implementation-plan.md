@@ -8,6 +8,8 @@
 
 **Tech Stack:** Spring Boot 4, Java 17, MyBatis-Plus, Vue 3, Element Plus, Vitest, Maven
 
+**2026-03-25 回填说明：** 当前仓库已具备完整实现；以下勾选依据现有代码、权威文档与本会话 fresh 验证结果回填，不再追溯最初 red 阶段的命令输出。当前仓库未归档独立 `product-model-designer-acceptance-20260325003151.json`，验收留痕以 `docs/19`、`docs/21` 与《真实环境测试与验收手册》补充章节为准。`2026-03-27` 已补做只读 live 复核：MySQL 中产品 `2036481128347844609 / accept-product-model-20260325003151` 当前保留 `property=1 / event=1 / service=0`，且 `GET /api/device/product/2036481128347844609/models` 返回 `200`、共 `2` 条记录，与数据库一致。
+
 ---
 
 ## 范围约束
@@ -50,7 +52,7 @@
 - Create: `spring-boot-iot-device/src/main/java/com/ghlzm/iot/device/vo/ProductModelVO.java`
 - Create: `spring-boot-iot-device/src/test/java/com/ghlzm/iot/device/service/impl/ProductModelServiceImplTest.java`
 
-- [ ] **Step 1: 先写失败的服务测试，锁定最小行为**
+- [x] **Step 1: 先写失败的服务测试，锁定最小行为**
 
 Test cases:
 - 同一产品下 `identifier` 必须唯一
@@ -60,7 +62,7 @@ Test cases:
 - `service` 只允许写 `serviceInputJson` / `serviceOutputJson`
 - 列表返回必须按 `sortNo`、`identifier` 稳定排序
 
-- [ ] **Step 2: 运行后端定向测试，确认当前缺少实现**
+- [x] **Step 2: 运行后端定向测试，确认当前缺少实现**
 
 Run:
 
@@ -72,7 +74,7 @@ Expected:
 - 测试失败
 - 失败原因来自缺少 `ProductModelServiceImpl` 或缺少预期校验逻辑
 
-- [ ] **Step 3: 实现独立后端服务与 VO**
+- [x] **Step 3: 实现独立后端服务与 VO**
 
 API contract:
 - `GET /api/device/product/{productId}/models`
@@ -99,7 +101,7 @@ Implementation rules:
 - `specsJson`、`serviceInputJson`、`serviceOutputJson` 必须在服务层做 JSON 合法性校验
 - 首轮不做 schema migration，只复用现有 `iot_product_model`
 
-- [ ] **Step 4: 重新运行后端定向测试，确认服务层通过**
+- [x] **Step 4: 重新运行后端定向测试，确认服务层通过**
 
 Run:
 
@@ -121,7 +123,7 @@ Expected:
 - Create: `spring-boot-iot-ui/src/components/product/ProductModelDesignerDrawer.vue`
 - Create: `spring-boot-iot-ui/src/__tests__/views/ProductWorkbenchView.test.ts`
 
-- [ ] **Step 1: 先写失败的控制器与前端测试**
+- [x] **Step 1: 先写失败的控制器与前端测试**
 
 Test scope:
 - 控制器能返回产品维度的物模型列表
@@ -129,7 +131,7 @@ Test scope:
 - `ProductWorkbenchView` 出现“物模型设计器”入口
 - 打开设计器后，能展示 `property / event / service` 三类视图切换和列表空态
 
-- [ ] **Step 2: 运行定向测试，确认当前前后端入口缺失**
+- [x] **Step 2: 运行定向测试，确认当前前后端入口缺失**
 
 Run:
 
@@ -143,7 +145,7 @@ Expected:
 - 前端测试失败
 - 失败原因来自缺少控制器、类型定义或设计器入口
 
-- [ ] **Step 3: 实现设计器入口，但不新增顶层页面**
+- [x] **Step 3: 实现设计器入口，但不新增顶层页面**
 
 Frontend rules:
 - 入口继续挂在 `ProductWorkbenchView` 的详情 / 行操作内
@@ -153,7 +155,7 @@ Frontend rules:
 - 首轮先交付“列表 + 新增 + 编辑 + 删除 + 类型切换 + JSON 合法性提示”
 - 继续保留产品台账、关联设备跳转、导出和详情闭环，不回退现有产品中心结构
 
-- [ ] **Step 4: 重跑控制器、前端测试与前端构建**
+- [x] **Step 4: 重跑控制器、前端测试与前端构建**
 
 Run:
 
@@ -180,14 +182,14 @@ Expected:
 - Modify: `docs/19-第四阶段交付边界与复验进展.md`
 - Modify: `docs/21-业务功能清单与验收标准.md`
 
-- [ ] **Step 1: 回写业务语义、API 和数据库说明**
+- [x] **Step 1: 回写业务语义、API 和数据库说明**
 
 Clarify:
 - 产品物模型设计器是 Phase 5 已冻结的唯一设备中心增强口
 - `iot_product_model` 的运行期用途与设计器用途要分别说明
 - 对外 API 新增产品物模型 CRUD
 
-- [ ] **Step 2: 运行文档拓扑校验**
+- [x] **Step 2: 运行文档拓扑校验**
 
 Run:
 
@@ -199,7 +201,7 @@ Expected:
 - 文档无坏链
 - 新任务卡链接可达
 
-- [ ] **Step 3: 跑最终最小回归**
+- [x] **Step 3: 跑最终最小回归**
 
 Run:
 

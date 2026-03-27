@@ -16,6 +16,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -104,13 +105,15 @@ class MqttJsonProtocolAdapterTest {
 
     @Test
     void shouldExposeProtocolMetadataForEncryptedLegacyDpPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
         ProtocolContext context = new ProtocolContext();
         context.setTopic("$dp");
         context.setTopicRouteType("legacy");
         context.setMessageType("property");
 
         MqttJsonProtocolAdapter configuredAdapter = newAdapter(
-                new IotProperties(),
+                properties,
                 List.of(new StubDecryptor(
                         "62000001",
                         buildPacket((byte) 2, """
@@ -177,6 +180,7 @@ class MqttJsonProtocolAdapterTest {
     @Test
     void shouldSplitConfiguredSubDevicesFromLegacyDeepDisplacementPayload() {
         IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
         IotProperties.Device deviceConfig = new IotProperties.Device();
         Map<String, String> baseStationMappings = new LinkedHashMap<>();
         baseStationMappings.put("L1_SW_1", "84330701");
@@ -209,6 +213,36 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(List.of("L1_SW_1", "L1_SW_2"), readMetadata(protocolMetadata, "getFamilyCodes"));
         assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
         assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+    }
+
+    @Test
+    void shouldCollapseSingleDeepDisplacementLogicalPropertiesWithoutSubDeviceMappings() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EB0D1308310":{"L1_SW_1":{"2026-03-25T08:23:10.000Z":{"dispsX":-0.0445,"dispsY":0.0293}}}}
+                """), context);
+
+        assertEquals("SK00EB0D1308310", message.getDeviceCode());
+        assertEquals("property", message.getMessageType());
+        assertTrue(message.getChildMessages() == null || message.getChildMessages().isEmpty());
+        assertEquals(-0.0445, message.getProperties().get("dispsX"));
+        assertEquals(0.0293, message.getProperties().get("dispsY"));
+        assertFalse(message.getProperties().containsKey("L1_SW_1.dispsX"));
+        assertFalse(message.getProperties().containsKey("L1_SW_1.dispsY"));
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(List.of("L1_SW_1"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(Boolean.FALSE, readMetadata(protocolMetadata, "getChildSplitApplied"));
         assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
         assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
     }
