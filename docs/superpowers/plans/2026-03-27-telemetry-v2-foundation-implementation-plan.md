@@ -8,6 +8,8 @@
 
 **Tech Stack:** Spring Boot 4, Java 17, TDengine via `JdbcTemplate`, MySQL, Redis `StringRedisTemplate`, JUnit 5, Mockito, Maven
 
+**Execution Status (2026-03-27):** Plan-scope implementation, docs sync, and regression verification are complete in `codex/dev`. `LegacyTdengineTelemetryWriter` / `LegacyTdengineTelemetryReader` remain behaviorally unchanged because legacy compatibility is now orchestrated through the new coordinator and read-router wrappers. The only remaining action is optional staging / commit based on maintainer preference.
+
 ---
 
 ## File Structure
@@ -449,4 +451,3 @@ Expected:
 git add docs/01-系统概览与架构说明.md docs/03-接口规范与接口清单.md docs/04-数据库设计与初始化数据.md docs/07-部署运行与配置说明.md docs/08-变更记录与技术债清单.md README.md AGENTS.md
 git commit -m "docs: document telemetry v2 foundation"
 ```
-

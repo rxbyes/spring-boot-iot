@@ -133,6 +133,7 @@ const ProductModelDesignerDrawerStub = defineComponent({
   props: ['modelValue', 'product'],
   template: `
     <section v-if="modelValue" class="product-model-designer-drawer-stub">
+      <h2>基于真实上报提炼产品契约</h2>
       <h3>属性模型</h3>
       <h3>事件模型</h3>
       <h3>服务模型</h3>
@@ -249,6 +250,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('属性模型')
     expect(wrapper.text()).toContain('事件模型')
     expect(wrapper.text()).toContain('服务模型')
+    expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
     expect(wrapper.text()).toContain('暂无物模型')
   })
 })

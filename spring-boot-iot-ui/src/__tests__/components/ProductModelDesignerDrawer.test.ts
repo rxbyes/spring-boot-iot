@@ -274,6 +274,55 @@ describe('ProductModelDesignerDrawer', () => {
     expect(wrapper.text()).toContain('iot_command_record')
   })
 
+  it('renders candidate mode as a staged workspace with hero, overview and confirm rail', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.product-model-designer__hero-stage').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__hero-product').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__overview').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__candidate-workspace').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__candidate-rail').exists()).toBe(true)
+    expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
+    expect(wrapper.text()).toContain('真实证据概览')
+  })
+
+  it('renders formal mode with type overview cards and unified model cards', async () => {
+    mockListProductModels.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 2001,
+          modelType: 'property',
+          identifier: 'temperature',
+          modelName: '温度',
+          dataType: 'decimal',
+          specsJson: '{"unit":"℃"}',
+          sortNo: 10,
+          requiredFlag: 1,
+          description: '设备温度正式契约'
+        }
+      ]
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+    await nextTick()
+
+    await findButtonByText(wrapper, '正式模型')!.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.product-model-designer__formal-overview').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__formal-stage').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__card-surface').exists()).toBe(true)
+    expect(wrapper.text()).toContain('统一维护产品正式物模型')
+    expect(wrapper.text()).toContain('温度')
+    expect(wrapper.text()).toContain('设备温度正式契约')
+  })
+
   it('falls back to formal models when candidate extraction endpoint is unavailable', async () => {
     mockListProductModelCandidates.mockRejectedValueOnce(new Error('系统繁忙，请稍后重试！'))
 

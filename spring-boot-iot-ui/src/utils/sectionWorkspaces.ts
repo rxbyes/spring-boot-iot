@@ -17,6 +17,10 @@ export interface SectionHomeConfig {
   title: string;
   description: string;
   intro: string;
+  hubJudgement?: string;
+  hubLeadTitle?: string;
+  hubLeadDescription?: string;
+  hubLeadPath?: string;
   menuTitle: string;
   menuHint: string;
   matchKeys: string[];
@@ -83,8 +87,12 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看接入智维分组能力与常用入口',
     navShort: '概',
     title: '接入智维',
-    description: '围绕产品定义、设备资产、链路验证和异常观测组织接入智维能力。',
-    intro: '建议先完成产品建档与设备建档，再进入链路验证、链路追踪和异常观测完成接入排障。',
+    description: '接入智维总览作为中枢台，负责跨模块判断、入口分发和最近动作恢复。',
+    intro: '这里回答“整体什么情况、先去哪处理”；进入子页后再回答“在这个域里怎么做”。',
+    hubJudgement: '先完成资产底座，再进入诊断实验台收口链路问题。',
+    hubLeadTitle: '优先处理资产底座与最近异常联动',
+    hubLeadDescription: '产品与设备先稳住，链路验证、异常观测、链路追踪、数据校验只保留强相关联动。',
+    hubLeadPath: '/products',
     menuTitle: '接入智维',
     menuHint: '覆盖产品定义、设备资产、链路验证、异常观测、链路追踪与数据校验。',
     matchKeys: ['iot-access', 'device-access', 'iot-core'],

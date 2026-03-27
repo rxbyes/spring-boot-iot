@@ -55,6 +55,7 @@ public interface DeviceService extends IService<Device> {
                                          Integer onlineStatus,
                                          Integer activateStatus,
                                          Integer deviceStatus,
+                                         Integer registrationStatus,
                                          Long pageNum,
                                          Long pageSize);
 

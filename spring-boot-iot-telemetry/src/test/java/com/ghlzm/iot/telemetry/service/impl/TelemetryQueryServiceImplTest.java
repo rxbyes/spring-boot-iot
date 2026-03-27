@@ -7,7 +7,6 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
-import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,29 +36,40 @@ class TelemetryQueryServiceImplTest {
     private DevicePropertyMapper devicePropertyMapper;
     @Mock
     private TdengineTelemetryFacade tdengineTelemetryFacade;
+    @Mock
+    private TelemetryStorageModeResolver storageModeResolver;
+    @Mock
+    private TelemetryReadRouter telemetryReadRouter;
+    @Mock
+    private TelemetryLatestProjectionRepository telemetryLatestProjectionRepository;
 
-    private IotProperties iotProperties;
     private TelemetryQueryServiceImpl telemetryQueryService;
 
     @BeforeEach
     void setUp() {
-        iotProperties = new IotProperties();
         telemetryQueryService = new TelemetryQueryServiceImpl(
-                iotProperties,
                 deviceMapper,
                 productMapper,
                 devicePropertyMapper,
-                tdengineTelemetryFacade
+                tdengineTelemetryFacade,
+                storageModeResolver,
+                telemetryReadRouter,
+                telemetryLatestProjectionRepository
         );
     }
 
     @Test
-    void getLatestShouldReadTdengineWhenConfigured() {
-        iotProperties.getTelemetry().setStorageType("tdengine");
+    void shouldReadV2LatestBeforeLegacyFallback() {
         Device device = buildDevice();
         Product product = buildProduct();
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.latestSource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(true);
         when(deviceMapper.selectOne(any())).thenReturn(device);
         when(productMapper.selectById(1001L)).thenReturn(product);
+        when(telemetryLatestProjectionRepository.listLatestPoints(2001L)).thenReturn(List.of(
+                latestPoint("temperature", 26.8D)
+        ));
         when(tdengineTelemetryFacade.listLatestPoints(device, product)).thenReturn(List.of(
                 latestPoint("temperature", 26.5D),
                 latestPoint("humidity", 68)
@@ -70,15 +80,15 @@ class TelemetryQueryServiceImplTest {
         assertEquals("tdengine", result.get("storageType"));
         @SuppressWarnings("unchecked")
         Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-        assertEquals(26.5D, properties.get("temperature"));
+        assertEquals(26.8D, properties.get("temperature"));
         assertEquals(68, properties.get("humidity"));
         verify(tdengineTelemetryFacade).listLatestPoints(device, product);
-        verifyNoInteractions(devicePropertyMapper);
+        verify(telemetryLatestProjectionRepository).listLatestPoints(2001L);
     }
 
     @Test
     void getLatestShouldFallbackToMysqlWhenConfigured() {
-        iotProperties.getTelemetry().setStorageType("mysql");
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(false);
         when(deviceMapper.selectOne(any())).thenReturn(buildDevice());
         when(productMapper.selectById(1001L)).thenReturn(buildProduct());
         when(devicePropertyMapper.selectList(any())).thenReturn(List.of(

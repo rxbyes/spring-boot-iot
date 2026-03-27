@@ -35,6 +35,12 @@ vi.mock('@/api/device', () => ({
   }
 }))
 
+vi.mock('@/api/accessError', () => ({
+  accessErrorApi: {
+    getAccessErrorById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
+  }
+}))
+
 vi.mock('@/api/product', () => ({
   productApi: {
     getAllProducts: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] })
@@ -107,7 +113,7 @@ const ElInputStub = defineComponent({
       :id="id"
       class="el-input-stub"
       :value="modelValue"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      @input="$emit('update:modelValue', $event.target && $event.target.value)"
     />
   `
 })

@@ -8,6 +8,8 @@
 
 **Tech Stack:** Vue 3, TypeScript, Element Plus, Vitest, Vite, CSS variables, StandardDetailDrawer
 
+**Execution Status (2026-03-27):** 计划范围内的测试、模板重构、样式重构与文档回写均已完成并验证通过，当前 `/products` 继续由同一抽屉承接候选提炼与正式模型双模式。剩余仅为是否在 `codex/dev` 上整理提交的集成决策，不存在本计划范围内的未完成实现项。
+
 ---
 
 ## 文件结构

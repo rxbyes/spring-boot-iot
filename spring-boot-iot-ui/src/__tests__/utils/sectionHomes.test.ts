@@ -123,4 +123,12 @@ describe('sectionHomes config', () => {
       description: '维护巡检模板、执行计划和导出结果。'
     });
   });
+
+  it('exposes updated iot access hub overview copy', () => {
+    const config = getSectionHomeConfigByPath('/device-access');
+    expect(config).toBeTruthy();
+    expect(config?.intro).toContain('先去哪处理');
+    expect(config?.description).toContain('中枢');
+    expect(config?.cards).toHaveLength(6);
+  });
 });

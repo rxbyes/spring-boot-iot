@@ -173,6 +173,7 @@ public class IotProperties {
     @Data
     public static class Telemetry {
         private String storageType = "mysql";
+        private String primaryStorage = "legacy-compatible";
         /**
          * TDengine 存储模式：
          * legacy-compatible 优先写既有 stable，未映射指标再兼容回退到通用表；
@@ -186,6 +187,50 @@ public class IotProperties {
         private Boolean legacyMappingValidateOnly = Boolean.FALSE;
         private String latestCachePrefix = "iot:telemetry:latest:";
         private String tsPrefix = "iot:telemetry:ts:";
+        private Raw raw = new Raw();
+        private Latest latest = new Latest();
+        private Aggregate aggregate = new Aggregate();
+        private LegacyMirror legacyMirror = new LegacyMirror();
+        private ReadRouting readRouting = new ReadRouting();
+        private TenantRouting tenantRouting = new TenantRouting();
+
+        @Data
+        public static class Raw {
+            private Integer retentionDays = 180;
+        }
+
+        @Data
+        public static class Latest {
+            private Boolean redisEnabled = Boolean.TRUE;
+            private Boolean mysqlProjectionEnabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class Aggregate {
+            private Boolean enabled = Boolean.FALSE;
+            private Boolean hourlyEnabled = Boolean.FALSE;
+            private Boolean dailyEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class LegacyMirror {
+            private Boolean enabled = Boolean.FALSE;
+            private String mode = "legacy-compatible";
+            private Boolean retryEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class ReadRouting {
+            private String latestSource = "legacy";
+            private String historySource = "legacy";
+            private String aggregateSource = "legacy";
+            private Boolean legacyReadFallbackEnabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class TenantRouting {
+            private String mode = "tenant-device";
+        }
     }
 
     @Data

@@ -69,22 +69,44 @@ export interface ProductModelUpsertPayload {
  * 设备相关类型
  */
 export interface Device {
-  id: number;
-  productKey: string;
+  id?: number | string | null;
+  productId?: number | string | null;
+  gatewayId?: number | string | null;
+  parentDeviceId?: number | string | null;
+  sourceRecordId?: number | string | null;
+  productKey?: string | null;
+  productName?: string | null;
+  gatewayDeviceCode?: string | null;
+  gatewayDeviceName?: string | null;
+  parentDeviceCode?: string | null;
+  parentDeviceName?: string | null;
   deviceName: string;
   deviceCode: string;
-  deviceSecret: string;
-  clientId: string;
-  username: string;
-  password: string;
-  firmwareVersion: string;
-  ipAddress: string;
-  address: string;
-  onlineStatus: number;
-  lastOnlineTime: string | null;
-  lastReportTime: string | null;
-  createdAt: string;
-  updatedAt: string;
+  deviceSecret?: string | null;
+  clientId?: string | null;
+  username?: string | null;
+  password?: string | null;
+  protocolCode?: string | null;
+  nodeType?: number | null;
+  onlineStatus?: number | null;
+  activateStatus?: number | null;
+  deviceStatus?: number | null;
+  registrationStatus?: number | null;
+  assetSourceType?: string | null;
+  firmwareVersion?: string | null;
+  ipAddress?: string | null;
+  address?: string | null;
+  metadataJson?: string | null;
+  lastFailureStage?: string | null;
+  lastErrorMessage?: string | null;
+  lastReportTopic?: string | null;
+  lastTraceId?: string | null;
+  lastPayload?: string | null;
+  lastOnlineTime?: string | null;
+  lastOfflineTime?: string | null;
+  lastReportTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
 }
 
 /**

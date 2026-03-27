@@ -18,6 +18,7 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddErrorVO;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
@@ -55,20 +56,26 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private static final int GATEWAY_NODE_TYPE = 2;
     private static final int SUB_DEVICE_NODE_TYPE = 3;
+    private static final int REGISTERED_STATUS = 1;
+    private static final int UNREGISTERED_STATUS = 0;
+    private static final String REGISTERED_SOURCE = "registry";
 
     private final ProductService productService;
     private final DevicePropertyMapper devicePropertyMapper;
     private final ProductModelMapper productModelMapper;
+    private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
                              ProductModelMapper productModelMapper,
+                             UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
+        this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
     }
 
@@ -121,25 +128,42 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                 Integer onlineStatus,
                                                 Integer activateStatus,
                                                 Integer deviceStatus,
+                                                Integer registrationStatus,
                                                 Long pageNum,
                                                 Long pageSize) {
         Page<Device> page = PageQueryUtils.buildPage(pageNum, pageSize);
-        List<Long> filteredProductIds = resolveFilteredProductIds(productKey);
-        if (filteredProductIds != null && filteredProductIds.isEmpty()) {
-            return PageResult.empty(page.getCurrent(), page.getSize());
+        long current = page.getCurrent();
+        long size = page.getSize();
+
+        if (Integer.valueOf(REGISTERED_STATUS).equals(registrationStatus)) {
+            List<Long> filteredProductIds = resolveFilteredProductIds(productKey);
+            return pageRegisteredDevices(deviceId,
+                    filteredProductIds,
+                    deviceCode,
+                    deviceName,
+                    onlineStatus,
+                    activateStatus,
+                    deviceStatus,
+                    current,
+                    size);
         }
 
-        Page<Device> result = page(page, buildDeviceQueryWrapper(
-                deviceId,
+        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
+            return pageUnregisteredDevices(deviceId, productKey, deviceCode, deviceName,
+                    onlineStatus, activateStatus, deviceStatus, current, size);
+        }
+
+        List<Long> filteredProductIds = resolveFilteredProductIds(productKey);
+        return pageCombinedDevices(deviceId,
                 filteredProductIds,
+                productKey,
                 deviceCode,
                 deviceName,
                 onlineStatus,
                 activateStatus,
-                deviceStatus
-        ));
-        List<DevicePageVO> records = toPageVOList(result.getRecords());
-        return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
+                deviceStatus,
+                current,
+                size);
     }
 
     @Override
@@ -621,6 +645,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         detail.setLastReportTime(device.getLastReportTime());
         detail.setCreateTime(device.getCreateTime());
         detail.setUpdateTime(device.getUpdateTime());
+        detail.setRegistrationStatus(REGISTERED_STATUS);
+        detail.setAssetSourceType(REGISTERED_SOURCE);
         applyRelationFields(detail, relationDeviceMap);
         return detail;
     }
@@ -640,6 +666,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         row.setOnlineStatus(device.getOnlineStatus());
         row.setActivateStatus(device.getActivateStatus());
         row.setDeviceStatus(device.getDeviceStatus());
+        row.setRegistrationStatus(REGISTERED_STATUS);
+        row.setAssetSourceType(REGISTERED_SOURCE);
         row.setFirmwareVersion(device.getFirmwareVersion());
         row.setIpAddress(device.getIpAddress());
         row.setAddress(device.getAddress());
@@ -650,6 +678,146 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         row.setUpdateTime(device.getUpdateTime());
         applyRelationFields(row, relationDeviceMap);
         return row;
+    }
+
+    private PageResult<DevicePageVO> pageRegisteredDevices(Long deviceId,
+                                                           List<Long> filteredProductIds,
+                                                           String deviceCode,
+                                                           String deviceName,
+                                                           Integer onlineStatus,
+                                                           Integer activateStatus,
+                                                           Integer deviceStatus,
+                                                           long pageNum,
+                                                           long pageSize) {
+        if (filteredProductIds != null && filteredProductIds.isEmpty()) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+
+        Page<Device> page = PageQueryUtils.buildPage(pageNum, pageSize);
+        Page<Device> result = page(page, buildDeviceQueryWrapper(
+                deviceId,
+                filteredProductIds,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus
+        ));
+        List<DevicePageVO> records = toPageVOList(result.getRecords());
+        return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
+    }
+
+    private PageResult<DevicePageVO> pageUnregisteredDevices(Long deviceId,
+                                                             String productKey,
+                                                             String deviceCode,
+                                                             String deviceName,
+                                                             Integer onlineStatus,
+                                                             Integer activateStatus,
+                                                             Integer deviceStatus,
+                                                             long pageNum,
+                                                             long pageSize) {
+        if (!canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+
+        long offset = Math.max(pageNum - 1, 0L) * pageSize;
+        long total = unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode));
+        if (total <= 0L) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        List<DevicePageVO> records = unregisteredDeviceRosterService.listByFilters(
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(deviceCode),
+                offset,
+                pageSize
+        );
+        return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    private PageResult<DevicePageVO> pageCombinedDevices(Long deviceId,
+                                                         List<Long> filteredProductIds,
+                                                         String productKey,
+                                                         String deviceCode,
+                                                         String deviceName,
+                                                         Integer onlineStatus,
+                                                         Integer activateStatus,
+                                                         Integer deviceStatus,
+                                                         long pageNum,
+                                                         long pageSize) {
+        long registeredTotal = countRegisteredDevices(filteredProductIds,
+                deviceId,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus);
+        long unregisteredTotal = canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
+                ? unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode))
+                : 0L;
+        long total = registeredTotal + unregisteredTotal;
+        if (total <= 0L) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+
+        long offset = Math.max(pageNum - 1, 0L) * pageSize;
+        List<DevicePageVO> records = new ArrayList<>();
+        if (offset < registeredTotal) {
+            PageResult<DevicePageVO> registeredPage = pageRegisteredDevices(deviceId,
+                    filteredProductIds,
+                    deviceCode,
+                    deviceName,
+                    onlineStatus,
+                    activateStatus,
+                    deviceStatus,
+                    pageNum,
+                    pageSize);
+            records.addAll(registeredPage.getRecords());
+        }
+
+        long remaining = pageSize - records.size();
+        if (remaining > 0L && unregisteredTotal > 0L) {
+            long unregisteredOffset = Math.max(0L, offset - registeredTotal);
+            records.addAll(unregisteredDeviceRosterService.listByFilters(
+                    normalizeOptionalText(productKey),
+                    normalizeOptionalText(deviceCode),
+                    unregisteredOffset,
+                    remaining
+            ));
+        }
+        return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    private long countRegisteredDevices(List<Long> filteredProductIds,
+                                        Long deviceId,
+                                        String deviceCode,
+                                        String deviceName,
+                                        Integer onlineStatus,
+                                        Integer activateStatus,
+                                        Integer deviceStatus) {
+        if (filteredProductIds != null && filteredProductIds.isEmpty()) {
+            return 0L;
+        }
+        return count(buildDeviceQueryWrapper(
+                deviceId,
+                filteredProductIds,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus
+        ));
+    }
+
+    private boolean canMatchUnregisteredDevices(Long deviceId,
+                                                String deviceName,
+                                                Integer onlineStatus,
+                                                Integer activateStatus,
+                                                Integer deviceStatus) {
+        return deviceId == null
+                && !StringUtils.hasText(deviceName)
+                && onlineStatus == null
+                && activateStatus == null
+                && deviceStatus == null;
     }
 
     private Map<Long, Product> loadProductMap(List<Long> productIds) {

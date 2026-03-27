@@ -1,13 +1,16 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -24,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +43,8 @@ class DeviceServiceImplTest {
     private DevicePropertyMapper devicePropertyMapper;
     @Mock
     private ProductModelMapper productModelMapper;
+    @Mock
+    private UnregisteredDeviceRosterService unregisteredDeviceRosterService;
 
     private DeviceServiceImpl deviceService;
 
@@ -47,7 +54,13 @@ class DeviceServiceImplTest {
         IotProperties.Device device = new IotProperties.Device();
         device.setActivateDefault(true);
         iotProperties.setDevice(device);
-        deviceService = spy(new DeviceServiceImpl(productService, devicePropertyMapper, productModelMapper, iotProperties));
+        deviceService = spy(new DeviceServiceImpl(
+                productService,
+                devicePropertyMapper,
+                productModelMapper,
+                unregisteredDeviceRosterService,
+                iotProperties
+        ));
     }
 
     @Test
@@ -136,6 +149,94 @@ class DeviceServiceImplTest {
         assertNull(row.getGatewayDeviceName());
         assertNull(row.getParentDeviceCode());
         assertNull(row.getParentDeviceName());
+    }
+
+    @Test
+    void pageDevicesShouldAppendUnregisteredRowsAfterRegisteredRows() {
+        Device registeredA = new Device();
+        registeredA.setId(2001L);
+        registeredA.setDeviceCode("registered-a");
+        registeredA.setDeviceName("已登记 A");
+
+        Device registeredB = new Device();
+        registeredB.setId(2002L);
+        registeredB.setDeviceCode("registered-b");
+        registeredB.setDeviceName("已登记 B");
+
+        Page<Device> registeredPage = new Page<>(2, 10);
+        registeredPage.setTotal(12);
+        registeredPage.setRecords(List.of(registeredA, registeredB));
+
+        doReturn(12L).when(deviceService).count(any());
+        doReturn(registeredPage).when(deviceService).page(any(Page.class), any());
+
+        DevicePageVO unregisteredA = new DevicePageVO();
+        unregisteredA.setDeviceCode("unregistered-a");
+        unregisteredA.setDeviceName("未登记设备");
+        unregisteredA.setRegistrationStatus(0);
+
+        DevicePageVO unregisteredB = new DevicePageVO();
+        unregisteredB.setDeviceCode("unregistered-b");
+        unregisteredB.setDeviceName("未登记设备");
+        unregisteredB.setRegistrationStatus(0);
+
+        when(unregisteredDeviceRosterService.countByFilters(null, null)).thenReturn(2L);
+        when(unregisteredDeviceRosterService.listByFilters(null, null, 0L, 8L))
+                .thenReturn(List.of(unregisteredA, unregisteredB));
+
+        PageResult<DevicePageVO> result = deviceService.pageDevices(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                2L,
+                10L
+        );
+
+        assertEquals(14L, result.getTotal());
+        assertEquals(
+                List.of("registered-a", "registered-b", "unregistered-a", "unregistered-b"),
+                result.getRecords().stream().map(DevicePageVO::getDeviceCode).toList()
+        );
+        assertEquals(
+                List.of(1, 1, 0, 0),
+                result.getRecords().stream().map(DevicePageVO::getRegistrationStatus).toList()
+        );
+    }
+
+    @Test
+    void pageDevicesShouldSupportUnregisteredOnlyFilter() {
+        DevicePageVO unregisteredRow = new DevicePageVO();
+        unregisteredRow.setDeviceCode("shadow-device-01");
+        unregisteredRow.setDeviceName("未登记设备");
+        unregisteredRow.setRegistrationStatus(0);
+
+        when(unregisteredDeviceRosterService.countByFilters("shadow-product", "shadow-device"))
+                .thenReturn(1L);
+        when(unregisteredDeviceRosterService.listByFilters("shadow-product", "shadow-device", 0L, 10L))
+                .thenReturn(List.of(unregisteredRow));
+
+        PageResult<DevicePageVO> result = deviceService.pageDevices(
+                null,
+                "shadow-product",
+                "shadow-device",
+                null,
+                null,
+                null,
+                null,
+                0,
+                1L,
+                10L
+        );
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of("shadow-device-01"), result.getRecords().stream().map(DevicePageVO::getDeviceCode).toList());
+        assertEquals(List.of(0), result.getRecords().stream().map(DevicePageVO::getRegistrationStatus).toList());
+        verify(deviceService, never()).count(any());
     }
 
     private DeviceAddDTO buildDeviceAddDTO(String productKey, String deviceCode) {

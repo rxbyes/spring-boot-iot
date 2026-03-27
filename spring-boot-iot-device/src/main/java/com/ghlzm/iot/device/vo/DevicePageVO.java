@@ -23,6 +23,9 @@ public class DevicePageVO {
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long parentDeviceId;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Long sourceRecordId;
+
     private String productKey;
 
     private String productName;
@@ -49,11 +52,25 @@ public class DevicePageVO {
 
     private Integer deviceStatus;
 
+    private Integer registrationStatus;
+
+    private String assetSourceType;
+
     private String firmwareVersion;
 
     private String ipAddress;
 
     private String address;
+
+    private String lastFailureStage;
+
+    private String lastErrorMessage;
+
+    private String lastReportTopic;
+
+    private String lastTraceId;
+
+    private String lastPayload;
 
     private LocalDateTime lastOnlineTime;
 

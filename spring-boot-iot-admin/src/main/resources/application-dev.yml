@@ -92,9 +92,30 @@ iot:
 
   telemetry:
     storage-type: tdengine
+    primary-storage: ${IOT_TELEMETRY_PRIMARY_STORAGE:tdengine-v2}
     tdengine-mode: legacy-compatible
     legacy-normalized-fallback-enabled: true
     legacy-mapping-validate-only: ${IOT_TELEMETRY_LEGACY_MAPPING_VALIDATE_ONLY:true}
+    raw:
+      retention-days: ${IOT_TELEMETRY_RAW_RETENTION_DAYS:180}
+    latest:
+      redis-enabled: ${IOT_TELEMETRY_LATEST_REDIS_ENABLED:true}
+      mysql-projection-enabled: ${IOT_TELEMETRY_LATEST_MYSQL_PROJECTION_ENABLED:true}
+    aggregate:
+      enabled: ${IOT_TELEMETRY_AGGREGATE_ENABLED:false}
+      hourly-enabled: ${IOT_TELEMETRY_AGGREGATE_HOURLY_ENABLED:false}
+      daily-enabled: ${IOT_TELEMETRY_AGGREGATE_DAILY_ENABLED:false}
+    legacy-mirror:
+      enabled: ${IOT_TELEMETRY_LEGACY_MIRROR_ENABLED:true}
+      mode: ${IOT_TELEMETRY_LEGACY_MIRROR_MODE:legacy-compatible}
+      retry-enabled: ${IOT_TELEMETRY_LEGACY_MIRROR_RETRY_ENABLED:false}
+    read-routing:
+      latest-source: ${IOT_TELEMETRY_READ_LATEST_SOURCE:v2}
+      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:legacy}
+      aggregate-source: ${IOT_TELEMETRY_READ_AGGREGATE_SOURCE:v2-aggregate}
+      legacy-read-fallback-enabled: ${IOT_TELEMETRY_LEGACY_READ_FALLBACK_ENABLED:true}
+    tenant-routing:
+      mode: ${IOT_TELEMETRY_TENANT_ROUTING_MODE:tenant-device}
 
   device:
     sub-device-mappings:
