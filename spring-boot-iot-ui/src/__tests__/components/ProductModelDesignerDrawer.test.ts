@@ -274,6 +274,20 @@ describe('ProductModelDesignerDrawer', () => {
     expect(wrapper.text()).toContain('iot_command_record')
   })
 
+  it('falls back to formal models when candidate extraction endpoint is unavailable', async () => {
+    mockListProductModelCandidates.mockRejectedValueOnce(new Error('系统繁忙，请稍后重试！'))
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockListProductModels).toHaveBeenCalledWith(1001)
+    expect(mockListProductModelCandidates).toHaveBeenCalledWith(1001)
+    expect(wrapper.text()).toContain('暂无物模型')
+    expect(findButtonByText(wrapper, '新增属性模型')).toBeTruthy()
+    expect(findButtonByText(wrapper, '确认并写入正式物模型')).toBeUndefined()
+  })
+
   it('confirms selected candidates into formal models', async () => {
     const wrapper = mountDrawer()
     await flushPromises()

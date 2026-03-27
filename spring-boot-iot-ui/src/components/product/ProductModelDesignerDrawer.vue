@@ -771,13 +771,26 @@ async function loadDesignerData(productId: string | number) {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [modelResponse, candidateResponse] = await Promise.all([
+    const [modelResponse, candidateResponse] = await Promise.allSettled([
       productApi.listProductModels(productId),
       productApi.listProductModelCandidates(productId)
     ])
-    models.value = modelResponse.data ?? []
-    candidateResult.value = candidateResponse.data ?? createEmptyCandidateResult(productId)
+
+    if (modelResponse.status === 'rejected') {
+      throw modelResponse.reason
+    }
+
+    models.value = modelResponse.value.data ?? []
+
+    if (candidateResponse.status === 'fulfilled') {
+      candidateResult.value = candidateResponse.value.data ?? createEmptyCandidateResult(productId)
+      syncCandidateState(candidateResult.value)
+      return
+    }
+
+    candidateResult.value = createEmptyCandidateResult(productId)
     syncCandidateState(candidateResult.value)
+    designerMode.value = 'formal'
   } catch (error) {
     models.value = []
     candidateResult.value = createEmptyCandidateResult(productId)
