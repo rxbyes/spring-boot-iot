@@ -166,6 +166,7 @@ Payload：
     - 子消息按映射后的真实 `deviceCode` 分别进入 `device` 模块落库
     - 当逻辑测点值为 `时间戳 -> 对象` 结构时，子消息属性会写成对象内字段，例如 `dispsX`、`dispsY`
     - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性会回落为该逻辑测点自身
+  - 对于未配置 `sub-device-mappings`、且 payload 家族只包含父级状态 `S1_ZT_1` 与单个深部位移逻辑测点 `L1_SW_*` 的场景，协议层会把父消息中的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 折叠回当前设备属性 `dispsX / dispsY`，避免把单设备深部位移误写成基站子测点前缀属性
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
@@ -174,6 +175,7 @@ Payload：
 - 2026-03-24 起，`MqttJsonProtocolAdapter` 对 legacy `$dp` 保留 v1/v2 双轨内部实现。
 - 默认兼容路径仍为 v1：继续复用 adapter 内原有 inline helper。
 - v2 路径复用 `LegacyDpFamilyResolver`、`LegacyDpPropertyNormalizer`、`LegacyDpChildMessageSplitter`。
+- 2026-03-25：`LegacyDpChildMessageSplitter` 已补齐单设备深部位移兜底逻辑。无子设备映射、且 family code 仅包含 `S1_ZT_1` 与单个 `L1_SW_*` 逻辑测点时，会把逻辑前缀属性折叠为当前设备的 `dispsX / dispsY`，继续保持基准站拆子设备场景不变；`MqttJsonProtocolAdapter` 适配器层回归也已补齐。
 - `iot.telemetry.legacy-mapping-validate-only=true` 时会并行执行 old/new 比对并输出差异日志，但 decode 结果继续沿用 v1。
 - `iot.protocol.legacy-dp.normalizer-v2-enabled=true` 后，才会把 legacy `$dp` 的标准化与子消息拆分切换到 v2。
 - 以上切换只发生在协议层内部，不改变 `MqttMessageConsumer`、固定 Pipeline 顺序、控制器接口或外部 API 结构。

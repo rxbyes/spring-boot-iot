@@ -140,6 +140,7 @@ Payload：
 - `L1_SW_1` ~ `L1_SW_8` 会按 `iot.device.sub-device-mappings` 映射成真实子设备编码
 - 子设备最新属性会按 `dispsX`、`dispsY` 写入 `iot_device_property`
 - 平台查询时应直接用子设备 `device_code`，例如 `84330701`
+- 若是未配置 `sub-device-mappings` 的单设备深部位移终端，且 payload 家族只包含父级 `S1_ZT_1` 与单个 `L1_SW_1` 逻辑测点，平台会直接在当前设备下写入 `dispsX`、`dispsY`，不再保留 `L1_SW_1.dispsX` 这类前缀属性
 
 建议核对：
 - `GET /api/device/84330701/properties`

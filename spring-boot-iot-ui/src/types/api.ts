@@ -208,6 +208,72 @@ export interface ProductModel {
   updateTime?: string | null;
 }
 
+export interface ProductModelCandidate {
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  dataType?: string | null;
+  specsJson?: string | null;
+  eventType?: string | null;
+  serviceInputJson?: string | null;
+  serviceOutputJson?: string | null;
+  sortNo?: number | null;
+  requiredFlag?: number | null;
+  description?: string | null;
+  groupKey?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  candidateStatus?: string | null;
+  reviewReason?: string | null;
+  evidenceCount?: number | null;
+  messageEvidenceCount?: number | null;
+  lastReportTime?: string | null;
+  sourceTables?: string[] | null;
+}
+
+export interface ProductModelCandidateSummary {
+  propertyEvidenceCount?: number | null;
+  propertyCandidateCount?: number | null;
+  eventEvidenceCount?: number | null;
+  eventCandidateCount?: number | null;
+  serviceEvidenceCount?: number | null;
+  serviceCandidateCount?: number | null;
+  needsReviewCount?: number | null;
+  existingModelCount?: number | null;
+  createdCount?: number | null;
+  skippedCount?: number | null;
+  conflictCount?: number | null;
+  eventHint?: string | null;
+  serviceHint?: string | null;
+  lastExtractedAt?: string | null;
+}
+
+export interface ProductModelCandidateResult {
+  productId: IdType;
+  summary: ProductModelCandidateSummary;
+  propertyCandidates: ProductModelCandidate[];
+  eventCandidates: ProductModelCandidate[];
+  serviceCandidates: ProductModelCandidate[];
+}
+
+export interface ProductModelCandidateConfirmItem {
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  dataType?: string;
+  specsJson?: string;
+  eventType?: string;
+  serviceInputJson?: string;
+  serviceOutputJson?: string;
+  sortNo?: number;
+  requiredFlag?: number;
+  description?: string;
+}
+
+export interface ProductModelCandidateConfirmPayload {
+  items: ProductModelCandidateConfirmItem[];
+}
+
 export interface Device {
   id: IdType;
   productId?: IdType | null;

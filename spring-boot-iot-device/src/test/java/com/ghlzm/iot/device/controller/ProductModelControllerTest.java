@@ -1,8 +1,11 @@
 package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
+import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
+import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +77,31 @@ class ProductModelControllerTest {
 
         assertNull(response.getData());
         verify(productModelService).deleteModel(1001L, 2001L);
+    }
+
+    @Test
+    void listCandidatesShouldDelegateToService() {
+        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
+        result.setProductId(1001L);
+        when(productModelService.listModelCandidates(1001L)).thenReturn(result);
+
+        R<ProductModelCandidateResultVO> response = controller.listCandidates(1001L);
+
+        assertEquals(1001L, response.getData().getProductId());
+        verify(productModelService).listModelCandidates(1001L);
+    }
+
+    @Test
+    void confirmCandidatesShouldDelegateToService() {
+        ProductModelCandidateConfirmDTO dto = new ProductModelCandidateConfirmDTO();
+        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
+        summary.setCreatedCount(1);
+        when(productModelService.confirmModelCandidates(1001L, dto)).thenReturn(summary);
+
+        R<ProductModelCandidateSummaryVO> response = controller.confirmCandidates(1001L, dto);
+
+        assertEquals(1, response.getData().getCreatedCount());
+        verify(productModelService).confirmModelCandidates(1001L, dto);
     }
 
     private ProductModelVO modelVO(Long id, String identifier, Integer sortNo) {

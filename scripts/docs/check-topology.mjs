@@ -169,6 +169,7 @@ const SCAN_EXTENSIONS = new Set([
 const EXCLUDED_DIRS = new Set([
   '.git',
   '.idea',
+  '.worktrees',
   '.codex-runtime',
   'node_modules',
   'target',
