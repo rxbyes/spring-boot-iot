@@ -83,6 +83,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final Map<String, String> SENSOR_TYPE_LABELS = Map.of(
             "QJ", "倾角",
             "JS", "加速度",
+            "GP", "GNSS",
+            "JZ", "基准站",
             "YL", "雨量",
             "SW", "深位移",
             "GNSS", "GNSS"
@@ -93,15 +95,48 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("gx", "X 轴加速度"),
             Map.entry("gy", "Y 轴加速度"),
             Map.entry("gz", "Z 轴加速度"),
+            Map.entry("x", "X 轴位移"),
+            Map.entry("y", "Y 轴位移"),
+            Map.entry("z", "Z 轴位移"),
+            Map.entry("azi", "方位角"),
+            Map.entry("gpstotalx", "GNSS 累计位移 X"),
+            Map.entry("gpstotaly", "GNSS 累计位移 Y"),
+            Map.entry("gpstotalz", "GNSS 累计位移 Z"),
+            Map.entry("gpssinglex", "GNSS 单期位移 X"),
+            Map.entry("gpssingley", "GNSS 单期位移 Y"),
+            Map.entry("gpssinglez", "GNSS 单期位移 Z"),
             Map.entry("lat", "纬度"),
             Map.entry("lon", "经度"),
             Map.entry("longitude", "经度"),
             Map.entry("latitude", "纬度"),
             Map.entry("temp", "设备温度"),
+            Map.entry("temp_out", "外部温度"),
+            Map.entry("humidity", "设备湿度"),
+            Map.entry("humidity_out", "外部湿度"),
             Map.entry("signal_4g", "4G 信号强度"),
             Map.entry("signal_nb", "NB 信号强度"),
             Map.entry("singal_nb", "NB 信号强度"),
+            Map.entry("singal_db", "信号值"),
+            Map.entry("solar_volt", "太阳能电压"),
+            Map.entry("battery_volt", "电池电压"),
             Map.entry("battery_dump_energy", "电池剩余电量")
+    );
+    private static final Set<String> TELEMETRY_LAST_SEGMENTS = Set.of(
+            "angle",
+            "value",
+            "gx",
+            "gy",
+            "gz",
+            "x",
+            "y",
+            "z",
+            "azi",
+            "gpstotalx",
+            "gpstotaly",
+            "gpstotalz",
+            "gpssinglex",
+            "gpssingley",
+            "gpssinglez"
     );
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -752,11 +787,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return "device_status";
         }
         if (normalized.startsWith("l")
-                && (normalized.contains(".angle")
-                || normalized.contains(".value")
-                || normalized.contains(".gx")
-                || normalized.contains(".gy")
-                || normalized.contains(".gz")
+                && (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
                 || normalized.contains("disps"))) {
             return "telemetry";
         }
@@ -770,7 +801,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private String suggestPropertyModelName(String identifier, String propertyName, String groupKey) {
         String normalizedPropertyName = normalizeOptional(propertyName);
-        if (normalizedPropertyName != null) {
+        if (normalizedPropertyName != null && !looksLikeIdentifierLabel(identifier, normalizedPropertyName)) {
             if ("telemetry".equals(groupKey)) {
                 String pointLabel = resolvePointLabel(identifier);
                 if (pointLabel != null && !normalizedPropertyName.contains(pointLabel)) {
@@ -778,6 +809,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 }
             }
             return normalizedPropertyName;
+        }
+
+        if (isSensorStateIdentifier(identifier)) {
+            String sensorStateLabel = resolveSensorStateLabel(identifier);
+            if (sensorStateLabel != null) {
+                return sensorStateLabel;
+            }
         }
 
         String pointLabel = resolvePointLabel(identifier);
@@ -792,6 +830,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private String resolvePointLabel(String identifier) {
         int splitIndex = identifier.indexOf('.');
         String pointIdentifier = splitIndex >= 0 ? identifier.substring(0, splitIndex) : identifier;
+        return resolvePointLabelByToken(pointIdentifier);
+    }
+
+    private String resolvePointLabelByToken(String pointIdentifier) {
         Matcher matcher = POINT_IDENTIFIER_PATTERN.matcher(pointIdentifier);
         if (!matcher.matches()) {
             return null;
@@ -803,6 +845,33 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return null;
         }
         return pointNo + "号" + sensorLabel + "测点";
+    }
+
+    private boolean looksLikeIdentifierLabel(String identifier, String propertyName) {
+        String normalizedName = propertyName.toLowerCase(Locale.ROOT);
+        String normalizedIdentifier = identifier.toLowerCase(Locale.ROOT);
+        return normalizedName.equals(normalizedIdentifier)
+                || propertyName.contains(".")
+                || normalizedName.startsWith("l1_")
+                || normalizedName.startsWith("s1_zt_");
+    }
+
+    private boolean isSensorStateIdentifier(String identifier) {
+        return identifier.toLowerCase(Locale.ROOT).contains("sensor_state.");
+    }
+
+    private String resolveSensorStateLabel(String identifier) {
+        String normalized = identifier.toLowerCase(Locale.ROOT);
+        int markerIndex = normalized.indexOf("sensor_state.");
+        if (markerIndex < 0) {
+            return null;
+        }
+        String pointIdentifier = identifier.substring(markerIndex + "sensor_state.".length());
+        String pointLabel = resolvePointLabelByToken(pointIdentifier);
+        if (pointLabel == null) {
+            return "传感器状态";
+        }
+        return pointLabel + "传感器状态";
     }
 
     private String buildPropertyDescription(String identifier, String modelName, String groupKey, boolean needsReview) {

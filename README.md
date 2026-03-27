@@ -42,7 +42,7 @@
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
 - Phase 4 已完成并纳入真实环境验收基线的能力，包括实时监测、GIS 态势图、告警、事件、风险策略、报表分析、系统治理和系统内容治理。
 - 当前共享开发环境已于 2026-03-24 完成 `/api/risk-monitoring/*`、`/risk-monitoring`、`/risk-monitoring-gis` 真实环境复验，风险监测基线正式纳入交付。
-- 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；当前仍作为设备中心下一阶段增强维护，不并入 Phase 4 已交付范围。
+- 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 起继续在 `/products` 内复用同一抽屉，新增“候选提炼 + 正式模型”双模式，按真实上报数据逐产品提炼属性候选，并对无真实证据的事件 / 服务保持空态提示；该增强当前仍作为设备中心下一阶段维护，不并入 Phase 4 已交付范围。
 - 通知中心当前已具备 `system_error` 自动消息、工单相关自动消息，以及高优未读桥接既有通知渠道能力。
 - 可观测当前已补齐规则化运维告警闭环：通过 `iot.observability.alerting` 在现有审计、MQTT 运行态、接入失败聚合和站内信桥接统计之上评估 4 类固定规则，并通过新场景 `observability_alert` 复用既有通知渠道。
 - `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
