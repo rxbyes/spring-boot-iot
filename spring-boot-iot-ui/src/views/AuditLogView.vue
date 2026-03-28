@@ -1,72 +1,14 @@
 <template>
-  <div class="page-stack audit-log-view">
-    <IotAccessPageShell v-if="isSystemMode" title="异常观测台" :status="systemStripStatus">
-      <template #actions>
-        <StandardButton action="refresh" plain @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
-        <StandardButton action="reset" plain @click="handleJumpToAccessError()">失败归档</StandardButton>
-      </template>
-    </IotAccessPageShell>
-
-    <IotAccessTabWorkspace
-      v-if="isSystemMode"
-      v-model="systemWorkspaceTab"
-      :items="systemWorkspaceTabs"
-      default-key="ledger"
+  <div class="page-stack audit-log-view audit-log-view--minimal">
+    <StandardWorkbenchPanel
+      :title="panelTitle"
+      :description="pageDescription"
+      title-variant="section"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      show-pagination
     >
-      <template #default="{ activeKey }">
-        <div class="audit-log-support-grid">
-          <IotAccessResultSection
-            title="聚合视图"
-            description="统一查看异常总量、今日新增和高频模块，避免再叠第二层概况卡。"
-            :class="{ 'audit-log-support-grid__section--focus': activeKey === 'aggregate' }"
-          >
-            <div class="audit-log-summary-grid">
-              <article class="audit-log-summary-card">
-                <span>异常总量</span>
-                <strong>{{ systemStats.total }}</strong>
-              </article>
-              <article class="audit-log-summary-card">
-                <span>今日新增</span>
-                <strong>{{ systemStats.todayCount }}</strong>
-              </article>
-              <article class="audit-log-summary-card">
-                <span>关联链路</span>
-                <strong>{{ systemStats.distinctTraceCount }}</strong>
-              </article>
-            </div>
-            <p class="audit-log-support-copy">
-              高频模块：{{ systemStats.topModules.map((item) => `${item.label} ${item.count}`).join('、') || '暂无' }}
-            </p>
-          </IotAccessResultSection>
-
-          <IotAccessResultSection
-            title="回跳治理"
-            description="保留强相关回跳入口，不在页面里再放解释性能力墙。"
-            :class="{ 'audit-log-support-grid__section--focus': activeKey === 'governance' }"
-          >
-            <template #toolbar>
-              <StandardButton action="refresh" link @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
-              <StandardButton action="reset" link @click="handleJumpToAccessError()">失败归档</StandardButton>
-            </template>
-            <div class="audit-log-support-copy">
-              <p>当前 TraceId：{{ searchForm.traceId || '--' }}</p>
-              <p>当前设备编码：{{ searchForm.deviceCode || '--' }}</p>
-              <p>当前产品标识：{{ searchForm.productKey || '--' }}</p>
-            </div>
-          </IotAccessResultSection>
-        </div>
-      </template>
-    </IotAccessTabWorkspace>
-
-    <div :class="{ 'audit-log-panel-focus': isSystemMode && systemWorkspaceTab === 'ledger' }">
-      <StandardWorkbenchPanel
-        :title="panelTitle"
-        :description="pageDescription"
-        show-filters
-        :show-applied-filters="hasAppliedFilters"
-        show-toolbar
-        show-pagination
-      >
       <template #filters>
         <StandardListFilterHeader
           :model="searchForm"
@@ -286,8 +228,7 @@
           />
         </div>
       </template>
-      </StandardWorkbenchPanel>
-    </div>
+    </StandardWorkbenchPanel>
 
     <AuditLogDetailDrawer
       v-model="detailVisible"
@@ -322,9 +263,6 @@ import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
-import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue'
-import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
@@ -343,7 +281,6 @@ import {
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import {
   buildDiagnosticRouteQuery,
-  describeDiagnosticSource,
   persistDiagnosticContext,
   resolveDiagnosticContext,
   type DiagnosticContext
@@ -351,15 +288,8 @@ import {
 
 type AuditLogViewMode = 'business' | 'system'
 
-const systemWorkspaceTabs = [
-  { key: 'ledger', label: '异常台账' },
-  { key: 'aggregate', label: '聚合视图' },
-  { key: 'governance', label: '回跳治理' }
-]
-
 const route = useRoute()
 const router = useRouter()
-const systemWorkspaceTab = ref('ledger')
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
@@ -554,19 +484,6 @@ const systemFindingSummary = computed(() => {
     return '可回链路追踪继续复盘。'
   }
   return '建议回到链路追踪或失败归档继续排查。'
-})
-const systemStripStatus = computed(() => {
-  const sourceLabel = restoredDiagnosticContext.value
-    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
-    : ''
-  if (statsLoading.value) {
-    return [sourceLabel, '异常统计加载中。'].filter(Boolean).join(' · ')
-  }
-  return [
-    sourceLabel,
-    `当前异常 ${systemStats.value.total} 条，今日 ${systemStats.value.todayCount} 条，关联链路 ${systemStats.value.distinctTraceCount} 条。`,
-    systemFindingSummary.value
-  ].filter(Boolean).join(' · ')
 })
 
 // 详情对话框
@@ -1026,6 +943,15 @@ watch(detailVisible, (visible) => {
 <style scoped>
 .audit-log-view {
   min-width: 0;
+}
+
+.audit-log-view--minimal :deep(.standard-workbench-panel__title),
+.audit-log-view--minimal :deep(.standard-workbench-panel__title--section) {
+  letter-spacing: -0.02em;
+}
+
+.audit-log-view--minimal :deep(.table-action-bar__meta) {
+  color: var(--text-caption);
 }
 
 .audit-log-support-grid {

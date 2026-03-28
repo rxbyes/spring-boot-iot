@@ -73,9 +73,9 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['title', 'description', 'titleVariant'],
   template: `
-    <section class="device-workbench-panel-stub">
+    <section class="device-workbench-panel-stub" :data-title-variant="titleVariant || 'default'">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="device-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -124,13 +124,19 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  emits: ['click'],
+  template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
+})
+
 const IotAccessPageShellStub = defineComponent({
   name: 'IotAccessPageShell',
   props: ['title', 'status'],
   template: `
     <section class="iot-access-page-shell">
-      <h1>{{ title }}</h1>
-      <p>{{ status }}</p>
+      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
+      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
       <slot name="actions" />
       <slot />
     </section>
@@ -201,6 +207,7 @@ function mountView() {
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
         StandardInlineState: StandardInlineStateStub,
+        StandardButton: StandardButtonStub,
         IotAccessPageShell: IotAccessPageShellStub,
         IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         IotAccessResultSection: IotAccessResultSectionStub
@@ -256,19 +263,22 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders a compact device workbench header and keeps the ledger visible', async () => {
+  it('renders the device page as a single-ledger workbench without support tabs', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
-    expect(wrapper.text()).toContain('设备资产中心')
-    expect(wrapper.text()).toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
-    expect(wrapper.text()).toContain('资产台账')
-    expect(wrapper.text()).toContain('未登记上报')
-    expect(wrapper.text()).toContain('拓扑关系')
-    expect(wrapper.text()).not.toContain('优先清理未登记、长时间未上报和拓扑异常设备')
+    expect(wrapper.classes()).toContain('device-asset-view--minimal')
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false)
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false)
+    expect(wrapper.find('.device-workbench-panel-stub').attributes('data-title-variant')).toBe('section')
+    expect(wrapper.find('.device-workbench-panel-stub h2').text()).toBe('设备台账')
+    expect(wrapper.text()).not.toContain('设备资产中心')
+    expect(wrapper.text()).toContain('新增设备')
+    expect(wrapper.text()).toContain('批量导入')
+    expect(wrapper.text()).not.toContain('未登记上报')
+    expect(wrapper.text()).not.toContain('拓扑关系')
+    expect(wrapper.text()).not.toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {

@@ -72,9 +72,9 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['title', 'description', 'titleVariant'],
   template: `
-    <section class="product-workbench-panel-stub">
+    <section class="product-workbench-panel-stub" :data-title-variant="titleVariant || 'default'">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -187,8 +187,8 @@ const IotAccessPageShellStub = defineComponent({
   props: ['title', 'status'],
   template: `
     <section class="iot-access-page-shell">
-      <h1>{{ title }}</h1>
-      <p>{{ status }}</p>
+      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
+      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
       <slot name="actions" />
       <slot />
     </section>
@@ -334,20 +334,34 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
-  it('renders a compact product workbench header above the ledger', async () => {
+  it('renders the product page as a single-ledger workbench without support tabs', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false)
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false)
+    expect(wrapper.find('.product-workbench-panel-stub').attributes('data-title-variant')).toBe('section')
+    expect(wrapper.find('.product-workbench-panel-stub h2').text()).toBe('产品定义中心')
     expect(wrapper.text()).toContain('产品定义中心')
-    expect(wrapper.text()).toContain('先补齐产品契约，再处理库存治理。')
-    expect(wrapper.text()).toContain('产品台账')
-    expect(wrapper.text()).toContain('物模型治理')
-    expect(wrapper.text()).toContain('关联设备')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).not.toContain('产品契约治理')
+    expect(wrapper.text()).not.toContain('产品台账')
+    expect(wrapper.text()).not.toContain('物模型治理')
+    expect(wrapper.text()).not.toContain('关联设备')
+    expect(wrapper.text()).not.toContain('先补齐产品契约，再处理库存治理。')
+  })
+
+  it('applies the compact ledger layout hooks for the product list page', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.classes()).toContain('product-asset-view--minimal')
+    expect(wrapper.find('.product-asset-view--compact').exists()).toBe(true)
+    expect(wrapper.find('.product-workbench-panel--compact').exists()).toBe(true)
+    expect(wrapper.find('.product-list-filter-header--compact').exists()).toBe(true)
+    expect(wrapper.find('.product-table-toolbar--compact').exists()).toBe(true)
+    expect(wrapper.find('.product-result-panel--compact').exists()).toBe(true)
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {

@@ -1,63 +1,18 @@
 <template>
-  <div class="page-stack product-asset-view">
-    <IotAccessPageShell title="产品定义中心" :status="productShellStatus" />
-
-    <IotAccessTabWorkspace
-      v-model="productWorkspaceTab"
-      :items="productWorkspaceTabs"
-      default-key="ledger"
+  <div class="page-stack product-asset-view product-asset-view--compact product-asset-view--minimal">
+    <StandardWorkbenchPanel
+      class="product-workbench-panel product-workbench-panel--compact"
+      title="产品定义中心"
+      description=""
+      title-variant="section"
+      show-filters
+      :show-applied-filters="hasAppliedFilters"
+      show-toolbar
+      :show-inline-state="showListInlineState"
+      show-pagination
     >
-      <template #default="{ activeKey }">
-        <div class="product-support-grid">
-          <IotAccessResultSection
-            title="物模型治理"
-            description="把物模型维护从列表动作抬升为同页工作区，但继续沿用现有设计器抽屉。"
-            :class="{ 'product-support-grid__section--focus': activeKey === 'model' }"
-          >
-            <template #toolbar>
-              <StandardButton action="refresh" link :disabled="!currentProduct" @click="handleOpenCurrentProductModelDesigner">
-                {{ currentProduct ? '打开当前产品物模型' : '先从台账选择产品' }}
-              </StandardButton>
-            </template>
-            <div class="product-support-copy">
-              <p>当前产品：{{ currentProductLabel }}</p>
-              <p>协议编码：{{ formatTextValue(currentProduct?.protocolCode) }}</p>
-              <p>治理建议：{{ productModelWorkspaceHint }}</p>
-            </div>
-          </IotAccessResultSection>
-
-          <IotAccessResultSection
-            title="关联设备"
-            description="在同页查看产品和库存设备的关系，减少只靠抽屉跳转理解上下文的负担。"
-            :class="{ 'product-support-grid__section--focus': activeKey === 'devices' }"
-          >
-            <template #toolbar>
-              <StandardButton action="refresh" link :disabled="!currentProduct" @click="handleOpenCurrentProductDevices">
-                {{ currentProduct ? '查看当前产品设备' : '先从台账选择产品' }}
-              </StandardButton>
-            </template>
-            <div class="product-support-copy">
-              <p>当前产品：{{ currentProductLabel }}</p>
-              <p>设备规模：{{ currentProductAssociationSummary }}</p>
-              <p>下一步：{{ currentProductAssociationNextStep }}</p>
-            </div>
-          </IotAccessResultSection>
-        </div>
-      </template>
-    </IotAccessTabWorkspace>
-
-    <div :class="{ 'product-panel-focus': productWorkspaceTab === 'ledger' }">
-      <StandardWorkbenchPanel
-        title="产品定义中心"
-        description="先补齐产品契约，再处理库存治理。"
-        show-filters
-        :show-applied-filters="hasAppliedFilters"
-        show-toolbar
-        :show-inline-state="showListInlineState"
-        show-pagination
-      >
       <template #filters>
-        <StandardListFilterHeader :model="searchForm">
+        <StandardListFilterHeader class="product-list-filter-header product-list-filter-header--compact" :model="searchForm">
           <template #primary>
             <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
             <el-form-item>
@@ -91,7 +46,7 @@
           </template>
         </StandardListFilterHeader>
         <!-- 快速搜索标签 -->
-        <div v-if="quickSearchKeyword" class="product-quick-search-tag">
+        <div v-if="quickSearchKeyword" class="product-quick-search-tag product-quick-search-tag--compact">
           <el-tag closable class="product-quick-search-tag__chip" @close="handleClearQuickSearch">
             快速搜索：{{ quickSearchKeyword }}
           </el-tag>
@@ -108,6 +63,7 @@
 
       <template #toolbar>
         <StandardTableToolbar
+          class="product-table-toolbar product-table-toolbar--compact"
           compact
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
@@ -188,7 +144,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="product-result-panel"
+        class="product-result-panel product-result-panel--compact"
         element-loading-text="正在刷新产品列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -376,8 +332,7 @@
           />
         </div>
       </template>
-      </StandardWorkbenchPanel>
-    </div>
+    </StandardWorkbenchPanel>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -690,9 +645,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
-import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue'
-import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
@@ -789,16 +741,9 @@ interface ProductRowAction {
   permission?: string
 }
 
-const productWorkspaceTabs = [
-  { key: 'ledger', label: '产品台账' },
-  { key: 'model', label: '物模型治理' },
-  { key: 'devices', label: '关联设备' }
-]
-
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
-const productWorkspaceTab = ref('ledger')
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -923,46 +868,9 @@ const diagnosticEntryMessage = computed(() => {
     .filter(Boolean)
     .join(' · ')
 })
-const productShellStatus = computed(() => {
-  if (diagnosticEntryMessage.value) {
-    return diagnosticEntryMessage.value
-  }
-  return `当前结果 ${pagination.total} 条，启用 ${enabledProductCount.value} 个，停用 ${disabledProductCount.value} 个。`
-})
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
-const currentProductLabel = computed(() => currentProduct.value?.productName || currentProduct.value?.productKey || '--')
-const productModelWorkspaceHint = computed(() => {
-  if (!currentProduct.value) {
-    return '先从产品台账选择一条记录，再进入设计器抽屉继续维护属性、事件和服务模型。'
-  }
-  return `当前协议 ${formatTextValue(currentProduct.value.protocolCode)}，可继续核对节点类型、数据格式和物模型边界。`
-})
-const currentProductAssociationSummary = computed(() => {
-  if (!currentProduct.value) {
-    return `当前结果中共有 ${pagination.total} 条产品记录。`
-  }
-  const deviceCount = parseCount(currentProduct.value.deviceCount)
-  const onlineCount = parseCount(currentProduct.value.onlineDeviceCount)
-  if (deviceCount === null || deviceCount === 0) {
-    return '当前还没有关联设备。'
-  }
-  if (onlineCount === null) {
-    return `当前有 ${deviceCount} 台关联设备。`
-  }
-  return `当前有 ${deviceCount} 台关联设备，在线 ${onlineCount} 台。`
-})
-const currentProductAssociationNextStep = computed(() => {
-  if (!currentProduct.value) {
-    return '先从产品台账选择产品，再切到关联设备工作区查看现场规模。'
-  }
-  const deviceCount = parseCount(currentProduct.value.deviceCount)
-  if (deviceCount === null || deviceCount === 0) {
-    return '当前还没有设备正式使用，可以先完成产品契约和接入模板整理。'
-  }
-  return '当前已有设备在用，变更协议或物模型前请先评估对现网设备的影响。'
-})
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
     { key: 'devices', command: 'devices', label: '查看设备' },
@@ -2472,6 +2380,93 @@ onMounted(async () => {
   gap: 16px;
 }
 
+.product-asset-view--compact {
+  gap: 10px;
+}
+
+.product-asset-view--minimal :deep(.standard-workbench-panel__title),
+.product-asset-view--minimal :deep(.standard-workbench-panel__title--section) {
+  letter-spacing: -0.02em;
+}
+
+.product-asset-view--minimal :deep(.table-action-bar__meta) {
+  color: var(--text-caption);
+}
+
+.product-workbench-panel--compact :deep(.panel-card) {
+  border-radius: calc(var(--radius-md) + 2px);
+  background: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(24, 45, 77, 0.04),
+    0 1px 2px rgba(24, 45, 77, 0.04);
+}
+
+.product-workbench-panel--compact :deep(.el-card__body) {
+  padding: 0.9rem 0.95rem;
+}
+
+.product-workbench-panel--compact :deep(.panel-card__header) {
+  padding-bottom: 0.56rem;
+}
+
+.product-workbench-panel--compact :deep(.panel-card__content) {
+  margin-top: 0.56rem;
+}
+
+.product-workbench-panel--compact :deep(.standard-workbench-panel__header) {
+  gap: 0.56rem;
+}
+
+.product-workbench-panel--compact :deep(.standard-workbench-panel__title--section) {
+  font-size: 1.08rem;
+  line-height: 1.32;
+}
+
+.product-workbench-panel--compact :deep(.standard-workbench-panel__filters),
+.product-workbench-panel--compact :deep(.standard-workbench-panel__applied-filters),
+.product-workbench-panel--compact :deep(.standard-workbench-panel__notices),
+.product-workbench-panel--compact :deep(.standard-workbench-panel__toolbar),
+.product-workbench-panel--compact :deep(.standard-workbench-panel__inline-state) {
+  margin-bottom: 0.56rem;
+}
+
+.product-workbench-panel--compact :deep(.standard-workbench-panel__pagination) {
+  margin-top: 0.56rem;
+}
+
+.product-list-filter-header--compact :deep(.standard-list-filter-header__row) {
+  gap: 10px 12px;
+}
+
+.product-list-filter-header--compact :deep(.standard-list-filter-header__actions-row) {
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.product-list-filter-header--compact :deep(.standard-list-filter-header__hint) {
+  font-size: 11.5px;
+}
+
+.product-table-toolbar--compact {
+  margin: 0 0 0.48rem;
+  padding: 0.52rem 0.72rem;
+  border-radius: calc(var(--radius-md) + 1px);
+}
+
+.product-table-toolbar--compact :deep(.table-action-bar__left) {
+  gap: 0.32rem;
+}
+
+.product-table-toolbar--compact :deep(.table-action-bar__right) {
+  gap: 0.08rem 0.22rem;
+}
+
+.product-table-toolbar--compact :deep(.table-action-bar__meta) {
+  min-height: 1.68rem;
+  padding: 0.18rem 0.56rem;
+  font-size: 0.74rem;
+}
+
 .product-support-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3077,6 +3072,15 @@ onMounted(async () => {
   margin-top: 0.5rem;
 }
 
+.product-quick-search-tag--compact {
+  gap: 0.35rem;
+  margin-top: 0.38rem;
+}
+
+.product-quick-search-tag--compact :deep(.el-tag) {
+  min-height: 1.7rem;
+}
+
 .product-quick-search-tag__chip {
   cursor: pointer;
 }
@@ -3418,6 +3422,24 @@ onMounted(async () => {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
 }
 
+.product-result-panel--compact {
+  min-height: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.product-result-panel--compact :deep(.el-table) {
+  overflow: hidden;
+  border-radius: calc(var(--radius-md) + 1px);
+  box-shadow:
+    0 1px 4px rgba(24, 45, 77, 0.04),
+    0 1px 2px rgba(24, 45, 77, 0.04);
+}
+
+.product-result-panel--compact :deep(.el-table__inner-wrapper::before) {
+  height: 0;
+}
+
 .product-result-panel :deep(.el-loading-mask) {
   border-radius: inherit;
   background: rgba(248, 250, 255, 0.78) !important;
@@ -3442,6 +3464,10 @@ onMounted(async () => {
   padding: 0.4rem 0 0.2rem;
 }
 
+.product-result-panel--compact .product-empty-state {
+  padding-top: 0.12rem;
+}
+
 .product-empty-state :deep(.empty-state) {
   padding-block: 3.25rem 2rem;
 }
@@ -3456,6 +3482,11 @@ onMounted(async () => {
   gap: 14px;
   min-height: 14rem;
   padding: 0.72rem 0.1rem 0.2rem;
+}
+
+.product-result-panel--compact .product-loading-state {
+  gap: 12px;
+  padding: 0.36rem 0 0.08rem;
 }
 
 .product-loading-state__summary {

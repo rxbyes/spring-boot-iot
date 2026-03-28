@@ -81,9 +81,9 @@ function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['title', 'description', 'titleVariant'],
   template: `
-    <section class="audit-log-workbench-stub">
+    <section class="audit-log-workbench-stub" :data-title-variant="titleVariant || 'default'">
       <header>
         <h2>{{ title }}</h2>
         <p>{{ description }}</p>
@@ -319,21 +319,20 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('renders the compact anomaly strip in system mode', async () => {
+  it('keeps system mode list-first without summary tabs or strip copy', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.text()).toContain('异常观测台');
-    expect(wrapper.text()).toContain('当前异常 4 条');
-    expect(wrapper.text()).toContain('异常台账');
-    expect(wrapper.text()).toContain('聚合视图');
-    expect(wrapper.text()).toContain('回跳治理');
-    expect(wrapper.text()).toContain('当前异常 4 条，今日 1 条，关联链路 2 条。');
-    expect(wrapper.text()).toContain('链路追踪台');
-    expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false);
+    expect(wrapper.find('.audit-log-workbench-stub').attributes('data-title-variant')).toBe('section');
+    expect(wrapper.find('.audit-log-workbench-stub h2').text()).toBe('异常台账');
+    expect(wrapper.text()).not.toContain('异常观测台');
+    expect(wrapper.text()).not.toContain('链路追踪台');
+    expect(wrapper.text()).not.toContain('失败归档');
+    expect(wrapper.text()).not.toContain('聚合视图');
+    expect(wrapper.text()).not.toContain('回跳治理');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -385,8 +384,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('来自链路追踪台');
-    expect(wrapper.text()).toContain('当前异常 1 条');
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-001',
       deviceCode: 'demo-device-01',
@@ -433,11 +431,18 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('来自链路追踪台');
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       requestMethod: 'MQTT',
       requestUrl: '$dp'
     }));
+  });
+
+  it('uses the refined minimal list-shell classes for the observability ledger', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.classes()).toContain('audit-log-view--minimal');
   });
 
   it('persists system-log diagnostic context before jumping back to message trace', async () => {
@@ -452,7 +457,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '链路追踪台')!.trigger('click');
+    await (wrapper.vm as any).handleJumpToMessageTrace(createPageResponse().data.records[0]);
     await flushPromises();
 
     expect(mockRouter.push).toHaveBeenCalledWith({
