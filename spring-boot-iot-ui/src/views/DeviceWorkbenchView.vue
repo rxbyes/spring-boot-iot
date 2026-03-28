@@ -1,14 +1,51 @@
 <template>
-  <div class="device-asset-view">
-    <StandardWorkbenchPanel
-      title="设备资产中心"
-      description="先判断在线、激活和拓扑异常，再进入设备治理。"
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-toolbar
-      :show-inline-state="showListInlineState"
-      show-pagination
+  <div class="page-stack device-asset-view">
+    <IotAccessPageShell title="设备资产中心" :status="deviceShellStatus" />
+
+    <IotAccessTabWorkspace
+      v-model="deviceWorkspaceTab"
+      :items="deviceWorkspaceTabs"
+      default-key="ledger"
     >
+      <template #default="{ activeKey }">
+        <div class="device-support-grid">
+          <IotAccessResultSection
+            title="未登记上报"
+            description="统一承接失败归档带来的未建档视角，避免把补档入口散落在详情和模式说明里。"
+            :class="{ 'device-support-grid__section--focus': activeKey === 'unregistered' }"
+          >
+            <div class="device-support-copy">
+              <p>未登记数量：{{ unregisteredCount }} 台</p>
+              <p>最近诊断：{{ diagnosticContext?.deviceCode || '--' }}</p>
+              <p>处理建议：{{ unregisteredWorkspaceHint }}</p>
+            </div>
+          </IotAccessResultSection>
+
+          <IotAccessResultSection
+            title="拓扑关系"
+            description="把父子资产和网关映射前置到同页工作区，先看关联密度，再决定是否进入表单调整。"
+            :class="{ 'device-support-grid__section--focus': activeKey === 'topology' }"
+          >
+            <div class="device-support-copy">
+              <p>拓扑设备：{{ topologyLinkedCount }} 台</p>
+              <p>网关关联：{{ gatewayLinkedCount }} 台</p>
+              <p>治理建议：{{ topologyWorkspaceHint }}</p>
+            </div>
+          </IotAccessResultSection>
+        </div>
+      </template>
+    </IotAccessTabWorkspace>
+
+    <div :class="{ 'device-panel-focus': deviceWorkspaceTab === 'ledger' }">
+      <StandardWorkbenchPanel
+        title="设备资产中心"
+        description="先判断在线、激活和拓扑异常，再进入设备治理。"
+        show-filters
+        :show-applied-filters="hasAppliedFilters"
+        show-toolbar
+        :show-inline-state="showListInlineState"
+        show-pagination
+      >
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
@@ -318,7 +355,8 @@
           />
         </div>
       </template>
-    </StandardWorkbenchPanel>
+      </StandardWorkbenchPanel>
+    </div>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -814,6 +852,9 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue'
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
@@ -905,9 +946,16 @@ interface DeviceRowAction {
   permission?: string
 }
 
+const deviceWorkspaceTabs = [
+  { key: 'ledger', label: '资产台账' },
+  { key: 'unregistered', label: '未登记上报' },
+  { key: 'topology', label: '拓扑关系' }
+]
+
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
+const deviceWorkspaceTab = ref('ledger')
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -1080,9 +1128,31 @@ const diagnosticEntryMessage = computed(() => {
     .filter(Boolean)
     .join(' · ')
 })
+const deviceShellStatus = computed(() => {
+  if (diagnosticEntryMessage.value) {
+    return diagnosticEntryMessage.value
+  }
+  return `当前结果 ${pagination.total} 台，已登记 ${registeredCount.value} 台，未登记 ${unregisteredCount.value} 台。`
+})
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const topologyLinkedCount = computed(() =>
+  tableData.value.filter((item) => Boolean(item.parentDeviceId || item.parentDeviceCode || item.gatewayId || item.gatewayDeviceCode)).length
+)
+const gatewayLinkedCount = computed(() =>
+  tableData.value.filter((item) => Boolean(item.gatewayId || item.gatewayDeviceCode)).length
+)
+const unregisteredWorkspaceHint = computed(() =>
+  unregisteredCount.value > 0
+    ? `当前结果中有 ${unregisteredCount.value} 台设备处于未登记视角，可继续核对失败来源与补档优先级。`
+    : '当前结果中没有未登记设备，可继续关注在线态、激活态和部署位置。'
+)
+const topologyWorkspaceHint = computed(() =>
+  topologyLinkedCount.value > 0
+    ? `当前结果中有 ${topologyLinkedCount.value} 台设备存在父子或网关关系，其中 ${gatewayLinkedCount.value} 台已绑定网关。`
+    : '当前结果中还没有显式拓扑关系，可在设备表单里继续维护父设备与网关映射。'
+)
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
@@ -3049,6 +3119,40 @@ onMounted(async () => {
 .device-asset-view {
   display: grid;
   gap: 16px;
+}
+
+.device-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.device-support-grid__section--focus,
+.device-panel-focus {
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, white);
+}
+
+.device-panel-focus {
+  padding: 0.14rem;
+}
+
+.device-support-copy {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.device-support-copy p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .device-support-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .device-result-panel {

@@ -1,25 +1,72 @@
 <template>
   <div class="page-stack audit-log-view">
-    <section v-if="isSystemMode" class="audit-log-command-strip">
-      <div class="audit-log-command-strip__copy">
-        <h1 class="audit-log-command-strip__title">异常观测台</h1>
-        <p class="audit-log-command-strip__judgement">先看 system_error，再决定追踪链路还是回看失败归档。</p>
-        <p class="audit-log-command-strip__meta">{{ systemStripStatus }}</p>
-      </div>
-      <div class="audit-log-command-strip__actions">
+    <IotAccessPageShell v-if="isSystemMode" title="异常观测台" :status="systemStripStatus">
+      <template #actions>
         <StandardButton action="refresh" plain @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
         <StandardButton action="reset" plain @click="handleJumpToAccessError()">失败归档</StandardButton>
-      </div>
-    </section>
+      </template>
+    </IotAccessPageShell>
 
-    <StandardWorkbenchPanel
-      :title="panelTitle"
-      :description="pageDescription"
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-toolbar
-      show-pagination
+    <IotAccessTabWorkspace
+      v-if="isSystemMode"
+      v-model="systemWorkspaceTab"
+      :items="systemWorkspaceTabs"
+      default-key="ledger"
     >
+      <template #default="{ activeKey }">
+        <div class="audit-log-support-grid">
+          <IotAccessResultSection
+            title="聚合视图"
+            description="统一查看异常总量、今日新增和高频模块，避免再叠第二层概况卡。"
+            :class="{ 'audit-log-support-grid__section--focus': activeKey === 'aggregate' }"
+          >
+            <div class="audit-log-summary-grid">
+              <article class="audit-log-summary-card">
+                <span>异常总量</span>
+                <strong>{{ systemStats.total }}</strong>
+              </article>
+              <article class="audit-log-summary-card">
+                <span>今日新增</span>
+                <strong>{{ systemStats.todayCount }}</strong>
+              </article>
+              <article class="audit-log-summary-card">
+                <span>关联链路</span>
+                <strong>{{ systemStats.distinctTraceCount }}</strong>
+              </article>
+            </div>
+            <p class="audit-log-support-copy">
+              高频模块：{{ systemStats.topModules.map((item) => `${item.label} ${item.count}`).join('、') || '暂无' }}
+            </p>
+          </IotAccessResultSection>
+
+          <IotAccessResultSection
+            title="回跳治理"
+            description="保留强相关回跳入口，不在页面里再放解释性能力墙。"
+            :class="{ 'audit-log-support-grid__section--focus': activeKey === 'governance' }"
+          >
+            <template #toolbar>
+              <StandardButton action="refresh" link @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
+              <StandardButton action="reset" link @click="handleJumpToAccessError()">失败归档</StandardButton>
+            </template>
+            <div class="audit-log-support-copy">
+              <p>当前 TraceId：{{ searchForm.traceId || '--' }}</p>
+              <p>当前设备编码：{{ searchForm.deviceCode || '--' }}</p>
+              <p>当前产品标识：{{ searchForm.productKey || '--' }}</p>
+            </div>
+          </IotAccessResultSection>
+        </div>
+      </template>
+    </IotAccessTabWorkspace>
+
+    <div :class="{ 'audit-log-panel-focus': isSystemMode && systemWorkspaceTab === 'ledger' }">
+      <StandardWorkbenchPanel
+        :title="panelTitle"
+        :description="pageDescription"
+        show-filters
+        :show-applied-filters="hasAppliedFilters"
+        show-toolbar
+        show-pagination
+      >
       <template #filters>
         <StandardListFilterHeader
           :model="searchForm"
@@ -239,7 +286,8 @@
           />
         </div>
       </template>
-    </StandardWorkbenchPanel>
+      </StandardWorkbenchPanel>
+    </div>
 
     <AuditLogDetailDrawer
       v-model="detailVisible"
@@ -274,6 +322,9 @@ import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue'
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
@@ -300,8 +351,15 @@ import {
 
 type AuditLogViewMode = 'business' | 'system'
 
+const systemWorkspaceTabs = [
+  { key: 'ledger', label: '异常台账' },
+  { key: 'aggregate', label: '聚合视图' },
+  { key: 'governance', label: '回跳治理' }
+]
+
 const route = useRoute()
 const router = useRouter()
+const systemWorkspaceTab = ref('ledger')
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
@@ -970,6 +1028,49 @@ watch(detailVisible, (visible) => {
   min-width: 0;
 }
 
+.audit-log-support-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.audit-log-support-grid__section--focus,
+.audit-log-panel-focus {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 12%, white);
+}
+
+.audit-log-summary-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.audit-log-summary-card {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-md);
+  background: var(--panel-muted);
+  padding: 0.85rem 0.95rem;
+}
+
+.audit-log-summary-card span,
+.audit-log-support-copy {
+  color: var(--text-caption);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.audit-log-summary-card strong {
+  color: var(--text-heading);
+  font-size: 1.1rem;
+}
+
+.audit-log-support-copy p {
+  margin: 0;
+}
+
 .audit-log-command-strip {
   display: flex;
   align-items: center;
@@ -1022,6 +1123,11 @@ watch(detailVisible, (visible) => {
 }
 
 @media (max-width: 900px) {
+  .audit-log-support-grid,
+  .audit-log-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
   .audit-log-command-strip {
     flex-direction: column;
     align-items: flex-start;

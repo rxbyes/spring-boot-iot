@@ -1,109 +1,119 @@
 <template>
   <div class="page-stack file-payload-debug-view">
-    <section class="file-payload-debug-command-strip">
-      <div class="file-payload-debug-command-strip__copy">
-        <h1 class="file-payload-debug-command-strip__title">数据校验台</h1>
-        <p class="file-payload-debug-command-strip__judgement">先确定设备，再核对文件快照和固件聚合。</p>
-        <p class="file-payload-debug-command-strip__meta">{{ validationStripStatus }}</p>
-      </div>
-      <div class="file-payload-debug-command-strip__actions">
+    <IotAccessPageShell title="数据校验台" :status="validationStripStatus">
+      <template #actions>
         <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
-      </div>
-    </section>
+      </template>
+    </IotAccessPageShell>
 
-    <StandardWorkbenchPanel
-      title="设备查询与校验结果"
-      description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
-      show-filters
-      :show-inline-state="showInlineState"
-    >
-      <template #filters>
-        <StandardListFilterHeader :model="{ deviceCode }">
-          <template #primary>
-            <el-form-item>
-              <el-input
-                id="file-debug-device-code"
-                v-model="deviceCode"
-                clearable
-                placeholder="设备编码，例如 demo-device-01"
-                prefix-icon="Search"
-                @keyup.enter="refreshAll"
+    <IotAccessTabWorkspace :items="validationTabs" default-key="validate">
+      <template #default="{ activeKey }">
+        <StandardWorkbenchPanel
+          title="设备查询与校验结果"
+          description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
+          show-filters
+          :show-inline-state="showInlineState"
+        >
+          <template #filters>
+            <StandardListFilterHeader :model="{ deviceCode }">
+              <template #primary>
+                <el-form-item>
+                  <el-input
+                    id="file-debug-device-code"
+                    v-model="deviceCode"
+                    clearable
+                    placeholder="设备编码，例如 demo-device-01"
+                    prefix-icon="Search"
+                    @keyup.enter="refreshAll"
+                  />
+                </el-form-item>
+              </template>
+              <template #actions>
+                <StandardButton action="query" :loading="isLoading" :disabled="!normalizedDeviceCode" @click="refreshAll">
+                  {{ isLoading ? '加载中...' : '刷新数据' }}
+                </StandardButton>
+                <StandardButton action="reset" :disabled="isLoading" @click="handleReset">重置</StandardButton>
+              </template>
+            </StandardListFilterHeader>
+          </template>
+
+          <template #inline-state>
+            <StandardInlineState :message="inlineStateMessage" :tone="inlineStateTone" />
+          </template>
+
+          <div class="page-stack">
+            <section
+              :class="[
+                'two-column-grid',
+                'file-payload-debug-view__results',
+                { 'file-payload-debug-view__section--focus': activeKey === 'validate' || activeKey === 'history' }
+              ]"
+            >
+              <PanelCard
+                eyebrow="文件快照 C.3"
+                title="文件快照校验"
+                description="按时间线核对最近一次 C.3 文件消息是否完整落地。"
+              >
+                <div v-if="fileSnapshots.length" class="timeline">
+                  <article v-for="item in fileSnapshots" :key="item.transferId" class="timeline-item">
+                    <h3>{{ item.dataSetId || item.transferId }}</h3>
+                    <p>类型：{{ item.fileType || '--' }} / 长度：{{ item.binaryLength ?? '--' }}</p>
+                    <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
+                  </article>
+                </div>
+                <EmptyState
+                  v-else
+                  title="暂无文件快照"
+                  description="当前设备还没有返回 C.3 文件快照，可刷新后继续核查。"
+                />
+              </PanelCard>
+
+              <PanelCard
+                eyebrow="固件聚合 C.4"
+                title="固件聚合校验"
+                description="按分包进度、完成状态和 MD5 校验结果查看当前聚合情况。"
+              >
+                <div v-if="firmwareAggregates.length" class="timeline">
+                  <article v-for="item in firmwareAggregates" :key="item.transferId" class="timeline-item">
+                    <h3>{{ item.dataSetId || item.transferId }}</h3>
+                    <p>
+                      分包：{{ item.receivedPacketCount ?? 0 }} / {{ item.totalPackets ?? '--' }}
+                      <span v-if="item.receivedPacketIndexes?.length">（{{ item.receivedPacketIndexes.join(', ') }}）</span>
+                    </p>
+                    <p>聚合状态：{{ item.completed ? '已完成' : '进行中' }}</p>
+                    <p>MD5 校验：{{ formatMd5(item.md5Matched) }}</p>
+                    <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
+                  </article>
+                </div>
+                <EmptyState
+                  v-else
+                  title="暂无固件聚合记录"
+                  description="当前设备还没有返回 C.4 聚合结果，可刷新后继续核查。"
+                />
+              </PanelCard>
+            </section>
+
+            <section
+              :class="[
+                'two-column-grid',
+                { 'file-payload-debug-view__section--focus': activeKey === 'raw-response' }
+              ]"
+            >
+              <ResponsePanel
+                eyebrow="文件快照响应"
+                title="文件快照原始响应"
+                :body="fileSnapshots"
               />
-            </el-form-item>
-          </template>
-          <template #actions>
-            <StandardButton action="query" :loading="isLoading" :disabled="!normalizedDeviceCode" @click="refreshAll">
-              {{ isLoading ? '加载中...' : '刷新数据' }}
-            </StandardButton>
-            <StandardButton action="reset" :disabled="isLoading" @click="handleReset">重置</StandardButton>
-          </template>
-        </StandardListFilterHeader>
+              <ResponsePanel
+                eyebrow="固件聚合响应"
+                title="固件聚合原始响应"
+                :body="firmwareAggregates"
+              />
+            </section>
+          </div>
+        </StandardWorkbenchPanel>
       </template>
-
-      <template #inline-state>
-        <StandardInlineState :message="inlineStateMessage" :tone="inlineStateTone" />
-      </template>
-
-      <div class="page-stack">
-        <section class="two-column-grid file-payload-debug-view__results">
-          <PanelCard
-            eyebrow="文件快照 C.3"
-            title="文件快照校验"
-            description="按时间线核对最近一次 C.3 文件消息是否完整落地。"
-          >
-            <div v-if="fileSnapshots.length" class="timeline">
-              <article v-for="item in fileSnapshots" :key="item.transferId" class="timeline-item">
-                <h3>{{ item.dataSetId || item.transferId }}</h3>
-                <p>类型：{{ item.fileType || '--' }} / 长度：{{ item.binaryLength ?? '--' }}</p>
-                <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
-              </article>
-            </div>
-            <EmptyState
-              v-else
-              title="暂无文件快照"
-              description="当前设备还没有返回 C.3 文件快照，可刷新后继续核查。"
-            />
-          </PanelCard>
-
-          <PanelCard
-            eyebrow="固件聚合 C.4"
-            title="固件聚合校验"
-            description="按分包进度、完成状态和 MD5 校验结果查看当前聚合情况。"
-          >
-            <div v-if="firmwareAggregates.length" class="timeline">
-              <article v-for="item in firmwareAggregates" :key="item.transferId" class="timeline-item">
-                <h3>{{ item.dataSetId || item.transferId }}</h3>
-                <p>
-                  分包：{{ item.receivedPacketCount ?? 0 }} / {{ item.totalPackets ?? '--' }}
-                  <span v-if="item.receivedPacketIndexes?.length">（{{ item.receivedPacketIndexes.join(', ') }}）</span>
-                </p>
-                <p>聚合状态：{{ item.completed ? '已完成' : '进行中' }}</p>
-                <p>MD5 校验：{{ formatMd5(item.md5Matched) }}</p>
-                <p>更新时间：{{ formatDateTime(item.updatedTime || item.timestamp) }}</p>
-              </article>
-            </div>
-            <EmptyState
-              v-else
-              title="暂无固件聚合记录"
-              description="当前设备还没有返回 C.4 聚合结果，可刷新后继续核查。"
-            />
-          </PanelCard>
-        </section>
-
-        <section class="two-column-grid">
-          <ResponsePanel
-            eyebrow="文件快照响应"
-            title="文件快照原始响应"
-            :body="fileSnapshots"
-          />
-          <ResponsePanel
-            eyebrow="固件聚合响应"
-            title="固件聚合原始响应"
-            :body="firmwareAggregates"
-          />
-        </section>
-      </div>
-    </StandardWorkbenchPanel>
+    </IotAccessTabWorkspace>
   </div>
 </template>
 
@@ -113,6 +123,8 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
@@ -126,6 +138,12 @@ import {
   persistDiagnosticContext,
   resolveDiagnosticContext
 } from '../utils/iotAccessDiagnostics';
+
+const validationTabs = [
+  { key: 'validate', label: '设备校验' },
+  { key: 'raw-response', label: '原始响应' },
+  { key: 'history', label: '历史快照' }
+];
 
 const route = useRoute();
 const router = useRouter();
@@ -240,6 +258,14 @@ function handleOpenTraceWorkbench() {
   router.push('/message-trace');
 }
 </script>
+
+<style scoped>
+.file-payload-debug-view__section--focus {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 12%, white);
+  padding: 0.2rem;
+}
+</style>
 
 <style scoped>
 .file-payload-debug-view {

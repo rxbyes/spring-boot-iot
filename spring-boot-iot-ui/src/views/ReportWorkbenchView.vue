@@ -1,12 +1,7 @@
 <template>
   <div class="page-stack reporting-view ops-workbench">
-    <section class="reporting-command-strip">
-      <div class="reporting-command-strip__copy">
-        <h1 class="reporting-command-strip__title">链路验证中心</h1>
-        <p class="reporting-command-strip__judgement">先校准设备身份，再发报文，再看时间线。</p>
-        <p class="reporting-command-strip__meta">{{ reportingStripStatus }}</p>
-      </div>
-      <div class="reporting-command-strip__actions">
+    <IotAccessPageShell title="链路验证中心" :status="reportingStripStatus">
+      <template #actions>
         <StandardActionGroup gap="sm">
           <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
             继续链路追踪
@@ -18,10 +13,21 @@
             打开数据校验
           </StandardButton>
         </StandardActionGroup>
-      </div>
-    </section>
+      </template>
+    </IotAccessPageShell>
 
-    <section class="reporting-main-layout">
+    <IotAccessTabWorkspace
+      v-model="reportingWorkspaceTab"
+      :items="reportingWorkspaceTabs"
+      default-key="simulate"
+    >
+      <template #default>
+        <section
+          :class="[
+            'reporting-main-layout',
+            { 'reporting-workspace-section--focus': reportingWorkspaceTab === 'simulate' }
+          ]"
+        >
       <PanelCard class="reporting-surface reporting-surface--compose">
         <template #header>
           <div class="reporting-surface__header">
@@ -326,14 +332,15 @@
           <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
         </section>
       </PanelCard>
-    </section>
+        </section>
 
-    <PanelCard
+        <PanelCard
         class="reporting-card reporting-card--timeline"
+        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'replay' }"
         eyebrow="链路验证中心"
         title="处理时间线"
         description="以 session/trace 复盘固定 Pipeline 阶段，HTTP 直接展示，MQTT 在回流绑定后展示完整处理链路。"
-    >
+        >
       <div class="reporting-timeline-toolbar">
         <StandardInlineState
             :tone="messageFlowInlineTone"
@@ -355,14 +362,15 @@
           :empty-title="messageFlowEmptyTitle"
           :empty-description="messageFlowEmptyDescription"
       />
-    </PanelCard>
+        </PanelCard>
 
-    <PanelCard
+        <PanelCard
         class="reporting-card reporting-card--recent"
+        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'recent' }"
         eyebrow="链路验证中心"
         title="最近提交"
         description="保留最近一批 message-flow session，支持直接恢复时间线复盘，不必先手工记录 sessionId。"
-    >
+        >
       <div class="reporting-recent-toolbar">
         <StandardInlineState
             tone="info"
@@ -412,16 +420,19 @@
           </div>
         </button>
       </div>
-    </PanelCard>
+        </PanelCard>
 
-    <PanelCard
+        <PanelCard
         class="reporting-card reporting-card--follow-up"
+        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'replay' }"
         eyebrow="链路验证中心"
         title="发送后建议检查"
         description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
-    >
+        >
       <StandardFlowRail :items="followUpSteps" />
-    </PanelCard>
+        </PanelCard>
+      </template>
+    </IotAccessTabWorkspace>
   </div>
 </template>
 
@@ -432,6 +443,8 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
@@ -480,9 +493,16 @@ interface ReportFormState {
 
 type FeedbackTone = 'neutral' | 'info' | 'success' | 'danger';
 
+const reportingWorkspaceTabs = [
+  { key: 'simulate', label: '模拟验证' },
+  { key: 'replay', label: '结果复盘' },
+  { key: 'recent', label: '最近记录' }
+];
+
 const MESSAGE_FLOW_MATCH_WINDOW_MS = 120 * 1000;
 
 const router = useRouter();
+const reportingWorkspaceTab = ref('simulate');
 
 const createDefaultForm = (): ReportFormState => ({
   deviceCode: '',
@@ -2000,6 +2020,11 @@ onBeforeUnmount(() => {
 
 .reporting-card--follow-up {
   min-width: 0;
+}
+
+.reporting-workspace-section--focus {
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 12%, white);
 }
 
 @media (max-width: 1280px) {

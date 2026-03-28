@@ -6,13 +6,22 @@ import ReportWorkbenchView from '@/views/ReportWorkbenchView.vue';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '@/api/iot';
 import { messageApi } from '@/api/message';
 
-const { mockRouter } = vi.hoisted(() => ({
+const { mockRoute, mockRouter } = vi.hoisted(() => ({
+  mockRoute: {
+    query: {} as Record<string, unknown>
+  },
   mockRouter: {
     push: vi.fn()
   }
 }));
 
 vi.mock('vue-router', () => ({
+  RouterLink: defineComponent({
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
+  }),
+  useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
 
@@ -231,6 +240,7 @@ describe('ReportWorkbenchView', () => {
       data: []
     });
     mockRouter.push.mockReset();
+    mockRoute.query = {};
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
   });
@@ -238,8 +248,13 @@ describe('ReportWorkbenchView', () => {
   it('renders a compact reporting command strip above the simulator stage', () => {
     const wrapper = mountView();
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
     expect(wrapper.text()).toContain('链路验证中心');
-    expect(wrapper.text()).toContain('先校准设备身份，再发报文，再看时间线。');
+    expect(wrapper.text()).toContain('设备身份未校准');
+    expect(wrapper.text()).toContain('模拟验证');
+    expect(wrapper.text()).toContain('结果复盘');
+    expect(wrapper.text()).toContain('最近记录');
     expect(wrapper.text()).toContain('诊断复盘');
   });
 

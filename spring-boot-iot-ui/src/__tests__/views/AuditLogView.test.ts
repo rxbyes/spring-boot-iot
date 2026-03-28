@@ -23,6 +23,11 @@ const { mockRoute, mockRouter } = vi.hoisted(() => ({
 }));
 
 vi.mock('vue-router', () => ({
+  RouterLink: defineComponent({
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
+  }),
   useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
@@ -319,8 +324,13 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常观测台');
-    expect(wrapper.text()).toContain('先看 system_error，再决定追踪链路还是回看失败归档。');
+    expect(wrapper.text()).toContain('当前异常 4 条');
+    expect(wrapper.text()).toContain('异常台账');
+    expect(wrapper.text()).toContain('聚合视图');
+    expect(wrapper.text()).toContain('回跳治理');
     expect(wrapper.text()).toContain('当前异常 4 条，今日 1 条，关联链路 2 条。');
     expect(wrapper.text()).toContain('链路追踪台');
     expect(wrapper.text()).toContain('失败归档');

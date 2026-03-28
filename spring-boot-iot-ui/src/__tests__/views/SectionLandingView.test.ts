@@ -6,7 +6,8 @@ import SectionLandingView from '@/views/SectionLandingView.vue'
 
 const { mockRoute, mockRouter, permissionState } = vi.hoisted(() => ({
   mockRoute: {
-    path: '/device-access'
+    path: '/device-access',
+    query: {} as Record<string, unknown>
   },
   mockRouter: {
     push: vi.fn()
@@ -93,6 +94,7 @@ function mountView() {
 describe('SectionLandingView', () => {
   beforeEach(() => {
     mockRoute.path = '/device-access'
+    mockRoute.query = {}
     mockRouter.push.mockReset()
     permissionState.hasRoutePermission = true
   })
@@ -100,8 +102,13 @@ describe('SectionLandingView', () => {
   it('renders a compact iot access entry strip and keeps the hub sections', () => {
     const wrapper = mountView()
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
     expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('先处理资产底座，再进入链路诊断。')
+    expect(wrapper.text()).toContain('推荐处理')
+    expect(wrapper.text()).toContain('最近使用')
+    expect(wrapper.text()).toContain('全部能力')
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('最近使用')
     expect(wrapper.text()).toContain('推荐处理顺序')

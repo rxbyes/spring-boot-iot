@@ -107,6 +107,53 @@ const StandardActionLinkStub = defineComponent({
   template: '<button class="product-action-link-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label'],
+  template: '<button class="product-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
+})
+
+const sampleProductRow = {
+  id: 1001,
+  productKey: 'demo-product',
+  productName: '演示产品',
+  protocolCode: 'mqtt-json',
+  nodeType: 1,
+  dataFormat: 'JSON',
+  manufacturer: 'GHLZM',
+  status: 1,
+  onlineDeviceCount: 0,
+  lastReportTime: '2026-03-24T09:00:00',
+  updateTime: '2026-03-24T09:00:00'
+}
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  template: '<section class="el-table-stub"><slot /></section>'
+})
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'width', 'fixed', 'showOverflowTooltip', 'className'],
+  setup() {
+    return {
+      rowScope: sampleProductRow
+    }
+  },
+  template: `
+    <div
+      class="el-table-column-stub"
+      :data-label="label || ''"
+      :data-width="String(width ?? '')"
+      :data-fixed="fixed || ''"
+      :data-overflow="String(showOverflowTooltip ?? '')"
+      :data-class-name="className || ''"
+    >
+      <slot :row="rowScope" />
+    </div>
+  `
+})
+
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
   template: `
@@ -133,6 +180,65 @@ const StandardInlineStateStub = defineComponent({
   name: 'StandardInlineState',
   props: ['message', 'tone'],
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['title', 'status'],
+  template: `
+    <section class="iot-access-page-shell">
+      <h1>{{ title }}</h1>
+      <p>{{ status }}</p>
+      <slot name="actions" />
+      <slot />
+    </section>
+  `
+})
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items', 'defaultKey', 'modelValue'],
+  template: `
+    <section class="iot-access-tab-workspace">
+      <button
+        v-for="item in items"
+        :key="item.key"
+        type="button"
+        class="iot-access-tab-workspace__tab"
+      >
+        {{ item.label }}
+      </button>
+      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
+    </section>
+  `
+})
+
+const IotAccessResultSectionStub = defineComponent({
+  name: 'IotAccessResultSection',
+  props: ['title', 'description'],
+  template: `
+    <section class="iot-access-result-section">
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <slot name="toolbar" />
+      <slot />
+    </section>
+  `
+})
+
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label'],
+  setup() {
+    return {
+      rowScope: sampleProductRow
+    }
+  },
+  template: `
+    <div class="standard-table-text-column-stub" :data-label="label || ''">
+      <slot :row="rowScope">{{ label }}</slot>
+    </div>
+  `
 })
 
 const ProductModelDesignerDrawerStub = defineComponent({
@@ -182,7 +288,7 @@ function mountView() {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardRowActions: StandardRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
-        StandardActionMenu: true,
+        StandardActionMenu: StandardActionMenuStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
@@ -192,10 +298,15 @@ function mountView() {
         StandardTableToolbar: true,
         StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
-        StandardTableTextColumn: true,
+        StandardTableTextColumn: StandardTableTextColumnStub,
+        IotAccessPageShell: IotAccessPageShellStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
+        IotAccessResultSection: IotAccessResultSectionStub,
         CsvColumnSettingDialog: true,
         DeviceListDrawer: true,
-        EmptyState: true
+        EmptyState: true,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub
       }
     }
   })
@@ -228,8 +339,13 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('先补齐产品契约，再处理库存治理。')
+    expect(wrapper.text()).toContain('产品台账')
+    expect(wrapper.text()).toContain('物模型治理')
+    expect(wrapper.text()).toContain('关联设备')
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).not.toContain('产品契约治理')
   })
@@ -295,5 +411,24 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自异常观测台')
     expect(wrapper.text()).toContain('Trace trace-001')
+  })
+
+  it('uses a dedicated action-column layout to avoid clipped menus and uneven spacing', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [sampleProductRow]
+    ;(wrapper.vm as any).viewType = 'table'
+    await nextTick()
+
+    const actionColumn = wrapper
+      .findAll('.el-table-column-stub')
+      .find((column) => column.attributes('data-label') === '操作')
+
+    expect(actionColumn?.attributes('data-width')).toBe('304')
+    expect(actionColumn?.attributes('data-class-name')).toBe('product-desktop-table__actions-column')
+    expect(wrapper.find('.product-table-row-actions').exists()).toBe(true)
+    expect(wrapper.find('.product-action-menu-stub').text()).toBe('更多')
   })
 })

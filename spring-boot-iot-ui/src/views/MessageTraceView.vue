@@ -8,13 +8,8 @@
     />
 
     <template v-else>
-      <section class="message-trace-command-strip">
-        <div class="message-trace-command-strip__copy">
-          <h1 class="message-trace-command-strip__title">链路追踪台</h1>
-          <p class="message-trace-command-strip__judgement">{{ traceRuleSummary }}</p>
-          <p class="message-trace-command-strip__meta">{{ traceStripStatus }}</p>
-        </div>
-        <div class="message-trace-command-strip__actions">
+      <IotAccessPageShell title="链路追踪台" :status="messageTraceShellStatus">
+        <template #actions>
           <StandardButton action="refresh" plain :disabled="!canJumpWithSearch" @click="jumpToSystemLog()">
             异常观测台
           </StandardButton>
@@ -22,18 +17,59 @@
           <StandardButton action="refresh" plain :disabled="!canJumpToFileDebug" @click="jumpToFileDebug()">
             数据校验台
           </StandardButton>
-        </div>
-      </section>
+        </template>
+      </IotAccessPageShell>
 
-      <StandardWorkbenchPanel
-        title="追踪台账"
-        description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
-        show-header-actions
-        show-filters
-        :show-applied-filters="hasAppliedFilters"
-        show-toolbar
-        show-pagination
+      <IotAccessTabWorkspace
+        v-model="messageTraceWorkspaceTab"
+        :items="messageTraceWorkspaceTabs"
+        default-key="ledger"
       >
+        <template #default="{ activeKey }">
+          <div class="message-trace-workspace-grid">
+            <IotAccessResultSection
+              title="失败归档"
+              description="保留失败归档回跳入口和当前筛查上下文，不再用单独说明卡承载这类联动信息。"
+              :class="{ 'message-trace-workspace-grid__section--focus': activeKey === 'archive' }"
+            >
+              <template #toolbar>
+                <StandardButton action="reset" link @click="jumpToAccessError()">打开失败归档</StandardButton>
+              </template>
+              <div class="message-trace-support-copy">
+                <p>当前 TraceId：{{ currentArchiveTraceId || '--' }}</p>
+                <p>当前设备编码：{{ currentArchiveDeviceCode || '--' }}</p>
+                <p>当前产品标识：{{ currentArchiveProductKey || '--' }}</p>
+              </div>
+            </IotAccessResultSection>
+
+            <IotAccessResultSection
+              title="时间线复盘"
+              description="统一展示当前 Trace 复盘状态和最近会话恢复建议，避免让用户自己猜下一步。"
+              :class="{ 'message-trace-workspace-grid__section--focus': activeKey === 'timeline' }"
+            >
+              <template #toolbar>
+                <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">刷新最近会话</StandardButton>
+              </template>
+              <div class="message-trace-support-copy">
+                <p>当前判断：{{ traceRuleSummary }}</p>
+                <p>复盘状态：{{ timelineWorkspaceStatus }}</p>
+                <p>最近会话：{{ recentMessageFlowSessions[0]?.sessionId || '--' }}</p>
+              </div>
+            </IotAccessResultSection>
+          </div>
+        </template>
+      </IotAccessTabWorkspace>
+
+      <div :class="{ 'message-trace-panel-focus': messageTraceWorkspaceTab === 'ledger' }">
+        <StandardWorkbenchPanel
+          title="追踪台账"
+          description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
+          show-header-actions
+          show-filters
+          :show-applied-filters="hasAppliedFilters"
+          show-toolbar
+          show-pagination
+        >
         <template #header-actions>
           <StandardChoiceGroup
             :model-value="pageMode"
@@ -284,7 +320,8 @@
             />
           </div>
         </template>
-      </StandardWorkbenchPanel>
+        </StandardWorkbenchPanel>
+      </div>
     </template>
 
     <StandardDetailDrawer
@@ -418,6 +455,9 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue';
+import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue';
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
@@ -457,11 +497,17 @@ const pageModeOptions = [
   { label: '链路追踪', value: 'message-trace' as const },
   { label: '失败归档', value: 'access-error' as const }
 ];
+const messageTraceWorkspaceTabs = [
+  { key: 'ledger', label: '消息追踪' },
+  { key: 'archive', label: '失败归档' },
+  { key: 'timeline', label: '时间线复盘' }
+];
 const pageMode = computed<ObservabilityViewMode>(() =>
   route.query.mode === 'access-error' ? 'access-error' : 'message-trace'
 );
 const isAccessErrorMode = computed(() => pageMode.value === 'access-error');
 const isMessageTraceMode = computed(() => pageMode.value === 'message-trace');
+const messageTraceWorkspaceTab = ref('ledger');
 
 const messageTypeOptions = [
   { label: '属性上报', value: 'report' },
@@ -650,6 +696,28 @@ const traceStripStatus = computed(() => {
   }
   const statsSummary = `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
   return contextSource ? `${contextSource}，${statsSummary}` : statsSummary;
+});
+const messageTraceShellStatus = computed(() => `${traceRuleSummary.value} · ${traceStripStatus.value}`);
+const currentArchiveTraceId = computed(() => appliedFilters.traceId || searchForm.traceId || restoredDiagnosticContext.value?.traceId || '');
+const currentArchiveDeviceCode = computed(() => appliedFilters.deviceCode || searchForm.deviceCode || restoredDiagnosticContext.value?.deviceCode || '');
+const currentArchiveProductKey = computed(() => appliedFilters.productKey || searchForm.productKey || restoredDiagnosticContext.value?.productKey || '');
+const timelineWorkspaceStatus = computed(() => {
+  if (detailTimelineLookupError.value) {
+    return '时间线查询异常，请先查看消息日志或稍后重试。';
+  }
+  if (timelineExpired.value) {
+    return 'Redis 时间线已过期，可先从最近会话恢复上下文。';
+  }
+  if (detailTimeline.value?.traceId) {
+    return `已加载 Trace ${detailTimeline.value.traceId} 的处理时间线。`;
+  }
+  if (appliedFilters.traceId) {
+    return `当前正在按 Trace ${appliedFilters.traceId} 检索消息日志。`;
+  }
+  if (recentMessageFlowSessions.value[0]?.sessionId) {
+    return `最近会话 ${recentMessageFlowSessions.value[0].sessionId} 可用于恢复 Trace 上下文。`;
+  }
+  return '当前没有可复盘的时间线上下文。';
 });
 const opsOverviewMetrics = computed(() => {
   const completedCount = sumSessionCount('COMPLETED');
@@ -1175,6 +1243,40 @@ onMounted(() => {
 <style scoped>
 .message-trace-view {
   min-width: 0;
+}
+
+.message-trace-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.message-trace-workspace-grid__section--focus,
+.message-trace-panel-focus {
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, white);
+}
+
+.message-trace-panel-focus {
+  padding: 0.14rem;
+}
+
+.message-trace-support-copy {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.message-trace-support-copy p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .message-trace-workspace-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .message-trace-command-strip {

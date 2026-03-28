@@ -1,14 +1,61 @@
 <template>
-  <div class="product-asset-view">
-    <StandardWorkbenchPanel
-      title="产品定义中心"
-      description="先补齐产品契约，再处理库存治理。"
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-toolbar
-      :show-inline-state="showListInlineState"
-      show-pagination
+  <div class="page-stack product-asset-view">
+    <IotAccessPageShell title="产品定义中心" :status="productShellStatus" />
+
+    <IotAccessTabWorkspace
+      v-model="productWorkspaceTab"
+      :items="productWorkspaceTabs"
+      default-key="ledger"
     >
+      <template #default="{ activeKey }">
+        <div class="product-support-grid">
+          <IotAccessResultSection
+            title="物模型治理"
+            description="把物模型维护从列表动作抬升为同页工作区，但继续沿用现有设计器抽屉。"
+            :class="{ 'product-support-grid__section--focus': activeKey === 'model' }"
+          >
+            <template #toolbar>
+              <StandardButton action="refresh" link :disabled="!currentProduct" @click="handleOpenCurrentProductModelDesigner">
+                {{ currentProduct ? '打开当前产品物模型' : '先从台账选择产品' }}
+              </StandardButton>
+            </template>
+            <div class="product-support-copy">
+              <p>当前产品：{{ currentProductLabel }}</p>
+              <p>协议编码：{{ formatTextValue(currentProduct?.protocolCode) }}</p>
+              <p>治理建议：{{ productModelWorkspaceHint }}</p>
+            </div>
+          </IotAccessResultSection>
+
+          <IotAccessResultSection
+            title="关联设备"
+            description="在同页查看产品和库存设备的关系，减少只靠抽屉跳转理解上下文的负担。"
+            :class="{ 'product-support-grid__section--focus': activeKey === 'devices' }"
+          >
+            <template #toolbar>
+              <StandardButton action="refresh" link :disabled="!currentProduct" @click="handleOpenCurrentProductDevices">
+                {{ currentProduct ? '查看当前产品设备' : '先从台账选择产品' }}
+              </StandardButton>
+            </template>
+            <div class="product-support-copy">
+              <p>当前产品：{{ currentProductLabel }}</p>
+              <p>设备规模：{{ currentProductAssociationSummary }}</p>
+              <p>下一步：{{ currentProductAssociationNextStep }}</p>
+            </div>
+          </IotAccessResultSection>
+        </div>
+      </template>
+    </IotAccessTabWorkspace>
+
+    <div :class="{ 'product-panel-focus': productWorkspaceTab === 'ledger' }">
+      <StandardWorkbenchPanel
+        title="产品定义中心"
+        description="先补齐产品契约，再处理库存治理。"
+        show-filters
+        :show-applied-filters="hasAppliedFilters"
+        show-toolbar
+        :show-inline-state="showListInlineState"
+        show-pagination
+      >
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
@@ -280,9 +327,15 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column
+                label="操作"
+                width="304"
+                fixed="right"
+                class-name="product-desktop-table__actions-column"
+                :show-overflow-tooltip="false"
+              >
                 <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="comfortable">
+                  <StandardRowActions variant="table" gap="comfortable" class="product-table-row-actions">
                     <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                     <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
                     <StandardActionLink
@@ -323,7 +376,8 @@
           />
         </div>
       </template>
-    </StandardWorkbenchPanel>
+      </StandardWorkbenchPanel>
+    </div>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -636,6 +690,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue'
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
@@ -732,9 +789,16 @@ interface ProductRowAction {
   permission?: string
 }
 
+const productWorkspaceTabs = [
+  { key: 'ledger', label: '产品台账' },
+  { key: 'model', label: '物模型治理' },
+  { key: 'devices', label: '关联设备' }
+]
+
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
+const productWorkspaceTab = ref('ledger')
 const tableRef = ref<TableInstance>()
 const formRef = ref<FormInstance>()
 
@@ -859,9 +923,46 @@ const diagnosticEntryMessage = computed(() => {
     .filter(Boolean)
     .join(' · ')
 })
+const productShellStatus = computed(() => {
+  if (diagnosticEntryMessage.value) {
+    return diagnosticEntryMessage.value
+  }
+  return `当前结果 ${pagination.total} 条，启用 ${enabledProductCount.value} 个，停用 ${disabledProductCount.value} 个。`
+})
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const currentProductLabel = computed(() => currentProduct.value?.productName || currentProduct.value?.productKey || '--')
+const productModelWorkspaceHint = computed(() => {
+  if (!currentProduct.value) {
+    return '先从产品台账选择一条记录，再进入设计器抽屉继续维护属性、事件和服务模型。'
+  }
+  return `当前协议 ${formatTextValue(currentProduct.value.protocolCode)}，可继续核对节点类型、数据格式和物模型边界。`
+})
+const currentProductAssociationSummary = computed(() => {
+  if (!currentProduct.value) {
+    return `当前结果中共有 ${pagination.total} 条产品记录。`
+  }
+  const deviceCount = parseCount(currentProduct.value.deviceCount)
+  const onlineCount = parseCount(currentProduct.value.onlineDeviceCount)
+  if (deviceCount === null || deviceCount === 0) {
+    return '当前还没有关联设备。'
+  }
+  if (onlineCount === null) {
+    return `当前有 ${deviceCount} 台关联设备。`
+  }
+  return `当前有 ${deviceCount} 台关联设备，在线 ${onlineCount} 台。`
+})
+const currentProductAssociationNextStep = computed(() => {
+  if (!currentProduct.value) {
+    return '先从产品台账选择产品，再切到关联设备工作区查看现场规模。'
+  }
+  const deviceCount = parseCount(currentProduct.value.deviceCount)
+  if (deviceCount === null || deviceCount === 0) {
+    return '当前还没有设备正式使用，可以先完成产品契约和接入模板整理。'
+  }
+  return '当前已有设备在用，变更协议或物模型前请先评估对现网设备的影响。'
+})
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
     { key: 'devices', command: 'devices', label: '查看设备' },
@@ -1983,6 +2084,7 @@ function handleAdd() {
 }
 
 function handleEdit(row: Product) {
+  currentProduct.value = row
   const cachedDetail = getCachedProductDetail(row)
   const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
 
@@ -1999,6 +2101,7 @@ function handleEdit(row: Product) {
 }
 
 function handleOpenDetail(row: Product) {
+  currentProduct.value = row
   void openDetail(row)
 }
 
@@ -2017,8 +2120,23 @@ function handleOpenDeviceListDrawer(row: Product) {
 }
 
 function handleOpenProductModelDesigner(row: Product) {
+  currentProduct.value = row
   productModelTarget.value = row
   productModelDesignerVisible.value = true
+}
+
+function handleOpenCurrentProductDevices() {
+  if (!currentProduct.value) {
+    return
+  }
+  handleOpenDeviceListDrawer(currentProduct.value)
+}
+
+function handleOpenCurrentProductModelDesigner() {
+  if (!currentProduct.value) {
+    return
+  }
+  handleOpenProductModelDesigner(currentProduct.value)
 }
 
 // 查看设备
@@ -2352,6 +2470,40 @@ onMounted(async () => {
 .product-asset-view {
   display: grid;
   gap: 16px;
+}
+
+.product-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.product-support-grid__section--focus,
+.product-panel-focus {
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, white);
+}
+
+.product-panel-focus {
+  padding: 0.14rem;
+}
+
+.product-support-copy {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.product-support-copy p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .product-support-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 :deep(.product-detail-drawer .el-drawer__header) {

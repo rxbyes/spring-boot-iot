@@ -1,85 +1,98 @@
 <template>
   <div class="section-landing page-stack">
     <template v-if="accessibleCards.length">
-      <section class="section-landing__intro">
-        <div class="section-landing__intro-copy">
-          <h1 class="section-landing__intro-title">{{ config?.title || '分组概览' }}</h1>
-          <p class="section-landing__intro-judgement">{{ sectionHeadline }}</p>
-        </div>
-        <div v-if="introActions.length" class="section-landing__intro-actions">
-          <RouterLink
-            v-for="action in introActions"
-            :key="`${action.label}-${action.to}`"
-            :to="action.to"
-            class="section-landing__intro-action"
-            :class="action.variant === 'primary' ? 'section-landing__intro-action--primary' : ''"
-          >
-            {{ action.label }}
-          </RouterLink>
-        </div>
-      </section>
-
-      <div class="section-landing__content-grid">
-        <PanelCard eyebrow="Recent Activity" title="最近使用" description="优先回到刚处理过的功能，不重复展示导航路径。">
-          <div v-if="recentActivities.length" class="section-landing__recent-list">
+      <IotAccessPageShell :title="config?.title || '分组概览'" :status="sectionHeadline">
+        <template #actions>
+          <div v-if="introActions.length" class="section-landing__intro-actions">
             <RouterLink
-              v-for="item in recentActivities"
-              :key="item.id"
-              :to="item.path"
-              class="section-landing__recent-item"
+              v-for="action in introActions"
+              :key="`${action.label}-${action.to}`"
+              :to="action.to"
+              class="section-landing__intro-action"
+              :class="action.variant === 'primary' ? 'section-landing__intro-action--primary' : ''"
             >
-              <div class="section-landing__recent-main">
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.detail }}</p>
-              </div>
-              <small>{{ item.time }}</small>
+              {{ action.label }}
             </RouterLink>
           </div>
-          <EmptyState
-            v-else
-            title="暂无最近使用记录"
-            description="当前分组还没有本地操作痕迹，建议先从常用入口开始。"
-            :action="emptyAction"
-          />
-        </PanelCard>
+        </template>
+      </IotAccessPageShell>
 
-        <PanelCard eyebrow="Recommended Flow" title="推荐处理顺序" description="按准备、执行、复核的顺序进入，避免同一层级重复说明。">
-          <div class="section-landing__recommend-list">
-            <article
-              v-for="action in recommendedActions"
-              :key="action.path"
-              class="section-landing__recommend-item"
+      <IotAccessTabWorkspace :items="landingTabs" default-key="recommended">
+        <template #default="{ activeKey }">
+          <div class="section-landing__content-grid">
+            <PanelCard
+              eyebrow="Recommended Flow"
+              title="推荐处理顺序"
+              description="按准备、执行、复核的顺序进入，避免同一层级重复说明。"
+              :class="{ 'section-landing__panel--focus': activeKey === 'recommended' }"
             >
-              <span class="section-landing__recommend-stage">{{ action.stage }}</span>
-              <div class="section-landing__recommend-main">
-                <strong>{{ action.title }}</strong>
-                <p>{{ action.description }}</p>
+              <div class="section-landing__recommend-list">
+                <article
+                  v-for="action in recommendedActions"
+                  :key="action.path"
+                  class="section-landing__recommend-item"
+                >
+                  <span class="section-landing__recommend-stage">{{ action.stage }}</span>
+                  <div class="section-landing__recommend-main">
+                    <strong>{{ action.title }}</strong>
+                    <p>{{ action.description }}</p>
+                  </div>
+                  <RouterLink :to="action.path" class="section-landing__text-link">
+                    {{ action.buttonLabel }}
+                  </RouterLink>
+                </article>
               </div>
-              <RouterLink :to="action.path" class="section-landing__text-link">
-                {{ action.buttonLabel }}
-              </RouterLink>
-            </article>
-          </div>
-        </PanelCard>
-      </div>
+            </PanelCard>
 
-      <PanelCard
-        eyebrow="Capability"
-        title="全部能力"
-        description="其余可进入页面统一收口在这里，避免正文与侧栏重复提示。"
-      >
-        <div class="section-landing__capability-list">
-          <RouterLink
-            v-for="card in accessibleCards"
-            :key="card.path"
-            :to="card.path"
-            class="section-landing__capability-item"
+            <PanelCard
+              eyebrow="Recent Activity"
+              title="最近使用"
+              description="优先回到刚处理过的功能，不重复展示导航路径。"
+              :class="{ 'section-landing__panel--focus': activeKey === 'recent' }"
+            >
+              <div v-if="recentActivities.length" class="section-landing__recent-list">
+                <RouterLink
+                  v-for="item in recentActivities"
+                  :key="item.id"
+                  :to="item.path"
+                  class="section-landing__recent-item"
+                >
+                  <div class="section-landing__recent-main">
+                    <strong>{{ item.title }}</strong>
+                    <p>{{ item.detail }}</p>
+                  </div>
+                  <small>{{ item.time }}</small>
+                </RouterLink>
+              </div>
+              <EmptyState
+                v-else
+                title="暂无最近使用记录"
+                description="当前分组还没有本地操作痕迹，建议先从常用入口开始。"
+                :action="emptyAction"
+              />
+            </PanelCard>
+          </div>
+
+          <PanelCard
+            eyebrow="Capability"
+            title="全部能力"
+            description="其余可进入页面统一收口在这里，避免正文与侧栏重复提示。"
+            :class="{ 'section-landing__panel--focus': activeKey === 'catalog' }"
           >
-            <strong>{{ card.label }}</strong>
-            <span>{{ card.description }}</span>
-          </RouterLink>
-        </div>
-      </PanelCard>
+            <div class="section-landing__capability-list">
+              <RouterLink
+                v-for="card in accessibleCards"
+                :key="card.path"
+                :to="card.path"
+                class="section-landing__capability-item"
+              >
+                <strong>{{ card.label }}</strong>
+                <span>{{ card.description }}</span>
+              </RouterLink>
+            </div>
+          </PanelCard>
+        </template>
+      </IotAccessTabWorkspace>
     </template>
 
     <PanelCard
@@ -102,6 +115,8 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import EmptyState from '../components/EmptyState.vue';
 import PanelCard from '../components/PanelCard.vue';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import {
   getSectionHomeConfigByPath,
   matchSectionCardActivity,
@@ -114,6 +129,11 @@ import { formatDateTime } from '../utils/format';
 
 const stageLabels = ['准备', '执行', '复核'];
 const actionLabels = ['开始配置', '进入处理', '查看结果'];
+const landingTabs = [
+  { key: 'recommended', label: '推荐处理' },
+  { key: 'recent', label: '最近使用' },
+  { key: 'catalog', label: '全部能力' }
+];
 
 const route = useRoute();
 const router = useRouter();
@@ -212,6 +232,10 @@ const emptyAction = computed(() => {
 .section-landing {
   display: grid;
   gap: 1rem;
+}
+
+.section-landing__panel--focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 12%, white);
 }
 
 .section-landing__intro {

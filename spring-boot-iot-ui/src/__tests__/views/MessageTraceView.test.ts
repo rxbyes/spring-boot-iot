@@ -206,6 +206,50 @@ const StandardTableTextColumnStub = defineComponent({
   template: '<div class="standard-table-text-column-stub">{{ label }}</div>'
 });
 
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['title', 'status'],
+  template: `
+    <section class="iot-access-page-shell">
+      <h1>{{ title }}</h1>
+      <p>{{ status }}</p>
+      <slot name="actions" />
+      <slot />
+    </section>
+  `
+});
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items', 'defaultKey', 'modelValue'],
+  template: `
+    <section class="iot-access-tab-workspace">
+      <button
+        v-for="item in items"
+        :key="item.key"
+        type="button"
+        class="iot-access-tab-workspace__tab"
+      >
+        {{ item.label }}
+      </button>
+      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
+    </section>
+  `
+});
+
+const IotAccessResultSectionStub = defineComponent({
+  name: 'IotAccessResultSection',
+  props: ['title', 'description'],
+  template: `
+    <section class="iot-access-result-section">
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <slot name="toolbar" />
+      <slot />
+    </section>
+  `
+});
+
 const AccessErrorArchivePanelStub = defineComponent({
   name: 'AccessErrorArchivePanel',
   template: '<section class="access-error-archive-panel-stub" />'
@@ -376,6 +420,9 @@ function mountView() {
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardTraceTimeline: StandardTraceTimelineStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
+        IotAccessPageShell: IotAccessPageShellStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
+        IotAccessResultSection: IotAccessResultSectionStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
       }
@@ -502,13 +549,19 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('renders the compact trace strip and keeps the support workspace below the table', async () => {
+  it('renders the compact trace shell and keeps the support workspace below the table', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
     expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
+    expect(wrapper.text()).toContain('链路追踪台');
+    expect(wrapper.text()).toContain('消息追踪');
+    expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.text()).toContain('时间线复盘');
     expect(wrapper.text()).toContain('Trace 缺失，优先恢复最近会话');
     expect(wrapper.text()).toContain('当前模式：链路追踪');
     expect(wrapper.text()).toContain('完成链路 3');

@@ -124,6 +124,50 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['title', 'status'],
+  template: `
+    <section class="iot-access-page-shell">
+      <h1>{{ title }}</h1>
+      <p>{{ status }}</p>
+      <slot name="actions" />
+      <slot />
+    </section>
+  `
+})
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items', 'defaultKey', 'modelValue'],
+  template: `
+    <section class="iot-access-tab-workspace">
+      <button
+        v-for="item in items"
+        :key="item.key"
+        type="button"
+        class="iot-access-tab-workspace__tab"
+      >
+        {{ item.label }}
+      </button>
+      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
+    </section>
+  `
+})
+
+const IotAccessResultSectionStub = defineComponent({
+  name: 'IotAccessResultSection',
+  props: ['title', 'description'],
+  template: `
+    <section class="iot-access-result-section">
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <slot name="toolbar" />
+      <slot />
+    </section>
+  `
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -156,7 +200,10 @@ function mountView() {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
-        StandardInlineState: StandardInlineStateStub
+        StandardInlineState: StandardInlineStateStub,
+        IotAccessPageShell: IotAccessPageShellStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
+        IotAccessResultSection: IotAccessResultSectionStub
       }
     }
   })
@@ -214,8 +261,13 @@ describe('DeviceWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
     expect(wrapper.text()).toContain('设备资产中心')
     expect(wrapper.text()).toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
+    expect(wrapper.text()).toContain('资产台账')
+    expect(wrapper.text()).toContain('未登记上报')
+    expect(wrapper.text()).toContain('拓扑关系')
     expect(wrapper.text()).not.toContain('优先清理未登记、长时间未上报和拓扑异常设备')
   })
 

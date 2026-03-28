@@ -14,6 +14,11 @@ const { mockRoute, mockRouter } = vi.hoisted(() => ({
 }));
 
 vi.mock('vue-router', () => ({
+  RouterLink: defineComponent({
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
+  }),
   useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
@@ -105,8 +110,13 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
     expect(wrapper.text()).toContain('数据校验台');
-    expect(wrapper.text()).toContain('先确定设备，再核对文件快照和固件聚合。');
+    expect(wrapper.text()).toContain('当前设备 demo-device-01');
+    expect(wrapper.text()).toContain('设备校验');
+    expect(wrapper.text()).toContain('原始响应');
+    expect(wrapper.text()).toContain('历史快照');
     expect(wrapper.text()).toContain('文件快照校验');
     expect(wrapper.text()).toContain('固件聚合校验');
     expect(wrapper.text()).toContain('文件快照原始响应');

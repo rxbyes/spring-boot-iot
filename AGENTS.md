@@ -101,7 +101,8 @@ com.ghlzm.iot
 - 任何 `spring-boot-iot-ui` 下的页面或样式改动，都必须保证 UTF-8 可读，不得把终端乱码写进 `.vue`、`.ts`、`.css`、`.json`、`.md` 文件。
 - 在 Windows 终端编辑前端文件前，优先使用 UTF-8 查看 / 校验方式，例如 `chcp 65001` 加 `Get-Content -Encoding UTF8`，确保终端显示内容与文件真实内容一致。
 - 修改前端文本、标签、占位符、注释或文档后，必须自检是否出现 `鍒�`、`褰�`、`璇�`、`鐢�` 这类乱码，发现后必须修复。
-- 新的页面优化工作必须优先复用现有共享页面模式：`PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享全局列表样式和现有设计令牌。若现有标准模式已经适配，不要再新增页面私有列表 / 分页 / 详情弹层样式。
+- 新的页面优化工作必须优先复用现有共享页面模式：`PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、`IotAccessPageShell`、`IotAccessTabWorkspace`、`IotAccessResultSection`、`IotAccessFilterBar`、共享全局列表样式和现有设计令牌。若现有标准模式已经适配，不要再新增页面私有列表 / 分页 / 详情弹层样式。
+- `接入智维` 下的页面如果存在多个并列内容域，优先使用同页 Tab 工作区表达，不要再新增页面私有 pill、说明墙或二级轻路由；同一路由 query 变更必须复用共享滚动行为，避免筛选 / 分页 / Tab 同步后内容区跳顶。
 - 总览、工作台、抽屉和确认弹窗交互必须保持统一品牌 / 强调配色体系。除非产品需求明确记录例外，否则不要再为单页引入新的蓝 / 橙 / 紫色私有配色。
 - 如果前端改动引入或暴露了样式漂移、重复列表布局或分页行为不一致问题，结束任务前必须把问题和预防规则记录到 `docs/15-前端优化与治理计划.md`。
 
