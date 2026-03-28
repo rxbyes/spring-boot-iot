@@ -67,4 +67,21 @@ describe('IotAccessTabWorkspace', () => {
     });
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['recent']);
   });
+
+  it('marks the tab rail as business-view navigation with the refined minimal shell', () => {
+    const wrapper = mount(IotAccessTabWorkspace, {
+      props: {
+        items: [
+          { key: 'asset', label: '资产底座' },
+          { key: 'diagnostics', label: '诊断排障' }
+        ],
+        defaultKey: 'asset',
+        syncQuery: false
+      }
+    });
+
+    expect(wrapper.classes()).toContain('iot-access-tab-workspace--minimal')
+    expect(wrapper.find('nav').attributes('aria-label')).toBe('业务视图切换');
+    expect(wrapper.find('.iot-access-tab-workspace__tabs').classes()).toContain('iot-access-tab-workspace__tabs--minimal')
+  });
 });

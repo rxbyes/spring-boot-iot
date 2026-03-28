@@ -1,6 +1,6 @@
 <template>
-  <section class="iot-access-tab-workspace">
-    <nav class="iot-access-tab-workspace__tabs" aria-label="工作区切换">
+  <section class="iot-access-tab-workspace iot-access-tab-workspace--minimal">
+    <nav class="iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--minimal" aria-label="业务视图切换">
       <button
         v-for="item in items"
         :key="item.key"
@@ -111,34 +111,43 @@ async function handleTabChange(nextKey: string) {
   gap: 0.9rem;
 }
 
+.iot-access-tab-workspace--minimal {
+  gap: 1rem;
+}
+
 .iot-access-tab-workspace__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0;
+  border-bottom: 1px solid var(--shell-border);
+}
+
+.iot-access-tab-workspace__tabs--minimal {
+  border-bottom-color: color-mix(in srgb, var(--line-panel) 86%, white);
 }
 
 .iot-access-tab-workspace__tab {
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-md);
-  background: white;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-secondary);
-  min-height: 2.4rem;
-  padding: 0.55rem 1rem;
-  font-size: 0.9rem;
+  min-height: 2.8rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
   font-weight: 600;
   transition: all 160ms ease;
 }
 
 .iot-access-tab-workspace__tab:hover {
-  border-color: color-mix(in srgb, var(--brand) 20%, white);
   color: var(--brand);
 }
 
 .iot-access-tab-workspace__tab--active {
-  border-color: color-mix(in srgb, var(--brand) 30%, white);
-  background: color-mix(in srgb, var(--brand) 6%, white);
+  border-bottom-color: var(--brand);
+  background: transparent;
   color: var(--brand);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 10%, white);
+  box-shadow: none;
 }
 
 .iot-access-tab-workspace__panel {
