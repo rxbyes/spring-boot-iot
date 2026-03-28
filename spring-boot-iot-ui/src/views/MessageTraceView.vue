@@ -11,11 +11,17 @@
       <section class="message-trace-command-strip">
         <div class="message-trace-command-strip__copy">
           <h1 class="message-trace-command-strip__title">链路追踪台</h1>
-          <p class="message-trace-command-strip__judgement">先看 TraceId，再看最近会话，再决定是否转异常观测。</p>
+          <p class="message-trace-command-strip__judgement">{{ traceRuleSummary }}</p>
           <p class="message-trace-command-strip__meta">{{ traceStripStatus }}</p>
         </div>
         <div class="message-trace-command-strip__actions">
-          <StandardButton action="refresh" plain @click="jumpToSystemLog()">异常观测台</StandardButton>
+          <StandardButton action="refresh" plain :disabled="!canJumpWithSearch" @click="jumpToSystemLog()">
+            异常观测台
+          </StandardButton>
+          <StandardButton action="refresh" plain @click="jumpToAccessError()">失败归档</StandardButton>
+          <StandardButton action="refresh" plain :disabled="!canJumpToFileDebug" @click="jumpToFileDebug()">
+            数据校验台
+          </StandardButton>
         </div>
       </section>
 
@@ -428,6 +434,12 @@ import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardRowActions from '@/components/StandardRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import {
+  describeDiagnosticSource,
+  persistDiagnosticContext,
+  resolveDiagnosticContext,
+  type DiagnosticContext
+} from '@/utils/iotAccessDiagnostics';
 import type {
   DeviceMessageLog,
   MessageFlowOpsOverview,
@@ -487,6 +499,7 @@ const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
 const detailTimeline = ref<MessageFlowTimeline | null>(null);
 const detailTimelineLookupError = ref(false);
+const restoredDiagnosticContext = ref<DiagnosticContext | null>(null);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
   recentHourCount: 0,
@@ -566,8 +579,21 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
+const currentDiagnosticContext = computed<DiagnosticContext>(() => buildVisibleDiagnosticContext());
 const canJumpWithSearch = computed(() =>
-  Boolean(appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey || appliedFilters.topic)
+  Boolean(
+    currentDiagnosticContext.value.traceId
+    || currentDiagnosticContext.value.deviceCode
+    || currentDiagnosticContext.value.productKey
+    || currentDiagnosticContext.value.topic
+  )
+);
+const canJumpToFileDebug = computed(() =>
+  Boolean(
+    currentDiagnosticContext.value.traceId
+    || currentDiagnosticContext.value.deviceCode
+    || currentDiagnosticContext.value.productKey
+  )
 );
 const {
   tags: activeFilterTags,
@@ -599,11 +625,30 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`;
 });
-const traceStripStatus = computed(() => {
-  if (statsLoading.value) {
-    return '当前模式：链路追踪，统计加载中。';
+const traceRuleSummary = computed(() => {
+  if (detailTimelineLookupError.value) {
+    return '时间线查询异常，优先排查 Redis / message-flow 存储';
   }
-  return `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
+  if (timelineExpired.value) {
+    return '时间线已过期';
+  }
+  if (appliedFilters.traceId && tableData.value.length > 0) {
+    return '当前 Trace 可继续查 system_error';
+  }
+  if (!appliedFilters.traceId && recentMessageFlowSessions.value.length > 0) {
+    return 'Trace 缺失，优先恢复最近会话';
+  }
+  return '先看 TraceId，再看最近会话';
+});
+const traceStripStatus = computed(() => {
+  const contextSource = restoredDiagnosticContext.value
+    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+    : '';
+  if (statsLoading.value) {
+    return contextSource ? `${contextSource}，当前模式：链路追踪，统计加载中。` : '当前模式：链路追踪，统计加载中。';
+  }
+  const statsSummary = `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
+  return contextSource ? `${contextSource}，${statsSummary}` : statsSummary;
 });
 const opsOverviewMetrics = computed(() => {
   const completedCount = sumSessionCount('COMPLETED');
@@ -677,12 +722,74 @@ function readQueryValue(key: keyof MessageTraceQueryParams) {
   return typeof value === 'string' ? value : '';
 }
 
+function normalizeText(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function pickDiagnosticValue(...values: unknown[]) {
+  for (const value of values) {
+    const normalized = normalizeText(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+}
+
+interface DiagnosticSourceCandidate {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+}
+
+function buildVisibleDiagnosticContext(): DiagnosticContext {
+  return {
+    sourcePage: 'message-trace',
+    traceId: pickDiagnosticValue(
+      appliedFilters.traceId,
+      searchForm.traceId
+    ),
+    deviceCode: pickDiagnosticValue(
+      appliedFilters.deviceCode,
+      searchForm.deviceCode
+    ),
+    productKey: pickDiagnosticValue(
+      appliedFilters.productKey,
+      searchForm.productKey
+    ),
+    topic: pickDiagnosticValue(
+      appliedFilters.topic,
+      searchForm.topic
+    ),
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function buildDiagnosticContext(source?: DiagnosticSourceCandidate): DiagnosticContext {
+  const visibleContext = buildVisibleDiagnosticContext();
+  return {
+    ...visibleContext,
+    traceId: pickDiagnosticValue(source?.traceId, visibleContext.traceId),
+    deviceCode: pickDiagnosticValue(source?.deviceCode, visibleContext.deviceCode),
+    productKey: pickDiagnosticValue(source?.productKey, visibleContext.productKey),
+    topic: pickDiagnosticValue(source?.topic, visibleContext.topic),
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function persistCurrentDiagnosticContext(source?: DiagnosticSourceCandidate) {
+  persistDiagnosticContext(buildDiagnosticContext(source));
+}
+
 function applyRouteQuery() {
-  searchForm.deviceCode = readQueryValue('deviceCode');
-  searchForm.productKey = readQueryValue('productKey');
-  searchForm.traceId = readQueryValue('traceId');
+  const resolvedContext = resolveDiagnosticContext(route.query as Record<string, unknown>);
+  restoredDiagnosticContext.value = resolvedContext;
+  searchForm.deviceCode = readQueryValue('deviceCode') || resolvedContext?.deviceCode || '';
+  searchForm.productKey = readQueryValue('productKey') || resolvedContext?.productKey || '';
+  searchForm.traceId = readQueryValue('traceId') || resolvedContext?.traceId || '';
   searchForm.messageType = readQueryValue('messageType');
-  searchForm.topic = readQueryValue('topic');
+  searchForm.topic = readQueryValue('topic') || resolvedContext?.topic || '';
   syncQuickSearchKeywordFromFilters();
   syncAdvancedFilterState();
 }
@@ -867,6 +974,7 @@ function openDetail(row: DeviceMessageLog) {
 }
 
 function applyRecentMessageFlowSession(session: MessageFlowRecentSession) {
+  resetSearchForm();
   searchForm.deviceCode = session.deviceCode || '';
   searchForm.topic = session.topic || '';
   if (session.traceId) {
@@ -877,6 +985,11 @@ function applyRecentMessageFlowSession(session: MessageFlowRecentSession) {
     quickSearchKeyword.value = '';
   }
   syncAdvancedFilterState();
+  persistCurrentDiagnosticContext({
+    traceId: session.traceId || null,
+    deviceCode: session.deviceCode || null,
+    topic: session.topic || null
+  });
   triggerSearch(true);
 }
 
@@ -885,20 +998,44 @@ function canJumpWithRow(row: DeviceMessageLog) {
 }
 
 function jumpToSystemLog(row?: DeviceMessageLog) {
-  const source = row || {
-    traceId: appliedFilters.traceId,
-    deviceCode: appliedFilters.deviceCode,
-    productKey: appliedFilters.productKey,
-    topic: appliedFilters.topic
-  };
+  const context = buildDiagnosticContext(row);
+  persistCurrentDiagnosticContext(row);
   router.push({
     path: '/system-log',
     query: {
-      traceId: source.traceId || undefined,
-      deviceCode: source.deviceCode || undefined,
-      productKey: source.productKey || undefined,
-      requestUrl: source.topic || undefined,
-      requestMethod: source.topic ? 'MQTT' : undefined
+      traceId: context.traceId || undefined,
+      deviceCode: context.deviceCode || undefined,
+      productKey: context.productKey || undefined,
+      requestUrl: context.topic || undefined,
+      requestMethod: context.topic ? 'MQTT' : undefined
+    }
+  });
+}
+
+function jumpToAccessError(row?: DeviceMessageLog) {
+  const context = buildDiagnosticContext(row);
+  persistCurrentDiagnosticContext(row);
+  router.push({
+    path: '/message-trace',
+    query: {
+      mode: 'access-error',
+      traceId: context.traceId || undefined,
+      deviceCode: context.deviceCode || undefined,
+      productKey: context.productKey || undefined,
+      topic: context.topic || undefined
+    }
+  });
+}
+
+function jumpToFileDebug(row?: DeviceMessageLog) {
+  const context = buildDiagnosticContext(row);
+  persistCurrentDiagnosticContext(row);
+  router.push({
+    path: '/file-debug',
+    query: {
+      deviceCode: context.deviceCode || undefined,
+      traceId: context.traceId || undefined,
+      productKey: context.productKey || undefined
     }
   });
 }
