@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import FilePayloadDebugView from '@/views/FilePayloadDebugView.vue';
 
-const { mockRouter } = vi.hoisted(() => ({
+const { mockRoute, mockRouter } = vi.hoisted(() => ({
+  mockRoute: {
+    query: {} as Record<string, unknown>
+  },
   mockRouter: {
     push: vi.fn()
   }
 }));
 
 vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
 
@@ -61,9 +65,27 @@ const ResponsePanelStub = defineComponent({
   `
 });
 
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}));
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: {
+      getItem: vi.fn((key: string) => store.get(key) ?? null),
+      setItem: vi.fn((key: string, next: string) => {
+        store.set(key, next);
+      }),
+      removeItem: vi.fn((key: string) => {
+        store.delete(key);
+      })
+    }
+  });
+}
+
 describe('FilePayloadDebugView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRoute.query = {};
+    installSessionStorageMock();
   });
 
   it('renders the compact validation strip and keeps the four-part result layout', () => {
@@ -90,5 +112,40 @@ describe('FilePayloadDebugView', () => {
     expect(wrapper.text()).toContain('文件快照原始响应');
     expect(wrapper.text()).toContain('固件聚合原始响应');
     expect(wrapper.text()).not.toContain('文件消息完整性概况');
+  });
+
+  it('restores deviceCode from persisted diagnostic context', () => {
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'message-trace',
+          deviceCode: 'demo-device-02',
+          traceId: 'trace-001',
+          productKey: 'demo-product',
+          capturedAt: new Date().toISOString()
+        }
+      })
+    });
+    mockRoute.query = { traceId: 'trace-001' };
+
+    const wrapper = mount(FilePayloadDebugView, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardInlineState: true,
+          StandardInfoGrid: true,
+          PanelCard: PanelCardStub,
+          EmptyState: true,
+          ResponsePanel: ResponsePanelStub,
+          StandardButton: true,
+          ElInput: true
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(wrapper.text()).toContain('demo-device-02');
   });
 });

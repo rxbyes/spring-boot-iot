@@ -109,7 +109,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
@@ -121,10 +121,17 @@ import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { recordActivity } from '../stores/activity';
 import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';
+import {
+  describeDiagnosticSource,
+  persistDiagnosticContext,
+  resolveDiagnosticContext
+} from '../utils/iotAccessDiagnostics';
 
-const defaultDeviceCode = 'demo-device-01';
+const route = useRoute();
 const router = useRouter();
-const deviceCode = ref(defaultDeviceCode);
+const restoredDiagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>));
+const defaultDeviceCode = computed(() => restoredDiagnosticContext.value?.deviceCode || 'demo-device-01');
+const deviceCode = ref(defaultDeviceCode.value);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const lastFetchTime = ref<string | null>(null);
@@ -143,11 +150,26 @@ const inlineStateMessage = computed(() => {
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 const validationStripStatus = computed(() => {
-  if (lastFetchTime.value) {
-    return `当前设备 ${normalizedDeviceCode.value || '--'}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条，最近刷新 ${formatDateTime(lastFetchTime.value)}。`;
-  }
-  return `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
+  const sourceLabel = restoredDiagnosticContext.value
+    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+    : '';
+  const summary = lastFetchTime.value
+    ? `当前设备 ${normalizedDeviceCode.value || '--'}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条，最近刷新 ${formatDateTime(lastFetchTime.value)}。`
+    : `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
+  return [sourceLabel, summary].filter(Boolean).join(' · ');
 });
+
+function persistValidationContext(snapshotCount: number, aggregateCount: number) {
+  persistDiagnosticContext({
+    sourcePage: 'file-debug',
+    deviceCode: normalizedDeviceCode.value,
+    traceId: restoredDiagnosticContext.value?.traceId || undefined,
+    productKey: restoredDiagnosticContext.value?.productKey || undefined,
+    topic: restoredDiagnosticContext.value?.topic || undefined,
+    reportStatus: snapshotCount || aggregateCount ? 'validated' : 'timeline-missing',
+    capturedAt: new Date().toISOString()
+  });
+}
 
 function formatMd5(value?: boolean | null) {
   if (value === true) {
@@ -177,6 +199,7 @@ async function refreshAll() {
     fileSnapshots.value = snapshotResponse.data;
     firmwareAggregates.value = firmwareResponse.data;
     lastFetchTime.value = new Date().toISOString();
+    persistValidationContext(snapshotResponse.data.length, firmwareResponse.data.length);
 
     recordActivity({
       module: '数据校验台',
@@ -191,6 +214,7 @@ async function refreshAll() {
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
+    persistValidationContext(0, 0);
     recordActivity({
       module: '数据校验台',
       action: '刷新校验数据',
@@ -205,7 +229,7 @@ async function refreshAll() {
 }
 
 function handleReset() {
-  deviceCode.value = defaultDeviceCode;
+  deviceCode.value = defaultDeviceCode.value;
   errorMessage.value = '';
   lastFetchTime.value = null;
   fileSnapshots.value = [];
