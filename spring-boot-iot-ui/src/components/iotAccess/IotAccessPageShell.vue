@@ -27,10 +27,6 @@
       </div>
     </div>
 
-    <div v-if="status || $slots.status" class="iot-access-page-shell__status">
-      <slot name="status">{{ status }}</slot>
-    </div>
-
     <div v-if="$slots.default" class="iot-access-page-shell__body">
       <slot />
     </div>
@@ -49,11 +45,9 @@ withDefaults(
   defineProps<{
     title: string
     breadcrumbs?: IotAccessPageShellBreadcrumb[]
-    status?: string
   }>(),
   {
-    breadcrumbs: () => [],
-    status: ''
+    breadcrumbs: () => []
   }
 )
 </script>
@@ -115,16 +109,6 @@ withDefaults(
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
-}
-
-.iot-access-page-shell__status {
-  border: 1px solid color-mix(in srgb, var(--brand) 16%, white);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--text-secondary);
-  padding: 0.7rem 0.9rem;
-  font-size: 0.88rem;
-  line-height: 1.6;
 }
 
 .iot-access-page-shell__body {

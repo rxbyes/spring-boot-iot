@@ -2,14 +2,14 @@
   <StandardWorkbenchPanel
     title="接入失败归档台"
     description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
-    show-header-actions
+    :show-header-actions="showModeSwitch"
     show-filters
     :show-applied-filters="hasAppliedFilters"
     show-notices
     show-toolbar
     show-pagination
   >
-    <template #header-actions>
+    <template v-if="showModeSwitch" #header-actions>
       <StandardChoiceGroup
         :model-value="viewMode"
         :options="viewModeOptions"
@@ -396,10 +396,16 @@ type ViewModeOption = {
   value: ObservabilityViewMode;
 };
 
-const props = defineProps<{
-  viewMode: ObservabilityViewMode;
-  viewModeOptions: ViewModeOption[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    viewMode: ObservabilityViewMode;
+    viewModeOptions: ViewModeOption[];
+    showModeSwitch?: boolean;
+  }>(),
+  {
+    showModeSwitch: true
+  }
+);
 
 const emit = defineEmits<{
   (event: 'change-view-mode', value: ObservabilityViewMode): void;

@@ -16,18 +16,18 @@ const RouterLinkStub = defineComponent({
 });
 
 describe('IotAccessPageShell', () => {
-  it('renders lightweight breadcrumbs, title, actions and status strip', () => {
+  it('renders breadcrumbs, title and actions without the deprecated summary strip', () => {
     const wrapper = mount(IotAccessPageShell, {
       props: {
         title: '产品定义中心',
         breadcrumbs: [
           { label: '接入智维', to: '/device-access' },
           { label: '产品定义中心' }
-        ],
-        status: '来自异常观测台 · 优先核对产品契约'
+        ]
       },
       slots: {
-        actions: '<button type="button" class="shell-action">新增产品</button>'
+        actions: '<button type="button" class="shell-action">新增产品</button>',
+        status: '<span class="deprecated-status">来自异常观测台</span>'
       },
       global: {
         stubs: {
@@ -37,11 +37,10 @@ describe('IotAccessPageShell', () => {
     });
 
     expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
-    expect(wrapper.findAll('.iot-access-page-shell__breadcrumb-item')).toHaveLength(2);
-    expect(wrapper.find('a.router-link-stub').attributes('href')).toBe('/device-access');
     expect(wrapper.find('.iot-access-page-shell__title').text()).toBe('产品定义中心');
-    expect(wrapper.text()).toContain('来自异常观测台 · 优先核对产品契约');
     expect(wrapper.find('.shell-action').text()).toBe('新增产品');
+    expect(wrapper.find('.iot-access-page-shell__status').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('来自异常观测台');
   });
 
   it('keeps the header minimal when optional areas are missing', () => {

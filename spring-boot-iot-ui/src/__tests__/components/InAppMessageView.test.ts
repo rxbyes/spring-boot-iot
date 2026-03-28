@@ -365,11 +365,18 @@ const ElCollapseItemStub = defineComponent({
 
 const PanelCardStub = defineComponent({
   name: 'PanelCard',
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="panel-card-stub">
       <header class="panel-card-stub__header">
-        <slot name="header" />
+        <slot name="header">
+          <div class="panel-card-stub__heading">
+            <p v-if="eyebrow" class="panel-card-stub__eyebrow">{{ eyebrow }}</p>
+            <h2 v-if="title" class="panel-card-stub__title">{{ title }}</h2>
+          </div>
+        </slot>
       </header>
+      <p v-if="description" class="panel-card-stub__description">{{ description }}</p>
       <div class="panel-card-stub__body">
         <slot />
       </div>
@@ -707,7 +714,8 @@ function mountView() {
 }
 
 function findBridgeSearchButton(wrapper: ReturnType<typeof mountView>) {
-  return wrapper.findAll('button').find((button) => button.text() === '查询' && button.element.closest('.search-form--bridge'))
+  const bridgeFilterHeader = wrapper.findAll('.standard-list-filter-header').at(1)
+  return bridgeFilterHeader?.findAll('button').find((button) => button.text() === '查询')
 }
 
 describe('InAppMessageView bridge operations', () => {
@@ -738,7 +746,7 @@ describe('InAppMessageView bridge operations', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const bridgeStatusSelect = wrapper.find('select[data-placeholder="请选择桥接状态"]')
+    const bridgeStatusSelect = wrapper.findAll('select').find((select) => select.attributes('data-placeholder') === '桥接状态')
     await bridgeStatusSelect.setValue('0')
     await findBridgeSearchButton(wrapper)!.trigger('click')
     await flushPromises()
@@ -757,7 +765,7 @@ describe('InAppMessageView bridge operations', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const bridgeDetailButton = wrapper.findAll('button').find((button) => button.text() === '查看桥接')
+    const bridgeDetailButton = wrapper.findAll('button').find((button) => button.text() === '桥接详情')
     expect(bridgeDetailButton).toBeTruthy()
 
     await bridgeDetailButton!.trigger('click')

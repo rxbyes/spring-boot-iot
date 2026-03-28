@@ -99,21 +99,20 @@ describe('SectionLandingView', () => {
     permissionState.hasRoutePermission = true
   })
 
-  it('renders a compact iot access entry strip and keeps the hub sections', () => {
+  it('renders the iot access hub as two real business tabs with a single entry list', () => {
     const wrapper = mountView()
 
     expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-page-shell__status').exists()).toBe(false)
     expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true)
     expect(wrapper.text()).toContain('接入智维')
-    expect(wrapper.text()).toContain('先处理资产底座，再进入链路诊断。')
-    expect(wrapper.text()).toContain('推荐处理')
-    expect(wrapper.text()).toContain('最近使用')
-    expect(wrapper.text()).toContain('全部能力')
+    expect(wrapper.text()).toContain('资产底座')
+    expect(wrapper.text()).toContain('诊断排障')
     expect(wrapper.text()).toContain('产品定义中心')
-    expect(wrapper.text()).toContain('最近使用')
-    expect(wrapper.text()).toContain('推荐处理顺序')
-    expect(wrapper.text()).toContain('全部能力')
-    expect(wrapper.text()).toContain('链路验证中心 · 发送模拟上报')
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).not.toContain('推荐处理')
+    expect(wrapper.text()).not.toContain('最近使用')
+    expect(wrapper.text()).not.toContain('全部能力')
   })
 
   it('hides hub chrome and self-link CTA when the user has no accessible pages', () => {
