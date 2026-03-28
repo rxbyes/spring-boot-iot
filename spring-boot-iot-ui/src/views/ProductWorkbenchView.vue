@@ -134,8 +134,8 @@
 
       <template #inline-state>
         <StandardInlineState
-          :message="listRefreshMessage"
-          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+          :message="workbenchInlineMessage"
+          :tone="workbenchInlineTone"
         />
       </template>
 
@@ -688,6 +688,7 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime } from '@/utils/format'
+import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
@@ -743,6 +744,7 @@ const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
 
 // 设备列表抽屉相关状态
 import type { Device } from '@/types/api'
@@ -847,7 +849,19 @@ const enabledProductCount = computed(() => tableData.value.filter((item) => item
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
-const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const diagnosticEntryMessage = computed(() => {
+  if (!diagnosticContext.value) {
+    return ''
+  }
+  const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
+  const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
+  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, '优先核对产品契约、协议编码与物模型完整性。']
+    .filter(Boolean)
+    .join(' · ')
+})
+const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
+const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
+const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
     { key: 'devices', command: 'devices', label: '查看设备' },

@@ -118,12 +118,18 @@ const ElInputStub = defineComponent({
   `
 })
 
+const StandardInlineStateStub = defineComponent({
+  name: 'StandardInlineState',
+  props: ['message', 'tone'],
+  template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function installSessionStorageMock() {
-  const store = new Map<string, string>()
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}))
   Object.defineProperty(window, 'sessionStorage', {
     configurable: true,
     value: {
@@ -149,7 +155,8 @@ function mountView() {
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
-        ElInput: ElInputStub
+        ElInput: ElInputStub,
+        StandardInlineState: StandardInlineStateStub
       }
     }
   })
@@ -210,5 +217,32 @@ describe('DeviceWorkbenchView', () => {
     expect(wrapper.text()).toContain('设备资产中心')
     expect(wrapper.text()).toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
     expect(wrapper.text()).not.toContain('优先清理未登记、长时间未上报和拓扑异常设备')
+  })
+
+  it('shows a compact diagnostic intake hint when opened from access-error', async () => {
+    mockRoute.query = {
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      traceId: 'trace-001'
+    }
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'access-error',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          traceId: 'trace-001',
+          capturedAt: new Date().toISOString()
+        }
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('来自失败归档')
+    expect(wrapper.text()).toContain('demo-device-01')
   })
 })

@@ -79,6 +79,7 @@ const StandardWorkbenchPanelStub = defineComponent({
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
       <div class="product-workbench-panel-stub__toolbar"><slot name="toolbar" /></div>
+      <div class="product-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="product-workbench-panel-stub__body"><slot /></div>
       <div class="product-workbench-panel-stub__pagination"><slot name="pagination" /></div>
     </section>
@@ -128,6 +129,12 @@ const StandardButtonStub = defineComponent({
   template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardInlineStateStub = defineComponent({
+  name: 'StandardInlineState',
+  props: ['message', 'tone'],
+  template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
 const ProductModelDesignerDrawerStub = defineComponent({
   name: 'ProductModelDesignerDrawer',
   props: ['modelValue', 'product'],
@@ -146,8 +153,8 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function installSessionStorageMock() {
-  const store = new Map<string, string>()
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}))
   Object.defineProperty(window, 'sessionStorage', {
     configurable: true,
     value: {
@@ -183,7 +190,7 @@ function mountView() {
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
         StandardTableToolbar: true,
-        StandardInlineState: true,
+        StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
         StandardTableTextColumn: true,
         CsvColumnSettingDialog: true,
@@ -263,5 +270,30 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('服务模型')
     expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
     expect(wrapper.text()).toContain('暂无物模型')
+  })
+
+  it('shows a compact diagnostic intake hint when opened from system-log', async () => {
+    mockRoute.query = {
+      productKey: 'demo-product',
+      traceId: 'trace-001'
+    }
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'system-log',
+          productKey: 'demo-product',
+          traceId: 'trace-001',
+          capturedAt: new Date().toISOString()
+        }
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('来自异常观测台')
+    expect(wrapper.text()).toContain('Trace trace-001')
   })
 })

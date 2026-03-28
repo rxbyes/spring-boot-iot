@@ -96,8 +96,8 @@
 
       <template #inline-state>
         <StandardInlineState
-          :message="listRefreshMessage"
-          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+          :message="workbenchInlineMessage"
+          :tone="workbenchInlineTone"
         />
       </template>
 
@@ -875,6 +875,7 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime, prettyJson } from '@/utils/format'
+import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 interface DeviceSearchForm {
   deviceId: string
@@ -928,6 +929,7 @@ const detailErrorMessage = ref('')
 const detailRefreshErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
+const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
 const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const replaceRefreshMessage = ref('')
@@ -1067,7 +1069,20 @@ const formGatewayPreview = computed(() => resolveGatewayPreviewText(selectedForm
 const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) => getDeviceRowKey(item)).filter(Boolean)))
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
-const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const diagnosticEntryMessage = computed(() => {
+  if (!diagnosticContext.value) {
+    return ''
+  }
+  const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
+  const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
+  const deviceLabel = diagnosticContext.value.deviceCode ? `设备 ${diagnosticContext.value.deviceCode}` : ''
+  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, deviceLabel, '优先核对登记状态、在线态与失败来源。']
+    .filter(Boolean)
+    .join(' · ')
+})
+const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
+const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
+const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
