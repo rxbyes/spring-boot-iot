@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -16,10 +17,12 @@ import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,7 +39,7 @@ class RedisInvalidReportCounterStoreTest {
     void setUp() {
         IotProperties properties = new IotProperties();
         properties.getObservability().getInvalidReportGovernance().setEnabled(true);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         store = new RedisInvalidReportCounterStore(
                 stringRedisTemplate,
                 properties,
@@ -68,5 +71,18 @@ class RedisInvalidReportCounterStoreTest {
 
         assertTrue(firstAcquired);
         assertFalse(secondAcquired);
+    }
+
+    @Test
+    void shouldBeCreatableBySpringContext() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(IotProperties.class, IotProperties::new);
+            context.registerBean(StringRedisTemplate.class, () -> stringRedisTemplate);
+            context.register(RedisInvalidReportCounterStore.class);
+
+            context.refresh();
+
+            assertNotNull(context.getBean(RedisInvalidReportCounterStore.class));
+        }
     }
 }

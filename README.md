@@ -40,6 +40,7 @@
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
 - `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认先读 telemetry v2 latest MySQL 投影表 `iot_device_metric_latest`，并在 `legacy-read-fallback-enabled=true` 时继续补齐 legacy stable + `iot_device_telemetry_point` 缺失指标；`mysql` 模式兼容回退到 `iot_device_property`。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
+- 设备离线超时调度当前也启用独立 Redis 单实例锁：默认通过 `iot:device:offline-timeout:leader` 只允许 1 个 leader 节点执行离线收口，避免共享环境多实例或旧节点把设备状态反复写回离线。
 - 2026-03-27 起，MQTT 无效上报治理已进入默认基线：首批对 `DEVICE_NOT_FOUND` 与 `EMPTY_DECRYPTED_PAYLOAD` 执行 Redis 分钟桶计数与冷却抑制，`iot_device_access_error_log` 收口为失败样本归档，未登记设备最新态改由 `iot_device_invalid_report_state` 承载，设备补录 / 更换成功后会自动标记对应记录为已解封。
 - Phase 4 已完成并纳入真实环境验收基线的能力，包括实时监测、GIS 态势图、告警、事件、风险策略、报表分析、系统治理和系统内容治理。
 - 当前共享开发环境已于 2026-03-24 完成 `/api/risk-monitoring/*`、`/risk-monitoring`、`/risk-monitoring-gis` 真实环境复验，风险监测基线正式纳入交付。

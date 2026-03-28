@@ -235,8 +235,20 @@ public class IotProperties {
 
     @Data
     public static class Device {
-        private Integer onlineTimeoutSeconds = 120;
+        private Integer onlineTimeoutSeconds = 120 * 60;
         private Boolean activateDefault = Boolean.TRUE;
+        /**
+         * 是否启用设备离线超时调度集群单活，避免多实例重复收口在线状态。
+         */
+        private Boolean offlineTimeoutClusterSingletonEnabled = Boolean.TRUE;
+        /**
+         * Redis 中的设备离线超时调度集群锁 Key。
+         */
+        private String offlineTimeoutLockKey = "iot:device:offline-timeout:leader";
+        /**
+         * 设备离线超时调度锁租约时长，单位秒。
+         */
+        private Integer offlineTimeoutLockTtlSeconds = 90;
         /**
          * 基准站设备编码 -> 逻辑子设备编码 -> 实际子设备 deviceCode。
          * 当前用于兼容“基准站一包多测点”的历史上报场景。

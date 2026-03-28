@@ -1,6 +1,7 @@
 package com.ghlzm.iot.framework.observability.invalidreport;
 
 import com.ghlzm.iot.framework.config.IotProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -28,6 +29,7 @@ public class RedisInvalidReportCounterStore implements InvalidReportCounterStore
     private final IotProperties iotProperties;
     private final Clock clock;
 
+    @Autowired
     public RedisInvalidReportCounterStore(StringRedisTemplate stringRedisTemplate,
                                           IotProperties iotProperties) {
         this(stringRedisTemplate, iotProperties, Clock.systemDefaultZone());
