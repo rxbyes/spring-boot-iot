@@ -141,20 +141,35 @@
   --button-primary-text: #ffffff;
   --button-primary-hover-text: #ffffff;
   --button-primary-disabled-text: rgba(255, 255, 255, 0.88);
+  --button-query-bg-color: #ff9650;
+  --button-query-bg: linear-gradient(135deg, #ffb06d 0%, #ff9854 100%);
+  --button-query-hover-bg-color: #ff8a42;
+  --button-query-hover-bg: linear-gradient(135deg, #ffab67 0%, #ff8e47 100%);
+  --button-query-active-bg: linear-gradient(135deg, #ff9a52 0%, #ff8134 100%);
+  --button-query-disabled-bg-color: color-mix(in srgb, #ff9a57 32%, white);
+  --button-query-disabled-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffb06d 42%, white),
+    color-mix(in srgb, #ff9854 36%, white)
+  );
+  --button-query-text: #ffffff;
+  --button-query-hover-text: #ffffff;
+  --button-query-disabled-text: rgba(255, 255, 255, 0.88);
+  --button-query-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 14%, transparent);
   --button-action-text: var(--brand);
   --button-action-hover-text: var(--brand-deep);
   --button-action-hover-bg: color-mix(in srgb, var(--brand) 10%, white);
   --button-secondary-bg: var(--bg-card);
-  --button-secondary-border: color-mix(in srgb, var(--brand) 28%, white);
-  --button-secondary-text: var(--brand);
-  --button-secondary-hover-bg: color-mix(in srgb, var(--brand) 9%, white);
-  --button-secondary-hover-border: color-mix(in srgb, var(--brand) 52%, white);
-  --button-secondary-hover-text: var(--brand-deep);
-  --button-secondary-active-bg: color-mix(in srgb, var(--brand) 14%, white);
-  --button-secondary-active-border: color-mix(in srgb, var(--brand) 60%, white);
-  --button-secondary-disabled-bg: color-mix(in srgb, var(--brand) 4%, white);
-  --button-secondary-disabled-border: color-mix(in srgb, var(--brand) 16%, white);
-  --button-secondary-disabled-text: color-mix(in srgb, var(--brand) 48%, white);
+  --button-secondary-border: #ffd2b4;
+  --button-secondary-text: #ff7b2f;
+  --button-secondary-hover-bg: #fff7f0;
+  --button-secondary-hover-border: #ffbc8c;
+  --button-secondary-hover-text: #f26814;
+  --button-secondary-active-bg: #fff1e5;
+  --button-secondary-active-border: #ffb27d;
+  --button-secondary-disabled-bg: #fffaf6;
+  --button-secondary-disabled-border: #ffe6d4;
+  --button-secondary-disabled-text: #f3bf98;
 
   /* 过渡 */
   --transition-fast: 150ms ease;
