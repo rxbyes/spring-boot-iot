@@ -7,7 +7,17 @@
         <p class="reporting-command-strip__meta">{{ reportingStripStatus }}</p>
       </div>
       <div class="reporting-command-strip__actions">
-        <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
+        <StandardActionGroup gap="sm">
+          <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
+            继续链路追踪
+          </StandardButton>
+          <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
+            查看异常观测
+          </StandardButton>
+          <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
+            打开数据校验
+          </StandardButton>
+        </StandardActionGroup>
       </div>
     </section>
 
@@ -439,6 +449,12 @@ import type {
   MqttReportPublishPayload
 } from '../types/api';
 import { formatDateTime, looksLikeXml, parseJsonSafely, prettyJson, prettyXml } from '../utils/format';
+import {
+  buildDiagnosticRouteQuery,
+  persistDiagnosticContext,
+  type DiagnosticContext,
+  type DiagnosticFinding
+} from '../utils/iotAccessDiagnostics';
 import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
 import {
   evaluateReportWorkbenchInput,
@@ -574,6 +590,8 @@ const lastResponse = ref<unknown>(INITIAL_RESPONSE);
 const framePanelExpanded = ref(true);
 const messageFlowSessionId = ref('');
 const messageFlowSession = ref<MessageFlowSession | null>(null);
+const messageFlowRestoreBaseline = ref<MessageFlowRecentSession | null>(null);
+const messageFlowReportedTraceId = ref('');
 const messageFlowRecentSessions = ref<MessageFlowRecentSession[]>([]);
 const messageFlowLoading = ref(false);
 const messageFlowRecentLoading = ref(false);
@@ -702,10 +720,89 @@ const deviceLookupInlineTone = computed<'info' | 'error'>(() =>
     deviceLookupTone.value === 'danger' ? 'error' : 'info'
 );
 
+const currentDiagnosticContext = computed<DiagnosticContext>(() => {
+  const baselineDeviceCode = normalizedText(messageFlowRestoreBaseline.value?.deviceCode);
+  const baselineTraceId = normalizedText(messageFlowRestoreBaseline.value?.traceId);
+  const baselineTopic = normalizedText(messageFlowRestoreBaseline.value?.topic);
+  const baselineTransportMode = normalizeTransportMode(messageFlowRestoreBaseline.value?.transportMode);
+  const sessionDeviceCode = normalizedText(messageFlowSession.value?.deviceCode);
+  const sessionTopic = normalizedText(messageFlowSession.value?.topic);
+  const sessionTransportMode = normalizeTransportMode(messageFlowSession.value?.transportMode);
+  const fallbackDeviceCode = normalizedText(reportForm.deviceCode);
+  const fallbackTransportMode = normalizeTransportMode(messageFlowSubmittedTransportMode.value || transportMode.value);
+  const hasRestoredSessionContext = Boolean(messageFlowRestoreBaseline.value || normalizedText(messageFlowSessionId.value));
+  return {
+    sourcePage: 'reporting',
+    deviceCode: baselineDeviceCode || sessionDeviceCode || fallbackDeviceCode || undefined,
+    traceId: baselineTraceId || normalizedText(messageFlowTraceId.value) || undefined,
+    productKey: resolvedProductKey.value || undefined,
+    topic: baselineTopic || sessionTopic || normalizedText(reportForm.topic) || undefined,
+    sessionId: normalizedText(messageFlowSessionId.value) || undefined,
+    transportMode: baselineTransportMode
+        || sessionTransportMode
+        || (hasRestoredSessionContext ? normalizeTransportMode(messageFlowSubmittedTransportMode.value) : fallbackTransportMode),
+    reportStatus: resolveCurrentReportStatus(),
+    capturedAt: new Date().toISOString()
+  };
+});
+
+const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
+  if (messageFlowTraceId.value) {
+    return {
+      kind: 'timeline',
+      level: 'success',
+      title: '已拿到 trace，可进入链路追踪',
+      summary: '继续链路追踪查看固定 Pipeline 阶段结果。',
+      reason: '当前 session 已绑定 traceId，可跨页联查。',
+      nextActionLabel: '继续链路追踪',
+      nextActionTarget: '/message-trace'
+    };
+  }
+  if (isMqttCorrelationPendingSession()) {
+    return {
+      kind: 'correlation',
+      level: 'warning',
+      title: 'MQTT 已发布，等待消费回流',
+      summary: '保留当前上下文，等待 traceId 绑定后继续追踪。',
+      reason: '当前处于 correlation pending，trace 尚未回填。',
+      nextActionLabel: '查看异常观测',
+      nextActionTarget: '/system-log'
+    };
+  }
+  if (resolvedDevice.value) {
+    return {
+      kind: 'contract',
+      level: 'success',
+      title: '设备身份已就绪，可直接发送',
+      summary: '可直接发送模拟报文，发送后继续链路追踪。',
+      reason: '设备契约和发送参数已准备完成。',
+      nextActionLabel: '打开数据校验',
+      nextActionTarget: '/file-debug'
+    };
+  }
+  return {
+    kind: 'identity',
+    level: 'warning',
+    title: '设备身份未校准',
+    summary: '请先查询设备，再进入发送与链路动作。',
+    reason: '设备身份上下文缺失，无法稳定关联后续诊断。',
+    nextActionLabel: '查询设备'
+  };
+});
+
 const reportingStripStatus = computed(() => {
-  const deviceLabel = normalizedText(resolvedDevice.value?.deviceCode) || '未查询';
-  const transportLabel = transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP';
-  return `当前设备 ${deviceLabel} · ${transportLabel} · ${sendStatusText.value}`;
+  const deviceLabel = currentDiagnosticContext.value.deviceCode || '未查询';
+  return `${currentDiagnosticFinding.value.title} · ${currentDiagnosticFinding.value.summary}（设备 ${deviceLabel}）`;
+});
+
+const canContinueTrace = computed(() => Boolean(currentDiagnosticContext.value.traceId));
+const canViewSystemLog = computed(() => {
+  const context = currentDiagnosticContext.value;
+  return Boolean(context.traceId || context.deviceCode || context.topic);
+});
+const canOpenFileDebug = computed(() => {
+  const context = currentDiagnosticContext.value;
+  return Boolean(context.deviceCode || context.productKey || context.traceId);
 });
 
 const diagnosticSummaryItems = computed(() => {
@@ -840,13 +937,18 @@ const plaintextFrameHexPreview = computed(() => {
 const responsePreview = computed(() => prettyJson(lastResponse.value));
 const messageFlowTimeline = computed<MessageFlowTimeline | null>(() => messageFlowSession.value?.timeline || null);
 const messageFlowTraceId = computed(() =>
-    normalizedText(messageFlowSession.value?.traceId) || normalizedText(messageFlowTimeline.value?.traceId)
+    normalizedText(messageFlowRestoreBaseline.value?.traceId)
+    || normalizedText(messageFlowReportedTraceId.value)
+    || normalizedText(messageFlowSession.value?.traceId)
+    || normalizedText(messageFlowTimeline.value?.traceId)
 );
 const messageFlowPendingTimedOut = computed(() => {
-  if (!messageFlowSession.value?.correlationPending || normalizedText(messageFlowTraceId.value)) {
+  if (!isMessageFlowCorrelationPending() || normalizedText(messageFlowTraceId.value)) {
     return false;
   }
-  const submittedAt = parseMessageFlowSubmittedAt(messageFlowSession.value?.submittedAt);
+  const submittedAt = parseMessageFlowSubmittedAt(
+      messageFlowSession.value?.submittedAt || messageFlowRestoreBaseline.value?.submittedAt
+  );
   return submittedAt !== null && Date.now() - submittedAt >= MESSAGE_FLOW_MATCH_WINDOW_MS;
 });
 const messageFlowInlineTone = computed<'info' | 'error'>(() =>
@@ -865,7 +967,7 @@ const messageFlowStatusMessage = computed(() => {
   if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
     return '时间线不可用，优先排查 Redis/TTL。';
   }
-  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+  if (isMessageFlowCorrelationPending() && !messageFlowTraceId.value) {
     if (messageFlowPendingTimedOut.value) {
       return 'MQTT 模拟已超出关联窗口，判定为未命中消费回流关联。';
     }
@@ -889,7 +991,7 @@ const messageFlowEmptyTitle = computed(() => {
   if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
     return '时间线不可用';
   }
-  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+  if (isMessageFlowCorrelationPending() && !messageFlowTraceId.value) {
     if (messageFlowPendingTimedOut.value) {
       return '未命中消费回流关联';
     }
@@ -904,7 +1006,7 @@ const messageFlowEmptyDescription = computed(() => {
   if (messageFlowLookupMissing.value && messageFlowSubmittedTransportMode.value === 'http' && messageFlowExpectedTimeline.value) {
     return 'HTTP 提交已返回 timelineAvailable=true，但后续 session 查询为空，优先排查 Redis TTL、key 可写性和 message-flow 存储异常。';
   }
-  if (messageFlowSession.value?.correlationPending && !messageFlowTraceId.value) {
+  if (isMessageFlowCorrelationPending() && !messageFlowTraceId.value) {
     if (messageFlowPendingTimedOut.value) {
       return 'MQTT 模拟发布已超过 120 秒匹配窗口，当前判定 fingerprint 未命中真实消费回流。';
     }
@@ -1110,12 +1212,14 @@ async function handleSendReport() {
     lastResponse.value = response;
     messageFlowSubmittedTransportMode.value = transportMode.value;
     messageFlowExpectedTimeline.value = Boolean(response.data?.timelineAvailable);
+    messageFlowReportedTraceId.value = normalizedText(response.data?.traceId);
     const submitSessionId = normalizedText(response.data?.sessionId);
     if (submitSessionId) {
       messageFlowSessionId.value = submitSessionId;
       await loadMessageFlowSession(submitSessionId, transportMode.value === 'mqtt');
     }
     await loadRecentMessageFlows();
+    persistCurrentDiagnosticContext();
     ElMessage.success(`${transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP'} 模拟上报成功`);
     recordActivity({
       module: '链路验证中心',
@@ -1158,6 +1262,8 @@ function resetMessageFlowState() {
   clearMessageFlowTimer();
   messageFlowSessionId.value = '';
   messageFlowSession.value = null;
+  messageFlowRestoreBaseline.value = null;
+  messageFlowReportedTraceId.value = '';
   messageFlowLookupError.value = '';
   messageFlowLookupMissing.value = false;
   messageFlowSubmittedTransportMode.value = '';
@@ -1213,25 +1319,52 @@ async function handleRefreshMessageFlow() {
   }
   await loadMessageFlowSession(
       messageFlowSessionId.value,
-      Boolean(messageFlowSession.value?.correlationPending && !messageFlowTraceId.value)
+      Boolean(isMessageFlowCorrelationPending() && !messageFlowTraceId.value)
   );
 }
 
 function jumpToMessageTrace() {
-  if (!messageFlowTraceId.value) {
+  const context = currentDiagnosticContext.value;
+  if (!context.traceId) {
     return;
   }
+  persistCurrentDiagnosticContext();
   router.push({
     path: '/message-trace',
+    query: buildDiagnosticRouteQuery(context)
+  });
+}
+
+function jumpToSystemLog() {
+  const context = currentDiagnosticContext.value;
+  const routeQuery = buildDiagnosticRouteQuery(context);
+  const requestTopic = normalizedText(context.topic);
+  const requestMethod = context.transportMode === 'mqtt'
+      ? 'MQTT'
+      : context.transportMode === 'http'
+          ? 'HTTP'
+          : undefined;
+  persistCurrentDiagnosticContext();
+  router.push({
+    path: '/system-log',
     query: {
-      traceId: messageFlowTraceId.value
+      ...routeQuery,
+      requestUrl: requestTopic || undefined,
+      requestMethod: requestTopic ? requestMethod : undefined
     }
   });
 }
 
-function handleOpenTraceWorkbench() {
+function jumpToFileDebug() {
+  const context = currentDiagnosticContext.value;
+  persistCurrentDiagnosticContext();
   router.push({
-    path: '/message-trace'
+    path: '/file-debug',
+    query: {
+      deviceCode: context.deviceCode || undefined,
+      traceId: context.traceId || undefined,
+      productKey: context.productKey || undefined
+    }
   });
 }
 
@@ -1252,6 +1385,7 @@ async function restoreRecentSession(session: MessageFlowRecentSession) {
   if (!sessionId) {
     return;
   }
+  messageFlowRestoreBaseline.value = { ...session };
   messageFlowSessionId.value = sessionId;
   messageFlowSubmittedTransportMode.value = isTransportMode(session.transportMode)
       ? session.transportMode.toLowerCase() as TransportMode
@@ -1264,6 +1398,7 @@ async function restoreRecentSession(session: MessageFlowRecentSession) {
           && Boolean(session.correlationPending)
           && !normalizedText(session.traceId)
   );
+  persistCurrentDiagnosticContext();
 }
 
 function toggleFramePanel() {
@@ -1301,10 +1436,14 @@ function parseMessageFlowSubmittedAt(value?: string | null): number | null {
 }
 
 function shouldContinueMessageFlowPolling(session: MessageFlowSession | null) {
-  if (!session?.correlationPending || normalizedText(session.traceId)) {
+  const pending = typeof session?.correlationPending === 'boolean'
+      ? session.correlationPending
+      : isMessageFlowCorrelationPending();
+  const traceId = normalizedText(session?.traceId) || normalizedText(messageFlowRestoreBaseline.value?.traceId);
+  if (!pending || traceId) {
     return false;
   }
-  const submittedAt = parseMessageFlowSubmittedAt(session.submittedAt);
+  const submittedAt = parseMessageFlowSubmittedAt(session?.submittedAt || messageFlowRestoreBaseline.value?.submittedAt);
   if (submittedAt === null) {
     return true;
   }
@@ -1314,6 +1453,63 @@ function shouldContinueMessageFlowPolling(session: MessageFlowSession | null) {
 function isTransportMode(value: unknown): value is TransportMode {
   const normalized = normalizedText(value);
   return normalized === 'HTTP' || normalized === 'MQTT' || normalized === 'http' || normalized === 'mqtt';
+}
+
+function normalizeTransportMode(value: unknown): TransportMode | null {
+  if (!isTransportMode(value)) {
+    return null;
+  }
+  return normalizedText(value).toLowerCase() as TransportMode;
+}
+
+function isMqttCorrelationPendingSession() {
+  if (!isMessageFlowCorrelationPending()) {
+    return false;
+  }
+  return resolveMessageFlowTransportMode() === 'mqtt';
+}
+
+function isMessageFlowCorrelationPending() {
+  if (typeof messageFlowSession.value?.correlationPending === 'boolean') {
+    return messageFlowSession.value.correlationPending;
+  }
+  if (typeof messageFlowRestoreBaseline.value?.correlationPending === 'boolean') {
+    return messageFlowRestoreBaseline.value.correlationPending;
+  }
+  return false;
+}
+
+function resolveMessageFlowTransportMode(): TransportMode | null {
+  return normalizeTransportMode(messageFlowRestoreBaseline.value?.transportMode)
+      || normalizeTransportMode(messageFlowSession.value?.transportMode)
+      || normalizeTransportMode(messageFlowSubmittedTransportMode.value)
+      || null;
+}
+
+function resolveCurrentReportStatus(): DiagnosticContext['reportStatus'] {
+  if (messageFlowTraceId.value) {
+    return 'validated';
+  }
+  if (isMqttCorrelationPendingSession()) {
+    return 'pending';
+  }
+  if (messageFlowLookupMissing.value && messageFlowExpectedTimeline.value) {
+    return 'timeline-missing';
+  }
+  if (messageFlowSessionId.value) {
+    return 'sent';
+  }
+  if (resolvedDevice.value) {
+    return 'ready';
+  }
+  return 'ready';
+}
+
+function persistCurrentDiagnosticContext() {
+  persistDiagnosticContext({
+    ...currentDiagnosticContext.value,
+    capturedAt: new Date().toISOString()
+  });
 }
 
 onBeforeUnmount(() => {
