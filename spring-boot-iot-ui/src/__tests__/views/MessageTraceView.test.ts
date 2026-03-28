@@ -44,6 +44,16 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['title', 'description'],
@@ -522,6 +532,166 @@ describe('MessageTraceView', () => {
 
     expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
     expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
+  });
+
+  it('treats resolved non-200 timeline responses as storage errors instead of expiration', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 500,
+      msg: 'redis down',
+      data: null
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
+    expect(wrapper.text()).not.toContain('时间线已过期');
+  });
+
+  it('ignores stale timeline responses when switching between detail rows quickly', async () => {
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            traceId: 'trace-001',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            messageType: 'report',
+            topic: '/sys/demo-product/demo-device-01/thing/property/post',
+            payload: '{"temperature":26.5}',
+            reportTime: '2026-03-23 10:00:00',
+            createTime: '2026-03-23 10:00:00'
+          },
+          {
+            id: 2,
+            traceId: 'trace-002',
+            deviceCode: 'demo-device-02',
+            productKey: 'demo-product-02',
+            messageType: 'reply',
+            topic: '/sys/demo-product-02/demo-device-02/thing/property/post',
+            payload: '{"result":"ok"}',
+            reportTime: '2026-03-23 10:00:02',
+            createTime: '2026-03-23 10:00:02'
+          }
+        ]
+      }
+    });
+    const firstTimeline = createDeferred<{
+      code: number;
+      msg: string;
+      data: null;
+    }>();
+    const secondTimeline = createDeferred<{
+      code: number;
+      msg: string;
+      data: {
+        traceId: string;
+        sessionId: string;
+        flowType: string;
+        status: string;
+        deviceCode: string;
+        productKey: string;
+        topic: string;
+        protocolCode: string;
+        messageType: string;
+        startedAt: string;
+        finishedAt: string;
+        totalCostMs: number;
+        steps: Array<{
+          stage: string;
+          handlerClass: string;
+          handlerMethod: string;
+          status: string;
+          costMs: number;
+          startedAt: string;
+          finishedAt: string;
+          summary: Record<string, unknown>;
+          errorClass: string;
+          errorMessage: string;
+          branch: string;
+        }>;
+      };
+    }>();
+    vi.mocked(messageApi.getMessageFlowTrace).mockImplementation((traceId: string) => {
+      if (traceId === 'trace-001') {
+        return firstTimeline.promise;
+      }
+      if (traceId === 'trace-002') {
+        return secondTimeline.promise;
+      }
+      return Promise.reject(new Error(`unexpected traceId: ${traceId}`));
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const detailButtons = wrapper.findAll('button').filter((button) => button.text().includes('详情'));
+    await detailButtons[0]!.trigger('click');
+    await nextTick();
+    await detailButtons[1]!.trigger('click');
+    await nextTick();
+
+    secondTimeline.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-002',
+        sessionId: 'session-002',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-02',
+        productKey: 'demo-product-02',
+        topic: '/sys/demo-product-02/demo-device-02/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'reply',
+        startedAt: '2026-03-23 10:00:02',
+        finishedAt: '2026-03-23 10:00:03',
+        totalCostMs: 66,
+        steps: [
+          {
+            stage: 'DEVICE_CONTRACT',
+            handlerClass: 'UpMessageProcessingPipeline',
+            handlerMethod: 'contract',
+            status: 'SUCCESS',
+            costMs: 8,
+            startedAt: '2026-03-23 10:00:02',
+            finishedAt: '2026-03-23 10:00:02',
+            summary: {},
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+    await flushPromises();
+    await nextTick();
+
+    firstTimeline.resolve({
+      code: 500,
+      msg: 'redis down',
+      data: null
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('trace-002');
+    expect(wrapper.text()).toContain('DEVICE_CONTRACT');
+    expect(wrapper.text()).not.toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).not.toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
   });
 
   it('uses visible filters instead of the opened detail row for global handoff actions', async () => {

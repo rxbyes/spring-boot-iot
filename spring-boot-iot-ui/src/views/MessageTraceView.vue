@@ -499,6 +499,7 @@ const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
 const detailTimeline = ref<MessageFlowTimeline | null>(null);
 const detailTimelineLookupError = ref(false);
+let detailTimelineRequestToken = 0;
 const restoredDiagnosticContext = ref<DiagnosticContext | null>(null);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
@@ -1071,21 +1072,37 @@ function formatInlineText(value?: string | null) {
 }
 
 async function loadDetailTimeline(traceId?: string | null) {
+  const requestToken = ++detailTimelineRequestToken;
   detailTimeline.value = null;
   detailTimelineLookupError.value = false;
   if (!traceId) {
+    timelineLoading.value = false;
     return;
   }
   timelineLoading.value = true;
   try {
     const response = await messageApi.getMessageFlowTrace(traceId);
+    if (requestToken !== detailTimelineRequestToken) {
+      return;
+    }
+    if (response.code !== 200) {
+      detailTimeline.value = null;
+      detailTimelineLookupError.value = true;
+      ElMessage.error(response.msg || '获取处理时间线失败');
+      return;
+    }
     detailTimeline.value = response.data || null;
   } catch (error) {
+    if (requestToken !== detailTimelineRequestToken) {
+      return;
+    }
     detailTimeline.value = null;
     detailTimelineLookupError.value = true;
     ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
   } finally {
-    timelineLoading.value = false;
+    if (requestToken === detailTimelineRequestToken) {
+      timelineLoading.value = false;
+    }
   }
 }
 
@@ -1146,6 +1163,7 @@ watch(
 
 watch(detailVisible, (visible) => {
   if (!visible) {
+    detailTimelineRequestToken += 1;
     detailData.value = {};
     detailTimeline.value = null;
     timelineLoading.value = false;
