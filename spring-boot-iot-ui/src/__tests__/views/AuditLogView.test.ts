@@ -54,6 +54,26 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}));
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: {
+      getItem: vi.fn((key: string) => store.get(key) ?? null),
+      setItem: vi.fn((key: string, next: string) => {
+        store.set(key, next);
+      }),
+      removeItem: vi.fn((key: string) => {
+        store.delete(key);
+      })
+    }
+  });
+}
+
+function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
+  return wrapper.findAll('button').find((button) => button.text().includes(text));
+}
+
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['title', 'description'],
@@ -252,6 +272,7 @@ function mountView() {
 
 describe('AuditLogView', () => {
   beforeEach(() => {
+    installSessionStorageMock();
     mockRoute.path = '/system-log';
     mockRoute.query = {};
     mockRouter.push.mockReset();
@@ -314,5 +335,131 @@ describe('AuditLogView', () => {
     expect(wrapper.text()).toContain('审计中心');
     expect(wrapper.text()).not.toContain('先看 system_error，再决定追踪链路还是回看失败归档。');
     expect(wrapper.find('.audit-log-command-strip').exists()).toBe(false);
+  });
+
+  it('restores system-log filters from persisted diagnostic context', async () => {
+    const now = new Date().toISOString();
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'message-trace',
+          traceId: 'trace-001',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          topic: '$dp',
+          capturedAt: now
+        }
+      })
+    });
+    mockRoute.path = '/system-log';
+    mockRoute.query = { traceId: 'trace-001' };
+    vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
+    vi.mocked(getSystemErrorStats).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        todayCount: 1,
+        mqttCount: 1,
+        systemCount: 0,
+        distinctTraceCount: 1,
+        distinctDeviceCount: 1,
+        topModules: [],
+        topExceptionClasses: [],
+        topErrorCodes: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(wrapper.text()).toContain('当前异常 1 条');
+    expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
+      traceId: 'trace-001',
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      requestMethod: 'MQTT',
+      requestUrl: '$dp'
+    }));
+  });
+
+  it('restores diagnostic source when system-log only carries MQTT requestUrl', async () => {
+    const now = new Date().toISOString();
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'message-trace',
+          topic: '$dp',
+          capturedAt: now
+        }
+      })
+    });
+    mockRoute.path = '/system-log';
+    mockRoute.query = {
+      requestMethod: 'MQTT',
+      requestUrl: '$dp'
+    };
+    vi.mocked(getSystemErrorStats).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        todayCount: 1,
+        mqttCount: 1,
+        systemCount: 0,
+        distinctTraceCount: 0,
+        distinctDeviceCount: 0,
+        topModules: [],
+        topExceptionClasses: [],
+        topErrorCodes: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
+      requestMethod: 'MQTT',
+      requestUrl: '$dp'
+    }));
+  });
+
+  it('persists system-log diagnostic context before jumping back to message trace', async () => {
+    mockRoute.query = {
+      traceId: 'trace-001',
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      requestMethod: 'MQTT',
+      requestUrl: '$dp'
+    };
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '链路追踪台')!.trigger('click');
+    await flushPromises();
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/message-trace',
+      query: {
+        traceId: 'trace-001',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '$dp'
+      }
+    });
+
+    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
+    expect(persistedRaw).toBeTruthy();
+    const persisted = JSON.parse(persistedRaw as string);
+    expect(persisted.context.sourcePage).toBe('system-log');
+    expect(persisted.context.topic).toBe('$dp');
+    expect(persisted.context.reportStatus).toBe('failed');
   });
 });
