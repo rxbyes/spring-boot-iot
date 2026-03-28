@@ -769,6 +769,10 @@ describe('MessageTraceView', () => {
       productKey: '',
       messageType: ''
     }));
+    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
+    expect(persistedRaw).toBeTruthy();
+    const persistedContext = JSON.parse(persistedRaw as string);
+    expect(persistedContext.context.productKey).toBeUndefined();
 
     await findButtonByText(wrapper, '数据校验台')!.trigger('click');
     await flushPromises();
@@ -778,6 +782,33 @@ describe('MessageTraceView', () => {
       query: {
         deviceCode: 'demo-device-01',
         traceId: 'trace-recent-001',
+        productKey: undefined
+      }
+    });
+  });
+
+  it('uses the visible quick-search trace for global handoff before search submission', async () => {
+    mockRoute.query = {
+      traceId: 'old-trace-01'
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const quickSearchInput = wrapper.find('input#quick-search');
+    expect(quickSearchInput.exists()).toBe(true);
+    await quickSearchInput.setValue('typed-trace-02');
+    await nextTick();
+
+    await findButtonByText(wrapper, '数据校验台')!.trigger('click');
+    await flushPromises();
+
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      path: '/file-debug',
+      query: {
+        deviceCode: undefined,
+        traceId: 'typed-trace-02',
         productKey: undefined
       }
     });

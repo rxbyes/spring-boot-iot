@@ -747,22 +747,10 @@ interface DiagnosticSourceCandidate {
 function buildVisibleDiagnosticContext(): DiagnosticContext {
   return {
     sourcePage: 'message-trace',
-    traceId: pickDiagnosticValue(
-      appliedFilters.traceId,
-      searchForm.traceId
-    ),
-    deviceCode: pickDiagnosticValue(
-      appliedFilters.deviceCode,
-      searchForm.deviceCode
-    ),
-    productKey: pickDiagnosticValue(
-      appliedFilters.productKey,
-      searchForm.productKey
-    ),
-    topic: pickDiagnosticValue(
-      appliedFilters.topic,
-      searchForm.topic
-    ),
+    traceId: pickDiagnosticValue(quickSearchKeyword.value),
+    deviceCode: pickDiagnosticValue(searchForm.deviceCode),
+    productKey: pickDiagnosticValue(searchForm.productKey),
+    topic: pickDiagnosticValue(searchForm.topic),
     capturedAt: new Date().toISOString()
   };
 }
