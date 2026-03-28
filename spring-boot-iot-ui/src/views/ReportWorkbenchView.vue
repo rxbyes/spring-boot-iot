@@ -1,14 +1,14 @@
 <template>
   <div class="page-stack reporting-view ops-workbench">
-    <section class="reporting-overview-grid">
-      <MetricCard
-          v-for="item in reportingOverviewMetrics"
-          :key="item.label"
-          :label="item.label"
-          :value="item.value"
-          :badge="item.badge"
-          size="compact"
-      />
+    <section class="reporting-command-strip">
+      <div class="reporting-command-strip__copy">
+        <h1 class="reporting-command-strip__title">链路验证中心</h1>
+        <p class="reporting-command-strip__judgement">先校准设备身份，再发报文，再看时间线。</p>
+        <p class="reporting-command-strip__meta">{{ reportingStripStatus }}</p>
+      </div>
+      <div class="reporting-command-strip__actions">
+        <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
+      </div>
     </section>
 
     <section class="reporting-main-layout">
@@ -16,7 +16,7 @@
         <template #header>
           <div class="reporting-surface__header">
             <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">链路验证中心</p>
+              <p class="reporting-surface__eyebrow">左侧模拟上报</p>
               <h2 class="reporting-surface__title">模拟上报</h2>
               <p class="reporting-surface__description">
                 按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
@@ -233,7 +233,7 @@
         <template #header>
           <div class="reporting-surface__header">
             <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">链路验证中心</p>
+              <p class="reporting-surface__eyebrow">右侧诊断复盘</p>
               <h2 class="reporting-surface__title">诊断复盘</h2>
               <p class="reporting-surface__description">
                 右侧统一查看诊断摘要、实际发送内容、帧预演和最近一次响应结果。
@@ -422,7 +422,6 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
-import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
@@ -703,60 +702,11 @@ const deviceLookupInlineTone = computed<'info' | 'error'>(() =>
     deviceLookupTone.value === 'danger' ? 'error' : 'info'
 );
 
-const reportingOverviewMetrics = computed(() => [
-  {
-    label: '设备契约',
-    value: isQueryingDevice.value ? '查询中' : resolvedDevice.value ? '已加载' : deviceLookupError.value ? '查询失败' : '待查询',
-    badge: {
-      label: deviceLookupError.value ? '需处理' : resolvedDevice.value ? '已就绪' : isQueryingDevice.value ? '处理中' : '接入前置',
-      tone: (
-          deviceLookupError.value
-              ? 'danger'
-              : resolvedDevice.value
-                  ? 'success'
-                  : isQueryingDevice.value
-                      ? 'brand'
-                      : 'muted'
-      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
-    }
-  },
-  {
-    label: '传输方式',
-    value: transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP',
-    badge: {
-      label: reportMode.value === 'encrypted' ? '密文' : '明文',
-      tone: (reportMode.value === 'encrypted' ? 'warning' : 'brand') as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
-    }
-  },
-  {
-    label: '识别结果',
-    value: recognitionStatusText.value,
-    badge: {
-      label: payloadFormatLabel.value,
-      tone: (
-          reportMode.value === 'encrypted'
-              ? 'warning'
-              : plaintextFrame.value
-                  ? 'success'
-                  : 'muted'
-      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
-    }
-  },
-  {
-    label: '发送状态',
-    value: sendStatusText.value,
-    badge: {
-      label: transportMode.value === 'mqtt' ? 'Broker' : 'HTTP API',
-      tone: (
-          hasAttemptedSubmit.value && validationIssues.value.length > 0
-              ? 'danger'
-              : canSend.value
-                  ? 'success'
-                  : 'brand'
-      ) as 'success' | 'warning' | 'danger' | 'muted' | 'brand'
-    }
-  }
-]);
+const reportingStripStatus = computed(() => {
+  const deviceLabel = normalizedText(resolvedDevice.value?.deviceCode) || '未查询';
+  const transportLabel = transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP';
+  return `当前设备 ${deviceLabel} · ${transportLabel} · ${sendStatusText.value}`;
+});
 
 const diagnosticSummaryItems = computed(() => {
   const plaintextType = plaintextFrame.value
@@ -1279,6 +1229,12 @@ function jumpToMessageTrace() {
   });
 }
 
+function handleOpenTraceWorkbench() {
+  router.push({
+    path: '/message-trace'
+  });
+}
+
 async function loadRecentMessageFlows() {
   messageFlowRecentLoading.value = true;
   try {
@@ -1370,10 +1326,41 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--spacing-md);
+.reporting-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.2rem 0 0.35rem;
+}
+
+.reporting-command-strip__copy {
+  min-width: 0;
+}
+
+.reporting-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.25rem;
+}
+
+.reporting-command-strip__judgement {
+  margin: 0.38rem 0 0;
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.reporting-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-caption);
+  line-height: 1.6;
+}
+
+.reporting-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
 }
 
 .reporting-main-layout {
@@ -1820,8 +1807,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .reporting-overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .reporting-command-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reporting-command-strip__actions {
+    justify-content: flex-start;
   }
 
   .reporting-main-layout {
@@ -1830,7 +1822,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .reporting-overview-grid,
   .reporting-control-grid,
   .reporting-frame-grid {
     grid-template-columns: 1fr;

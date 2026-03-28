@@ -1,57 +1,25 @@
 <template>
-  <div class="section-landing">
-    <PanelCard eyebrow="Section Home" :title="config?.title || '分组概览'" :description="config?.description || '当前分组暂无可展示信息。'">
-      <div class="section-landing__hero">
-        <div class="section-landing__hero-main">
-          <p class="section-landing__hero-intro">{{ config?.intro || '当前分组用于承接该一级导航下的共性能力。' }}</p>
-
-          <div v-if="heroTags.length" class="section-landing__hero-tags">
-            <span v-for="tag in heroTags" :key="tag.label" class="section-landing__hero-tag">
-              <small>{{ tag.label }}</small>
-              <strong>{{ tag.value }}</strong>
-            </span>
-          </div>
-
-          <div v-if="primaryCard" class="section-landing__hero-actions">
-            <RouterLink :to="primaryCard.path" class="section-landing__hero-link section-landing__hero-link--primary">
-              进入 {{ primaryCard.label }}
-            </RouterLink>
-            <RouterLink v-if="secondaryCard" :to="secondaryCard.path" class="section-landing__hero-link">
-              查看 {{ secondaryCard.label }}
-            </RouterLink>
-          </div>
-        </div>
-
-        <div class="section-landing__stats">
-          <div v-for="item in heroStats" :key="item.label" class="section-landing__stat">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.tip }}</small>
-          </div>
-        </div>
-      </div>
-    </PanelCard>
-
+  <div class="section-landing page-stack">
     <template v-if="accessibleCards.length">
-      <PanelCard eyebrow="Common Entry" title="常用入口" description="首屏仅保留高频入口，减少重复的定位说明。">
-        <div class="section-landing__grid">
+      <section class="section-landing__intro">
+        <div class="section-landing__intro-copy">
+          <h1 class="section-landing__intro-title">{{ config?.title || '分组概览' }}</h1>
+          <p class="section-landing__intro-judgement">{{ sectionHeadline }}</p>
+        </div>
+        <div v-if="introActions.length" class="section-landing__intro-actions">
           <RouterLink
-            v-for="card in primaryCards"
-            :key="card.path"
-            :to="card.path"
-            class="section-landing__card"
+            v-for="action in introActions"
+            :key="`${action.label}-${action.to}`"
+            :to="action.to"
+            class="section-landing__intro-action"
+            :class="action.variant === 'primary' ? 'section-landing__intro-action--primary' : ''"
           >
-            <span class="section-landing__badge">{{ buildBadge(card.label) }}</span>
-            <div class="section-landing__card-main">
-              <strong>{{ card.label }}</strong>
-              <p>{{ card.description }}</p>
-            </div>
-            <small>进入页面</small>
+            {{ action.label }}
           </RouterLink>
         </div>
-      </PanelCard>
+      </section>
 
-      <div class="section-landing__columns">
+      <div class="section-landing__content-grid">
         <PanelCard eyebrow="Recent Activity" title="最近使用" description="优先回到刚处理过的功能，不重复展示导航路径。">
           <div v-if="recentActivities.length" class="section-landing__recent-list">
             <RouterLink
@@ -75,7 +43,7 @@
           />
         </PanelCard>
 
-        <PanelCard eyebrow="Recommended" title="推荐操作" description="按准备、执行、复核的顺序进入，避免同一层级重复说明。">
+        <PanelCard eyebrow="Recommended Flow" title="推荐处理顺序" description="按准备、执行、复核的顺序进入，避免同一层级重复说明。">
           <div class="section-landing__recommend-list">
             <article
               v-for="action in recommendedActions"
@@ -96,14 +64,13 @@
       </div>
 
       <PanelCard
-        v-if="secondaryCards.length"
         eyebrow="Capability"
         title="全部能力"
         description="其余可进入页面统一收口在这里，避免正文与侧栏重复提示。"
       >
         <div class="section-landing__capability-list">
           <RouterLink
-            v-for="card in secondaryCards"
+            v-for="card in accessibleCards"
             :key="card.path"
             :to="card.path"
             class="section-landing__capability-item"
@@ -162,15 +129,45 @@ const primaryCards = computed(() => accessibleCards.value.slice(0, 4));
 const secondaryCards = computed(() => accessibleCards.value.slice(4));
 const primaryCard = computed(() => primaryCards.value[0] || null);
 const secondaryCard = computed(() => primaryCards.value[1] || secondaryCards.value[0] || null);
-
-const heroTags = computed(() => {
-  const userInfo = permissionStore.userInfo;
-  return [
-    { label: '角色', value: permissionStore.primaryRoleName || '未分配' },
-    { label: '关注域', value: permissionStore.roleProfile.focusLabel || '平台总览' },
-    { label: '账号', value: userInfo?.accountType || '未标记' },
-    { label: '实名', value: userInfo?.authStatus || '待完善' }
-  ].filter((item) => Boolean(item.value));
+const primaryEntryAction = computed(() => {
+  if (!primaryCard.value) {
+    return null;
+  }
+  return {
+    label: `进入 ${primaryCard.value.label}`,
+    to: primaryCard.value.path
+  };
+});
+const secondaryEntryAction = computed(() => {
+  if (!secondaryCard.value) {
+    return null;
+  }
+  return {
+    label: secondaryCard.value.label,
+    to: secondaryCard.value.path
+  };
+});
+const sectionHeadline = computed(() =>
+  config.value?.key === 'iot-access'
+    ? '先处理资产底座，再进入链路诊断。'
+    : config.value?.hubJudgement || '先判断优先域，再进入单域专台。'
+);
+const introActions = computed(() => {
+  const actions: Array<{ label: string; to: string; variant: 'primary' | 'secondary' }> = [];
+  if (primaryCard.value) {
+    actions.push({
+      label: primaryCard.value.label,
+      to: primaryCard.value.path,
+      variant: 'primary'
+    });
+  }
+  if (secondaryEntryAction.value) {
+    actions.push({
+      ...secondaryEntryAction.value,
+      variant: 'secondary'
+    });
+  }
+  return actions;
 });
 
 const recentActivities = computed(() => {
@@ -187,26 +184,6 @@ const recentActivities = computed(() => {
   });
 });
 
-const heroStats = computed(() => {
-  return [
-    {
-      label: '可用入口',
-      value: accessibleCards.value.length,
-      tip: '当前账号可直接进入'
-    },
-    {
-      label: '常用入口',
-      value: primaryCards.value.length,
-      tip: '首屏仅保留高频能力'
-    },
-    {
-      label: '最近使用',
-      value: recentActivities.value.length,
-      tip: recentActivities.value.length > 0 ? '按本地操作痕迹推荐' : '尚未产生使用痕迹'
-    }
-  ];
-});
-
 const recommendedActions = computed(() => {
   const cards = accessibleCards.value.slice(0, 3);
   const steps = config.value?.steps || [];
@@ -221,19 +198,14 @@ const recommendedActions = computed(() => {
 });
 
 const emptyAction = computed(() => {
-  if (!primaryCard.value) {
+  if (!primaryEntryAction.value) {
     return undefined;
   }
   return {
-    label: `进入${primaryCard.value.label}`,
-    callback: () => router.push(primaryCard.value?.path || route.path)
+    label: primaryEntryAction.value.label,
+    callback: () => router.push(primaryEntryAction.value?.to || route.path)
   };
 });
-
-function buildBadge(label: string) {
-  const value = label.trim();
-  return value ? value.slice(0, 2) : '概览';
-}
 </script>
 
 <style scoped>
@@ -242,183 +214,58 @@ function buildBadge(label: string) {
   gap: 1rem;
 }
 
-.section-landing__hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(16rem, 1fr);
-  gap: 1.1rem;
-  align-items: stretch;
-}
-
-.section-landing__hero-main {
-  display: grid;
+.section-landing__intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  padding: 0.25rem 0;
 }
 
-.section-landing__hero-intro {
+.section-landing__intro-copy {
+  min-width: 0;
+}
+
+.section-landing__intro-title {
   margin: 0;
-  color: var(--text-caption);
-  line-height: 1.75;
-}
-
-.section-landing__hero-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.section-landing__hero-tag {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 6.8rem;
-  padding: 0.8rem 0.95rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.97)),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-card-soft);
-}
-
-.section-landing__hero-tag small {
-  color: var(--text-caption-2);
-  font-size: 0.72rem;
-}
-
-.section-landing__hero-tag strong {
   color: var(--text-heading);
-  font-size: 0.92rem;
+  font-size: 1.25rem;
 }
 
-.section-landing__hero-actions {
+.section-landing__intro-judgement {
+  margin: 0.4rem 0 0;
+  color: var(--text-caption);
+  line-height: 1.6;
+}
+
+.section-landing__intro-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  justify-content: flex-end;
+  gap: 0.65rem;
 }
 
-.section-landing__hero-link {
+.section-landing__intro-action {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 2.5rem;
   padding: 0 0.92rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--panel-border);
-  color: var(--text-secondary);
   background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 600;
-  transition: all 160ms ease;
 }
 
-.section-landing__hero-link:hover {
-  border-color: color-mix(in srgb, var(--brand) 20%, white);
-  color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 6%, white);
-}
-
-.section-landing__hero-link--primary {
-  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
-  color: #fff;
+.section-landing__intro-action--primary {
   border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
   box-shadow: var(--shadow-brand);
 }
 
-.section-landing__stats {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.section-landing__stat {
-  display: grid;
-  gap: 0.3rem;
-  padding: 1rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.97)),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 7%, transparent), transparent 34%);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-card-soft);
-}
-
-.section-landing__stat span {
-  color: var(--text-caption-2);
-  font-size: 0.76rem;
-}
-
-.section-landing__stat strong {
-  color: var(--text-heading);
-  font-size: 1.3rem;
-}
-
-.section-landing__stat small {
-  color: var(--text-caption);
-  line-height: 1.5;
-  font-size: 0.78rem;
-}
-
-.section-landing__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.9rem;
-}
-
-.section-landing__card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.8rem;
-  padding: 1.05rem 1.1rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
-  color: inherit;
-  text-decoration: none;
-  box-shadow: var(--shadow-card-soft);
-}
-
-.section-landing__card:hover {
-  border-color: color-mix(in srgb, var(--brand) 20%, white);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
-}
-
-.section-landing__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--brand) 10%, transparent);
-  color: var(--brand);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.section-landing__card-main {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.section-landing__card strong {
-  color: var(--text-heading);
-  font-size: 0.94rem;
-}
-
-.section-landing__card p {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-  font-size: 0.8rem;
-}
-
-.section-landing__card small {
-  color: var(--brand);
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.section-landing__columns {
+.section-landing__content-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
@@ -510,16 +357,19 @@ function buildBadge(label: string) {
 }
 
 @media (max-width: 900px) {
-  .section-landing__hero,
-  .section-landing__columns {
+  .section-landing__intro {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-landing__intro-actions {
+    justify-content: flex-start;
+  }
+
+  .section-landing__content-grid {
     grid-template-columns: 1fr;
   }
 
-  .section-landing__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .section-landing__card,
   .section-landing__recommend-item,
   .section-landing__recent-item {
     grid-template-columns: 1fr;

@@ -1,11 +1,22 @@
 <template>
-  <div class="audit-log-view">
+  <div class="page-stack audit-log-view">
+    <section v-if="isSystemMode" class="audit-log-command-strip">
+      <div class="audit-log-command-strip__copy">
+        <h1 class="audit-log-command-strip__title">异常观测台</h1>
+        <p class="audit-log-command-strip__judgement">先看 system_error，再决定追踪链路还是回看失败归档。</p>
+        <p class="audit-log-command-strip__meta">{{ systemStripStatus }}</p>
+      </div>
+      <div class="audit-log-command-strip__actions">
+        <StandardButton action="refresh" plain @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
+        <StandardButton action="reset" plain @click="handleJumpToAccessError()">失败归档</StandardButton>
+      </div>
+    </section>
+
     <StandardWorkbenchPanel
-      :title="pageTitle"
+      :title="panelTitle"
       :description="pageDescription"
       show-filters
       :show-applied-filters="hasAppliedFilters"
-      show-notices
       show-toolbar
       show-pagination
     >
@@ -136,25 +147,6 @@
         />
       </template>
 
-      <template #notices>
-        <div class="audit-log-notice-grid">
-          <el-alert
-            :title="viewTip"
-            type="info"
-            :closable="false"
-            show-icon
-            class="view-alert"
-          />
-          <el-alert
-            :title="statsSummaryText"
-            type="success"
-            :closable="false"
-            show-icon
-            class="stats-alert"
-          />
-        </div>
-      </template>
-
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -170,12 +162,6 @@
           ]"
         >
           <template #right>
-            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
-              链路追踪台
-            </StandardButton>
-            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToAccessError()">
-              失败归档台
-            </StandardButton>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
             <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
@@ -309,23 +295,13 @@ const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' 
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
 const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
+const panelTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
 const pageDescription = computed(() =>
   isSystemMode.value
-    ? '面向研发、测试与运维的异常观测工作台，聚焦设备接入与后台链路问题。'
-    : '面向客户与治理侧的审计留痕中心，默认不展示后台系统异常记录。'
-)
-const viewTip = computed(() =>
-  isSystemMode.value
-    ? '异常观测台仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，可结合 TraceId、设备编码与“链路追踪台”页面快速串联排障。'
-    : '审计中心默认排除 `system_error` 记录；如需排查设备接入或后台异常，请前往“接入智维 > 异常观测台”。'
+    ? '按异常模块、TraceId、设备编码与请求通道筛查 system_error。'
+    : '按用户、模块与结果查看审计留痕。'
 )
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
-const canJumpFromSearch = computed(() =>
-  Boolean(
-    appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey
-      || (appliedFilters.requestMethod === 'MQTT' && appliedFilters.requestUrl)
-  )
-)
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
   { label: '修改', value: 'update' },
@@ -493,17 +469,11 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`
 })
-
-const statsSummaryText = computed(() => {
+const systemStripStatus = computed(() => {
   if (statsLoading.value) {
-    return '正在加载统计概览...'
+    return '异常统计加载中。'
   }
-  if (isSystemMode.value) {
-    const topModule = systemStats.value.topModules[0]?.label || '--'
-    return `异常总量 ${systemStats.value.total}，今日 ${systemStats.value.todayCount}，MQTT ${systemStats.value.mqttCount}，链路数 ${systemStats.value.distinctTraceCount}，高频模块 ${topModule}`
-  }
-  const topUser = businessStats.value.topUsers[0]?.label || '--'
-  return `审计总量 ${businessStats.value.total}，今日 ${businessStats.value.todayCount}，成功 ${businessStats.value.successCount}，失败 ${businessStats.value.failureCount}，活跃用户 ${businessStats.value.distinctUserCount}（Top 用户 ${topUser}）`
+  return `当前异常 ${systemStats.value.total} 条，今日 ${systemStats.value.todayCount} 条，关联链路 ${systemStats.value.distinctTraceCount} 条。`
 })
 
 // 详情对话框
@@ -969,6 +939,49 @@ watch(detailVisible, (visible) => {
   min-width: 0;
 }
 
+.audit-log-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  box-shadow: var(--shadow-card);
+}
+
+.audit-log-command-strip__copy {
+  min-width: 0;
+}
+
+.audit-log-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.22rem;
+}
+
+.audit-log-command-strip__judgement {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.audit-log-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.audit-log-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.72rem;
+}
+
 .audit-log-quick-search-tag {
   margin-top: 0.72rem;
 }
@@ -977,9 +990,16 @@ watch(detailVisible, (visible) => {
   margin: 0;
 }
 
-.audit-log-notice-grid {
-  display: grid;
-  gap: 0.72rem;
+@media (max-width: 900px) {
+  .audit-log-command-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .audit-log-command-strip__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 </style>

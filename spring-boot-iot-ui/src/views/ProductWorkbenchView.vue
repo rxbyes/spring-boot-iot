@@ -2,7 +2,7 @@
   <div class="product-asset-view">
     <StandardWorkbenchPanel
       title="产品定义中心"
-      description="聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。"
+      description="先补齐产品契约，再处理库存治理。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -280,17 +280,18 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
                 <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="wide">
+                  <StandardRowActions variant="table" gap="comfortable">
                     <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                     <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
                     <StandardActionLink
                       v-permission="'iot:products:update'"
                       data-testid="open-product-model-designer"
+                      title="打开物模型设计器"
                       @click="handleOpenProductModelDesigner(row)"
                     >
-                      物模型设计器
+                      物模型
                     </StandardActionLink>
                     <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
                   </StandardRowActions>

@@ -159,7 +159,7 @@ withDefaults(
 }
 
 .iot-access-workbench-hero__action--primary {
-  color: #fff;
+  color: var(--button-primary-text);
   background: var(--brand-primary);
 }
 

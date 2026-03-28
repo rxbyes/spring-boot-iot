@@ -26,7 +26,11 @@ import java.util.concurrent.locks.LockSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,13 +60,15 @@ class MqttMessageConsumerTest {
     void messageArrivedShouldWriteSlowDispatchSummary() {
         IotProperties properties = new IotProperties();
         properties.getObservability().getPerformance().setSlowMqttThresholdMs(5L);
+        MqttInvalidReportGovernanceService governanceService = mock(MqttInvalidReportGovernanceService.class);
         MqttMessageConsumer consumer = new MqttMessageConsumer(
                 properties,
                 upMessageProcessingPipeline,
                 mqttTopicRouter,
                 mqttConnectionListener,
                 mqttConsumerRuntimeState,
-                mqttClusterLeadershipService
+                mqttClusterLeadershipService,
+                governanceService
         );
         RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
         rawDeviceMessage.setTopic("/sys/demo-product/demo-device-01/thing/property/post");
@@ -106,5 +112,27 @@ class MqttMessageConsumerTest {
         assertTrue(message.contains("event=\"slow_mqtt_dispatch\""));
         assertTrue(message.contains("deviceCode=\"demo-device-01\""));
         assertTrue(message.contains("clientId=\"demo-device-01\""));
+    }
+
+    @Test
+    void messageArrivedShouldDropEmptyPayloadBeforePipelineWhenCooldownActive() {
+        IotProperties properties = new IotProperties();
+        MqttInvalidReportGovernanceService governanceService = mock(MqttInvalidReportGovernanceService.class);
+        when(governanceService.handleRawEmptyPayload("$dp", null)).thenReturn(InvalidMqttReportDecision.dropSuppressed());
+
+        MqttMessageConsumer consumer = new MqttMessageConsumer(
+                properties,
+                upMessageProcessingPipeline,
+                mqttTopicRouter,
+                mqttConnectionListener,
+                mqttConsumerRuntimeState,
+                mqttClusterLeadershipService,
+                governanceService
+        );
+
+        consumer.messageArrived("$dp", new MqttMessage(new byte[0]));
+
+        verifyNoInteractions(upMessageProcessingPipeline);
+        verify(mqttConnectionListener, never()).onMessageDispatchFailed(any(), any(), any(), any());
     }
 }

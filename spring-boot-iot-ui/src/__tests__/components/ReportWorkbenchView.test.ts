@@ -227,6 +227,14 @@ describe('ReportWorkbenchView', () => {
     window.localStorage.removeItem('reporting:lastTemplate');
   });
 
+  it('renders a compact reporting command strip above the simulator stage', () => {
+    const wrapper = mountView();
+
+    expect(wrapper.text()).toContain('链路验证中心');
+    expect(wrapper.text()).toContain('先校准设备身份，再发报文，再看时间线。');
+    expect(wrapper.text()).toContain('诊断复盘');
+  });
+
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {
     const wrapper = mountView();
 

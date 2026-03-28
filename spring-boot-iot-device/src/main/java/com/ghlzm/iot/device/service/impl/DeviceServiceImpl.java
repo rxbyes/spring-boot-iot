@@ -16,6 +16,7 @@ import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
@@ -65,24 +66,28 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final ProductModelMapper productModelMapper;
     private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
+    private final DeviceInvalidReportStateService invalidReportStateService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
                              ProductModelMapper productModelMapper,
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
-                             IotProperties iotProperties) {
+                             IotProperties iotProperties,
+                             DeviceInvalidReportStateService invalidReportStateService) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
         this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
+        this.invalidReportStateService = invalidReportStateService;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DeviceDetailVO addDevice(DeviceAddDTO dto) {
         Device device = createDeviceRecord(dto);
+        resolveInvalidReportState(normalizeRequiredText(dto.getProductKey()), device.getDeviceCode());
         return getDetailById(device.getId());
     }
 
@@ -193,6 +198,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
             try {
                 validateBatchAddItem(item, rowNo);
                 Device device = createDeviceRecord(item);
+                resolveInvalidReportState(normalizeRequiredText(item.getProductKey()), device.getDeviceCode());
                 createdDeviceCodes.add(device.getDeviceCode());
             } catch (Exception ex) {
                 DeviceBatchAddErrorVO error = new DeviceBatchAddErrorVO();
@@ -224,6 +230,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         LocalDateTime replacementTime = LocalDateTime.now();
         DeviceAddDTO replacementDto = buildReplacementCreateDTO(sourceDevice, dto, targetProduct, replacementTime);
         Device replacementDevice = createDeviceRecord(replacementDto);
+        resolveInvalidReportState(targetProduct.getProductKey(), replacementDevice.getDeviceCode());
 
         Integer previousOnlineStatus = sourceDevice.getOnlineStatus();
         sourceDevice.setOnlineStatus(0);
@@ -509,6 +516,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
             return ex.getMessage();
         }
         return "导入失败，请检查设备数据";
+    }
+
+    private void resolveInvalidReportState(String productKey, String deviceCode) {
+        if (!StringUtils.hasText(productKey) || !StringUtils.hasText(deviceCode)) {
+            return;
+        }
+        invalidReportStateService.markResolvedByDevice(productKey.trim(), deviceCode.trim(), LocalDateTime.now());
     }
 
     private void applyEditableFields(Device device, DeviceAddDTO dto, Product product, boolean initializeDefaults) {

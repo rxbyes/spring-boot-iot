@@ -1,0 +1,318 @@
+import { defineComponent, inject, nextTick, provide, ref } from 'vue';
+import { mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import AuditLogView from '@/views/AuditLogView.vue';
+import {
+  deleteAuditLog,
+  getAuditLogById,
+  getBusinessAuditStats,
+  getSystemErrorStats,
+  pageLogs
+} from '@/api/auditLog';
+
+const { mockRoute, mockRouter } = vi.hoisted(() => ({
+  mockRoute: {
+    path: '/system-log',
+    query: {} as Record<string, unknown>
+  },
+  mockRouter: {
+    push: vi.fn(),
+    replace: vi.fn()
+  }
+}));
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute,
+  useRouter: () => mockRouter
+}));
+
+vi.mock('@/api/auditLog', () => ({
+  pageLogs: vi.fn(),
+  getAuditLogById: vi.fn(),
+  deleteAuditLog: vi.fn(),
+  getSystemErrorStats: vi.fn(),
+  getBusinessAuditStats: vi.fn()
+}));
+
+vi.mock('@/utils/confirm', () => ({
+  confirmAction: vi.fn(),
+  isConfirmCancelled: vi.fn(() => false)
+}));
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('element-plus')>();
+  return {
+    ...actual,
+    ElMessage: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn()
+    }
+  };
+});
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const StandardWorkbenchPanelStub = defineComponent({
+  name: 'StandardWorkbenchPanel',
+  props: ['title', 'description'],
+  template: `
+    <section class="audit-log-workbench-stub">
+      <header>
+        <h2>{{ title }}</h2>
+        <p>{{ description }}</p>
+        <slot name="header-actions" />
+      </header>
+      <div><slot name="filters" /></div>
+      <div><slot name="applied-filters" /></div>
+      <div><slot name="toolbar" /></div>
+      <div><slot /></div>
+      <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="audit-log-filter-stub">
+      <div><slot name="primary" /></div>
+      <div><slot name="advanced" /></div>
+      <div><slot name="actions" /></div>
+    </section>
+  `
+});
+
+const StandardAppliedFiltersBarStub = defineComponent({
+  name: 'StandardAppliedFiltersBar',
+  template: '<div class="audit-log-applied-filters-stub" />'
+});
+
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <div class="audit-log-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </div>
+  `
+});
+
+const StandardChoiceGroupStub = defineComponent({
+  name: 'StandardChoiceGroup',
+  props: ['options', 'modelValue'],
+  emits: ['update:modelValue'],
+  template: `
+    <div class="audit-log-choice-group-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        type="button"
+        @click="$emit('update:modelValue', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+  `
+});
+
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  props: ['disabled'],
+  emits: ['click'],
+  template: `
+    <button type="button" :disabled="Boolean(disabled)" @click="$emit('click')">
+      <slot />
+    </button>
+  `
+});
+
+const StandardRowActionsStub = defineComponent({
+  name: 'StandardRowActions',
+  template: '<div class="audit-log-row-actions-stub"><slot /></div>'
+});
+
+const StandardActionLinkStub = defineComponent({
+  name: 'StandardActionLink',
+  props: ['disabled'],
+  emits: ['click'],
+  template: `
+    <button type="button" :disabled="Boolean(disabled)" @click="$emit('click')">
+      <slot />
+    </button>
+  `
+});
+
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label'],
+  template: '<div class="audit-log-text-column-stub">{{ label }}</div>'
+});
+
+const StandardPaginationStub = defineComponent({
+  name: 'StandardPagination',
+  template: '<div class="audit-log-pagination-stub" />'
+});
+
+const AuditLogDetailDrawerStub = defineComponent({
+  name: 'AuditLogDetailDrawer',
+  template: '<section class="audit-log-detail-stub" />'
+});
+
+const CsvColumnSettingDialogStub = defineComponent({
+  name: 'CsvColumnSettingDialog',
+  template: '<section class="audit-log-csv-dialog-stub" />'
+});
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: ['data'],
+  setup(props) {
+    provide('tableRows', ref(props.data ?? []));
+    return {};
+  },
+  template: '<section class="audit-log-table-stub"><slot /></section>'
+});
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  setup() {
+    const rows = inject('tableRows', ref([]));
+    return { rows };
+  },
+  template: `
+    <div class="audit-log-column-stub">
+      <div v-for="(row, index) in rows" :key="index">
+        <slot :row="row" />
+      </div>
+    </div>
+  `
+});
+
+function createPageResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 1,
+      pageNum: 1,
+      pageSize: 10,
+      records: [
+        {
+          id: 1,
+          operationModule: 'mqtt-consumer',
+          operationMethod: 'consume',
+          requestUrl: '$dp',
+          requestMethod: 'MQTT',
+          traceId: 'trace-001',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          errorCode: 'MQTT_TIMEOUT',
+          exceptionClass: 'java.lang.IllegalStateException',
+          resultMessage: 'timeout',
+          operationTime: '2026-03-28 10:00:00',
+          operationResult: 0
+        }
+      ]
+    }
+  };
+}
+
+function mountView() {
+  return mount(AuditLogView, {
+    global: {
+      directives: {
+        loading: () => undefined
+      },
+      stubs: {
+        StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
+        StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
+        StandardTableToolbar: StandardTableToolbarStub,
+        StandardChoiceGroup: StandardChoiceGroupStub,
+        StandardButton: StandardButtonStub,
+        StandardRowActions: StandardRowActionsStub,
+        StandardActionLink: StandardActionLinkStub,
+        StandardTableTextColumn: StandardTableTextColumnStub,
+        StandardPagination: StandardPaginationStub,
+        AuditLogDetailDrawer: AuditLogDetailDrawerStub,
+        CsvColumnSettingDialog: CsvColumnSettingDialogStub,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub,
+        ElInput: true,
+        ElSelect: true,
+        ElOption: true,
+        ElTag: true,
+        ElAlert: true
+      }
+    }
+  });
+}
+
+describe('AuditLogView', () => {
+  beforeEach(() => {
+    mockRoute.path = '/system-log';
+    mockRoute.query = {};
+    mockRouter.push.mockReset();
+    mockRouter.replace.mockReset();
+    vi.mocked(pageLogs).mockReset();
+    vi.mocked(getAuditLogById).mockReset();
+    vi.mocked(deleteAuditLog).mockReset();
+    vi.mocked(getSystemErrorStats).mockReset();
+    vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
+    vi.mocked(getSystemErrorStats).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 4,
+        todayCount: 1,
+        mqttCount: 2,
+        systemCount: 2,
+        distinctTraceCount: 2,
+        distinctDeviceCount: 1,
+        topModules: [{ label: 'mqtt-consumer', count: 2 }],
+        topExceptionClasses: [],
+        topErrorCodes: []
+      }
+    });
+    vi.mocked(getBusinessAuditStats).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 8,
+        todayCount: 2,
+        successCount: 6,
+        failureCount: 2,
+        distinctUserCount: 3,
+        topModules: [{ label: 'device', count: 4 }],
+        topUsers: [{ label: 'admin', count: 3 }],
+        topOperationTypes: []
+      }
+    });
+  });
+
+  it('renders the compact anomaly strip in system mode', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('异常观测台');
+    expect(wrapper.text()).toContain('先看 system_error，再决定追踪链路还是回看失败归档。');
+    expect(wrapper.text()).toContain('当前异常 4 条，今日 1 条，关联链路 2 条。');
+    expect(wrapper.text()).toContain('链路追踪台');
+    expect(wrapper.text()).toContain('失败归档');
+  });
+
+  it('keeps business mode list-first without the anomaly strip', async () => {
+    mockRoute.path = '/audit-log';
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('审计中心');
+    expect(wrapper.text()).not.toContain('先看 system_error，再决定追踪链路还是回看失败归档。');
+    expect(wrapper.find('.audit-log-command-strip').exists()).toBe(false);
+  });
+});

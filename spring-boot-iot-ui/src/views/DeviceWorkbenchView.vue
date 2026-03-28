@@ -2,7 +2,7 @@
   <div class="device-asset-view">
     <StandardWorkbenchPanel
       title="设备资产中心"
-      description="聚焦设备台账与上报名单联查，统一展示已登记设备和未登记上报设备，支持筛选、查看、父子拓扑维护、导入导出和对象洞察跳转。"
+      description="先判断在线、激活和拓扑异常，再进入设备治理。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -253,11 +253,11 @@
             <el-table-column type="selection" width="48" :selectable="isSelectableDeviceRow" />
             <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="170" />
             <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
-            <el-table-column prop="registrationStatus" label="登记状态" width="110">
+            <StandardTableTextColumn prop="registrationStatus" label="登记状态" :width="110">
               <template #default="{ row }">
                 <el-tag :type="row.registrationStatus === 1 ? 'success' : 'warning'" round>{{ getRegistrationStatusText(row.registrationStatus) }}</el-tag>
               </template>
-            </el-table-column>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />

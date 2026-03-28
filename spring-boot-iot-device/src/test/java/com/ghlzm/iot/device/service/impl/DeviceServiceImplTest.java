@@ -7,14 +7,18 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
+import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -44,13 +49,18 @@ class DeviceServiceImplTest {
     @Mock
     private ProductModelMapper productModelMapper;
     @Mock
+    private DeviceMapper deviceMapper;
+    @Mock
     private UnregisteredDeviceRosterService unregisteredDeviceRosterService;
+    @Mock
+    private DeviceInvalidReportStateService invalidReportStateService;
 
     private DeviceServiceImpl deviceService;
+    private IotProperties iotProperties;
 
     @BeforeEach
     void setUp() {
-        IotProperties iotProperties = new IotProperties();
+        iotProperties = new IotProperties();
         IotProperties.Device device = new IotProperties.Device();
         device.setActivateDefault(true);
         iotProperties.setDevice(device);
@@ -59,7 +69,8 @@ class DeviceServiceImplTest {
                 devicePropertyMapper,
                 productModelMapper,
                 unregisteredDeviceRosterService,
-                iotProperties
+                iotProperties,
+                invalidReportStateService
         ));
     }
 
@@ -239,11 +250,48 @@ class DeviceServiceImplTest {
         verify(deviceService, never()).count(any());
     }
 
+    @Test
+    void addDeviceShouldResolveInvalidReportStateAfterArchiveCreate() {
+        DeviceServiceImpl resolvingService = spy(new DeviceServiceImpl(
+                productService,
+                devicePropertyMapper,
+                productModelMapper,
+                unregisteredDeviceRosterService,
+                iotProperties,
+                invalidReportStateService
+        ));
+        doReturn(deviceMapper).when(resolvingService).getBaseMapper();
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        doReturn(true).when(resolvingService).save(any(Device.class));
+
+        DeviceDetailVO detail = new DeviceDetailVO();
+        detail.setId(3001L);
+        detail.setDeviceCode("missing-01");
+        doReturn(detail).when(resolvingService).getDetailById(any());
+
+        DeviceAddDTO dto = buildDeviceAddDTO("obs-product", "missing-01");
+        when(productService.getRequiredByProductKey("obs-product")).thenReturn(enabledProduct("obs-product"));
+
+        resolvingService.addDevice(dto);
+
+        verify(invalidReportStateService).markResolvedByDevice(eq("obs-product"), eq("missing-01"), any(LocalDateTime.class));
+    }
+
     private DeviceAddDTO buildDeviceAddDTO(String productKey, String deviceCode) {
         DeviceAddDTO dto = new DeviceAddDTO();
         dto.setProductKey(productKey);
         dto.setDeviceName("Demo Device");
         dto.setDeviceCode(deviceCode);
         return dto;
+    }
+
+    private Product enabledProduct(String productKey) {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey(productKey);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        return product;
     }
 }

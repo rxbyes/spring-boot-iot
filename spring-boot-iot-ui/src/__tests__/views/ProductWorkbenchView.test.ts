@@ -216,6 +216,17 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
+  it('renders a compact product workbench header above the ledger', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('产品定义中心')
+    expect(wrapper.text()).toContain('先补齐产品契约，再处理库存治理。')
+    expect(wrapper.text()).toContain('新增产品')
+    expect(wrapper.text()).not.toContain('产品契约治理')
+  })
+
   it('renders a product-model designer entry and opens the empty designer state', async () => {
     const wrapper = mountView()
     await flushPromises()

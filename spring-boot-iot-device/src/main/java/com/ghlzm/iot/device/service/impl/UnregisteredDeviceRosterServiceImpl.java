@@ -22,9 +22,25 @@ import java.util.Set;
 @Service
 public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRosterService {
 
+    private static final String INVALID_REPORT_STATE_TABLE = "iot_device_invalid_report_state";
     private static final String ACCESS_ERROR_TABLE = "iot_device_access_error_log";
     private static final String MESSAGE_LOG_TABLE = "iot_device_message_log";
     private static final String DEVICE_TABLE = "iot_device";
+    private static final Set<String> REQUIRED_INVALID_REPORT_STATE_COLUMNS = Set.of(
+            "id",
+            "device_code",
+            "product_key",
+            "protocol_code",
+            "failure_stage",
+            "sample_error_message",
+            "topic",
+            "last_trace_id",
+            "last_payload",
+            "last_seen_time",
+            "reason_code",
+            "resolved",
+            "deleted"
+    );
     private static final Set<String> REQUIRED_ACCESS_ERROR_COLUMNS = Set.of(
             "id",
             "device_code",
@@ -39,25 +55,39 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
             "deleted"
     );
     private static final String UNREGISTERED_DEVICE_NAME = "未登记设备";
+    private static final String INVALID_REPORT_STATE_SOURCE = "invalid_report_state";
     private static final String ACCESS_ERROR_SOURCE = "access_error";
     private static final String DISPATCH_FAILED_SOURCE = "dispatch_failed";
+    private static final String DEVICE_NOT_FOUND_REASON = "DEVICE_NOT_FOUND";
     private static final String DISPATCH_FAILED_MESSAGE_TYPE = "dispatch_failed";
+    private static final String MESSAGE_DISPATCH_FAILURE_STAGE = "message_dispatch";
+    private static final String DISPATCH_FAILED_MESSAGE = "未登记设备最近一次上报已记录到失败轨迹。";
     private static final Long UNKNOWN_DEVICE_ID = 0L;
 
     private final JdbcTemplate jdbcTemplate;
+    private final DeviceInvalidReportStateSchemaSupport invalidReportStateSchemaSupport;
     private final DeviceAccessErrorLogSchemaSupport accessErrorLogSchemaSupport;
 
     public UnregisteredDeviceRosterServiceImpl(JdbcTemplate jdbcTemplate,
-                                               DeviceAccessErrorLogSchemaSupport accessErrorLogSchemaSupport) {
+                                               DeviceAccessErrorLogSchemaSupport accessErrorLogSchemaSupport,
+                                               DeviceInvalidReportStateSchemaSupport invalidReportStateSchemaSupport) {
         this.jdbcTemplate = jdbcTemplate;
+        this.invalidReportStateSchemaSupport = invalidReportStateSchemaSupport;
         this.accessErrorLogSchemaSupport = accessErrorLogSchemaSupport;
     }
 
     @Override
     public long countByFilters(String productKey, String deviceCode) {
+        if (supportsInvalidReportStateSource()) {
+            try {
+                return countFromInvalidStateMergedSources(productKey, deviceCode);
+            } catch (Exception ex) {
+                log.warn("统计未登记设备最新态失败，回退失败样本来源, error={}", ex.getMessage());
+            }
+        }
         if (supportsAccessErrorSource()) {
             try {
-                return countFromAccessError(productKey, deviceCode);
+                return countFromMergedSources(productKey, deviceCode);
             } catch (Exception ex) {
                 log.warn("统计未登记设备失败，回退失败轨迹来源, error={}", ex.getMessage());
             }
@@ -73,9 +103,16 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
             return List.of();
         }
 
+        if (supportsInvalidReportStateSource()) {
+            try {
+                return listFromInvalidStateMergedSources(productKey, deviceCode, safeOffset, safeLimit);
+            } catch (Exception ex) {
+                log.warn("查询未登记设备最新态失败，回退失败样本来源, error={}", ex.getMessage());
+            }
+        }
         if (supportsAccessErrorSource()) {
             try {
-                return listFromAccessError(productKey, deviceCode, safeOffset, safeLimit);
+                return listFromMergedSources(productKey, deviceCode, safeOffset, safeLimit);
             } catch (Exception ex) {
                 log.warn("查询未登记设备失败，回退失败轨迹来源, error={}", ex.getMessage());
             }
@@ -85,6 +122,28 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private boolean supportsAccessErrorSource() {
         return accessErrorLogSchemaSupport.getColumns().containsAll(REQUIRED_ACCESS_ERROR_COLUMNS);
+    }
+
+    private boolean supportsInvalidReportStateSource() {
+        return invalidReportStateSchemaSupport.getColumns().containsAll(REQUIRED_INVALID_REPORT_STATE_COLUMNS);
+    }
+
+    private long countFromInvalidStateMergedSources(String productKey, String deviceCode) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT COUNT(1)
+                FROM (
+                """);
+        appendInvalidStateSelection(sql, params, productKey, deviceCode);
+        sql.append("""
+                    UNION ALL
+                """);
+        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, productKey, deviceCode);
+        sql.append("""
+                ) merged_devices
+                """);
+        Long result = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return result == null ? 0L : result;
     }
 
     private long countFromAccessError(String productKey, String deviceCode) {
@@ -107,6 +166,56 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         sql.append("""
                     GROUP BY e.device_code
                 ) latest_devices
+                """);
+        Long result = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return result == null ? 0L : result;
+    }
+
+    private List<DevicePageVO> listFromInvalidStateMergedSources(String productKey, String deviceCode, long offset, long limit) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                  merged.source_record_id,
+                  merged.device_code,
+                  merged.product_key,
+                  merged.protocol_code,
+                  merged.asset_source_type,
+                  merged.failure_stage,
+                  merged.error_message,
+                  merged.topic,
+                  merged.trace_id,
+                  merged.payload,
+                  merged.report_time
+                FROM (
+                """);
+        appendInvalidStateSelection(sql, params, productKey, deviceCode);
+        sql.append("""
+                    UNION ALL
+                """);
+        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, productKey, deviceCode);
+        sql.append("""
+                ) merged
+                ORDER BY merged.report_time DESC, merged.source_record_id DESC
+                LIMIT ? OFFSET ?
+                """);
+        params.add(limit);
+        params.add(offset);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
+    }
+
+    private long countFromMergedSources(String productKey, String deviceCode) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT COUNT(1)
+                FROM (
+                """);
+        appendAccessErrorLatestSelection(sql, params, productKey, deviceCode);
+        sql.append("""
+                    UNION ALL
+                """);
+        appendDispatchFailureLatestSelection(sql, params, productKey, deviceCode, true);
+        sql.append("""
+                ) merged_devices
                 """);
         Long result = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
         return result == null ? 0L : result;
@@ -151,6 +260,38 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapAccessErrorRow(rs), params.toArray());
     }
 
+    private List<DevicePageVO> listFromMergedSources(String productKey, String deviceCode, long offset, long limit) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                  merged.source_record_id,
+                  merged.device_code,
+                  merged.product_key,
+                  merged.protocol_code,
+                  merged.asset_source_type,
+                  merged.failure_stage,
+                  merged.error_message,
+                  merged.topic,
+                  merged.trace_id,
+                  merged.payload,
+                  merged.report_time
+                FROM (
+                """);
+        appendAccessErrorLatestSelection(sql, params, productKey, deviceCode);
+        sql.append("""
+                    UNION ALL
+                """);
+        appendDispatchFailureLatestSelection(sql, params, productKey, deviceCode, true);
+        sql.append("""
+                ) merged
+                ORDER BY merged.report_time DESC, merged.source_record_id DESC
+                LIMIT ? OFFSET ?
+                """);
+        params.add(limit);
+        params.add(offset);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
+    }
+
     private long countFromDispatchFailure(String productKey, String deviceCode) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
@@ -177,6 +318,75 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         Long result = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
         return result == null ? 0L : result;
+    }
+
+    private void appendAccessErrorLatestSelection(StringBuilder sql,
+                                                  List<Object> params,
+                                                  String productKey,
+                                                  String deviceCode) {
+        sql.append("""
+                SELECT
+                  e.id AS source_record_id,
+                  e.device_code,
+                  e.product_key,
+                  e.protocol_code,
+                  'access_error' AS asset_source_type,
+                  e.failure_stage,
+                  e.error_message,
+                  e.topic,
+                  e.trace_id,
+                  e.raw_payload AS payload,
+                  e.create_time AS report_time
+                FROM iot_device_access_error_log e
+                INNER JOIN (
+                    SELECT MAX(e2.id) AS latest_id
+                    FROM iot_device_access_error_log e2
+                    LEFT JOIN iot_device d2
+                      ON d2.device_code = e2.device_code
+                     AND d2.deleted = 0
+                    WHERE e2.deleted = 0
+                      AND e2.device_code IS NOT NULL
+                      AND TRIM(e2.device_code) <> ''
+                      AND d2.id IS NULL
+                """);
+        appendTextLike(sql, params, "e2.product_key", productKey);
+        appendTextLike(sql, params, "e2.device_code", deviceCode);
+        sql.append("""
+                    GROUP BY e2.device_code
+                ) latest ON latest.latest_id = e.id
+                """);
+    }
+
+    private void appendInvalidStateSelection(StringBuilder sql,
+                                             List<Object> params,
+                                             String productKey,
+                                             String deviceCode) {
+        sql.append("""
+                SELECT
+                  s.id AS source_record_id,
+                  s.device_code,
+                  s.product_key,
+                  s.protocol_code,
+                  'invalid_report_state' AS asset_source_type,
+                  s.failure_stage,
+                  s.sample_error_message AS error_message,
+                  s.topic,
+                  s.last_trace_id AS trace_id,
+                  s.last_payload AS payload,
+                  s.last_seen_time AS report_time
+                FROM iot_device_invalid_report_state s
+                LEFT JOIN iot_device d
+                  ON d.device_code = s.device_code
+                 AND d.deleted = 0
+                WHERE s.deleted = 0
+                  AND s.resolved = 0
+                  AND s.reason_code = 'DEVICE_NOT_FOUND'
+                  AND s.device_code IS NOT NULL
+                  AND TRIM(s.device_code) <> ''
+                  AND d.id IS NULL
+                """);
+        appendTextLike(sql, params, "s.product_key", productKey);
+        appendTextLike(sql, params, "s.device_code", deviceCode);
     }
 
     private List<DevicePageVO> listFromDispatchFailure(String productKey, String deviceCode, long offset, long limit) {
@@ -218,6 +428,126 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapDispatchFailureRow(rs), params.toArray());
     }
 
+    private void appendDispatchFailureLatestSelection(StringBuilder sql,
+                                                      List<Object> params,
+                                                      String productKey,
+                                                      String deviceCode,
+                                                      boolean excludeAccessErrorDevices) {
+        sql.append("""
+                SELECT
+                  m.id AS source_record_id,
+                  m.device_code,
+                  m.product_key,
+                  NULL AS protocol_code,
+                  'dispatch_failed' AS asset_source_type,
+                  'message_dispatch' AS failure_stage,
+                  '未登记设备最近一次上报已记录到失败轨迹。' AS error_message,
+                  m.topic,
+                  m.trace_id,
+                  m.payload,
+                  COALESCE(m.report_time, m.create_time) AS report_time
+                FROM iot_device_message_log m
+                INNER JOIN (
+                    SELECT MAX(m2.id) AS latest_id
+                    FROM iot_device_message_log m2
+                    LEFT JOIN iot_device d2
+                      ON d2.device_code = m2.device_code
+                     AND d2.deleted = 0
+                    WHERE m2.device_id = ?
+                      AND m2.message_type = ?
+                      AND m2.device_code IS NOT NULL
+                      AND TRIM(m2.device_code) <> ''
+                      AND d2.id IS NULL
+                """);
+        params.add(UNKNOWN_DEVICE_ID);
+        params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTextLike(sql, params, "m2.product_key", productKey);
+        appendTextLike(sql, params, "m2.device_code", deviceCode);
+        sql.append("""
+                    GROUP BY m2.device_code
+                ) latest ON latest.latest_id = m.id
+                """);
+        if (!excludeAccessErrorDevices) {
+            return;
+        }
+        sql.append("""
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM iot_device_access_error_log e3
+                    LEFT JOIN iot_device d3
+                      ON d3.device_code = e3.device_code
+                     AND d3.deleted = 0
+                    WHERE e3.deleted = 0
+                      AND e3.device_code IS NOT NULL
+                      AND TRIM(e3.device_code) <> ''
+                      AND d3.id IS NULL
+                      AND e3.device_code = m.device_code
+                """);
+        appendTextLike(sql, params, "e3.product_key", productKey);
+        appendTextLike(sql, params, "e3.device_code", deviceCode);
+        sql.append("""
+                )
+                """);
+    }
+
+    private void appendDispatchFailureLatestSelectionExcludingInvalidState(StringBuilder sql,
+                                                                           List<Object> params,
+                                                                           String productKey,
+                                                                           String deviceCode) {
+        sql.append("""
+                SELECT
+                  m.id AS source_record_id,
+                  m.device_code,
+                  m.product_key,
+                  NULL AS protocol_code,
+                  'dispatch_failed' AS asset_source_type,
+                  'message_dispatch' AS failure_stage,
+                  '未登记设备最近一次上报已记录到失败轨迹。' AS error_message,
+                  m.topic,
+                  m.trace_id,
+                  m.payload,
+                  COALESCE(m.report_time, m.create_time) AS report_time
+                FROM iot_device_message_log m
+                INNER JOIN (
+                    SELECT MAX(m2.id) AS latest_id
+                    FROM iot_device_message_log m2
+                    LEFT JOIN iot_device d2
+                      ON d2.device_code = m2.device_code
+                     AND d2.deleted = 0
+                    WHERE m2.device_id = ?
+                      AND m2.message_type = ?
+                      AND m2.device_code IS NOT NULL
+                      AND TRIM(m2.device_code) <> ''
+                      AND d2.id IS NULL
+                """);
+        params.add(UNKNOWN_DEVICE_ID);
+        params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTextLike(sql, params, "m2.product_key", productKey);
+        appendTextLike(sql, params, "m2.device_code", deviceCode);
+        sql.append("""
+                    GROUP BY m2.device_code
+                ) latest ON latest.latest_id = m.id
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM iot_device_invalid_report_state s2
+                    LEFT JOIN iot_device d3
+                      ON d3.device_code = s2.device_code
+                     AND d3.deleted = 0
+                    WHERE s2.deleted = 0
+                      AND s2.resolved = 0
+                      AND s2.reason_code = 'DEVICE_NOT_FOUND'
+                      AND s2.device_code IS NOT NULL
+                      AND TRIM(s2.device_code) <> ''
+                      AND d3.id IS NULL
+                      AND s2.device_code = m.device_code
+                """);
+        appendTextLike(sql, params, "s2.product_key", productKey);
+        appendTextLike(sql, params, "s2.device_code", deviceCode);
+        sql.append("""
+                )
+                """);
+    }
+
     private void appendTextLike(StringBuilder sql, List<Object> params, String column, String value) {
         if (!StringUtils.hasText(value)) {
             return;
@@ -245,8 +575,22 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         DevicePageVO row = buildUnregisteredBaseRow(rs.getString("device_code"), rs.getString("product_key"), reportTime);
         row.setAssetSourceType(DISPATCH_FAILED_SOURCE);
         row.setSourceRecordId(getLong(rs, "source_record_id"));
-        row.setLastFailureStage("message_dispatch");
-        row.setLastErrorMessage("未登记设备最近一次上报已记录到失败轨迹。");
+        row.setLastFailureStage(MESSAGE_DISPATCH_FAILURE_STAGE);
+        row.setLastErrorMessage(DISPATCH_FAILED_MESSAGE);
+        row.setLastReportTopic(rs.getString("topic"));
+        row.setLastTraceId(rs.getString("trace_id"));
+        row.setLastPayload(rs.getString("payload"));
+        return row;
+    }
+
+    private DevicePageVO mapMergedRow(ResultSet rs) throws SQLException {
+        LocalDateTime reportTime = getLocalDateTime(rs, "report_time");
+        DevicePageVO row = buildUnregisteredBaseRow(rs.getString("device_code"), rs.getString("product_key"), reportTime);
+        row.setProtocolCode(rs.getString("protocol_code"));
+        row.setAssetSourceType(rs.getString("asset_source_type"));
+        row.setSourceRecordId(getLong(rs, "source_record_id"));
+        row.setLastFailureStage(rs.getString("failure_stage"));
+        row.setLastErrorMessage(rs.getString("error_message"));
         row.setLastReportTopic(rs.getString("topic"));
         row.setLastTraceId(rs.getString("trace_id"));
         row.setLastPayload(rs.getString("payload"));

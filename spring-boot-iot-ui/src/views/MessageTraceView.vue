@@ -1,5 +1,5 @@
 <template>
-  <div class="message-trace-view">
+  <div class="page-stack message-trace-view">
     <AccessErrorArchivePanel
       v-if="isAccessErrorMode"
       :view-mode="pageMode"
@@ -7,294 +7,279 @@
       @change-view-mode="handlePageModeChange"
     />
 
-    <StandardWorkbenchPanel
-      v-else
-      title="链路追踪台"
-      description="按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。"
-      show-header-actions
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-notices
-      show-toolbar
-      show-pagination
-    >
-      <template #header-actions>
-        <StandardChoiceGroup
-          :model-value="pageMode"
-          :options="pageModeOptions"
-          responsive
-          @update:modelValue="handlePageModeChange"
-        />
-      </template>
-
-      <template #filters>
-        <StandardListFilterHeader
-          :model="searchForm"
-          :show-advanced="showAdvancedFilters"
-          show-advanced-toggle
-          :advanced-hint="advancedFilterHint"
-          @toggle-advanced="toggleAdvancedFilters"
-        >
-          <template #primary>
-            <el-form-item>
-              <el-input
-                id="quick-search"
-                v-model="quickSearchKeyword"
-                placeholder="快速搜索（TraceId）"
-                clearable
-                prefix-icon="Search"
-                @keyup.enter="handleQuickSearch"
-                @clear="handleClearQuickSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.deviceCode"
-                placeholder="设备编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.productKey"
-                placeholder="产品标识"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-select v-model="searchForm.messageType" placeholder="消息类型" clearable>
-                <el-option
-                  v-for="item in messageTypeOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </template>
-          <template #advanced>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.topic"
-                placeholder="Topic"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </template>
-          <template #actions>
-            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-          </template>
-        </StandardListFilterHeader>
-        <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
-          <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
-            快速搜索：{{ appliedFilters.traceId.trim() }}
-          </el-tag>
+    <template v-else>
+      <section class="message-trace-command-strip">
+        <div class="message-trace-command-strip__copy">
+          <h1 class="message-trace-command-strip__title">链路追踪台</h1>
+          <p class="message-trace-command-strip__judgement">先看 TraceId，再看最近会话，再决定是否转异常观测。</p>
+          <p class="message-trace-command-strip__meta">{{ traceStripStatus }}</p>
         </div>
-      </template>
+        <div class="message-trace-command-strip__actions">
+          <StandardButton action="refresh" plain @click="jumpToSystemLog()">异常观测台</StandardButton>
+        </div>
+      </section>
 
-      <template #applied-filters>
-        <StandardAppliedFiltersBar
-          :tags="activeFilterTags"
-          @remove="handleRemoveAppliedFilter"
-          @clear="handleClearAppliedFilters"
-        />
-      </template>
+      <StandardWorkbenchPanel
+        title="追踪台账"
+        description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
+        show-header-actions
+        show-filters
+        :show-applied-filters="hasAppliedFilters"
+        show-toolbar
+        show-pagination
+      >
+        <template #header-actions>
+          <StandardChoiceGroup
+            :model-value="pageMode"
+            :options="pageModeOptions"
+            responsive
+            @update:modelValue="handlePageModeChange"
+          />
+        </template>
 
-      <template #notices>
-        <div class="message-trace-notice-grid">
-          <el-alert
-            title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
-            type="info"
-            :closable="false"
-            show-icon
-            class="view-alert"
-          />
-          <el-alert
-            :title="statsSummaryText"
-            type="success"
-            :closable="false"
-            show-icon
-            class="stats-alert"
-          />
-          <div class="message-trace-ops-grid">
-            <PanelCard
-              class="message-trace-ops-card"
-              eyebrow="message-flow"
-              title="运维看板"
-              description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
-            >
-              <div v-if="opsLoading" class="message-trace-ops-empty">
-                正在加载 message-flow 运维指标...
-              </div>
-              <template v-else>
-                <section class="message-trace-ops-metrics">
-                  <MetricCard
-                    v-for="item in opsOverviewMetrics"
-                    :key="item.label"
+        <template #filters>
+          <StandardListFilterHeader
+            :model="searchForm"
+            :show-advanced="showAdvancedFilters"
+            show-advanced-toggle
+            :advanced-hint="advancedFilterHint"
+            @toggle-advanced="toggleAdvancedFilters"
+          >
+            <template #primary>
+              <el-form-item>
+                <el-input
+                  id="quick-search"
+                  v-model="quickSearchKeyword"
+                  placeholder="快速搜索（TraceId）"
+                  clearable
+                  prefix-icon="Search"
+                  @keyup.enter="handleQuickSearch"
+                  @clear="handleClearQuickSearch"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.deviceCode"
+                  placeholder="设备编码"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.productKey"
+                  placeholder="产品标识"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-select v-model="searchForm.messageType" placeholder="消息类型" clearable>
+                  <el-option
+                    v-for="item in messageTypeOptions"
+                    :key="item.value"
                     :label="item.label"
                     :value="item.value"
-                    :badge="item.badge"
-                    size="compact"
                   />
-                </section>
-                <div class="message-trace-ops-runtime">
-                  runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
-                </div>
-                <div class="message-trace-stage-table-wrapper">
-                  <table class="message-trace-stage-table">
-                    <thead>
-                      <tr>
-                        <th>阶段</th>
-                        <th>执行</th>
-                        <th>失败</th>
-                        <th>跳过</th>
-                        <th>平均耗时</th>
-                        <th>P95</th>
-                        <th>最大耗时</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
-                        <td>{{ stage.stage }}</td>
-                        <td>{{ formatCount(stage.count) }}</td>
-                        <td>{{ formatCount(stage.failureCount) }}</td>
-                        <td>{{ formatCount(stage.skippedCount) }}</td>
-                        <td>{{ formatCost(stage.avgCostMs) }}</td>
-                        <td>{{ formatCost(stage.p95CostMs) }}</td>
-                        <td>{{ formatCost(stage.maxCostMs) }}</td>
-                      </tr>
-                      <tr v-if="opsOverview.stageMetrics.length === 0">
-                        <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-            </PanelCard>
-
-            <PanelCard
-              class="message-trace-ops-card"
-              eyebrow="message-flow"
-              title="最近会话"
-              description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
-            >
-              <div class="message-trace-recent-toolbar">
-                <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
-                  刷新最近会话
-                </StandardButton>
-              </div>
-              <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
-                正在加载最近会话...
-              </div>
-              <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
-                当前还没有可带入的 message-flow 会话。
-              </div>
-              <div v-else class="message-trace-recent-list">
-                <button
-                  v-for="session in recentMessageFlowSessions"
-                  :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
-                  type="button"
-                  class="message-trace-recent-item"
-                  @click="applyRecentMessageFlowSession(session)"
-                >
-                  <div class="message-trace-recent-item__header">
-                    <strong>{{ session.sessionId || '--' }}</strong>
-                    <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
-                  </div>
-                  <div class="message-trace-recent-item__meta">
-                    <span>{{ session.deviceCode || '--' }}</span>
-                    <span>{{ formatDateTime(session.submittedAt) }}</span>
-                  </div>
-                  <div class="message-trace-recent-item__meta">
-                    <span>{{ session.topic || '--' }}</span>
-                    <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
-                  </div>
-                </button>
-              </div>
-            </PanelCard>
+                </el-select>
+              </el-form-item>
+            </template>
+            <template #advanced>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.topic"
+                  placeholder="Topic"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </template>
+            <template #actions>
+              <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+              <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            </template>
+          </StandardListFilterHeader>
+          <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
+            <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
+              快速搜索：{{ appliedFilters.traceId.trim() }}
+            </el-tag>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <template #toolbar>
-        <StandardTableToolbar
-          compact
-          :meta-items="[
-            `当前结果 ${pagination.total} 条`,
-            `近1小时 ${traceStats.recentHourCount} 条`,
-            `近24小时 ${traceStats.recent24HourCount} 条`,
-            `失败摘要 ${traceStats.dispatchFailureCount} 条`
-          ]"
-        >
-          <template #right>
-            <StandardButton
-              action="refresh"
-              link
-              :disabled="!canJumpWithSearch"
-              @click="jumpToSystemLog()"
-            >
-              跳转异常观测台
-            </StandardButton>
-            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-          </template>
-        </StandardTableToolbar>
-      </template>
-
-      <el-table
-        v-loading="loading"
-        class="message-trace-table"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-      >
-        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-        <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
-        <StandardTableTextColumn label="消息类型" :width="120">
-          <template #default="{ row }">
-            {{ getMessageTypeLabel(row.messageType) }}
-          </template>
-        </StandardTableTextColumn>
-        <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
-        <StandardTableTextColumn label="Payload 摘要" :min-width="260">
-          <template #default="{ row }">
-            {{ formatInlineText(row.payload) }}
-          </template>
-        </StandardTableTextColumn>
-        <StandardTableTextColumn label="上报时间" :width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.reportTime || row.createTime) }}
-          </template>
-        </StandardTableTextColumn>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
-              <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #pagination>
-        <div v-if="pagination.total > 0" class="ops-pagination">
-          <StandardPagination
-            v-model:current-page="pagination.pageNum"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handlePageChange"
+        <template #applied-filters>
+          <StandardAppliedFiltersBar
+            :tags="activeFilterTags"
+            @remove="handleRemoveAppliedFilter"
+            @clear="handleClearAppliedFilters"
           />
+        </template>
+
+        <template #toolbar>
+          <StandardTableToolbar
+            compact
+            :meta-items="[
+              `当前结果 ${pagination.total} 条`,
+              `近1小时 ${traceStats.recentHourCount} 条`,
+              `近24小时 ${traceStats.recent24HourCount} 条`,
+              `失败摘要 ${traceStats.dispatchFailureCount} 条`
+            ]"
+          >
+            <template #right>
+              <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            </template>
+          </StandardTableToolbar>
+        </template>
+
+        <el-table
+          v-loading="loading"
+          class="message-trace-table"
+          :data="tableData"
+          border
+          stripe
+          style="width: 100%"
+        >
+          <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+          <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+          <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
+          <StandardTableTextColumn label="消息类型" :width="120">
+            <template #default="{ row }">
+              {{ getMessageTypeLabel(row.messageType) }}
+            </template>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
+          <StandardTableTextColumn label="Payload 摘要" :min-width="260">
+            <template #default="{ row }">
+              {{ formatInlineText(row.payload) }}
+            </template>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn label="上报时间" :width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.reportTime || row.createTime) }}
+            </template>
+          </StandardTableTextColumn>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
+                <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
+              </StandardRowActions>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="message-trace-support-grid">
+          <PanelCard
+            class="message-trace-ops-card"
+            eyebrow="message-flow"
+            title="运维看板"
+            description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
+          >
+            <div v-if="opsLoading" class="message-trace-ops-empty">
+              正在加载 message-flow 运维指标...
+            </div>
+            <template v-else>
+              <section class="message-trace-ops-metrics">
+                <MetricCard
+                  v-for="item in opsOverviewMetrics"
+                  :key="item.label"
+                  :label="item.label"
+                  :value="item.value"
+                  :badge="item.badge"
+                  size="compact"
+                />
+              </section>
+              <div class="message-trace-ops-runtime">
+                runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
+              </div>
+              <div class="message-trace-stage-table-wrapper">
+                <table class="message-trace-stage-table">
+                  <thead>
+                    <tr>
+                      <th>阶段</th>
+                      <th>执行</th>
+                      <th>失败</th>
+                      <th>跳过</th>
+                      <th>平均耗时</th>
+                      <th>P95</th>
+                      <th>最大耗时</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
+                      <td>{{ stage.stage }}</td>
+                      <td>{{ formatCount(stage.count) }}</td>
+                      <td>{{ formatCount(stage.failureCount) }}</td>
+                      <td>{{ formatCount(stage.skippedCount) }}</td>
+                      <td>{{ formatCost(stage.avgCostMs) }}</td>
+                      <td>{{ formatCost(stage.p95CostMs) }}</td>
+                      <td>{{ formatCost(stage.maxCostMs) }}</td>
+                    </tr>
+                    <tr v-if="opsOverview.stageMetrics.length === 0">
+                      <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </PanelCard>
+
+          <PanelCard
+            class="message-trace-ops-card"
+            eyebrow="message-flow"
+            title="最近会话"
+            description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
+          >
+            <div class="message-trace-recent-toolbar">
+              <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
+                刷新最近会话
+              </StandardButton>
+            </div>
+            <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
+              正在加载最近会话...
+            </div>
+            <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
+              当前还没有可带入的 message-flow 会话。
+            </div>
+            <div v-else class="message-trace-recent-list">
+              <button
+                v-for="session in recentMessageFlowSessions"
+                :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
+                type="button"
+                class="message-trace-recent-item"
+                @click="applyRecentMessageFlowSession(session)"
+              >
+                <div class="message-trace-recent-item__header">
+                  <strong>{{ session.sessionId || '--' }}</strong>
+                  <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
+                </div>
+                <div class="message-trace-recent-item__meta">
+                  <span>{{ session.deviceCode || '--' }}</span>
+                  <span>{{ formatDateTime(session.submittedAt) }}</span>
+                </div>
+                <div class="message-trace-recent-item__meta">
+                  <span>{{ session.topic || '--' }}</span>
+                  <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
+                </div>
+              </button>
+            </div>
+          </PanelCard>
         </div>
-      </template>
-    </StandardWorkbenchPanel>
+
+        <template #pagination>
+          <div v-if="pagination.total > 0" class="ops-pagination">
+            <StandardPagination
+              v-model:current-page="pagination.pageNum"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handlePageChange"
+            />
+          </div>
+        </template>
+      </StandardWorkbenchPanel>
+    </template>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -430,6 +415,7 @@ import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
@@ -437,6 +423,9 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue';
+import StandardActionLink from '@/components/StandardActionLink.vue';
+import StandardRowActions from '@/components/StandardRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type {
@@ -610,13 +599,11 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`;
 });
-const statsSummaryText = computed(() => {
+const traceStripStatus = computed(() => {
   if (statsLoading.value) {
-    return '正在加载链路统计概览...';
+    return '当前模式：链路追踪，统计加载中。';
   }
-  const topMessageType = traceStats.value.topMessageTypes[0]?.label || '--';
-  const topDeviceCode = traceStats.value.topDeviceCodes[0]?.label || '--';
-  return `链路总量 ${traceStats.value.total}，近1小时 ${traceStats.value.recentHourCount}，近24小时 ${traceStats.value.recent24HourCount}，Trace ${traceStats.value.distinctTraceCount}，设备 ${traceStats.value.distinctDeviceCount}，高频消息 ${topMessageType}，高频设备 ${topDeviceCode}`;
+  return `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
 });
 const opsOverviewMetrics = computed(() => {
   const completedCount = sumSessionCount('COMPLETED');
@@ -1047,6 +1034,49 @@ onMounted(() => {
   min-width: 0;
 }
 
+.message-trace-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  box-shadow: var(--shadow-card);
+}
+
+.message-trace-command-strip__copy {
+  min-width: 0;
+}
+
+.message-trace-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.22rem;
+}
+
+.message-trace-command-strip__judgement {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.message-trace-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.message-trace-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.72rem;
+}
+
 .message-trace-quick-search-tag {
   margin-top: 0.72rem;
 }
@@ -1060,10 +1090,11 @@ onMounted(() => {
   gap: 0.72rem;
 }
 
-.message-trace-ops-grid {
+.message-trace-support-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 0.9rem;
+  margin-top: 0.85rem;
 }
 
 .message-trace-ops-card {
@@ -1177,12 +1208,22 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .message-trace-ops-grid {
+  .message-trace-support-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
+  .message-trace-command-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .message-trace-command-strip__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .message-trace-ops-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

@@ -6,9 +6,11 @@ import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.invalidreport.InvalidReportCounterStore;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,8 @@ import org.springframework.jdbc.core.RowMapper;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
+import java.time.Instant;
+import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +50,8 @@ class DeviceAccessErrorLogServiceImplTest {
     private DeviceMapper deviceMapper;
     @Mock
     private ProductMapper productMapper;
+    @Mock
+    private InvalidReportCounterStore invalidReportCounterStore;
 
     private DeviceAccessErrorLogServiceImpl service;
 
@@ -59,7 +66,8 @@ class DeviceAccessErrorLogServiceImplTest {
                 schemaSupport,
                 deviceMapper,
                 productMapper,
-                iotProperties
+                iotProperties,
+                invalidReportCounterStore
         );
     }
 
@@ -138,20 +146,11 @@ class DeviceAccessErrorLogServiceImplTest {
                     if (sql.contains("COUNT(DISTINCT device_code)")) {
                         return 4L;
                     }
-                    if (sql.contains("INTERVAL 1 HOUR")) {
-                        return 2L;
-                    }
-                    if (sql.contains("INTERVAL 24 HOUR")) {
-                        return 9L;
-                    }
                     return 12L;
                 });
         when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
                 .thenAnswer(invocation -> {
                     String sql = invocation.getArgument(0, String.class);
-                    if (sql.contains("failure_stage")) {
-                        return List.of(new DeviceStatsBucketVO("protocol_decode", "protocol_decode", 5L));
-                    }
                     if (sql.contains("error_code")) {
                         return List.of(new DeviceStatsBucketVO("400", "400", 3L));
                     }
@@ -163,18 +162,38 @@ class DeviceAccessErrorLogServiceImplTest {
                     }
                     return List.of(new DeviceStatsBucketVO("$dp", "$dp", 4L));
                 });
+        when(invalidReportCounterStore.sumFailureStageSince(eq("topic_route"), any(Instant.class))).thenReturn(0L);
+        when(invalidReportCounterStore.sumFailureStageSince(eq("protocol_decode"), any(Instant.class))).thenReturn(5L);
+        when(invalidReportCounterStore.sumFailureStageSince(eq("device_validate"), any(Instant.class))).thenReturn(4L);
+        when(invalidReportCounterStore.sumFailureStageSince(eq("message_dispatch"), any(Instant.class))).thenReturn(2L);
 
         DeviceAccessErrorStatsVO stats = service.getStats(new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery());
 
         assertEquals(12L, stats.getTotal());
-        assertEquals(2L, stats.getRecentHourCount());
-        assertEquals(9L, stats.getRecent24HourCount());
+        assertEquals(11L, stats.getRecentHourCount());
+        assertEquals(11L, stats.getRecent24HourCount());
         assertEquals(7L, stats.getDistinctTraceCount());
         assertEquals(4L, stats.getDistinctDeviceCount());
         assertEquals("protocol_decode", stats.getTopFailureStages().get(0).getValue());
+        assertEquals(5L, stats.getTopFailureStages().get(0).getCount());
         assertEquals("400", stats.getTopErrorCodes().get(0).getValue());
         assertEquals("BizException", stats.getTopExceptionClasses().get(0).getValue());
         assertEquals("mqtt-json", stats.getTopProtocolCodes().get(0).getValue());
         assertEquals("$dp", stats.getTopTopics().get(0).getValue());
+    }
+
+    @Test
+    void listFailureStageCountsSinceShouldReadAggregatedBucketsInsteadOfDetailRows() {
+        when(invalidReportCounterStore.sumFailureStageSince("protocol_decode", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(12L);
+        when(invalidReportCounterStore.sumFailureStageSince("device_validate", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(9L);
+        when(invalidReportCounterStore.sumFailureStageSince("topic_route", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(0L);
+        when(invalidReportCounterStore.sumFailureStageSince("message_dispatch", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(0L);
+
+        List<DeviceAccessErrorLogService.FailureStageCount> counts = service.listFailureStageCountsSince(
+                Date.from(Instant.parse("2026-03-27T13:30:00Z"))
+        );
+
+        assertEquals("protocol_decode", counts.get(0).failureStage());
+        assertEquals(12L, counts.get(0).failureCount());
     }
 }

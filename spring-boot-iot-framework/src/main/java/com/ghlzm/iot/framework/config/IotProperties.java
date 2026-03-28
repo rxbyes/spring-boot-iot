@@ -311,6 +311,7 @@ public class IotProperties {
         private Performance performance = new Performance();
         private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
         private Alerting alerting = new Alerting();
+        private InvalidReportGovernance invalidReportGovernance = new InvalidReportGovernance();
 
         @Data
         public static class Console {
@@ -375,6 +376,28 @@ public class IotProperties {
                 private Boolean enabled = Boolean.TRUE;
                 private Integer windowMinutes = 10;
                 private Integer threshold = 3;
+            }
+        }
+
+        @Data
+        public static class InvalidReportGovernance {
+            private Boolean enabled = Boolean.FALSE;
+            private Integer bucketTtlHours = 26;
+            private EmptyPayload emptyPayload = new EmptyPayload();
+            private DeviceNotFound deviceNotFound = new DeviceNotFound();
+
+            @Data
+            public static class EmptyPayload {
+                private Integer thresholdWindowSeconds = 60;
+                private Integer thresholdCount = 3;
+                private Integer cooldownMinutes = 15;
+            }
+
+            @Data
+            public static class DeviceNotFound {
+                private Integer thresholdWindowSeconds = 60;
+                private Integer thresholdCount = 2;
+                private Integer cooldownMinutes = 30;
             }
         }
     }

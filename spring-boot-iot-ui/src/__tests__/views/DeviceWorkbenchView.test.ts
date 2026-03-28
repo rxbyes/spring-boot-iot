@@ -201,4 +201,14 @@ describe('DeviceWorkbenchView', () => {
     warnSpy.mockRestore()
     errorSpy.mockRestore()
   })
+
+  it('renders a compact device workbench header and keeps the ledger visible', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
+    expect(wrapper.text()).not.toContain('优先清理未登记、长时间未上报和拓扑异常设备')
+  })
 })

@@ -50,8 +50,33 @@ describe('IotAccessWorkbenchHero', () => {
     });
 
     expect(wrapper.text()).toContain('先补齐产品契约，再处理库存治理。');
+    expect(wrapper.find('.iot-access-workbench-hero').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-workbench-hero__layout').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-workbench-hero__actions').exists()).toBe(true);
     expect(wrapper.findAll('.iot-access-workbench-hero__tag')).toHaveLength(2);
     expect(wrapper.findAll('.iot-access-workbench-hero__summary-item')).toHaveLength(2);
     expect(wrapper.findAll('a.router-link-stub')).toHaveLength(2);
+    expect(wrapper.findAll('.iot-access-workbench-hero__action--primary')).toHaveLength(1);
+    expect(wrapper.findAll('.iot-access-workbench-hero__action--secondary')).toHaveLength(1);
+  });
+
+  it('uses defaults for optional sections and action variant', () => {
+    const wrapper = mount(IotAccessWorkbenchHero, {
+      props: {
+        judgement: '先补齐产品契约，再处理库存治理。',
+        actions: [{ label: '查看设备资产', to: '/devices' }]
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub,
+          RouterLink: RouterLinkStub
+        }
+      }
+    });
+
+    expect(wrapper.find('.iot-access-workbench-hero__tags').exists()).toBe(false);
+    expect(wrapper.find('.iot-access-workbench-hero__summary').exists()).toBe(false);
+    expect(wrapper.findAll('.iot-access-workbench-hero__action--primary')).toHaveLength(0);
+    expect(wrapper.findAll('.iot-access-workbench-hero__action--secondary')).toHaveLength(1);
   });
 });

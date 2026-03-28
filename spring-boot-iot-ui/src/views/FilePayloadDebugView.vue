@@ -1,8 +1,19 @@
 <template>
-  <div class="file-payload-debug-view">
+  <div class="page-stack file-payload-debug-view">
+    <section class="file-payload-debug-command-strip">
+      <div class="file-payload-debug-command-strip__copy">
+        <h1 class="file-payload-debug-command-strip__title">数据校验台</h1>
+        <p class="file-payload-debug-command-strip__judgement">先确定设备，再核对文件快照和固件聚合。</p>
+        <p class="file-payload-debug-command-strip__meta">{{ validationStripStatus }}</p>
+      </div>
+      <div class="file-payload-debug-command-strip__actions">
+        <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
+      </div>
+    </section>
+
     <StandardWorkbenchPanel
-      title="数据校验台"
-      description="按设备编码查看文件快照、固件聚合结果和原始响应，统一完成接入数据完整性核查。"
+      title="设备查询与校验结果"
+      description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
       show-filters
       :show-inline-state="showInlineState"
     >
@@ -34,14 +45,6 @@
       </template>
 
       <div class="page-stack">
-        <PanelCard
-          eyebrow="数据校验台"
-          title="文件消息完整性概况"
-          description="统一汇总文件快照数量、固件聚合数量、最近文件类型和最近一次抓取时间。"
-        >
-          <StandardInfoGrid :items="validationSummaryItems" :columns="4" />
-        </PanelCard>
-
         <section class="two-column-grid file-payload-debug-view__results">
           <PanelCard
             eyebrow="文件快照 C.3"
@@ -106,12 +109,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
-import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
@@ -120,6 +123,7 @@ import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';
 
 const defaultDeviceCode = 'demo-device-01';
+const router = useRouter();
 const deviceCode = ref(defaultDeviceCode);
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -138,29 +142,12 @@ const inlineStateMessage = computed(() => {
 });
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));
-
-const validationSummaryItems = computed(() => [
-  {
-    key: 'file-snapshot-count',
-    label: '文件快照数量',
-    value: fileSnapshots.value.length
-  },
-  {
-    key: 'firmware-aggregate-count',
-    label: '固件聚合数量',
-    value: firmwareAggregates.value.length
-  },
-  {
-    key: 'latest-file-type',
-    label: '最近文件类型',
-    value: fileSnapshots.value[0]?.fileType || firmwareAggregates.value[0]?.fileType
-  },
-  {
-    key: 'last-fetch-time',
-    label: '最近抓取时间',
-    value: formatDateTime(lastFetchTime.value)
+const validationStripStatus = computed(() => {
+  if (lastFetchTime.value) {
+    return `当前设备 ${normalizedDeviceCode.value || '--'}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条，最近刷新 ${formatDateTime(lastFetchTime.value)}。`;
   }
-]);
+  return `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
+});
 
 function formatMd5(value?: boolean | null) {
   if (value === true) {
@@ -224,6 +211,10 @@ function handleReset() {
   fileSnapshots.value = [];
   firmwareAggregates.value = [];
 }
+
+function handleOpenTraceWorkbench() {
+  router.push('/message-trace');
+}
 </script>
 
 <style scoped>
@@ -231,7 +222,62 @@ function handleReset() {
   min-width: 0;
 }
 
+.file-payload-debug-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  box-shadow: var(--shadow-card);
+}
+
+.file-payload-debug-command-strip__copy {
+  min-width: 0;
+}
+
+.file-payload-debug-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.22rem;
+}
+
+.file-payload-debug-command-strip__judgement {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.file-payload-debug-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.file-payload-debug-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.72rem;
+}
+
 .file-payload-debug-view__results {
   align-items: start;
+}
+
+@media (max-width: 900px) {
+  .file-payload-debug-command-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .file-payload-debug-command-strip__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

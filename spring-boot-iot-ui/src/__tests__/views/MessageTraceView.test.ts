@@ -201,6 +201,31 @@ const AccessErrorArchivePanelStub = defineComponent({
   template: '<section class="access-error-archive-panel-stub" />'
 });
 
+const IotAccessWorkbenchHeroStub = defineComponent({
+  name: 'IotAccessWorkbenchHero',
+  props: ['title', 'judgement'],
+  template: `
+    <section class="iot-access-workbench-hero-stub">
+      <h2>{{ title }}</h2>
+      <p>{{ judgement }}</p>
+    </section>
+  `
+});
+
+const IotAccessSignalDeckStub = defineComponent({
+  name: 'IotAccessSignalDeck',
+  props: ['lead', 'metrics'],
+  template: `
+    <section class="iot-access-signal-deck-stub">
+      <p>{{ lead?.eyebrow }}</p>
+      <h3>{{ lead?.title }}</h3>
+      <p>{{ lead?.description }}</p>
+      <p>{{ lead?.action?.label }}</p>
+      <p v-for="item in metrics" :key="item.label">{{ item.label }} {{ item.value }}</p>
+    </section>
+  `
+});
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
@@ -325,6 +350,8 @@ function mountView() {
       },
       stubs: {
         AccessErrorArchivePanel: AccessErrorArchivePanelStub,
+        IotAccessWorkbenchHero: IotAccessWorkbenchHeroStub,
+        IotAccessSignalDeck: IotAccessSignalDeckStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         PanelCard: PanelCardStub,
         MetricCard: MetricCardStub,
@@ -435,15 +462,19 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('renders the ops overview and recent sessions helper', async () => {
+  it('renders the compact trace strip and keeps the support workspace below the table', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
     expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('先看 TraceId，再看最近会话，再决定是否转异常观测。');
+    expect(wrapper.text()).toContain('当前模式：链路追踪');
     expect(wrapper.text()).toContain('完成链路 3');
     expect(wrapper.text()).toContain('关联发布 4');
+    expect(wrapper.text()).toContain('运维看板');
+    expect(wrapper.text()).toContain('最近会话');
     expect(wrapper.text()).toContain('session-recent-001');
     expect(wrapper.text()).toContain('INGRESS');
   });

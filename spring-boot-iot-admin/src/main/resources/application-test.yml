@@ -63,3 +63,16 @@ iot:
 
   rule:
     enabled: true
+
+  observability:
+    invalid-report-governance:
+      enabled: ${IOT_OBSERVABILITY_INVALID_REPORT_GOVERNANCE_ENABLED:true}
+      bucket-ttl-hours: ${IOT_OBSERVABILITY_INVALID_REPORT_BUCKET_TTL_HOURS:26}
+      empty-payload:
+        threshold-window-seconds: ${IOT_OBSERVABILITY_INVALID_REPORT_EMPTY_PAYLOAD_WINDOW_SECONDS:60}
+        threshold-count: ${IOT_OBSERVABILITY_INVALID_REPORT_EMPTY_PAYLOAD_THRESHOLD_COUNT:3}
+        cooldown-minutes: ${IOT_OBSERVABILITY_INVALID_REPORT_EMPTY_PAYLOAD_COOLDOWN_MINUTES:15}
+      device-not-found:
+        threshold-window-seconds: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_WINDOW_SECONDS:60}
+        threshold-count: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_THRESHOLD_COUNT:2}
+        cooldown-minutes: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_COOLDOWN_MINUTES:30}

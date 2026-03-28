@@ -130,5 +130,9 @@ describe('sectionHomes config', () => {
     expect(config?.intro).toContain('先去哪处理');
     expect(config?.description).toContain('中枢');
     expect(config?.cards).toHaveLength(6);
+    expect(config?.hubJudgement).toBe('先完成资产底座，再进入诊断实验台收口链路问题。');
+    expect(config?.hubLeadTitle).toBe('优先处理资产底座与最近异常联动');
+    expect(config?.hubLeadDescription).toBe('产品与设备先稳住，链路验证、异常观测、链路追踪、数据校验只保留强相关联动。');
+    expect(config?.hubLeadPath).toBe('/products');
   });
 });

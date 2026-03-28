@@ -1,19 +1,22 @@
 <template>
-  <section class="iot-access-signal-deck">
+  <section
+    class="iot-access-signal-deck"
+    :class="hasMetrics ? 'iot-access-signal-deck--with-metrics' : 'iot-access-signal-deck--lead-only'"
+  >
     <PanelCard class="iot-access-signal-deck__lead">
       <p v-if="lead.eyebrow" class="iot-access-signal-deck__lead-eyebrow">{{ lead.eyebrow }}</p>
       <h3 class="iot-access-signal-deck__lead-title">{{ lead.title }}</h3>
       <p v-if="lead.description" class="iot-access-signal-deck__lead-description">{{ lead.description }}</p>
       <RouterLink
-        v-if="lead.actionLabel && lead.actionTo"
-        :to="lead.actionTo"
+        v-if="resolvedAction"
+        :to="resolvedAction.to"
         class="iot-access-signal-deck__lead-action"
       >
-        {{ lead.actionLabel }}
+        {{ resolvedAction.label }}
       </RouterLink>
     </PanelCard>
 
-    <div class="iot-access-signal-deck__metrics">
+    <div v-if="metrics.length" class="iot-access-signal-deck__metrics">
       <MetricCard
         v-for="metric in metrics"
         :key="`${metric.label}-${metric.value}`"
@@ -26,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 
@@ -33,6 +37,10 @@ interface SignalLead {
   eyebrow?: string;
   title: string;
   description?: string;
+  action?: {
+    label: string;
+    to: string;
+  };
   actionLabel?: string;
   actionTo?: string;
 }
@@ -42,10 +50,30 @@ interface SignalMetric {
   value: string;
 }
 
-defineProps<{
-  lead: SignalLead;
-  metrics: SignalMetric[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    lead: SignalLead;
+    metrics?: SignalMetric[];
+  }>(),
+  {
+    metrics: () => []
+  }
+);
+
+const resolvedAction = computed(() => {
+  if (props.lead.action?.label && props.lead.action?.to) {
+    return props.lead.action;
+  }
+  if (props.lead.actionLabel && props.lead.actionTo) {
+    return {
+      label: props.lead.actionLabel,
+      to: props.lead.actionTo
+    };
+  }
+  return null;
+});
+
+const hasMetrics = computed(() => props.metrics.length > 0);
 </script>
 
 <style scoped>
@@ -91,12 +119,12 @@ defineProps<{
 }
 
 @media (min-width: 960px) {
-  .iot-access-signal-deck {
+  .iot-access-signal-deck--with-metrics {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
 
-  .iot-access-signal-deck__metrics {
+  .iot-access-signal-deck--with-metrics .iot-access-signal-deck__metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
