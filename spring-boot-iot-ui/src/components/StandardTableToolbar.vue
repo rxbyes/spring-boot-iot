@@ -1,11 +1,11 @@
 <template>
   <div
-    class="standard-table-toolbar table-action-bar"
+    class="standard-table-toolbar standard-table-toolbar--minimal table-action-bar"
     :class="{
       'standard-table-toolbar--compact': compact
     }"
   >
-    <div v-if="hasLeft" class="table-action-bar__left">
+    <div v-if="hasLeft" class="table-action-bar__left standard-table-toolbar__meta-rail">
       <slot name="left">
         <span
           v-for="item in normalizedMetaItems"
@@ -62,3 +62,13 @@ const normalizedMetaItems = computed(() =>
 const hasLeft = computed(() => Boolean(slots.left) || normalizedMetaItems.value.length > 0)
 const hasRight = computed(() => Boolean(slots.right))
 </script>
+
+<style scoped>
+.standard-table-toolbar--minimal {
+  min-height: 3.2rem;
+}
+
+.standard-table-toolbar__meta-rail {
+  align-items: center;
+}
+</style>

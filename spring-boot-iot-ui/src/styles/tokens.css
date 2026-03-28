@@ -86,8 +86,8 @@
   --shadow-sm: 0 4px 12px rgba(31, 50, 81, 0.06);
   --shadow-md: 0 8px 20px rgba(31, 50, 81, 0.08);
   --shadow-lg: 0 16px 36px rgba(31, 50, 81, 0.1);
-  --shadow-card-soft: 0 2px 10px rgba(31, 50, 81, 0.05);
-  --shadow-card: 0 6px 18px rgba(31, 50, 81, 0.06);
+  --shadow-card-soft: 0 4px 12px rgba(31, 50, 81, 0.05);
+  --shadow-card: 0 8px 22px rgba(31, 50, 81, 0.06);
   --shadow-card-hover: 0 12px 24px rgba(31, 50, 81, 0.08);
   --shadow-panel: 0 6px 18px rgba(31, 50, 81, 0.08);
   --shadow-brand: 0 8px 20px color-mix(in srgb, var(--brand) 18%, transparent);
@@ -123,7 +123,7 @@
 
   /* 按钮 */
   --button-height-sm: 32px;
-  --button-height-md: 36px;
+  --button-height-md: 38px;
   --button-padding-inline-sm: 14px;
   --button-padding-inline-md: 18px;
   --button-font-weight: 600;

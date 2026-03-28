@@ -36,6 +36,7 @@
 .el-textarea__inner,
 .el-select__wrapper {
   background: var(--bg-card);
+  border-radius: 14px;
   box-shadow: 0 0 0 1px var(--line-panel) inset;
 }
 
@@ -189,7 +190,7 @@
 .el-table {
   --el-table-bg-color: var(--bg-card);
   --el-table-tr-bg-color: var(--bg-card);
-  --el-table-header-bg-color: var(--surface-soft);
+  --el-table-header-bg-color: color-mix(in srgb, var(--surface-soft) 72%, white);
   --el-table-border-color: color-mix(in srgb, var(--text-primary) 12%, white);
   --el-table-text-color: var(--text-secondary);
   --el-table-header-text-color: var(--text-tertiary);

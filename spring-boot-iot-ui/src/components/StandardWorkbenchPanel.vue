@@ -1,10 +1,18 @@
 <template>
-  <div class="standard-workbench-panel ops-workbench standard-list-view">
-    <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card">
+  <div class="standard-workbench-panel standard-workbench-panel--minimal ops-workbench standard-list-view">
+    <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card standard-workbench-panel__card--minimal">
       <template #header>
-        <div class="standard-workbench-panel__header">
+        <div v-if="hasHeaderContent" class="standard-workbench-panel__header standard-workbench-panel__header--minimal">
           <div class="standard-workbench-panel__heading">
-            <h2 class="standard-workbench-panel__title">{{ title }}</h2>
+            <h2
+              v-if="title"
+              :class="[
+                'standard-workbench-panel__title',
+                `standard-workbench-panel__title--${titleVariant}`
+              ]"
+            >
+              {{ title }}
+            </h2>
             <p v-if="description" class="standard-workbench-panel__caption">{{ description }}</p>
           </div>
           <div v-if="showHeaderActions" class="standard-workbench-panel__header-actions">
@@ -36,7 +44,7 @@
         <slot name="inline-state" />
       </section>
 
-      <div class="standard-workbench-panel__body">
+      <div class="standard-workbench-panel__body standard-workbench-panel__body--minimal">
         <slot />
       </div>
 
@@ -48,11 +56,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import PanelCard from '@/components/PanelCard.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   title: string
   description?: string
+  titleVariant?: 'default' | 'section'
   showHeaderActions?: boolean
   showFilters?: boolean
   showFiltersExtra?: boolean
@@ -62,6 +73,7 @@ withDefaults(defineProps<{
   showInlineState?: boolean
   showPagination?: boolean
 }>(), {
+  titleVariant: 'default',
   showHeaderActions: false,
   showFilters: false,
   showFiltersExtra: false,
@@ -71,6 +83,8 @@ withDefaults(defineProps<{
   showInlineState: false,
   showPagination: false
 })
+
+const hasHeaderContent = computed(() => Boolean(props.title || props.description || props.showHeaderActions))
 </script>
 
 <style scoped>
@@ -78,8 +92,17 @@ withDefaults(defineProps<{
   min-width: 0;
 }
 
+.standard-workbench-panel--minimal {
+  min-width: 0;
+}
+
 .standard-workbench-panel__card {
   min-width: 0;
+}
+
+.standard-workbench-panel__card--minimal {
+  border-color: color-mix(in srgb, var(--panel-border) 92%, white);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .standard-workbench-panel__header {
@@ -90,6 +113,10 @@ withDefaults(defineProps<{
   width: 100%;
 }
 
+.standard-workbench-panel__header--minimal {
+  gap: 1.1rem;
+}
+
 .standard-workbench-panel__heading {
   min-width: 0;
 }
@@ -98,6 +125,12 @@ withDefaults(defineProps<{
   margin: 0;
   color: var(--text-heading);
   font-size: 1.08rem;
+  font-weight: 650;
+}
+
+.standard-workbench-panel__title--section {
+  font-size: 1.22rem;
+  line-height: 1.35;
 }
 
 .standard-workbench-panel__caption {
@@ -136,6 +169,10 @@ withDefaults(defineProps<{
 }
 
 .standard-workbench-panel__body {
+  min-width: 0;
+}
+
+.standard-workbench-panel__body--minimal {
   min-width: 0;
 }
 
