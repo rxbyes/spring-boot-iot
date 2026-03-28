@@ -1,83 +1,30 @@
 <template>
-  <div class="page-stack message-trace-view">
-    <AccessErrorArchivePanel
-      v-if="isAccessErrorMode"
-      :view-mode="pageMode"
-      :view-mode-options="pageModeOptions"
-      @change-view-mode="handlePageModeChange"
-    />
+  <div class="page-stack message-trace-view message-trace-view--minimal">
+    <IotAccessTabWorkspace
+      v-model="pageModeValue"
+      :items="messageTraceViewTabs"
+      default-key="message-trace"
+      query-key="mode"
+    >
+      <template #default="{ activeKey }">
+        <AccessErrorArchivePanel
+          v-if="activeKey === 'access-error'"
+          :view-mode="pageModeValue"
+          :view-mode-options="pageModeOptions"
+          :show-mode-switch="false"
+          @change-view-mode="handlePageModeChange"
+        />
 
-    <template v-else>
-      <IotAccessPageShell title="链路追踪台" :status="messageTraceShellStatus">
-        <template #actions>
-          <StandardButton action="refresh" plain :disabled="!canJumpWithSearch" @click="jumpToSystemLog()">
-            异常观测台
-          </StandardButton>
-          <StandardButton action="refresh" plain @click="jumpToAccessError()">失败归档</StandardButton>
-          <StandardButton action="refresh" plain :disabled="!canJumpToFileDebug" @click="jumpToFileDebug()">
-            数据校验台
-          </StandardButton>
-        </template>
-      </IotAccessPageShell>
-
-      <IotAccessTabWorkspace
-        v-model="messageTraceWorkspaceTab"
-        :items="messageTraceWorkspaceTabs"
-        default-key="ledger"
-      >
-        <template #default="{ activeKey }">
-          <div class="message-trace-workspace-grid">
-            <IotAccessResultSection
-              title="失败归档"
-              description="保留失败归档回跳入口和当前筛查上下文，不再用单独说明卡承载这类联动信息。"
-              :class="{ 'message-trace-workspace-grid__section--focus': activeKey === 'archive' }"
-            >
-              <template #toolbar>
-                <StandardButton action="reset" link @click="jumpToAccessError()">打开失败归档</StandardButton>
-              </template>
-              <div class="message-trace-support-copy">
-                <p>当前 TraceId：{{ currentArchiveTraceId || '--' }}</p>
-                <p>当前设备编码：{{ currentArchiveDeviceCode || '--' }}</p>
-                <p>当前产品标识：{{ currentArchiveProductKey || '--' }}</p>
-              </div>
-            </IotAccessResultSection>
-
-            <IotAccessResultSection
-              title="时间线复盘"
-              description="统一展示当前 Trace 复盘状态和最近会话恢复建议，避免让用户自己猜下一步。"
-              :class="{ 'message-trace-workspace-grid__section--focus': activeKey === 'timeline' }"
-            >
-              <template #toolbar>
-                <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">刷新最近会话</StandardButton>
-              </template>
-              <div class="message-trace-support-copy">
-                <p>当前判断：{{ traceRuleSummary }}</p>
-                <p>复盘状态：{{ timelineWorkspaceStatus }}</p>
-                <p>最近会话：{{ recentMessageFlowSessions[0]?.sessionId || '--' }}</p>
-              </div>
-            </IotAccessResultSection>
-          </div>
-        </template>
-      </IotAccessTabWorkspace>
-
-      <div :class="{ 'message-trace-panel-focus': messageTraceWorkspaceTab === 'ledger' }">
         <StandardWorkbenchPanel
-          title="追踪台账"
-          description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
-          show-header-actions
+          v-else
+          title="链路追踪"
+          description=""
+          title-variant="section"
           show-filters
           :show-applied-filters="hasAppliedFilters"
           show-toolbar
           show-pagination
         >
-        <template #header-actions>
-          <StandardChoiceGroup
-            :model-value="pageMode"
-            :options="pageModeOptions"
-            responsive
-            @update:modelValue="handlePageModeChange"
-          />
-        </template>
 
         <template #filters>
           <StandardListFilterHeader
@@ -209,104 +156,6 @@
           </el-table-column>
         </el-table>
 
-        <div class="message-trace-support-grid">
-          <PanelCard
-            class="message-trace-ops-card"
-            eyebrow="message-flow"
-            title="运维看板"
-            description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
-          >
-            <div v-if="opsLoading" class="message-trace-ops-empty">
-              正在加载 message-flow 运维指标...
-            </div>
-            <template v-else>
-              <section class="message-trace-ops-metrics">
-                <MetricCard
-                  v-for="item in opsOverviewMetrics"
-                  :key="item.label"
-                  :label="item.label"
-                  :value="item.value"
-                  :badge="item.badge"
-                  size="compact"
-                />
-              </section>
-              <div class="message-trace-ops-runtime">
-                runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
-              </div>
-              <div class="message-trace-stage-table-wrapper">
-                <table class="message-trace-stage-table">
-                  <thead>
-                    <tr>
-                      <th>阶段</th>
-                      <th>执行</th>
-                      <th>失败</th>
-                      <th>跳过</th>
-                      <th>平均耗时</th>
-                      <th>P95</th>
-                      <th>最大耗时</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
-                      <td>{{ stage.stage }}</td>
-                      <td>{{ formatCount(stage.count) }}</td>
-                      <td>{{ formatCount(stage.failureCount) }}</td>
-                      <td>{{ formatCount(stage.skippedCount) }}</td>
-                      <td>{{ formatCost(stage.avgCostMs) }}</td>
-                      <td>{{ formatCost(stage.p95CostMs) }}</td>
-                      <td>{{ formatCost(stage.maxCostMs) }}</td>
-                    </tr>
-                    <tr v-if="opsOverview.stageMetrics.length === 0">
-                      <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </template>
-          </PanelCard>
-
-          <PanelCard
-            class="message-trace-ops-card"
-            eyebrow="message-flow"
-            title="最近会话"
-            description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
-          >
-            <div class="message-trace-recent-toolbar">
-              <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
-                刷新最近会话
-              </StandardButton>
-            </div>
-            <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
-              正在加载最近会话...
-            </div>
-            <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
-              当前还没有可带入的 message-flow 会话。
-            </div>
-            <div v-else class="message-trace-recent-list">
-              <button
-                v-for="session in recentMessageFlowSessions"
-                :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
-                type="button"
-                class="message-trace-recent-item"
-                @click="applyRecentMessageFlowSession(session)"
-              >
-                <div class="message-trace-recent-item__header">
-                  <strong>{{ session.sessionId || '--' }}</strong>
-                  <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
-                </div>
-                <div class="message-trace-recent-item__meta">
-                  <span>{{ session.deviceCode || '--' }}</span>
-                  <span>{{ formatDateTime(session.submittedAt) }}</span>
-                </div>
-                <div class="message-trace-recent-item__meta">
-                  <span>{{ session.topic || '--' }}</span>
-                  <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
-                </div>
-              </button>
-            </div>
-          </PanelCard>
-        </div>
-
         <template #pagination>
           <div v-if="pagination.total > 0" class="ops-pagination">
             <StandardPagination
@@ -321,8 +170,8 @@
           </div>
         </template>
         </StandardWorkbenchPanel>
-      </div>
-    </template>
+      </template>
+    </IotAccessTabWorkspace>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -455,11 +304,7 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue';
-import IotAccessResultSection from '@/components/iotAccess/IotAccessResultSection.vue';
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
@@ -469,7 +314,6 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue';
 import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardRowActions from '@/components/StandardRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
@@ -497,17 +341,21 @@ const pageModeOptions = [
   { label: '链路追踪', value: 'message-trace' as const },
   { label: '失败归档', value: 'access-error' as const }
 ];
-const messageTraceWorkspaceTabs = [
-  { key: 'ledger', label: '消息追踪' },
-  { key: 'archive', label: '失败归档' },
-  { key: 'timeline', label: '时间线复盘' }
+const messageTraceViewTabs = [
+  { key: 'message-trace', label: '链路追踪' },
+  { key: 'access-error', label: '失败归档' }
 ];
 const pageMode = computed<ObservabilityViewMode>(() =>
   route.query.mode === 'access-error' ? 'access-error' : 'message-trace'
 );
+const pageModeValue = computed<ObservabilityViewMode>({
+  get: () => (route.query.mode === 'access-error' ? 'access-error' : 'message-trace'),
+  set: (value) => {
+    void handlePageModeChange(value);
+  }
+});
 const isAccessErrorMode = computed(() => pageMode.value === 'access-error');
 const isMessageTraceMode = computed(() => pageMode.value === 'message-trace');
-const messageTraceWorkspaceTab = ref('ledger');
 
 const messageTypeOptions = [
   { label: '属性上报', value: 'report' },
@@ -626,22 +474,6 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
-const currentDiagnosticContext = computed<DiagnosticContext>(() => buildVisibleDiagnosticContext());
-const canJumpWithSearch = computed(() =>
-  Boolean(
-    currentDiagnosticContext.value.traceId
-    || currentDiagnosticContext.value.deviceCode
-    || currentDiagnosticContext.value.productKey
-    || currentDiagnosticContext.value.topic
-  )
-);
-const canJumpToFileDebug = computed(() =>
-  Boolean(
-    currentDiagnosticContext.value.traceId
-    || currentDiagnosticContext.value.deviceCode
-    || currentDiagnosticContext.value.productKey
-  )
-);
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -696,28 +528,6 @@ const traceStripStatus = computed(() => {
   }
   const statsSummary = `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
   return contextSource ? `${contextSource}，${statsSummary}` : statsSummary;
-});
-const messageTraceShellStatus = computed(() => `${traceRuleSummary.value} · ${traceStripStatus.value}`);
-const currentArchiveTraceId = computed(() => appliedFilters.traceId || searchForm.traceId || restoredDiagnosticContext.value?.traceId || '');
-const currentArchiveDeviceCode = computed(() => appliedFilters.deviceCode || searchForm.deviceCode || restoredDiagnosticContext.value?.deviceCode || '');
-const currentArchiveProductKey = computed(() => appliedFilters.productKey || searchForm.productKey || restoredDiagnosticContext.value?.productKey || '');
-const timelineWorkspaceStatus = computed(() => {
-  if (detailTimelineLookupError.value) {
-    return '时间线查询异常，请先查看消息日志或稍后重试。';
-  }
-  if (timelineExpired.value) {
-    return 'Redis 时间线已过期，可先从最近会话恢复上下文。';
-  }
-  if (detailTimeline.value?.traceId) {
-    return `已加载 Trace ${detailTimeline.value.traceId} 的处理时间线。`;
-  }
-  if (appliedFilters.traceId) {
-    return `当前正在按 Trace ${appliedFilters.traceId} 检索消息日志。`;
-  }
-  if (recentMessageFlowSessions.value[0]?.sessionId) {
-    return `最近会话 ${recentMessageFlowSessions.value[0].sessionId} 可用于恢复 Trace 上下文。`;
-  }
-  return '当前没有可复盘的时间线上下文。';
 });
 const opsOverviewMetrics = computed(() => {
   const completedCount = sumSessionCount('COMPLETED');
@@ -1084,19 +894,6 @@ function jumpToAccessError(row?: DeviceMessageLog) {
   });
 }
 
-function jumpToFileDebug(row?: DeviceMessageLog) {
-  const context = buildDiagnosticContext(row);
-  persistCurrentDiagnosticContext(row);
-  router.push({
-    path: '/file-debug',
-    query: {
-      deviceCode: context.deviceCode || undefined,
-      traceId: context.traceId || undefined,
-      productKey: context.productKey || undefined
-    }
-  });
-}
-
 function getMessageTypeLabel(value?: string | null) {
   switch (value) {
     case 'report':
@@ -1243,6 +1040,15 @@ onMounted(() => {
 <style scoped>
 .message-trace-view {
   min-width: 0;
+}
+
+.message-trace-view--minimal :deep(.standard-workbench-panel__title),
+.message-trace-view--minimal :deep(.standard-workbench-panel__title--section) {
+  letter-spacing: -0.02em;
+}
+
+.message-trace-view--minimal :deep(.table-action-bar__meta) {
+  color: var(--text-caption);
 }
 
 .message-trace-workspace-grid {

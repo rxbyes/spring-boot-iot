@@ -1,21 +1,5 @@
 <template>
-  <div class="page-stack reporting-view ops-workbench">
-    <IotAccessPageShell title="链路验证中心" :status="reportingStripStatus">
-      <template #actions>
-        <StandardActionGroup gap="sm">
-          <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
-            继续链路追踪
-          </StandardButton>
-          <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
-            查看异常观测
-          </StandardButton>
-          <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
-            打开数据校验
-          </StandardButton>
-        </StandardActionGroup>
-      </template>
-    </IotAccessPageShell>
-
+  <div class="page-stack reporting-view reporting-view--minimal ops-workbench">
     <IotAccessTabWorkspace
       v-model="reportingWorkspaceTab"
       :items="reportingWorkspaceTabs"
@@ -275,6 +259,25 @@
               {{ note }}
             </li>
           </ul>
+
+          <div v-if="currentDiagnosticFinding.nextActionTarget" class="reporting-diagnostic-next-step">
+            <div class="reporting-diagnostic-next-step__copy">
+              <span class="reporting-diagnostic-next-step__label">{{ currentDiagnosticFinding.title }}</span>
+              <strong>{{ currentDiagnosticFinding.summary }}</strong>
+              <p>{{ currentDiagnosticFinding.reason }}</p>
+            </div>
+            <StandardActionGroup gap="sm">
+              <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
+                继续链路追踪
+              </StandardButton>
+              <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
+                查看异常观测
+              </StandardButton>
+              <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
+                打开数据校验
+              </StandardButton>
+            </StandardActionGroup>
+          </div>
         </section>
 
         <section class="reporting-section">
@@ -443,7 +446,6 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
-import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
@@ -808,11 +810,6 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     reason: '设备身份上下文缺失，无法稳定关联后续诊断。',
     nextActionLabel: '查询设备'
   };
-});
-
-const reportingStripStatus = computed(() => {
-  const deviceLabel = currentDiagnosticContext.value.deviceCode || '未查询';
-  return `${currentDiagnosticFinding.value.title} · ${currentDiagnosticFinding.value.summary}（设备 ${deviceLabel}）`;
 });
 
 const canContinueTrace = computed(() => Boolean(currentDiagnosticContext.value.traceId));
@@ -1542,6 +1539,14 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.reporting-view--minimal :deep(.reporting-surface__title) {
+  letter-spacing: -0.02em;
+}
+
+.reporting-view--minimal :deep(.reporting-surface__description) {
+  color: var(--text-caption);
+}
+
 .reporting-command-strip {
   display: flex;
   align-items: center;
@@ -1957,6 +1962,40 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--brand) 72%, white);
 }
 
+.reporting-diagnostic-next-step {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) - 2px);
+  background: var(--surface-muted);
+}
+
+.reporting-diagnostic-next-step__copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.reporting-diagnostic-next-step__label {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.reporting-diagnostic-next-step__copy strong {
+  color: var(--text-heading);
+}
+
+.reporting-diagnostic-next-step__copy p {
+  margin: 0;
+  color: var(--text-caption);
+  line-height: 1.6;
+}
+
 .reporting-frame-panel {
   display: grid;
   gap: 0.8rem;
@@ -2051,7 +2090,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 720px) {
   .reporting-surface__header,
-  .reporting-submit-row {
+  .reporting-submit-row,
+  .reporting-diagnostic-next-step {
     flex-direction: column;
     align-items: stretch;
   }

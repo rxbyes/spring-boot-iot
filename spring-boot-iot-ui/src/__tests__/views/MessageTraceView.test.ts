@@ -56,9 +56,9 @@ function createDeferred<T>() {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['title', 'description', 'titleVariant'],
   template: `
-    <section class="message-trace-workbench-stub">
+    <section class="message-trace-workbench-stub" :data-title-variant="titleVariant || 'default'">
       <header>
         <h2>{{ title }}</h2>
         <p>{{ description }}</p>
@@ -211,8 +211,8 @@ const IotAccessPageShellStub = defineComponent({
   props: ['title', 'status'],
   template: `
     <section class="iot-access-page-shell">
-      <h1>{{ title }}</h1>
-      <p>{{ status }}</p>
+      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
+      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
       <slot name="actions" />
       <slot />
     </section>
@@ -471,7 +471,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('来自链路验证中心');
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
     expect(messageApi.pageMessageTraceLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-route-001',
       deviceCode: 'stored-device-01',
@@ -549,27 +549,25 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('renders the compact trace shell and keeps the support workspace below the table', async () => {
+  it('keeps only trace and archive as real message-trace tabs', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
     expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
     expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.text()).toContain('链路追踪台');
-    expect(wrapper.text()).toContain('消息追踪');
+    expect(wrapper.find('.message-trace-workbench-stub').attributes('data-title-variant')).toBe('section');
+    expect(wrapper.text()).not.toContain('链路追踪台');
+    expect(wrapper.text()).toContain('链路追踪');
     expect(wrapper.text()).toContain('失败归档');
-    expect(wrapper.text()).toContain('时间线复盘');
-    expect(wrapper.text()).toContain('Trace 缺失，优先恢复最近会话');
-    expect(wrapper.text()).toContain('当前模式：链路追踪');
-    expect(wrapper.text()).toContain('完成链路 3');
-    expect(wrapper.text()).toContain('关联发布 4');
-    expect(wrapper.text()).toContain('运维看板');
-    expect(wrapper.text()).toContain('最近会话');
-    expect(wrapper.text()).toContain('session-recent-001');
-    expect(wrapper.text()).toContain('INGRESS');
+    expect(wrapper.find('.message-trace-workbench-stub h2').text()).toBe('链路追踪');
+    expect(wrapper.text()).not.toContain('异常观测台');
+    expect(wrapper.text()).not.toContain('数据校验台');
+    expect(wrapper.text()).not.toContain('时间线复盘');
+    expect(wrapper.text()).not.toContain('运维看板');
+    expect(wrapper.text()).not.toContain('最近会话');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {
@@ -603,7 +601,6 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
-    expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
   });
 
@@ -747,62 +744,6 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
   });
 
-  it('uses visible filters instead of the opened detail row for global handoff actions', async () => {
-    mockRoute.query = {
-      deviceCode: 'filter-device-01',
-      traceId: 'filter-trace-01',
-      productKey: 'filter-product-01'
-    };
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    await findButtonByText(wrapper, '详情')!.trigger('click');
-    await flushPromises();
-    await nextTick();
-
-    await findButtonByText(wrapper, '数据校验台')!.trigger('click');
-    await flushPromises();
-
-    expect(mockRouter.push).toHaveBeenLastCalledWith({
-      path: '/file-debug',
-      query: {
-        deviceCode: 'filter-device-01',
-        traceId: 'filter-trace-01',
-        productKey: 'filter-product-01'
-      }
-    });
-  });
-
-  it('disables global handoff actions after reset instead of reusing restored context', async () => {
-    const now = new Date().toISOString();
-    window.sessionStorage.setItem('iot-access:diagnostic-context', JSON.stringify({
-      storedAt: Date.now(),
-      context: {
-        sourcePage: 'reporting',
-        deviceCode: 'stored-device-01',
-        productKey: 'stored-product',
-        topic: '/sys/stored-product/stored-device-01/thing/property/post',
-        capturedAt: now
-      }
-    }));
-    mockRoute.query = {
-      traceId: 'trace-route-001'
-    };
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    await findButtonByText(wrapper, '重置')!.trigger('click');
-    await flushPromises();
-    await nextTick();
-
-    expect(findButtonByText(wrapper, '异常观测台')!.attributes('disabled')).toBeDefined();
-    expect(findButtonByText(wrapper, '数据校验台')!.attributes('disabled')).toBeDefined();
-  });
-
   it('clears stale product filters when restoring a recent message-flow session', async () => {
     mockRoute.query = {
       productKey: 'stale-product-01',
@@ -813,7 +754,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, 'session-recent-001')!.trigger('click');
+    await (wrapper.vm as any).applyRecentMessageFlowSession(createRecentSessionsResponse().data[0]);
     await flushPromises();
     await nextTick();
 
@@ -827,44 +768,7 @@ describe('MessageTraceView', () => {
     const persistedContext = JSON.parse(persistedRaw as string);
     expect(persistedContext.context.productKey).toBeUndefined();
 
-    await findButtonByText(wrapper, '数据校验台')!.trigger('click');
-    await flushPromises();
-
-    expect(mockRouter.push).toHaveBeenLastCalledWith({
-      path: '/file-debug',
-      query: {
-        deviceCode: 'demo-device-01',
-        traceId: 'trace-recent-001',
-        productKey: undefined
-      }
-    });
-  });
-
-  it('uses the visible quick-search trace for global handoff before search submission', async () => {
-    mockRoute.query = {
-      traceId: 'old-trace-01'
-    };
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    const quickSearchInput = wrapper.find('input#quick-search');
-    expect(quickSearchInput.exists()).toBe(true);
-    await quickSearchInput.setValue('typed-trace-02');
-    await nextTick();
-
-    await findButtonByText(wrapper, '数据校验台')!.trigger('click');
-    await flushPromises();
-
-    expect(mockRouter.push).toHaveBeenLastCalledWith({
-      path: '/file-debug',
-      query: {
-        deviceCode: undefined,
-        traceId: 'typed-trace-02',
-        productKey: undefined
-      }
-    });
+    expect(findButtonByText(wrapper, '数据校验台')).toBeUndefined();
   });
 
   it('shows a storage-specific rule summary after timeline lookup errors', async () => {
@@ -878,35 +782,24 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
   });
 
-  it('carries deviceCode/traceId/productKey when jumping to file-debug', async () => {
-    mockRoute.query = {
-      deviceCode: 'jump-device-01',
-      traceId: 'jump-trace-01',
-      productKey: 'jump-product-01'
-    };
+  it('keeps the page head free of cross-page action buttons', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '数据校验台')!.trigger('click');
-    await flushPromises();
+    expect(findButtonByText(wrapper, '异常观测台')).toBeUndefined();
+    expect(findButtonByText(wrapper, '数据校验台')).toBeUndefined();
+  });
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/file-debug',
-      query: {
-        deviceCode: 'jump-device-01',
-        traceId: 'jump-trace-01',
-        productKey: 'jump-product-01'
-      }
-    });
-    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
-    expect(persistedRaw).toBeTruthy();
-    const persisted = JSON.parse(persistedRaw as string);
-    expect(persisted.context.sourcePage).toBe('message-trace');
+  it('uses the refined minimal diagnostic-shell classes for message trace', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('.message-trace-view').classes()).toContain('message-trace-view--minimal');
   });
 
 });

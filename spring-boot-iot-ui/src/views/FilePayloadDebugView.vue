@@ -1,16 +1,11 @@
 <template>
-  <div class="page-stack file-payload-debug-view">
-    <IotAccessPageShell title="数据校验台" :status="validationStripStatus">
-      <template #actions>
-        <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
-      </template>
-    </IotAccessPageShell>
-
+  <div class="page-stack file-payload-debug-view file-payload-debug-view--minimal">
     <IotAccessTabWorkspace :items="validationTabs" default-key="validate">
       <template #default="{ activeKey }">
         <StandardWorkbenchPanel
-          title="设备查询与校验结果"
-          description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
+          title="设备校验"
+          description=""
+          title-variant="section"
           show-filters
           :show-inline-state="showInlineState"
         >
@@ -46,7 +41,7 @@
               :class="[
                 'two-column-grid',
                 'file-payload-debug-view__results',
-                { 'file-payload-debug-view__section--focus': activeKey === 'validate' || activeKey === 'history' }
+                { 'file-payload-debug-view__section--focus': activeKey === 'validate' }
               ]"
             >
               <PanelCard
@@ -119,11 +114,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
-import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
@@ -141,12 +135,10 @@ import {
 
 const validationTabs = [
   { key: 'validate', label: '设备校验' },
-  { key: 'raw-response', label: '原始响应' },
-  { key: 'history', label: '历史快照' }
+  { key: 'raw-response', label: '原始响应' }
 ];
 
 const route = useRoute();
-const router = useRouter();
 const restoredDiagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>));
 const defaultDeviceCode = computed(() => restoredDiagnosticContext.value?.deviceCode || 'demo-device-01');
 const deviceCode = ref(defaultDeviceCode.value);
@@ -167,15 +159,6 @@ const inlineStateMessage = computed(() => {
 });
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));
-const validationStripStatus = computed(() => {
-  const sourceLabel = restoredDiagnosticContext.value
-    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
-    : '';
-  const summary = lastFetchTime.value
-    ? `当前设备 ${normalizedDeviceCode.value || '--'}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条，最近刷新 ${formatDateTime(lastFetchTime.value)}。`
-    : `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
-  return [sourceLabel, summary].filter(Boolean).join(' · ');
-});
 
 function persistValidationContext(snapshotCount: number, aggregateCount: number) {
   persistDiagnosticContext({
@@ -253,10 +236,6 @@ function handleReset() {
   fileSnapshots.value = [];
   firmwareAggregates.value = [];
 }
-
-function handleOpenTraceWorkbench() {
-  router.push('/message-trace');
-}
 </script>
 
 <style scoped>
@@ -270,6 +249,15 @@ function handleOpenTraceWorkbench() {
 <style scoped>
 .file-payload-debug-view {
   min-width: 0;
+}
+
+.file-payload-debug-view--minimal :deep(.standard-workbench-panel__title),
+.file-payload-debug-view--minimal :deep(.standard-workbench-panel__title--section) {
+  letter-spacing: -0.02em;
+}
+
+.file-payload-debug-view--minimal :deep(.table-action-bar__meta) {
+  color: var(--text-caption);
 }
 
 .file-payload-debug-command-strip {

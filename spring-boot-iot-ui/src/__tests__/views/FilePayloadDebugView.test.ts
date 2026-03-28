@@ -34,9 +34,9 @@ vi.mock('@/stores/activity', () => ({
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['title', 'description', 'titleVariant'],
   template: `
-    <section class="file-debug-workbench-stub">
+    <section class="file-debug-workbench-stub" :data-title-variant="titleVariant || 'default'">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
@@ -93,12 +93,15 @@ describe('FilePayloadDebugView', () => {
     installSessionStorageMock();
   });
 
-  it('renders the compact validation strip and keeps the four-part result layout', () => {
+  it('keeps validation and raw-response tabs only', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
-          StandardListFilterHeader: true,
+          StandardListFilterHeader: defineComponent({
+            name: 'StandardListFilterHeader',
+            template: '<section class="file-debug-filter-header-stub"><slot name="primary" /><slot name="actions" /></section>'
+          }),
           StandardInlineState: true,
           StandardInfoGrid: true,
           PanelCard: PanelCardStub,
@@ -110,18 +113,16 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
     expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.text()).toContain('数据校验台');
-    expect(wrapper.text()).toContain('当前设备 demo-device-01');
+    expect(wrapper.find('.file-debug-workbench-stub').attributes('data-title-variant')).toBe('section');
+    expect(wrapper.text()).not.toContain('数据校验台');
+    expect(wrapper.find('.file-debug-workbench-stub h2').text()).toBe('设备校验');
     expect(wrapper.text()).toContain('设备校验');
     expect(wrapper.text()).toContain('原始响应');
-    expect(wrapper.text()).toContain('历史快照');
-    expect(wrapper.text()).toContain('文件快照校验');
-    expect(wrapper.text()).toContain('固件聚合校验');
-    expect(wrapper.text()).toContain('文件快照原始响应');
-    expect(wrapper.text()).toContain('固件聚合原始响应');
-    expect(wrapper.text()).not.toContain('文件消息完整性概况');
+    expect(wrapper.text()).not.toContain('链路追踪台');
+    expect(wrapper.text()).not.toContain('设备查询与校验结果');
+    expect(wrapper.text()).not.toContain('历史快照');
   });
 
   it('restores deviceCode from persisted diagnostic context', () => {
@@ -155,7 +156,26 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
-    expect(wrapper.text()).toContain('来自链路追踪台');
-    expect(wrapper.text()).toContain('demo-device-02');
+    expect((wrapper.vm as { deviceCode: string }).deviceCode).toBe('demo-device-02');
+  });
+
+  it('uses the refined minimal diagnostic-shell classes for file validation', () => {
+    const wrapper = mount(FilePayloadDebugView, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardInlineState: true,
+          StandardInfoGrid: true,
+          PanelCard: PanelCardStub,
+          EmptyState: true,
+          ResponsePanel: ResponsePanelStub,
+          StandardButton: true,
+          ElInput: true
+        }
+      }
+    });
+
+    expect(wrapper.classes()).toContain('file-payload-debug-view--minimal');
   });
 });

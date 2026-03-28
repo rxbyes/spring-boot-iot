@@ -245,17 +245,18 @@ describe('ReportWorkbenchView', () => {
     window.localStorage.removeItem('reporting:lastTemplate');
   });
 
-  it('renders a compact reporting command strip above the simulator stage', () => {
+  it('keeps only real verification tabs and removes the top summary strip', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
     expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.text()).toContain('链路验证中心');
-    expect(wrapper.text()).toContain('设备身份未校准');
     expect(wrapper.text()).toContain('模拟验证');
     expect(wrapper.text()).toContain('结果复盘');
     expect(wrapper.text()).toContain('最近记录');
-    expect(wrapper.text()).toContain('诊断复盘');
+    expect(wrapper.text()).not.toContain('继续链路追踪');
+    expect(wrapper.text()).not.toContain('查看异常观测');
+    expect(wrapper.text()).not.toContain('打开数据校验');
+    expect(wrapper.text()).not.toContain('设备身份未校准');
   });
 
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {
@@ -484,7 +485,6 @@ describe('ReportWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('时间线不可用，优先排查 Redis/TTL。');
     expect(wrapper.text()).toContain('HTTP 提交已返回 timelineAvailable=true');
-    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
 
     const traceButton = findButtonByText(wrapper, '继续链路追踪');
     expect(traceButton).toBeTruthy();
@@ -722,7 +722,7 @@ describe('ReportWorkbenchView', () => {
       sessionId: 'session-http-ctx-001',
       transportMode: 'http'
     });
-    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
+    expect(findButtonByText(wrapper, '继续链路追踪')).toBeTruthy();
   });
 
   it('forwards current diagnostic query when continuing to message trace', async () => {
@@ -891,7 +891,7 @@ describe('ReportWorkbenchView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
+    expect(findButtonByText(wrapper, '继续链路追踪')).toBeTruthy();
 
     const traceButton = findButtonByText(wrapper, '继续链路追踪');
     expect(traceButton).toBeTruthy();
@@ -964,7 +964,7 @@ describe('ReportWorkbenchView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('MQTT 已发布，等待消费回流');
+    expect(wrapper.text()).toContain('MQTT 模拟已发布，正在等待消费回流绑定 traceId。');
 
     const logButton = findButtonByText(wrapper, '查看异常观测');
     expect(logButton).toBeTruthy();
@@ -992,5 +992,13 @@ describe('ReportWorkbenchView', () => {
       transportMode: 'mqtt',
       reportStatus: 'pending'
     });
+  });
+
+  it('uses the refined minimal diagnostic-shell classes', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('.reporting-view').classes()).toContain('reporting-view--minimal');
   });
 });
