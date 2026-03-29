@@ -6,14 +6,19 @@ import ReportWorkbenchView from '@/views/ReportWorkbenchView.vue';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '@/api/iot';
 import { messageApi } from '@/api/message';
 
-const { mockRouter } = vi.hoisted(() => ({
+const { mockRouter, mockRoute } = vi.hoisted(() => ({
   mockRouter: {
-    push: vi.fn()
+    push: vi.fn(),
+    replace: vi.fn()
+  },
+  mockRoute: {
+    query: {}
   }
 }));
 
 vi.mock('vue-router', () => ({
-  useRouter: () => mockRouter
+  useRouter: () => mockRouter,
+  useRoute: () => mockRoute
 }));
 
 vi.mock('@/api/iot', () => ({
@@ -243,6 +248,8 @@ describe('ReportWorkbenchView', () => {
       data: []
     });
     mockRouter.push.mockReset();
+    mockRouter.replace.mockReset();
+    mockRoute.query = {};
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
   });
@@ -254,6 +261,13 @@ describe('ReportWorkbenchView', () => {
     expect(wrapper.text()).toContain('链路验证中心');
     expect(wrapper.text()).toContain('SIMULATION LAB');
     expect(wrapper.text()).toContain('模拟上报');
+  });
+
+  it('defaults to replay tab and renders the diagnosis header', () => {
+    const wrapper = mountView();
+
+    expect(wrapper.find('[aria-current="page"]').text()).toContain('结果复盘');
+    expect(wrapper.text()).toContain('当前尚未验证');
   });
 
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {

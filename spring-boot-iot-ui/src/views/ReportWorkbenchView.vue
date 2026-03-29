@@ -8,428 +8,379 @@
       :show-title="false"
     />
 
-    <section class="reporting-main-layout">
-      <PanelCard class="reporting-surface reporting-surface--compose">
-        <template #header>
-          <div class="reporting-surface__header">
-            <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">SIMULATION LAB</p>
-              <h2 class="reporting-surface__title">模拟上报</h2>
-              <p class="reporting-surface__description">
-                按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
-              </p>
-            </div>
-            <span class="reporting-surface__badge">设备联调</span>
-          </div>
-        </template>
+    <IotAccessTabWorkspace
+      v-model="reportingWorkspaceTab"
+      :items="reportingWorkspaceTabs"
+      default-key="replay"
+      :sync-query="false"
+    >
+      <template #default="{ activeKey }">
+        <ReportingStatusHeader
+          :title="diagnosisModel.title"
+          :summary="diagnosisModel.summary"
+          :headline="currentDiagnosticFinding.title"
+          :headline-note="currentDiagnosticFinding.summary"
+          :blocker-label="diagnosisModel.blockerLabel"
+          :blocker-value="diagnosisModel.blocker"
+          :actions="statusHeaderActions"
+          :context-items="statusHeaderContextItems"
+          @action="handleReportingAction"
+        />
 
-        <form class="reporting-compose-form" @submit.prevent="handleSendReport">
-          <section class="reporting-section">
-            <StandardInlineSectionHeader
-                title="设备查询"
-                description="设备编码是唯一查询入口；查询成功后只读反显产品 Key、协议编码和客户端 ID。"
-            />
-
-            <div class="reporting-query-row">
-              <el-input
-                  id="report-device-code"
-                  v-model="reportForm.deviceCode"
-                  name="report_device_code"
-                  placeholder="请输入设备编码"
-                  clearable
-                  @keyup.enter="handleQueryDevice"
-              />
-              <StandardButton
-                  action="query"
-                  :loading="isQueryingDevice"
-                  :disabled="!normalizedText(reportForm.deviceCode)"
-                  @click="handleQueryDevice"
-              >
-                {{ isQueryingDevice ? '查询中...' : '查询设备' }}
-              </StandardButton>
-            </div>
-
-            <StandardInlineState :message="deviceLookupMessage" :tone="deviceLookupInlineTone" />
-
-            <StandardInfoGrid
-                v-if="resolvedDevice"
-                :items="deviceIdentityItems"
-                :columns="2"
-            />
-          </section>
-
-          <section class="reporting-section">
-            <StandardInlineSectionHeader
-                title="模拟配置"
-                description="先确定传输方式与上报模式，再校准 Topic 和租户参数。"
-            />
-
-            <div class="reporting-control-grid">
-              <article class="reporting-control-card">
-                <div class="reporting-control-card__header">
-                  <span class="reporting-control-card__title">传输方式</span>
-                  <span class="reporting-control-card__helper">HTTP / MQTT</span>
-                </div>
-                <StandardChoiceGroup
-                  v-model="transportMode"
-                  :options="transportModeOptions"
-                  responsive
+        <div class="reporting-workspace-panels">
+          <section v-show="activeKey === 'replay'" class="reporting-workspace-panel">
+            <ReportingReplayPanel>
+              <section class="reporting-section">
+                <StandardInlineSectionHeader
+                  title="复盘摘要"
+                  description="根据当前输入和 message-flow 结果统一判断当前 verdict、Topic 建议和发送状态。"
                 />
-              </article>
 
-              <article class="reporting-control-card">
-                <div class="reporting-control-card__header">
-                  <span class="reporting-control-card__title">上报模式</span>
-                  <span class="reporting-control-card__helper">明文 / 密文</span>
-                </div>
-                <StandardChoiceGroup
-                  v-model="reportMode"
-                  :options="reportModeOptions"
-                  responsive
+                <StandardInfoGrid
+                  :items="diagnosticSummaryItems"
+                  :columns="2"
                 />
-              </article>
 
-              <article class="reporting-control-card">
-                <div class="reporting-control-card__header">
-                  <span class="reporting-control-card__title">租户 ID</span>
-                  <span class="reporting-control-card__helper">仅 HTTP 生效</span>
-                </div>
-                <el-input
-                    id="report-tenant"
-                    v-model="reportForm.tenantId"
-                    name="report_tenant_id"
-                    inputmode="numeric"
-                    placeholder="1"
-                    clearable
-                />
-              </article>
+                <ul class="reporting-note-list">
+                  <li v-for="note in diagnosticNotes" :key="note" class="reporting-note-item">
+                    {{ note }}
+                  </li>
+                </ul>
+              </section>
 
-              <article class="reporting-control-card">
-                <div class="reporting-control-card__header">
-                  <span class="reporting-control-card__title">Topic</span>
-                  <span class="reporting-control-card__helper">默认 `$dp`，可手工覆盖</span>
-                </div>
-                <div class="reporting-topic-row">
-                  <el-input
-                      id="report-topic"
-                      v-model="reportForm.topic"
-                      name="report_topic"
-                      autocomplete="off"
-                      spellcheck="false"
-                      placeholder="$dp"
-                      clearable
+              <section class="reporting-section">
+                <StandardInlineSectionHeader
+                  :title="actualPayloadSectionTitle"
+                  description="发送前的最终文本或 JSON 预演，可直接复制用于链路复核。"
+                >
+                  <template #actions>
+                    <StandardActionLink @click="copyActualPayloadPreview">复制</StandardActionLink>
+                  </template>
+                </StandardInlineSectionHeader>
+                <pre class="reporting-code-block">{{ actualPayloadPreviewText }}</pre>
+              </section>
+
+              <section v-if="plaintextFrame" class="reporting-section">
+                <StandardInlineSectionHeader
+                  title="明文帧预演"
+                  description="仅在明文 JSON 被识别为 C.1 / C.2 / C.3 时展示。"
+                >
+                  <template #actions>
+                    <StandardActionLink @click="toggleFramePanel">{{ framePanelExpanded ? '收起' : '展开' }}</StandardActionLink>
+                  </template>
+                </StandardInlineSectionHeader>
+
+                <div v-if="framePanelExpanded" class="reporting-frame-panel">
+                  <StandardInfoGrid
+                    :items="frameMetaItems"
+                    :columns="1"
                   />
-                  <StandardButton action="reset" plain :disabled="!resolvedDevice" @click="syncTopic">套用推荐</StandardButton>
-                </div>
-              </article>
-            </div>
 
-            <div class="reporting-quick-fill">
-              <StandardButton action="reset" plain @click="oneClickFill">一键补全</StandardButton>
-              <span class="reporting-quick-fill__hint">
-                自动查询设备后套用推荐 Topic，并在密文协议场景下切换建议模式。
-              </span>
-            </div>
-          </section>
-
-          <section class="reporting-section">
-            <StandardInlineSectionHeader
-                title="Payload 编辑"
-                description="支持原始文本、JSON、XML。只有可识别 JSON 才会参与 C.1 / C.2 / C.3 明文帧判定。"
-            >
-              <template #actions>
-                <span class="reporting-format-chip">当前格式 {{ payloadFormatLabel }}</span>
-              </template>
-            </StandardInlineSectionHeader>
-
-            <div class="reporting-toolbar">
-              <div class="reporting-toolbar__group">
-                <span class="reporting-toolbar__label">模板</span>
-                <StandardActionGroup gap="sm">
-                  <StandardButton
-                      v-for="template in filteredTemplates"
-                      :key="template.name"
-                      action="reset"
-                      plain
-                      size="small"
-                      @click="applyTemplate(template)"
-                  >
-                    {{ template.name }}
-                  </StandardButton>
-                </StandardActionGroup>
-              </div>
-
-              <div class="reporting-toolbar__group">
-                <span class="reporting-toolbar__label">格式化</span>
-                <StandardActionGroup gap="sm">
-                  <StandardButton action="reset" plain size="small" @click="formatPayloadAsJson">JSON</StandardButton>
-                  <StandardButton action="reset" plain size="small" @click="formatPayloadAsXml">XML</StandardButton>
-                </StandardActionGroup>
-              </div>
-            </div>
-
-            <el-input
-                id="payload"
-                v-model="reportForm.payload"
-                name="report_payload"
-                type="textarea"
-                :rows="11"
-                spellcheck="false"
-                :placeholder="payloadPlaceholder"
-                class="reporting-textarea"
-            />
-
-            <div
-                v-if="reportMode === 'plaintext' && plaintextFrame?.type === 3"
-                class="reporting-type3-panel"
-            >
-              <StandardInlineSectionHeader
-                  title="类型 3 文件流 Base64"
-                  description="若 C.3 需要携带文件流，可在此粘贴 Base64 内容。"
-              />
-              <el-input
-                  id="report-type3-binary"
-                  v-model="type3BinaryBase64"
-                  name="report_type3_binary_base64"
-                  type="textarea"
-                  :rows="3"
-                  spellcheck="false"
-                  placeholder="若 C.3 需要携带文件流，可在此粘贴 Base64。"
-                  class="reporting-textarea"
-              />
-            </div>
-          </section>
-
-          <section class="reporting-section reporting-section--submit">
-            <div v-if="showValidationBanner" class="reporting-validation-banner">
-              <strong>发送前请修复以下问题：</strong>
-              <ul class="reporting-validation-list">
-                <li v-for="issue in validationIssues" :key="`${issue.field}:${issue.message}`">
-                  {{ issue.message }}
-                </li>
-              </ul>
-            </div>
-
-            <div class="reporting-submit-row">
-              <div class="reporting-submit-copy">
-                <span class="reporting-submit-label">当前发送状态</span>
-                <strong>{{ sendStatusText }}</strong>
-                <p>发送前会基于当前输入实时推导实际 payload、Topic 建议和字节编码。</p>
-              </div>
-              <StandardActionGroup>
-                <StandardButton action="confirm" native-type="submit" :loading="isSending">
-                  {{ isSending ? '发送中...' : sendButtonText }}
-                </StandardButton>
-              </StandardActionGroup>
-            </div>
-          </section>
-        </form>
-      </PanelCard>
-
-      <PanelCard class="reporting-surface reporting-surface--diagnosis">
-        <template #header>
-          <div class="reporting-surface__header">
-            <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">右侧诊断复盘</p>
-              <h2 class="reporting-surface__title">诊断复盘</h2>
-              <p class="reporting-surface__description">
-                右侧统一查看诊断摘要、实际发送内容、帧预演和最近一次响应结果。
-              </p>
-            </div>
-            <span class="reporting-surface__badge reporting-surface__badge--accent">右侧诊断复盘</span>
-          </div>
-        </template>
-
-        <section class="reporting-section">
-          <StandardInlineSectionHeader
-              title="诊断摘要"
-              description="根据当前输入实时推导传输方式、Topic 建议、字节编码和发送就绪状态。"
-          />
-
-          <StandardInfoGrid
-              :items="diagnosticSummaryItems"
-              :columns="2"
-          />
-
-          <ul class="reporting-note-list">
-            <li v-for="note in diagnosticNotes" :key="note" class="reporting-note-item">
-              {{ note }}
-            </li>
-          </ul>
-
-          <div class="reporting-diagnostic-follow-up">
-            <StandardInlineState
-              tone="info"
-              :message="`${currentDiagnosticFinding.title} · ${currentDiagnosticFinding.summary}`"
-            />
-            <StandardActionGroup
-              v-if="canContinueTrace || canViewSystemLog || canOpenFileDebug"
-              gap="sm"
-            >
-              <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
-                继续链路追踪
-              </StandardButton>
-              <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
-                查看异常观测
-              </StandardButton>
-              <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
-                打开数据校验
-              </StandardButton>
-            </StandardActionGroup>
-          </div>
-        </section>
-
-        <section class="reporting-section">
-          <StandardInlineSectionHeader
-              :title="actualPayloadSectionTitle"
-              description="发送前的最终文本或 JSON 预演，可直接复制用于链路复核。"
-          >
-            <template #actions>
-              <StandardActionLink @click="copyActualPayloadPreview">复制</StandardActionLink>
-            </template>
-          </StandardInlineSectionHeader>
-          <pre class="reporting-code-block">{{ actualPayloadPreviewText }}</pre>
-        </section>
-
-        <section v-if="plaintextFrame" class="reporting-section">
-          <StandardInlineSectionHeader
-              title="明文帧预演"
-              description="仅在明文 JSON 被识别为 C.1 / C.2 / C.3 时展示。"
-          >
-            <template #actions>
-              <StandardActionLink @click="toggleFramePanel">{{ framePanelExpanded ? '收起' : '展开' }}</StandardActionLink>
-            </template>
-          </StandardInlineSectionHeader>
-
-          <div v-if="framePanelExpanded" class="reporting-frame-panel">
-            <StandardInfoGrid
-                :items="frameMetaItems"
-                :columns="1"
-            />
-
-            <div class="reporting-frame-grid">
-              <article class="reporting-code-surface">
-                <h3 class="reporting-code-surface__title">十进制</h3>
-                <pre class="reporting-code-block reporting-code-block--compact">
+                  <div class="reporting-frame-grid">
+                    <article class="reporting-code-surface">
+                      <h3 class="reporting-code-surface__title">十进制</h3>
+                      <pre class="reporting-code-block reporting-code-block--compact">
 {{ plaintextFrameDecimalPreview }}</pre>
-              </article>
-              <article class="reporting-code-surface">
-                <h3 class="reporting-code-surface__title">十六进制</h3>
-                <pre class="reporting-code-block reporting-code-block--compact">
+                    </article>
+                    <article class="reporting-code-surface">
+                      <h3 class="reporting-code-surface__title">十六进制</h3>
+                      <pre class="reporting-code-block reporting-code-block--compact">
 {{ plaintextFrameHexPreview }}</pre>
-              </article>
-            </div>
-          </div>
-        </section>
+                    </article>
+                  </div>
+                </div>
+              </section>
 
-        <section class="reporting-section reporting-section--stretch">
-          <StandardInlineSectionHeader
-              title="响应"
-              description="保留最近一次页面响应，便于模拟发送后的联调复盘。"
-          >
-            <template #actions>
-              <StandardActionLink @click="copyResponse">复制</StandardActionLink>
-            </template>
-          </StandardInlineSectionHeader>
-          <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
-        </section>
-      </PanelCard>
-    </section>
+              <section class="reporting-section">
+                <StandardInlineSectionHeader
+                  title="响应"
+                  description="保留最近一次页面响应，便于模拟发送后的联调复盘。"
+                >
+                  <template #actions>
+                    <StandardActionLink @click="copyResponse">复制</StandardActionLink>
+                  </template>
+                </StandardInlineSectionHeader>
+                <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
+              </section>
 
-    <PanelCard
-        class="reporting-card reporting-card--timeline"
-        eyebrow="链路验证中心"
-        title="处理时间线"
-        description="以 session/trace 复盘固定 Pipeline 阶段，HTTP 直接展示，MQTT 在回流绑定后展示完整处理链路。"
-    >
-      <div class="reporting-timeline-toolbar">
-        <StandardInlineState
-            :tone="messageFlowInlineTone"
-            :message="messageFlowStatusMessage"
-        />
-        <StandardActionGroup>
-          <StandardButton action="refresh" link :disabled="!messageFlowSessionId" @click="handleRefreshMessageFlow">
-            刷新时间线
-          </StandardButton>
-          <StandardButton action="refresh" link :disabled="!messageFlowTraceId" @click="jumpToMessageTrace">
-            跳转链路追踪台
-          </StandardButton>
-        </StandardActionGroup>
-      </div>
+              <section class="reporting-section reporting-section--timeline">
+                <StandardInlineSectionHeader
+                  title="处理时间线"
+                  description="以 session / trace 复盘固定 Pipeline 阶段，HTTP 直接展示，MQTT 在回流绑定后展示完整链路。"
+                >
+                  <template #actions>
+                    <StandardActionGroup>
+                      <StandardButton action="refresh" link :disabled="!messageFlowSessionId" @click="handleRefreshMessageFlow">
+                        刷新时间线
+                      </StandardButton>
+                      <StandardButton action="refresh" link :disabled="!messageFlowTraceId" @click="jumpToMessageTrace">
+                        跳转链路追踪台
+                      </StandardButton>
+                    </StandardActionGroup>
+                  </template>
+                </StandardInlineSectionHeader>
 
-      <StandardTraceTimeline
-          :timeline="messageFlowTimeline"
-          :loading="messageFlowLoading"
-          :empty-title="messageFlowEmptyTitle"
-          :empty-description="messageFlowEmptyDescription"
-      />
-    </PanelCard>
+                <div class="reporting-timeline-toolbar">
+                  <StandardInlineState
+                    :tone="messageFlowInlineTone"
+                    :message="messageFlowStatusMessage"
+                  />
+                </div>
 
-    <PanelCard
-        class="reporting-card reporting-card--recent"
-        eyebrow="链路验证中心"
-        title="最近提交"
-        description="保留最近一批 message-flow session，支持直接恢复时间线复盘，不必先手工记录 sessionId。"
-    >
-      <div class="reporting-recent-toolbar">
-        <StandardInlineState
-            tone="info"
-            :message="messageFlowRecentLoading ? '正在同步最近提交...' : '点击任一 session 可恢复对应时间线；MQTT pending 会继续按窗口轮询。'"
-        />
-        <StandardActionGroup>
-          <StandardButton action="refresh" link @click="loadRecentMessageFlows">
-            刷新最近提交
-          </StandardButton>
-        </StandardActionGroup>
-      </div>
+                <StandardTraceTimeline
+                  :timeline="messageFlowTimeline"
+                  :loading="messageFlowLoading"
+                  :empty-title="messageFlowEmptyTitle"
+                  :empty-description="messageFlowEmptyDescription"
+                />
+              </section>
+            </ReportingReplayPanel>
+          </section>
 
-      <div v-if="!messageFlowRecentSessions.length" class="reporting-recent-empty">
-        {{ messageFlowRecentEmptyText }}
-      </div>
+          <section v-show="activeKey === 'simulate'" class="reporting-workspace-panel">
+            <ReportingSimulatePanel>
+              <form class="reporting-compose-form" @submit.prevent="handleSendReport">
+                <section class="reporting-section">
+                  <StandardInlineSectionHeader
+                    title="设备查询"
+                    description="设备编码是唯一查询入口；查询成功后只读反显产品 Key、协议编码和客户端 ID。"
+                  />
 
-      <div v-else class="reporting-recent-list">
-        <button
-            v-for="session in messageFlowRecentSessions"
-            :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
-            type="button"
-            class="reporting-recent-item"
-            :data-active="(session.sessionId || '') === messageFlowSessionId"
-            @click="restoreRecentSession(session)"
+                  <div class="reporting-query-row">
+                    <el-input
+                      id="report-device-code"
+                      v-model="reportForm.deviceCode"
+                      name="report_device_code"
+                      placeholder="请输入设备编码"
+                      clearable
+                      @keyup.enter="handleQueryDevice"
+                    />
+                    <StandardButton
+                      action="query"
+                      :loading="isQueryingDevice"
+                      :disabled="!normalizedText(reportForm.deviceCode)"
+                      @click="handleQueryDevice"
+                    >
+                      {{ isQueryingDevice ? '查询中...' : '查询设备' }}
+                    </StandardButton>
+                  </div>
+
+                  <StandardInlineState :message="deviceLookupMessage" :tone="deviceLookupInlineTone" />
+
+                  <StandardInfoGrid
+                    v-if="resolvedDevice"
+                    :items="deviceIdentityItems"
+                    :columns="2"
+                  />
+                </section>
+
+                <section class="reporting-section">
+                  <StandardInlineSectionHeader
+                    title="模拟配置"
+                    description="先确定传输方式与上报模式，再校准 Topic 和租户参数。"
+                  />
+
+                  <div class="reporting-control-grid">
+                    <article class="reporting-control-card">
+                      <div class="reporting-control-card__header">
+                        <span class="reporting-control-card__title">传输方式</span>
+                        <span class="reporting-control-card__helper">HTTP / MQTT</span>
+                      </div>
+                      <StandardChoiceGroup
+                        v-model="transportMode"
+                        :options="transportModeOptions"
+                        responsive
+                      />
+                    </article>
+
+                    <article class="reporting-control-card">
+                      <div class="reporting-control-card__header">
+                        <span class="reporting-control-card__title">上报模式</span>
+                        <span class="reporting-control-card__helper">明文 / 密文</span>
+                      </div>
+                      <StandardChoiceGroup
+                        v-model="reportMode"
+                        :options="reportModeOptions"
+                        responsive
+                      />
+                    </article>
+
+                    <article class="reporting-control-card">
+                      <div class="reporting-control-card__header">
+                        <span class="reporting-control-card__title">租户 ID</span>
+                        <span class="reporting-control-card__helper">仅 HTTP 生效</span>
+                      </div>
+                      <el-input
+                        id="report-tenant"
+                        v-model="reportForm.tenantId"
+                        name="report_tenant_id"
+                        inputmode="numeric"
+                        placeholder="1"
+                        clearable
+                      />
+                    </article>
+
+                    <article class="reporting-control-card">
+                      <div class="reporting-control-card__header">
+                        <span class="reporting-control-card__title">Topic</span>
+                        <span class="reporting-control-card__helper">默认 `$dp`，可手工覆盖</span>
+                      </div>
+                      <div class="reporting-topic-row">
+                        <el-input
+                          id="report-topic"
+                          v-model="reportForm.topic"
+                          name="report_topic"
+                          autocomplete="off"
+                          spellcheck="false"
+                          placeholder="$dp"
+                          clearable
+                        />
+                        <StandardButton action="reset" plain :disabled="!resolvedDevice" @click="syncTopic">套用推荐</StandardButton>
+                      </div>
+                    </article>
+                  </div>
+
+                  <div class="reporting-quick-fill">
+                    <StandardButton action="reset" plain @click="oneClickFill">一键补全</StandardButton>
+                    <span class="reporting-quick-fill__hint">
+                      自动查询设备后套用推荐 Topic，并在密文协议场景下切换建议模式。
+                    </span>
+                  </div>
+                </section>
+
+                <section class="reporting-section">
+                  <StandardInlineSectionHeader
+                    title="Payload 编辑"
+                    description="支持原始文本、JSON、XML。只有可识别 JSON 才会参与 C.1 / C.2 / C.3 明文帧判定。"
+                  >
+                    <template #actions>
+                      <span class="reporting-format-chip">当前格式 {{ payloadFormatLabel }}</span>
+                    </template>
+                  </StandardInlineSectionHeader>
+
+                  <div class="reporting-toolbar">
+                    <div class="reporting-toolbar__group">
+                      <span class="reporting-toolbar__label">模板</span>
+                      <StandardActionGroup gap="sm">
+                        <StandardButton
+                          v-for="template in filteredTemplates"
+                          :key="template.name"
+                          action="reset"
+                          plain
+                          size="small"
+                          @click="applyTemplate(template)"
+                        >
+                          {{ template.name }}
+                        </StandardButton>
+                      </StandardActionGroup>
+                    </div>
+
+                    <div class="reporting-toolbar__group">
+                      <span class="reporting-toolbar__label">格式化</span>
+                      <StandardActionGroup gap="sm">
+                        <StandardButton action="reset" plain size="small" @click="formatPayloadAsJson">JSON</StandardButton>
+                        <StandardButton action="reset" plain size="small" @click="formatPayloadAsXml">XML</StandardButton>
+                      </StandardActionGroup>
+                    </div>
+                  </div>
+
+                  <el-input
+                    id="payload"
+                    v-model="reportForm.payload"
+                    name="report_payload"
+                    type="textarea"
+                    :rows="11"
+                    spellcheck="false"
+                    :placeholder="payloadPlaceholder"
+                    class="reporting-textarea"
+                  />
+
+                  <div
+                    v-if="reportMode === 'plaintext' && plaintextFrame?.type === 3"
+                    class="reporting-type3-panel"
+                  >
+                    <StandardInlineSectionHeader
+                      title="类型 3 文件流 Base64"
+                      description="若 C.3 需要携带文件流，可在此粘贴 Base64 内容。"
+                    />
+                    <el-input
+                      id="report-type3-binary"
+                      v-model="type3BinaryBase64"
+                      name="report_type3_binary_base64"
+                      type="textarea"
+                      :rows="3"
+                      spellcheck="false"
+                      placeholder="若 C.3 需要携带文件流，可在此粘贴 Base64。"
+                      class="reporting-textarea"
+                    />
+                  </div>
+                </section>
+
+                <section class="reporting-section reporting-section--submit">
+                  <div v-if="showValidationBanner" class="reporting-validation-banner">
+                    <strong>发送前请修复以下问题：</strong>
+                    <ul class="reporting-validation-list">
+                      <li v-for="issue in validationIssues" :key="`${issue.field}:${issue.message}`">
+                        {{ issue.message }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="reporting-submit-row">
+                    <div class="reporting-submit-copy">
+                      <span class="reporting-submit-label">当前发送状态</span>
+                      <strong>{{ sendStatusText }}</strong>
+                      <p>发送前会基于当前输入实时推导实际 payload、Topic 建议和字节编码。</p>
+                    </div>
+                    <StandardActionGroup>
+                      <StandardButton action="confirm" native-type="submit" :loading="isSending">
+                        {{ isSending ? '发送中...' : sendButtonText }}
+                      </StandardButton>
+                    </StandardActionGroup>
+                  </div>
+                </section>
+              </form>
+            </ReportingSimulatePanel>
+          </section>
+
+          <section v-show="activeKey === 'recent'" class="reporting-workspace-panel">
+            <PanelCard
+              class="reporting-card reporting-card--recent"
+              eyebrow="链路验证中心"
+              title="最近记录"
+              description="最近记录已升级为诊断清单，优先表达结论、当前卡点和下一步动作。"
+            >
+              <div class="reporting-recent-toolbar">
+                <StandardInlineState
+                  tone="info"
+                  :message="messageFlowRecentLoading ? '正在同步最近提交...' : '点击 session 可恢复当前复盘，或直接按建议动作继续排查。'"
+                />
+              </div>
+
+              <ReportingRecentDiagnosisList
+                v-model="recentDiagnosisFilter"
+                :items="filteredRecentDiagnosisItems"
+                :loading="messageFlowRecentLoading"
+                :empty-text="messageFlowRecentEmptyText"
+                :active-session-id="messageFlowSessionId"
+                @refresh="loadRecentMessageFlows"
+                @restore="handleRestoreRecentDiagnosis"
+                @action="handleRecentDiagnosisAction"
+              />
+            </PanelCard>
+          </section>
+        </div>
+
+        <PanelCard
+          class="reporting-card reporting-card--follow-up"
+          eyebrow="链路验证中心"
+          title="发送后建议检查"
+          description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
         >
-          <div class="reporting-recent-item__header">
-            <strong>{{ session.sessionId || '--' }}</strong>
-            <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
-          </div>
-          <div class="reporting-recent-item__meta">
-            <span>设备 {{ session.deviceCode || '--' }}</span>
-            <span>{{ formatDateTime(session.submittedAt) }}</span>
-          </div>
-          <div class="reporting-recent-item__meta">
-            <span>{{ session.topic || '--' }}</span>
-            <span>
-              {{
-                session.traceId
-                    ? `Trace ${session.traceId}`
-                    : session.correlationPending
-                        ? '等待回流'
-                        : session.timelineAvailable
-                            ? 'Timeline 可用'
-                            : 'Timeline 缺失'
-              }}
-            </span>
-          </div>
-        </button>
-      </div>
-    </PanelCard>
-
-    <PanelCard
-        class="reporting-card reporting-card--follow-up"
-        eyebrow="链路验证中心"
-        title="发送后建议检查"
-        description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
-    >
-      <StandardFlowRail :items="followUpSteps" />
-    </PanelCard>
+          <StandardFlowRail :items="followUpSteps" />
+        </PanelCard>
+      </template>
+    </IotAccessTabWorkspace>
   </div>
 </template>
 
@@ -441,6 +392,7 @@ import { useRouter } from 'vue-router';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
 import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
@@ -448,6 +400,10 @@ import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardInlineSectionHeader from '../components/StandardInlineSectionHeader.vue';
 import StandardTraceTimeline from '../components/StandardTraceTimeline.vue';
+import ReportingRecentDiagnosisList from '../components/reporting/ReportingRecentDiagnosisList.vue';
+import ReportingReplayPanel from '../components/reporting/ReportingReplayPanel.vue';
+import ReportingSimulatePanel from '../components/reporting/ReportingSimulatePanel.vue';
+import ReportingStatusHeader from '../components/reporting/ReportingStatusHeader.vue';
 import { recordActivity } from '../stores/activity';
 import type {
   Device,
@@ -465,6 +421,16 @@ import {
   type DiagnosticFinding
 } from '../utils/iotAccessDiagnostics';
 import { formatFrameDecimalPreview, formatFrameHexPreview } from './reportPayloadFrame';
+import {
+  resolveReportingDiagnosis,
+  type ReportingActionTarget
+} from './reportingDiagnosis';
+import {
+  filterRecentDiagnosisItems,
+  mapRecentSessionToDiagnosis,
+  type ReportingRecentActionTarget,
+  type ReportingRecentFilter
+} from './reportingRecentDiagnosis';
 import {
   evaluateReportWorkbenchInput,
   filterTemplatesByMode,
@@ -608,7 +574,15 @@ const messageFlowLookupError = ref('');
 const messageFlowLookupMissing = ref(false);
 const messageFlowSubmittedTransportMode = ref<TransportMode | ''>('');
 const messageFlowExpectedTimeline = ref(false);
+const reportingWorkspaceTab = ref('replay');
+const recentDiagnosisFilter = ref<ReportingRecentFilter>('all');
 let messageFlowPollTimer: number | null = null;
+
+const reportingWorkspaceTabs = [
+  { key: 'replay', label: '结果复盘' },
+  { key: 'simulate', label: '模拟验证' },
+  { key: 'recent', label: '最近记录' }
+] as const;
 
 const filteredTemplates = computed(() => filterTemplatesByMode(templates, reportMode.value));
 const resolvedProductKey = computed(() => normalizedText(resolvedDevice.value?.productKey));
@@ -729,6 +703,18 @@ const deviceLookupInlineTone = computed<'info' | 'error'>(() =>
     deviceLookupTone.value === 'danger' ? 'error' : 'info'
 );
 
+const diagnosisModel = computed(() =>
+    resolveReportingDiagnosis({
+      sessionId: normalizedText(messageFlowSessionId.value),
+      traceId: normalizedText(messageFlowTraceId.value),
+      transportMode: resolveMessageFlowTransportMode(),
+      lookupError: messageFlowLookupError.value,
+      lookupMissing: messageFlowLookupMissing.value,
+      expectedTimeline: messageFlowExpectedTimeline.value,
+      messageFlowSession: messageFlowSession.value
+    })
+);
+
 const currentDiagnosticContext = computed<DiagnosticContext>(() => {
   const baselineDeviceCode = normalizedText(messageFlowRestoreBaseline.value?.deviceCode);
   const baselineTraceId = normalizedText(messageFlowRestoreBaseline.value?.traceId);
@@ -750,7 +736,7 @@ const currentDiagnosticContext = computed<DiagnosticContext>(() => {
     transportMode: baselineTransportMode
         || sessionTransportMode
         || (hasRestoredSessionContext ? normalizeTransportMode(messageFlowSubmittedTransportMode.value) : fallbackTransportMode),
-    reportStatus: resolveCurrentReportStatus(),
+    reportStatus: diagnosisModel.value.reportStatus,
     capturedAt: new Date().toISOString()
   };
 });
@@ -808,6 +794,44 @@ const canOpenFileDebug = computed(() => {
   const context = currentDiagnosticContext.value;
   return Boolean(context.deviceCode || context.productKey || context.traceId);
 });
+
+const statusHeaderActions = computed(() => {
+  const actions = [...diagnosisModel.value.actions];
+
+  if (canContinueTrace.value && !actions.some((item) => item.target === 'message-trace')) {
+    actions.push({ target: 'message-trace', label: '继续链路追踪' });
+  }
+  if (canViewSystemLog.value && !actions.some((item) => item.target === 'system-log')) {
+    actions.push({ target: 'system-log', label: '查看异常观测' });
+  }
+  if (canOpenFileDebug.value && !actions.some((item) => item.target === 'file-debug')) {
+    actions.push({ target: 'file-debug', label: '打开数据校验' });
+  }
+
+  return actions.slice(0, 3);
+});
+
+const statusHeaderContextItems = computed(() => {
+  const context = currentDiagnosticContext.value;
+  return [
+    { key: 'device-code', label: '设备', value: context.deviceCode || '--' },
+    {
+      key: 'transport-mode',
+      label: '通道',
+      value: context.transportMode ? context.transportMode.toUpperCase() : '--'
+    },
+    { key: 'topic', label: 'Topic', value: context.topic || '--' },
+    { key: 'session-id', label: 'Session', value: context.sessionId || '--' },
+    { key: 'trace-id', label: 'Trace', value: context.traceId || '--' }
+  ];
+});
+
+const recentDiagnosisItems = computed(() =>
+    messageFlowRecentSessions.value.map((session) => mapRecentSessionToDiagnosis(session))
+);
+const filteredRecentDiagnosisItems = computed(() =>
+    filterRecentDiagnosisItems(recentDiagnosisItems.value, recentDiagnosisFilter.value)
+);
 
 const diagnosticSummaryItems = computed(() => {
   const plaintextType = plaintextFrame.value
@@ -1223,6 +1247,7 @@ async function handleSendReport() {
       await loadMessageFlowSession(submitSessionId, transportMode.value === 'mqtt');
     }
     await loadRecentMessageFlows();
+    reportingWorkspaceTab.value = 'replay';
     persistCurrentDiagnosticContext();
     ElMessage.success(`${transportMode.value === 'mqtt' ? 'MQTT' : 'HTTP'} 模拟上报成功`);
     recordActivity({
@@ -1389,6 +1414,7 @@ async function restoreRecentSession(session: MessageFlowRecentSession) {
   if (!sessionId) {
     return;
   }
+  reportingWorkspaceTab.value = 'replay';
   messageFlowRestoreBaseline.value = { ...session };
   messageFlowSessionId.value = sessionId;
   messageFlowSubmittedTransportMode.value = isTransportMode(session.transportMode)
@@ -1403,6 +1429,63 @@ async function restoreRecentSession(session: MessageFlowRecentSession) {
           && !normalizedText(session.traceId)
   );
   persistCurrentDiagnosticContext();
+}
+
+function handleReportingAction(target: ReportingActionTarget) {
+  if (target === 'simulate') {
+    reportingWorkspaceTab.value = 'simulate';
+    return;
+  }
+  if (target === 'message-trace') {
+    jumpToMessageTrace();
+    return;
+  }
+  if (target === 'system-log') {
+    jumpToSystemLog();
+    return;
+  }
+  jumpToFileDebug();
+}
+
+function handleRestoreRecentDiagnosis(key: string) {
+  const session = messageFlowRecentSessions.value.find((item) => {
+    const sessionKey = normalizedText(item.sessionId)
+        || `${normalizedText(item.deviceCode) || '--'}-${normalizedText(item.submittedAt) || '--'}`;
+    return sessionKey === key;
+  });
+  if (session) {
+    restoreRecentSession(session).catch(() => undefined);
+  }
+}
+
+function handleRecentDiagnosisAction(payload: { key: string; target: ReportingRecentActionTarget }) {
+  const session = messageFlowRecentSessions.value.find((item) => {
+    const sessionKey = normalizedText(item.sessionId)
+        || `${normalizedText(item.deviceCode) || '--'}-${normalizedText(item.submittedAt) || '--'}`;
+    return sessionKey === payload.key;
+  });
+
+  if (session) {
+    messageFlowRestoreBaseline.value = { ...session };
+    messageFlowSessionId.value = normalizedText(session.sessionId);
+    messageFlowSubmittedTransportMode.value = isTransportMode(session.transportMode)
+        ? session.transportMode.toLowerCase() as TransportMode
+        : '';
+  }
+
+  if (payload.target === 'reporting') {
+    if (session) {
+      restoreRecentSession(session).catch(() => undefined);
+      return;
+    }
+    reportingWorkspaceTab.value = 'replay';
+    return;
+  }
+
+  if (session) {
+    persistCurrentDiagnosticContext();
+  }
+  handleReportingAction(payload.target === 'reporting' ? 'simulate' : payload.target);
 }
 
 function toggleFramePanel() {
@@ -1490,25 +1573,6 @@ function resolveMessageFlowTransportMode(): TransportMode | null {
       || null;
 }
 
-function resolveCurrentReportStatus(): DiagnosticContext['reportStatus'] {
-  if (messageFlowTraceId.value) {
-    return 'validated';
-  }
-  if (isMqttCorrelationPendingSession()) {
-    return 'pending';
-  }
-  if (messageFlowLookupMissing.value && messageFlowExpectedTimeline.value) {
-    return 'timeline-missing';
-  }
-  if (messageFlowSessionId.value) {
-    return 'sent';
-  }
-  if (resolvedDevice.value) {
-    return 'ready';
-  }
-  return 'ready';
-}
-
 function persistCurrentDiagnosticContext() {
   persistDiagnosticContext({
     ...currentDiagnosticContext.value,
@@ -1526,84 +1590,46 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-diagnostic-follow-up {
-  display: grid;
-  gap: 0.72rem;
-  margin-top: 0.9rem;
-}
-
-.reporting-main-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.96fr);
-  gap: var(--spacing-md);
-  align-items: stretch;
-  min-width: 0;
-}
-
-.reporting-surface {
-  height: 100%;
-  min-width: 0;
-}
-
-.reporting-surface :deep(.el-card__body) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.reporting-surface__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.reporting-view :deep(.iot-access-tab-workspace) {
   gap: 1rem;
-  width: 100%;
 }
 
-.reporting-surface__heading {
+.reporting-view :deep(.iot-access-tab-workspace__tabs) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.24rem 0;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.82));
+  backdrop-filter: blur(12px);
+}
+
+.reporting-view :deep(.iot-access-tab-workspace__tab) {
+  min-height: 2.9rem;
+  padding: 0.78rem 1.05rem;
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+}
+
+.reporting-view :deep(.iot-access-tab-workspace__tab--active) {
+  color: var(--text-heading);
+  border-bottom-color: var(--brand);
+}
+
+.reporting-workspace-panels {
+  display: grid;
+  gap: 0.96rem;
+}
+
+.reporting-workspace-panel {
   min-width: 0;
 }
 
-.reporting-surface__eyebrow {
-  margin: 0 0 0.28rem;
-  color: var(--brand);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.reporting-card {
+  min-width: 0;
 }
 
-.reporting-surface__title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.08rem;
-}
-
-.reporting-surface__description {
-  margin: 0.38rem 0 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-  font-size: 0.86rem;
-}
-
-.reporting-surface__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2rem;
-  padding: 0 0.78rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--panel-border));
-  background: color-mix(in srgb, var(--brand) 8%, white);
-  color: var(--brand-deep);
-  font-size: 0.76rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.reporting-surface__badge--accent {
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
-  background: color-mix(in srgb, var(--accent) 8%, white);
-  color: var(--accent-deep);
+.reporting-card :deep(.el-card__body) {
+  min-width: 0;
 }
 
 .reporting-compose-form {
