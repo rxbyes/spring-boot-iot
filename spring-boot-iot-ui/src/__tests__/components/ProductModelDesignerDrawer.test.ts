@@ -44,7 +44,7 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle'],
   emits: ['update:modelValue'],
   template: `
     <section v-if="modelValue" class="standard-detail-drawer-stub">
@@ -56,7 +56,7 @@ const StandardDetailDrawerStub = defineComponent({
 
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
-  props: ['modelValue'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle'],
   emits: ['update:modelValue', 'close'],
   template: `
     <section v-if="modelValue" class="standard-form-drawer-stub">
@@ -286,6 +286,18 @@ describe('ProductModelDesignerDrawer', () => {
     expect(wrapper.find('.product-model-designer__candidate-rail').exists()).toBe(true)
     expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
     expect(wrapper.text()).toContain('真实证据概览')
+  })
+
+  it('keeps the product model designer drawers on title/subtitle only without repeated eyebrow tiers', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+    await nextTick()
+
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+
+    expect(detailDrawer.props('eyebrow')).toBeUndefined()
+    expect(formDrawer.props('eyebrow')).toBeUndefined()
   })
 
   it('renders formal mode with type overview cards and unified model cards', async () => {

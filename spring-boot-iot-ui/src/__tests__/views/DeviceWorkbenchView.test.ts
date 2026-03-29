@@ -111,6 +111,16 @@ const StandardListFilterHeaderStub = defineComponent({
   `
 })
 
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <section class="device-table-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </section>
+  `
+})
+
 const ElFormItemStub = defineComponent({
   name: 'ElFormItem',
   template: '<div class="el-form-item-stub"><slot /></div>'
@@ -134,6 +144,18 @@ const StandardInlineStateStub = defineComponent({
   name: 'StandardInlineState',
   props: ['message', 'tone'],
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  emits: ['click'],
+  template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
+})
+
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label'],
+  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
 })
 
 const StandardDetailDrawerStub = defineComponent({
@@ -198,6 +220,9 @@ function mountView() {
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
         StandardInlineState: StandardInlineStateStub,
+        StandardButton: StandardButtonStub,
+        StandardActionMenu: StandardActionMenuStub,
+        StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub
       }
@@ -265,6 +290,20 @@ describe('DeviceWorkbenchView', () => {
     expect(formDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('设备台账')
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
+  })
+
+  it('keeps the device toolbar focused by collapsing secondary actions into a more-actions menu', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('刷新列表')
+    expect(wrapper.text()).toContain('更多操作')
+    expect(wrapper.text()).not.toContain('批量删除')
+    expect(wrapper.text()).not.toContain('导出列设置')
+    expect(wrapper.text()).not.toContain('导出选中')
+    expect(wrapper.text()).not.toContain('导出当前结果')
+    expect(wrapper.text()).not.toContain('清空选中')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {

@@ -191,12 +191,14 @@ const StandardPaginationStub = defineComponent({
 
 const AuditLogDetailDrawerStub = defineComponent({
   name: 'AuditLogDetailDrawer',
-  template: '<section class="audit-log-detail-stub" />'
+  props: ['title'],
+  template: '<section class="audit-log-detail-stub">{{ title }}</section>'
 });
 
 const CsvColumnSettingDialogStub = defineComponent({
   name: 'CsvColumnSettingDialog',
-  template: '<section class="audit-log-csv-dialog-stub" />'
+  props: ['title'],
+  template: '<section class="audit-log-csv-dialog-stub">{{ title }}</section>'
 });
 
 const ElTableStub = defineComponent({
@@ -329,16 +331,26 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('renders the anomaly page list-first without the legacy eyebrow tier', async () => {
+  it('renders the anomaly page list-first without toolbar jump shortcuts or legacy eyebrow tiers', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常台账');
-    expect(wrapper.text()).toContain('链路追踪台');
-    expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.text()).toContain('追踪');
+    expect(wrapper.text()).not.toContain('链路追踪台');
+    expect(wrapper.text()).not.toContain('失败归档');
     expect(wrapper.text()).not.toContain('OBSERVABILITY DESK');
+  });
+
+  it('uses anomaly-oriented detail and export titles in system mode', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.findComponent(AuditLogDetailDrawerStub).props('title')).toBe('异常详情');
+    expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常台账导出列设置');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -445,7 +457,7 @@ describe('AuditLogView', () => {
     }));
   });
 
-  it('persists system-log diagnostic context before jumping back to message trace', async () => {
+  it('persists system-log diagnostic context before jumping back to message trace from row actions', async () => {
     mockRoute.query = {
       traceId: 'trace-001',
       deviceCode: 'demo-device-01',
@@ -457,7 +469,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '链路追踪台')!.trigger('click');
+    await findButtonByText(wrapper, '追踪')!.trigger('click');
     await flushPromises();
 
     expect(mockRouter.push).toHaveBeenCalledWith({

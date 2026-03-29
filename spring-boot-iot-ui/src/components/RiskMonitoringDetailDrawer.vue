@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Risk Monitoring Detail"
     :title="detail?.riskPointName || detail?.deviceName || '监测详情'"
     :subtitle="detail?.deviceCode ? `设备编码：${detail.deviceCode}` : '查看风险监测对象当前态势'"
     :tags="drawerTags"

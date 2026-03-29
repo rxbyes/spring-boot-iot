@@ -2,7 +2,6 @@
   <StandardDetailDrawer
     :model-value="modelValue"
     class="product-model-designer"
-    eyebrow="产品物模型设计器"
     :title="drawerTitle"
     :subtitle="drawerSubtitle"
     size="72rem"
@@ -307,7 +306,6 @@
   <StandardFormDrawer
     v-model="formVisible"
     :title="formTitle"
-    eyebrow="产品物模型编辑"
     :subtitle="formSubtitle"
     size="40rem"
     @close="handleFormClose"

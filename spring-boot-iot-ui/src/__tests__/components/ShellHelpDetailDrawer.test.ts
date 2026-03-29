@@ -54,6 +54,7 @@ describe('ShellHelpDetailDrawer', () => {
     })
 
     expect(wrapper.findAll('mark').length).toBeGreaterThan(0)
+    expect(wrapper.text()).not.toContain('Shell Help Detail')
     await wrapper.find('button.el-button--primary').trigger('click')
     expect(wrapper.emitted('navigate')?.[0]).toEqual(['/alarm-center'])
   })

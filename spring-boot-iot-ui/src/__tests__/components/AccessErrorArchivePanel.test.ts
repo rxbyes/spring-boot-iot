@@ -127,16 +127,16 @@ describe('AccessErrorArchivePanel', () => {
           stubs: {
             StandardWorkbenchPanel: StandardWorkbenchPanelStub,
             StandardListFilterHeader: true,
-            StandardAppliedFiltersBar: true,
-            StandardTableToolbar: StandardTableToolbarStub,
-            StandardPagination: true,
-            StandardTableTextColumn: true,
-            StandardRowActions: true,
-            StandardActionLink: true,
-            StandardDetailDrawer: defineComponent({
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardRowActions: true,
+          StandardActionLink: true,
+          StandardDetailDrawer: defineComponent({
               name: 'StandardDetailDrawer',
-              props: ['modelValue'],
-              template: '<section v-if="modelValue"><slot /></section>'
+              props: ['modelValue', 'eyebrow', 'title'],
+              template: '<section v-if="modelValue" class="access-error-detail-drawer-stub"><p v-if="eyebrow">{{ eyebrow }}</p><h2>{{ title }}</h2><slot /></section>'
             }),
             StandardChoiceGroup: true,
             StandardButton: defineComponent({
@@ -160,6 +160,10 @@ describe('AccessErrorArchivePanel', () => {
         deviceCode: 'demo-device-01',
         productKey: 'demo-product'
       });
+      const detailDrawer = wrapper.findComponent({ name: 'StandardDetailDrawer' });
+
+      expect(detailDrawer.props('eyebrow')).toBeUndefined();
+      expect(wrapper.text()).not.toContain('接入失败详情');
       await (wrapper.vm as any).jumpToProductGovernance();
 
       expect(mockRouter.push).toHaveBeenLastCalledWith({

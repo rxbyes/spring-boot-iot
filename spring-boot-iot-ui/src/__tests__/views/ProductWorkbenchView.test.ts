@@ -108,6 +108,16 @@ const StandardListFilterHeaderStub = defineComponent({
   `
 })
 
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <section class="product-table-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </section>
+  `
+})
+
 const StandardRowActionsStub = defineComponent({
   name: 'StandardRowActions',
   template: '<div class="product-row-actions-stub"><slot /></div>'
@@ -117,6 +127,12 @@ const StandardActionLinkStub = defineComponent({
   name: 'StandardActionLink',
   emits: ['click'],
   template: '<button class="product-action-link-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
+})
+
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label'],
+  template: '<button class="product-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
 })
 
 const StandardDetailDrawerStub = defineComponent({
@@ -211,15 +227,15 @@ function mountView() {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardRowActions: StandardRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
-        StandardActionMenu: true,
+        StandardActionMenu: StandardActionMenuStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
+        StandardTableToolbar: StandardTableToolbarStub,
         ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
         ProductDetailWorkbench: ProductDetailWorkbenchStub,
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
-        StandardTableToolbar: true,
         StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
         StandardTableTextColumn: true,
@@ -268,6 +284,20 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')
     expect(wrapper.text()).not.toContain('PRODUCT CENTER')
+  })
+
+  it('keeps the product toolbar focused by collapsing low-frequency actions into a more-actions menu', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('批量操作')
+    expect(wrapper.text()).toContain('刷新列表')
+    expect(wrapper.text()).toContain('更多操作')
+    expect(wrapper.text()).not.toContain('导出列设置')
+    expect(wrapper.text()).not.toContain('导出选中')
+    expect(wrapper.text()).not.toContain('导出当前结果')
+    expect(wrapper.text()).not.toContain('清空选中')
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {

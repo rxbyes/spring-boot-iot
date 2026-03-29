@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     :model-value="modelValue"
-    eyebrow="Export Columns"
     :title="dialogTitle"
     subtitle="统一通过右侧抽屉维护导出列、模板分组与导入导出设置。"
     size="38rem"
@@ -79,7 +78,6 @@
 
   <StandardFormDrawer
     v-model="importPreviewDetailVisible"
-    eyebrow="Import Preview"
     title="导入预览明细"
     :subtitle="`冲突策略：${resolveStrategyLabel(importPreviewDetailStrategy)}`"
     size="44rem"
@@ -119,7 +117,6 @@
 
   <StandardFormDrawer
     v-model="presetEditorVisible"
-    eyebrow="Preset Template"
     :title="presetEditorTitle"
     :subtitle="presetEditorSubtitle"
     size="34rem"
@@ -145,7 +142,6 @@
 
   <StandardFormDrawer
     v-model="importStrategyVisible"
-    eyebrow="Conflict Strategy"
     title="导入冲突处理"
     :subtitle="importStrategySubtitle"
     size="34rem"

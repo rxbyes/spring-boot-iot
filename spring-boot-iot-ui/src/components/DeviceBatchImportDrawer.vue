@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     v-model="visible"
-    eyebrow="Device Batch Import"
     title="批量导入设备"
     subtitle="通过 CSV 一次性补录设备资产主档，适合库存初始化、批次上新和现场回收录入。"
     size="58rem"

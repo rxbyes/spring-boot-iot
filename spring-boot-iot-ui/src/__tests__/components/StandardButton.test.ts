@@ -84,7 +84,7 @@ const ElDropdownItemStub = defineComponent({
 })
 
 describe('StandardButton', () => {
-  it('maps query actions to the dedicated query palette used by device insight refresh', () => {
+  it('maps query actions to the shared primary branch used by add buttons', () => {
     const wrapper = mount(StandardButton, {
       props: { action: 'query' },
       slots: { default: '查询' },
@@ -99,8 +99,8 @@ describe('StandardButton', () => {
     expect(button.attributes('data-type')).toBe('primary')
     expect(button.attributes('data-link')).toBe('false')
     expect(button.attributes('class')).toContain('standard-button--query')
-    expect(button.attributes('class')).toContain('standard-button--palette-query')
-    expect(button.attributes('class')).not.toContain('standard-button--palette-default')
+    expect(button.attributes('class')).toContain('standard-button--palette-default')
+    expect(button.attributes('class')).not.toContain('standard-button--palette-query')
     expect(button.attributes('class')).toContain('standard-button--tone-solid')
   })
 

@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     v-model="visible"
-    eyebrow="设备替换操作"
     title="更换设备"
     subtitle="录入新设备后，旧设备会自动转为停用并写入替换关系，便于库存台账和现场维护追溯。"
     size="48rem"

@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Shell Notice Detail"
     :title="record?.title || '消息详情'"
     :subtitle="record?.summary || '统一查看消息分类、优先级、来源与正文。'"
     size="48rem"

@@ -76,6 +76,7 @@ describe('ShellHelpCenterDrawer', () => {
     expect(wrapper.text()).toContain('告警运营与事件协同业务手册')
     expect(wrapper.text()).toContain('当前页相关')
     expect(wrapper.findAll('mark').length).toBeGreaterThan(0)
+    expect(wrapper.text()).not.toContain('Shell Help')
 
     const categorySelect = wrapper.findComponent({ name: 'ElSelect' })
     categorySelect.vm.$emit('update:modelValue', 'faq')

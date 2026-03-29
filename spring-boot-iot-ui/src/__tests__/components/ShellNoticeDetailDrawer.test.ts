@@ -69,6 +69,7 @@ describe('ShellNoticeDetailDrawer', () => {
     expect(wrapper.text()).toContain('系统维护窗口提醒')
     expect(wrapper.text()).toContain('未读')
     expect(wrapper.text()).toContain('维护详情与排障指引')
+    expect(wrapper.text()).not.toContain('Shell Notice Detail')
 
     await findButtonByText(wrapper, '进入页面').trigger('click')
     await findButtonByText(wrapper, '标记已读').trigger('click')

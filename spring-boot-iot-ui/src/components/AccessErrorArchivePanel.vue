@@ -193,7 +193,6 @@
 
   <StandardDetailDrawer
     v-model="detailVisible"
-    eyebrow="接入失败详情"
     :title="detailTitle"
     :subtitle="detailSubtitle"
     :tags="detailTags"

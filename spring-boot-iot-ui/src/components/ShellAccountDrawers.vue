@@ -1,7 +1,6 @@
 ﻿<template>
   <StandardFormDrawer
     :model-value="showAccountDialog"
-    eyebrow="Account Center"
     title="账号中心"
     subtitle="统一通过右侧抽屉查看当前账号、角色、联系方式与认证状态。"
     size="32rem"
@@ -38,7 +37,6 @@
 
   <StandardFormDrawer
     :model-value="showRealNameAuthDialog"
-    eyebrow="Account Verification"
     title="实名认证"
     subtitle="当前版本先展示账号实名信息与接入状态，后续再补独立认证流程。"
     size="30rem"
@@ -61,7 +59,6 @@
 
   <StandardFormDrawer
     :model-value="showLoginMethodsDialog"
-    eyebrow="Login Methods"
     title="登录方式"
     subtitle="展示当前账号可用的登录方式与联系信息，后续再补独立绑定流程。"
     size="30rem"
@@ -84,7 +81,6 @@
 
   <StandardFormDrawer
     :model-value="showChangePasswordDialog"
-    eyebrow="Account Security"
     title="修改密码"
     subtitle="统一通过右侧抽屉完成密码修改，提交成功后需要重新登录。"
     size="30rem"

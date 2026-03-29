@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Shell Notice"
     title="通知中心"
     subtitle="按分类、未读状态和分页统一查看当前账号可消费的站内消息。"
     size="54rem"
