@@ -162,6 +162,23 @@
       <div :class="['detail-notice', { 'detail-notice--danger': isFailure }]">
         <span class="detail-notice__label">{{ isFailure ? '失败原因 / 结果说明' : '执行说明' }}</span>
         <strong class="detail-notice__value">{{ formatValue(detail?.resultMessage) }}</strong>
+        <div
+          v-if="showTraceAction || showAccessErrorAction || showProductAction || showDeviceAction"
+          class="detail-notice__actions"
+        >
+          <StandardButton v-if="showTraceAction" action="refresh" link @click="emit('jump-message-trace')">
+            返回链路追踪
+          </StandardButton>
+          <StandardButton v-if="showAccessErrorAction" action="reset" link @click="emit('jump-access-error')">
+            回看失败归档
+          </StandardButton>
+          <StandardButton v-if="showProductAction" action="refresh" link @click="emit('jump-product-governance')">
+            产品定义中心
+          </StandardButton>
+          <StandardButton v-if="showDeviceAction" action="refresh" link @click="emit('jump-device-governance')">
+            设备资产中心
+          </StandardButton>
+        </div>
       </div>
     </section>
 
@@ -192,6 +209,7 @@ import { computed } from 'vue'
 import type { AuditLogRecord } from '@/api/auditLog'
 import { formatDateTime, prettyJson } from '@/utils/format'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
+import StandardButton from '@/components/StandardButton.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -199,10 +217,18 @@ const props = defineProps<{
   detail: Partial<AuditLogRecord>
   loading?: boolean
   errorMessage?: string
+  showTraceAction?: boolean
+  showAccessErrorAction?: boolean
+  showProductAction?: boolean
+  showDeviceAction?: boolean
 }>()
 
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
+  (event: 'jump-message-trace'): void
+  (event: 'jump-access-error'): void
+  (event: 'jump-product-governance'): void
+  (event: 'jump-device-governance'): void
 }>()
 
 const hasDetail = computed(() => Object.keys(props.detail || {}).length > 0)
@@ -269,3 +295,12 @@ function formatPayload(payload?: string) {
   return prettyJson(payload)
 }
 </script>
+
+<style scoped>
+.detail-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+</style>

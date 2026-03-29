@@ -34,7 +34,6 @@ type ButtonType = '' | 'primary' | 'success' | 'warning' | 'info' | 'danger'
 type ButtonSize = '' | 'large' | 'default' | 'small'
 type ButtonAction = 'default' | 'query' | 'add' | 'reset' | 'delete' | 'batch' | 'refresh' | 'confirm' | 'cancel'
 type ButtonTone = 'solid' | 'secondary' | 'link' | 'text'
-
 const attrs = useAttrs()
 
 const props = withDefaults(
@@ -100,6 +99,7 @@ const resolvedTone = computed<ButtonTone>(() => {
 const classes = computed(() => [
   `standard-button--${props.action}`,
   `standard-button--tone-${resolvedTone.value}`,
+  'standard-button--palette-default',
   {
     'standard-button--plain': resolvedPlain.value,
     'standard-button--link': resolvedLink.value,

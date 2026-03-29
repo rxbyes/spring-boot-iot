@@ -3,10 +3,9 @@ package com.ghlzm.iot.telemetry.service.handler;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
-import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceFilePayload;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
-import com.ghlzm.iot.telemetry.service.impl.TdengineTelemetryFacade;
+import com.ghlzm.iot.telemetry.service.impl.TelemetryWriteCoordinator;
 import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +17,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -27,49 +25,31 @@ import static org.mockito.Mockito.when;
 class TelemetryPersistStageHandlerTest {
 
     @Mock
-    private TdengineTelemetryFacade tdengineTelemetryFacade;
+    private TelemetryWriteCoordinator telemetryWriteCoordinator;
 
-    private IotProperties iotProperties;
     private TelemetryPersistStageHandler telemetryPersistStageHandler;
 
     @BeforeEach
     void setUp() {
-        iotProperties = new IotProperties();
-        telemetryPersistStageHandler = new TelemetryPersistStageHandler(iotProperties, tdengineTelemetryFacade);
+        telemetryPersistStageHandler = new TelemetryPersistStageHandler(telemetryWriteCoordinator);
     }
 
     @Test
-    void persistShouldSkipWhenStorageTypeIsNotTdengine() {
-        iotProperties.getTelemetry().setStorageType("mysql");
-
-        TelemetryPersistResult result = telemetryPersistStageHandler.persist(buildTarget("property", Map.of("temperature", 26.5), false));
-
-        assertTrue(result.isSkipped());
-        assertEquals("STORAGE_TYPE_MYSQL", result.getBranch());
-        verifyNoInteractions(tdengineTelemetryFacade);
-    }
-
-    @Test
-    void persistShouldDelegateToTdengineForPropertyPayload() {
-        iotProperties.getTelemetry().setStorageType("tdengine");
-        iotProperties.getTelemetry().setTdengineMode("legacy-compatible");
+    void persistShouldDelegateToCoordinatorForPropertyPayload() {
         DeviceProcessingTarget target = buildTarget("property", Map.of("temperature", 26.5, "humidity", 68), false);
-        when(tdengineTelemetryFacade.persist(target)).thenReturn(
-                TelemetryPersistResult.persisted("LEGACY_COMPATIBLE", "legacy-compatible", 2, 1, 2, 0, 0)
+        when(telemetryWriteCoordinator.persist(target)).thenReturn(
+                TelemetryPersistResult.persisted("TDENGINE_V2_RAW", "tdengine-v2", 2, 0, 0, 0, 0)
         );
 
         TelemetryPersistResult result = telemetryPersistStageHandler.persist(target);
 
-        assertFalse(result.isSkipped());
         assertEquals(2, result.getPointCount());
-        assertEquals("legacy-compatible", result.getStorageMode());
-        verify(tdengineTelemetryFacade).persist(target);
+        assertEquals("tdengine-v2", result.getStorageMode());
+        verify(telemetryWriteCoordinator).persist(target);
     }
 
     @Test
     void persistShouldSkipReplyFileAndEmptyProperties() {
-        iotProperties.getTelemetry().setStorageType("tdengine");
-
         TelemetryPersistResult replyResult = telemetryPersistStageHandler.persist(buildTarget("reply", Map.of("status", "ok"), false));
         TelemetryPersistResult fileResult = telemetryPersistStageHandler.persist(buildTarget("property", Map.of("temperature", 26.5), true));
         TelemetryPersistResult emptyResult = telemetryPersistStageHandler.persist(buildTarget("property", Map.of(), false));
@@ -77,7 +57,7 @@ class TelemetryPersistStageHandlerTest {
         assertEquals("MESSAGE_TYPE_REPLY", replyResult.getBranch());
         assertEquals("FILE_PAYLOAD", fileResult.getBranch());
         assertEquals("EMPTY_PROPERTIES", emptyResult.getBranch());
-        verifyNoInteractions(tdengineTelemetryFacade);
+        verifyNoInteractions(telemetryWriteCoordinator);
     }
 
     private DeviceProcessingTarget buildTarget(String messageType, Map<String, Object> properties, boolean filePayload) {

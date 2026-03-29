@@ -1,12 +1,21 @@
 <template>
-  <div class="audit-log-view">
+  <div class="page-stack audit-log-view">
+    <IotAccessPageShell
+      v-if="isSystemMode"
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '异常观测台' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
-      :title="pageTitle"
+      :title="panelTitle"
       :description="pageDescription"
       show-filters
       :show-applied-filters="hasAppliedFilters"
-      show-notices
       show-toolbar
+      :show-inline-state="showSystemInlineState"
       show-pagination
     >
       <template #filters>
@@ -136,23 +145,8 @@
         />
       </template>
 
-      <template #notices>
-        <div class="audit-log-notice-grid">
-          <el-alert
-            :title="viewTip"
-            type="info"
-            :closable="false"
-            show-icon
-            class="view-alert"
-          />
-          <el-alert
-            :title="statsSummaryText"
-            type="success"
-            :closable="false"
-            show-icon
-            class="stats-alert"
-          />
-        </div>
+      <template v-if="showSystemInlineState" #inline-state>
+        <StandardInlineState :message="systemInlineMessage" tone="info" />
       </template>
 
       <template #toolbar>
@@ -170,11 +164,21 @@
           ]"
         >
           <template #right>
-            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToMessageTrace()">
+            <StandardButton
+              v-if="isSystemMode"
+              action="refresh"
+              link
+              @click="handleJumpToMessageTrace()"
+            >
               链路追踪台
             </StandardButton>
-            <StandardButton v-if="isSystemMode" action="refresh" link :disabled="!canJumpFromSearch" @click="handleJumpToAccessError()">
-              失败归档台
+            <StandardButton
+              v-if="isSystemMode"
+              action="refresh"
+              link
+              @click="handleJumpToAccessError()"
+            >
+              失败归档
             </StandardButton>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
@@ -261,6 +265,10 @@
       :detail="detailData"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
+      :show-trace-action="isSystemMode && canJumpToMessageTrace(detailData)"
+      :show-access-error-action="isSystemMode && canJumpToMessageTrace(detailData)"
+      @jump-message-trace="handleJumpToMessageTrace(detailData)"
+      @jump-access-error="handleJumpToAccessError(detailData)"
     />
 
     <CsvColumnSettingDialog
@@ -285,11 +293,13 @@ import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
@@ -300,6 +310,13 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
+import {
+  buildDiagnosticRouteQuery,
+  describeDiagnosticSource,
+  persistDiagnosticContext,
+  resolveDiagnosticContext,
+  type DiagnosticContext
+} from '@/utils/iotAccessDiagnostics'
 
 type AuditLogViewMode = 'business' | 'system'
 
@@ -309,23 +326,13 @@ const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' 
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
 const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
+const panelTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
 const pageDescription = computed(() =>
   isSystemMode.value
-    ? '面向研发、测试与运维的异常观测工作台，聚焦设备接入与后台链路问题。'
-    : '面向客户与治理侧的审计留痕中心，默认不展示后台系统异常记录。'
-)
-const viewTip = computed(() =>
-  isSystemMode.value
-    ? '异常观测台仅展示 `sys_audit_log` 中 `operation_type=system_error` 的记录，可结合 TraceId、设备编码与“链路追踪台”页面快速串联排障。'
-    : '审计中心默认排除 `system_error` 记录；如需排查设备接入或后台异常，请前往“接入智维 > 异常观测台”。'
+    ? '按异常模块、TraceId、设备编码与请求通道筛查 system_error。'
+    : '按用户、模块与结果查看审计留痕。'
 )
 const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
-const canJumpFromSearch = computed(() =>
-  Boolean(
-    appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey
-      || (appliedFilters.requestMethod === 'MQTT' && appliedFilters.requestUrl)
-  )
-)
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
   { label: '修改', value: 'update' },
@@ -493,18 +500,37 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`
 })
-
-const statsSummaryText = computed(() => {
-  if (statsLoading.value) {
-    return '正在加载统计概览...'
+const restoredDiagnosticContext = computed(() => {
+  if (!isSystemMode.value) {
+    return null
   }
-  if (isSystemMode.value) {
-    const topModule = systemStats.value.topModules[0]?.label || '--'
-    return `异常总量 ${systemStats.value.total}，今日 ${systemStats.value.todayCount}，MQTT ${systemStats.value.mqttCount}，链路数 ${systemStats.value.distinctTraceCount}，高频模块 ${topModule}`
-  }
-  const topUser = businessStats.value.topUsers[0]?.label || '--'
-  return `审计总量 ${businessStats.value.total}，今日 ${businessStats.value.todayCount}，成功 ${businessStats.value.successCount}，失败 ${businessStats.value.failureCount}，活跃用户 ${businessStats.value.distinctUserCount}（Top 用户 ${topUser}）`
+  const requestMethod = typeof route.query.requestMethod === 'string' ? route.query.requestMethod : ''
+  const requestUrl = typeof route.query.requestUrl === 'string' ? route.query.requestUrl : ''
+  return resolveDiagnosticContext({
+    ...route.query,
+    topic: requestMethod === 'MQTT' ? requestUrl || route.query.topic : route.query.topic
+  } as Record<string, unknown>)
 })
+const systemFindingSummary = computed(() => {
+  if (systemStats.value.total > 0) {
+    return '可回链路追踪继续复盘。'
+  }
+  return '建议回到链路追踪或失败归档继续排查。'
+})
+const systemInlineMessage = computed(() => {
+  const sourceLabel = restoredDiagnosticContext.value
+    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+    : ''
+  if (statsLoading.value) {
+    return [sourceLabel, '异常统计加载中。'].filter(Boolean).join(' · ')
+  }
+  return [
+    sourceLabel,
+    `当前异常 ${systemStats.value.total} 条，今日 ${systemStats.value.todayCount} 条，关联链路 ${systemStats.value.distinctTraceCount} 条。`,
+    systemFindingSummary.value
+  ].filter(Boolean).join(' · ')
+})
+const showSystemInlineState = computed(() => isSystemMode.value && Boolean(systemInlineMessage.value))
 
 // 详情对话框
 const detailVisible = ref(false)
@@ -575,12 +601,13 @@ const applySystemRouteQuery = () => {
   if (!isSystemMode.value) {
     return
   }
-  searchForm.traceId = readRouteQueryValue('traceId')
-  searchForm.deviceCode = readRouteQueryValue('deviceCode')
-  searchForm.productKey = readRouteQueryValue('productKey')
+  const context = restoredDiagnosticContext.value
+  searchForm.traceId = readRouteQueryValue('traceId') || context?.traceId || ''
+  searchForm.deviceCode = readRouteQueryValue('deviceCode') || context?.deviceCode || ''
+  searchForm.productKey = readRouteQueryValue('productKey') || context?.productKey || ''
   searchForm.operationModule = readRouteQueryValue('operationModule')
-  searchForm.requestMethod = readRouteQueryValue('requestMethod')
-  searchForm.requestUrl = readRouteQueryValue('requestUrl')
+  searchForm.requestMethod = readRouteQueryValue('requestMethod') || (context?.topic ? 'MQTT' : '')
+  searchForm.requestUrl = readRouteQueryValue('requestUrl') || context?.topic || ''
   searchForm.errorCode = readRouteQueryValue('errorCode')
   searchForm.exceptionClass = readRouteQueryValue('exceptionClass')
   searchForm.operationResult = parseOptionalNumber(readRouteQueryValue('operationResult'))
@@ -781,56 +808,51 @@ const handleRefresh = () => {
   triggerSearch(false)
 }
 
+const buildSystemDiagnosticContext = (source?: Partial<AuditLogRecord>): DiagnosticContext => {
+  const traceId = source?.traceId || quickSearchKeyword.value.trim() || searchForm.traceId || undefined
+  const deviceCode = source?.deviceCode || searchForm.deviceCode || undefined
+  const productKey = source?.productKey || searchForm.productKey || undefined
+  const requestMethod = source?.requestMethod || searchForm.requestMethod
+  const requestUrl = source?.requestUrl || searchForm.requestUrl
+  return {
+    sourcePage: 'system-log',
+    traceId,
+    deviceCode,
+    productKey,
+    topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined,
+    reportStatus: systemStats.value.total > 0 ? 'failed' : 'timeline-missing',
+    capturedAt: new Date().toISOString()
+  }
+}
+
+const persistSystemContext = (source?: Partial<AuditLogRecord>) => {
+  persistDiagnosticContext(buildSystemDiagnosticContext(source))
+}
+
 const canJumpToMessageTrace = (row?: AuditLogRecord) => {
-  const target = row || searchForm
-  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
-  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
-  return Boolean(target.traceId || target.deviceCode || target.productKey || (requestMethod === 'MQTT' && requestUrl))
+  const context = buildSystemDiagnosticContext(row)
+  return Boolean(context.traceId || context.deviceCode || context.productKey || context.topic)
 }
 
 const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
-  const target = row || {
-    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
-    deviceCode: searchForm.deviceCode,
-    productKey: searchForm.productKey,
-    requestMethod: searchForm.requestMethod,
-    requestUrl: searchForm.requestUrl
-  }
-  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
-  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
+  const context = buildSystemDiagnosticContext(row)
+  persistSystemContext(row)
   router.push({
     path: '/message-trace',
-    query: {
-      traceId: target.traceId || undefined,
-      deviceCode: target.deviceCode || undefined,
-      productKey: target.productKey || undefined,
-      topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined
-    }
+    query: buildDiagnosticRouteQuery(context)
   })
 }
 
 const handleJumpToAccessError = (row?: AuditLogRecord) => {
-  const target = row || {
-    traceId: quickSearchKeyword.value.trim() || searchForm.traceId,
-    deviceCode: searchForm.deviceCode,
-    productKey: searchForm.productKey,
-    requestMethod: searchForm.requestMethod,
-    requestUrl: searchForm.requestUrl,
-    errorCode: searchForm.errorCode,
-    exceptionClass: searchForm.exceptionClass
-  }
-  const requestMethod = 'requestMethod' in target ? target.requestMethod : undefined
-  const requestUrl = 'requestUrl' in target ? target.requestUrl : undefined
+  const context = buildSystemDiagnosticContext(row)
+  persistSystemContext(row)
   router.push({
     path: '/message-trace',
     query: {
       mode: 'access-error',
-      traceId: target.traceId || undefined,
-      deviceCode: target.deviceCode || undefined,
-      productKey: target.productKey || undefined,
-      topic: requestMethod === 'MQTT' ? requestUrl || undefined : undefined,
-      errorCode: 'errorCode' in target ? target.errorCode || undefined : undefined,
-      exceptionClass: 'exceptionClass' in target ? target.exceptionClass || undefined : undefined
+      ...buildDiagnosticRouteQuery(context),
+      errorCode: row?.errorCode || searchForm.errorCode || undefined,
+      exceptionClass: row?.exceptionClass || searchForm.exceptionClass || undefined
     }
   })
 }
@@ -969,6 +991,49 @@ watch(detailVisible, (visible) => {
   min-width: 0;
 }
 
+.audit-log-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  box-shadow: var(--shadow-card);
+}
+
+.audit-log-command-strip__copy {
+  min-width: 0;
+}
+
+.audit-log-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.22rem;
+}
+
+.audit-log-command-strip__judgement {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.audit-log-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.audit-log-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.72rem;
+}
+
 .audit-log-quick-search-tag {
   margin-top: 0.72rem;
 }
@@ -977,9 +1042,16 @@ watch(detailVisible, (visible) => {
   margin: 0;
 }
 
-.audit-log-notice-grid {
-  display: grid;
-  gap: 0.72rem;
+@media (max-width: 900px) {
+  .audit-log-command-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .audit-log-command-strip__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 </style>

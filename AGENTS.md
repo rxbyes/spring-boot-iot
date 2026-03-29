@@ -12,8 +12,8 @@ com.ghlzm.iot
 ## 当前状态
 第一至第三阶段主链路是长期稳定基线。第四阶段风险平台能力仍在推进中，但已经具备可用的真实环境基线。
 当前设备接入固定 Pipeline 为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE`。
-当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`，`application-test.yml` 继续保留 `mysql`。
-产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验，但当前仍作为下一阶段设备中心增强，不并入 Phase 4 已交付范围。
+当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`，`application-test.yml` 继续保留 `mysql`。
+产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 已继续在 `/products` 内升级为“候选提炼 + 正式模型”双模式工作台抽屉，但当前仍作为下一阶段设备中心增强，不并入 Phase 4 已交付范围。
 
 ### 当前构建模块基线
 当前父 `pom.xml` 激活 `12` 个模块：
@@ -101,7 +101,10 @@ com.ghlzm.iot
 - 任何 `spring-boot-iot-ui` 下的页面或样式改动，都必须保证 UTF-8 可读，不得把终端乱码写进 `.vue`、`.ts`、`.css`、`.json`、`.md` 文件。
 - 在 Windows 终端编辑前端文件前，优先使用 UTF-8 查看 / 校验方式，例如 `chcp 65001` 加 `Get-Content -Encoding UTF8`，确保终端显示内容与文件真实内容一致。
 - 修改前端文本、标签、占位符、注释或文档后，必须自检是否出现 `鍒�`、`褰�`、`璇�`、`鐢�` 这类乱码，发现后必须修复。
-- 新的页面优化工作必须优先复用现有共享页面模式：`PanelCard`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、共享全局列表样式和现有设计令牌。若现有标准模式已经适配，不要再新增页面私有列表 / 分页 / 详情弹层样式。
+- 新的页面优化工作必须优先复用现有共享页面模式：`PanelCard`、`StandardWorkbenchPanel`、`StandardListFilterHeader`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、`StandardInlineState`、`IotAccessPageShell`、`IotAccessTabWorkspace`、共享全局列表样式和现有设计令牌。若现有标准模式已经适配，不要再新增页面私有列表 / 分页 / 详情弹层样式。
+- `接入智维` 下的页面如果存在多个并列内容域，只有在确有两个及以上真实业务视图时才使用同页 Tab 工作区表达，不要再新增页面私有 pill、假页签、说明墙或二级轻路由；同一路由 query 变更必须复用共享滚动行为，避免筛选 / 分页 / Tab 同步后内容区跳顶。
+- `接入智维` 单主列表页统一只保留“全局壳层面包屑 + 当前模块主工作台”两层结构；`IotAccessPageShell` 不得再为同一路径重复渲染页内面包屑，中间重复层级、说明墙、第三层标题壳和第二条“接入智维 / 当前模块”导航条以后都不得回流。
+- `链路追踪台`、`数据校验台`、`链路验证中心` 等诊断页顶部不得再回流右上角跨页功能菜单；跨页协同统一下沉到正文判断区、行级动作、详情抽屉提示或来源上下文恢复，不要再把 `异常观测台 / 数据校验台 / 链路追踪台` 一类按钮放回页头。
 - 总览、工作台、抽屉和确认弹窗交互必须保持统一品牌 / 强调配色体系。除非产品需求明确记录例外，否则不要再为单页引入新的蓝 / 橙 / 紫色私有配色。
 - 如果前端改动引入或暴露了样式漂移、重复列表布局或分页行为不一致问题，结束任务前必须把问题和预防规则记录到 `docs/15-前端优化与治理计划.md`。
 

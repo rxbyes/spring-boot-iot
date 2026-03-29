@@ -26,6 +26,7 @@ export interface DevicePageQueryParams {
   onlineStatus?: number
   activateStatus?: number
   deviceStatus?: number
+  registrationStatus?: number
   pageNum?: number
   pageSize?: number
 }

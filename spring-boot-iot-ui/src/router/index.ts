@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { usePermissionStore } from '../stores/permission';
 import { getRouteMetaPreset } from '../utils/sectionWorkspaces';
+import { appScrollBehavior } from './scrollBehavior';
 
 function routeMeta(path: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -232,9 +233,7 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
-    return { top: 0 };
-  }
+  scrollBehavior: appScrollBehavior
 });
 
 function resolveRedirectTarget(permissionStore: ReturnType<typeof usePermissionStore>, redirect?: string) {

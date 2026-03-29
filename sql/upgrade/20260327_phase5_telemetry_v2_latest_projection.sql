@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `iot_device_metric_latest` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL,
+  `device_id` BIGINT NOT NULL,
+  `product_id` BIGINT NOT NULL,
+  `metric_id` VARCHAR(128) NOT NULL,
+  `metric_code` VARCHAR(128) NOT NULL,
+  `metric_name` VARCHAR(128) DEFAULT NULL,
+  `value_type` VARCHAR(32) DEFAULT NULL,
+  `value_double` DOUBLE DEFAULT NULL,
+  `value_long` BIGINT DEFAULT NULL,
+  `value_bool` TINYINT(1) DEFAULT NULL,
+  `value_text` TEXT DEFAULT NULL,
+  `quality_code` VARCHAR(32) DEFAULT NULL,
+  `alarm_flag` TINYINT(1) DEFAULT NULL,
+  `reported_at` DATETIME DEFAULT NULL,
+  `trace_id` VARCHAR(64) DEFAULT NULL,
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tel_latest_tenant_device_metric` (`tenant_id`, `device_id`, `metric_id`),
+  KEY `idx_tel_latest_device_reported` (`device_id`, `reported_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

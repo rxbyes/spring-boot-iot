@@ -5,6 +5,7 @@
     eyebrow="产品物模型设计器"
     :title="drawerTitle"
     :subtitle="drawerSubtitle"
+    size="72rem"
     :loading="loading"
     loading-text="正在加载产品物模型..."
     :error-message="errorMessage"
@@ -12,10 +13,19 @@
     empty-text="请先选择产品后再打开物模型设计器"
     @update:modelValue="emit('update:modelValue', $event)"
   >
-    <section class="detail-panel detail-panel--hero product-model-designer__hero">
+    <section class="detail-panel detail-panel--hero product-model-designer__hero-stage">
       <div class="product-model-designer__hero-copy">
-        <h3>物模型目录</h3>
-        <p>按属性、事件、服务三类维护产品契约，继续复用现有产品定义中心，不新增一级路由。</p>
+        <p class="product-model-designer__hero-kicker">物模型目录</p>
+        <h3>{{ designerStageTitle }}</h3>
+        <p class="product-model-designer__hero-description">
+          按属性、事件、服务三类维护产品契约，继续复用现有产品定义中心，不新增一级路由。
+        </p>
+        <div class="product-model-designer__hero-product">
+          <span>{{ product?.productName || '--' }}</span>
+          <span>{{ product?.productKey || '--' }}</span>
+          <span>{{ product?.protocolCode || '--' }}</span>
+          <span>{{ productNodeTypeLabel }}</span>
+        </div>
       </div>
       <div class="product-model-designer__hero-actions">
         <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
@@ -36,6 +46,7 @@
             正式模型
           </button>
         </div>
+        <p class="product-model-designer__hero-action-hint">{{ designerStageHint }}</p>
         <StandardButton
           v-if="designerMode === 'candidates'"
           action="refresh"
@@ -56,30 +67,34 @@
     </section>
 
     <section v-if="designerMode === 'candidates'" class="detail-panel product-model-designer__section">
-      <div class="product-model-designer__summary">
-        <article class="product-model-designer__summary-card product-model-designer__summary-card--lead">
+      <div class="product-model-designer__overview">
+        <article class="product-model-designer__overview-lead">
           <span class="product-model-designer__summary-label">真实证据概览</span>
-          <strong>按真实上报先提炼候选，再人工确认入正式物模型</strong>
-          <p>属性优先来源于 `iot_device_property`，事件和服务只在存在真实证据时才生成候选。</p>
+          <strong>先提炼，再确认，再沉淀为正式物模型</strong>
+          <p>属性优先来源于 `iot_device_property` 与消息快照，事件和服务只有在存在真实证据时才生成候选。</p>
+          <div class="product-model-designer__overview-meta">
+            <span>最近提炼：{{ formatDateTime(candidateSummary.lastExtractedAt) }}</span>
+            <span>待人工确认：{{ candidateSummary.needsReviewCount ?? 0 }}</span>
+          </div>
         </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">属性证据</span>
+        <article class="product-model-designer__overview-metric">
+          <span class="product-model-designer__summary-label">属性</span>
           <strong>{{ candidateSummary.propertyCandidateCount ?? 0 }}</strong>
           <p>原始证据 {{ candidateSummary.propertyEvidenceCount ?? 0 }} 条</p>
         </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">事件证据</span>
+        <article class="product-model-designer__overview-metric">
+          <span class="product-model-designer__summary-label">事件</span>
           <strong>{{ candidateSummary.eventCandidateCount ?? 0 }}</strong>
           <p>{{ candidateSummary.eventHint || '已发现可提炼事件候选' }}</p>
         </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">服务证据</span>
+        <article class="product-model-designer__overview-metric">
+          <span class="product-model-designer__summary-label">服务</span>
           <strong>{{ candidateSummary.serviceCandidateCount ?? 0 }}</strong>
           <p>{{ candidateSummary.serviceHint || '已发现可提炼服务候选' }}</p>
         </article>
       </div>
 
-      <div class="product-model-designer__candidate-layout">
+      <div class="product-model-designer__candidate-workspace">
         <aside class="product-model-designer__candidate-nav">
           <div class="product-model-designer__candidate-nav-header">
             <h3>候选目录</h3>
@@ -96,6 +111,9 @@
             <span>{{ item.label }}</span>
             <strong>{{ item.count }}</strong>
           </button>
+          <p class="product-model-designer__candidate-nav-tip">
+            优先治理真实证据稳定、命名边界清晰的候选。
+          </p>
         </aside>
 
         <div class="product-model-designer__candidate-body">
@@ -113,9 +131,13 @@
             <article
               v-for="candidate in visibleCandidates"
               :key="candidateKey(candidate)"
-              class="product-model-designer__candidate-card"
+              class="product-model-designer__candidate-card card-surface product-model-designer__card-surface"
             >
               <header class="product-model-designer__candidate-card-header">
+                <div class="product-model-designer__candidate-card-title">
+                  <strong>{{ candidateDraft(candidate).modelName }}</strong>
+                  <span>{{ candidate.identifier }}</span>
+                </div>
                 <label class="product-model-designer__candidate-card-check">
                   <el-checkbox
                     :model-value="isCandidateSelected(candidate)"
@@ -123,57 +145,51 @@
                   />
                   <span>写入正式模型</span>
                 </label>
-                <div class="product-model-designer__candidate-card-badges">
-                  <el-tag round>{{ candidateTypeLabel(candidate.modelType) }}</el-tag>
-                  <el-tag round>{{ candidateGroupLabel(candidate.groupKey) }}</el-tag>
-                  <el-tag round>
-                    {{ candidate.needsReview ? '待人工确认' : '可直接采纳' }}
-                  </el-tag>
-                </div>
               </header>
 
-              <div class="product-model-designer__candidate-card-body">
-                <div class="product-model-designer__candidate-card-heading">
-                  <strong>{{ candidateDraft(candidate).modelName }}</strong>
-                  <span>{{ candidate.identifier }}</span>
-                </div>
-
-                <div class="product-model-designer__candidate-card-grid">
-                  <label class="product-model-designer__candidate-field">
-                    <span>建议名称</span>
-                    <el-input
-                      :model-value="candidateDraft(candidate).modelName"
-                      placeholder="补充候选名称"
-                      @update:modelValue="updateCandidateDraft(candidate, 'modelName', $event)"
-                    />
-                  </label>
-                  <div class="product-model-designer__candidate-field product-model-designer__candidate-field--meta">
-                    <span>证据标签</span>
-                    <strong>置信度 {{ formatConfidence(candidate.confidence) }}</strong>
-                    <small>原始证据 {{ candidate.evidenceCount ?? 0 }} 条，消息证据 {{ candidate.messageEvidenceCount ?? 0 }} 条</small>
-                  </div>
-                  <label class="product-model-designer__candidate-field product-model-designer__candidate-field--full">
-                    <span>中文备注</span>
-                    <el-input
-                      type="textarea"
-                      :model-value="candidateDraft(candidate).description"
-                      :rows="3"
-                      placeholder="补充边界、命名规范和入库说明"
-                      @update:modelValue="updateCandidateDraft(candidate, 'description', $event)"
-                    />
-                  </label>
-                </div>
-
-                <p class="product-model-designer__description">
-                  {{ candidateDraft(candidate).description }}
-                </p>
-
-                <div class="product-model-designer__meta">
-                  <span>数据类型：{{ candidate.dataType || '--' }}</span>
-                  <span>最近上报：{{ formatDateTime(candidate.lastReportTime) }}</span>
-                  <span>来源：{{ (candidate.sourceTables ?? []).join('、') || '--' }}</span>
-                </div>
+              <div class="product-model-designer__candidate-card-tags">
+                <el-tag round>{{ candidateTypeLabel(candidate.modelType) }}</el-tag>
+                <el-tag round>{{ candidateGroupLabel(candidate.groupKey) }}</el-tag>
+                <el-tag round>
+                  {{ candidate.needsReview ? '待人工确认' : '可直接采纳' }}
+                </el-tag>
               </div>
+
+              <div class="product-model-designer__candidate-card-summary">
+                <span>数据类型：{{ candidate.dataType || '--' }}</span>
+                <span>最近上报：{{ formatDateTime(candidate.lastReportTime) }}</span>
+                <span>来源：{{ (candidate.sourceTables ?? []).join('、') || '--' }}</span>
+              </div>
+
+              <div class="product-model-designer__candidate-card-editor">
+                <label class="product-model-designer__candidate-field">
+                  <span>建议名称</span>
+                  <el-input
+                    :model-value="candidateDraft(candidate).modelName"
+                    placeholder="补充候选名称"
+                    @update:modelValue="updateCandidateDraft(candidate, 'modelName', $event)"
+                  />
+                </label>
+                <div class="product-model-designer__candidate-evidence-card">
+                  <span>证据标签</span>
+                  <strong>置信度 {{ formatConfidence(candidate.confidence) }}</strong>
+                  <small>原始证据 {{ candidate.evidenceCount ?? 0 }} 条，消息证据 {{ candidate.messageEvidenceCount ?? 0 }} 条</small>
+                </div>
+                <label class="product-model-designer__candidate-field product-model-designer__candidate-field--full">
+                  <span>中文备注</span>
+                  <el-input
+                    type="textarea"
+                    :model-value="candidateDraft(candidate).description"
+                    :rows="3"
+                    placeholder="补充边界、命名规范和入库说明"
+                    @update:modelValue="updateCandidateDraft(candidate, 'description', $event)"
+                  />
+                </label>
+              </div>
+
+              <p class="product-model-designer__description">
+                {{ candidateDraft(candidate).description }}
+              </p>
             </article>
           </div>
 
@@ -183,8 +199,8 @@
           </div>
         </div>
 
-        <aside class="product-model-designer__confirm-panel">
-          <div class="product-model-designer__confirm-panel-header">
+        <aside class="product-model-designer__candidate-rail">
+          <div class="product-model-designer__candidate-rail-header">
             <h3>确认写入</h3>
             <p>只会写入已勾选候选，已存在正式模型的标识会在服务端自动跳过。</p>
           </div>
@@ -222,57 +238,60 @@
     </section>
 
     <section v-else class="detail-panel product-model-designer__section">
-      <div class="product-model-designer__type-switcher" role="tablist" aria-label="产品物模型类型">
+      <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
         <button
           v-for="item in typeOptions"
           :key="item.value"
           type="button"
-          class="product-model-designer__type-chip"
-          :class="{ 'product-model-designer__type-chip--active': activeType === item.value }"
+          class="product-model-designer__formal-overview-card"
+          :class="{ 'product-model-designer__formal-overview-card--active': activeType === item.value }"
           @click="activeType = item.value"
         >
           <span>{{ item.label }}</span>
           <strong>{{ countByType(item.value) }}</strong>
+          <small>{{ emptyDescriptionMap[item.value] }}</small>
         </button>
       </div>
 
-      <div v-if="activeModels.length" class="product-model-designer__list">
-        <article
-          v-for="model in activeModels"
-          :key="String(model.id)"
-          class="product-model-designer__card"
-        >
-          <header class="product-model-designer__card-header">
-            <div class="product-model-designer__card-heading">
-              <strong>{{ model.modelName }}</strong>
-              <span>{{ model.identifier }}</span>
+      <div class="product-model-designer__formal-stage">
+        <div v-if="activeModels.length" class="product-model-designer__list">
+          <article
+            v-for="model in activeModels"
+            :key="String(model.id)"
+            class="product-model-designer__card card-surface product-model-designer__card-surface"
+          >
+            <header class="product-model-designer__card-header">
+              <div class="product-model-designer__card-heading">
+                <strong>{{ model.modelName }}</strong>
+                <span>{{ model.identifier }}</span>
+              </div>
+              <el-tag :type="model.requiredFlag === 1 ? 'warning' : 'info'" round>
+                {{ model.requiredFlag === 1 ? '必填' : '选填' }}
+              </el-tag>
+            </header>
+
+            <div class="product-model-designer__card-summary">
+              <span>排序：{{ model.sortNo ?? '--' }}</span>
+              <span v-if="model.modelType === 'property'">数据类型：{{ model.dataType || '--' }}</span>
+              <span v-else-if="model.modelType === 'event'">事件类型：{{ model.eventType || '--' }}</span>
+              <span v-else>服务输入/输出：{{ formatServiceSummary(model) }}</span>
             </div>
-            <el-tag :type="model.requiredFlag === 1 ? 'warning' : 'info'" round>
-              {{ model.requiredFlag === 1 ? '必填' : '选填' }}
-            </el-tag>
-          </header>
 
-          <div class="product-model-designer__meta">
-            <span>排序：{{ model.sortNo ?? '--' }}</span>
-            <span v-if="model.modelType === 'property'">数据类型：{{ model.dataType || '--' }}</span>
-            <span v-else-if="model.modelType === 'event'">事件类型：{{ model.eventType || '--' }}</span>
-            <span v-else>服务输入/输出：{{ formatServiceSummary(model) }}</span>
-          </div>
+            <p class="product-model-designer__description">
+              {{ model.description?.trim() || emptyDescriptionMap[model.modelType] }}
+            </p>
 
-          <p class="product-model-designer__description">
-            {{ model.description?.trim() || emptyDescriptionMap[model.modelType] }}
-          </p>
+            <StandardRowActions variant="editor" gap="comfortable">
+              <StandardActionLink @click="handleEdit(model)">编辑</StandardActionLink>
+              <StandardActionLink action="delete" @click="handleDelete(model)">删除</StandardActionLink>
+            </StandardRowActions>
+          </article>
+        </div>
 
-          <StandardRowActions variant="editor" gap="comfortable">
-            <StandardActionLink @click="handleEdit(model)">编辑</StandardActionLink>
-            <StandardActionLink action="delete" @click="handleDelete(model)">删除</StandardActionLink>
-          </StandardRowActions>
-        </article>
-      </div>
-
-      <div v-else class="product-model-designer__empty">
-        <strong>暂无物模型</strong>
-        <p>{{ emptyDescriptionMap[activeType] }}</p>
+        <div v-else class="product-model-designer__empty">
+          <strong>暂无物模型</strong>
+          <p>{{ emptyDescriptionMap[activeType] }}</p>
+        </div>
       </div>
     </section>
 
@@ -478,6 +497,18 @@ const drawerSubtitle = computed(() =>
     ? `产品 Key：${props.product.productKey}，按属性 / 事件 / 服务三类维护接入契约。`
     : '按属性 / 事件 / 服务三类维护产品接入契约。'
 )
+const designerStageTitle = computed(() =>
+  designerMode.value === 'candidates' ? '基于真实上报提炼产品契约' : '统一维护产品正式物模型'
+)
+const designerStageHint = computed(() =>
+  designerMode.value === 'candidates' ? '仅提炼真实证据' : '维护已确认契约'
+)
+const productNodeTypeLabel = computed(() => {
+  if (!props.product) {
+    return '--'
+  }
+  return props.product.nodeType === 1 ? '直连设备' : '网关设备'
+})
 const formTitle = computed(() => (editingModelId.value ? '编辑产品物模型' : '新增产品物模型'))
 const formSubtitle = computed(() =>
   props.product?.productName
@@ -771,13 +802,26 @@ async function loadDesignerData(productId: string | number) {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [modelResponse, candidateResponse] = await Promise.all([
+    const [modelResponse, candidateResponse] = await Promise.allSettled([
       productApi.listProductModels(productId),
       productApi.listProductModelCandidates(productId)
     ])
-    models.value = modelResponse.data ?? []
-    candidateResult.value = candidateResponse.data ?? createEmptyCandidateResult(productId)
+
+    if (modelResponse.status === 'rejected') {
+      throw modelResponse.reason
+    }
+
+    models.value = modelResponse.value.data ?? []
+
+    if (candidateResponse.status === 'fulfilled') {
+      candidateResult.value = candidateResponse.value.data ?? createEmptyCandidateResult(productId)
+      syncCandidateState(candidateResult.value)
+      return
+    }
+
+    candidateResult.value = createEmptyCandidateResult(productId)
     syncCandidateState(candidateResult.value)
+    designerMode.value = 'formal'
   } catch (error) {
     models.value = []
     candidateResult.value = createEmptyCandidateResult(productId)
@@ -992,43 +1036,90 @@ function candidateGroupLabel(groupKey?: string | null) {
   gap: 1rem;
 }
 
-.product-model-designer__hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.product-model-designer__hero-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 24rem);
   gap: 1rem;
-}
-
-.product-model-designer__hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  align-items: start;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 38%),
+    radial-gradient(circle at bottom left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(245, 249, 255, 0.96));
+  box-shadow: var(--shadow-surface-soft-sm);
 }
 
 .product-model-designer__hero-copy {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.6rem;
+}
+
+.product-model-designer__hero-kicker {
+  margin: 0;
+  color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .product-model-designer__hero-copy h3 {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.1rem;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  line-height: 1.2;
 }
 
-.product-model-designer__hero-copy p {
+.product-model-designer__hero-description,
+.product-model-designer__candidate-nav-header p,
+.product-model-designer__candidate-body-header p,
+.product-model-designer__candidate-rail-header p,
+.product-model-designer__overview-lead p,
+.product-model-designer__overview-metric p,
+.product-model-designer__empty p {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
 }
 
+.product-model-designer__hero-product {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.product-model-designer__hero-product span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.32rem 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.product-model-designer__hero-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.75rem;
+  align-content: start;
+}
+
 .product-model-designer__mode-switcher {
   display: inline-flex;
   padding: 0.24rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--panel-border));
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.product-model-designer__mode-chip,
+.product-model-designer__candidate-nav-item,
+.product-model-designer__formal-overview-card {
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .product-model-designer__mode-chip {
@@ -1039,52 +1130,97 @@ function candidateGroupLabel(groupKey?: string | null) {
   background: transparent;
   color: var(--text-caption);
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .product-model-designer__mode-chip--active {
-  background: linear-gradient(180deg, rgba(241, 246, 255, 0.98), rgba(232, 240, 255, 0.94));
+  background: linear-gradient(180deg, rgba(242, 247, 255, 0.98), rgba(232, 240, 255, 0.94));
   color: var(--brand);
   box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.product-model-designer__section {
-  display: grid;
-  gap: 1rem;
+.product-model-designer__hero-action-hint {
+  margin: 0;
+  color: var(--text-caption-2);
+  font-size: 0.84rem;
 }
 
-.product-model-designer__summary {
+.product-model-designer__section,
+.product-model-designer__candidate-nav,
+.product-model-designer__candidate-body,
+.product-model-designer__candidate-rail,
+.product-model-designer__formal-stage,
+.product-model-designer__card,
+.product-model-designer__candidate-card {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.product-model-designer__overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 0.88fr));
   gap: 0.85rem;
 }
 
-.product-model-designer__summary-card {
-  display: grid;
-  gap: 0.32rem;
-  padding: 1rem 1.05rem;
+.product-model-designer__overview-lead,
+.product-model-designer__overview-metric,
+.product-model-designer__candidate-nav,
+.product-model-designer__candidate-body,
+.product-model-designer__candidate-rail,
+.product-model-designer__formal-overview-card,
+.product-model-designer__formal-stage,
+.card-surface {
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 2px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
   box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.product-model-designer__summary-card--lead {
+.product-model-designer__overview-lead,
+.product-model-designer__overview-metric,
+.product-model-designer__candidate-nav,
+.product-model-designer__candidate-body,
+.product-model-designer__candidate-rail,
+.product-model-designer__formal-stage {
+  padding: 1rem 1.05rem;
+}
+
+.product-model-designer__overview-lead {
+  display: grid;
+  gap: 0.4rem;
   border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 11%, transparent), transparent 44%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.94));
 }
 
-.product-model-designer__summary-card strong {
+.product-model-designer__overview-lead strong,
+.product-model-designer__overview-metric strong,
+.product-model-designer__candidate-evidence-card strong,
+.product-model-designer__confirm-metrics strong,
+.product-model-designer__card-heading strong,
+.product-model-designer__candidate-card-title strong {
   color: var(--text-heading);
-  font-size: 1.12rem;
 }
 
-.product-model-designer__summary-card p {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.55;
+.product-model-designer__overview-lead strong {
+  font-size: 1.2rem;
+}
+
+.product-model-designer__overview-metric {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.product-model-designer__overview-metric strong {
+  font-size: 1.16rem;
+}
+
+.product-model-designer__overview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-caption-2);
+  font-size: 0.83rem;
 }
 
 .product-model-designer__summary-label {
@@ -1094,46 +1230,28 @@ function candidateGroupLabel(groupKey?: string | null) {
   letter-spacing: 0.04em;
 }
 
-.product-model-designer__candidate-layout {
+.product-model-designer__candidate-workspace {
   display: grid;
   grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr) minmax(16rem, 18rem);
   gap: 1rem;
   align-items: start;
 }
 
-.product-model-designer__candidate-nav,
-.product-model-designer__candidate-body,
-.product-model-designer__confirm-panel {
-  display: grid;
-  gap: 0.85rem;
-  padding: 1rem 1.05rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-surface-soft-sm);
-}
-
 .product-model-designer__candidate-nav-header,
 .product-model-designer__candidate-body-header,
-.product-model-designer__confirm-panel-header {
+.product-model-designer__candidate-rail-header,
+.product-model-designer__card-heading,
+.product-model-designer__candidate-card-title {
   display: grid;
   gap: 0.28rem;
 }
 
 .product-model-designer__candidate-nav-header h3,
 .product-model-designer__candidate-body-header h3,
-.product-model-designer__confirm-panel-header h3 {
+.product-model-designer__candidate-rail-header h3 {
   margin: 0;
   color: var(--text-heading);
   font-size: 1rem;
-}
-
-.product-model-designer__candidate-nav-header p,
-.product-model-designer__candidate-body-header p,
-.product-model-designer__confirm-panel-header p {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.55;
 }
 
 .product-model-designer__candidate-nav-item {
@@ -1141,24 +1259,40 @@ function candidateGroupLabel(groupKey?: string | null) {
   justify-content: space-between;
   align-items: center;
   gap: 0.8rem;
+  width: 100%;
   padding: 0.84rem 0.92rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.92);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
 }
 
-.product-model-designer__candidate-nav-item strong {
+.product-model-designer__candidate-nav-item strong,
+.product-model-designer__formal-overview-card strong {
   color: var(--text-heading);
 }
 
 .product-model-designer__candidate-nav-item--active {
   border-color: color-mix(in srgb, var(--brand) 34%, white);
+  background:
+    linear-gradient(180deg, rgba(245, 248, 255, 0.98), rgba(237, 244, 255, 0.96)),
+    linear-gradient(90deg, color-mix(in srgb, var(--brand) 24%, transparent), transparent);
   color: var(--brand);
   box-shadow: var(--shadow-brand);
   transform: translateY(-1px);
+}
+
+.product-model-designer__candidate-nav-tip {
+  margin: 0;
+  padding: 0.8rem 0.88rem;
+  border: 1px dashed color-mix(in srgb, var(--brand) 20%, white);
+  border-radius: var(--radius-lg);
+  background: rgba(246, 250, 255, 0.94);
+  color: var(--text-caption);
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 
 .product-model-designer__candidate-body-header {
@@ -1173,27 +1307,40 @@ function candidateGroupLabel(groupKey?: string | null) {
   font-size: 0.85rem;
 }
 
-.product-model-designer__candidate-list {
+.product-model-designer__candidate-list,
+.product-model-designer__list {
   display: grid;
   gap: 0.9rem;
 }
 
+.product-model-designer__card-surface {
+  padding: 1rem 1.05rem;
+}
+
 .product-model-designer__candidate-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.96rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 44%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 250, 255, 0.96));
 }
 
-.product-model-designer__candidate-card-header {
+.product-model-designer__candidate-card-header,
+.product-model-designer__card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.9rem;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.product-model-designer__candidate-card-title strong,
+.product-model-designer__card-heading strong {
+  font-size: 1rem;
+}
+
+.product-model-designer__candidate-card-title span,
+.product-model-designer__card-heading span {
+  color: var(--text-caption);
+  font-size: 0.9rem;
 }
 
 .product-model-designer__candidate-card-check {
@@ -1201,37 +1348,30 @@ function candidateGroupLabel(groupKey?: string | null) {
   align-items: center;
   gap: 0.55rem;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.product-model-designer__candidate-card-badges {
+.product-model-designer__candidate-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
 
-.product-model-designer__candidate-card-body {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.product-model-designer__candidate-card-heading {
-  display: grid;
-  gap: 0.24rem;
-}
-
-.product-model-designer__candidate-card-heading strong {
-  color: var(--text-heading);
-  font-size: 1rem;
-}
-
-.product-model-designer__candidate-card-heading span {
-  color: var(--text-caption);
+.product-model-designer__candidate-card-summary,
+.product-model-designer__card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+  color: var(--text-secondary);
   font-size: 0.88rem;
 }
 
-.product-model-designer__candidate-card-grid {
+.product-model-designer__candidate-card-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(12rem, 0.72fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(12rem, 0.78fr);
   gap: 0.75rem;
 }
 
@@ -1240,7 +1380,10 @@ function candidateGroupLabel(groupKey?: string | null) {
   gap: 0.36rem;
 }
 
-.product-model-designer__candidate-field span {
+.product-model-designer__candidate-field span,
+.product-model-designer__candidate-evidence-card span,
+.product-model-designer__confirm-metrics span,
+.product-model-designer__formal-overview-card span {
   color: var(--text-caption-2);
   font-size: 0.78rem;
   font-weight: 600;
@@ -1250,47 +1393,33 @@ function candidateGroupLabel(groupKey?: string | null) {
   grid-column: 1 / -1;
 }
 
-.product-model-designer__candidate-field--meta {
-  align-content: start;
+.product-model-designer__candidate-evidence-card,
+.product-model-designer__confirm-metrics div {
+  display: grid;
+  gap: 0.2rem;
   padding: 0.8rem 0.88rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(252, 253, 255, 0.96);
 }
 
-.product-model-designer__candidate-field--meta strong {
-  color: var(--text-heading);
-  font-size: 0.96rem;
+.product-model-designer__candidate-evidence-card strong {
+  font-size: 0.98rem;
 }
 
-.product-model-designer__candidate-field--meta small {
+.product-model-designer__candidate-evidence-card small {
   color: var(--text-caption);
   line-height: 1.55;
 }
 
 .product-model-designer__confirm-metrics {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
-.product-model-designer__confirm-metrics div {
-  display: grid;
-  gap: 0.16rem;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: rgba(252, 253, 255, 0.96);
-}
-
-.product-model-designer__confirm-metrics span {
-  color: var(--text-caption-2);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
 .product-model-designer__confirm-metrics strong {
-  color: var(--text-heading);
-  font-size: 1.14rem;
+  font-size: 1.12rem;
 }
 
 .product-model-designer__confirm-hint {
@@ -1303,32 +1432,33 @@ function candidateGroupLabel(groupKey?: string | null) {
   line-height: 1.55;
 }
 
-.product-model-designer__type-switcher {
+.product-model-designer__formal-overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.product-model-designer__type-chip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.8rem;
-  padding: 0.9rem 1rem;
+.product-model-designer__formal-overview-card {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.95rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 255, 0.94));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.94));
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
 }
 
-.product-model-designer__type-chip strong {
-  color: var(--text-heading);
-  font-size: 1rem;
+.product-model-designer__formal-overview-card strong {
+  font-size: 1.12rem;
 }
 
-.product-model-designer__type-chip--active {
+.product-model-designer__formal-overview-card small {
+  color: var(--text-caption);
+  line-height: 1.55;
+}
+
+.product-model-designer__formal-overview-card--active {
   border-color: color-mix(in srgb, var(--brand) 38%, white);
   background:
     linear-gradient(180deg, rgba(244, 248, 255, 0.98), rgba(238, 245, 255, 0.96)),
@@ -1336,51 +1466,6 @@ function candidateGroupLabel(groupKey?: string | null) {
   box-shadow: var(--shadow-brand);
   color: var(--brand);
   transform: translateY(-1px);
-}
-
-.product-model-designer__list {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.product-model-designer__card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-surface-soft-sm);
-}
-
-.product-model-designer__card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.product-model-designer__card-heading {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.product-model-designer__card-heading strong {
-  color: var(--text-heading);
-  font-size: 1rem;
-}
-
-.product-model-designer__card-heading span {
-  color: var(--text-caption);
-  font-size: 0.9rem;
-}
-
-.product-model-designer__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem;
-  color: var(--text-secondary);
-  font-size: 0.88rem;
 }
 
 .product-model-designer__description {
@@ -1402,36 +1487,39 @@ function candidateGroupLabel(groupKey?: string | null) {
   color: var(--text-heading);
 }
 
-.product-model-designer__empty p {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
+@media (max-width: 1200px) {
+  .product-model-designer__overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-model-designer__candidate-workspace {
+    grid-template-columns: minmax(11rem, 12rem) minmax(0, 1fr);
+  }
+
+  .product-model-designer__candidate-rail {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 768px) {
-  .product-model-designer__hero {
-    flex-direction: column;
+  .product-model-designer__hero-stage,
+  .product-model-designer__overview,
+  .product-model-designer__candidate-workspace,
+  .product-model-designer__candidate-card-editor,
+  .product-model-designer__formal-overview,
+  .product-model-designer__confirm-metrics {
+    grid-template-columns: 1fr;
   }
 
   .product-model-designer__hero-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .product-model-designer__summary,
-  .product-model-designer__candidate-layout,
-  .product-model-designer__candidate-card-grid {
-    grid-template-columns: 1fr;
+    justify-items: start;
   }
 
   .product-model-designer__candidate-body-header,
-  .product-model-designer__candidate-card-header {
+  .product-model-designer__candidate-card-header,
+  .product-model-designer__card-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .product-model-designer__type-switcher {
-    grid-template-columns: 1fr;
   }
 }
 </style>

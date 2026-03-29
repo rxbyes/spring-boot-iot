@@ -4,6 +4,7 @@
       <template #header>
         <div class="standard-workbench-panel__header">
           <div class="standard-workbench-panel__heading">
+            <p v-if="eyebrow" class="standard-workbench-panel__eyebrow">{{ eyebrow }}</p>
             <h2 class="standard-workbench-panel__title">{{ title }}</h2>
             <p v-if="description" class="standard-workbench-panel__caption">{{ description }}</p>
           </div>
@@ -51,6 +52,7 @@
 import PanelCard from '@/components/PanelCard.vue'
 
 withDefaults(defineProps<{
+  eyebrow?: string
   title: string
   description?: string
   showHeaderActions?: boolean
@@ -94,16 +96,29 @@ withDefaults(defineProps<{
   min-width: 0;
 }
 
+.standard-workbench-panel__eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .standard-workbench-panel__title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.08rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .standard-workbench-panel__caption {
-  margin: 0.35rem 0 0;
+  margin: 0.38rem 0 0;
   color: var(--text-caption);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
 }
 

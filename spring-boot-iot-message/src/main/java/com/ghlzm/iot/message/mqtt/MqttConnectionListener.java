@@ -32,21 +32,19 @@ public class MqttConnectionListener {
     private final ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider;
     private final ObjectProvider<DeviceMessageService> deviceMessageServiceProvider;
     private final ObjectProvider<MqttConsumerRuntimeState> mqttConsumerRuntimeStateProvider;
+    private final MqttInvalidReportGovernanceService mqttInvalidReportGovernanceService;
 
     @Autowired
     public MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
                                   ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider,
                                   ObjectProvider<DeviceMessageService> deviceMessageServiceProvider,
-                                  ObjectProvider<MqttConsumerRuntimeState> mqttConsumerRuntimeStateProvider) {
+                                  ObjectProvider<MqttConsumerRuntimeState> mqttConsumerRuntimeStateProvider,
+                                  MqttInvalidReportGovernanceService mqttInvalidReportGovernanceService) {
         this.backendExceptionRecorderProvider = backendExceptionRecorderProvider;
         this.deviceAccessErrorLogServiceProvider = deviceAccessErrorLogServiceProvider;
         this.deviceMessageServiceProvider = deviceMessageServiceProvider;
         this.mqttConsumerRuntimeStateProvider = mqttConsumerRuntimeStateProvider;
-    }
-
-    MqttConnectionListener(ObjectProvider<BackendExceptionRecorder> backendExceptionRecorderProvider,
-                           ObjectProvider<DeviceAccessErrorLogService> deviceAccessErrorLogServiceProvider) {
-        this(backendExceptionRecorderProvider, deviceAccessErrorLogServiceProvider, null, null);
+        this.mqttInvalidReportGovernanceService = mqttInvalidReportGovernanceService;
     }
 
     public void onConnectComplete(boolean reconnect, String serverUri) {
@@ -195,6 +193,41 @@ public class MqttConnectionListener {
 
     public void onMessageDispatchFailed(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
         String failureStage = resolveFailureStage(rawDeviceMessage, throwable);
+        InvalidMqttReportDecision decision = mqttInvalidReportGovernanceService == null
+                ? InvalidMqttReportDecision.allowSample(null)
+                : mqttInvalidReportGovernanceService.handleDispatchFailure(topic, payload, rawDeviceMessage, throwable);
+        if (decision.suppressed()) {
+            runtimeState().ifPresent(state -> state.markFailure(
+                    "suppressed",
+                    rawDeviceMessage == null ? null : rawDeviceMessage.getTraceId()
+            ));
+            return;
+        }
+        if (!decision.sampleFailure()) {
+            return;
+        }
+        recordDispatchFailureSample(topic, payload, rawDeviceMessage, throwable, failureStage);
+    }
+
+    public void onGovernedMessageDispatchFailed(String topic,
+                                                byte[] payload,
+                                                RawDeviceMessage rawDeviceMessage,
+                                                String failureStage,
+                                                Throwable throwable) {
+        recordDispatchFailureSample(
+                topic,
+                payload,
+                rawDeviceMessage,
+                throwable,
+                StringUtils.hasText(failureStage) ? failureStage.trim() : resolveFailureStage(rawDeviceMessage, throwable)
+        );
+    }
+
+    private void recordDispatchFailureSample(String topic,
+                                             byte[] payload,
+                                             RawDeviceMessage rawDeviceMessage,
+                                             Throwable throwable,
+                                             String failureStage) {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("traceId", rawDeviceMessage == null ? TraceContextHolder.getTraceId() : rawDeviceMessage.getTraceId());
         details.put("topic", topic);

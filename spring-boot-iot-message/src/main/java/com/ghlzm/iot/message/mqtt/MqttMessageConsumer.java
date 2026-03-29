@@ -10,6 +10,7 @@ import com.ghlzm.iot.message.pipeline.UpMessageProcessingPipeline;
 import com.ghlzm.iot.message.pipeline.UpMessageProcessingRequest;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * MQTT 消息接入消费者。
  */
+@Slf4j
 @Component
 public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended {
 
@@ -47,6 +50,7 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
     private final MqttConnectionListener mqttConnectionListener;
     private final MqttConsumerRuntimeState mqttConsumerRuntimeState;
     private final MqttClusterLeadershipService mqttClusterLeadershipService;
+    private final MqttInvalidReportGovernanceService mqttInvalidReportGovernanceService;
 
     private volatile boolean lifecycleRunning;
     private volatile boolean consumerActive;
@@ -63,13 +67,15 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                                MqttTopicRouter mqttTopicRouter,
                                MqttConnectionListener mqttConnectionListener,
                                MqttConsumerRuntimeState mqttConsumerRuntimeState,
-                               MqttClusterLeadershipService mqttClusterLeadershipService) {
+                               MqttClusterLeadershipService mqttClusterLeadershipService,
+                               MqttInvalidReportGovernanceService mqttInvalidReportGovernanceService) {
         this.iotProperties = iotProperties;
         this.upMessageProcessingPipeline = upMessageProcessingPipeline;
         this.mqttTopicRouter = mqttTopicRouter;
         this.mqttConnectionListener = mqttConnectionListener;
         this.mqttConsumerRuntimeState = mqttConsumerRuntimeState;
         this.mqttClusterLeadershipService = mqttClusterLeadershipService;
+        this.mqttInvalidReportGovernanceService = mqttInvalidReportGovernanceService;
     }
 
     @Override
@@ -154,6 +160,9 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
 
     @Override
     public void messageArrived(String topic, MqttMessage message) {
+        byte[] payload = message == null ? null : message.getPayload();
+        log.info("MQTT Topic： {}，上报数据：{}", topic, resolvePayloadForLog(payload));
+
         long startNs = System.nanoTime();
         RawDeviceMessage rawDeviceMessage = null;
         DeviceUpMessage upMessage = null;
@@ -164,10 +173,25 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
                     ? 0
                     : message.getPayload().length);
             mqttConsumerRuntimeState.markMessageReceived();
+            if (payload == null || payload.length == 0) {
+                InvalidMqttReportDecision decision = mqttInvalidReportGovernanceService.handleRawEmptyPayload(topic, null);
+                if (decision.suppressed()) {
+                    return;
+                }
+                rawDeviceMessage = buildGovernedRawMessage(topic, message, traceId);
+                mqttConnectionListener.onGovernedMessageDispatchFailed(
+                        topic,
+                        payload,
+                        rawDeviceMessage,
+                        "protocol_decode",
+                        new BizException("MQTT 负载不能为空")
+                );
+                return;
+            }
             UpMessageProcessingRequest pipelineRequest = new UpMessageProcessingRequest();
             pipelineRequest.setTransportMode("MQTT");
             pipelineRequest.setTopic(topic);
-            pipelineRequest.setPayload(message == null ? null : message.getPayload());
+            pipelineRequest.setPayload(payload);
             MessageFlowExecutionResult executionResult = upMessageProcessingPipeline.process(pipelineRequest);
             rawDeviceMessage = executionResult.getRawDeviceMessage();
             upMessage = executionResult.getUpMessage();
@@ -194,6 +218,23 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
             maybeLogSlowDispatch(topic, rawDeviceMessage, upMessage, traceId, dispatchException, costMs);
             TraceContextHolder.clear();
         }
+    }
+
+    private RawDeviceMessage buildGovernedRawMessage(String topic, MqttMessage message, String traceId) {
+        try {
+            RawDeviceMessage rawDeviceMessage = mqttTopicRouter.toRawMessage(topic, message);
+            rawDeviceMessage.setTraceId(traceId);
+            return rawDeviceMessage;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String resolvePayloadForLog(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return "";
+        }
+        return new String(payload, StandardCharsets.UTF_8);
     }
 
     @Override

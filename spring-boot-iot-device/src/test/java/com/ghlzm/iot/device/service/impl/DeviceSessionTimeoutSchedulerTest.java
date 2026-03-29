@@ -13,7 +13,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +27,8 @@ class DeviceSessionTimeoutSchedulerTest {
     private DeviceMapper deviceMapper;
     @Mock
     private DeviceSessionService deviceSessionService;
+    @Mock
+    private DeviceOfflineTimeoutLeadershipService leadershipService;
 
     private DeviceSessionTimeoutScheduler deviceSessionTimeoutScheduler;
 
@@ -34,7 +38,8 @@ class DeviceSessionTimeoutSchedulerTest {
         IotProperties.Device deviceConfig = new IotProperties.Device();
         deviceConfig.setOnlineTimeoutSeconds(120);
         properties.setDevice(deviceConfig);
-        deviceSessionTimeoutScheduler = new DeviceSessionTimeoutScheduler(deviceMapper, deviceSessionService, properties);
+        lenient().when(leadershipService.tryAcquireLeadership(anyString())).thenReturn(true);
+        deviceSessionTimeoutScheduler = new DeviceSessionTimeoutScheduler(deviceMapper, deviceSessionService, leadershipService, properties);
     }
 
     @Test
@@ -56,5 +61,18 @@ class DeviceSessionTimeoutSchedulerTest {
         deviceSessionTimeoutScheduler.closeTimedOutSessions();
 
         verify(deviceSessionService, never()).offline(any(String.class), any(LocalDateTime.class));
+    }
+
+    @Test
+    void closeTimedOutSessionsShouldPreferLastOnlineTimeOverOlderReportTime() {
+        Device device = new Device();
+        device.setDeviceCode("demo-device-02");
+        device.setLastReportTime(LocalDateTime.now().minusMinutes(5));
+        device.setLastOnlineTime(LocalDateTime.now().minusSeconds(30));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        deviceSessionTimeoutScheduler.closeTimedOutSessions();
+
+        verify(deviceSessionService, never()).offline(eq("demo-device-02"), any(LocalDateTime.class));
     }
 }

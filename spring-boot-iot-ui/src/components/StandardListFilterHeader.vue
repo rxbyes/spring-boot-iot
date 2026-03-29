@@ -1,5 +1,5 @@
 <template>
-  <div class="standard-list-filter-header">
+  <div class="standard-list-filter-header standard-list-filter-header--minimal">
     <el-form :model="model" class="standard-list-filter-header__form" @submit.prevent>
       <div ref="primaryRowRef" class="standard-list-filter-header__row" :style="layoutVars">
         <slot name="primary" />
@@ -13,7 +13,7 @@
         </div>
       </el-collapse-transition>
 
-      <div class="standard-list-filter-header__actions-row">
+      <div class="standard-list-filter-header__actions-row standard-list-filter-header__actions-row--minimal">
         <StandardActionGroup gap="sm" class="standard-list-filter-header__actions">
           <slot name="actions" />
         </StandardActionGroup>
@@ -132,6 +132,10 @@ onUpdated(() => {
   display: grid;
 }
 
+.standard-list-filter-header--minimal {
+  gap: 0.1rem;
+}
+
 .standard-list-filter-header__form {
   display: grid;
 }
@@ -139,7 +143,7 @@ onUpdated(() => {
 .standard-list-filter-header__row {
   display: grid;
   grid-template-columns: var(--slfh-primary-columns);
-  gap: 12px 14px;
+  gap: 8px;
   align-items: end;
 }
 
@@ -153,15 +157,15 @@ onUpdated(() => {
 }
 
 .standard-list-filter-header__advanced {
-  margin-top: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--brand) 18%, transparent);
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .standard-list-filter-header__advanced-grid {
   display: grid;
   grid-template-columns: var(--slfh-advanced-columns);
-  gap: 12px 14px;
+  gap: 8px;
 }
 
 .standard-list-filter-header__advanced-grid :deep(.el-form-item) {
@@ -174,7 +178,12 @@ onUpdated(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin-top: 10px;
+  margin-top: 8px;
+}
+
+.standard-list-filter-header__actions-row--minimal {
+  margin-top: 12px;
+  gap: 8px 14px;
 }
 
 .standard-list-filter-header__actions {

@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-03-25
+> 更新时间：2026-03-29
 
 ## 项目简介
 
@@ -36,17 +36,20 @@
 
 - Phase 1~3 主链路已形成长期稳定基线。
 - 设备接入主链路当前已重构为固定 `Pipeline`：HTTP / MQTT 统一按 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE` 执行，不再依赖“旁路日志推断”判断阶段顺序。
-- `spring-boot-iot-telemetry` 已恢复为活跃构建模块；标准化后的 `properties` 会在 `PAYLOAD_APPLY` 之后优先按 TDengine legacy stable 落库，未映射属性兼容回退到通用表 `iot_device_telemetry_point`，`reply` / 文件载荷 / 空属性消息继续跳过时序落库。
+- `spring-boot-iot-telemetry` 已进入 telemetry v2 foundation 基线；`application-dev.yml` / `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`。标准化后的 `properties` 会在 `PAYLOAD_APPLY` 之后优先批量写入 TDengine v2 raw stable，再异步投影 MySQL latest 并按配置镜像 legacy stable；`iot_device_telemetry_point` 继续保留为 legacy 兼容回退表，`reply` / 文件载荷 / 空属性消息继续跳过时序落库。
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
-- `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认按 `legacy-compatible` 先读 legacy stable、再补 `iot_device_telemetry_point` 缺失指标，并对 legacy 结果按消息日志最佳努力回补 `traceId`；`mysql` 模式兼容回退到 `iot_device_property`。
+- `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认先读 telemetry v2 latest MySQL 投影表 `iot_device_metric_latest`，并在 `legacy-read-fallback-enabled=true` 时继续补齐 legacy stable + `iot_device_telemetry_point` 缺失指标；`mysql` 模式兼容回退到 `iot_device_property`。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
+- 设备离线超时调度当前也启用独立 Redis 单实例锁：默认通过 `iot:device:offline-timeout:leader` 只允许 1 个 leader 节点执行离线收口，避免共享环境多实例或旧节点把设备状态反复写回离线。
+- 2026-03-27 起，MQTT 无效上报治理已进入默认基线：首批对 `DEVICE_NOT_FOUND` 与 `EMPTY_DECRYPTED_PAYLOAD` 执行 Redis 分钟桶计数与冷却抑制，`iot_device_access_error_log` 收口为失败样本归档，未登记设备最新态改由 `iot_device_invalid_report_state` 承载，设备补录 / 更换成功后会自动标记对应记录为已解封。
 - Phase 4 已完成并纳入真实环境验收基线的能力，包括实时监测、GIS 态势图、告警、事件、风险策略、报表分析、系统治理和系统内容治理。
 - 当前共享开发环境已于 2026-03-24 完成 `/api/risk-monitoring/*`、`/risk-monitoring`、`/risk-monitoring-gis` 真实环境复验，风险监测基线正式纳入交付。
-- 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 起继续在 `/products` 内复用同一抽屉，新增“候选提炼 + 正式模型”双模式，按真实上报数据逐产品提炼属性候选，并对无真实证据的事件 / 服务保持空态提示；该增强当前仍作为设备中心下一阶段维护，不并入 Phase 4 已交付范围。
+- 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 起继续在 `/products` 内复用同一抽屉，新增“候选提炼 + 正式模型”双模式，并升级为统一的大工作台视觉结构。属性候选按真实上报逐产品提炼，对无真实证据的事件 / 服务保持空态提示；该增强当前仍作为设备中心下一阶段维护，不并入 Phase 4 已交付范围。
 - 通知中心当前已具备 `system_error` 自动消息、工单相关自动消息，以及高优未读桥接既有通知渠道能力。
 - 可观测当前已补齐规则化运维告警闭环：通过 `iot.observability.alerting` 在现有审计、MQTT 运行态、接入失败聚合和站内信桥接统计之上评估 4 类固定规则，并通过新场景 `observability_alert` 复用既有通知渠道。
 - `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
-- `/message-trace` 当前已补齐 `message-flow` 完整运维看板：同页展示运行期总量、相关性命中、lookup 健康度、阶段性能表和最近会话辅助区。
+- `/message-trace` 当前已收口为 `链路追踪 / 失败归档` 同路由双模式：链路追踪列表通过共享工具条展示最近 1h / 24h 与失败摘要，失败样本继续复用失败归档详情与回跳排障，不再保留独立运维看板辅战区。
+- `接入智维` 页面当前统一减少重复导航层级：只保留全局壳层面包屑这一处“接入智维 / 当前模块”定位。单主列表页收口为“全局面包屑 + 主列表标题 + 共享筛选/工具条/结果区”两层语法；`/products` 主卡标题保留 `产品定义中心`，`/devices` / `/system-log` 分别保留 `设备台账` / `异常台账`。`/reporting`、`/message-trace` 与 `/file-debug` 这类真实页签诊断页则保留“全局面包屑 + 真实页签 + 业务标题”，不再额外渲染页内同路径面包屑、页内标题壳或跨页功能菜单。
 - `/reporting` 当前已补齐“最近提交”恢复面板，并统一收口 HTTP 缺失、MQTT pending 超时、trace 过期和 Redis 异常四类 `message-flow` 降级态。
 - `/in-app-message` 当前已在同页补齐“桥接效果运营”专区，可直接查看桥接成功率、待重试记录、渠道/来源分布、桥接日志与逐次尝试明细。
 - 帮助中心当前按“权威资料层 + 消费层”治理：`docs/` 继续做权威源，`/api/system/help-doc/**` 做角色化消费层。
@@ -55,7 +58,7 @@
 
 - 唯一验收基线：`spring-boot-iot-admin/src/main/resources/application-dev.yml`
 - 可通过环境变量覆盖数据库、Redis、MQTT、TDengine 和可观测配置
-- `application-dev.yml` 与 `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`；`application-test.yml` 保持 `mysql`
+- `application-dev.yml` 与 `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`；`application-test.yml` 保持 `mysql`
 - Redis 当前同时承担 `message-flow` 时间线短期留存和 MQTT consumer 领导权租约；若 Redis 不可用，本轮链路时间线 / MQTT 集群单消费者验收都视为环境阻塞，不回退到仅控制台日志模式
 - 不允许回退到旧 H2 验收 profile、独立 H2 schema 脚本或 H2-only 验收路径
 - 当真实环境访问受阻时，必须明确报告环境阻塞，不用降级链路替代验收结论

@@ -8,11 +8,11 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
-import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.telemetry.service.TelemetryQueryService;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,22 +25,28 @@ import java.util.Map;
 @Service
 public class TelemetryQueryServiceImpl implements TelemetryQueryService {
 
-    private final IotProperties iotProperties;
     private final DeviceMapper deviceMapper;
     private final ProductMapper productMapper;
     private final DevicePropertyMapper devicePropertyMapper;
     private final TdengineTelemetryFacade tdengineTelemetryFacade;
+    private final TelemetryStorageModeResolver storageModeResolver;
+    private final TelemetryReadRouter telemetryReadRouter;
+    private final TelemetryLatestProjectionRepository telemetryLatestProjectionRepository;
 
-    public TelemetryQueryServiceImpl(IotProperties iotProperties,
-                                     DeviceMapper deviceMapper,
+    public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
                                      ProductMapper productMapper,
                                      DevicePropertyMapper devicePropertyMapper,
-                                     TdengineTelemetryFacade tdengineTelemetryFacade) {
-        this.iotProperties = iotProperties;
+                                     TdengineTelemetryFacade tdengineTelemetryFacade,
+                                     TelemetryStorageModeResolver storageModeResolver,
+                                     TelemetryReadRouter telemetryReadRouter,
+                                     TelemetryLatestProjectionRepository telemetryLatestProjectionRepository) {
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.tdengineTelemetryFacade = tdengineTelemetryFacade;
+        this.storageModeResolver = storageModeResolver;
+        this.telemetryReadRouter = telemetryReadRouter;
+        this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
     }
 
     @Override
@@ -55,14 +61,14 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             throw new BizException("设备不存在: " + deviceId);
         }
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
-        if ("tdengine".equalsIgnoreCase(normalizeStorageType())) {
+        if (storageModeResolver.isTdengineEnabled()) {
             return buildTdengineResponse(device, product);
         }
         return buildMysqlResponse(device, product);
     }
 
     private Map<String, Object> buildTdengineResponse(Device device, Product product) {
-        List<TelemetryLatestPoint> latestPoints = tdengineTelemetryFacade.listLatestPoints(device, product);
+        List<TelemetryLatestPoint> latestPoints = readTdengineLatest(device, product);
         Map<String, Object> properties = new LinkedHashMap<>();
         LocalDateTime latestReportedAt = null;
         String latestTraceId = null;
@@ -105,11 +111,46 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         response.put("deviceCode", device.getDeviceCode());
         response.put("productId", device.getProductId());
         response.put("productKey", product == null ? null : product.getProductKey());
-        response.put("storageType", normalizeStorageType());
+        response.put("storageType", storageModeResolver.isTdengineEnabled() ? "tdengine" : "mysql");
         response.put("reportTime", reportTime);
         response.put("traceId", traceId);
         response.put("properties", properties);
         return response;
+    }
+
+    private List<TelemetryLatestPoint> readTdengineLatest(Device device, Product product) {
+        if ("v2".equalsIgnoreCase(telemetryReadRouter.latestSource())) {
+            List<TelemetryLatestPoint> latestPoints = new ArrayList<>(readV2Latest(device.getId()));
+            if (telemetryReadRouter.isLegacyReadFallbackEnabled()) {
+                mergeMissingLegacyPoints(latestPoints, tdengineTelemetryFacade.listLatestPoints(device, product));
+            }
+            return latestPoints;
+        }
+        return tdengineTelemetryFacade.listLatestPoints(device, product);
+    }
+
+    private List<TelemetryLatestPoint> readV2Latest(Long deviceId) {
+        try {
+            return telemetryLatestProjectionRepository.listLatestPoints(deviceId);
+        } catch (Exception ex) {
+            if (telemetryReadRouter.isLegacyReadFallbackEnabled()) {
+                return List.of();
+            }
+            throw ex;
+        }
+    }
+
+    private void mergeMissingLegacyPoints(List<TelemetryLatestPoint> latestPoints,
+                                          List<TelemetryLatestPoint> legacyPoints) {
+        Map<String, TelemetryLatestPoint> pointMap = new LinkedHashMap<>();
+        for (TelemetryLatestPoint latestPoint : latestPoints) {
+            pointMap.put(latestPoint.getMetricCode(), latestPoint);
+        }
+        for (TelemetryLatestPoint legacyPoint : legacyPoints) {
+            pointMap.putIfAbsent(legacyPoint.getMetricCode(), legacyPoint);
+        }
+        latestPoints.clear();
+        latestPoints.addAll(pointMap.values());
     }
 
     private Object parseMysqlPropertyValue(DeviceProperty deviceProperty) {
@@ -136,10 +177,4 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return "1".equals(normalized) || "true".equals(normalized) || "yes".equals(normalized);
     }
 
-    private String normalizeStorageType() {
-        if (iotProperties.getTelemetry() == null || iotProperties.getTelemetry().getStorageType() == null) {
-            return "mysql";
-        }
-        return iotProperties.getTelemetry().getStorageType().trim().toLowerCase(Locale.ROOT);
-    }
 }

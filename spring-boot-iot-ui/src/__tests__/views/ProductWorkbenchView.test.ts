@@ -72,15 +72,28 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="product-workbench-panel-stub">
+      <p class="product-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
       <div class="product-workbench-panel-stub__toolbar"><slot name="toolbar" /></div>
+      <div class="product-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="product-workbench-panel-stub__body"><slot /></div>
       <div class="product-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -128,11 +141,18 @@ const StandardButtonStub = defineComponent({
   template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardInlineStateStub = defineComponent({
+  name: 'StandardInlineState',
+  props: ['message', 'tone'],
+  template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
 const ProductModelDesignerDrawerStub = defineComponent({
   name: 'ProductModelDesignerDrawer',
   props: ['modelValue', 'product'],
   template: `
     <section v-if="modelValue" class="product-model-designer-drawer-stub">
+      <h2>基于真实上报提炼产品契约</h2>
       <h3>属性模型</h3>
       <h3>事件模型</h3>
       <h3>服务模型</h3>
@@ -145,8 +165,8 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function installSessionStorageMock() {
-  const store = new Map<string, string>()
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}))
   Object.defineProperty(window, 'sessionStorage', {
     configurable: true,
     value: {
@@ -170,6 +190,7 @@ function mountView() {
       },
       renderStubDefaultSlot: true,
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardRowActions: StandardRowActionsStub,
@@ -182,7 +203,7 @@ function mountView() {
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
         StandardTableToolbar: true,
-        StandardInlineState: true,
+        StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
         StandardTableTextColumn: true,
         CsvColumnSettingDialog: true,
@@ -213,6 +234,18 @@ describe('ProductWorkbenchView', () => {
       }
     })
     installSessionStorageMock()
+  })
+
+  it('renders the product page inside the two-level access shell without the legacy eyebrow tier', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('产品定义中心')
+    expect(wrapper.text()).toContain('新增产品')
+    expect(wrapper.text()).toContain('统一维护产品台账')
+    expect(wrapper.text()).not.toContain('PRODUCT CENTER')
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {
@@ -249,6 +282,32 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('属性模型')
     expect(wrapper.text()).toContain('事件模型')
     expect(wrapper.text()).toContain('服务模型')
+    expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
     expect(wrapper.text()).toContain('暂无物模型')
+  })
+
+  it('shows a compact diagnostic intake hint when opened from system-log', async () => {
+    mockRoute.query = {
+      productKey: 'demo-product',
+      traceId: 'trace-001'
+    }
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'system-log',
+          productKey: 'demo-product',
+          traceId: 'trace-001',
+          capturedAt: new Date().toISOString()
+        }
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('来自异常观测台')
+    expect(wrapper.text()).toContain('Trace trace-001')
   })
 })

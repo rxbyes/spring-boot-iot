@@ -275,10 +275,11 @@ export interface ProductModelCandidateConfirmPayload {
 }
 
 export interface Device {
-  id: IdType;
+  id?: IdType | null;
   productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
+  sourceRecordId?: IdType | null;
   productKey?: string | null;
   productName?: string | null;
   gatewayDeviceCode?: string | null;
@@ -296,10 +297,17 @@ export interface Device {
   onlineStatus?: number | null;
   activateStatus?: number | null;
   deviceStatus?: number | null;
+  registrationStatus?: number | null;
+  assetSourceType?: string | null;
   firmwareVersion?: string | null;
   ipAddress?: string | null;
   address?: string | null;
   metadataJson?: string | null;
+  lastFailureStage?: string | null;
+  lastErrorMessage?: string | null;
+  lastReportTopic?: string | null;
+  lastTraceId?: string | null;
+  lastPayload?: string | null;
   lastOnlineTime?: string | null;
   lastOfflineTime?: string | null;
   lastReportTime?: string | null;
