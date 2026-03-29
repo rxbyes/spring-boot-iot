@@ -1,0 +1,151 @@
+<h2>/reporting 方向方案对比</h2>
+<p class="subtitle">目标固定为“诊断台优先”：首屏先看懂本次验证是成功、等待中还是失败；最近记录升级为可直接读结论的诊断清单。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 结果主控台（推荐）</div>
+        <div class="mockup-body" style="display:grid;gap:12px;background:#f5f7fb;">
+          <div style="display:grid;grid-template-columns:1.3fr .9fr;gap:12px;">
+            <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+              <div class="label">Verdict Bar</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+                <div style="width:12px;height:12px;border-radius:999px;background:#ef8f00;"></div>
+                <div style="height:12px;border-radius:999px;background:#e8edf5;flex:1;"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+                <div class="placeholder" style="height:54px;">当前状态</div>
+                <div class="placeholder" style="height:54px;">失败阶段</div>
+                <div class="placeholder" style="height:54px;">下一步</div>
+              </div>
+              <div class="placeholder" style="height:160px;margin-top:12px;">诊断复盘主舞台 / timeline / trace / response</div>
+            </div>
+            <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+              <div class="label">Simulate Rail</div>
+              <div class="placeholder" style="height:52px;margin-top:8px;">设备查询</div>
+              <div class="placeholder" style="height:52px;margin-top:8px;">传输方式 / 模式</div>
+              <div class="placeholder" style="height:52px;margin-top:8px;">Topic / tenant</div>
+              <div class="placeholder" style="height:120px;margin-top:8px;">Payload 编辑</div>
+              <button class="mock-button" style="width:100%;margin-top:8px;">发送模拟</button>
+            </div>
+          </div>
+          <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+            <div class="label">Recent Diagnosis List</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+              <div class="placeholder" style="height:84px;">记录 1: 结论 + 动作</div>
+              <div class="placeholder" style="height:84px;">记录 2: 结论 + 动作</div>
+              <div class="placeholder" style="height:84px;">记录 3: 结论 + 动作</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>结果主控台</h3>
+      <p>把“当前结论”放在最上层，复盘舞台作为绝对主角，模拟验证收成右侧效率轨，最近记录升级为诊断清单。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最符合你刚确认的“首屏先看状态”。</li>
+            <li>诊断感最强，适合真实排障和结果复盘。</li>
+            <li>最近记录天然能承接“结论 + 动作”。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>模拟验证区会比现在更克制，不是页面视觉主角。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 三栏诊断中枢</div>
+        <div class="mockup-body" style="display:grid;gap:12px;background:#f5f7fb;">
+          <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+            <div class="label">Status Strip</div>
+            <div class="placeholder" style="height:52px;margin-top:8px;">成功 / 等待 / 失败 + 阶段提示</div>
+          </div>
+          <div style="display:grid;grid-template-columns:.86fr 1.16fr .92fr;gap:12px;">
+            <div class="placeholder" style="height:340px;">模拟验证</div>
+            <div class="placeholder" style="height:340px;">结果复盘</div>
+            <div class="placeholder" style="height:340px;">最近记录</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>三栏诊断中枢</h3>
+      <p>把模拟验证、结果复盘、最近记录同时摆在一屏，适合熟练用户高频来回对照。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>信息都在一屏，切换成本最低。</li>
+            <li>适合老用户连续联调。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>首屏焦点容易被三栏分散。</li>
+            <li>“成功/等待/失败”不会像 A 那样一眼打中。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 页签诊断工作站</div>
+        <div class="mockup-body" style="display:grid;gap:12px;background:#f5f7fb;">
+          <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+            <div class="label">Fixed Verdict Header</div>
+            <div class="placeholder" style="height:54px;margin-top:8px;">统一状态头：成功 / 等待 / 失败</div>
+          </div>
+          <div style="border:1px solid #d9e0ea;border-radius:14px;padding:12px;background:#fff;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+              <div class="placeholder" style="height:42px;">模拟验证</div>
+              <div class="placeholder" style="height:42px;">结果复盘</div>
+              <div class="placeholder" style="height:42px;">最近记录</div>
+            </div>
+            <div class="placeholder" style="height:250px;margin-top:12px;">当前页签主内容区</div>
+          </div>
+          <div class="placeholder" style="height:72px;">底部动作：去链路追踪 / 异常观测 / 数据校验</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>页签诊断工作站</h3>
+      <p>保留真页签逻辑，把统一状态头固定在最上面，正文随页签切换，整体更稳更轻。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最容易沿用现有结构，改造风险最低。</li>
+            <li>真页签语义最完整。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>诊断主控台的“舞台感”最弱。</li>
+            <li>最近记录和复盘之间的联动会被页签切断。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle" style="margin-top:16px;">我的建议：优先选 A，再吸收 C 的“真页签切换感”。也就是保留“模拟验证 / 结果复盘 / 最近记录”三块业务语义，但首屏结构按 A 做成结果主控台。</p>
+</div>

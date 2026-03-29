@@ -1,0 +1,121 @@
+<h2>统一组件语法</h2>
+<p class="subtitle">同一套接入智维视觉语言下，所有页面都复用这些核心骨架，只在信息重心和内容密度上区分。</p>
+
+<div class="cards">
+  <div class="card" data-choice="hero" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">1. Hero 中枢头部</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1.35fr 0.9fr;gap:10px;padding:14px;border-radius:20px;background:linear-gradient(135deg,#fff7ef,#f5f9ff);border:1px solid #ebd6bf;">
+            <div>
+              <div class="label">模块身份</div>
+              <div style="font-size:22px;font-weight:700;margin-top:8px;">这里放当前页的主判断</div>
+              <div style="margin-top:8px;color:#56657a;">不是重复导航，而是表达当前域的状态、主任务和上下文。</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+                <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #dfe7f2;">标签</div>
+                <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #dfe7f2;">标签</div>
+                <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #dfe7f2;">标签</div>
+              </div>
+            </div>
+            <div style="display:grid;gap:8px;">
+              <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">主动作</div>
+              <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">联动入口</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Hero 中枢头部</h3>
+      <p>每页都用同一套舞台头部，但强调“本页判断”和“本页动作”，不再重复做导航首页。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="metric" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">2. 指标与提醒层</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1.25fr repeat(3,1fr);gap:8px;">
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">
+              <div class="label">主提醒卡</div>
+              <div style="font-weight:700;margin-top:6px;">先做什么、为什么做</div>
+              <div style="margin-top:8px;color:#56657a;">治理页放治理提醒，诊断页放当前结果判断。</div>
+            </div>
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">指标卡</div>
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">指标卡</div>
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">指标卡</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>指标与提醒层</h3>
+      <p>统一用“1 张主提醒卡 + 3 到 4 张指标卡”的节奏，避免每页都是平铺的小统计块。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="workspace" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">3. 主工作区</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:8px;">
+            <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">筛选区 / 模式切换 / 条件区</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="padding:14px;border-radius:18px;background:#fff;border:1px solid #dfe7f2;">主战区: 表格 / 卡片 / 列表 / 输入面板</div>
+              <div style="padding:14px;border-radius:18px;background:linear-gradient(180deg,#fff,#f7fbff);border:1px solid #d7e3f1;">辅战区: 时间线 / 原始响应 / 最近会话 / 诊断建议</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>主工作区</h3>
+      <p>资产页以左侧主台账为主，诊断页以右侧结果舞台为主，但两者都仍在同一套工作区语法下。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="drawer" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">4. 详情 / 抽屉语法</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:8px;padding:14px;border-radius:18px;background:#fff;border:1px solid #dfe7f2;">
+            <div style="padding:12px;border-radius:16px;background:linear-gradient(135deg,#fff7ef,#f5f9ff);border:1px solid #ebd6bf;">抽屉 Hero 摘要</div>
+            <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:8px;">
+              <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">关键字段 / 运行态 / 契约信息</div>
+              <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">治理建议 / 联动动作</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>详情 / 抽屉语法</h3>
+      <p>统一采用“摘要秒开 + 分区字段卡 + 建议动作”的抽屉体验，保持产品、设备、trace、异常详情都属于同一家族。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>统一的部分</h4>
+      <ul>
+        <li>品牌橙主动作、云蓝辅助态、蓝灰正文</li>
+        <li>Hero / 指标卡 / 主工作区 / 抽屉 这四层固定存在</li>
+        <li>统一复用 StandardWorkbenchPanel、PanelCard、MetricCard、StandardDetailDrawer 等现有能力</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>变化的部分</h4>
+      <ul>
+        <li>资产页更稳，列表密度更高</li>
+        <li>诊断页更强调结果舞台和联动排查</li>
+        <li>总览页更强调跨模块分发，不承接重明细</li>
+      </ul>
+    </div>
+  </div>
+</div>

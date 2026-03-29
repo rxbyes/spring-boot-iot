@@ -1,0 +1,62 @@
+<style>
+.direction-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}.direction-card{position:relative;border:1px solid rgba(198,208,223,.9);border-radius:24px;background:linear-gradient(180deg,#fff,#f7f9fc);box-shadow:0 12px 32px rgba(31,52,88,.08);padding:18px;cursor:pointer}.direction-card:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(31,52,88,.12)}.direction-card.is-recommended{border-color:rgba(232,128,56,.55);box-shadow:0 18px 40px rgba(232,128,56,.12),0 12px 28px rgba(31,52,88,.08)}.direction-badge{position:absolute;top:16px;right:16px;padding:4px 10px;border-radius:999px;background:rgba(232,128,56,.12);color:#b85f1a;font-size:12px;font-weight:700;letter-spacing:.04em}.direction-title{margin:14px 0 6px;font-size:20px;color:#1e2b3a}.direction-subtitle{margin:0 0 10px;color:#5d6b7b;font-size:13px;line-height:1.6}.direction-points{display:grid;gap:8px;margin-top:12px}.direction-point{padding:10px 12px;border-radius:14px;background:#f4f7fb;color:#516173;font-size:13px;line-height:1.55}.mini-board{display:grid;gap:12px;padding:14px;border-radius:20px;background:linear-gradient(180deg,#fbfcfe,#eef3f8);border:1px solid rgba(208,217,229,.9)}.mini-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid rgba(216,223,233,.9);font-size:12px;color:#738296}.mini-hero{display:grid;grid-template-columns:1.3fr .8fr;gap:10px}.mini-hero-main,.mini-side-stack,.mini-strip,.mini-block,.mini-small{border-radius:16px;background:#fff;border:1px solid rgba(214,221,231,.92)}.mini-hero-main{padding:14px;min-height:132px;background:linear-gradient(135deg,rgba(232,128,56,.12),rgba(255,255,255,.96) 44%,rgba(107,142,199,.12))}.mini-hero-main strong{display:block;font-size:24px;color:#1f2d3d;margin-bottom:8px}.mini-hero-main span{display:block;font-size:12px;color:#68788b}.mini-side-stack{display:grid;gap:8px;padding:10px}.mini-side-stack div{flex:1;border-radius:12px;background:#f4f7fb;min-height:28px}.mini-grid-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini-grid-three{display:grid;grid-template-columns:1.1fr .9fr .9fr;gap:10px}.mini-block{min-height:92px;padding:12px}.mini-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}.mini-strip div{height:54px;border-radius:12px;background:#f4f7fb}.mini-small{min-height:74px;padding:12px}.direction-summary{margin-top:24px;padding:16px 18px;border-radius:18px;background:linear-gradient(180deg,rgba(232,128,56,.08),rgba(255,255,255,.96));border:1px solid rgba(232,128,56,.18);color:#536274;font-size:14px;line-height:1.7}.compare-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}.compare-item{padding:12px 14px;border-radius:14px;background:#fff;border:1px solid rgba(214,221,231,.92)}.compare-item strong{display:block;margin-bottom:6px;color:#1f2d3d;font-size:14px}.compare-item span{display:block;color:#6a7889;font-size:13px;line-height:1.6}@media (max-width:1100px){.direction-cards,.compare-list{grid-template-columns:1fr}}</style>
+<h2>产品定义详情页重构方向</h2>
+<p class="subtitle">基于你刚刚确认的方向：更精致现代、允许结构重排、首屏先看设备规模与活跃度，并升级成更沉浸的详情工作台。</p>
+<div class="direction-cards cards">
+  <div class="direction-card card is-recommended" data-choice="executive-brief" onclick="toggleSelect(this)">
+    <div class="direction-badge">推荐</div>
+    <div class="mini-board card-image">
+      <div class="mini-top"><span>经营简报式工作台</span><span>规模 / 活跃 / 判断</span></div>
+      <div class="mini-hero">
+        <div class="mini-hero-main"><strong>2,486</strong><span>设备规模主舞台 + 活跃趋势摘要 + 经营判断短句</span></div>
+        <div class="mini-side-stack"><div></div><div></div><div></div></div>
+      </div>
+      <div class="mini-grid-three"><div class="mini-block"></div><div class="mini-small"></div><div class="mini-small"></div></div>
+    </div>
+    <h3 class="direction-title">A. 经营简报式工作台</h3>
+    <p class="direction-subtitle">首屏只强调设备规模、活跃表现和一句判断，契约、档案、治理下沉到第二屏，像一页高管简报。</p>
+    <div class="direction-points">
+      <div class="direction-point">优点：主次最清楚，气质最现代，也最符合“商务克制 + 精致高级”。</div>
+      <div class="direction-point">代价：接入契约和档案信息需要往下看，不是首屏全量铺开。</div>
+    </div>
+  </div>
+  <div class="direction-card card" data-choice="split-brief" onclick="toggleSelect(this)">
+    <div class="mini-board card-image">
+      <div class="mini-top"><span>双栏简报式</span><span>左叙事 / 右指标</span></div>
+      <div class="mini-hero">
+        <div class="mini-block" style="min-height:132px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(242,246,251,.96))"></div>
+        <div class="mini-side-stack"><div></div><div></div><div></div></div>
+      </div>
+      <div class="mini-grid-two"><div class="mini-block"></div><div class="mini-block"></div></div>
+    </div>
+    <h3 class="direction-title">B. 双栏简报式工作台</h3>
+    <p class="direction-subtitle">左侧放经营叙述和趋势，右侧固定放核心指标与动作，整体更像管理驾驶舱里的详情页。</p>
+    <div class="direction-points">
+      <div class="direction-point">优点：兼顾高级感和扫描效率，首屏信息比 A 更完整。</div>
+      <div class="direction-point">代价：视觉焦点略分散，高级感和压迫感之间更难拿捏。</div>
+    </div>
+  </div>
+  <div class="direction-card card" data-choice="layered-cockpit" onclick="toggleSelect(this)">
+    <div class="mini-board card-image">
+      <div class="mini-top"><span>分层驾驶舱式</span><span>指标先行 / 分区铺开</span></div>
+      <div class="mini-strip"><div></div><div></div><div></div><div></div></div>
+      <div class="mini-grid-two"><div class="mini-block"></div><div class="mini-block"></div></div>
+      <div class="mini-grid-two"><div class="mini-small"></div><div class="mini-small"></div></div>
+    </div>
+    <h3 class="direction-title">C. 分层驾驶舱式工作台</h3>
+    <p class="direction-subtitle">先放指标条，再把活跃度、契约、档案、治理并列展开，信息密度更高，更偏运营工作台。</p>
+    <div class="direction-points">
+      <div class="direction-point">优点：信息最全，核对效率最高，适合频繁运营排查。</div>
+      <div class="direction-point">代价：更像控制台工作页，没那么“高管简报式”，精致感会弱一点。</div>
+    </div>
+  </div>
+</div>
+<div class="direction-summary">
+  <strong>我的推荐：</strong> 优先采用 <strong>A. 经营简报式工作台</strong>。它最符合你刚刚定下的四个核心约束：首屏先看设备规模与活跃度、整体更精致现代、语气更像高管简报、并且适合升级成更宽的沉浸式详情工作台。
+  <div class="compare-list">
+    <div class="compare-item"><strong>A 最强项</strong><span>视觉主次最鲜明，商务感和现代感最平衡。</span></div>
+    <div class="compare-item"><strong>B 最强项</strong><span>首屏信息更完整，适合想保留较多明细又不想太像台账。</span></div>
+    <div class="compare-item"><strong>C 最强项</strong><span>最方便核对字段，但会更像运营后台，不够“简报化”。</span></div>
+  </div>
+</div>
+<p class="subtitle">请打开浏览器查看并点选一个方向。也可以直接在终端回复 <strong>A</strong> / <strong>B</strong> / <strong>C</strong>，或者告诉我想把哪两个方向混搭。</p>

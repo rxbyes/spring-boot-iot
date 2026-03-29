@@ -1,0 +1,78 @@
+<h2>双轨母版语法</h2>
+<p class="subtitle">同一套品牌 token、卡片和抽屉语言下，分成资产治理组与诊断实验组两种页面变体。</p>
+
+<div class="split">
+  <div class="mockup" data-choice="asset-track" onclick="toggleSelect(this)">
+    <div class="mockup-header">资产治理组: 产品定义中心 / 设备资产中心</div>
+    <div class="mockup-body">
+      <div style="display:grid;gap:10px;">
+        <div style="display:grid;grid-template-columns:1.35fr 0.9fr;gap:10px;">
+          <div style="padding:16px;border-radius:20px;background:linear-gradient(135deg,#fff7ef,#f7faff);border:1px solid #efd8bf;">
+            <div class="label">治理 Hero</div>
+            <div style="font-size:22px;font-weight:700;margin-top:8px;">强化版总览头部</div>
+            <div style="margin-top:8px;color:#56657a;">产品/设备状态、库存治理、跨页联动、主动作都收在这里，但不抢台账主战区。</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e1e8f3;">启用中</div>
+              <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e1e8f3;">拓扑异常</div>
+              <div style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e1e8f3;">候选提醒</div>
+            </div>
+          </div>
+          <div style="display:grid;gap:8px;">
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">主动作组</div>
+            <div style="padding:12px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">治理提醒带</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">库存</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">状态</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">健康度</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">联动入口</div>
+        </div>
+        <div style="display:grid;gap:8px;">
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">筛选区 + 已生效条件 + 工具条</div>
+          <div style="padding:12px;border-radius:18px;background:#fff;border:1px solid #dfe7f2;">台账主战区（表格 / 卡片）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup" data-choice="diagnostic-track" onclick="toggleSelect(this)">
+    <div class="mockup-header">诊断实验组: 链路验证 / 异常观测 / 链路追踪 / 数据校验</div>
+    <div class="mockup-body">
+      <div style="display:grid;gap:10px;">
+        <div style="padding:16px;border-radius:20px;background:linear-gradient(135deg,#f7fbff,#fff8f1);border:1px solid #d9e6f2;">
+          <div class="label">诊断 Hero</div>
+          <div style="font-size:22px;font-weight:700;margin-top:8px;">结果舞台优先</div>
+          <div style="margin-top:8px;color:#56657a;">更强调当前状态、trace 关系、异常聚焦、最近会话和后续排查动作。</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">成功率</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">失败量</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">trace 命中</div>
+          <div style="padding:10px;border-radius:14px;background:#fff;border:1px solid #dfe7f2;">最近样本</div>
+        </div>
+        <div style="display:grid;grid-template-columns:0.92fr 1.38fr;gap:10px;">
+          <div style="padding:12px;border-radius:18px;background:#fff;border:1px solid #dfe7f2;">操作 / 筛选 / 模式切换 / 查询条件</div>
+          <div style="display:grid;gap:8px;">
+            <div style="padding:12px;border-radius:18px;background:linear-gradient(180deg,#fff,#f7fbff);border:1px solid #d7e4f2;">主结果舞台</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">时间线 / 日志 / 追踪表</div>
+              <div style="padding:10px;border-radius:16px;background:#fff;border:1px solid #dfe7f2;">原始响应 / 最近会话 / 建议动作</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="cards">
+    <div class="card" data-choice="language" onclick="toggleSelect(this)">
+      <div class="card-body">
+        <h3>统一组件语法</h3>
+        <p>Hero、指标卡、提醒带、筛选条、主战区、详情抽屉都保留统一品牌语法，只在“主次”和“舞台重心”上做双轨差异。</p>
+      </div>
+    </div>
+  </div>
+</div>

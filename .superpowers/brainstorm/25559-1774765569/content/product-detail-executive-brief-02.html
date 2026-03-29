@@ -1,0 +1,65 @@
+<style>
+.stage{display:grid;gap:22px;margin-top:22px}.hero-shell{padding:22px;border-radius:28px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(245,248,252,.98));border:1px solid rgba(210,220,233,.96);box-shadow:0 18px 40px rgba(27,47,81,.08)}.hero-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}.hero-title small{display:block;margin-bottom:8px;color:#78889a;font-size:12px;letter-spacing:.08em;text-transform:uppercase}.hero-title h3{margin:0;font-size:34px;line-height:1.15;color:#1f2d3d;letter-spacing:-.02em}.hero-title p{margin:10px 0 0;color:#5e6d7e;font-size:14px;line-height:1.7;max-width:44rem}.hero-actions{display:flex;gap:10px;flex-wrap:wrap}.hero-pill{padding:10px 14px;border-radius:999px;background:#fff;border:1px solid rgba(214,222,232,.96);color:#556577;font-size:13px;font-weight:600}.hero-main{display:grid;grid-template-columns:1.3fr .9fr;gap:18px}.narrative-card{padding:24px;border-radius:24px;background:linear-gradient(135deg,rgba(232,128,56,.14),rgba(255,255,255,.98) 42%,rgba(110,144,198,.10));border:1px solid rgba(224,196,173,.88);min-height:220px}.narrative-kicker{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.78);color:#8b5a2b;font-size:12px;font-weight:700;letter-spacing:.04em}.narrative-stat{display:flex;align-items:flex-end;gap:14px;margin-top:20px}.narrative-stat strong{font-size:56px;line-height:1;color:#1d2b3a;letter-spacing:-.03em}.narrative-stat span{padding-bottom:7px;color:#6a7788;font-size:14px}.narrative-copy{display:grid;gap:12px;margin-top:18px}.narrative-copy p{margin:0;color:#526173;font-size:14px;line-height:1.75}.mini-kpis{display:grid;gap:12px}.mini-kpi{padding:18px;border-radius:22px;background:#fff;border:1px solid rgba(214,222,232,.96);box-shadow:0 8px 20px rgba(32,54,88,.06)}.mini-kpi label{display:block;color:#7a8798;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}.mini-kpi strong{display:block;color:#1f2d3d;font-size:30px;line-height:1.1;letter-spacing:-.02em}.mini-kpi span{display:block;margin-top:8px;color:#627181;font-size:13px;line-height:1.6}.detail-zones{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}.zone-card{padding:20px;border-radius:24px;background:#fff;border:1px solid rgba(214,222,232,.96);box-shadow:0 8px 24px rgba(30,52,86,.06)}.zone-card h4{margin:0 0 8px;color:#1f2d3d;font-size:18px}.zone-card p{margin:0 0 16px;color:#657385;font-size:13px;line-height:1.65}.trend-panel{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.trend-chart{min-height:180px;border-radius:20px;background:linear-gradient(180deg,#f8fbff,#eef4fb);border:1px solid rgba(216,224,234,.92);position:relative;overflow:hidden}.trend-line{position:absolute;left:18px;right:18px;bottom:34px;height:88px;border-bottom:1px dashed rgba(153,167,184,.55)}.trend-line:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(232,128,56,.15),rgba(232,128,56,0));clip-path:polygon(0 72%,14% 65%,28% 68%,42% 48%,58% 51%,72% 36%,86% 41%,100% 18%,100% 100%,0 100%)}.trend-line:after{content:"";position:absolute;inset:0;border-bottom:3px solid #e88038;clip-path:polygon(0 72%,14% 65%,28% 68%,42% 48%,58% 51%,72% 36%,86% 41%,100% 18%)}.trend-side{display:grid;gap:10px}.trend-side div{padding:14px;border-radius:18px;background:#f6f9fd;border:1px solid rgba(219,226,235,.96);min-height:52px}.archive-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.archive-item{padding:14px;border-radius:18px;background:#f7f9fc;border:1px solid rgba(219,226,235,.96);min-height:76px}.governance-strip{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}.governance-lead{padding:20px;border-radius:24px;background:linear-gradient(135deg,rgba(107,142,199,.10),rgba(255,255,255,.98));border:1px solid rgba(208,218,232,.96)}.governance-lead h4{margin:0 0 10px;color:#1f2d3d;font-size:18px}.governance-lead p{margin:0;color:#5f6f81;font-size:14px;line-height:1.75}.checklist{display:grid;gap:10px}.checklist div{padding:14px;border-radius:18px;background:#fff;border:1px solid rgba(214,222,232,.96);font-size:13px;color:#5c6c7d;line-height:1.65}.notes{margin-top:18px;padding:16px 18px;border-radius:18px;background:linear-gradient(180deg,rgba(232,128,56,.08),rgba(255,255,255,.98));border:1px solid rgba(232,128,56,.18);color:#536274;font-size:14px;line-height:1.75}@media (max-width:1080px){.hero-main,.detail-zones,.governance-strip,.trend-panel{grid-template-columns:1fr}}</style>
+<h2>A 方案细化：经营简报式详情工作台</h2>
+<p class="subtitle">这一版不是最终像素稿，而是把新版详情页的主次关系、板块顺序和气质做清楚。重点看它是否符合你要的“更精致现代 + 高管简报式 + 设备规模与活跃度优先”。</p>
+<div class="stage">
+  <section class="hero-shell mockup">
+    <div class="hero-header">
+      <div class="hero-title">
+        <small>沉浸式详情工作台</small>
+        <h3>把“产品定义详情”升级成一页经营简报</h3>
+        <p>首屏不再平均分卡片，而是先建立一个明确的阅读顺序：先看设备规模和活跃表现，再看趋势判断，最后下沉到契约、档案和治理建议。</p>
+      </div>
+      <div class="hero-actions">
+        <span class="hero-pill">编辑产品</span>
+        <span class="hero-pill">查看设备</span>
+        <span class="hero-pill">物模型设计器</span>
+      </div>
+    </div>
+    <div class="hero-main">
+      <article class="narrative-card">
+        <span class="narrative-kicker">首屏主舞台</span>
+        <div class="narrative-stat"><strong>2,486</strong><span>关联设备总量</span></div>
+        <div class="narrative-copy">
+          <p>用一句经营判断解释这个产品当前是否值得继续放量、治理或收缩，而不是只堆字段。</p>
+          <p>把“在线率、30 日活跃、平均在线时长”收口成一段高层能读懂的状态摘要。</p>
+        </div>
+      </article>
+      <div class="mini-kpis">
+        <article class="mini-kpi"><label>在线设备</label><strong>1,842</strong><span>配一句轻量解释，强调当前在线覆盖。</span></article>
+        <article class="mini-kpi"><label>30 日活跃</label><strong>2,117</strong><span>重点突出近期活跃规模，而不是把所有指标做成同权重。</span></article>
+        <article class="mini-kpi"><label>平均在线时长</label><strong>128 分钟</strong><span>放在右侧副信息列，既可见，又不抢主叙事。</span></article>
+      </div>
+    </div>
+  </section>
+  <div class="detail-zones split">
+    <section class="zone-card mockup">
+      <h4>第二层：活跃趋势与状态判断</h4>
+      <p>延续首屏重点，让“设备活跃度”升级成真正的趋势区，而不是 5 张并列数字卡。</p>
+      <div class="trend-panel">
+        <div class="trend-chart"><div class="trend-line"></div></div>
+        <div class="trend-side"><div></div><div></div><div></div></div>
+      </div>
+    </section>
+    <section class="zone-card mockup">
+      <h4>第三层：接入契约与产品档案</h4>
+      <p>接入契约与档案信息不再抢首屏，而是收口成更安静的核对区，适合真正需要时再看。</p>
+      <div class="archive-grid"><div class="archive-item"></div><div class="archive-item"></div><div class="archive-item"></div><div class="archive-item"></div></div>
+    </section>
+  </div>
+  <div class="governance-strip split">
+    <section class="governance-lead mockup">
+      <h4>第四层：治理建议</h4>
+      <p>治理区保留，但从“说明集合”变成“建议结论 + 两组清单”，让页面收尾更像经营决策页，而不是字段总结页。</p>
+    </section>
+    <section class="checklist mockup">
+      <div>维护规则</div>
+      <div>变更前确认</div>
+      <div>必要时保留补充提醒</div>
+    </section>
+  </div>
+</div>
+<div class="notes">
+  <strong>这版的核心变化：</strong> 从“区块并列展示”改成“主舞台叙事 + 副指标补充 + 下沉核对区 + 结尾治理区”。视觉上保留现有商务控制台配色，但通过更大的标题层级、更克制的副信息、和更宽的留白，把详情页拉向更现代的简报感。
+</div>
+<p class="subtitle">请看这版骨架是否对。如果方向正确，我下一段会给你更细的“字体层级 / 配色与材质 / 组件映射方案”。</p>
