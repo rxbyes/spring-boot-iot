@@ -107,9 +107,8 @@
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护通知编排与配置 JSON。"
+        subtitle="通过右侧抽屉维护通知编排规则与渠道配置 JSON。"
         size="44rem"
         @close="handleDialogClose"
       >

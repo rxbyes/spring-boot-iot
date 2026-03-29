@@ -9,7 +9,7 @@
   >
     <template #header>
       <div class="detail-drawer__header">
-        <div class="detail-drawer__heading">
+        <div :class="['detail-drawer__heading', { 'detail-drawer__heading--plain': !eyebrow }]">
           <p v-if="eyebrow" class="detail-drawer__eyebrow">{{ eyebrow }}</p>
           <h2>{{ title }}</h2>
           <p v-if="subtitle" class="detail-drawer__subtitle">{{ subtitle }}</p>
@@ -145,12 +145,20 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   letter-spacing: -0.02em;
 }
 
+.detail-drawer__heading--plain h2 {
+  margin-top: 0;
+}
+
 .detail-drawer__subtitle {
   margin: 0.7rem 0 0;
   max-width: 40rem;
   color: var(--text-caption);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.detail-drawer__heading--plain .detail-drawer__subtitle {
+  margin-top: 0.55rem;
 }
 
 .detail-drawer__tags {

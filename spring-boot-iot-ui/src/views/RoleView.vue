@@ -189,9 +189,8 @@
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护角色基础信息、菜单权限与按钮授权。"
+      subtitle="通过右侧抽屉维护角色基础信息，并同步配置菜单与按钮权限。"
       size="68rem"
       @close="handleDialogClose"
     >

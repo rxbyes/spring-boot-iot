@@ -136,6 +136,34 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['eyebrow', 'title', 'subtitle'],
+  template: `
+    <section class="device-detail-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `
+})
+
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['eyebrow', 'title', 'subtitle'],
+  template: `
+    <section class="device-form-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -169,7 +197,9 @@ function mountView() {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
-        StandardInlineState: StandardInlineStateStub
+        StandardInlineState: StandardInlineStateStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
+        StandardFormDrawer: StandardFormDrawerStub
       }
     }
   })
@@ -227,7 +257,12 @@ describe('DeviceWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(detailDrawer.props('eyebrow')).toBeUndefined()
+    expect(formDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('设备台账')
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
   })

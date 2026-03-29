@@ -337,7 +337,6 @@
       v-model="detailVisible"
       class="product-detail-drawer"
       size="60rem"
-      eyebrow="产品定义详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :loading="detailLoading"
@@ -479,7 +478,6 @@
     <DeviceListDrawer
       v-model="deviceListDrawerVisible"
       :title="currentProduct?.productName || currentProduct?.productKey || '设备列表'"
-      :eyebrow="currentProduct?.productName ? '产品关联设备' : '设备列表'"
       :devices="deviceListData"
       :total-devices="deviceListTotal"
       :online-devices="deviceListOnlineCount"

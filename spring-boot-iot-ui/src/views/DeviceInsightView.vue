@@ -1,232 +1,232 @@
 <template>
-  <div class="page-stack">
-    <section class="hero-grid">
-      <div class="hero-panel risk-workbench">
-        <p class="eyebrow">Risk Workbench</p>
-        <h1 class="headline">围绕风险点完成监测、判级、上报与联调</h1>
-        <p class="lead">
-          当前工作台基于现有设备、属性和消息日志接口，先形成一线人员、运维人员和开发人员都能直接使用的
-          风险点视图。后续可继续接入 AI 分析、告警工单和报告导出。
-        </p>
-
-        <form @submit.prevent="refreshAll">
-          <div class="form-grid">
-            <div class="field-group">
-              <label for="insight-device-code">风险点设备编码</label>
+  <div class="page-stack device-insight-view">
+    <StandardWorkbenchPanel
+      title="对象洞察台"
+      description="按设备编码查看对象状态、关键指标、研判依据与最近链路线索。"
+      show-filters
+      :show-inline-state="showInlineState"
+    >
+      <template #filters>
+        <StandardListFilterHeader :model="{ deviceCode }">
+          <template #primary>
+            <el-form-item>
               <el-input
                 id="insight-device-code"
                 v-model="deviceCode"
                 name="insight_device_code"
-                placeholder="例如 demo-device-01..."
+                placeholder="设备编码，例如 demo-device-01"
                 clearable
+                prefix-icon="Search"
+                @keyup.enter="refreshAll"
               />
+            </el-form-item>
+          </template>
+          <template #actions>
+            <StandardButton action="query" :loading="isLoading" @click="refreshAll">
+              {{ isLoading ? '刷新中...' : '刷新洞察' }}
+            </StandardButton>
+            <StandardButton action="reset" :disabled="isLoading" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
+
+      <template #inline-state>
+        <StandardInlineState :message="inlineStateMessage" :tone="inlineStateTone" />
+      </template>
+
+      <div class="page-stack">
+        <section class="device-insight-view__overview">
+          <article class="risk-banner" :class="`risk-banner--${riskSummary.tone}`">
+            <div>
+              <p>当前风险等级</p>
+              <strong>{{ riskSummary.label }}</strong>
+              <span>{{ riskSummary.description }}</span>
             </div>
-          </div>
-          <StandardActionGroup margin-top="sm">
-            <StandardButton action="confirm" native-type="submit" :loading="isLoading">
-              {{ isLoading ? '刷新中...' : '刷新对象洞察' }}
-            </StandardButton>
-            <StandardButton action="reset" @click="jumpToReporting">
-              进入链路验证中心
-            </StandardButton>
-            <StandardButton action="reset" @click="goToMessageTrace">
-              链路追踪台
-            </StandardButton>
-            <StandardButton action="reset" plain @click="jumpToDevices">
-              查看设备资产
-            </StandardButton>
-          </StandardActionGroup>
-        </form>
+            <div class="risk-banner__score">
+              <small>风险评分</small>
+              <strong>{{ riskSummary.score }}</strong>
+            </div>
+          </article>
 
-        <div class="risk-banner" :class="`risk-banner--${riskSummary.tone}`">
-          <div>
-            <p>当前风险等级</p>
-            <strong>{{ riskSummary.label }}</strong>
-            <span>{{ riskSummary.description }}</span>
-          </div>
-          <div class="risk-banner__score">
-            <small>风险评分</small>
-            <strong>{{ riskSummary.score }}</strong>
-          </div>
-        </div>
+          <PanelCard
+            title="当前建议动作"
+            description="优先把当前风险判断翻译成可执行动作，减少现场、运维与研发之间的切换成本。"
+          >
+            <div class="focus-list">
+              <article v-for="item in riskSummary.actions" :key="item" class="focus-list__item">
+                <span class="focus-list__badge">{{ riskSummary.shortLabel }}</span>
+                <p>{{ item }}</p>
+              </article>
+            </div>
+            <div class="device-insight-view__quick-actions">
+              <StandardButton action="reset" plain :disabled="!normalizedDeviceCode" @click="jumpToReporting">
+                链路验证中心
+              </StandardButton>
+              <StandardButton action="reset" plain :disabled="!normalizedDeviceCode" @click="goToMessageTrace">
+                链路追踪台
+              </StandardButton>
+              <StandardButton action="reset" plain :disabled="!normalizedDeviceCode" @click="jumpToDevices">
+                设备资产中心
+              </StandardButton>
+            </div>
+          </PanelCard>
+        </section>
+
+        <section class="quad-grid">
+          <MetricCard
+            v-for="metric in overviewMetrics"
+            :key="metric.label"
+            :label="metric.label"
+            :value="metric.value"
+            :hint="metric.hint"
+            :badge="metric.badge"
+          />
+        </section>
+
+        <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
+
+        <section class="two-column-grid">
+          <PanelCard
+            title="基础档案"
+            description="把设备基础信息整理成统一对象视图，方便一线、运维和研发在同一页交流。"
+          >
+            <el-descriptions v-if="device" :column="2" border class="descriptions-block">
+              <el-descriptions-item label="设备名称">{{ device.deviceName }}</el-descriptions-item>
+              <el-descriptions-item label="设备编码">{{ device.deviceCode }}</el-descriptions-item>
+              <el-descriptions-item label="在线状态">
+                <el-tag :type="device.onlineStatus === 1 ? 'success' : 'info'">
+                  {{ statusLabel(device.onlineStatus) }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="接入协议">{{ device.protocolCode || '--' }}</el-descriptions-item>
+              <el-descriptions-item label="最近在线时间">{{ formatDateTime(device.lastOnlineTime) }}</el-descriptions-item>
+              <el-descriptions-item label="最近离线时间">{{ formatDateTime(device.lastOfflineTime) }}</el-descriptions-item>
+              <el-descriptions-item label="最近上报时间">{{ formatDateTime(device.lastReportTime) }}</el-descriptions-item>
+              <el-descriptions-item label="固件版本">{{ device.firmwareVersion || '--' }}</el-descriptions-item>
+              <el-descriptions-item label="部署位置">{{ device.address || '--' }}</el-descriptions-item>
+              <el-descriptions-item label="最近抓取时间">{{ formatDateTime(lastFetchTime) }}</el-descriptions-item>
+            </el-descriptions>
+            <div v-else class="empty-state">请输入设备编码并刷新，查看当前对象的基础档案。</div>
+          </PanelCard>
+
+          <PanelCard
+            title="研判依据"
+            description="先基于现有平台数据做轻量规则判定，帮助值班和排障人员共享同一份判断依据。"
+          >
+            <div class="reason-list">
+              <article v-for="reason in riskSummary.reasons" :key="reason.title" class="reason-list__item">
+                <header>
+                  <strong>{{ reason.title }}</strong>
+                  <span>{{ reason.tag }}</span>
+                </header>
+                <p>{{ reason.description }}</p>
+              </article>
+            </div>
+          </PanelCard>
+        </section>
+
+        <PropertyTrendPanel :logs="logs" />
+
+        <section class="tri-grid">
+          <PanelCard
+            title="一线建议"
+            description="帮助现场人员快速决定是否上报、是否复测、是否形成书面报告。"
+          >
+            <ul class="advice-list">
+              <li v-for="item in fieldActions" :key="item">{{ item }}</li>
+            </ul>
+          </PanelCard>
+
+          <PanelCard
+            title="运维建议"
+            description="帮助运维人员判断设备、网络、阈值与远程控制的下一步动作。"
+          >
+            <ul class="advice-list">
+              <li v-for="item in operationActions" :key="item">{{ item }}</li>
+            </ul>
+          </PanelCard>
+
+          <PanelCard
+            title="研发建议"
+            description="帮助开发与实施人员快速回看协议、日志与设备接入链路。"
+          >
+            <ul class="advice-list">
+              <li v-for="item in engineeringActions" :key="item">{{ item }}</li>
+            </ul>
+          </PanelCard>
+        </section>
+
+        <section class="two-column-grid">
+          <PanelCard
+            title="关键监测指标"
+            description="优先展示当前最值得关注的最新属性，方便风险判断和现场汇报。"
+          >
+            <div v-if="propertyHighlights.length" class="highlight-grid">
+              <article v-for="item in propertyHighlights" :key="item.identifier" class="highlight-card">
+                <span>{{ item.identifier }}</span>
+                <strong>{{ item.propertyValue || '--' }}</strong>
+                <small>{{ item.valueType || 'unknown' }}</small>
+                <p>{{ formatDateTime(item.updateTime || item.reportTime) }}</p>
+              </article>
+            </div>
+            <el-empty v-else description="还没有属性数据。先通过 HTTP 或 MQTT 发送一条上报。" />
+          </PanelCard>
+
+          <PanelCard
+            title="风险分析草稿"
+            description="先给出一份可直接复述的分析提纲，后续可继续扩展为正式报告。"
+          >
+            <div class="report-draft">
+              <p><strong>对象：</strong>{{ device?.deviceName || normalizedDeviceCode || '--' }}</p>
+              <p><strong>当前等级：</strong>{{ riskSummary.label }}</p>
+              <p><strong>判定摘要：</strong>{{ reportDraft.summary }}</p>
+              <p><strong>建议动作：</strong>{{ reportDraft.actions }}</p>
+              <p><strong>后续关注：</strong>{{ reportDraft.followUp }}</p>
+            </div>
+          </PanelCard>
+        </section>
+
+        <section class="two-column-grid">
+          <PanelCard
+            title="设备属性快照"
+            description="来自 `GET /api/device/{deviceCode}/properties`，既可服务业务判断，也可服务调试核查。"
+          >
+            <el-table v-if="properties.length" :data="properties" stripe>
+              <StandardTableTextColumn prop="identifier" label="标识符" :min-width="140" />
+              <StandardTableTextColumn prop="propertyName" label="属性名" :min-width="140">
+                <template #default="{ row }">{{ row.propertyName || '--' }}</template>
+              </StandardTableTextColumn>
+              <StandardTableTextColumn prop="propertyValue" label="值" :min-width="140">
+                <template #default="{ row }">{{ row.propertyValue || '--' }}</template>
+              </StandardTableTextColumn>
+              <StandardTableTextColumn prop="valueType" label="类型" :min-width="120">
+                <template #default="{ row }">{{ row.valueType || '--' }}</template>
+              </StandardTableTextColumn>
+              <StandardTableTextColumn label="更新时间" :min-width="180">
+                <template #default="{ row }">{{ formatDateTime(row.updateTime || row.reportTime) }}</template>
+              </StandardTableTextColumn>
+            </el-table>
+            <el-empty v-else description="还没有属性数据。先去“链路验证中心”发送一条属性报文。" />
+          </PanelCard>
+
+          <PanelCard
+            title="消息日志与审计回看"
+            description="来自 `GET /api/device/{deviceCode}/message-logs`，可快速回看 topic、payload、TraceId 与最近链路行为。"
+          >
+            <div v-if="logs.length" class="timeline">
+              <article v-for="item in logs" :key="item.id" class="timeline-item">
+                <h3>{{ item.messageType || 'unknown' }}</h3>
+                <p>{{ item.topic || '--' }}</p>
+                <p>TraceId：{{ item.traceId || '--' }}</p>
+                <p>{{ truncateText(item.payload || '--', 160) }}</p>
+                <p>{{ formatDateTime(item.reportTime || item.createTime) }}</p>
+              </article>
+            </div>
+            <el-empty v-else description="还没有日志数据。发送报文后再回来刷新即可。" />
+          </PanelCard>
+        </section>
       </div>
-
-      <PanelCard
-        eyebrow="Instant Focus"
-        title="当前建议动作"
-        description="优先把数据结果翻译成现场能执行的动作，帮助一线人员第一时间判断是否需要上报。"
-      >
-        <div class="focus-list">
-          <article v-for="item in riskSummary.actions" :key="item" class="focus-list__item">
-            <span class="focus-list__badge">{{ riskSummary.shortLabel }}</span>
-            <p>{{ item }}</p>
-          </article>
-        </div>
-      </PanelCard>
-    </section>
-
-    <section class="quad-grid">
-      <MetricCard
-        v-for="metric in overviewMetrics"
-        :key="metric.label"
-        :label="metric.label"
-        :value="metric.value"
-        :hint="metric.hint"
-        :badge="metric.badge"
-      />
-    </section>
-
-    <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
-
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Point Profile"
-        title="风险点基础档案"
-        description="把设备基础信息整理成风险点视图，方便一线、运维和研发在同一页交流。"
-      >
-        <el-descriptions v-if="device" :column="2" border class="descriptions-block">
-          <el-descriptions-item label="设备名称">{{ device.deviceName }}</el-descriptions-item>
-          <el-descriptions-item label="设备编码">{{ device.deviceCode }}</el-descriptions-item>
-          <el-descriptions-item label="在线状态">
-            <el-tag :type="device.onlineStatus === 1 ? 'success' : 'info'">
-              {{ statusLabel(device.onlineStatus) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="接入协议">{{ device.protocolCode || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="最近在线时间">{{ formatDateTime(device.lastOnlineTime) }}</el-descriptions-item>
-          <el-descriptions-item label="最近离线时间">{{ formatDateTime(device.lastOfflineTime) }}</el-descriptions-item>
-          <el-descriptions-item label="最近上报时间">{{ formatDateTime(device.lastReportTime) }}</el-descriptions-item>
-          <el-descriptions-item label="固件版本">{{ device.firmwareVersion || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="部署位置">{{ device.address || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="最近抓取时间">{{ formatDateTime(lastFetchTime) }}</el-descriptions-item>
-        </el-descriptions>
-        <div v-else class="empty-state">请输入设备编码并刷新，查看该风险点的设备档案。</div>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Risk Reasons"
-        title="风险研判依据"
-        description="先基于现有平台数据做轻量规则判定，后续可以平滑接入 AI 风险分析和趋势模型。"
-      >
-        <div class="reason-list">
-          <article v-for="reason in riskSummary.reasons" :key="reason.title" class="reason-list__item">
-            <header>
-              <strong>{{ reason.title }}</strong>
-              <span>{{ reason.tag }}</span>
-            </header>
-            <p>{{ reason.description }}</p>
-          </article>
-        </div>
-      </PanelCard>
-    </section>
-
-    <PropertyTrendPanel :logs="logs" />
-
-    <section class="tri-grid">
-      <PanelCard
-        eyebrow="Field Action"
-        title="一线人员建议"
-        description="帮助现场人员快速决定是否上报、是否复测、是否形成书面报告。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in fieldActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="O&M Action"
-        title="运维维护建议"
-        description="帮助运维人员判断设备、网络、阈值与远程控制的下一步动作。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in operationActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Dev Action"
-        title="研发调试建议"
-        description="帮助开发与实施人员快速回看协议、日志与设备接入链路。"
-      >
-        <ul class="advice-list">
-          <li v-for="item in engineeringActions" :key="item">{{ item }}</li>
-        </ul>
-      </PanelCard>
-    </section>
-
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Key Properties"
-        title="关键监测指标"
-        description="优先展示最值得关注的最新属性，方便风险判断和现场汇报。"
-      >
-        <div v-if="propertyHighlights.length" class="highlight-grid">
-          <article v-for="item in propertyHighlights" :key="item.identifier" class="highlight-card">
-            <span>{{ item.identifier }}</span>
-            <strong>{{ item.propertyValue || '--' }}</strong>
-            <small>{{ item.valueType || 'unknown' }}</small>
-            <p>{{ formatDateTime(item.updateTime || item.reportTime) }}</p>
-          </article>
-        </div>
-        <el-empty v-else description="还没有属性数据。先通过 HTTP 或 MQTT 发送一条上报。" />
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Report Draft"
-        title="风险分析报告草稿"
-        description="先给出一份可复制的报告提纲，后续可以升级成 Word / PDF 正式报告。"
-      >
-        <div class="report-draft">
-          <p><strong>风险点：</strong>{{ device?.deviceName || deviceCode || '--' }}</p>
-          <p><strong>当前等级：</strong>{{ riskSummary.label }}</p>
-          <p><strong>判定摘要：</strong>{{ reportDraft.summary }}</p>
-          <p><strong>建议动作：</strong>{{ reportDraft.actions }}</p>
-          <p><strong>后续关注：</strong>{{ reportDraft.followUp }}</p>
-        </div>
-      </PanelCard>
-    </section>
-
-    <section class="two-column-grid">
-      <PanelCard
-        eyebrow="Latest Properties"
-        title="设备属性快照"
-        description="来自 `GET /api/device/{deviceCode}/properties`，既可服务业务判断，也可服务调试核查。"
-      >
-        <el-table v-if="properties.length" :data="properties" stripe>
-          <StandardTableTextColumn prop="identifier" label="标识符" :min-width="140" />
-          <StandardTableTextColumn prop="propertyName" label="属性名" :min-width="140">
-            <template #default="{ row }">{{ row.propertyName || '--' }}</template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn prop="propertyValue" label="值" :min-width="140">
-            <template #default="{ row }">{{ row.propertyValue || '--' }}</template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn prop="valueType" label="类型" :min-width="120">
-            <template #default="{ row }">{{ row.valueType || '--' }}</template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn label="更新时间" :min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.updateTime || row.reportTime) }}</template>
-          </StandardTableTextColumn>
-        </el-table>
-        <el-empty v-else description="还没有属性数据。先去“链路验证中心”发送一条属性报文。" />
-      </PanelCard>
-
-      <PanelCard
-        eyebrow="Message Logs"
-        title="消息日志与审计回看"
-        description="来自 `GET /api/device/{deviceCode}/message-logs`，可快速回看 topic、payload、TraceId 与最近链路行为。"
-      >
-        <div v-if="logs.length" class="timeline">
-          <article v-for="item in logs" :key="item.id" class="timeline-item">
-            <h3>{{ item.messageType || 'unknown' }}</h3>
-            <p>{{ item.topic || '--' }}</p>
-            <p>TraceId：{{ item.traceId || '--' }}</p>
-            <p>{{ truncateText(item.payload || '--', 160) }}</p>
-            <p>{{ formatDateTime(item.reportTime || item.createTime) }}</p>
-          </article>
-        </div>
-        <el-empty v-else description="还没有日志数据。发送报文后再回来刷新即可。" />
-      </PanelCard>
-    </section>
+    </StandardWorkbenchPanel>
   </div>
 </template>
 
@@ -239,8 +239,10 @@ import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '../a
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import PropertyTrendPanel from '../components/PropertyTrendPanel.vue';
-import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardInlineState from '../components/StandardInlineState.vue';
+import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
+import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { recordActivity } from '../stores/activity';
 import type { Device, DeviceMessageLog, DeviceProperty } from '../types/api';
 import { formatDateTime, statusLabel, truncateText } from '../utils/format';
@@ -263,19 +265,21 @@ interface RiskSummary {
 
 const route = useRoute();
 const router = useRouter();
-const deviceCode = ref(typeof route.query.deviceCode === 'string' ? route.query.deviceCode : 'demo-device-01');
+const initialDeviceCode = ref(typeof route.query.deviceCode === 'string' ? route.query.deviceCode : 'demo-device-01');
+const deviceCode = ref(initialDeviceCode.value);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const lastFetchTime = ref<string | null>(null);
 const device = ref<Device | null>(null);
 const properties = ref<DeviceProperty[]>([]);
 const logs = ref<DeviceMessageLog[]>([]);
+const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 
 watch(deviceCode, (value) => {
   router.replace({
     query: {
       ...route.query,
-      deviceCode: value
+      deviceCode: value || undefined
     }
   });
 });
@@ -283,8 +287,10 @@ watch(deviceCode, (value) => {
 watch(
   () => route.query.deviceCode,
   (value) => {
-    if (typeof value === 'string' && value !== deviceCode.value) {
-      deviceCode.value = value;
+    const nextValue = typeof value === 'string' && value.trim() ? value : 'demo-device-01';
+    initialDeviceCode.value = nextValue;
+    if (nextValue !== deviceCode.value) {
+      deviceCode.value = nextValue;
     }
   }
 );
@@ -308,6 +314,20 @@ const freshnessMinutes = computed(() => {
   }
   return Math.max(0, Math.round((Date.now() - latestReportDate.value.getTime()) / 60000));
 });
+const inlineStateMessage = computed(() => {
+  if (errorMessage.value) {
+    return errorMessage.value;
+  }
+  if (!normalizedDeviceCode.value) {
+    return '请输入设备编码后再刷新对象洞察。';
+  }
+  if (!lastFetchTime.value) {
+    return `设备 ${normalizedDeviceCode.value} · 等待刷新对象状态、属性与日志。`;
+  }
+  return `设备 ${normalizedDeviceCode.value} · 最近刷新 ${formatDateTime(lastFetchTime.value)} · ${riskSummary.value.label} · 属性 ${properties.value.length} 条 · 日志 ${logs.value.length} 条`;
+});
+const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
+const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 
 const suspiciousPropertySignals = computed(() => {
   const findings: Array<{ title: string; description: string }> = [];
@@ -569,7 +589,7 @@ function jumpToReporting() {
   router.push({
     path: '/reporting',
     query: {
-      deviceCode: deviceCode.value
+      deviceCode: normalizedDeviceCode.value || undefined
     }
   });
 }
@@ -578,7 +598,7 @@ function jumpToDevices() {
   router.push({
     path: '/devices',
     query: {
-      deviceCode: deviceCode.value
+      deviceCode: normalizedDeviceCode.value || undefined
     }
   });
 }
@@ -587,47 +607,60 @@ function goToMessageTrace() {
   router.push({
     path: '/message-trace',
     query: {
-      deviceCode: deviceCode.value || undefined
+      deviceCode: normalizedDeviceCode.value || undefined
     }
   });
 }
 
+function handleReset() {
+  deviceCode.value = initialDeviceCode.value;
+  errorMessage.value = '';
+  if (initialDeviceCode.value) {
+    refreshAll();
+  }
+}
+
 async function refreshAll() {
+  if (!normalizedDeviceCode.value) {
+    errorMessage.value = '请输入设备编码后再刷新对象洞察。';
+    return;
+  }
+
   isLoading.value = true;
   errorMessage.value = '';
 
   try {
     const [deviceResponse, propertyResponse, logResponse] = await Promise.all([
-      getDeviceByCode(deviceCode.value),
-      getDeviceProperties(deviceCode.value),
-      getDeviceMessageLogs(deviceCode.value)
+      getDeviceByCode(normalizedDeviceCode.value),
+      getDeviceProperties(normalizedDeviceCode.value),
+      getDeviceMessageLogs(normalizedDeviceCode.value)
     ]);
 
     device.value = deviceResponse.data;
     properties.value = propertyResponse.data;
     logs.value = logResponse.data;
     lastFetchTime.value = new Date().toISOString();
-    ElMessage.success(`风险点 ${deviceCode.value} 工作台刷新成功`);
+    ElMessage.success(`对象 ${normalizedDeviceCode.value} 洞察刷新成功`);
 
     recordActivity({
-      module: '风险点工作台',
-      action: '刷新工作台',
-      request: { deviceCode: deviceCode.value },
+      module: '对象洞察台',
+      action: '刷新对象洞察',
+      request: { deviceCode: normalizedDeviceCode.value },
       response: {
         device: deviceResponse.data,
         properties: propertyResponse.data.length,
         logs: logResponse.data.length
       },
       ok: true,
-      detail: `风险点 ${deviceCode.value} 刷新完成，属性 ${propertyResponse.data.length} 条，日志 ${logResponse.data.length} 条`
+      detail: `对象 ${normalizedDeviceCode.value} 刷新完成，属性 ${propertyResponse.data.length} 条，日志 ${logResponse.data.length} 条`
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
     ElMessage.error(errorMessage.value);
     recordActivity({
-      module: '风险点工作台',
-      action: '刷新工作台',
-      request: { deviceCode: deviceCode.value },
+      module: '对象洞察台',
+      action: '刷新对象洞察',
+      request: { deviceCode: normalizedDeviceCode.value },
       response: { message: errorMessage.value },
       ok: false,
       detail: `刷新失败：${errorMessage.value}`
@@ -639,9 +672,18 @@ async function refreshAll() {
 </script>
 
 <style scoped>
-.risk-workbench {
+.device-insight-view__overview {
   display: grid;
-  gap: 1.35rem;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.device-insight-view__quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
 }
 
 .risk-banner {
@@ -781,6 +823,10 @@ async function refreshAll() {
   line-height: 1.9;
 }
 
+.advice-list li + li {
+  margin-top: 0.35rem;
+}
+
 .highlight-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -819,6 +865,10 @@ async function refreshAll() {
 }
 
 @media (max-width: 1200px) {
+  .device-insight-view__overview {
+    grid-template-columns: 1fr;
+  }
+
   .highlight-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

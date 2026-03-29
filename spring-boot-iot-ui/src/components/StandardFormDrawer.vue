@@ -9,7 +9,7 @@
   >
     <template #header>
       <div class="form-drawer__header">
-        <div class="form-drawer__heading">
+        <div :class="['form-drawer__heading', { 'form-drawer__heading--plain': !eyebrow }]">
           <p v-if="eyebrow" class="form-drawer__eyebrow">{{ eyebrow }}</p>
           <h2>{{ title }}</h2>
           <p v-if="subtitle" class="form-drawer__subtitle">{{ subtitle }}</p>
@@ -117,11 +117,19 @@ function handleClose() {
   font-weight: 700;
 }
 
+.form-drawer__heading--plain h2 {
+  margin-top: 0;
+}
+
 .form-drawer__subtitle {
   margin: 0.65rem 0 0;
   color: var(--text-caption);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.form-drawer__heading--plain .form-drawer__subtitle {
+  margin-top: 0.55rem;
 }
 
 .form-drawer__body {

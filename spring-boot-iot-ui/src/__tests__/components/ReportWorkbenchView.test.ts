@@ -258,9 +258,10 @@ describe('ReportWorkbenchView', () => {
     const wrapper = mountView();
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.text()).toContain('链路验证中心');
-    expect(wrapper.text()).toContain('SIMULATION LAB');
+    expect(wrapper.text()).toContain('结果复盘');
     expect(wrapper.text()).toContain('模拟上报');
+    expect(wrapper.text()).not.toContain('SIMULATION LAB');
+    expect(wrapper.text()).not.toContain('REPLAY CONSOLE');
   });
 
   it('defaults to replay tab and renders the diagnosis header', () => {

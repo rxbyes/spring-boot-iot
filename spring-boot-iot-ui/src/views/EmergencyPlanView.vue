@@ -1,34 +1,19 @@
 ﻿<template>
   <div class="ops-workbench emergency-plan-view">
-    <PanelCard
-      eyebrow="Emergency Plans"
-      title="应急预案库"
-      description="统一维护风险等级、响应步骤和联系人信息，支撑风险事件在告警触发后的快速响应与闭环执行。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardButton action="add" @click="handleAdd">新增预案</StandardButton>
-      </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="预案总数" :value="String(pagination.total)" :badge="{ label: '预案库', tone: 'brand' }" />
-        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '可执行', tone: 'success' }" />
-        <MetricCard label="严重风险预案" :value="String(criticalCount)" :badge="{ label: '高优先级', tone: 'danger' }" />
-        <MetricCard label="警告风险预案" :value="String(warningCount)" :badge="{ label: '常用预案', tone: 'warning' }" />
-      </div>
-      <div class="ops-inline-note">
-        应急预案库与联动编排、阈值策略共同构成风险闭环，当前页面已统一为工作台样式，方便查看、维护和版本化治理。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
-      title="应急预案列表"
+      title="应急预案库"
       :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardButton action="add" @click="handleAdd">新增预案</StandardButton>
+      </template>
+
       <template #filters>
         <StandardListFilterHeader :model="filters">
           <template #primary>
@@ -77,7 +62,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`, `警告 ${warningCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -136,7 +121,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="Risk Platform Form"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护应急预案与响应步骤。"
       size="44rem"
@@ -210,8 +194,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';

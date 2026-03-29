@@ -9,9 +9,8 @@
       <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
-            eyebrow="QUIET CONSOLE"
             title="页面入口"
-            description="先筛入口，再进入对应业务页。"
+            description="按职责筛选入口，再进入对应业务页。"
             show-filters
           >
             <template #filters>
@@ -53,7 +52,6 @@
 
     <PanelCard
       v-else
-      eyebrow="ACCESS STATUS"
       title="当前账号暂无可用入口"
       description="当前账号尚未配置该分组下的页面权限，请联系管理员确认菜单授权。"
     >

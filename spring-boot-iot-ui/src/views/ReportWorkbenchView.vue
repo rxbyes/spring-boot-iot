@@ -346,7 +346,6 @@
           <section v-show="activeKey === 'recent'" class="reporting-workspace-panel">
             <PanelCard
               class="reporting-card reporting-card--recent"
-              eyebrow="链路验证中心"
               title="最近记录"
               description="最近记录已升级为诊断清单，优先表达结论、当前卡点和下一步动作。"
             >
@@ -373,7 +372,6 @@
 
         <PanelCard
           class="reporting-card reporting-card--follow-up"
-          eyebrow="链路验证中心"
           title="发送后建议检查"
           description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
         >

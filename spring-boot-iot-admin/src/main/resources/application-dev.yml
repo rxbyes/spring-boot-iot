@@ -78,7 +78,7 @@ iot:
     cluster-lock-renew-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_RENEW_INTERVAL_SECONDS:10}
     cluster-lock-acquire-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_ACQUIRE_INTERVAL_SECONDS:5}
     default-subscribe-topics:
-      - $dp
+#      - $dp
       - /sys/+/+/thing/property/post
       - /sys/+/+/thing/event/post
       - /sys/+/+/thing/property/reply

@@ -1,7 +1,6 @@
 <template>
   <div class="ops-workbench risk-monitoring-view">
     <StandardWorkbenchPanel
-      eyebrow="RISK MONITORING"
       title="实时监测台"
       :description="`当前 ${pagination.total} 条监测记录，支持按区域、风险点、设备编码和在线状态快速定位。`"
       show-filters

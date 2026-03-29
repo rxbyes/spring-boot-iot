@@ -122,9 +122,8 @@
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护菜单树与路由元数据。"
+      subtitle="通过右侧抽屉维护菜单树结构、路由元数据与启停状态。"
       size="44rem"
       @close="handleDialogClose"
     >

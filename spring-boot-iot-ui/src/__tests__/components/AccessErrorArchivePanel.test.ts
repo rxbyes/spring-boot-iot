@@ -34,7 +34,37 @@ vi.mock('@/api/accessError', () => ({
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  template: '<section><slot name="filters" /><slot name="toolbar" /><slot /><slot name="pagination" /></section>'
+  props: {
+    eyebrow: String,
+    title: String,
+    description: String,
+    showNotices: Boolean,
+    showToolbar: Boolean,
+    showInlineState: Boolean
+  },
+  template: `
+    <section class="access-error-workbench-stub">
+      <p>{{ eyebrow }}</p>
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <div><slot name="filters" /></div>
+      <div><slot name="notices" /></div>
+      <div><slot name="toolbar" /></div>
+      <div><slot name="inline-state" /></div>
+      <div><slot /></div>
+      <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <div class="access-error-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </div>
+  `
 });
 
 describe('AccessErrorArchivePanel', () => {
@@ -98,7 +128,7 @@ describe('AccessErrorArchivePanel', () => {
             StandardWorkbenchPanel: StandardWorkbenchPanelStub,
             StandardListFilterHeader: true,
             StandardAppliedFiltersBar: true,
-            StandardTableToolbar: true,
+            StandardTableToolbar: StandardTableToolbarStub,
             StandardPagination: true,
             StandardTableTextColumn: true,
             StandardRowActions: true,
@@ -143,5 +173,45 @@ describe('AccessErrorArchivePanel', () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  it('renders the archive workbench without the legacy eyebrow tier or top-right cross-page jump', () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardRowActions: true,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: true,
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: true,
+          ElTableColumn: true,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+
+    expect(workbench.props('eyebrow')).toBeUndefined();
+    expect(workbench.props('showNotices')).toBe(false);
+    expect(workbench.props('showInlineState')).toBe(true);
+    expect(wrapper.text()).not.toContain('FAILURE ARCHIVE');
+    expect(wrapper.text()).not.toContain('跳转异常观测台');
+    expect(wrapper.text()).toContain('刷新列表');
   });
 });

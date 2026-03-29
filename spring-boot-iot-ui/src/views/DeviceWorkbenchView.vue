@@ -330,7 +330,6 @@
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="设备资产详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :tags="detailTags"
@@ -591,7 +590,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="设备台账表单"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。"
       size="44rem"

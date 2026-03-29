@@ -59,7 +59,7 @@ const PanelCardStub = defineComponent({
   props: ['title', 'description', 'eyebrow'],
   template: `
     <section class="panel-card-stub">
-      <p>{{ eyebrow }}</p>
+      <p v-if="eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot />
@@ -94,7 +94,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="standard-workbench-panel-stub">
-      <p>{{ eyebrow }}</p>
+      <p v-if="eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
@@ -139,13 +139,16 @@ describe('SectionLandingView', () => {
 
   it('renders the iot access hub as two real business tabs with a single entry list', () => {
     const wrapper = mountView()
+    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub)
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true)
+    expect(workbench.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('资产底座')
     expect(wrapper.text()).toContain('诊断排障')
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).not.toContain('QUIET CONSOLE')
     expect(wrapper.text()).not.toContain('最近使用')
     expect(wrapper.text()).not.toContain('推荐处理顺序')
     expect(wrapper.text()).not.toContain('全部能力')
@@ -155,10 +158,13 @@ describe('SectionLandingView', () => {
     permissionState.hasRoutePermission = false
 
     const wrapper = mountView()
+    const emptyPanel = wrapper.findComponent(PanelCardStub)
 
     expect(wrapper.text()).toContain('当前账号暂无可用入口')
     expect(wrapper.text()).toContain('暂无分组入口')
+    expect(emptyPanel.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).not.toContain('接入智维')
+    expect(wrapper.text()).not.toContain('ACCESS STATUS')
     expect(wrapper.text()).not.toContain('最近使用')
     expect(wrapper.text()).not.toContain('推荐处理顺序')
     expect(wrapper.text()).not.toContain('全部能力')

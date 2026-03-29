@@ -196,9 +196,8 @@
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护区域层级与坐标信息。"
+      subtitle="通过右侧抽屉维护区域层级、类型与坐标信息。"
       size="42rem"
       @close="handleDialogClose"
     >

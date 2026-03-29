@@ -44,8 +44,7 @@
       <div class="page-stack">
         <section class="two-column-grid file-payload-debug-view__results">
           <PanelCard
-            eyebrow="文件快照 C.3"
-            title="文件快照校验"
+            title="C.3 文件快照校验"
             description="按时间线核对最近一次 C.3 文件消息是否完整落地。"
           >
             <div v-if="fileSnapshots.length" class="timeline">
@@ -63,8 +62,7 @@
           </PanelCard>
 
           <PanelCard
-            eyebrow="固件聚合 C.4"
-            title="固件聚合校验"
+            title="C.4 固件聚合校验"
             description="按分包进度、完成状态和 MD5 校验结果查看当前聚合情况。"
           >
             <div v-if="firmwareAggregates.length" class="timeline">
@@ -89,13 +87,11 @@
 
         <section class="two-column-grid">
           <ResponsePanel
-            eyebrow="文件快照响应"
-            title="文件快照原始响应"
+            title="C.3 文件快照原始响应"
             :body="fileSnapshots"
           />
           <ResponsePanel
-            eyebrow="固件聚合响应"
-            title="固件聚合原始响应"
+            title="C.4 固件聚合原始响应"
             :body="firmwareAggregates"
           />
         </section>

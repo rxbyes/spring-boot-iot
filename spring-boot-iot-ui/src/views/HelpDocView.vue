@@ -131,7 +131,6 @@
 
       <StandardDetailDrawer
         v-model="detailVisible"
-        eyebrow="System Content"
         :title="detailTitle"
         :subtitle="detailSubtitle"
         :tags="detailTags"
@@ -213,9 +212,8 @@
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护帮助中心消费的文档编排。"
+        subtitle="通过右侧抽屉维护帮助中心消费的文档编排与范围。"
         size="56rem"
         @close="handleDialogClose"
       >

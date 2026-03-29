@@ -412,7 +412,7 @@ const StandardTableToolbarStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue', 'title', 'subtitle', 'loading', 'errorMessage', 'empty'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle', 'loading', 'errorMessage', 'empty'],
   emits: ['update:modelValue'],
   template: `
     <section v-if="modelValue" class="standard-detail-drawer-stub">
@@ -428,7 +428,7 @@ const StandardDetailDrawerStub = defineComponent({
 
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
-  props: ['modelValue', 'title'],
+  props: ['modelValue', 'eyebrow', 'title'],
   emits: ['update:modelValue', 'close'],
   template: `
     <section v-if="modelValue" class="standard-form-drawer-stub">
@@ -739,6 +739,23 @@ describe('InAppMessageView bridge operations', () => {
     expect(wrapper.text()).toContain('桥接记录数')
     expect(wrapper.text()).toContain('待重试')
     expect(wrapper.text()).toContain('微信告警')
+  })
+
+  it('removes the legacy English eyebrow tier from the message governance workbench and drawers', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const panelCard = wrapper.findComponent(PanelCardStub)
+    const detailDrawers = wrapper.findAllComponents(StandardDetailDrawerStub)
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+
+    expect(panelCard.props('eyebrow')).toBeUndefined()
+    expect(detailDrawers.length).toBe(2)
+    expect(detailDrawers.every((item) => item.props('eyebrow') === undefined)).toBe(true)
+    expect(formDrawer.props('eyebrow')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('System Content')
+    expect(wrapper.text()).not.toContain('Bridge Insight')
+    expect(wrapper.text()).not.toContain('System Form')
   })
 
   it('refreshes bridge stats and page together after changing filters', async () => {

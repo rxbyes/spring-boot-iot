@@ -1,7 +1,6 @@
 <template>
   <div class="in-app-message-view sys-mgmt-view standard-list-view">
     <PanelCard
-      eyebrow="System Content"
       title="站内消息管理"
       description="统一治理通知中心的手工广播、系统自动消息来源与消费效果。"
       class="ops-hero-card"
@@ -541,7 +540,6 @@
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="System Content"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :tags="detailTags"
@@ -640,7 +638,6 @@
 
       <StandardDetailDrawer
         v-model="bridgeDetailVisible"
-        eyebrow="Bridge Insight"
         :title="bridgeDetailTitle"
         :subtitle="bridgeDetailSubtitle"
         :tags="bridgeDetailTags"
@@ -803,9 +800,8 @@
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护通知中心消费的站内消息编排。"
+        subtitle="通过右侧抽屉维护站内消息的标题、范围、来源和发布时间。"
         size="56rem"
         @close="handleDialogClose"
       >

@@ -1,34 +1,19 @@
 ﻿<template>
   <div class="ops-workbench rule-definition-view">
-    <PanelCard
-      eyebrow="Threshold Rules"
-      title="阈值策略"
-      description="统一维护告警阈值、持续时间和转事件策略，支撑风险监测的告警触发与处置闭环。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
-      </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="规则总数" :value="String(pagination.total)" :badge="{ label: '阈值治理', tone: 'brand' }" />
-        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
-        <MetricCard label="转事件规则" :value="String(convertToEventCount)" :badge="{ label: '闭环联动', tone: 'warning' }" />
-        <MetricCard label="严重告警规则" :value="String(criticalRuleCount)" :badge="{ label: '重点策略', tone: 'danger' }" />
-      </div>
-      <div class="ops-inline-note">
-        阈值策略与告警等级、通知方式、转事件开关集中呈现，支持通过同一套抽屉表单完成策略维护，减少配置分散感。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
-      title="阈值策略列表"
+      title="阈值策略"
       :description="`当前 ${pagination.total} 条阈值策略，支持告警触发和转事件配置。`"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
+      </template>
+
       <template #filters>
         <StandardListFilterHeader :model="filters">
           <template #primary>
@@ -80,7 +65,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`, `严重 ${criticalRuleCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -149,7 +134,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="Risk Platform Form"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护阈值策略与告警配置。"
       size="44rem"
@@ -253,8 +237,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';

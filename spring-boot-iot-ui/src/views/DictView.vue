@@ -112,9 +112,8 @@
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护字典分类主数据。"
+        subtitle="通过右侧抽屉维护字典分类主数据、状态与排序。"
         size="42rem"
         @close="handleDialogClose"
       >
@@ -157,9 +156,8 @@
 
       <StandardFormDrawer
         v-model="itemsDialogVisible"
-        eyebrow="Dictionary Items"
         :title="currentDictName ? `${currentDictName} 字典项` : '字典项管理'"
-        subtitle="统一通过右侧抽屉查看和维护字典项明细，支持新增、编辑、导出与刷新。"
+        subtitle="通过右侧抽屉查看和维护字典项明细，支持新增、编辑、导出与刷新。"
         size="58rem"
         @close="handleItemsDialogClose"
       >
@@ -218,9 +216,8 @@
 
       <StandardFormDrawer
         v-model="itemDialogVisible"
-        eyebrow="Dictionary Item"
         :title="itemDialogTitle"
-        :subtitle="currentDictName ? `所属字典：${currentDictName}` : '统一通过右侧抽屉维护字典项信息。'"
+        :subtitle="currentDictName ? `所属字典：${currentDictName}` : '通过右侧抽屉维护字典项名称、取值与状态。'"
         size="36rem"
         @close="handleItemDialogClose"
       >

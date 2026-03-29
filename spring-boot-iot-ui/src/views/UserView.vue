@@ -190,9 +190,8 @@
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护用户基础信息。"
+      subtitle="通过右侧抽屉维护账号基础信息、联系方式与启停状态。"
       size="42rem"
       @close="handleDialogClose"
     >

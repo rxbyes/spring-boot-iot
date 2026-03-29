@@ -180,7 +180,6 @@
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="链路追踪详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :tags="detailTags"

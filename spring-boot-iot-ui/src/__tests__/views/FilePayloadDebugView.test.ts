@@ -125,12 +125,21 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
+    const panelCards = wrapper.findAllComponents(PanelCardStub);
+    const responsePanels = wrapper.findAllComponents(ResponsePanelStub);
+
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(panelCards.every((item) => item.props('eyebrow') === undefined)).toBe(true);
+    expect(responsePanels.every((item) => item.props('eyebrow') === undefined)).toBe(true);
     expect(wrapper.text()).toContain('数据校验台');
     expect(wrapper.text()).toContain('文件快照校验');
     expect(wrapper.text()).toContain('固件聚合校验');
     expect(wrapper.text()).toContain('文件快照原始响应');
     expect(wrapper.text()).toContain('固件聚合原始响应');
+    expect(wrapper.text()).not.toContain('文件快照 C.3');
+    expect(wrapper.text()).not.toContain('固件聚合 C.4');
+    expect(wrapper.text()).not.toContain('文件快照响应');
+    expect(wrapper.text()).not.toContain('固件聚合响应');
     expect(wrapper.text()).not.toContain('链路追踪台');
     expect(wrapper.text()).not.toContain('VALIDATION DESK');
   });

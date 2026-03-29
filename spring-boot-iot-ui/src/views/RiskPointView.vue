@@ -1,34 +1,19 @@
 ﻿<template>
   <div class="ops-workbench risk-point-view">
-    <PanelCard
-      eyebrow="Risk Point Workspace"
-      title="风险对象中心"
-      description="统一管理风险点档案、风险等级、启停状态与设备绑定，支撑后续监测、阈值和联动配置。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
-      </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="风险点总数" :value="String(pagination.total)" :badge="{ label: '配置基线', tone: 'brand' }" />
-        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
-        <MetricCard label="当前页严重" :value="String(criticalCount)" :badge="{ label: '优先排查', tone: 'danger' }" />
-        <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: '待复核', tone: 'warning' }" />
-      </div>
-      <div class="ops-inline-note">
-        风险点作为风险平台的基础对象，列表、维护抽屉和绑定设备抽屉已统一为同一套工作台风格，方便值班与治理人员连续操作。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
-      title="风险点列表"
+      title="风险对象中心"
       :description="`当前 ${pagination.total} 条风险点记录，支持档案维护和设备绑定。`"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
+      </template>
+
       <template #filters>
         <StandardListFilterHeader :model="filters">
           <template #primary>
@@ -77,7 +62,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`, `停用 ${disabledCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -139,7 +124,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="Risk Platform Form"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护风险点基础信息。"
       size="42rem"
@@ -213,7 +197,6 @@
 
     <StandardFormDrawer
       v-model="bindDeviceVisible"
-      eyebrow="Risk Platform Form"
       title="绑定设备"
       subtitle="统一通过右侧抽屉为风险点绑定设备与测点。"
       size="42rem"
@@ -268,8 +251,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';

@@ -1,11 +1,10 @@
 <template>
   <StandardWorkbenchPanel
-    eyebrow="FAILURE ARCHIVE"
     title="接入失败归档台"
     description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
     show-filters
     :show-applied-filters="hasAppliedFilters"
-    show-notices
+    :show-inline-state="showInlineState"
     show-toolbar
     show-pagination
   >
@@ -116,23 +115,8 @@
       />
     </template>
 
-    <template #notices>
-      <div class="access-error-notice-grid">
-        <el-alert
-          title="失败归档基于 `iot_device_access_error_log` 查询，可直接查看 failureStage、契约快照和原始报文。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
-        <el-alert
-          :title="statsSummaryText"
-          type="success"
-          :closable="false"
-          show-icon
-          class="stats-alert"
-        />
-      </div>
+    <template #inline-state>
+      <StandardInlineState :message="inlineStateMessage" tone="info" />
     </template>
 
     <template #toolbar>
@@ -146,14 +130,6 @@
         ]"
       >
         <template #right>
-          <StandardButton
-            action="refresh"
-            link
-            :disabled="!canJumpWithSearch"
-            @click="jumpToSystemLog()"
-          >
-            跳转异常观测台
-          </StandardButton>
           <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
         </template>
       </StandardTableToolbar>
@@ -365,6 +341,7 @@ import { accessErrorApi, type DeviceAccessErrorQueryParams } from '@/api/accessE
 import { isHandledRequestError } from '@/api/request';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
+import StandardInlineState from '@/components/StandardInlineState.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
@@ -467,9 +444,6 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
-const canJumpWithSearch = computed(() =>
-  Boolean(appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey || appliedFilters.topic)
-);
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -516,6 +490,13 @@ const statsSummaryText = computed(() => {
   const topProtocol = accessErrorStats.value.topProtocolCodes[0]?.label || '--';
   return `失败总量 ${accessErrorStats.value.total}，近1小时 ${accessErrorStats.value.recentHourCount}，近24小时 ${accessErrorStats.value.recent24HourCount}，Trace ${accessErrorStats.value.distinctTraceCount}，高频阶段 ${topStage}，高频协议 ${topProtocol}`;
 });
+const inlineStateMessage = computed(() => {
+  const sourceText = restoredDiagnosticContext.value
+    ? '已承接关联排障上下文'
+    : '失败归档基于 iot_device_access_error_log 查询';
+  return `${sourceText} · ${statsSummaryText.value}`;
+});
+const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;

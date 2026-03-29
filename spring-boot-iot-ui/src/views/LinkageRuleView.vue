@@ -1,34 +1,19 @@
 ﻿<template>
   <div class="ops-workbench linkage-rule-view">
-    <PanelCard
-      eyebrow="Linkage Workflow"
-      title="联动编排"
-      description="统一维护联动触发条件与动作编排，让阈值告警、通知与应急处置能够在同一工作台中连贯配置。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
-      </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="规则总数" :value="String(pagination.total)" :badge="{ label: '联动编排', tone: 'brand' }" />
-        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '已生效', tone: 'success' }" />
-        <MetricCard label="已配触发条件" :value="String(triggerConfiguredCount)" :badge="{ label: '触发链路', tone: 'warning' }" />
-        <MetricCard label="已配动作列表" :value="String(actionConfiguredCount)" :badge="{ label: '执行动作', tone: 'danger' }" />
-      </div>
-      <div class="ops-inline-note">
-        联动编排负责把告警触发、动作执行和通知联动串起来，当前列表页已与其他风险平台页面统一为同一套工作台视觉骨架。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
-      title="联动编排列表"
+      title="联动编排"
       :description="`当前 ${pagination.total} 条联动编排，支持动作编排与启停管理。`"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
+      </template>
+
       <template #filters>
         <StandardListFilterHeader :model="filters">
           <template #primary>
@@ -70,7 +55,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `已配动作 ${actionConfiguredCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `触发条件 ${triggerConfiguredCount} 项`, `已配动作 ${actionConfiguredCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -134,7 +119,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="Risk Platform Form"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护联动编排与动作编排。"
       size="44rem"
@@ -201,8 +185,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';

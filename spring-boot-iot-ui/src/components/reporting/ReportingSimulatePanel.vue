@@ -3,7 +3,6 @@
     <template #header>
       <div class="reporting-workspace-card__header">
         <div class="reporting-workspace-card__heading">
-          <p class="reporting-workspace-card__eyebrow">SIMULATION LAB</p>
           <h2 class="reporting-workspace-card__title">模拟上报</h2>
           <p class="reporting-workspace-card__description">
             按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
@@ -36,15 +35,6 @@ import PanelCard from '@/components/PanelCard.vue';
 
 .reporting-workspace-card__heading {
   min-width: 0;
-}
-
-.reporting-workspace-card__eyebrow {
-  margin: 0 0 0.28rem;
-  color: var(--brand);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .reporting-workspace-card__title {

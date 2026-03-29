@@ -121,9 +121,10 @@ const StandardActionLinkStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['size', 'title', 'subtitle'],
+  props: ['size', 'eyebrow', 'title', 'subtitle'],
   template: `
     <section class="product-detail-drawer-stub" :data-size="size">
+      <p v-if="eyebrow" class="product-detail-drawer-stub__eyebrow">{{ eyebrow }}</p>
       <h2 class="product-detail-drawer-stub__title">{{ title }}</h2>
       <p class="product-detail-drawer-stub__subtitle">{{ subtitle }}</p>
       <div class="product-detail-drawer-stub__header-actions"><slot name="header-actions" /></div>
@@ -142,6 +143,12 @@ const ProductDetailWorkbenchStub = defineComponent({
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
   template: '<section class="product-form-drawer-stub"><slot /><slot name="footer" /></section>'
+})
+
+const DeviceListDrawerStub = defineComponent({
+  name: 'DeviceListDrawer',
+  props: ['eyebrow', 'title'],
+  template: '<section class="device-list-drawer-stub">{{ title }}</section>'
 })
 
 const StandardButtonStub = defineComponent({
@@ -217,7 +224,7 @@ function mountView() {
         StandardPagination: true,
         StandardTableTextColumn: true,
         CsvColumnSettingDialog: true,
-        DeviceListDrawer: true,
+        DeviceListDrawer: DeviceListDrawerStub,
         EmptyState: true
       }
     }
@@ -251,7 +258,12 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    const deviceListDrawer = wrapper.findComponent(DeviceListDrawerStub)
+
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(detailDrawer.props('eyebrow')).toBeUndefined()
+    expect(deviceListDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')

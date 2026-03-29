@@ -191,9 +191,8 @@
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护组织机构主数据。"
+      subtitle="通过右侧抽屉维护组织层级、负责人和状态。"
       size="42rem"
       @close="handleDialogClose"
     >

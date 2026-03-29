@@ -201,10 +201,11 @@ const StandardActionLinkStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue', 'title', 'subtitle', 'empty'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle', 'empty'],
   emits: ['update:modelValue'],
   template: `
     <section v-if="modelValue" class="message-trace-detail-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
       <h3>{{ title }}</h3>
       <p>{{ subtitle }}</p>
       <slot />
@@ -539,8 +540,11 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
+
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
+    expect(detailDrawer.props('eyebrow')).toBeUndefined();
     expect(messageApi.getMessageFlowOpsOverview).not.toHaveBeenCalled();
     expect(messageApi.getMessageFlowRecentSessions).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('链路追踪台');
