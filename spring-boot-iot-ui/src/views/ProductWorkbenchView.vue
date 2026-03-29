@@ -693,7 +693,7 @@ const formTitle = computed(() => (editingProductId.value ? '编辑产品' : '新
 const submitButtonText = computed(() => (editingProductId.value ? '保存' : '新增'))
 const submitPermission = computed(() => (editingProductId.value ? 'iot:products:update' : 'iot:products:add'))
 const detailTitle = computed(() => detailData.value?.productName || detailData.value?.productKey || '产品详情')
-const detailSubtitle = computed(() => '按设备规模、活跃趋势、接入契约与维护治理分组查看。')
+const detailSubtitle = computed(() => '按设备规模、活跃趋势、接入契约与产品档案、维护治理四段结构查看。')
 const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)

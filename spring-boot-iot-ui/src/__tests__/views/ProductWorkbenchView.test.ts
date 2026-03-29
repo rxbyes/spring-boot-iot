@@ -121,9 +121,11 @@ const StandardActionLinkStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['size'],
+  props: ['size', 'title', 'subtitle'],
   template: `
     <section class="product-detail-drawer-stub" :data-size="size">
+      <h2 class="product-detail-drawer-stub__title">{{ title }}</h2>
+      <p class="product-detail-drawer-stub__subtitle">{{ subtitle }}</p>
       <div class="product-detail-drawer-stub__header-actions"><slot name="header-actions" /></div>
       <div class="product-detail-drawer-stub__body"><slot /></div>
       <div class="product-detail-drawer-stub__footer"><slot name="footer" /></div>
@@ -338,6 +340,8 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(wrapper.get('.product-detail-drawer-stub').attributes('data-size')).toBe('60rem')
+    expect(wrapper.get('.product-detail-drawer-stub__title').text()).toBe('演示产品')
+    expect(wrapper.get('.product-detail-drawer-stub__subtitle').text()).toContain('四段结构查看')
     expect(wrapper.get('.product-detail-workbench-stub').text()).toContain('演示产品')
     expect(wrapper.text()).toContain('编辑')
     expect(wrapper.text()).toContain('查看设备')
