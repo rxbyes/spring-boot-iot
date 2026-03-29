@@ -113,9 +113,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav>
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -254,7 +251,6 @@ describe('ReportWorkbenchView', () => {
     const wrapper = mountView();
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.text()).toContain('接入智维');
     expect(wrapper.text()).toContain('链路验证中心');
     expect(wrapper.text()).toContain('SIMULATION LAB');
     expect(wrapper.text()).toContain('模拟上报');
@@ -725,6 +721,7 @@ describe('ReportWorkbenchView', () => {
       transportMode: 'http'
     });
     expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
+    expect(wrapper.find('.reporting-diagnostic-links').exists()).toBe(false);
   });
 
   it('forwards current diagnostic query when continuing to message trace', async () => {

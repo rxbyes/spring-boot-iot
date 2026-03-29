@@ -18,12 +18,11 @@
 
         <StandardWorkbenchPanel
           v-else
-          eyebrow="TRACE CENTER"
           title="链路追踪台"
           description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
           show-filters
           :show-applied-filters="hasAppliedFilters"
-          show-notices
+          :show-inline-state="showTraceInlineState"
           show-toolbar
           show-pagination
         >
@@ -105,8 +104,8 @@
           />
         </template>
 
-        <template #notices>
-          <div class="ops-inline-note">{{ traceRuleSummary }} · {{ traceStripStatus }}</div>
+        <template v-if="showTraceInlineState" #inline-state>
+          <StandardInlineState :message="traceInlineMessage" tone="info" />
         </template>
 
         <template #toolbar>
@@ -161,104 +160,6 @@
             </template>
           </el-table-column>
         </el-table>
-
-        <div class="message-trace-support-grid">
-          <PanelCard
-            class="message-trace-ops-card"
-            eyebrow="message-flow"
-            title="运维看板"
-            description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
-          >
-            <div v-if="opsLoading" class="message-trace-ops-empty">
-              正在加载 message-flow 运维指标...
-            </div>
-            <template v-else>
-              <section class="message-trace-ops-metrics">
-                <MetricCard
-                  v-for="item in opsOverviewMetrics"
-                  :key="item.label"
-                  :label="item.label"
-                  :value="item.value"
-                  :badge="item.badge"
-                  size="compact"
-                />
-              </section>
-              <div class="message-trace-ops-runtime">
-                runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
-              </div>
-              <div class="message-trace-stage-table-wrapper">
-                <table class="message-trace-stage-table">
-                  <thead>
-                    <tr>
-                      <th>阶段</th>
-                      <th>执行</th>
-                      <th>失败</th>
-                      <th>跳过</th>
-                      <th>平均耗时</th>
-                      <th>P95</th>
-                      <th>最大耗时</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
-                      <td>{{ stage.stage }}</td>
-                      <td>{{ formatCount(stage.count) }}</td>
-                      <td>{{ formatCount(stage.failureCount) }}</td>
-                      <td>{{ formatCount(stage.skippedCount) }}</td>
-                      <td>{{ formatCost(stage.avgCostMs) }}</td>
-                      <td>{{ formatCost(stage.p95CostMs) }}</td>
-                      <td>{{ formatCost(stage.maxCostMs) }}</td>
-                    </tr>
-                    <tr v-if="opsOverview.stageMetrics.length === 0">
-                      <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </template>
-          </PanelCard>
-
-          <PanelCard
-            class="message-trace-ops-card"
-            eyebrow="message-flow"
-            title="最近会话"
-            description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
-          >
-            <div class="message-trace-recent-toolbar">
-              <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
-                刷新最近会话
-              </StandardButton>
-            </div>
-            <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
-              正在加载最近会话...
-            </div>
-            <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
-              当前还没有可带入的 message-flow 会话。
-            </div>
-            <div v-else class="message-trace-recent-list">
-              <button
-                v-for="session in recentMessageFlowSessions"
-                :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
-                type="button"
-                class="message-trace-recent-item"
-                @click="applyRecentMessageFlowSession(session)"
-              >
-                <div class="message-trace-recent-item__header">
-                  <strong>{{ session.sessionId || '--' }}</strong>
-                  <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
-                </div>
-                <div class="message-trace-recent-item__meta">
-                  <span>{{ session.deviceCode || '--' }}</span>
-                  <span>{{ formatDateTime(session.submittedAt) }}</span>
-                </div>
-                <div class="message-trace-recent-item__meta">
-                  <span>{{ session.topic || '--' }}</span>
-                  <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
-                </div>
-              </button>
-            </div>
-          </PanelCard>
-        </div>
 
         <template #pagination>
           <div v-if="pagination.total > 0" class="ops-pagination">
@@ -408,11 +309,10 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
+import StandardInlineState from '@/components/StandardInlineState.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
@@ -433,8 +333,6 @@ import {
 } from '@/utils/iotAccessDiagnostics';
 import type {
   DeviceMessageLog,
-  MessageFlowOpsOverview,
-  MessageFlowRecentSession,
   MessageFlowTimeline,
   MessageTraceStats
 } from '@/types/api';
@@ -445,7 +343,7 @@ type ObservabilityViewMode = 'message-trace' | 'access-error';
 const route = useRoute();
 const router = useRouter();
 const pageModeOptions = [
-  { key: 'message-trace', label: '链路追踪台' },
+  { key: 'message-trace', label: '链路追踪' },
   { key: 'access-error', label: '失败归档' }
 ];
 const pageMode = computed<ObservabilityViewMode>(() =>
@@ -483,8 +381,6 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTo
 const loading = ref(false);
 const statsLoading = ref(false);
 const timelineLoading = ref(false);
-const opsLoading = ref(false);
-const recentSessionsLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
@@ -505,15 +401,6 @@ const createEmptyTraceStats = (): MessageTraceStats => ({
   topTopics: []
 });
 const traceStats = ref<MessageTraceStats>(createEmptyTraceStats());
-const createEmptyOpsOverview = (): MessageFlowOpsOverview => ({
-  runtimeStartedAt: '',
-  sessionCounts: [],
-  correlationCounts: [],
-  lookupCounts: [],
-  stageMetrics: []
-});
-const opsOverview = ref<MessageFlowOpsOverview>(createEmptyOpsOverview());
-const recentMessageFlowSessions = ref<MessageFlowRecentSession[]>([]);
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
 const timelineExpired = computed(() =>
@@ -606,67 +493,26 @@ const traceRuleSummary = computed(() => {
     return '时间线查询异常，优先排查 Redis / message-flow 存储';
   }
   if (timelineExpired.value) {
-    return '时间线已过期';
+    return '时间线已过期，仅保留消息日志。';
   }
   if (appliedFilters.traceId && tableData.value.length > 0) {
     return '当前 Trace 可继续查 system_error';
   }
-  if (!appliedFilters.traceId && recentMessageFlowSessions.value.length > 0) {
-    return 'Trace 缺失，优先恢复最近会话';
+  if (restoredDiagnosticContext.value) {
+    return '已恢复跨页排查上下文，可继续联动定位。';
   }
-  return '先看 TraceId，再看最近会话';
+  return '按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。';
 });
-const traceStripStatus = computed(() => {
+const traceInlineMessage = computed(() => {
   const contextSource = restoredDiagnosticContext.value
     ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
     : '';
   if (statsLoading.value) {
-    return contextSource ? `${contextSource}，当前模式：链路追踪，统计加载中。` : '当前模式：链路追踪，统计加载中。';
+    return [contextSource, '链路追踪统计加载中。'].filter(Boolean).join(' · ');
   }
-  const statsSummary = `当前模式：链路追踪，近1小时 ${traceStats.value.recentHourCount} 条，近24小时 ${traceStats.value.recent24HourCount} 条，失败摘要 ${traceStats.value.dispatchFailureCount} 条。`;
-  return contextSource ? `${contextSource}，${statsSummary}` : statsSummary;
+  return [contextSource, traceRuleSummary.value].filter(Boolean).join(' · ');
 });
-const opsOverviewMetrics = computed(() => {
-  const completedCount = sumSessionCount('COMPLETED');
-  const failedCount = sumSessionCount('FAILED');
-  const publishedCount = sumCorrelationCount('published');
-  const matchedCount = sumCorrelationCount('matched');
-  const missedCount = sumCorrelationCount('missed');
-  const lookupErrorCount = sumLookupCount('error');
-
-  return [
-    {
-      label: '完成链路',
-      value: formatCount(completedCount),
-      badge: { label: 'COMPLETED', tone: 'success' as const }
-    },
-    {
-      label: '失败链路',
-      value: formatCount(failedCount),
-      badge: { label: failedCount > 0 ? '需关注' : '稳定', tone: failedCount > 0 ? 'danger' as const : 'muted' as const }
-    },
-    {
-      label: '关联发布',
-      value: formatCount(publishedCount),
-      badge: { label: 'PUBLISHED', tone: 'brand' as const }
-    },
-    {
-      label: '关联命中',
-      value: formatCount(matchedCount),
-      badge: { label: matchedCount >= publishedCount && publishedCount > 0 ? '良好' : '持续观察', tone: matchedCount >= publishedCount && publishedCount > 0 ? 'success' as const : 'warning' as const }
-    },
-    {
-      label: '关联超时',
-      value: formatCount(missedCount),
-      badge: { label: missedCount > 0 ? 'MISS' : '无超时', tone: missedCount > 0 ? 'warning' as const : 'muted' as const }
-    },
-    {
-      label: 'Lookup 异常',
-      value: formatCount(lookupErrorCount),
-      badge: { label: lookupErrorCount > 0 ? '异常' : '正常', tone: lookupErrorCount > 0 ? 'danger' as const : 'success' as const }
-    }
-  ];
-});
+const showTraceInlineState = computed(() => Boolean(traceInlineMessage.value));
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;
@@ -801,51 +647,6 @@ async function loadTraceStats() {
   }
 }
 
-async function loadOpsOverview() {
-  if (!isMessageTraceMode.value) {
-    return;
-  }
-  opsLoading.value = true;
-  try {
-    opsOverview.value = createEmptyOpsOverview();
-    const response = await messageApi.getMessageFlowOpsOverview();
-    if (response.code === 200 && response.data) {
-      opsOverview.value = {
-        ...createEmptyOpsOverview(),
-        ...response.data,
-        sessionCounts: response.data.sessionCounts || [],
-        correlationCounts: response.data.correlationCounts || [],
-        lookupCounts: response.data.lookupCounts || [],
-        stageMetrics: response.data.stageMetrics || []
-      };
-    }
-  } catch (error) {
-    opsOverview.value = createEmptyOpsOverview();
-    ElMessage.error(error instanceof Error ? error.message : '获取 message-flow 运维指标失败');
-  } finally {
-    opsLoading.value = false;
-  }
-}
-
-async function loadRecentMessageFlowSessions() {
-  if (!isMessageTraceMode.value) {
-    return;
-  }
-  recentSessionsLoading.value = true;
-  try {
-    recentMessageFlowSessions.value = [];
-    const response = await messageApi.getMessageFlowRecentSessions({ size: 8 });
-    if (response.code === 200) {
-      recentMessageFlowSessions.value = response.data || [];
-    }
-  } catch (error) {
-    recentMessageFlowSessions.value = [];
-    ElMessage.error(error instanceof Error ? error.message : '获取最近 message-flow 会话失败');
-  } finally {
-    recentSessionsLoading.value = false;
-  }
-}
-
 function resetSearchForm() {
   searchForm.deviceCode = '';
   searchForm.productKey = '';
@@ -879,8 +680,6 @@ function handleReset() {
 function handleRefresh() {
   loadTableData();
   loadTraceStats();
-  loadOpsOverview();
-  loadRecentMessageFlowSessions();
 }
 
 function handleQuickSearch() {
@@ -922,26 +721,6 @@ function openDetail(row: DeviceMessageLog) {
   detailVisible.value = true;
   detailTimelineLookupError.value = false;
   loadDetailTimeline(row.traceId);
-}
-
-function applyRecentMessageFlowSession(session: MessageFlowRecentSession) {
-  resetSearchForm();
-  searchForm.deviceCode = session.deviceCode || '';
-  searchForm.topic = session.topic || '';
-  if (session.traceId) {
-    searchForm.traceId = session.traceId;
-    quickSearchKeyword.value = session.traceId;
-  } else {
-    searchForm.traceId = '';
-    quickSearchKeyword.value = '';
-  }
-  syncAdvancedFilterState();
-  persistCurrentDiagnosticContext({
-    traceId: session.traceId || null,
-    deviceCode: session.deviceCode || null,
-    topic: session.topic || null
-  });
-  triggerSearch(true);
 }
 
 function canJumpWithRow(row: DeviceMessageLog) {
@@ -1028,35 +807,6 @@ async function loadDetailTimeline(traceId?: string | null) {
   }
 }
 
-function sumSessionCount(status: string) {
-  return opsOverview.value.sessionCounts
-    .filter((item) => String(item.status || '').toUpperCase() === status)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function sumCorrelationCount(result: string) {
-  return opsOverview.value.correlationCounts
-    .filter((item) => String(item.result || '').toLowerCase() === result)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function sumLookupCount(result: string) {
-  return opsOverview.value.lookupCounts
-    .filter((item) => String(item.result || '').toLowerCase() === result)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function formatCount(value?: number | null) {
-  return `${Number(value || 0)}`;
-}
-
-function formatCost(value?: number | null) {
-  if (value === undefined || value === null) {
-    return '--';
-  }
-  return `${Math.round(Number(value) * 10) / 10} ms`;
-}
-
 watch(
   () => [
     route.query.mode,
@@ -1078,8 +828,6 @@ watch(
     syncAppliedFilters();
     loadTableData();
     loadTraceStats();
-    loadOpsOverview();
-    loadRecentMessageFlowSessions();
   }
 );
 
@@ -1101,8 +849,6 @@ onMounted(() => {
   syncAppliedFilters();
   loadTableData();
   loadTraceStats();
-  loadOpsOverview();
-  loadRecentMessageFlowSessions();
 });
 </script>
 

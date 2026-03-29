@@ -10,13 +10,12 @@
     />
 
     <StandardWorkbenchPanel
-      :eyebrow="isSystemMode ? 'OBSERVABILITY DESK' : undefined"
       :title="panelTitle"
       :description="pageDescription"
       show-filters
       :show-applied-filters="hasAppliedFilters"
-      :show-notices="isSystemMode"
       show-toolbar
+      :show-inline-state="showSystemInlineState"
       show-pagination
     >
       <template #filters>
@@ -146,8 +145,8 @@
         />
       </template>
 
-      <template v-if="isSystemMode" #notices>
-        <div class="ops-inline-note">{{ systemStripStatus }}</div>
+      <template v-if="showSystemInlineState" #inline-state>
+        <StandardInlineState :message="systemInlineMessage" tone="info" />
       </template>
 
       <template #toolbar>
@@ -294,6 +293,7 @@ import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
@@ -517,7 +517,7 @@ const systemFindingSummary = computed(() => {
   }
   return '建议回到链路追踪或失败归档继续排查。'
 })
-const systemStripStatus = computed(() => {
+const systemInlineMessage = computed(() => {
   const sourceLabel = restoredDiagnosticContext.value
     ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
     : ''
@@ -530,6 +530,7 @@ const systemStripStatus = computed(() => {
     systemFindingSummary.value
   ].filter(Boolean).join(' · ')
 })
+const showSystemInlineState = computed(() => isSystemMode.value && Boolean(systemInlineMessage.value))
 
 // 详情对话框
 const detailVisible = ref(false)

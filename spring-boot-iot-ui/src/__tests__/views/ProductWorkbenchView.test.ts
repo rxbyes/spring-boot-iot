@@ -92,9 +92,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav class="iot-access-page-shell-stub__breadcrumbs">
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -239,17 +236,16 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
-  it('renders the product page inside the two-level access shell', async () => {
+  it('renders the product page inside the two-level access shell without the legacy eyebrow tier', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('产品定义中心')
-    expect(wrapper.text()).toContain('PRODUCT CENTER')
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')
+    expect(wrapper.text()).not.toContain('PRODUCT CENTER')
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {

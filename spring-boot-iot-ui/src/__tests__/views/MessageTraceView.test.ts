@@ -69,6 +69,7 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div><slot name="applied-filters" /></div>
       <div><slot name="notices" /></div>
       <div><slot name="toolbar" /></div>
+      <div><slot name="inline-state" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
     </section>
@@ -80,9 +81,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav>
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -536,24 +534,22 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('renders the trace page with breadcrumb shell and business tabs', async () => {
+  it('renders the trace page with only real trace tabs and without support zones', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
-    expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
-    expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
-    expect(wrapper.text()).toContain('接入智维');
+    expect(messageApi.getMessageFlowOpsOverview).not.toHaveBeenCalled();
+    expect(messageApi.getMessageFlowRecentSessions).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('链路追踪台');
-    expect(wrapper.text()).toContain('TRACE CENTER');
-    expect(wrapper.text()).toContain('完成链路 3');
-    expect(wrapper.text()).toContain('关联发布 4');
-    expect(wrapper.text()).toContain('运维看板');
-    expect(wrapper.text()).toContain('最近会话');
-    expect(wrapper.text()).toContain('session-recent-001');
-    expect(wrapper.text()).toContain('INGRESS');
+    expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.text()).toContain('TraceId');
+    expect(wrapper.text()).toContain('按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。');
+    expect(wrapper.text()).not.toContain('TRACE CENTER');
+    expect(wrapper.text()).not.toContain('运维看板');
+    expect(wrapper.text()).not.toContain('最近会话');
     expect(wrapper.text()).not.toContain('异常观测台');
     expect(wrapper.text()).not.toContain('数据校验台');
   });
@@ -733,29 +729,13 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
   });
 
-  it('clears stale product filters when restoring a recent message-flow session', async () => {
-    mockRoute.query = {
-      productKey: 'stale-product-01',
-      messageType: 'reply'
-    };
-
+  it('does not render recent-session restore affordances in the simplified trace layout', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, 'session-recent-001')!.trigger('click');
-    await flushPromises();
-    await nextTick();
-
-    expect(messageApi.pageMessageTraceLogs).toHaveBeenLastCalledWith(expect.objectContaining({
-      traceId: 'trace-recent-001',
-      productKey: '',
-      messageType: ''
-    }));
-    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
-    expect(persistedRaw).toBeTruthy();
-    const persistedContext = JSON.parse(persistedRaw as string);
-    expect(persistedContext.context.productKey).toBeUndefined();
+    expect(wrapper.text()).not.toContain('session-recent-001');
+    expect(messageApi.getMessageFlowRecentSessions).not.toHaveBeenCalled();
   });
 
   it('shows a storage-specific rule summary after timeline lookup errors', async () => {

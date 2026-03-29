@@ -1,6 +1,10 @@
 <template>
   <section class="iot-access-page-shell">
-    <nav v-if="breadcrumbs.length" class="iot-access-page-shell__breadcrumbs" aria-label="页面层级">
+    <nav
+      v-if="breadcrumbs.length"
+      class="iot-access-page-shell__breadcrumbs"
+      aria-label="页面层级"
+    >
       <template v-for="(item, index) in breadcrumbs" :key="`${item.label}-${index}`">
         <RouterLink
           v-if="item.to"
@@ -36,7 +40,6 @@
 
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
-import { RouterLink } from 'vue-router'
 
 export interface IotAccessPageShellBreadcrumb {
   label: string
@@ -69,17 +72,25 @@ const showHeadline = computed(() => props.showTitle || Boolean(props.description
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.34rem;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .iot-access-page-shell__breadcrumb-item {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
-  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.iot-access-page-shell__breadcrumb-item:not(:last-child)::after {
+  content: "/";
+  color: var(--text-disabled);
 }
 
 .iot-access-page-shell__breadcrumb-item--link {
+  color: var(--text-tertiary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }

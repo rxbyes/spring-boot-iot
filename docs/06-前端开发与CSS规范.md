@@ -95,7 +95,7 @@
 16. `StandardActionLink` + `StandardActionMenu` + `StandardRowActions`：统一表格/卡片操作列中的“详情 / 编辑 / 更多”类轻操作语法、颜色和布局。
 17. `StandardChoiceGroup`：统一“点击前 / 点击后”状态切换按钮的未选中、悬浮、选中样式；当前优先用于链路验证中心的传输方式与上报模式切换，后续同类 pill/toggle 交互优先复用。
 18. `StandardInlineState`：统一工作台顶部或列表内联提示，优先承接查询反馈、诊断来源提示、轻量刷新状态和空列表前的下一步建议。
-19. `IotAccessPageShell` + `IotAccessTabWorkspace`：统一 `接入智维` 资产/诊断子页的面包屑外壳与真业务页签；单主列表页默认只保留面包屑层和主工作台层，不再重复渲染中间页标题或私有伪页签。
+19. `IotAccessPageShell` + `IotAccessTabWorkspace`：统一 `接入智维` 资产/诊断子页的轻量标题壳与真业务页签；页面定位统一依赖全局 `ShellBreadcrumb`，`IotAccessPageShell` 不再重复渲染同路径页内面包屑。单主列表页默认只保留全局面包屑层和主工作台层，不再重复渲染中间页标题或私有伪页签。
 20. `IotAccessResultSection`、`IotAccessFilterBar`：已废弃，不再作为 `接入智维` 正文结构组件回流。
 
 补充规则：
@@ -113,7 +113,7 @@
 
 - `接入智维` 一级模块当前统一采用“轻量标题壳 / 入口筛选 + 单主内容区”的页面语法；总览页只保留 `资产底座 / 诊断排障` 真业务页签、最近使用和全部能力，子页不得重复模块目录或能力墙。
 - 新增接入侧页面时先判断是否真的存在两个及以上高频业务视图：`/device-access`、`/reporting`、`/message-trace`、`/file-debug` 可复用 `IotAccessTabWorkspace`，`/products`、`/devices`、`/system-log` 应保持单主列表 / 单主结果页，不再自起假工作区或说明型页签。
-- `接入智维` 下的 `产品定义中心`、`设备资产中心`、`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台`，当前统一采用 `IotAccessPageShell(showTitle=false) + StandardWorkbenchPanel` 的两层结构；不得再加回页面主标题层、说明墙或中间一级大标题。
+- `接入智维` 下的 `产品定义中心`、`设备资产中心`、`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台`，当前统一采用“全局 `ShellBreadcrumb` + 页面主工作台”的两层结构；`IotAccessPageShell` 仅保留可选 headline / body 壳，不再输出第二条页内面包屑。不得再加回页面主标题层、说明墙、中间一级大标题或同路径重复导航条。
 - `产品定义中心`、`设备资产中心`、`异常观测台` 这类单主列表页，不得再出现“分组末级 / 页头标题 / 主卡标题”三层重复引导；主卡标题应直接对应当前主列表语义，并统一使用 `StandardWorkbenchPanel.titleVariant=section` 的二级标题样式。当前基线为：`/products=产品定义中心`、`/devices=设备台账`、`/system-log=异常台账`。
 - `产品定义中心`、`设备资产中心` 顶部文案必须保持资产治理语气，主战区仍是台账和治理动作；`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台` 顶部文案必须保持诊断语气，主战区直接进入验证、追踪或校验结果。
 - 当同一路由需要两个及以上真实业务视图时，模式切换统一放在面包屑下方的 `IotAccessTabWorkspace`；不得再把模式切换伪装成右上角命令菜单、header-actions 假页签或页面私有 pill。

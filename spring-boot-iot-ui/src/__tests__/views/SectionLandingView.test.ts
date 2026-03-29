@@ -72,9 +72,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav>
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -145,7 +142,6 @@ describe('SectionLandingView', () => {
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('资产底座')
     expect(wrapper.text()).toContain('诊断排障')
     expect(wrapper.text()).toContain('产品定义中心')

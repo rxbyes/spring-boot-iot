@@ -8,24 +8,6 @@
       :show-title="false"
     />
 
-    <section
-      v-if="canContinueTrace || canViewSystemLog || canOpenFileDebug"
-      class="reporting-diagnostic-links"
-    >
-      <p class="reporting-diagnostic-links__hint">{{ reportingStripStatus }}</p>
-      <StandardActionGroup gap="sm">
-        <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
-          继续链路追踪
-        </StandardButton>
-        <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
-          查看异常观测
-        </StandardButton>
-        <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
-          打开数据校验
-        </StandardButton>
-      </StandardActionGroup>
-    </section>
-
     <section class="reporting-main-layout">
       <PanelCard class="reporting-surface reporting-surface--compose">
         <template #header>
@@ -274,6 +256,27 @@
               {{ note }}
             </li>
           </ul>
+
+          <div class="reporting-diagnostic-follow-up">
+            <StandardInlineState
+              tone="info"
+              :message="`${currentDiagnosticFinding.title} · ${currentDiagnosticFinding.summary}`"
+            />
+            <StandardActionGroup
+              v-if="canContinueTrace || canViewSystemLog || canOpenFileDebug"
+              gap="sm"
+            >
+              <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
+                继续链路追踪
+              </StandardButton>
+              <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
+                查看异常观测
+              </StandardButton>
+              <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
+                打开数据校验
+              </StandardButton>
+            </StandardActionGroup>
+          </div>
         </section>
 
         <section class="reporting-section">
@@ -794,11 +797,6 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     reason: '设备身份上下文缺失，无法稳定关联后续诊断。',
     nextActionLabel: '查询设备'
   };
-});
-
-const reportingStripStatus = computed(() => {
-  const deviceLabel = currentDiagnosticContext.value.deviceCode || '未查询';
-  return `${currentDiagnosticFinding.value.title} · ${currentDiagnosticFinding.value.summary}（设备 ${deviceLabel}）`;
 });
 
 const canContinueTrace = computed(() => Boolean(currentDiagnosticContext.value.traceId));
@@ -1528,22 +1526,10 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-diagnostic-links {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 13px;
-  background: var(--surface-soft);
-}
-
-.reporting-diagnostic-links__hint {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.6;
+.reporting-diagnostic-follow-up {
+  display: grid;
+  gap: 0.72rem;
+  margin-top: 0.9rem;
 }
 
 .reporting-main-layout {
@@ -1990,12 +1976,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .reporting-diagnostic-links {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .reporting-diagnostic-links :deep(.standard-action-group) {
+  .reporting-diagnostic-follow-up :deep(.standard-action-group) {
     justify-content: flex-start;
   }
 

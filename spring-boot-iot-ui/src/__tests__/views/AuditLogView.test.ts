@@ -89,6 +89,7 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div><slot name="applied-filters" /></div>
       <div><slot name="notices" /></div>
       <div><slot name="toolbar" /></div>
+      <div><slot name="inline-state" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
     </section>
@@ -100,9 +101,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav>
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -331,18 +329,16 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('renders the anomaly page inside the two-level access shell', async () => {
+  it('renders the anomaly page list-first without the legacy eyebrow tier', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.text()).toContain('接入智维');
-    expect(wrapper.text()).toContain('异常观测台');
     expect(wrapper.text()).toContain('异常台账');
-    expect(wrapper.text()).toContain('OBSERVABILITY DESK');
     expect(wrapper.text()).toContain('链路追踪台');
     expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.text()).not.toContain('OBSERVABILITY DESK');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {

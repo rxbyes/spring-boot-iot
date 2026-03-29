@@ -103,6 +103,8 @@ com.ghlzm.iot
 - 修改前端文本、标签、占位符、注释或文档后，必须自检是否出现 `鍒�`、`褰�`、`璇�`、`鐢�` 这类乱码，发现后必须修复。
 - 新的页面优化工作必须优先复用现有共享页面模式：`PanelCard`、`StandardWorkbenchPanel`、`StandardListFilterHeader`、`StandardPagination`、`useServerPagination`、`StandardTableToolbar`、`StandardTableTextColumn`、`StandardDetailDrawer`、`StandardFormDrawer`、`StandardDrawerFooter`、`confirmAction`、`StandardInlineState`、`IotAccessPageShell`、`IotAccessTabWorkspace`、共享全局列表样式和现有设计令牌。若现有标准模式已经适配，不要再新增页面私有列表 / 分页 / 详情弹层样式。
 - `接入智维` 下的页面如果存在多个并列内容域，只有在确有两个及以上真实业务视图时才使用同页 Tab 工作区表达，不要再新增页面私有 pill、假页签、说明墙或二级轻路由；同一路由 query 变更必须复用共享滚动行为，避免筛选 / 分页 / Tab 同步后内容区跳顶。
+- `接入智维` 单主列表页统一只保留“全局壳层面包屑 + 当前模块主工作台”两层结构；`IotAccessPageShell` 不得再为同一路径重复渲染页内面包屑，中间重复层级、说明墙、第三层标题壳和第二条“接入智维 / 当前模块”导航条以后都不得回流。
+- `链路追踪台`、`数据校验台`、`链路验证中心` 等诊断页顶部不得再回流右上角跨页功能菜单；跨页协同统一下沉到正文判断区、行级动作、详情抽屉提示或来源上下文恢复，不要再把 `异常观测台 / 数据校验台 / 链路追踪台` 一类按钮放回页头。
 - 总览、工作台、抽屉和确认弹窗交互必须保持统一品牌 / 强调配色体系。除非产品需求明确记录例外，否则不要再为单页引入新的蓝 / 橙 / 紫色私有配色。
 - 如果前端改动引入或暴露了样式漂移、重复列表布局或分页行为不一致问题，结束任务前必须把问题和预防规则记录到 `docs/15-前端优化与治理计划.md`。
 

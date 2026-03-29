@@ -9,7 +9,6 @@
     />
 
     <StandardWorkbenchPanel
-      eyebrow="PRODUCT CENTER"
       title="产品定义中心"
       description="统一维护产品台账、协议绑定与接入契约。"
       show-filters

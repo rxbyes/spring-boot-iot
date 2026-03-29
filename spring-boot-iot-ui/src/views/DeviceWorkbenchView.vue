@@ -9,7 +9,6 @@
     />
 
     <StandardWorkbenchPanel
-      eyebrow="DEVICE ASSET"
       title="设备台账"
       description="统一维护设备主数据、在线状态与登记信息。"
       show-filters

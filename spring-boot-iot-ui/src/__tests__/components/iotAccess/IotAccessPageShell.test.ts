@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 
 describe('IotAccessPageShell', () => {
-  it('supports breadcrumb-only mode for single-list pages', () => {
+  it('renders shared breadcrumbs without reintroducing a duplicate in-page title', () => {
     const wrapper = mount(IotAccessPageShell, {
       props: {
         title: '产品定义中心',
@@ -15,6 +15,9 @@ describe('IotAccessPageShell', () => {
           { label: '产品定义中心' }
         ]
       },
+      slots: {
+        default: '<div class="shell-body">body</div>'
+      },
       global: {
         stubs: {
           RouterLink: RouterLinkStub
@@ -23,8 +26,10 @@ describe('IotAccessPageShell', () => {
     })
 
     expect(wrapper.find('.iot-access-page-shell').exists()).toBe(true)
-    expect(wrapper.find('.iot-access-page-shell__breadcrumbs').text()).toContain('接入智维')
-    expect(wrapper.find('.iot-access-page-shell__breadcrumbs').text()).toContain('产品定义中心')
+    expect(wrapper.find('.iot-access-page-shell__breadcrumbs').exists()).toBe(true)
+    expect(wrapper.text()).toContain('接入智维')
+    expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.find('.iot-access-page-shell__headline').exists()).toBe(false)
+    expect(wrapper.find('.shell-body').exists()).toBe(true)
   })
 })

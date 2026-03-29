@@ -9,11 +9,9 @@
     />
 
     <StandardWorkbenchPanel
-      eyebrow="VALIDATION DESK"
       title="数据校验台"
       description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
       show-filters
-      show-notices
       :show-inline-state="showInlineState"
     >
       <template #filters>
@@ -41,10 +39,6 @@
 
       <template #inline-state>
         <StandardInlineState :message="inlineStateMessage" :tone="inlineStateTone" />
-      </template>
-
-      <template #notices>
-        <div class="ops-inline-note">{{ validationStripStatus }}</div>
       </template>
 
       <div class="page-stack">
@@ -142,25 +136,19 @@ const fileSnapshots = ref<DeviceFileSnapshot[]>([]);
 const firmwareAggregates = ref<DeviceFirmwareAggregate[]>([]);
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 const inlineStateMessage = computed(() => {
-  if (errorMessage.value) {
-    return errorMessage.value;
-  }
-  if (lastFetchTime.value) {
-    return `最近一次抓取：${formatDateTime(lastFetchTime.value)}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条。`;
-  }
-  return '';
-});
-const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
-const showInlineState = computed(() => Boolean(inlineStateMessage.value));
-const validationStripStatus = computed(() => {
   const sourceLabel = restoredDiagnosticContext.value
     ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
     : '';
+  if (errorMessage.value) {
+    return [sourceLabel, errorMessage.value].filter(Boolean).join(' · ');
+  }
   const summary = lastFetchTime.value
-    ? `当前设备 ${normalizedDeviceCode.value || '--'}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条，最近刷新 ${formatDateTime(lastFetchTime.value)}。`
+    ? `最近一次抓取：${formatDateTime(lastFetchTime.value)}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条。`
     : `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
   return [sourceLabel, summary].filter(Boolean).join(' · ');
 });
+const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
+const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 
 function persistValidationContext(snapshotCount: number, aggregateCount: number) {
   persistDiagnosticContext({

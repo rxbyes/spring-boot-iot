@@ -94,9 +94,6 @@ const IotAccessPageShellStub = defineComponent({
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
     <section class="iot-access-page-shell-stub">
-      <nav class="iot-access-page-shell-stub__breadcrumbs">
-        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
-      </nav>
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -225,16 +222,14 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders the device page inside the two-level access shell', async () => {
+  it('renders the device page inside the two-level access shell without the legacy eyebrow tier', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('接入智维')
-    expect(wrapper.text()).toContain('设备资产中心')
     expect(wrapper.text()).toContain('设备台账')
-    expect(wrapper.text()).toContain('DEVICE ASSET')
+    expect(wrapper.text()).not.toContain('DEVICE ASSET')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {
