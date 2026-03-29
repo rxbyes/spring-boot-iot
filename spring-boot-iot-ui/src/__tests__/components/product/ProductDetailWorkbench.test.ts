@@ -44,7 +44,29 @@ describe('ProductDetailWorkbench', () => {
     ])
 
     expect(wrapper.get('[data-testid="product-detail-hero-total"]').text()).toBe('2486')
-    expect(wrapper.get('[data-testid="product-detail-hero-secondary-onlineDeviceCount"]').text()).toContain('1842')
-    expect(wrapper.get('[data-testid="product-detail-hero-secondary-thirtyDaysActiveCount"]').text()).toContain('2117')
+    expect(wrapper.get('[data-testid="product-detail-hero-secondary-onlineDeviceCount-value"]').text()).toBe('1842')
+    expect(wrapper.get('[data-testid="product-detail-hero-secondary-thirtyDaysActiveCount-value"]').text()).toBe('2117')
+    expect(wrapper.get('[data-testid="product-detail-hero-secondary-avgOnlineDuration-value"]').text()).toBe('128 分钟')
+  })
+
+  it('keeps the trend stage visible with a quiet placeholder when no activity metrics exist', () => {
+    const wrapper = mount(ProductDetailWorkbench, {
+      props: {
+        product: {
+          ...baseProduct,
+          todayActiveCount: null,
+          sevenDaysActiveCount: null,
+          thirtyDaysActiveCount: null,
+          avgOnlineDuration: null,
+          maxOnlineDuration: null
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid="product-detail-stage-trend"]').text()).toContain('当前还没有足够的活跃度样本')
+    expect(wrapper.find('[data-testid="product-detail-trend-metrics"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('接入契约')
+    expect(wrapper.text()).toContain('产品档案')
+    expect(wrapper.text()).toContain('维护与治理')
   })
 })
