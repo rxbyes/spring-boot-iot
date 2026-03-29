@@ -45,4 +45,28 @@ describe('EventDetailDrawer', () => {
     expect(wrapper.text()).toContain('事件概览');
     expect(wrapper.text()).not.toContain('Event Detail');
   });
+
+  it('avoids repeating owner and status labels across the summary and context sections', () => {
+    const wrapper = mount(EventDetailDrawer, {
+      props: {
+        modelValue: true,
+        detail: {
+          eventTitle: '泵房异常事件',
+          eventCode: 'EVENT-001',
+          riskLevel: 'warning',
+          status: 1,
+          responsibleUser: '值班员A',
+          triggerTime: '2026-03-29 11:00:00'
+        }
+      },
+      global: {
+        stubs: {
+          StandardDetailDrawer: StandardDetailDrawerStub
+        }
+      }
+    });
+
+    expect(wrapper.text().match(/责任人/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/当前状态/g)?.length ?? 0).toBe(1);
+  });
 });

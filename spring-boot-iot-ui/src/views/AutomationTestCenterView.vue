@@ -1,7 +1,6 @@
 ﻿<template>
   <div class="page-stack automation-test-view">
     <section class="hero-panel">
-      <p class="eyebrow">Automation Studio</p>
       <h1 class="headline">自动化工场</h1>
       <p class="hero-description">
         以现有 Playwright 骨架为执行底座，通过前端可视化配置生成声明式测试计划，覆盖登录、页面交互、接口回执、断言、报告与测试建议。
@@ -16,7 +15,7 @@
     </section>
 
     <section class="tri-grid">
-      <PanelCard eyebrow="Plan Metrics" title="计划概况" description="先用场景粒度组织业务，再按步骤粒度沉淀可复用自动化模板。">
+      <PanelCard title="计划概况" description="先用场景粒度组织业务，再按步骤粒度沉淀可复用自动化模板。">
         <div class="quad-grid automation-plan-metrics">
           <MetricCard
             v-for="metric in planMetrics"
@@ -29,7 +28,7 @@
         </div>
       </PanelCard>
 
-      <PanelCard eyebrow="Runtime" title="执行方式" description="导出的 JSON 计划可直接交给 `scripts/auto` 执行器运行。">
+      <PanelCard title="执行方式" description="导出的 JSON 计划可直接交给 `scripts/auto` 执行器运行。">
         <div class="command-box">
           <code>{{ commandPreview }}</code>
         </div>
@@ -44,7 +43,7 @@
         </StandardActionGroup>
       </PanelCard>
 
-      <PanelCard eyebrow="Roadmap" title="能力边界" description="本轮先建设平台骨架，后续可以逐步叠加更多模板、插件与 AI 辅助能力。">
+      <PanelCard title="能力边界" description="本轮先建设平台骨架，后续可以逐步叠加更多模板、插件与 AI 辅助能力。">
         <ul class="phase-ideas">
           <li>当前已支持页面可达、交互动作、接口断言、变量捕获、报告建议。</li>
           <li>后续可继续扩展截图对比、表格比对、爬取式页面盘点、AI 用例补全。</li>
@@ -79,7 +78,6 @@
 
     <section>
       <PanelCard
-        eyebrow="Scenario Builder"
         title="场景编排"
         description="先通过模板快速起步，再替换页面路由、选择器、接口匹配与断言规则。"
       >
@@ -121,7 +119,7 @@
     </section>
 
     <section class="two-column-grid">
-      <PanelCard eyebrow="Preview" title="场景预览" description="这里用于快速查看每个场景的覆盖粒度。">
+      <PanelCard title="场景预览" description="这里用于快速查看每个场景的覆盖粒度。">
         <StandardTableToolbar
           compact
           :meta-items="[
@@ -146,7 +144,6 @@
       </PanelCard>
 
       <ResponsePanel
-        eyebrow="Plan Export"
         title="导出计划 JSON"
         description="可直接交给 `node scripts/auto/run-browser-acceptance.mjs --plan=...` 执行。"
         :body="plan"

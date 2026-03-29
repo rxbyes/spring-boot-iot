@@ -156,6 +156,25 @@ const StandardActionGroupStub = defineComponent({
   template: '<div class="standard-action-group-stub"><slot /></div>'
 });
 
+const StandardChoiceGroupStub = defineComponent({
+  name: 'StandardChoiceGroup',
+  props: ['options', 'modelValue'],
+  emits: ['update:modelValue', 'change'],
+  template: `
+    <div class="standard-choice-group-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        type="button"
+        class="standard-choice-group-stub__item"
+        @click="$emit('update:modelValue', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+  `
+});
+
 const StandardFlowRailStub = defineComponent({
   name: 'StandardFlowRail',
   props: ['items'],
@@ -213,6 +232,7 @@ function mountView() {
         PanelCard: PanelCardStub,
         StandardInfoGrid: StandardInfoGridStub,
         StandardActionGroup: StandardActionGroupStub,
+        StandardChoiceGroup: StandardChoiceGroupStub,
         StandardFlowRail: StandardFlowRailStub,
         StandardInlineSectionHeader: StandardInlineSectionHeaderStub,
         StandardTraceTimeline: StandardTraceTimelineStub
@@ -262,6 +282,23 @@ describe('ReportWorkbenchView', () => {
     expect(wrapper.text()).toContain('模拟上报');
     expect(wrapper.text()).not.toContain('SIMULATION LAB');
     expect(wrapper.text()).not.toContain('REPLAY CONSOLE');
+  });
+
+  it('keeps workspace chrome focused by removing decorative badges and reusing the shared recent filter switcher', async () => {
+    const wrapper = mountView();
+
+    expect(wrapper.text()).not.toContain('设备联调');
+    expect(wrapper.text()).not.toContain('复盘主视图');
+
+    await findButtonByText(wrapper, '最近记录')!.trigger('click');
+    await nextTick();
+
+    const choiceGroups = wrapper.findAll('.standard-choice-group-stub');
+    expect(choiceGroups).toHaveLength(3);
+    expect(choiceGroups[2]?.text()).toContain('全部');
+    expect(choiceGroups[2]?.text()).toContain('失败');
+    expect(choiceGroups[2]?.text()).toContain('等待中');
+    expect(choiceGroups[2]?.text()).toContain('成功');
   });
 
   it('defaults to replay tab and renders the diagnosis header', () => {

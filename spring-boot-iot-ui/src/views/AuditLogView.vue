@@ -157,22 +157,6 @@
           ]"
         >
           <template #right>
-            <StandardButton
-              v-if="isSystemMode"
-              action="refresh"
-              link
-              @click="handleJumpToMessageTrace()"
-            >
-              链路追踪台
-            </StandardButton>
-            <StandardButton
-              v-if="isSystemMode"
-              action="refresh"
-              link
-              @click="handleJumpToAccessError()"
-            >
-              失败归档
-            </StandardButton>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
             <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
@@ -266,7 +250,7 @@
 
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
-      :title="`${pageTitle}导出列设置`"
+      :title="exportDialogTitle"
       :options="exportColumnOptions"
       :selected-keys="selectedExportColumnKeys"
       :preset-storage-key="exportColumnStorageKey"
@@ -318,14 +302,16 @@ const router = useRouter()
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
-const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
-const panelTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
+const pageTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
+const panelTitle = computed(() => pageTitle.value)
 const pageDescription = computed(() =>
   isSystemMode.value
     ? '按异常模块、TraceId、设备编码与请求通道筛查 system_error。'
     : '按用户、模块与结果查看审计留痕。'
 )
-const detailDialogTitle = computed(() => `${pageTitle.value}详情`)
+const detailDialogTitle = computed(() => (isSystemMode.value ? '异常详情' : `${pageTitle.value}详情`))
+const exportDialogTitle = computed(() => (isSystemMode.value ? '异常台账导出列设置' : `${pageTitle.value}导出列设置`))
+const recordLabel = computed(() => (isSystemMode.value ? '异常记录' : '审计记录'))
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
   { label: '修改', value: 'update' },
@@ -895,16 +881,16 @@ const handleDetail = async (row: AuditLogRecord) => {
   try {
     const res = await getAuditLogById(String(row.id))
     if (!res.data || Array.isArray(res.data)) {
-      ElMessage.warning(`${pageTitle.value}详情不存在或已删除`)
+      ElMessage.warning(`${recordLabel.value}不存在或已删除`)
       detailVisible.value = false
       return
     }
     detailData.value = { ...row, ...res.data }
   } catch (error) {
     if (!isHandledRequestError(error)) {
-      ElMessage.error(`获取${pageTitle.value}详情失败`)
+      ElMessage.error(`获取${detailDialogTitle.value}失败`)
     }
-    detailErrorMessage.value = error instanceof Error ? error.message : `获取${pageTitle.value}详情失败`
+    detailErrorMessage.value = error instanceof Error ? error.message : `获取${detailDialogTitle.value}失败`
     logPageError('获取日志详情失败', error)
   } finally {
     detailLoading.value = false
@@ -915,8 +901,8 @@ const handleDetail = async (row: AuditLogRecord) => {
 const handleDelete = async (row: AuditLogRecord) => {
   try {
     await confirmAction({
-      title: `删除${pageTitle.value}`,
-      message: `确认删除当前${pageTitle.value}吗？删除后不可恢复。`,
+      title: `删除${recordLabel.value}`,
+      message: `确认删除当前${recordLabel.value}吗？删除后不可恢复。`,
       type: 'warning',
       confirmButtonText: '确认删除'
     })

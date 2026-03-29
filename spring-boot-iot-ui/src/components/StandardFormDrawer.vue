@@ -9,8 +9,7 @@
   >
     <template #header>
       <div class="form-drawer__header">
-        <div :class="['form-drawer__heading', { 'form-drawer__heading--plain': !eyebrow }]">
-          <p v-if="eyebrow" class="form-drawer__eyebrow">{{ eyebrow }}</p>
+        <div class="form-drawer__heading">
           <h2>{{ title }}</h2>
           <p v-if="subtitle" class="form-drawer__subtitle">{{ subtitle }}</p>
         </div>
@@ -36,13 +35,11 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     title: string;
-    eyebrow?: string;
     subtitle?: string;
     size?: string;
     destroyOnClose?: boolean;
   }>(),
   {
-    eyebrow: '',
     subtitle: '',
     size: '42rem',
     destroyOnClose: false
@@ -101,35 +98,19 @@ function handleClose() {
   min-width: 0;
 }
 
-.form-drawer__eyebrow {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-}
-
 .form-drawer__heading h2 {
-  margin: 0.35rem 0 0;
+  margin: 0;
   color: var(--text-heading);
   font-size: 1.8rem;
   line-height: 1.2;
   font-weight: 700;
 }
 
-.form-drawer__heading--plain h2 {
-  margin-top: 0;
-}
-
 .form-drawer__subtitle {
-  margin: 0.65rem 0 0;
+  margin: 0.55rem 0 0;
   color: var(--text-caption);
   font-size: 14px;
   line-height: 1.5;
-}
-
-.form-drawer__heading--plain .form-drawer__subtitle {
-  margin-top: 0.55rem;
 }
 
 .form-drawer__body {

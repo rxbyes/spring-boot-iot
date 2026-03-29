@@ -35,7 +35,8 @@ const StandardButtonStub = defineComponent({
   props: {
     action: { type: String, default: 'default' },
     type: { type: String, default: '' },
-    link: { type: Boolean, default: false }
+    link: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false }
   },
   template: `
     <button
@@ -43,6 +44,7 @@ const StandardButtonStub = defineComponent({
       :data-action="action"
       :data-type="type"
       :data-link="String(link)"
+      :data-disabled="String(disabled)"
     >
       <slot />
     </button>
@@ -225,5 +227,24 @@ describe('StandardActionMenu', () => {
     expect(items).toHaveLength(2)
     expect(items[0].text()).toContain('查看设备')
     expect(items[1].text()).toContain('删除')
+  })
+
+  it('falls back to an empty disabled menu when items is temporarily undefined', () => {
+    const wrapper = mount(StandardActionMenu, {
+      props: {
+        items: undefined
+      },
+      global: {
+        stubs: {
+          StandardActionLink: StandardButtonStub,
+          ElDropdown: ElDropdownStub,
+          ElDropdownMenu: ElDropdownMenuStub,
+          ElDropdownItem: ElDropdownItemStub
+        }
+      }
+    })
+
+    expect(wrapper.findAll('.el-dropdown-item-stub')).toHaveLength(0)
+    expect(wrapper.get('.standard-button-stub').attributes('data-disabled')).toBe('true')
   })
 })

@@ -8,7 +8,6 @@
             按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
           </p>
         </div>
-        <span class="reporting-workspace-card__badge">设备联调</span>
       </div>
     </template>
 
@@ -47,16 +46,5 @@ import PanelCard from '@/components/PanelCard.vue';
   margin: 0.42rem 0 0;
   color: var(--text-secondary);
   line-height: 1.68;
-}
-
-.reporting-workspace-card__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.34rem 0.68rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
 }
 </style>

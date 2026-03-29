@@ -1,5 +1,5 @@
 <template>
-  <PanelCard eyebrow="Execution Target" title="执行配置" description="这里定义目标系统、账号、输出策略与阻断范围。">
+  <PanelCard title="执行配置" description="这里定义目标系统、账号、输出策略与阻断范围。">
     <el-form label-width="110px" class="automation-execution-config__form">
       <el-form-item label="计划名称">
         <el-input v-model="target.planName" placeholder="请输入计划名称" />

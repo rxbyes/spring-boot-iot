@@ -62,4 +62,29 @@ describe('AuditLogDetailDrawer', () => {
     expect(wrapper.emitted('jump-message-trace')).toHaveLength(1);
     expect(wrapper.emitted('jump-access-error')).toHaveLength(1);
   });
+
+  it('avoids repeating operation timing fields across the summary and detail sections', () => {
+    const wrapper = mount(AuditLogDetailDrawer, {
+      props: {
+        modelValue: true,
+        title: '异常详情',
+        detail: {
+          operationModule: '设备接入',
+          operationType: 'system_error',
+          operationResult: 0,
+          operationTime: '2026-03-29 14:30:00',
+          userName: 'admin'
+        }
+      },
+      global: {
+        stubs: {
+          StandardDetailDrawer: StandardDetailDrawerStub,
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    expect(wrapper.text().match(/操作时间/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/操作用户/g)?.length ?? 0).toBe(1);
+  });
 });

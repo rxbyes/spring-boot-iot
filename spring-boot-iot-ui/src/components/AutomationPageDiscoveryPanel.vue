@@ -1,6 +1,5 @@
 <template>
   <PanelCard
-    eyebrow="Page Discovery"
     title="页面盘点与脚手架生成"
     description="优先读取当前授权菜单盘点页面，可一键补齐未覆盖页面的自动化脚手架，也支持手工登记外部系统页面。"
   >

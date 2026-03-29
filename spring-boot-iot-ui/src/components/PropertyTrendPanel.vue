@@ -1,6 +1,5 @@
 <template>
   <PanelCard
-    eyebrow="Telemetry Preview"
     title="属性趋势预览"
   >
     <div v-if="seriesSummaries.length" class="trend-summary">

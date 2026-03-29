@@ -24,7 +24,6 @@ describe('IotAccessWorkbenchHero', () => {
   it('renders judgement, tags, summary items and actions', () => {
     const wrapper = mount(IotAccessWorkbenchHero, {
       props: {
-        eyebrow: '接入智维 / 资产治理',
         title: '产品定义中心',
         judgement: '先补齐产品契约，再处理库存治理。',
         description: '统一承接产品台账、物模型治理提醒与强相关跳转。',
@@ -58,6 +57,7 @@ describe('IotAccessWorkbenchHero', () => {
     expect(wrapper.findAll('a.router-link-stub')).toHaveLength(2);
     expect(wrapper.findAll('.iot-access-workbench-hero__action--primary')).toHaveLength(1);
     expect(wrapper.findAll('.iot-access-workbench-hero__action--secondary')).toHaveLength(1);
+    expect(wrapper.text()).not.toContain('接入智维 / 资产治理');
   });
 
   it('uses defaults for optional sections and action variant', () => {

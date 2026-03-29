@@ -9,8 +9,7 @@
   >
     <template #header>
       <div class="detail-drawer__header">
-        <div :class="['detail-drawer__heading', { 'detail-drawer__heading--plain': !eyebrow }]">
-          <p v-if="eyebrow" class="detail-drawer__eyebrow">{{ eyebrow }}</p>
+        <div class="detail-drawer__heading">
           <h2>{{ title }}</h2>
           <p v-if="subtitle" class="detail-drawer__subtitle">{{ subtitle }}</p>
         </div>
@@ -50,7 +49,6 @@ withDefaults(
   defineProps<{
     modelValue: boolean;
     title: string;
-    eyebrow?: string;
     subtitle?: string;
     size?: string;
     destroyOnClose?: boolean;
@@ -66,7 +64,6 @@ withDefaults(
     }>;
   }>(),
   {
-    eyebrow: '',
     subtitle: '',
     size: '48rem',
     destroyOnClose: true,
@@ -126,18 +123,8 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   min-width: 0;
 }
 
-.detail-drawer__eyebrow {
-  margin: 0;
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .detail-drawer__heading h2 {
-  margin: 0.45rem 0 0;
+  margin: 0;
   color: var(--text-heading);
   font-size: clamp(1.65rem, 2.2vw, 2.05rem);
   line-height: 1.2;
@@ -145,20 +132,12 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   letter-spacing: -0.02em;
 }
 
-.detail-drawer__heading--plain h2 {
-  margin-top: 0;
-}
-
 .detail-drawer__subtitle {
-  margin: 0.7rem 0 0;
+  margin: 0.55rem 0 0;
   max-width: 40rem;
   color: var(--text-caption);
   font-size: 14px;
   line-height: 1.6;
-}
-
-.detail-drawer__heading--plain .detail-drawer__subtitle {
-  margin-top: 0.55rem;
 }
 
 .detail-drawer__tags {

@@ -10,7 +10,6 @@
     <template #header>
       <div class="device-drawer__header">
         <div class="device-drawer__heading">
-          <p v-if="eyebrow" class="device-drawer__eyebrow">{{ eyebrow }}</p>
           <h2>{{ title }}</h2>
           <p v-if="subtitle" class="device-drawer__subtitle">{{ subtitle }}</p>
         </div>
@@ -123,7 +122,6 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     title: string;
-    eyebrow?: string;
     subtitle?: string;
     size?: string;
     destroyOnClose?: boolean;
@@ -144,7 +142,6 @@ const props = withDefaults(
     devicesLoading?: boolean;
   }>(),
   {
-    eyebrow: '',
     subtitle: '',
     size: '48rem',
     destroyOnClose: true,
@@ -165,7 +162,6 @@ const props = withDefaults(
 const {
   modelValue,
   title,
-  eyebrow,
   subtitle,
   size,
   destroyOnClose,
@@ -270,18 +266,8 @@ function handleViewDevice(device: Device) {
   min-width: 0;
 }
 
-.device-drawer__eyebrow {
-  margin: 0;
-  color: color-mix(in srgb, var(--brand) 58%, var(--text-caption));
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .device-drawer__heading h2 {
-  margin: 0.28rem 0 0;
+  margin: 0;
   color: var(--text-heading);
   font-size: clamp(1.4rem, 2vw, 1.64rem);
   line-height: 1.24;
@@ -290,7 +276,7 @@ function handleViewDevice(device: Device) {
 }
 
 .device-drawer__subtitle {
-  margin: 0.5rem 0 0;
+  margin: 0.42rem 0 0;
   max-width: 40rem;
   color: var(--text-tertiary);
   font-size: 13px;

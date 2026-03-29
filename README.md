@@ -177,6 +177,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start-frontend-acceptance.ps1
 3. `docs/README.md` 只保留摘要映射和阅读导航，不再承载帮助治理细则；帮助中心治理规则统一收口到 [docs/12-帮助文档与系统内容治理.md](docs/12-帮助文档与系统内容治理.md)。
 4. 旧入口文档和历史路线图默认进入 `docs/archive/`，不再作为主维护链路。
 5. 日常向智能助手发任务时，优先使用 [docs/skills/ai-task-intake/SKILL.md](docs/skills/ai-task-intake/SKILL.md) 中“你本人专用版六条超短清单”；如果装不下，再使用 [docs/09-GPT接管提示模板.md](docs/09-GPT接管提示模板.md) 中的任务卡模板；只有跨模块、跨验收、跨数据库的大任务再使用 [docs/template/README.md](docs/template/README.md) 指向的长模板。
+6. Git 分支治理：`master` 只作为生产分支，本地禁止直接开发、提交、合并或推送；日常编码、验证和交付准备默认只在 `codex/dev` 进行，若当前不在允许分支上，必须先停止并处理分支问题。
 
 ## 相关入口
 

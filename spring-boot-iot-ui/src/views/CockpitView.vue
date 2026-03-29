@@ -2,7 +2,6 @@
   <div class="cockpit-page">
     <section class="cockpit-hero">
       <div class="cockpit-hero__main">
-        <p class="cockpit-hero__eyebrow">Risk Data Cockpit</p>
         <h1>风险运营驾驶舱</h1>
         <p class="cockpit-hero__desc">
           首页聚焦关键风险指标、处置效率和系统运行状态；当前账号按“{{ permissionStore.roleProfile.focusLabel }}”优先组织入口，执行动作下沉到 `接入智维 / 风险运营 / 风险策略 / 平台治理 / 质量工场` 五大工作台，避免“首页即操作台”的信息噪音。
@@ -41,7 +40,6 @@
 
     <section class="dashboard-grid">
       <PanelCard
-        eyebrow="Role Focus"
         title="角色关键维度"
         :description="activePreset.emphasis"
       >
@@ -56,7 +54,6 @@
       </PanelCard>
 
       <PanelCard
-        eyebrow="Queue"
         title="关键队列状态"
         description="按风险等级和处置时效展示当前最需要关注的队列。"
       >
@@ -80,7 +77,6 @@
 
     <section class="dashboard-grid">
       <PanelCard
-        eyebrow="Todo"
         title="角色待办"
         description="把首页当作值守与管理调度入口，优先处理高风险与超时事项。"
       >
@@ -103,7 +99,6 @@
       </PanelCard>
 
       <PanelCard
-        eyebrow="Workbench"
         title="事务工作台入口"
         description="工作台保留为执行层窗口：调试、联调、实施和治理操作在这里展开。"
       >

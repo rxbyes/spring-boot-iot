@@ -2,16 +2,12 @@
   <div class="reporting-recent-diagnosis-list">
     <div class="reporting-recent-diagnosis-list__toolbar">
       <div class="reporting-recent-diagnosis-list__filters">
-        <button
-          v-for="option in filterOptions"
-          :key="option.value"
-          type="button"
-          class="reporting-recent-diagnosis-list__filter"
-          :class="{ 'reporting-recent-diagnosis-list__filter--active': option.value === modelValue }"
-          @click="$emit('update:modelValue', option.value)"
-        >
-          {{ option.label }}
-        </button>
+        <StandardChoiceGroup
+          :model-value="modelValue"
+          :options="filterOptions"
+          responsive
+          @update:model-value="handleFilterChange"
+        />
       </div>
 
       <StandardActionGroup gap="sm">
@@ -72,6 +68,7 @@
 <script setup lang="ts">
 import StandardActionGroup from '@/components/StandardActionGroup.vue';
 import StandardButton from '@/components/StandardButton.vue';
+import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue';
 import type { ReportingRecentFilter, ReportingRecentDiagnosisItem, ReportingRecentActionTarget } from '@/views/reportingRecentDiagnosis';
 
 const filterOptions: Array<{ label: string; value: ReportingRecentFilter }> = [
@@ -97,12 +94,21 @@ withDefaults(
   }
 );
 
-defineEmits<{
+const emit = defineEmits<{
   (event: 'update:modelValue', value: ReportingRecentFilter): void;
   (event: 'refresh'): void;
   (event: 'restore', key: string): void;
   (event: 'action', payload: { key: string; target: ReportingRecentActionTarget }): void;
 }>();
+
+function handleFilterChange(value: string | number | boolean) {
+  if (typeof value === 'string') {
+    const filter = filterOptions.find((item) => item.value === value)?.value;
+    if (filter) {
+      emit('update:modelValue', filter);
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -121,25 +127,7 @@ defineEmits<{
 
 .reporting-recent-diagnosis-list__filters {
   display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.reporting-recent-diagnosis-list__filter {
-  min-height: 2rem;
-  padding: 0.32rem 0.72rem;
-  border: 1px solid var(--line-panel);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.reporting-recent-diagnosis-list__filter--active {
-  border-color: rgba(14, 116, 144, 0.24);
-  background: rgba(14, 116, 144, 0.08);
-  color: var(--brand);
+  min-width: 0;
 }
 
 .reporting-recent-diagnosis-list__empty {
@@ -172,7 +160,18 @@ defineEmits<{
 .reporting-recent-diagnosis-list__item[data-active='true'] {
   border-color: rgba(14, 116, 144, 0.22);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  transform: none;
+}
+
+.reporting-recent-diagnosis-list__filters :deep(.standard-choice-group) {
+  gap: 0.42rem;
+}
+
+.reporting-recent-diagnosis-list__filters :deep(.standard-choice-group__item) {
+  min-width: 4.4rem;
+  min-height: 2rem;
+  padding: 0 0.78rem;
+  font-size: 0.82rem;
 }
 
 .reporting-recent-diagnosis-list__item-top {

@@ -1,5 +1,5 @@
 <template>
-  <PanelCard eyebrow="Suggestion Engine" title="测试建议" description="按计划结构自动提示薄弱点，帮助持续完善测试质量。">
+  <PanelCard title="测试建议" description="按计划结构自动提示薄弱点，帮助持续完善测试质量。">
     <ul class="automation-suggestion-panel__list">
       <li
         v-for="item in suggestions"

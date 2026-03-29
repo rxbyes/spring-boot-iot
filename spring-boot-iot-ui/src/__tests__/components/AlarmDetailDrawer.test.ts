@@ -45,4 +45,27 @@ describe('AlarmDetailDrawer', () => {
     expect(wrapper.text()).toContain('告警概览');
     expect(wrapper.text()).not.toContain('Alarm Detail');
   });
+
+  it('avoids repeating the same status fields across the hero and context sections', () => {
+    const wrapper = mount(AlarmDetailDrawer, {
+      props: {
+        modelValue: true,
+        detail: {
+          alarmTitle: '温度越限告警',
+          alarmCode: 'ALARM-001',
+          alarmLevel: 'critical',
+          status: 0,
+          triggerTime: '2026-03-29 10:00:00'
+        }
+      },
+      global: {
+        stubs: {
+          StandardDetailDrawer: StandardDetailDrawerStub
+        }
+      }
+    });
+
+    expect(wrapper.text().match(/当前状态/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/触发时间/g)?.length ?? 0).toBe(1);
+  });
 });

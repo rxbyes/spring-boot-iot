@@ -176,6 +176,33 @@ const StandardFormDrawerStub = defineComponent({
   `
 });
 
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label', 'items'],
+  template: `
+    <section class="standard-action-menu-stub">
+      <span class="standard-action-menu-stub__label">{{ label || '更多' }}</span>
+      <span class="standard-action-menu-stub__count">{{ (items || []).length }}</span>
+    </section>
+  `
+});
+
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  emits: ['click'],
+  template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
+});
+
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <section class="standard-table-toolbar-stub">
+      <div class="standard-table-toolbar-stub__default"><slot /></div>
+      <div class="standard-table-toolbar-stub__right"><slot name="right" /></div>
+    </section>
+  `
+});
+
 function mountView(component: object) {
   return shallowMount(component, {
     global: {
@@ -184,10 +211,11 @@ function mountView(component: object) {
         PanelCard: PanelCardStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         MetricCard: true,
-        StandardTableToolbar: true,
+        StandardTableToolbar: StandardTableToolbarStub,
         StandardTableTextColumn: true,
         StandardPagination: true,
-        StandardButton: true,
+        StandardButton: StandardButtonStub,
+        StandardActionMenu: StandardActionMenuStub,
         StandardRowActions: true,
         StandardActionLink: true,
         StandardListFilterHeader: true,
@@ -264,6 +292,20 @@ describe('operations workbench refinement', () => {
     expect(wrapper.text()).toContain('工单派发');
     expect(wrapper.text()).toContain('事件关闭');
     expect(wrapper.text()).not.toContain('Event Workflow');
+  });
+
+  it('keeps the event disposal toolbar focused by collapsing secondary actions into a more-actions menu', () => {
+    const wrapper = mountView(EventDisposalView);
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub);
+
+    expect(wrapper.text()).toContain('刷新列表');
+    expect(actionMenu.exists()).toBe(true);
+    expect(actionMenu.props('label')).toBe('更多操作');
+    expect((actionMenu.props('items') as Array<unknown>)?.length ?? 0).toBe(4);
+    expect(wrapper.text()).not.toContain('导出列设置');
+    expect(wrapper.text()).not.toContain('导出选中');
+    expect(wrapper.text()).not.toContain('导出当前结果');
+    expect(wrapper.text()).not.toContain('清空选中');
   });
 
   it('removes the standalone hero card from the risk point workbench', () => {

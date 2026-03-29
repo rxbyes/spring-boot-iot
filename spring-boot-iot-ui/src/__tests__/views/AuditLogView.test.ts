@@ -1,4 +1,4 @@
-import { defineComponent, inject, nextTick, provide, ref } from 'vue';
+import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -205,7 +205,7 @@ const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
   setup(props) {
-    provide('tableRows', ref(props.data ?? []));
+    provide('tableRows', computed(() => props.data ?? []));
     return {};
   },
   template: '<section class="audit-log-table-stub"><slot /></section>'
