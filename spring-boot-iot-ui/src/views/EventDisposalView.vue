@@ -1,22 +1,5 @@
 ﻿<template>
   <div class="ops-workbench event-disposal-view">
-    <PanelCard
-      eyebrow="Event Workflow"
-      title="事件协同台"
-      description="聚合派发、处理与关闭状态，统一通过下方工作台管理事件闭环。"
-      class="ops-hero-card"
-    >
-      <div class="ops-kpi-grid">
-        <MetricCard label="待派发事件" :value="String(stats.pendingEvents)" :badge="{ label: '待分派', tone: 'danger' }" />
-        <MetricCard label="已派发事件" :value="String(stats.dispatchedEvents)" :badge="{ label: '待响应', tone: 'warning' }" />
-        <MetricCard label="处理中事件" :value="String(stats.processingEvents)" :badge="{ label: '执行中', tone: 'brand' }" />
-        <MetricCard label="已关闭事件" :value="String(stats.closedEvents)" :badge="{ label: '已闭环', tone: 'success' }" />
-      </div>
-      <div class="ops-inline-note">
-        当前支持按设备编码、风险等级和状态快速收敛事件范围，并通过详情抽屉查看全流程处置节点。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
       title="事件列表"
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
@@ -75,7 +58,16 @@
       </template>
 
       <template #toolbar>
-        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `处理中 ${stats.processingEvents} 项` ]">
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `待派发 ${stats.pendingEvents} 项`,
+            `已派发 ${stats.dispatchedEvents} 项`,
+            `处理中 ${stats.processingEvents} 项`,
+            `已关闭 ${stats.closedEvents} 项`,
+            `已选 ${selectedRows.length} 项`
+          ]"
+        >
           <template #right>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
@@ -217,8 +209,6 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
