@@ -1,13 +1,6 @@
 <template>
   <div class="page-stack audit-log-view">
-    <IotAccessPageShell
-      v-if="isSystemMode"
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '异常观测台' }
-      ]"
-      :show-title="false"
-    />
+    <IotAccessPageShell v-if="isSystemMode" :show-title="false" />
 
     <StandardWorkbenchPanel
       :title="panelTitle"

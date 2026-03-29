@@ -162,6 +162,20 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['eyebrow', 'title', 'subtitle'],
+  template: `
+    <section class="standard-form-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `
+});
+
 function mountView(component: object) {
   return shallowMount(component, {
     global: {
@@ -178,7 +192,7 @@ function mountView(component: object) {
         StandardActionLink: true,
         StandardListFilterHeader: true,
         StandardAppliedFiltersBar: true,
-        StandardFormDrawer: true,
+        StandardFormDrawer: StandardFormDrawerStub,
         StandardDrawerFooter: true,
         CsvColumnSettingDialog: true,
         AlarmDetailDrawer: true,
@@ -239,6 +253,17 @@ describe('operations workbench refinement', () => {
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(wrapper.text()).toContain('事件列表');
+  });
+
+  it('keeps event disposal form drawers calm without the legacy English eyebrow tier', () => {
+    const wrapper = mountView(EventDisposalView);
+    const formDrawers = wrapper.findAllComponents(StandardFormDrawerStub);
+
+    expect(formDrawers).toHaveLength(2);
+    expect(formDrawers.every((item) => item.props('eyebrow') === undefined)).toBe(true);
+    expect(wrapper.text()).toContain('工单派发');
+    expect(wrapper.text()).toContain('事件关闭');
+    expect(wrapper.text()).not.toContain('Event Workflow');
   });
 
   it('removes the standalone hero card from the risk point workbench', () => {

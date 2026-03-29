@@ -1,7 +1,7 @@
 <template>
   <section class="iot-access-page-shell">
     <nav
-      v-if="breadcrumbs.length"
+      v-if="showBreadcrumbs && breadcrumbs.length"
       class="iot-access-page-shell__breadcrumbs"
       aria-label="页面层级"
     >
@@ -50,11 +50,13 @@ const props = withDefaults(defineProps<{
   title?: string
   description?: string
   showTitle?: boolean
+  showBreadcrumbs?: boolean
   breadcrumbs?: IotAccessPageShellBreadcrumb[]
 }>(), {
   title: '',
   description: '',
   showTitle: true,
+  showBreadcrumbs: false,
   breadcrumbs: () => []
 })
 

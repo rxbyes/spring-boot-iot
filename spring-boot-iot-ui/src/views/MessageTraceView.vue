@@ -1,12 +1,6 @@
 <template>
   <div class="page-stack message-trace-view">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '链路追踪台' }
-      ]"
-      :show-title="false"
-    />
+    <IotAccessPageShell :show-title="false" />
 
     <IotAccessTabWorkspace
       :items="pageModeOptions"

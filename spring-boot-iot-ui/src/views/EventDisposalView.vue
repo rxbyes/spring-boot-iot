@@ -135,7 +135,6 @@
 
     <StandardFormDrawer
       v-model="dispatchVisible"
-      eyebrow="Event Workflow"
       title="工单派发"
       subtitle="统一通过右侧抽屉配置派发对象与处理时限。"
       size="34rem"
@@ -170,7 +169,6 @@
 
     <StandardFormDrawer
       v-model="closeVisible"
-      eyebrow="Event Workflow"
       title="事件关闭"
       subtitle="统一通过右侧抽屉填写关闭原因并完成事件收口。"
       size="34rem"

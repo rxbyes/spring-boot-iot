@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Alarm Detail"
     :title="drawerTitle"
     :subtitle="drawerSubtitle"
     :tags="drawerTags"

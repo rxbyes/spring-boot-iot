@@ -1,12 +1,6 @@
 <template>
   <div class="page-stack file-payload-debug-view">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '数据校验台' }
-      ]"
-      :show-title="false"
-    />
+    <IotAccessPageShell :show-title="false" />
 
     <StandardWorkbenchPanel
       title="数据校验台"

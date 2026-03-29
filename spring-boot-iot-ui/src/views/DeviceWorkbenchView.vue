@@ -1,12 +1,6 @@
 <template>
   <div class="page-stack device-asset-view">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '设备资产中心' }
-      ]"
-      :show-title="false"
-    />
+    <IotAccessPageShell :show-title="false" />
 
     <StandardWorkbenchPanel
       title="设备台账"

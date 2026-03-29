@@ -1,12 +1,6 @@
 <template>
   <div class="page-stack reporting-view ops-workbench">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '链路验证中心' }
-      ]"
-      :show-title="false"
-    />
+    <IotAccessPageShell :show-title="false" />
 
     <IotAccessTabWorkspace
       v-model="reportingWorkspaceTab"

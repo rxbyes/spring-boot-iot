@@ -6,9 +6,16 @@ import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue';
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle'],
   emits: ['update:modelValue'],
-  template: '<section v-if="modelValue"><slot /></section>'
+  template: `
+    <section v-if="modelValue" class="audit-log-detail-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h2>{{ title }}</h2>
+      <p>{{ subtitle }}</p>
+      <slot />
+    </section>
+  `
 });
 
 const StandardButtonStub = defineComponent({
@@ -41,6 +48,10 @@ describe('AuditLogDetailDrawer', () => {
       }
     });
 
+    const drawer = wrapper.findComponent(StandardDetailDrawerStub);
+
+    expect(drawer.props('eyebrow')).toBeUndefined();
+    expect(wrapper.text()).not.toContain('Audit Log Detail');
     expect(wrapper.text()).toContain('返回链路追踪');
     expect(wrapper.text()).toContain('回看失败归档');
 

@@ -2,6 +2,7 @@
   <div class="section-landing page-stack">
     <template v-if="accessibleCards.length">
       <IotAccessPageShell
+        show-breadcrumbs
         :breadcrumbs="[{ label: config?.title || '接入智维' }]"
         :show-title="false"
       />
