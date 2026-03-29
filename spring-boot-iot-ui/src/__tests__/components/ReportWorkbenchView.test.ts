@@ -108,6 +108,20 @@ const PanelCardStub = defineComponent({
   `
 });
 
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
+    </section>
+  `
+});
+
 const StandardInlineSectionHeaderStub = defineComponent({
   name: 'StandardInlineSectionHeader',
   props: ['title', 'description'],
@@ -191,6 +205,7 @@ function mountView() {
   return mount(ReportWorkbenchView, {
     global: {
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         ElButton: ElButtonStub,
         ElInput: ElInputStub,
         PanelCard: PanelCardStub,
@@ -235,12 +250,14 @@ describe('ReportWorkbenchView', () => {
     window.localStorage.removeItem('reporting:lastTemplate');
   });
 
-  it('renders a compact reporting command strip above the simulator stage', () => {
+  it('renders the reporting page inside the two-level access shell', () => {
     const wrapper = mountView();
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
     expect(wrapper.text()).toContain('链路验证中心');
-    expect(wrapper.text()).toContain('先校准设备身份，再发报文，再看时间线。');
-    expect(wrapper.text()).toContain('诊断复盘');
+    expect(wrapper.text()).toContain('SIMULATION LAB');
+    expect(wrapper.text()).toContain('模拟上报');
   });
 
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {

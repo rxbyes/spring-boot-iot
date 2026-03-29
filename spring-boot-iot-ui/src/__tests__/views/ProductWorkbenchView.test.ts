@@ -72,9 +72,10 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="product-workbench-panel-stub">
+      <p class="product-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -82,6 +83,20 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="product-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="product-workbench-panel-stub__body"><slot /></div>
       <div class="product-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav class="iot-access-page-shell-stub__breadcrumbs">
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -178,6 +193,7 @@ function mountView() {
       },
       renderStubDefaultSlot: true,
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardRowActions: StandardRowActionsStub,
@@ -223,15 +239,17 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
-  it('renders a compact product workbench header above the ledger', async () => {
+  it('renders the product page inside the two-level access shell', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('产品定义中心')
-    expect(wrapper.text()).toContain('先补齐产品契约，再处理库存治理。')
+    expect(wrapper.text()).toContain('PRODUCT CENTER')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).not.toContain('产品契约治理')
+    expect(wrapper.text()).toContain('统一维护产品台账')
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {

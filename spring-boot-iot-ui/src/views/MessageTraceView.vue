@@ -1,47 +1,32 @@
 <template>
   <div class="page-stack message-trace-view">
-    <AccessErrorArchivePanel
-      v-if="isAccessErrorMode"
-      :view-mode="pageMode"
-      :view-mode-options="pageModeOptions"
-      @change-view-mode="handlePageModeChange"
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '链路追踪台' }
+      ]"
+      :show-title="false"
     />
 
-    <template v-else>
-      <section class="message-trace-command-strip">
-        <div class="message-trace-command-strip__copy">
-          <h1 class="message-trace-command-strip__title">链路追踪台</h1>
-          <p class="message-trace-command-strip__judgement">{{ traceRuleSummary }}</p>
-          <p class="message-trace-command-strip__meta">{{ traceStripStatus }}</p>
-        </div>
-        <div class="message-trace-command-strip__actions">
-          <StandardButton action="refresh" plain :disabled="!canJumpWithSearch" @click="jumpToSystemLog()">
-            异常观测台
-          </StandardButton>
-          <StandardButton action="refresh" plain @click="jumpToAccessError()">失败归档</StandardButton>
-          <StandardButton action="refresh" plain :disabled="!canJumpToFileDebug" @click="jumpToFileDebug()">
-            数据校验台
-          </StandardButton>
-        </div>
-      </section>
+    <IotAccessTabWorkspace
+      :items="pageModeOptions"
+      :default-key="'message-trace'"
+      query-key="mode"
+    >
+      <template #default="{ activeKey }">
+        <AccessErrorArchivePanel v-if="activeKey === 'access-error'" />
 
-      <StandardWorkbenchPanel
-        title="追踪台账"
-        description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
-        show-header-actions
-        show-filters
-        :show-applied-filters="hasAppliedFilters"
-        show-toolbar
-        show-pagination
-      >
-        <template #header-actions>
-          <StandardChoiceGroup
-            :model-value="pageMode"
-            :options="pageModeOptions"
-            responsive
-            @update:modelValue="handlePageModeChange"
-          />
-        </template>
+        <StandardWorkbenchPanel
+          v-else
+          eyebrow="TRACE CENTER"
+          title="链路追踪台"
+          description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
+          show-filters
+          :show-applied-filters="hasAppliedFilters"
+          show-notices
+          show-toolbar
+          show-pagination
+        >
 
         <template #filters>
           <StandardListFilterHeader
@@ -120,6 +105,10 @@
           />
         </template>
 
+        <template #notices>
+          <div class="ops-inline-note">{{ traceRuleSummary }} · {{ traceStripStatus }}</div>
+        </template>
+
         <template #toolbar>
           <StandardTableToolbar
             compact
@@ -129,8 +118,8 @@
               `近24小时 ${traceStats.recent24HourCount} 条`,
               `失败摘要 ${traceStats.dispatchFailureCount} 条`
             ]"
-          >
-            <template #right>
+        >
+          <template #right>
               <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
             </template>
           </StandardTableToolbar>
@@ -284,8 +273,9 @@
             />
           </div>
         </template>
-      </StandardWorkbenchPanel>
-    </template>
+        </StandardWorkbenchPanel>
+      </template>
+    </IotAccessTabWorkspace>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -429,9 +419,10 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue';
 import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardRowActions from '@/components/StandardRowActions.vue';
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import {
@@ -454,8 +445,8 @@ type ObservabilityViewMode = 'message-trace' | 'access-error';
 const route = useRoute();
 const router = useRouter();
 const pageModeOptions = [
-  { label: '链路追踪', value: 'message-trace' as const },
-  { label: '失败归档', value: 'access-error' as const }
+  { key: 'message-trace', label: '链路追踪台' },
+  { key: 'access-error', label: '失败归档' }
 ];
 const pageMode = computed<ObservabilityViewMode>(() =>
   route.query.mode === 'access-error' ? 'access-error' : 'message-trace'
@@ -580,22 +571,6 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
-const currentDiagnosticContext = computed<DiagnosticContext>(() => buildVisibleDiagnosticContext());
-const canJumpWithSearch = computed(() =>
-  Boolean(
-    currentDiagnosticContext.value.traceId
-    || currentDiagnosticContext.value.deviceCode
-    || currentDiagnosticContext.value.productKey
-    || currentDiagnosticContext.value.topic
-  )
-);
-const canJumpToFileDebug = computed(() =>
-  Boolean(
-    currentDiagnosticContext.value.traceId
-    || currentDiagnosticContext.value.deviceCode
-    || currentDiagnosticContext.value.productKey
-  )
-);
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -703,19 +678,6 @@ function applyQuickSearchKeywordToFilters() {
 
 function syncAdvancedFilterState() {
   showAdvancedFilters.value = Boolean(searchForm.topic.trim());
-}
-
-function handlePageModeChange(value: ObservabilityViewMode | string | number | boolean) {
-  if (value !== 'message-trace' && value !== 'access-error') {
-    return;
-  }
-  router.replace({
-    path: '/message-trace',
-    query: {
-      ...route.query,
-      mode: value === 'access-error' ? 'access-error' : undefined
-    }
-  });
 }
 
 function readQueryValue(key: keyof MessageTraceQueryParams) {
@@ -997,34 +959,6 @@ function jumpToSystemLog(row?: DeviceMessageLog) {
       productKey: context.productKey || undefined,
       requestUrl: context.topic || undefined,
       requestMethod: context.topic ? 'MQTT' : undefined
-    }
-  });
-}
-
-function jumpToAccessError(row?: DeviceMessageLog) {
-  const context = buildDiagnosticContext(row);
-  persistCurrentDiagnosticContext(row);
-  router.push({
-    path: '/message-trace',
-    query: {
-      mode: 'access-error',
-      traceId: context.traceId || undefined,
-      deviceCode: context.deviceCode || undefined,
-      productKey: context.productKey || undefined,
-      topic: context.topic || undefined
-    }
-  });
-}
-
-function jumpToFileDebug(row?: DeviceMessageLog) {
-  const context = buildDiagnosticContext(row);
-  persistCurrentDiagnosticContext(row);
-  router.push({
-    path: '/file-debug',
-    query: {
-      deviceCode: context.deviceCode || undefined,
-      traceId: context.traceId || undefined,
-      productKey: context.productKey || undefined
     }
   });
 }

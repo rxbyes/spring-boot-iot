@@ -1,8 +1,17 @@
 <template>
-  <div class="product-asset-view">
+  <div class="page-stack product-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '产品定义中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
+      eyebrow="PRODUCT CENTER"
       title="产品定义中心"
-      description="先补齐产品契约，再处理库存治理。"
+      description="统一维护产品台账、协议绑定与接入契约。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -646,6 +655,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'

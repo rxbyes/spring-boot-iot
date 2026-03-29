@@ -1,20 +1,19 @@
 <template>
   <div class="page-stack file-payload-debug-view">
-    <section class="file-payload-debug-command-strip">
-      <div class="file-payload-debug-command-strip__copy">
-        <h1 class="file-payload-debug-command-strip__title">数据校验台</h1>
-        <p class="file-payload-debug-command-strip__judgement">先确定设备，再核对文件快照和固件聚合。</p>
-        <p class="file-payload-debug-command-strip__meta">{{ validationStripStatus }}</p>
-      </div>
-      <div class="file-payload-debug-command-strip__actions">
-        <StandardButton action="refresh" plain @click="handleOpenTraceWorkbench">链路追踪台</StandardButton>
-      </div>
-    </section>
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '数据校验台' }
+      ]"
+      :show-title="false"
+    />
 
     <StandardWorkbenchPanel
-      title="设备查询与校验结果"
+      eyebrow="VALIDATION DESK"
+      title="数据校验台"
       description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
       show-filters
+      show-notices
       :show-inline-state="showInlineState"
     >
       <template #filters>
@@ -42,6 +41,10 @@
 
       <template #inline-state>
         <StandardInlineState :message="inlineStateMessage" :tone="inlineStateTone" />
+      </template>
+
+      <template #notices>
+        <div class="ops-inline-note">{{ validationStripStatus }}</div>
       </template>
 
       <div class="page-stack">
@@ -109,7 +112,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
@@ -118,6 +121,7 @@ import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import { recordActivity } from '../stores/activity';
 import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';
@@ -128,7 +132,6 @@ import {
 } from '../utils/iotAccessDiagnostics';
 
 const route = useRoute();
-const router = useRouter();
 const restoredDiagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>));
 const defaultDeviceCode = computed(() => restoredDiagnosticContext.value?.deviceCode || 'demo-device-01');
 const deviceCode = ref(defaultDeviceCode.value);
@@ -236,9 +239,6 @@ function handleReset() {
   firmwareAggregates.value = [];
 }
 
-function handleOpenTraceWorkbench() {
-  router.push('/message-trace');
-}
 </script>
 
 <style scoped>
@@ -246,62 +246,7 @@ function handleOpenTraceWorkbench() {
   min-width: 0;
 }
 
-.file-payload-debug-command-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.2rem;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
-  box-shadow: var(--shadow-card);
-}
-
-.file-payload-debug-command-strip__copy {
-  min-width: 0;
-}
-
-.file-payload-debug-command-strip__title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.22rem;
-}
-
-.file-payload-debug-command-strip__judgement {
-  margin: 0.42rem 0 0;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
-.file-payload-debug-command-strip__meta {
-  margin: 0.3rem 0 0;
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  line-height: 1.6;
-}
-
-.file-payload-debug-command-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.72rem;
-}
-
 .file-payload-debug-view__results {
   align-items: start;
-}
-
-@media (max-width: 900px) {
-  .file-payload-debug-command-strip {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .file-payload-debug-command-strip__actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
 }
 </style>

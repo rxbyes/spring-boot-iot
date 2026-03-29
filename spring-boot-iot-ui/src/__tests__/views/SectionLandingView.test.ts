@@ -67,6 +67,45 @@ const PanelCardStub = defineComponent({
   `
 })
 
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
+    </section>
+  `
+})
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items'],
+  template: `
+    <section class="iot-access-tab-workspace-stub">
+      <span v-for="item in items || []" :key="item.key">{{ item.label }}</span>
+      <slot :active-key="items?.[0]?.key" />
+    </section>
+  `
+})
+
+const StandardWorkbenchPanelStub = defineComponent({
+  name: 'StandardWorkbenchPanel',
+  props: ['eyebrow', 'title', 'description'],
+  template: `
+    <section class="standard-workbench-panel-stub">
+      <p>{{ eyebrow }}</p>
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <slot name="filters" />
+      <slot />
+    </section>
+  `
+})
+
 const EmptyStateStub = defineComponent({
   name: 'EmptyState',
   props: ['title', 'description', 'action'],
@@ -83,6 +122,10 @@ function mountView() {
   return mount(SectionLandingView, {
     global: {
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
+        StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        StandardListFilterHeader: true,
         EmptyState: EmptyStateStub,
         PanelCard: PanelCardStub
       }
@@ -97,16 +140,19 @@ describe('SectionLandingView', () => {
     permissionState.hasRoutePermission = true
   })
 
-  it('renders a compact iot access entry strip and keeps the hub sections', () => {
+  it('renders the iot access hub as two real business tabs with a single entry list', () => {
     const wrapper = mountView()
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('接入智维')
-    expect(wrapper.text()).toContain('先处理资产底座，再进入链路诊断。')
+    expect(wrapper.text()).toContain('资产底座')
+    expect(wrapper.text()).toContain('诊断排障')
     expect(wrapper.text()).toContain('产品定义中心')
-    expect(wrapper.text()).toContain('最近使用')
-    expect(wrapper.text()).toContain('推荐处理顺序')
-    expect(wrapper.text()).toContain('全部能力')
-    expect(wrapper.text()).toContain('链路验证中心 · 发送模拟上报')
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).not.toContain('最近使用')
+    expect(wrapper.text()).not.toContain('推荐处理顺序')
+    expect(wrapper.text()).not.toContain('全部能力')
   })
 
   it('hides hub chrome and self-link CTA when the user has no accessible pages', () => {

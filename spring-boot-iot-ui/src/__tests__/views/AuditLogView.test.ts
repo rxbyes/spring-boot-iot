@@ -76,19 +76,35 @@ function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="audit-log-workbench-stub">
       <header>
+        <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
         <p>{{ description }}</p>
         <slot name="header-actions" />
       </header>
       <div><slot name="filters" /></div>
       <div><slot name="applied-filters" /></div>
+      <div><slot name="notices" /></div>
       <div><slot name="toolbar" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 });
@@ -246,6 +262,7 @@ function mountView() {
         loading: () => undefined
       },
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
@@ -314,14 +331,16 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('renders the compact anomaly strip in system mode', async () => {
+  it('renders the anomaly page inside the two-level access shell', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
     expect(wrapper.text()).toContain('异常观测台');
-    expect(wrapper.text()).toContain('先看 system_error，再决定追踪链路还是回看失败归档。');
-    expect(wrapper.text()).toContain('当前异常 4 条，今日 1 条，关联链路 2 条。');
+    expect(wrapper.text()).toContain('异常台账');
+    expect(wrapper.text()).toContain('OBSERVABILITY DESK');
     expect(wrapper.text()).toContain('链路追踪台');
     expect(wrapper.text()).toContain('失败归档');
   });

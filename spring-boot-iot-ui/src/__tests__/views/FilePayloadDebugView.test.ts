@@ -29,13 +29,29 @@ vi.mock('@/stores/activity', () => ({
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="file-debug-workbench-stub">
+      <p>{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
+      <slot name="notices" />
       <slot name="inline-state" />
+      <slot />
+    </section>
+  `
+});
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
   `
@@ -88,10 +104,11 @@ describe('FilePayloadDebugView', () => {
     installSessionStorageMock();
   });
 
-  it('renders the compact validation strip and keeps the four-part result layout', () => {
+  it('renders the validation page inside the two-level access shell', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
+          IotAccessPageShell: IotAccessPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
           StandardListFilterHeader: true,
           StandardInlineState: true,
@@ -105,13 +122,15 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
     expect(wrapper.text()).toContain('数据校验台');
-    expect(wrapper.text()).toContain('先确定设备，再核对文件快照和固件聚合。');
+    expect(wrapper.text()).toContain('VALIDATION DESK');
     expect(wrapper.text()).toContain('文件快照校验');
     expect(wrapper.text()).toContain('固件聚合校验');
     expect(wrapper.text()).toContain('文件快照原始响应');
     expect(wrapper.text()).toContain('固件聚合原始响应');
-    expect(wrapper.text()).not.toContain('文件消息完整性概况');
+    expect(wrapper.text()).not.toContain('链路追踪台');
   });
 
   it('restores deviceCode from persisted diagnostic context', () => {
@@ -132,6 +151,7 @@ describe('FilePayloadDebugView', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
+          IotAccessPageShell: IotAccessPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
           StandardListFilterHeader: true,
           StandardInlineState: true,

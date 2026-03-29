@@ -1,24 +1,29 @@
 <template>
   <div class="page-stack reporting-view ops-workbench">
-    <section class="reporting-command-strip">
-      <div class="reporting-command-strip__copy">
-        <h1 class="reporting-command-strip__title">链路验证中心</h1>
-        <p class="reporting-command-strip__judgement">先校准设备身份，再发报文，再看时间线。</p>
-        <p class="reporting-command-strip__meta">{{ reportingStripStatus }}</p>
-      </div>
-      <div class="reporting-command-strip__actions">
-        <StandardActionGroup gap="sm">
-          <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
-            继续链路追踪
-          </StandardButton>
-          <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
-            查看异常观测
-          </StandardButton>
-          <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
-            打开数据校验
-          </StandardButton>
-        </StandardActionGroup>
-      </div>
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '链路验证中心' }
+      ]"
+      :show-title="false"
+    />
+
+    <section
+      v-if="canContinueTrace || canViewSystemLog || canOpenFileDebug"
+      class="reporting-diagnostic-links"
+    >
+      <p class="reporting-diagnostic-links__hint">{{ reportingStripStatus }}</p>
+      <StandardActionGroup gap="sm">
+        <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
+          继续链路追踪
+        </StandardButton>
+        <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
+          查看异常观测
+        </StandardButton>
+        <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
+          打开数据校验
+        </StandardButton>
+      </StandardActionGroup>
     </section>
 
     <section class="reporting-main-layout">
@@ -26,13 +31,13 @@
         <template #header>
           <div class="reporting-surface__header">
             <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">左侧模拟上报</p>
+              <p class="reporting-surface__eyebrow">SIMULATION LAB</p>
               <h2 class="reporting-surface__title">模拟上报</h2>
               <p class="reporting-surface__description">
                 按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
               </p>
             </div>
-            <span class="reporting-surface__badge">左侧模拟上报</span>
+            <span class="reporting-surface__badge">设备联调</span>
           </div>
         </template>
 
@@ -432,6 +437,7 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
@@ -1522,41 +1528,22 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-command-strip {
+.reporting-diagnostic-links {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.2rem 0 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 13px;
+  background: var(--surface-soft);
 }
 
-.reporting-command-strip__copy {
-  min-width: 0;
-}
-
-.reporting-command-strip__title {
+.reporting-diagnostic-links__hint {
   margin: 0;
-  color: var(--text-heading);
-  font-size: 1.25rem;
-}
-
-.reporting-command-strip__judgement {
-  margin: 0.38rem 0 0;
-  color: var(--text-heading);
-  font-weight: 600;
-}
-
-.reporting-command-strip__meta {
-  margin: 0.3rem 0 0;
   color: var(--text-caption);
+  font-size: 12px;
   line-height: 1.6;
-}
-
-.reporting-command-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.65rem;
 }
 
 .reporting-main-layout {
@@ -2003,12 +1990,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .reporting-command-strip {
+  .reporting-diagnostic-links {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .reporting-command-strip__actions {
+  .reporting-diagnostic-links :deep(.standard-action-group) {
     justify-content: flex-start;
   }
 

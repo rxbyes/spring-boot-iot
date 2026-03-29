@@ -73,9 +73,10 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="device-workbench-panel-stub">
+      <p class="device-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="device-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -84,6 +85,20 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="device-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="device-workbench-panel-stub__body"><slot /></div>
       <div class="device-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav class="iot-access-page-shell-stub__breadcrumbs">
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -152,6 +167,7 @@ function mountView() {
         permission: () => undefined
       },
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
@@ -209,14 +225,16 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders a compact device workbench header and keeps the ledger visible', async () => {
+  it('renders the device page inside the two-level access shell', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('设备资产中心')
-    expect(wrapper.text()).toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
-    expect(wrapper.text()).not.toContain('优先清理未登记、长时间未上报和拓扑异常设备')
+    expect(wrapper.text()).toContain('设备台账')
+    expect(wrapper.text()).toContain('DEVICE ASSET')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {

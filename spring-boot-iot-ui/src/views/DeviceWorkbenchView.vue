@@ -1,8 +1,17 @@
 <template>
-  <div class="device-asset-view">
+  <div class="page-stack device-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '设备资产中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
-      title="设备资产中心"
-      description="先判断在线、激活和拓扑异常，再进入设备治理。"
+      eyebrow="DEVICE ASSET"
+      title="设备台账"
+      description="统一维护设备主数据、在线状态与登记信息。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -824,6 +833,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { accessErrorApi } from '@/api/accessError'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'

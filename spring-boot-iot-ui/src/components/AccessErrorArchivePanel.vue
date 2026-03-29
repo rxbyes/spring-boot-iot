@@ -1,23 +1,14 @@
 <template>
   <StandardWorkbenchPanel
+    eyebrow="FAILURE ARCHIVE"
     title="接入失败归档台"
     description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
-    show-header-actions
     show-filters
     :show-applied-filters="hasAppliedFilters"
     show-notices
     show-toolbar
     show-pagination
   >
-    <template #header-actions>
-      <StandardChoiceGroup
-        :model-value="viewMode"
-        :options="viewModeOptions"
-        responsive
-        @update:modelValue="handleModeChange"
-      />
-    </template>
-
     <template #filters>
       <StandardListFilterHeader
         :model="searchForm"
@@ -389,22 +380,6 @@ import {
   resolveDiagnosticContext
 } from '@/utils/iotAccessDiagnostics';
 
-type ObservabilityViewMode = 'message-trace' | 'access-error';
-
-type ViewModeOption = {
-  label: string;
-  value: ObservabilityViewMode;
-};
-
-const props = defineProps<{
-  viewMode: ObservabilityViewMode;
-  viewModeOptions: ViewModeOption[];
-}>();
-
-const emit = defineEmits<{
-  (event: 'change-view-mode', value: ObservabilityViewMode): void;
-}>();
-
 const route = useRoute();
 const router = useRouter();
 
@@ -541,12 +516,6 @@ const statsSummaryText = computed(() => {
   const topProtocol = accessErrorStats.value.topProtocolCodes[0]?.label || '--';
   return `失败总量 ${accessErrorStats.value.total}，近1小时 ${accessErrorStats.value.recentHourCount}，近24小时 ${accessErrorStats.value.recent24HourCount}，Trace ${accessErrorStats.value.distinctTraceCount}，高频阶段 ${topStage}，高频协议 ${topProtocol}`;
 });
-
-function handleModeChange(value: ObservabilityViewMode | string | number | boolean) {
-  if (value === 'message-trace' || value === 'access-error') {
-    emit('change-view-mode', value);
-  }
-}
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;

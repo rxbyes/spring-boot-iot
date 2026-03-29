@@ -1,22 +1,21 @@
 <template>
   <div class="page-stack audit-log-view">
-    <section v-if="isSystemMode" class="audit-log-command-strip">
-      <div class="audit-log-command-strip__copy">
-        <h1 class="audit-log-command-strip__title">异常观测台</h1>
-        <p class="audit-log-command-strip__judgement">先看 system_error，再决定追踪链路还是回看失败归档。</p>
-        <p class="audit-log-command-strip__meta">{{ systemStripStatus }}</p>
-      </div>
-      <div class="audit-log-command-strip__actions">
-        <StandardButton action="refresh" plain @click="handleJumpToMessageTrace()">链路追踪台</StandardButton>
-        <StandardButton action="reset" plain @click="handleJumpToAccessError()">失败归档</StandardButton>
-      </div>
-    </section>
+    <IotAccessPageShell
+      v-if="isSystemMode"
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '异常观测台' }
+      ]"
+      :show-title="false"
+    />
 
     <StandardWorkbenchPanel
+      :eyebrow="isSystemMode ? 'OBSERVABILITY DESK' : undefined"
       :title="panelTitle"
       :description="pageDescription"
       show-filters
       :show-applied-filters="hasAppliedFilters"
+      :show-notices="isSystemMode"
       show-toolbar
       show-pagination
     >
@@ -147,6 +146,10 @@
         />
       </template>
 
+      <template v-if="isSystemMode" #notices>
+        <div class="ops-inline-note">{{ systemStripStatus }}</div>
+      </template>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -162,6 +165,22 @@
           ]"
         >
           <template #right>
+            <StandardButton
+              v-if="isSystemMode"
+              action="refresh"
+              link
+              @click="handleJumpToMessageTrace()"
+            >
+              链路追踪台
+            </StandardButton>
+            <StandardButton
+              v-if="isSystemMode"
+              action="refresh"
+              link
+              @click="handleJumpToAccessError()"
+            >
+              失败归档
+            </StandardButton>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
             <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
@@ -280,6 +299,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'

@@ -139,7 +139,7 @@ onUpdated(() => {
 .standard-list-filter-header__row {
   display: grid;
   grid-template-columns: var(--slfh-primary-columns);
-  gap: 12px 14px;
+  gap: 8px;
   align-items: end;
 }
 
@@ -153,15 +153,15 @@ onUpdated(() => {
 }
 
 .standard-list-filter-header__advanced {
-  margin-top: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--brand) 18%, transparent);
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .standard-list-filter-header__advanced-grid {
   display: grid;
   grid-template-columns: var(--slfh-advanced-columns);
-  gap: 12px 14px;
+  gap: 8px;
 }
 
 .standard-list-filter-header__advanced-grid :deep(.el-form-item) {
@@ -174,7 +174,7 @@ onUpdated(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .standard-list-filter-header__actions {
