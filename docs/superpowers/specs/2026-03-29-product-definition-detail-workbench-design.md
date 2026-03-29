@@ -223,7 +223,7 @@
 
 按实现结果决定是否补充：
 
-- `spring-boot-iot-ui/docs/23-frontend-detail-optimization.md`
+- `docs/archive/23-frontend-detail-optimization.md`
 
 ## 11. 验证方式
 
