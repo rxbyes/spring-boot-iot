@@ -1,0 +1,74 @@
+<h2>查询按钮重新配色</h2>
+<p class="subtitle">保留当前页面的浅色控制台风格，只调整“查询”按钮，让它和“新增产品”同属一套橙色体系，但不抢主操作按钮的视觉权重。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">方案 A：柔和杏橙（推荐）</div>
+        <div class="mockup-body">
+          <div style="padding: 18px; background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%); border-radius: 20px;">
+            <div style="height: 54px; border: 1px solid #dbe4ef; border-radius: 27px; background: #fff; margin-bottom: 18px;"></div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ffb680 0%, #ff9a5c 100%); box-shadow: 0 10px 20px rgba(255, 154, 92, 0.18); font-weight: 700;">查询</button>
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: 1px solid #ffcaa2; background: #fff; color: #ff8a3d; font-weight: 700;">重置</button>
+              <button class="mock-button" style="min-width: 140px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ff8e32 0%, #ff6f12 100%); box-shadow: 0 12px 22px rgba(255, 111, 18, 0.24); font-weight: 700;">新增产品</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A：柔和杏橙</h3>
+      <p>和“新增产品”同一暖橙家族，但明显更轻、更柔和，适合“查询是高频入口，但不是首要主动作”的关系。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">方案 B：品牌同源暖橙</div>
+        <div class="mockup-body">
+          <div style="padding: 18px; background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%); border-radius: 20px;">
+            <div style="height: 54px; border: 1px solid #dbe4ef; border-radius: 27px; background: #fff; margin-bottom: 18px;"></div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ffab67 0%, #ff8a3d 100%); box-shadow: 0 10px 20px rgba(255, 138, 61, 0.2); font-weight: 700;">查询</button>
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: 1px solid #ffcaa2; background: #fff; color: #ff8a3d; font-weight: 700;">重置</button>
+              <button class="mock-button" style="min-width: 140px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ff8e32 0%, #ff6f12 100%); box-shadow: 0 12px 22px rgba(255, 111, 18, 0.24); font-weight: 700;">新增产品</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B：品牌同源暖橙</h3>
+      <p>和主品牌橙更接近，整体最稳，但如果页面本身橙色较多，会更容易显得“查询”和“新增”层级差不够大。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">方案 C：浅金杏橙</div>
+        <div class="mockup-body">
+          <div style="padding: 18px; background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%); border-radius: 20px;">
+            <div style="height: 54px; border: 1px solid #dbe4ef; border-radius: 27px; background: #fff; margin-bottom: 18px;"></div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ffc58e 0%, #ffae62 100%); box-shadow: 0 10px 20px rgba(255, 174, 98, 0.18); font-weight: 700;">查询</button>
+              <button class="mock-button" style="min-width: 108px; border-radius: 22px; border: 1px solid #ffcaa2; background: #fff; color: #ff8a3d; font-weight: 700;">重置</button>
+              <button class="mock-button" style="min-width: 140px; border-radius: 22px; border: none; color: #fff; background: linear-gradient(135deg, #ff8e32 0%, #ff6f12 100%); box-shadow: 0 12px 22px rgba(255, 111, 18, 0.24); font-weight: 700;">新增产品</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C：浅金杏橙</h3>
+      <p>最轻、最克制，和页面浅灰输入框更柔和，但如果你希望“查询”仍然有较强点击感，这个方向可能会略弱。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle">推荐优先看 A：它通常最容易兼顾“更协调”和“和新增产品拉开主次关系”。</p>
+</div>
