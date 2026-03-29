@@ -121,13 +121,20 @@ const StandardActionLinkStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
+  props: ['size'],
   template: `
-    <section class="product-detail-drawer-stub">
+    <section class="product-detail-drawer-stub" :data-size="size">
       <div class="product-detail-drawer-stub__header-actions"><slot name="header-actions" /></div>
       <div class="product-detail-drawer-stub__body"><slot /></div>
       <div class="product-detail-drawer-stub__footer"><slot name="footer" /></div>
     </section>
   `
+})
+
+const ProductDetailWorkbenchStub = defineComponent({
+  name: 'ProductDetailWorkbench',
+  props: ['product'],
+  template: '<section class="product-detail-workbench-stub">{{ product?.productName }}</section>'
 })
 
 const StandardFormDrawerStub = defineComponent({
@@ -200,6 +207,7 @@ function mountView() {
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
         ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
+        ProductDetailWorkbench: ProductDetailWorkbenchStub,
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
         StandardTableToolbar: true,
@@ -309,5 +317,29 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自异常观测台')
     expect(wrapper.text()).toContain('Trace trace-001')
+  })
+
+  it('renders the widened detail drawer shell through ProductDetailWorkbench', async () => {
+    const wrapper = mountView()
+
+    ;(wrapper.vm as any).detailVisible = true
+    ;(wrapper.vm as any).detailData = {
+      id: 1001,
+      productKey: 'demo-product',
+      productName: '演示产品',
+      protocolCode: 'mqtt-json',
+      nodeType: 1,
+      dataFormat: 'JSON',
+      status: 1,
+      deviceCount: 12,
+      onlineDeviceCount: 8
+    }
+
+    await nextTick()
+
+    expect(wrapper.get('.product-detail-drawer-stub').attributes('data-size')).toBe('60rem')
+    expect(wrapper.get('.product-detail-workbench-stub').text()).toContain('演示产品')
+    expect(wrapper.text()).toContain('编辑')
+    expect(wrapper.text()).toContain('查看设备')
   })
 })

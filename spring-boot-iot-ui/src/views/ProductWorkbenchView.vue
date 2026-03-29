@@ -336,7 +336,7 @@
     <StandardDetailDrawer
       v-model="detailVisible"
       class="product-detail-drawer"
-      size="42rem"
+      size="60rem"
       eyebrow="产品定义详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
@@ -354,148 +354,7 @@
           编辑
         </StandardButton>
       </template>
-      <div v-if="detailData" class="product-detail-layout">
-        <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">产品汇总</span>
-            <p class="product-detail-zone__intro">先看状态、设备规模和最近上报。</p>
-          </header>
-
-          <div class="product-detail-overview-grid">
-            <article :class="['product-detail-overview-lead', { 'product-detail-overview-lead--danger': detailData.status === 0 }]">
-              <span class="product-detail-overview-lead__eyebrow">当前判断</span>
-              <strong class="product-detail-overview-lead__title">{{ detailOperationHeadline }}</strong>
-              <p class="product-detail-overview-lead__text">{{ detailOperationSummary }}</p>
-              <div class="product-detail-overview-progress">
-                <div class="product-detail-overview-progress__track">
-                  <span class="product-detail-overview-progress__fill" :style="{ width: `${detailOnlineRatioPercent}%` }" />
-                </div>
-                <span class="product-detail-overview-progress__caption">在线设备占关联设备的比例</span>
-              </div>
-              <div class="product-detail-overview-lead__meta">
-                <span>产品状态：{{ getStatusText(detailData.status) }}</span>
-                <span>当前阶段：{{ detailLifecycleStage }}</span>
-              </div>
-            </article>
-
-            <div class="product-detail-overview-metrics">
-              <article v-for="metric in detailSummaryMetrics" :key="metric.key" class="product-detail-overview-metric">
-                <span class="product-detail-overview-metric__label">{{ metric.label }}</span>
-                <div class="product-detail-overview-metric__value-wrapper">
-                  <strong class="product-detail-overview-metric__value">{{ metric.value }}</strong>
-                  <span v-if="metric.trend" :class="['product-detail-overview-metric__trend', `product-detail-overview-metric__trend--${metric.trendType}`]">
-                    {{ metric.trend }}
-                  </span>
-                </div>
-                <p class="product-detail-overview-metric__hint">{{ metric.hint }}</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="product-detail-zone product-detail-zone--ledger">
-          <div class="product-detail-ledger-grid">
-            <article class="product-detail-ledger-card product-detail-ledger-card--contract">
-              <header class="product-detail-card-header">
-                <h3>接入契约</h3>
-                <p>核对协议、节点类型和上报格式。</p>
-              </header>
-              <div class="product-detail-contract-list">
-                <article v-for="item in detailContractCards" :key="item.key" class="product-detail-contract-item">
-                  <span class="product-detail-contract-item__label">{{ item.label }}</span>
-                  <strong class="product-detail-contract-item__value" :title="item.value">{{ item.value }}</strong>
-                </article>
-              </div>
-            </article>
-
-            <article class="product-detail-ledger-card product-detail-ledger-card--archive">
-              <header class="product-detail-card-header">
-                <h3>产品档案</h3>
-                <p>核对编号、Key、厂商和建档时间。</p>
-              </header>
-              <div class="product-detail-archive-grid">
-                <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <div class="product-detail-archive-meta-row">
-                    <span class="product-detail-archive-item__label">厂商</span>
-                    <span class="product-detail-archive-meta-separator">|</span>
-                    <span class="product-detail-archive-item__label">产品编号</span>
-                  </div>
-                  <div class="product-detail-archive-meta-value">
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveManufacturerText">{{ detailArchiveManufacturerText }}</strong>
-                    <span class="product-detail-archive-meta-separator">/</span>
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveIdText">{{ detailArchiveIdText }}</strong>
-                  </div>
-                </article>
-                <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <div class="product-detail-archive-meta-row">
-                    <span class="product-detail-archive-item__label">产品 Key</span>
-                    <span class="product-detail-archive-meta-separator">|</span>
-                    <span class="product-detail-archive-item__label">创建时间</span>
-                  </div>
-                  <div class="product-detail-archive-meta-value">
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveProductKeyText">{{ detailArchiveProductKeyText }}</strong>
-                    <span class="product-detail-archive-meta-separator">/</span>
-                    <strong class="product-detail-archive-item__value">{{ detailArchiveCreateDateText }}</strong>
-                  </div>
-                </article>
-              </div>
-              <article class="product-detail-description-card">
-                <span class="product-detail-description-card__label">产品说明</span>
-                <strong class="product-detail-description-card__value">{{ detailDescriptionText }}</strong>
-              </article>
-            </article>
-          </div>
-        </section>
-
-        <!-- 活跃度统计区段 -->
-        <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">设备活跃度</span>
-            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
-          </header>
-          <div class="product-detail-active-grid">
-            <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
-              <span class="product-detail-active-metric__label">{{ metric.label }}</span>
-              <strong class="product-detail-active-metric__value">{{ metric.value }}</strong>
-              <p class="product-detail-active-metric__hint">{{ metric.hint }}</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="product-detail-zone product-detail-zone--governance">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">维护与治理</span>
-            <p class="product-detail-zone__intro">建议、规则和变更前检查分层展示。</p>
-          </header>
-          <div class="product-detail-governance-grid">
-            <article
-              :class="[
-                'product-detail-governance-card',
-                'product-detail-governance-card--lead',
-                { 'product-detail-governance-card--danger': detailData.status === 0 }
-              ]"
-            >
-              <span class="product-detail-governance-card__label">当前建议</span>
-              <strong class="product-detail-governance-card__title">{{ detailGovernanceHeadline }}</strong>
-              <p class="product-detail-governance-card__text">{{ detailGovernanceNotice }}</p>
-            </article>
-
-            <article class="product-detail-governance-card">
-              <span class="product-detail-governance-card__label">维护规则</span>
-              <ul class="product-detail-governance-list">
-                <li v-for="item in detailMaintenanceRules" :key="item">{{ item }}</li>
-              </ul>
-            </article>
-
-            <article class="product-detail-governance-card">
-              <span class="product-detail-governance-card__label">变更前确认</span>
-              <ul class="product-detail-governance-list">
-                <li v-for="item in detailChangeChecklist" :key="item">{{ item }}</li>
-              </ul>
-            </article>
-          </div>
-        </section>
-      </div>
+      <ProductDetailWorkbench v-if="detailData" :product="detailData" />
 
       <template #footer>
         <StandardDrawerFooter @cancel="detailVisible = false">
@@ -656,6 +515,7 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
+import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
@@ -853,7 +713,7 @@ const formTitle = computed(() => (editingProductId.value ? '编辑产品' : '新
 const submitButtonText = computed(() => (editingProductId.value ? '保存' : '新增'))
 const submitPermission = computed(() => (editingProductId.value ? 'iot:products:update' : 'iot:products:add'))
 const detailTitle = computed(() => detailData.value?.productName || detailData.value?.productKey || '产品详情')
-const detailSubtitle = computed(() => '按汇总、接入方式、档案信息和维护建议四个板块查看。')
+const detailSubtitle = computed(() => '按设备规模、活跃趋势、接入契约与产品档案、维护治理四段结构查看。')
 const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
