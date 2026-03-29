@@ -84,7 +84,7 @@ const ElDropdownItemStub = defineComponent({
 })
 
 describe('StandardButton', () => {
-  it('maps query actions to the system query palette instead of the generic primary branch', () => {
+  it('maps query actions to the shared primary branch used by confirm buttons', () => {
     const wrapper = mount(StandardButton, {
       props: { action: 'query' },
       slots: { default: '查询' },
@@ -99,7 +99,8 @@ describe('StandardButton', () => {
     expect(button.attributes('data-type')).toBe('primary')
     expect(button.attributes('data-link')).toBe('false')
     expect(button.attributes('class')).toContain('standard-button--query')
-    expect(button.attributes('class')).toContain('standard-button--palette-query')
+    expect(button.attributes('class')).toContain('standard-button--palette-default')
+    expect(button.attributes('class')).not.toContain('standard-button--palette-query')
     expect(button.attributes('class')).toContain('standard-button--tone-solid')
   })
 
@@ -153,10 +154,10 @@ describe('StandardButton', () => {
 
     expect(deleteWrapper.get('button').attributes('data-type')).toBe('primary')
     expect(deleteWrapper.get('button').attributes('class')).toContain('standard-button--delete')
-    expect(deleteWrapper.get('button').attributes('class')).toContain('standard-button--palette-brand')
+    expect(deleteWrapper.get('button').attributes('class')).toContain('standard-button--palette-default')
     expect(confirmWrapper.get('button').attributes('data-type')).toBe('primary')
     expect(confirmWrapper.get('button').attributes('class')).toContain('standard-button--confirm')
-    expect(confirmWrapper.get('button').attributes('class')).toContain('standard-button--palette-brand')
+    expect(confirmWrapper.get('button').attributes('class')).toContain('standard-button--palette-default')
   })
 
   it('keeps link buttons in the shared orange text action branch', () => {
