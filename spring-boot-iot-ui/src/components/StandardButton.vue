@@ -34,8 +34,6 @@ type ButtonType = '' | 'primary' | 'success' | 'warning' | 'info' | 'danger'
 type ButtonSize = '' | 'large' | 'default' | 'small'
 type ButtonAction = 'default' | 'query' | 'add' | 'reset' | 'delete' | 'batch' | 'refresh' | 'confirm' | 'cancel'
 type ButtonTone = 'solid' | 'secondary' | 'link' | 'text'
-type ButtonPalette = 'default' | 'query'
-
 const attrs = useAttrs()
 
 const props = withDefaults(
@@ -97,13 +95,6 @@ const resolvedTone = computed<ButtonTone>(() => {
   }
   return actionDefaults[props.action].tone
 })
-const resolvedPalette = computed<ButtonPalette>(() => {
-  if (props.action === 'query' && !resolvedLink.value && !resolvedText.value) {
-    return 'query'
-  }
-  return 'default'
-})
-
 const resolvedPalette = computed<'query' | 'brand' | 'neutral'>(() => {
   if (props.action === 'query') {
     return 'query'
@@ -142,20 +133,6 @@ const classes = computed(() => [
 
 .standard-button--tone-solid:not(.standard-button--plain):not(.standard-button--link):not(.standard-button--text) {
   box-shadow: var(--standard-button-shadow);
-}
-
-.standard-button--palette-query {
-  --button-primary-bg-color: var(--button-query-bg-color);
-  --button-primary-bg: var(--button-query-bg);
-  --button-primary-hover-bg-color: var(--button-query-hover-bg-color);
-  --button-primary-hover-bg: var(--button-query-hover-bg);
-  --button-primary-active-bg: var(--button-query-active-bg);
-  --button-primary-disabled-bg-color: var(--button-query-disabled-bg-color);
-  --button-primary-disabled-bg: var(--button-query-disabled-bg);
-  --button-primary-text: var(--button-query-text);
-  --button-primary-hover-text: var(--button-query-hover-text);
-  --button-primary-disabled-text: var(--button-query-disabled-text);
-  --standard-button-shadow: var(--button-query-shadow);
 }
 
 .standard-button--add,
