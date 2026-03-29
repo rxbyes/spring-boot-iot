@@ -27,7 +27,7 @@ const baseProduct: Product = {
 }
 
 describe('ProductDetailWorkbench', () => {
-  it('renders the executive-brief hierarchy with the device-scale hero first', () => {
+  it('renders the streamlined four-part detail hierarchy without the legacy English stage tier', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {
         product: baseProduct
@@ -47,6 +47,10 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="product-detail-hero-secondary-onlineDeviceCount-value"]').text()).toBe('1842')
     expect(wrapper.get('[data-testid="product-detail-hero-secondary-thirtyDaysActiveCount-value"]').text()).toBe('2117')
     expect(wrapper.get('[data-testid="product-detail-hero-secondary-avgOnlineDuration-value"]').text()).toBe('128 分钟')
+    expect(wrapper.text()).not.toContain('Hero Stage')
+    expect(wrapper.text()).not.toContain('Trend Stage')
+    expect(wrapper.text()).not.toContain('Contract & Archive Stage')
+    expect(wrapper.text()).not.toContain('Governance Stage')
   })
 
   it('keeps the trend stage visible with a quiet placeholder when no activity metrics exist', () => {
@@ -68,5 +72,23 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.text()).toContain('接入契约')
     expect(wrapper.text()).toContain('产品档案')
     expect(wrapper.text()).toContain('维护与治理')
+  })
+
+  it('renders trend, contract, archive, and governance details from the product payload', () => {
+    const wrapper = mount(ProductDetailWorkbench, {
+      props: {
+        product: baseProduct
+      }
+    })
+
+    expect(wrapper.get('[data-testid="product-detail-trend-metrics"]').text()).toContain('今日活跃')
+    expect(wrapper.get('[data-testid="product-detail-trend-metrics"]').text()).toContain('最长在线时长')
+    expect(wrapper.get('[data-testid="product-detail-contract"]').text()).toContain('mqtt-json')
+    expect(wrapper.get('[data-testid="product-detail-contract"]').text()).toContain('直连设备')
+    expect(wrapper.get('[data-testid="product-detail-archive"]').text()).toContain('GHLZM')
+    expect(wrapper.get('[data-testid="product-detail-archive"]').text()).toContain('north-monitor-gnss-v1')
+    expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('当前建议')
+    expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('维护规则')
+    expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('变更前确认')
   })
 })
