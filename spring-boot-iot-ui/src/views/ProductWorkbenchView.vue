@@ -1,10 +1,17 @@
 <template>
-  <div class="page-stack product-asset-view product-asset-view--compact product-asset-view--minimal">
+  <div class="page-stack product-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '产品定义中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
-      class="product-workbench-panel product-workbench-panel--compact"
+      eyebrow="PRODUCT CENTER"
       title="产品定义中心"
-      description=""
-      title-variant="section"
+      description="统一维护产品台账、协议绑定与接入契约。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -12,7 +19,7 @@
       show-pagination
     >
       <template #filters>
-        <StandardListFilterHeader class="product-list-filter-header product-list-filter-header--compact" :model="searchForm">
+        <StandardListFilterHeader :model="searchForm">
           <template #primary>
             <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
             <el-form-item>
@@ -46,7 +53,7 @@
           </template>
         </StandardListFilterHeader>
         <!-- 快速搜索标签 -->
-        <div v-if="quickSearchKeyword" class="product-quick-search-tag product-quick-search-tag--compact">
+        <div v-if="quickSearchKeyword" class="product-quick-search-tag">
           <el-tag closable class="product-quick-search-tag__chip" @close="handleClearQuickSearch">
             快速搜索：{{ quickSearchKeyword }}
           </el-tag>
@@ -63,7 +70,6 @@
 
       <template #toolbar>
         <StandardTableToolbar
-          class="product-table-toolbar product-table-toolbar--compact"
           compact
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
@@ -144,7 +150,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="product-result-panel product-result-panel--compact"
+        class="product-result-panel"
         element-loading-text="正在刷新产品列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -283,15 +289,9 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column
-                label="操作"
-                width="304"
-                fixed="right"
-                class-name="product-desktop-table__actions-column"
-                :show-overflow-tooltip="false"
-              >
+              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
                 <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="comfortable" class="product-table-row-actions">
+                  <StandardRowActions variant="table" gap="comfortable">
                     <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                     <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
                     <StandardActionLink
@@ -655,6 +655,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'
@@ -1992,7 +1993,6 @@ function handleAdd() {
 }
 
 function handleEdit(row: Product) {
-  currentProduct.value = row
   const cachedDetail = getCachedProductDetail(row)
   const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
 
@@ -2009,7 +2009,6 @@ function handleEdit(row: Product) {
 }
 
 function handleOpenDetail(row: Product) {
-  currentProduct.value = row
   void openDetail(row)
 }
 
@@ -2028,23 +2027,8 @@ function handleOpenDeviceListDrawer(row: Product) {
 }
 
 function handleOpenProductModelDesigner(row: Product) {
-  currentProduct.value = row
   productModelTarget.value = row
   productModelDesignerVisible.value = true
-}
-
-function handleOpenCurrentProductDevices() {
-  if (!currentProduct.value) {
-    return
-  }
-  handleOpenDeviceListDrawer(currentProduct.value)
-}
-
-function handleOpenCurrentProductModelDesigner() {
-  if (!currentProduct.value) {
-    return
-  }
-  handleOpenProductModelDesigner(currentProduct.value)
 }
 
 // 查看设备
@@ -2378,127 +2362,6 @@ onMounted(async () => {
 .product-asset-view {
   display: grid;
   gap: 16px;
-}
-
-.product-asset-view--compact {
-  gap: 10px;
-}
-
-.product-asset-view--minimal :deep(.standard-workbench-panel__title),
-.product-asset-view--minimal :deep(.standard-workbench-panel__title--section) {
-  letter-spacing: -0.02em;
-}
-
-.product-asset-view--minimal :deep(.table-action-bar__meta) {
-  color: var(--text-caption);
-}
-
-.product-workbench-panel--compact :deep(.panel-card) {
-  border-radius: calc(var(--radius-md) + 2px);
-  background: #ffffff;
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 2px rgba(24, 45, 77, 0.04);
-}
-
-.product-workbench-panel--compact :deep(.el-card__body) {
-  padding: 0.9rem 0.95rem;
-}
-
-.product-workbench-panel--compact :deep(.panel-card__header) {
-  padding-bottom: 0.56rem;
-}
-
-.product-workbench-panel--compact :deep(.panel-card__content) {
-  margin-top: 0.56rem;
-}
-
-.product-workbench-panel--compact :deep(.standard-workbench-panel__header) {
-  gap: 0.56rem;
-}
-
-.product-workbench-panel--compact :deep(.standard-workbench-panel__title--section) {
-  font-size: 1.08rem;
-  line-height: 1.32;
-}
-
-.product-workbench-panel--compact :deep(.standard-workbench-panel__filters),
-.product-workbench-panel--compact :deep(.standard-workbench-panel__applied-filters),
-.product-workbench-panel--compact :deep(.standard-workbench-panel__notices),
-.product-workbench-panel--compact :deep(.standard-workbench-panel__toolbar),
-.product-workbench-panel--compact :deep(.standard-workbench-panel__inline-state) {
-  margin-bottom: 0.56rem;
-}
-
-.product-workbench-panel--compact :deep(.standard-workbench-panel__pagination) {
-  margin-top: 0.56rem;
-}
-
-.product-list-filter-header--compact :deep(.standard-list-filter-header__row) {
-  gap: 10px 12px;
-}
-
-.product-list-filter-header--compact :deep(.standard-list-filter-header__actions-row) {
-  gap: 6px 10px;
-  margin-top: 8px;
-}
-
-.product-list-filter-header--compact :deep(.standard-list-filter-header__hint) {
-  font-size: 11.5px;
-}
-
-.product-table-toolbar--compact {
-  margin: 0 0 0.48rem;
-  padding: 0.52rem 0.72rem;
-  border-radius: calc(var(--radius-md) + 1px);
-}
-
-.product-table-toolbar--compact :deep(.table-action-bar__left) {
-  gap: 0.32rem;
-}
-
-.product-table-toolbar--compact :deep(.table-action-bar__right) {
-  gap: 0.08rem 0.22rem;
-}
-
-.product-table-toolbar--compact :deep(.table-action-bar__meta) {
-  min-height: 1.68rem;
-  padding: 0.18rem 0.56rem;
-  font-size: 0.74rem;
-}
-
-.product-support-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.product-support-grid__section--focus,
-.product-panel-focus {
-  border-radius: var(--radius-lg);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, white);
-}
-
-.product-panel-focus {
-  padding: 0.14rem;
-}
-
-.product-support-copy {
-  display: grid;
-  gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.65;
-}
-
-.product-support-copy p {
-  margin: 0;
-}
-
-@media (max-width: 900px) {
-  .product-support-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 :deep(.product-detail-drawer .el-drawer__header) {
@@ -3072,15 +2935,6 @@ onMounted(async () => {
   margin-top: 0.5rem;
 }
 
-.product-quick-search-tag--compact {
-  gap: 0.35rem;
-  margin-top: 0.38rem;
-}
-
-.product-quick-search-tag--compact :deep(.el-tag) {
-  min-height: 1.7rem;
-}
-
 .product-quick-search-tag__chip {
   cursor: pointer;
 }
@@ -3422,24 +3276,6 @@ onMounted(async () => {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
 }
 
-.product-result-panel--compact {
-  min-height: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.product-result-panel--compact :deep(.el-table) {
-  overflow: hidden;
-  border-radius: calc(var(--radius-md) + 1px);
-  box-shadow:
-    0 1px 4px rgba(24, 45, 77, 0.04),
-    0 1px 2px rgba(24, 45, 77, 0.04);
-}
-
-.product-result-panel--compact :deep(.el-table__inner-wrapper::before) {
-  height: 0;
-}
-
 .product-result-panel :deep(.el-loading-mask) {
   border-radius: inherit;
   background: rgba(248, 250, 255, 0.78) !important;
@@ -3464,10 +3300,6 @@ onMounted(async () => {
   padding: 0.4rem 0 0.2rem;
 }
 
-.product-result-panel--compact .product-empty-state {
-  padding-top: 0.12rem;
-}
-
 .product-empty-state :deep(.empty-state) {
   padding-block: 3.25rem 2rem;
 }
@@ -3482,11 +3314,6 @@ onMounted(async () => {
   gap: 14px;
   min-height: 14rem;
   padding: 0.72rem 0.1rem 0.2rem;
-}
-
-.product-result-panel--compact .product-loading-state {
-  gap: 12px;
-  padding: 0.36rem 0 0.08rem;
 }
 
 .product-loading-state__summary {

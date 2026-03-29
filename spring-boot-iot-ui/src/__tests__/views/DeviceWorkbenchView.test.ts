@@ -73,9 +73,10 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description', 'titleVariant'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="device-workbench-panel-stub" :data-title-variant="titleVariant || 'default'">
+    <section class="device-workbench-panel-stub">
+      <p class="device-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="device-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -84,6 +85,20 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="device-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="device-workbench-panel-stub__body"><slot /></div>
       <div class="device-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav class="iot-access-page-shell-stub__breadcrumbs">
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -124,56 +139,6 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
-const StandardButtonStub = defineComponent({
-  name: 'StandardButton',
-  emits: ['click'],
-  template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
-})
-
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
-  props: ['title', 'status'],
-  template: `
-    <section class="iot-access-page-shell">
-      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
-      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
-      <slot name="actions" />
-      <slot />
-    </section>
-  `
-})
-
-const IotAccessTabWorkspaceStub = defineComponent({
-  name: 'IotAccessTabWorkspace',
-  props: ['items', 'defaultKey', 'modelValue'],
-  template: `
-    <section class="iot-access-tab-workspace">
-      <button
-        v-for="item in items"
-        :key="item.key"
-        type="button"
-        class="iot-access-tab-workspace__tab"
-      >
-        {{ item.label }}
-      </button>
-      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
-    </section>
-  `
-})
-
-const IotAccessResultSectionStub = defineComponent({
-  name: 'IotAccessResultSection',
-  props: ['title', 'description'],
-  template: `
-    <section class="iot-access-result-section">
-      <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
-      <slot name="toolbar" />
-      <slot />
-    </section>
-  `
-})
-
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -202,15 +167,12 @@ function mountView() {
         permission: () => undefined
       },
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
-        StandardInlineState: StandardInlineStateStub,
-        StandardButton: StandardButtonStub,
-        IotAccessPageShell: IotAccessPageShellStub,
-        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
-        IotAccessResultSection: IotAccessResultSectionStub
+        StandardInlineState: StandardInlineStateStub
       }
     }
   })
@@ -263,22 +225,16 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders the device page as a single-ledger workbench without support tabs', async () => {
+  it('renders the device page inside the two-level access shell', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.classes()).toContain('device-asset-view--minimal')
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false)
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false)
-    expect(wrapper.find('.device-workbench-panel-stub').attributes('data-title-variant')).toBe('section')
-    expect(wrapper.find('.device-workbench-panel-stub h2').text()).toBe('设备台账')
-    expect(wrapper.text()).not.toContain('设备资产中心')
-    expect(wrapper.text()).toContain('新增设备')
-    expect(wrapper.text()).toContain('批量导入')
-    expect(wrapper.text()).not.toContain('未登记上报')
-    expect(wrapper.text()).not.toContain('拓扑关系')
-    expect(wrapper.text()).not.toContain('先判断在线、激活和拓扑异常，再进入设备治理。')
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('接入智维')
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).toContain('设备台账')
+    expect(wrapper.text()).toContain('DEVICE ASSET')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {

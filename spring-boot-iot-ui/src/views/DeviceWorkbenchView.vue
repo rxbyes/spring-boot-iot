@@ -1,9 +1,17 @@
 <template>
-  <div class="page-stack device-asset-view device-asset-view--minimal">
+  <div class="page-stack device-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '设备资产中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
+      eyebrow="DEVICE ASSET"
       title="设备台账"
-      description=""
-      title-variant="section"
+      description="统一维护设备主数据、在线状态与登记信息。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -825,6 +833,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { accessErrorApi } from '@/api/accessError'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
@@ -3050,49 +3059,6 @@ onMounted(async () => {
 .device-asset-view {
   display: grid;
   gap: 16px;
-}
-
-.device-asset-view--minimal :deep(.standard-workbench-panel__title),
-.device-asset-view--minimal :deep(.standard-workbench-panel__title--section) {
-  letter-spacing: -0.02em;
-}
-
-.device-asset-view--minimal :deep(.table-action-bar__meta) {
-  color: var(--text-caption);
-}
-
-.device-support-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.device-support-grid__section--focus,
-.device-panel-focus {
-  border-radius: var(--radius-lg);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, white);
-}
-
-.device-panel-focus {
-  padding: 0.14rem;
-}
-
-.device-support-copy {
-  display: grid;
-  gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.65;
-}
-
-.device-support-copy p {
-  margin: 0;
-}
-
-@media (max-width: 900px) {
-  .device-support-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .device-result-panel {

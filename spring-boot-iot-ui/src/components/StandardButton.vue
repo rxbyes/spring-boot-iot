@@ -104,6 +104,18 @@ const resolvedPalette = computed<ButtonPalette>(() => {
   return 'default'
 })
 
+const resolvedPalette = computed<'query' | 'brand' | 'neutral'>(() => {
+  if (props.action === 'query') {
+    return 'query'
+  }
+
+  if (['add', 'batch', 'confirm', 'delete'].includes(props.action)) {
+    return 'brand'
+  }
+
+  return 'neutral'
+})
+
 const classes = computed(() => [
   `standard-button--${props.action}`,
   `standard-button--tone-${resolvedTone.value}`,
@@ -151,5 +163,29 @@ const classes = computed(() => [
 .standard-button--confirm,
 .standard-button--delete {
   --standard-button-shadow: var(--shadow-brand);
+}
+
+.standard-button--palette-query {
+  --standard-button-shadow: var(--button-query-shadow);
+}
+
+.standard-button--palette-query.el-button--primary:not(.is-plain):not(.is-link):not(.is-text) {
+  background: var(--button-query-bg);
+  color: var(--button-query-text);
+}
+
+.standard-button--palette-query.el-button--primary:not(.is-plain):not(.is-link):not(.is-text):hover {
+  background: var(--button-query-hover-bg);
+  color: var(--button-query-hover-text);
+}
+
+.standard-button--palette-query.el-button--primary:not(.is-plain):not(.is-link):not(.is-text):active {
+  background: var(--button-query-active-bg);
+}
+
+.standard-button--palette-query.el-button--primary.is-disabled,
+.standard-button--palette-query.el-button--primary.is-disabled:hover {
+  background: var(--button-query-disabled-bg);
+  color: var(--button-query-disabled-text);
 }
 </style>

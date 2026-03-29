@@ -79,6 +79,7 @@ import {
   pageInAppMessageBridgeLogs,
   pageInAppMessages
 } from '@/api/inAppMessage'
+import { createRequestError } from '@/api/request'
 import { listChannels } from '@/api/channel'
 import { listRoles } from '@/api/role'
 import { listUsers } from '@/api/user'
@@ -369,14 +370,13 @@ const PanelCardStub = defineComponent({
   template: `
     <section class="panel-card-stub">
       <header class="panel-card-stub__header">
-        <slot name="header">
-          <div class="panel-card-stub__heading">
-            <p v-if="eyebrow" class="panel-card-stub__eyebrow">{{ eyebrow }}</p>
-            <h2 v-if="title" class="panel-card-stub__title">{{ title }}</h2>
-          </div>
-        </slot>
+        <slot name="header" />
+        <template v-if="!$slots.header">
+          <p v-if="eyebrow">{{ eyebrow }}</p>
+          <h2 v-if="title">{{ title }}</h2>
+          <p v-if="description">{{ description }}</p>
+        </template>
       </header>
-      <p v-if="description" class="panel-card-stub__description">{{ description }}</p>
       <div class="panel-card-stub__body">
         <slot />
       </div>
@@ -714,8 +714,7 @@ function mountView() {
 }
 
 function findBridgeSearchButton(wrapper: ReturnType<typeof mountView>) {
-  const bridgeFilterHeader = wrapper.findAll('.standard-list-filter-header').at(1)
-  return bridgeFilterHeader?.findAll('button').find((button) => button.text() === '查询')
+  return wrapper.findAll('button').filter((button) => button.text() === '查询').at(-1)
 }
 
 describe('InAppMessageView bridge operations', () => {
@@ -746,7 +745,7 @@ describe('InAppMessageView bridge operations', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const bridgeStatusSelect = wrapper.findAll('select').find((select) => select.attributes('data-placeholder') === '桥接状态')
+    const bridgeStatusSelect = wrapper.find('select[data-placeholder="桥接状态"]')
     await bridgeStatusSelect.setValue('0')
     await findBridgeSearchButton(wrapper)!.trigger('click')
     await flushPromises()
@@ -779,13 +778,19 @@ describe('InAppMessageView bridge operations', () => {
   })
 
   it('shows bridge failure state without affecting the governance section', async () => {
-    vi.mocked(pageInAppMessageBridgeLogs).mockRejectedValueOnce(new Error('桥接日志加载失败'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(pageInAppMessageBridgeLogs).mockRejectedValueOnce(createRequestError('桥接日志加载失败', true))
 
-    const wrapper = mountView()
-    await flushPromises()
+    try {
+      const wrapper = mountView()
+      await flushPromises()
 
-    expect(wrapper.text()).toContain('桥接日志加载失败')
-    expect(wrapper.text()).toContain('站内消息管理')
-    expect(wrapper.text()).toContain('投放总量')
+      expect(wrapper.text()).toContain('桥接日志加载失败')
+      expect(wrapper.text()).toContain('站内消息管理')
+      expect(wrapper.text()).toContain('投放总量')
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })

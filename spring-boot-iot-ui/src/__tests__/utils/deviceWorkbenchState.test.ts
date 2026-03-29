@@ -107,7 +107,7 @@ describe('deviceWorkbenchState', () => {
       onlineStatus: 1,
       activateStatus: 1,
       deviceStatus: 1,
-      registrationStatus: undefined,
+      registrationStatus: 1,
       pageNum: 1,
       pageSize: 10
     }
@@ -118,10 +118,10 @@ describe('deviceWorkbenchState', () => {
       records: [createDevice()]
     }
 
-    expect(buildDevicePageCacheKey(query)).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1||1|10')
+    expect(buildDevicePageCacheKey(query)).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1|1|1|10')
 
     const cacheEntry = createDevicePageCacheEntry(query, pageResult, 1_000)
-    expect(cacheEntry.key).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1||1|10')
+    expect(cacheEntry.key).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1|1|1|10')
     expect(cacheEntry.records[0].deviceName).toBe('一号泵站设备')
 
     const cloned = cloneDevicePageCacheEntry(cacheEntry)

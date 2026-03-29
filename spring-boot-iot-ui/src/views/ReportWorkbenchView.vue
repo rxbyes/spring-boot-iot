@@ -1,28 +1,43 @@
 <template>
-  <div class="page-stack reporting-view reporting-view--minimal ops-workbench">
-    <IotAccessTabWorkspace
-      v-model="reportingWorkspaceTab"
-      :items="reportingWorkspaceTabs"
-      default-key="simulate"
+  <div class="page-stack reporting-view ops-workbench">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '链路验证中心' }
+      ]"
+      :show-title="false"
+    />
+
+    <section
+      v-if="canContinueTrace || canViewSystemLog || canOpenFileDebug"
+      class="reporting-diagnostic-links"
     >
-      <template #default>
-        <section
-          :class="[
-            'reporting-main-layout',
-            { 'reporting-workspace-section--focus': reportingWorkspaceTab === 'simulate' }
-          ]"
-        >
+      <p class="reporting-diagnostic-links__hint">{{ reportingStripStatus }}</p>
+      <StandardActionGroup gap="sm">
+        <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
+          继续链路追踪
+        </StandardButton>
+        <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
+          查看异常观测
+        </StandardButton>
+        <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
+          打开数据校验
+        </StandardButton>
+      </StandardActionGroup>
+    </section>
+
+    <section class="reporting-main-layout">
       <PanelCard class="reporting-surface reporting-surface--compose">
         <template #header>
           <div class="reporting-surface__header">
             <div class="reporting-surface__heading">
-              <p class="reporting-surface__eyebrow">左侧模拟上报</p>
+              <p class="reporting-surface__eyebrow">SIMULATION LAB</p>
               <h2 class="reporting-surface__title">模拟上报</h2>
               <p class="reporting-surface__description">
                 按设备编码加载接入契约后，完成 HTTP / MQTT 双通道模拟上报。
               </p>
             </div>
-            <span class="reporting-surface__badge">左侧模拟上报</span>
+            <span class="reporting-surface__badge">设备联调</span>
           </div>
         </template>
 
@@ -259,25 +274,6 @@
               {{ note }}
             </li>
           </ul>
-
-          <div v-if="currentDiagnosticFinding.nextActionTarget" class="reporting-diagnostic-next-step">
-            <div class="reporting-diagnostic-next-step__copy">
-              <span class="reporting-diagnostic-next-step__label">{{ currentDiagnosticFinding.title }}</span>
-              <strong>{{ currentDiagnosticFinding.summary }}</strong>
-              <p>{{ currentDiagnosticFinding.reason }}</p>
-            </div>
-            <StandardActionGroup gap="sm">
-              <StandardButton v-if="canContinueTrace" action="refresh" plain @click="jumpToMessageTrace">
-                继续链路追踪
-              </StandardButton>
-              <StandardButton v-if="canViewSystemLog" action="refresh" plain @click="jumpToSystemLog">
-                查看异常观测
-              </StandardButton>
-              <StandardButton v-if="canOpenFileDebug" action="refresh" plain @click="jumpToFileDebug">
-                打开数据校验
-              </StandardButton>
-            </StandardActionGroup>
-          </div>
         </section>
 
         <section class="reporting-section">
@@ -335,15 +331,14 @@
           <pre class="reporting-code-block reporting-code-block--response" aria-live="polite">{{ responsePreview }}</pre>
         </section>
       </PanelCard>
-        </section>
+    </section>
 
-        <PanelCard
+    <PanelCard
         class="reporting-card reporting-card--timeline"
-        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'replay' }"
         eyebrow="链路验证中心"
         title="处理时间线"
         description="以 session/trace 复盘固定 Pipeline 阶段，HTTP 直接展示，MQTT 在回流绑定后展示完整处理链路。"
-        >
+    >
       <div class="reporting-timeline-toolbar">
         <StandardInlineState
             :tone="messageFlowInlineTone"
@@ -365,15 +360,14 @@
           :empty-title="messageFlowEmptyTitle"
           :empty-description="messageFlowEmptyDescription"
       />
-        </PanelCard>
+    </PanelCard>
 
-        <PanelCard
+    <PanelCard
         class="reporting-card reporting-card--recent"
-        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'recent' }"
         eyebrow="链路验证中心"
         title="最近提交"
         description="保留最近一批 message-flow session，支持直接恢复时间线复盘，不必先手工记录 sessionId。"
-        >
+    >
       <div class="reporting-recent-toolbar">
         <StandardInlineState
             tone="info"
@@ -423,19 +417,16 @@
           </div>
         </button>
       </div>
-        </PanelCard>
+    </PanelCard>
 
-        <PanelCard
+    <PanelCard
         class="reporting-card reporting-card--follow-up"
-        :class="{ 'reporting-workspace-section--focus': reportingWorkspaceTab === 'replay' }"
         eyebrow="链路验证中心"
         title="发送后建议检查"
         description="先确认报文进入主链路，再核对属性、日志、在线状态和后续闭环结果。"
-        >
+    >
       <StandardFlowRail :items="followUpSteps" />
-        </PanelCard>
-      </template>
-    </IotAccessTabWorkspace>
+    </PanelCard>
   </div>
 </template>
 
@@ -446,7 +437,7 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
-import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
@@ -495,16 +486,9 @@ interface ReportFormState {
 
 type FeedbackTone = 'neutral' | 'info' | 'success' | 'danger';
 
-const reportingWorkspaceTabs = [
-  { key: 'simulate', label: '模拟验证' },
-  { key: 'replay', label: '结果复盘' },
-  { key: 'recent', label: '最近记录' }
-];
-
 const MESSAGE_FLOW_MATCH_WINDOW_MS = 120 * 1000;
 
 const router = useRouter();
-const reportingWorkspaceTab = ref('simulate');
 
 const createDefaultForm = (): ReportFormState => ({
   deviceCode: '',
@@ -810,6 +794,11 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     reason: '设备身份上下文缺失，无法稳定关联后续诊断。',
     nextActionLabel: '查询设备'
   };
+});
+
+const reportingStripStatus = computed(() => {
+  const deviceLabel = currentDiagnosticContext.value.deviceCode || '未查询';
+  return `${currentDiagnosticFinding.value.title} · ${currentDiagnosticFinding.value.summary}（设备 ${deviceLabel}）`;
 });
 
 const canContinueTrace = computed(() => Boolean(currentDiagnosticContext.value.traceId));
@@ -1539,49 +1528,22 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-view--minimal :deep(.reporting-surface__title) {
-  letter-spacing: -0.02em;
-}
-
-.reporting-view--minimal :deep(.reporting-surface__description) {
-  color: var(--text-caption);
-}
-
-.reporting-command-strip {
+.reporting-diagnostic-links {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.2rem 0 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 13px;
+  background: var(--surface-soft);
 }
 
-.reporting-command-strip__copy {
-  min-width: 0;
-}
-
-.reporting-command-strip__title {
+.reporting-diagnostic-links__hint {
   margin: 0;
-  color: var(--text-heading);
-  font-size: 1.25rem;
-}
-
-.reporting-command-strip__judgement {
-  margin: 0.38rem 0 0;
-  color: var(--text-heading);
-  font-weight: 600;
-}
-
-.reporting-command-strip__meta {
-  margin: 0.3rem 0 0;
   color: var(--text-caption);
+  font-size: 12px;
   line-height: 1.6;
-}
-
-.reporting-command-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.65rem;
 }
 
 .reporting-main-layout {
@@ -1962,40 +1924,6 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--brand) 72%, white);
 }
 
-.reporting-diagnostic-next-step {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 0.85rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) - 2px);
-  background: var(--surface-muted);
-}
-
-.reporting-diagnostic-next-step__copy {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.reporting-diagnostic-next-step__label {
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.reporting-diagnostic-next-step__copy strong {
-  color: var(--text-heading);
-}
-
-.reporting-diagnostic-next-step__copy p {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-}
-
 .reporting-frame-panel {
   display: grid;
   gap: 0.8rem;
@@ -2061,18 +1989,13 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.reporting-workspace-section--focus {
-  border-radius: var(--radius-xl);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 12%, white);
-}
-
 @media (max-width: 1280px) {
-  .reporting-command-strip {
+  .reporting-diagnostic-links {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .reporting-command-strip__actions {
+  .reporting-diagnostic-links :deep(.standard-action-group) {
     justify-content: flex-start;
   }
 
@@ -2090,8 +2013,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 720px) {
   .reporting-surface__header,
-  .reporting-submit-row,
-  .reporting-diagnostic-next-step {
+  .reporting-submit-row {
     flex-direction: column;
     align-items: stretch;
   }

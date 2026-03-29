@@ -23,11 +23,6 @@ const { mockRoute, mockRouter } = vi.hoisted(() => ({
 }));
 
 vi.mock('vue-router', () => ({
-  RouterLink: defineComponent({
-    name: 'RouterLink',
-    props: ['to'],
-    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
-  }),
   useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
@@ -81,19 +76,35 @@ function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description', 'titleVariant'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="audit-log-workbench-stub" :data-title-variant="titleVariant || 'default'">
+    <section class="audit-log-workbench-stub">
       <header>
+        <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
         <p>{{ description }}</p>
         <slot name="header-actions" />
       </header>
       <div><slot name="filters" /></div>
       <div><slot name="applied-filters" /></div>
+      <div><slot name="notices" /></div>
       <div><slot name="toolbar" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 });
@@ -251,6 +262,7 @@ function mountView() {
         loading: () => undefined
       },
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
@@ -319,20 +331,18 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('keeps system mode list-first without summary tabs or strip copy', async () => {
+  it('renders the anomaly page inside the two-level access shell', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false);
-    expect(wrapper.find('.audit-log-workbench-stub').attributes('data-title-variant')).toBe('section');
-    expect(wrapper.find('.audit-log-workbench-stub h2').text()).toBe('异常台账');
-    expect(wrapper.text()).not.toContain('异常观测台');
-    expect(wrapper.text()).not.toContain('链路追踪台');
-    expect(wrapper.text()).not.toContain('失败归档');
-    expect(wrapper.text()).not.toContain('聚合视图');
-    expect(wrapper.text()).not.toContain('回跳治理');
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
+    expect(wrapper.text()).toContain('异常观测台');
+    expect(wrapper.text()).toContain('异常台账');
+    expect(wrapper.text()).toContain('OBSERVABILITY DESK');
+    expect(wrapper.text()).toContain('链路追踪台');
+    expect(wrapper.text()).toContain('失败归档');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -384,7 +394,8 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
+    expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(wrapper.text()).toContain('当前异常 1 条');
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-001',
       deviceCode: 'demo-device-01',
@@ -431,18 +442,11 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(wrapper.text()).toContain('来自链路追踪台');
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       requestMethod: 'MQTT',
       requestUrl: '$dp'
     }));
-  });
-
-  it('uses the refined minimal list-shell classes for the observability ledger', async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    expect(wrapper.classes()).toContain('audit-log-view--minimal');
   });
 
   it('persists system-log diagnostic context before jumping back to message trace', async () => {
@@ -457,7 +461,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    await (wrapper.vm as any).handleJumpToMessageTrace(createPageResponse().data.records[0]);
+    await findButtonByText(wrapper, '链路追踪台')!.trigger('click');
     await flushPromises();
 
     expect(mockRouter.push).toHaveBeenCalledWith({

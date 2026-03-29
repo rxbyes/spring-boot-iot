@@ -1,25 +1,15 @@
 <template>
   <div class="section-landing page-stack">
     <template v-if="accessibleCards.length">
-      <IotAccessPageShell :title="config?.title || '接入智维'">
-        <template #actions>
-          <div v-if="introActions.length" class="section-landing__intro-actions">
-            <RouterLink
-              v-for="action in introActions"
-              :key="`${action.label}-${action.to}`"
-              :to="action.to"
-              class="section-landing__intro-action"
-              :class="action.variant === 'primary' ? 'section-landing__intro-action--primary' : ''"
-            >
-              {{ action.label }}
-            </RouterLink>
-          </div>
-        </template>
-      </IotAccessPageShell>
+      <IotAccessPageShell
+        :breadcrumbs="[{ label: config?.title || '接入智维' }]"
+        :show-title="false"
+      />
 
-      <IotAccessTabWorkspace :items="landingTabs" default-key="asset">
+      <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
+            eyebrow="QUIET CONSOLE"
             title="页面入口"
             description="先筛入口，再进入对应业务页。"
             show-filters
@@ -39,9 +29,9 @@
               </StandardListFilterHeader>
             </template>
 
-            <div class="section-landing__entry-list">
+            <div v-if="groupedCards[activeKey]?.length" class="section-landing__entry-list">
               <RouterLink
-                v-for="card in groupedCards[activeKey] || []"
+                v-for="card in groupedCards[activeKey]"
                 :key="card.path"
                 :to="card.path"
                 class="section-landing__entry-item"
@@ -50,6 +40,12 @@
                 <span>{{ card.description }}</span>
               </RouterLink>
             </div>
+
+            <EmptyState
+              v-else
+              title="当前分组暂无可进入页面"
+              description="可以调整关键词或联系管理员确认菜单授权。"
+            />
           </StandardWorkbenchPanel>
         </template>
       </IotAccessTabWorkspace>
@@ -57,7 +53,7 @@
 
     <PanelCard
       v-else
-      eyebrow="Access Status"
+      eyebrow="ACCESS STATUS"
       title="当前账号暂无可用入口"
       description="当前账号尚未配置该分组下的页面权限，请联系管理员确认菜单授权。"
     >
@@ -70,38 +66,42 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { computed, ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 
-import EmptyState from '../components/EmptyState.vue';
-import PanelCard from '../components/PanelCard.vue';
-import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
-import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
-import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
-import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
-import { getSectionHomeConfigByPath, sortByPreferredPaths } from '../utils/sectionWorkspaces';
-import { usePermissionStore } from '../stores/permission';
+import EmptyState from '@/components/EmptyState.vue'
+import PanelCard from '@/components/PanelCard.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
+import {
+  getSectionHomeConfigByPath,
+  sortByPreferredPaths
+} from '@/utils/sectionWorkspaces'
+import { usePermissionStore } from '@/stores/permission'
 
+const route = useRoute()
+const permissionStore = usePermissionStore()
+
+const config = computed(() => getSectionHomeConfigByPath(route.path))
+const landingKeyword = ref('')
 const landingTabs = [
   { key: 'asset', label: '资产底座' },
   { key: 'diagnostics', label: '诊断排障' }
-];
+] as const
+const assetPaths = new Set(['/products', '/devices'])
 
-const route = useRoute();
-const permissionStore = usePermissionStore();
-const landingKeyword = ref('');
-
-const config = computed(() => getSectionHomeConfigByPath(route.path));
 const accessibleCards = computed(() => {
-  const cards = config.value?.cards || [];
-  const allowedCards = cards.filter((card) => permissionStore.hasRoutePermission(card.path));
-  return sortByPreferredPaths(allowedCards, permissionStore.roleProfile.featuredPaths);
-});
-const assetPaths = new Set(['/products', '/devices']);
+  const cards = config.value?.cards || []
+  const allowedCards = cards.filter((card) => permissionStore.hasRoutePermission(card.path))
+  return sortByPreferredPaths(allowedCards, permissionStore.roleProfile.featuredPaths)
+})
+
 const filteredCards = computed(() => {
-  const keyword = landingKeyword.value.trim().toLowerCase();
+  const keyword = landingKeyword.value.trim().toLowerCase()
   if (!keyword) {
-    return accessibleCards.value;
+    return accessibleCards.value
   }
 
   return accessibleCards.value.filter((card) =>
@@ -109,99 +109,46 @@ const filteredCards = computed(() => {
       .join(' ')
       .toLowerCase()
       .includes(keyword)
-  );
-});
-const groupedCards = computed(() => ({
+  )
+})
+
+const groupedCards = computed<Record<string, typeof filteredCards.value>>(() => ({
   asset: filteredCards.value.filter((card) => assetPaths.has(card.path)),
   diagnostics: filteredCards.value.filter((card) => !assetPaths.has(card.path))
-}));
-const primaryCard = computed(() => accessibleCards.value[0] || null);
-const secondaryCard = computed(() => accessibleCards.value[1] || null);
-const primaryEntryAction = computed(() => {
-  if (!primaryCard.value) {
-    return null;
-  }
-  return {
-    label: `进入 ${primaryCard.value.label}`,
-    to: primaryCard.value.path
-  };
-});
-const secondaryEntryAction = computed(() => {
-  if (!secondaryCard.value) {
-    return null;
-  }
-  return {
-    label: secondaryCard.value.label,
-    to: secondaryCard.value.path
-  };
-});
-const introActions = computed(() => {
-  const actions: Array<{ label: string; to: string; variant: 'primary' | 'secondary' }> = [];
-  if (primaryCard.value) {
-    actions.push({
-      label: primaryCard.value.label,
-      to: primaryCard.value.path,
-      variant: 'primary'
-    });
-  }
-  if (secondaryEntryAction.value) {
-    actions.push({
-      ...secondaryEntryAction.value,
-      variant: 'secondary'
-    });
-  }
-  return actions;
-});
+}))
 </script>
 
 <style scoped>
 .section-landing {
   display: grid;
-  gap: 1rem;
-}
-
-.section-landing__intro-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.65rem;
-}
-
-.section-landing__intro-action {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  padding: 0 0.92rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, #ffffff, #f7f9fc);
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.section-landing__intro-action--primary {
-  border-color: transparent;
-  color: #fff;
-  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
-  box-shadow: var(--shadow-brand);
+  gap: 0.95rem;
 }
 
 .section-landing__entry-list {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.82rem;
 }
 
 .section-landing__entry-item {
   display: grid;
-  gap: 0.35rem;
-  padding: 0.95rem 1rem;
-  border-radius: calc(var(--radius-lg) + 2px);
+  gap: 0.34rem;
+  padding: 0.92rem 0.96rem;
   border: 1px solid var(--panel-border);
-  text-decoration: none;
+  border-radius: var(--radius-2xl);
+  background: var(--bg-card);
   color: inherit;
-  background: #fff;
+  text-decoration: none;
   box-shadow: var(--shadow-card-soft);
+  transition:
+    border-color var(--transition-base),
+    transform var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.section-landing__entry-item:hover {
+  border-color: color-mix(in srgb, var(--brand) 26%, var(--panel-border));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
 }
 
 .section-landing__entry-item strong {
@@ -209,15 +156,8 @@ const introActions = computed(() => {
 }
 
 .section-landing__entry-item span {
-  margin: 0;
   color: var(--text-caption);
+  font-size: 12px;
   line-height: 1.6;
-  font-size: 0.8rem;
-}
-
-@media (max-width: 900px) {
-  .section-landing__intro-actions {
-    justify-content: flex-start;
-  }
 }
 </style>

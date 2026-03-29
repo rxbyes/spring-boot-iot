@@ -6,22 +6,13 @@ import ReportWorkbenchView from '@/views/ReportWorkbenchView.vue';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '@/api/iot';
 import { messageApi } from '@/api/message';
 
-const { mockRoute, mockRouter } = vi.hoisted(() => ({
-  mockRoute: {
-    query: {} as Record<string, unknown>
-  },
+const { mockRouter } = vi.hoisted(() => ({
   mockRouter: {
     push: vi.fn()
   }
 }));
 
 vi.mock('vue-router', () => ({
-  RouterLink: defineComponent({
-    name: 'RouterLink',
-    props: ['to'],
-    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
-  }),
-  useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
 
@@ -117,6 +108,20 @@ const PanelCardStub = defineComponent({
   `
 });
 
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
+    </section>
+  `
+});
+
 const StandardInlineSectionHeaderStub = defineComponent({
   name: 'StandardInlineSectionHeader',
   props: ['title', 'description'],
@@ -200,6 +205,7 @@ function mountView() {
   return mount(ReportWorkbenchView, {
     global: {
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         ElButton: ElButtonStub,
         ElInput: ElInputStub,
         PanelCard: PanelCardStub,
@@ -240,23 +246,18 @@ describe('ReportWorkbenchView', () => {
       data: []
     });
     mockRouter.push.mockReset();
-    mockRoute.query = {};
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
   });
 
-  it('keeps only real verification tabs and removes the top summary strip', () => {
+  it('renders the reporting page inside the two-level access shell', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.text()).toContain('模拟验证');
-    expect(wrapper.text()).toContain('结果复盘');
-    expect(wrapper.text()).toContain('最近记录');
-    expect(wrapper.text()).not.toContain('继续链路追踪');
-    expect(wrapper.text()).not.toContain('查看异常观测');
-    expect(wrapper.text()).not.toContain('打开数据校验');
-    expect(wrapper.text()).not.toContain('设备身份未校准');
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
+    expect(wrapper.text()).toContain('链路验证中心');
+    expect(wrapper.text()).toContain('SIMULATION LAB');
+    expect(wrapper.text()).toContain('模拟上报');
   });
 
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {
@@ -485,6 +486,7 @@ describe('ReportWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('时间线不可用，优先排查 Redis/TTL。');
     expect(wrapper.text()).toContain('HTTP 提交已返回 timelineAvailable=true');
+    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
 
     const traceButton = findButtonByText(wrapper, '继续链路追踪');
     expect(traceButton).toBeTruthy();
@@ -722,7 +724,7 @@ describe('ReportWorkbenchView', () => {
       sessionId: 'session-http-ctx-001',
       transportMode: 'http'
     });
-    expect(findButtonByText(wrapper, '继续链路追踪')).toBeTruthy();
+    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
   });
 
   it('forwards current diagnostic query when continuing to message trace', async () => {
@@ -891,7 +893,7 @@ describe('ReportWorkbenchView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(findButtonByText(wrapper, '继续链路追踪')).toBeTruthy();
+    expect(wrapper.text()).toContain('已拿到 trace，可进入链路追踪');
 
     const traceButton = findButtonByText(wrapper, '继续链路追踪');
     expect(traceButton).toBeTruthy();
@@ -964,7 +966,7 @@ describe('ReportWorkbenchView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('MQTT 模拟已发布，正在等待消费回流绑定 traceId。');
+    expect(wrapper.text()).toContain('MQTT 已发布，等待消费回流');
 
     const logButton = findButtonByText(wrapper, '查看异常观测');
     expect(logButton).toBeTruthy();
@@ -992,13 +994,5 @@ describe('ReportWorkbenchView', () => {
       transportMode: 'mqtt',
       reportStatus: 'pending'
     });
-  });
-
-  it('uses the refined minimal diagnostic-shell classes', async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    expect(wrapper.find('.reporting-view').classes()).toContain('reporting-view--minimal');
   });
 });

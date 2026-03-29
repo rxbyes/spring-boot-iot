@@ -56,10 +56,11 @@ function createDeferred<T>() {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description', 'titleVariant'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="message-trace-workbench-stub" :data-title-variant="titleVariant || 'default'">
+    <section class="message-trace-workbench-stub">
       <header>
+        <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
         <p>{{ description }}</p>
         <slot name="header-actions" />
@@ -70,6 +71,37 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div><slot name="toolbar" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
+    </section>
+  `
+});
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items'],
+  template: `
+    <section class="iot-access-tab-workspace-stub">
+      <button
+        v-for="item in items || []"
+        :key="item.key"
+        type="button"
+      >
+        {{ item.label }}
+      </button>
+      <slot :active-key="items?.[0]?.key" />
     </section>
   `
 });
@@ -204,50 +236,6 @@ const StandardTableTextColumnStub = defineComponent({
   name: 'StandardTableTextColumn',
   props: ['label'],
   template: '<div class="standard-table-text-column-stub">{{ label }}</div>'
-});
-
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
-  props: ['title', 'status'],
-  template: `
-    <section class="iot-access-page-shell">
-      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
-      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
-      <slot name="actions" />
-      <slot />
-    </section>
-  `
-});
-
-const IotAccessTabWorkspaceStub = defineComponent({
-  name: 'IotAccessTabWorkspace',
-  props: ['items', 'defaultKey', 'modelValue'],
-  template: `
-    <section class="iot-access-tab-workspace">
-      <button
-        v-for="item in items"
-        :key="item.key"
-        type="button"
-        class="iot-access-tab-workspace__tab"
-      >
-        {{ item.label }}
-      </button>
-      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
-    </section>
-  `
-});
-
-const IotAccessResultSectionStub = defineComponent({
-  name: 'IotAccessResultSection',
-  props: ['title', 'description'],
-  template: `
-    <section class="iot-access-result-section">
-      <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
-      <slot name="toolbar" />
-      <slot />
-    </section>
-  `
 });
 
 const AccessErrorArchivePanelStub = defineComponent({
@@ -404,6 +392,8 @@ function mountView() {
       },
       stubs: {
         AccessErrorArchivePanel: AccessErrorArchivePanelStub,
+        IotAccessPageShell: IotAccessPageShellStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         IotAccessWorkbenchHero: IotAccessWorkbenchHeroStub,
         IotAccessSignalDeck: IotAccessSignalDeckStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
@@ -420,9 +410,6 @@ function mountView() {
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardTraceTimeline: StandardTraceTimelineStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
-        IotAccessPageShell: IotAccessPageShellStub,
-        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
-        IotAccessResultSection: IotAccessResultSectionStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
       }
@@ -471,7 +458,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
+    expect(wrapper.text()).toContain('来自链路验证中心');
     expect(messageApi.pageMessageTraceLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-route-001',
       deviceCode: 'stored-device-01',
@@ -549,25 +536,26 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('keeps only trace and archive as real message-trace tabs', async () => {
+  it('renders the trace page with breadcrumb shell and business tabs', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
     expect(messageApi.getMessageFlowOpsOverview).toHaveBeenCalledTimes(1);
     expect(messageApi.getMessageFlowRecentSessions).toHaveBeenCalledTimes(1);
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.find('.message-trace-workbench-stub').attributes('data-title-variant')).toBe('section');
-    expect(wrapper.text()).not.toContain('链路追踪台');
-    expect(wrapper.text()).toContain('链路追踪');
-    expect(wrapper.text()).toContain('失败归档');
-    expect(wrapper.find('.message-trace-workbench-stub h2').text()).toBe('链路追踪');
+    expect(wrapper.text()).toContain('接入智维');
+    expect(wrapper.text()).toContain('链路追踪台');
+    expect(wrapper.text()).toContain('TRACE CENTER');
+    expect(wrapper.text()).toContain('完成链路 3');
+    expect(wrapper.text()).toContain('关联发布 4');
+    expect(wrapper.text()).toContain('运维看板');
+    expect(wrapper.text()).toContain('最近会话');
+    expect(wrapper.text()).toContain('session-recent-001');
+    expect(wrapper.text()).toContain('INGRESS');
     expect(wrapper.text()).not.toContain('异常观测台');
     expect(wrapper.text()).not.toContain('数据校验台');
-    expect(wrapper.text()).not.toContain('时间线复盘');
-    expect(wrapper.text()).not.toContain('运维看板');
-    expect(wrapper.text()).not.toContain('最近会话');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {
@@ -601,6 +589,7 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
   });
 
@@ -754,7 +743,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    await (wrapper.vm as any).applyRecentMessageFlowSession(createRecentSessionsResponse().data[0]);
+    await findButtonByText(wrapper, 'session-recent-001')!.trigger('click');
     await flushPromises();
     await nextTick();
 
@@ -767,8 +756,6 @@ describe('MessageTraceView', () => {
     expect(persistedRaw).toBeTruthy();
     const persistedContext = JSON.parse(persistedRaw as string);
     expect(persistedContext.context.productKey).toBeUndefined();
-
-    expect(findButtonByText(wrapper, '数据校验台')).toBeUndefined();
   });
 
   it('shows a storage-specific rule summary after timeline lookup errors', async () => {
@@ -782,24 +769,32 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
   });
 
-  it('keeps the page head free of cross-page action buttons', async () => {
+  it('carries row context when jumping to anomaly observability from the action column', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    expect(findButtonByText(wrapper, '异常观测台')).toBeUndefined();
-    expect(findButtonByText(wrapper, '数据校验台')).toBeUndefined();
-  });
-
-  it('uses the refined minimal diagnostic-shell classes for message trace', async () => {
-    const wrapper = mountView();
+    await findButtonByText(wrapper, '观测')!.trigger('click');
     await flushPromises();
-    await nextTick();
 
-    expect(wrapper.find('.message-trace-view').classes()).toContain('message-trace-view--minimal');
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/system-log',
+      query: {
+        traceId: 'trace-001',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        requestUrl: '/sys/demo-product/demo-device-01/thing/property/post',
+        requestMethod: 'MQTT'
+      }
+    });
+    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
+    expect(persistedRaw).toBeTruthy();
+    const persisted = JSON.parse(persistedRaw as string);
+    expect(persisted.context.sourcePage).toBe('message-trace');
   });
 
 });

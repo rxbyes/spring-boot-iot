@@ -72,9 +72,10 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description', 'titleVariant'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="product-workbench-panel-stub" :data-title-variant="titleVariant || 'default'">
+    <section class="product-workbench-panel-stub">
+      <p class="product-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -82,6 +83,20 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="product-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="product-workbench-panel-stub__body"><slot /></div>
       <div class="product-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav class="iot-access-page-shell-stub__breadcrumbs">
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -105,53 +120,6 @@ const StandardActionLinkStub = defineComponent({
   name: 'StandardActionLink',
   emits: ['click'],
   template: '<button class="product-action-link-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
-})
-
-const StandardActionMenuStub = defineComponent({
-  name: 'StandardActionMenu',
-  props: ['label'],
-  template: '<button class="product-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
-})
-
-const sampleProductRow = {
-  id: 1001,
-  productKey: 'demo-product',
-  productName: '演示产品',
-  protocolCode: 'mqtt-json',
-  nodeType: 1,
-  dataFormat: 'JSON',
-  manufacturer: 'GHLZM',
-  status: 1,
-  onlineDeviceCount: 0,
-  lastReportTime: '2026-03-24T09:00:00',
-  updateTime: '2026-03-24T09:00:00'
-}
-
-const ElTableStub = defineComponent({
-  name: 'ElTable',
-  template: '<section class="el-table-stub"><slot /></section>'
-})
-
-const ElTableColumnStub = defineComponent({
-  name: 'ElTableColumn',
-  props: ['label', 'width', 'fixed', 'showOverflowTooltip', 'className'],
-  setup() {
-    return {
-      rowScope: sampleProductRow
-    }
-  },
-  template: `
-    <div
-      class="el-table-column-stub"
-      :data-label="label || ''"
-      :data-width="String(width ?? '')"
-      :data-fixed="fixed || ''"
-      :data-overflow="String(showOverflowTooltip ?? '')"
-      :data-class-name="className || ''"
-    >
-      <slot :row="rowScope" />
-    </div>
-  `
 })
 
 const StandardDetailDrawerStub = defineComponent({
@@ -180,65 +148,6 @@ const StandardInlineStateStub = defineComponent({
   name: 'StandardInlineState',
   props: ['message', 'tone'],
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
-})
-
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
-  props: ['title', 'status'],
-  template: `
-    <section class="iot-access-page-shell">
-      <h1 class="iot-access-page-shell__title">{{ title }}</h1>
-      <div v-if="status" class="iot-access-page-shell__status">{{ status }}</div>
-      <slot name="actions" />
-      <slot />
-    </section>
-  `
-})
-
-const IotAccessTabWorkspaceStub = defineComponent({
-  name: 'IotAccessTabWorkspace',
-  props: ['items', 'defaultKey', 'modelValue'],
-  template: `
-    <section class="iot-access-tab-workspace">
-      <button
-        v-for="item in items"
-        :key="item.key"
-        type="button"
-        class="iot-access-tab-workspace__tab"
-      >
-        {{ item.label }}
-      </button>
-      <slot :active-key="modelValue || defaultKey || items?.[0]?.key || ''" />
-    </section>
-  `
-})
-
-const IotAccessResultSectionStub = defineComponent({
-  name: 'IotAccessResultSection',
-  props: ['title', 'description'],
-  template: `
-    <section class="iot-access-result-section">
-      <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
-      <slot name="toolbar" />
-      <slot />
-    </section>
-  `
-})
-
-const StandardTableTextColumnStub = defineComponent({
-  name: 'StandardTableTextColumn',
-  props: ['label'],
-  setup() {
-    return {
-      rowScope: sampleProductRow
-    }
-  },
-  template: `
-    <div class="standard-table-text-column-stub" :data-label="label || ''">
-      <slot :row="rowScope">{{ label }}</slot>
-    </div>
-  `
 })
 
 const ProductModelDesignerDrawerStub = defineComponent({
@@ -284,11 +193,12 @@ function mountView() {
       },
       renderStubDefaultSlot: true,
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardRowActions: StandardRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
-        StandardActionMenu: StandardActionMenuStub,
+        StandardActionMenu: true,
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
@@ -298,15 +208,10 @@ function mountView() {
         StandardTableToolbar: true,
         StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
-        StandardTableTextColumn: StandardTableTextColumnStub,
-        IotAccessPageShell: IotAccessPageShellStub,
-        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
-        IotAccessResultSection: IotAccessResultSectionStub,
+        StandardTableTextColumn: true,
         CsvColumnSettingDialog: true,
         DeviceListDrawer: true,
-        EmptyState: true,
-        ElTable: ElTableStub,
-        ElTableColumn: ElTableColumnStub
+        EmptyState: true
       }
     }
   })
@@ -334,34 +239,17 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
-  it('renders the product page as a single-ledger workbench without support tabs', async () => {
+  it('renders the product page inside the two-level access shell', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false)
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(false)
-    expect(wrapper.find('.product-workbench-panel-stub').attributes('data-title-variant')).toBe('section')
-    expect(wrapper.find('.product-workbench-panel-stub h2').text()).toBe('产品定义中心')
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('接入智维')
     expect(wrapper.text()).toContain('产品定义中心')
+    expect(wrapper.text()).toContain('PRODUCT CENTER')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).not.toContain('产品台账')
-    expect(wrapper.text()).not.toContain('物模型治理')
-    expect(wrapper.text()).not.toContain('关联设备')
-    expect(wrapper.text()).not.toContain('先补齐产品契约，再处理库存治理。')
-  })
-
-  it('applies the compact ledger layout hooks for the product list page', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    await nextTick()
-
-    expect(wrapper.classes()).toContain('product-asset-view--minimal')
-    expect(wrapper.find('.product-asset-view--compact').exists()).toBe(true)
-    expect(wrapper.find('.product-workbench-panel--compact').exists()).toBe(true)
-    expect(wrapper.find('.product-list-filter-header--compact').exists()).toBe(true)
-    expect(wrapper.find('.product-table-toolbar--compact').exists()).toBe(true)
-    expect(wrapper.find('.product-result-panel--compact').exists()).toBe(true)
+    expect(wrapper.text()).toContain('统一维护产品台账')
   })
 
   it('renders a product-model designer entry and opens the empty designer state', async () => {
@@ -425,24 +313,5 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自异常观测台')
     expect(wrapper.text()).toContain('Trace trace-001')
-  })
-
-  it('uses a dedicated action-column layout to avoid clipped menus and uneven spacing', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    await nextTick()
-
-    ;(wrapper.vm as any).tableData = [sampleProductRow]
-    ;(wrapper.vm as any).viewType = 'table'
-    await nextTick()
-
-    const actionColumn = wrapper
-      .findAll('.el-table-column-stub')
-      .find((column) => column.attributes('data-label') === '操作')
-
-    expect(actionColumn?.attributes('data-width')).toBe('304')
-    expect(actionColumn?.attributes('data-class-name')).toBe('product-desktop-table__actions-column')
-    expect(wrapper.find('.product-table-row-actions').exists()).toBe(true)
-    expect(wrapper.find('.product-action-menu-stub').text()).toBe('更多')
   })
 })

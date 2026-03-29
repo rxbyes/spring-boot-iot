@@ -1,18 +1,11 @@
 <template>
-  <div class="standard-workbench-panel standard-workbench-panel--minimal ops-workbench standard-list-view">
-    <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card standard-workbench-panel__card--minimal">
+  <div class="standard-workbench-panel ops-workbench standard-list-view">
+    <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card">
       <template #header>
-        <div v-if="hasHeaderContent" class="standard-workbench-panel__header standard-workbench-panel__header--minimal">
+        <div class="standard-workbench-panel__header">
           <div class="standard-workbench-panel__heading">
-            <h2
-              v-if="title"
-              :class="[
-                'standard-workbench-panel__title',
-                `standard-workbench-panel__title--${titleVariant}`
-              ]"
-            >
-              {{ title }}
-            </h2>
+            <p v-if="eyebrow" class="standard-workbench-panel__eyebrow">{{ eyebrow }}</p>
+            <h2 class="standard-workbench-panel__title">{{ title }}</h2>
             <p v-if="description" class="standard-workbench-panel__caption">{{ description }}</p>
           </div>
           <div v-if="showHeaderActions" class="standard-workbench-panel__header-actions">
@@ -44,7 +37,7 @@
         <slot name="inline-state" />
       </section>
 
-      <div class="standard-workbench-panel__body standard-workbench-panel__body--minimal">
+      <div class="standard-workbench-panel__body">
         <slot />
       </div>
 
@@ -56,14 +49,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
 import PanelCard from '@/components/PanelCard.vue'
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
+  eyebrow?: string
   title: string
   description?: string
-  titleVariant?: 'default' | 'section'
   showHeaderActions?: boolean
   showFilters?: boolean
   showFiltersExtra?: boolean
@@ -73,7 +64,6 @@ const props = withDefaults(defineProps<{
   showInlineState?: boolean
   showPagination?: boolean
 }>(), {
-  titleVariant: 'default',
   showHeaderActions: false,
   showFilters: false,
   showFiltersExtra: false,
@@ -83,8 +73,6 @@ const props = withDefaults(defineProps<{
   showInlineState: false,
   showPagination: false
 })
-
-const hasHeaderContent = computed(() => Boolean(props.title || props.description || props.showHeaderActions))
 </script>
 
 <style scoped>
@@ -92,17 +80,8 @@ const hasHeaderContent = computed(() => Boolean(props.title || props.description
   min-width: 0;
 }
 
-.standard-workbench-panel--minimal {
-  min-width: 0;
-}
-
 .standard-workbench-panel__card {
   min-width: 0;
-}
-
-.standard-workbench-panel__card--minimal {
-  border-color: color-mix(in srgb, var(--panel-border) 92%, white);
-  box-shadow: var(--shadow-card-soft);
 }
 
 .standard-workbench-panel__header {
@@ -113,30 +92,33 @@ const hasHeaderContent = computed(() => Boolean(props.title || props.description
   width: 100%;
 }
 
-.standard-workbench-panel__header--minimal {
-  gap: 1.1rem;
-}
-
 .standard-workbench-panel__heading {
   min-width: 0;
+}
+
+.standard-workbench-panel__eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .standard-workbench-panel__title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.08rem;
-  font-weight: 650;
-}
-
-.standard-workbench-panel__title--section {
-  font-size: 1.22rem;
-  line-height: 1.35;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .standard-workbench-panel__caption {
-  margin: 0.35rem 0 0;
+  margin: 0.38rem 0 0;
   color: var(--text-caption);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -169,10 +151,6 @@ const hasHeaderContent = computed(() => Boolean(props.title || props.description
 }
 
 .standard-workbench-panel__body {
-  min-width: 0;
-}
-
-.standard-workbench-panel__body--minimal {
   min-width: 0;
 }
 

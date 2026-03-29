@@ -36,7 +36,8 @@
 .el-textarea__inner,
 .el-select__wrapper {
   background: var(--bg-card);
-  border-radius: 14px;
+  border-radius: 12px;
+  min-height: 36px;
   box-shadow: 0 0 0 1px var(--line-panel) inset;
 }
 
@@ -49,8 +50,8 @@
 }
 
 .el-button {
-  min-height: var(--button-height-md);
-  padding-inline: var(--button-padding-inline-md);
+  min-height: 34px;
+  padding-inline: 12px;
   border-radius: var(--radius-pill);
   font-weight: var(--button-font-weight);
   color: var(--button-secondary-text);
@@ -190,7 +191,7 @@
 .el-table {
   --el-table-bg-color: var(--bg-card);
   --el-table-tr-bg-color: var(--bg-card);
-  --el-table-header-bg-color: color-mix(in srgb, var(--surface-soft) 72%, white);
+  --el-table-header-bg-color: var(--surface-muted);
   --el-table-border-color: color-mix(in srgb, var(--text-primary) 12%, white);
   --el-table-text-color: var(--text-secondary);
   --el-table-header-text-color: var(--text-tertiary);

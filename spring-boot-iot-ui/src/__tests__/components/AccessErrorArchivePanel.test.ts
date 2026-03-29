@@ -90,59 +90,58 @@ describe('AccessErrorArchivePanel', () => {
   });
 
   it('offers governance jump actions from failure detail', async () => {
-    const wrapper = mount(AccessErrorArchivePanel, {
-      props: {
-        viewMode: 'access-error',
-        viewModeOptions: [
-          { label: '链路追踪', value: 'message-trace' },
-          { label: '失败归档', value: 'access-error' }
-        ]
-      },
-      global: {
-        stubs: {
-          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
-          StandardListFilterHeader: true,
-          StandardAppliedFiltersBar: true,
-          StandardTableToolbar: true,
-          StandardPagination: true,
-          StandardTableTextColumn: true,
-          StandardRowActions: true,
-          StandardActionLink: true,
-          StandardDetailDrawer: defineComponent({
-            name: 'StandardDetailDrawer',
-            props: ['modelValue'],
-            template: '<section v-if="modelValue"><slot /></section>'
-          }),
-          StandardChoiceGroup: true,
-          StandardButton: defineComponent({
-            name: 'StandardButton',
-            emits: ['click'],
-            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
-          }),
-          ElTable: true,
-          ElTableColumn: true,
-          ElInput: true,
-          ElFormItem: true,
-          ElTag: true,
-          ElAlert: true
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const wrapper = mount(AccessErrorArchivePanel, {
+        global: {
+          stubs: {
+            StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+            StandardListFilterHeader: true,
+            StandardAppliedFiltersBar: true,
+            StandardTableToolbar: true,
+            StandardPagination: true,
+            StandardTableTextColumn: true,
+            StandardRowActions: true,
+            StandardActionLink: true,
+            StandardDetailDrawer: defineComponent({
+              name: 'StandardDetailDrawer',
+              props: ['modelValue'],
+              template: '<section v-if="modelValue"><slot /></section>'
+            }),
+            StandardChoiceGroup: true,
+            StandardButton: defineComponent({
+              name: 'StandardButton',
+              emits: ['click'],
+              template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+            }),
+            ElTable: true,
+            ElTableColumn: true,
+            ElInput: true,
+            ElFormItem: true,
+            ElTag: true,
+            ElAlert: true
+          }
         }
-      }
-    });
+      });
 
-    await (wrapper.vm as any).handleDetail({
-      id: 1,
-      traceId: 'trace-001',
-      deviceCode: 'demo-device-01',
-      productKey: 'demo-product'
-    });
-    await (wrapper.vm as any).jumpToProductGovernance();
+      await (wrapper.vm as any).handleDetail({
+        id: 1,
+        traceId: 'trace-001',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product'
+      });
+      await (wrapper.vm as any).jumpToProductGovernance();
 
-    expect(mockRouter.push).toHaveBeenLastCalledWith({
-      path: '/products',
-      query: {
-        productKey: 'demo-product',
-        traceId: 'trace-001'
-      }
-    });
+      expect(mockRouter.push).toHaveBeenLastCalledWith({
+        path: '/products',
+        query: {
+          productKey: 'demo-product',
+          traceId: 'trace-001'
+        }
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

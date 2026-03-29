@@ -1,26 +1,21 @@
+import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 
-const PanelCardStub = {
+const PanelCardStub = defineComponent({
   name: 'PanelCard',
   template: '<section class="panel-card-stub"><slot name="header" /><slot /></section>'
-}
+})
 
 describe('StandardWorkbenchPanel', () => {
-  it('applies the refined minimal-shell classes by default', () => {
+  it('renders the console eyebrow above the workbench title', () => {
     const wrapper = mount(StandardWorkbenchPanel, {
       props: {
+        eyebrow: 'PRODUCT CENTER',
         title: '产品定义中心',
-        titleVariant: 'section',
-        showFilters: true,
-        showToolbar: true
-      },
-      slots: {
-        filters: '<div class="filters-slot">filters</div>',
-        toolbar: '<div class="toolbar-slot">toolbar</div>',
-        default: '<div class="body-slot">body</div>'
+        description: '统一维护产品台账、协议绑定与接入契约。'
       },
       global: {
         stubs: {
@@ -29,8 +24,8 @@ describe('StandardWorkbenchPanel', () => {
       }
     })
 
-    expect(wrapper.classes()).toContain('standard-workbench-panel--minimal')
-    expect(wrapper.find('.standard-workbench-panel__header').classes()).toContain('standard-workbench-panel__header--minimal')
-    expect(wrapper.find('.standard-workbench-panel__body').classes()).toContain('standard-workbench-panel__body--minimal')
+    expect(wrapper.find('.standard-workbench-panel__eyebrow').text()).toBe('PRODUCT CENTER')
+    expect(wrapper.find('.standard-workbench-panel__title').text()).toBe('产品定义中心')
+    expect(wrapper.find('.standard-workbench-panel__caption').text()).toContain('统一维护产品台账')
   })
 })

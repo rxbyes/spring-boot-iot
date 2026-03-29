@@ -14,11 +14,6 @@ const { mockRoute, mockRouter } = vi.hoisted(() => ({
 }));
 
 vi.mock('vue-router', () => ({
-  RouterLink: defineComponent({
-    name: 'RouterLink',
-    props: ['to'],
-    template: '<a class="router-link-stub" :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>'
-  }),
   useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }));
@@ -34,13 +29,29 @@ vi.mock('@/stores/activity', () => ({
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description', 'titleVariant'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="file-debug-workbench-stub" :data-title-variant="titleVariant || 'default'">
+    <section class="file-debug-workbench-stub">
+      <p>{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
+      <slot name="notices" />
       <slot name="inline-state" />
+      <slot />
+    </section>
+  `
+});
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <nav>
+        <span v-for="item in breadcrumbs || []" :key="item.label">{{ item.label }}</span>
+      </nav>
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
   `
@@ -93,15 +104,13 @@ describe('FilePayloadDebugView', () => {
     installSessionStorageMock();
   });
 
-  it('keeps validation and raw-response tabs only', () => {
+  it('renders the validation page inside the two-level access shell', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
+          IotAccessPageShell: IotAccessPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
-          StandardListFilterHeader: defineComponent({
-            name: 'StandardListFilterHeader',
-            template: '<section class="file-debug-filter-header-stub"><slot name="primary" /><slot name="actions" /></section>'
-          }),
+          StandardListFilterHeader: true,
           StandardInlineState: true,
           StandardInfoGrid: true,
           PanelCard: PanelCardStub,
@@ -113,16 +122,15 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
-    expect(wrapper.find('.iot-access-page-shell').exists()).toBe(false);
-    expect(wrapper.find('.iot-access-tab-workspace').exists()).toBe(true);
-    expect(wrapper.find('.file-debug-workbench-stub').attributes('data-title-variant')).toBe('section');
-    expect(wrapper.text()).not.toContain('数据校验台');
-    expect(wrapper.find('.file-debug-workbench-stub h2').text()).toBe('设备校验');
-    expect(wrapper.text()).toContain('设备校验');
-    expect(wrapper.text()).toContain('原始响应');
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('接入智维');
+    expect(wrapper.text()).toContain('数据校验台');
+    expect(wrapper.text()).toContain('VALIDATION DESK');
+    expect(wrapper.text()).toContain('文件快照校验');
+    expect(wrapper.text()).toContain('固件聚合校验');
+    expect(wrapper.text()).toContain('文件快照原始响应');
+    expect(wrapper.text()).toContain('固件聚合原始响应');
     expect(wrapper.text()).not.toContain('链路追踪台');
-    expect(wrapper.text()).not.toContain('设备查询与校验结果');
-    expect(wrapper.text()).not.toContain('历史快照');
   });
 
   it('restores deviceCode from persisted diagnostic context', () => {
@@ -143,6 +151,7 @@ describe('FilePayloadDebugView', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
+          IotAccessPageShell: IotAccessPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
           StandardListFilterHeader: true,
           StandardInlineState: true,
@@ -156,26 +165,7 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
-    expect((wrapper.vm as { deviceCode: string }).deviceCode).toBe('demo-device-02');
-  });
-
-  it('uses the refined minimal diagnostic-shell classes for file validation', () => {
-    const wrapper = mount(FilePayloadDebugView, {
-      global: {
-        stubs: {
-          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
-          StandardListFilterHeader: true,
-          StandardInlineState: true,
-          StandardInfoGrid: true,
-          PanelCard: PanelCardStub,
-          EmptyState: true,
-          ResponsePanel: ResponsePanelStub,
-          StandardButton: true,
-          ElInput: true
-        }
-      }
-    });
-
-    expect(wrapper.classes()).toContain('file-payload-debug-view--minimal');
+    expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(wrapper.text()).toContain('demo-device-02');
   });
 });

@@ -1,6 +1,6 @@
 <template>
-  <section class="iot-access-tab-workspace iot-access-tab-workspace--minimal">
-    <nav class="iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--minimal" aria-label="业务视图切换">
+  <section class="iot-access-tab-workspace">
+    <nav class="iot-access-tab-workspace__tabs" aria-label="业务视图切换">
       <button
         v-for="item in items"
         :key="item.key"
@@ -79,9 +79,7 @@ watch(
   { deep: true }
 )
 
-const activeItem = computed(
-  () => props.items.find((item) => item.key === activeKey.value) || null
-)
+const activeItem = computed(() => props.items.find((item) => item.key === activeKey.value) || null)
 
 async function handleTabChange(nextKey: string) {
   if (!isValidKey(nextKey) || nextKey === activeKey.value) {
@@ -96,11 +94,15 @@ async function handleTabChange(nextKey: string) {
     return
   }
 
+  const nextQuery = { ...(route.query || {}) } as Record<string, unknown>
+  if (props.queryKey === 'mode' && nextKey === props.defaultKey) {
+    delete nextQuery[props.queryKey]
+  } else {
+    nextQuery[props.queryKey] = nextKey
+  }
+
   await router.replace({
-    query: {
-      ...(route.query || {}),
-      [props.queryKey]: nextKey
-    }
+    query: nextQuery
   })
 }
 </script>
@@ -108,35 +110,30 @@ async function handleTabChange(nextKey: string) {
 <style scoped>
 .iot-access-tab-workspace {
   display: grid;
-  gap: 0.9rem;
-}
-
-.iot-access-tab-workspace--minimal {
-  gap: 1rem;
+  gap: 0.82rem;
 }
 
 .iot-access-tab-workspace__tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
-  border-bottom: 1px solid var(--shell-border);
-}
-
-.iot-access-tab-workspace__tabs--minimal {
-  border-bottom-color: color-mix(in srgb, var(--line-panel) 86%, white);
+  border-bottom: 1px solid var(--line-panel);
 }
 
 .iot-access-tab-workspace__tab {
+  position: relative;
+  min-height: 2.5rem;
+  padding: 0.68rem 0.95rem;
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
-  min-height: 2.8rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.92rem;
+  font-size: 13px;
   font-weight: 600;
-  transition: all 160ms ease;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .iot-access-tab-workspace__tab:hover {
@@ -144,10 +141,8 @@ async function handleTabChange(nextKey: string) {
 }
 
 .iot-access-tab-workspace__tab--active {
-  border-bottom-color: var(--brand);
-  background: transparent;
   color: var(--brand);
-  box-shadow: none;
+  border-bottom-color: var(--brand);
 }
 
 .iot-access-tab-workspace__panel {

@@ -18,9 +18,10 @@
       </template>
     </nav>
 
-    <div class="iot-access-page-shell__headline">
+    <div v-if="showHeadline" class="iot-access-page-shell__headline">
       <div class="iot-access-page-shell__copy">
-        <h1 class="iot-access-page-shell__title">{{ title }}</h1>
+        <h1 v-if="showTitle" class="iot-access-page-shell__title">{{ title }}</h1>
+        <p v-if="description" class="iot-access-page-shell__description">{{ description }}</p>
       </div>
       <div v-if="$slots.actions" class="iot-access-page-shell__actions">
         <slot name="actions" />
@@ -34,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useSlots } from 'vue'
 import { RouterLink } from 'vue-router'
 
 export interface IotAccessPageShellBreadcrumb {
@@ -41,21 +43,26 @@ export interface IotAccessPageShellBreadcrumb {
   to?: string
 }
 
-withDefaults(
-  defineProps<{
-    title: string
-    breadcrumbs?: IotAccessPageShellBreadcrumb[]
-  }>(),
-  {
-    breadcrumbs: () => []
-  }
-)
+const props = withDefaults(defineProps<{
+  title?: string
+  description?: string
+  showTitle?: boolean
+  breadcrumbs?: IotAccessPageShellBreadcrumb[]
+}>(), {
+  title: '',
+  description: '',
+  showTitle: true,
+  breadcrumbs: () => []
+})
+
+const slots = useSlots()
+const showHeadline = computed(() => props.showTitle || Boolean(props.description) || Boolean(slots.actions))
 </script>
 
 <style scoped>
 .iot-access-page-shell {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.72rem;
 }
 
 .iot-access-page-shell__breadcrumbs {
@@ -66,14 +73,15 @@ withDefaults(
 }
 
 .iot-access-page-shell__breadcrumb-item {
-  color: var(--text-caption);
-  font-size: 0.78rem;
-  line-height: 1.4;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
 }
 
 .iot-access-page-shell__breadcrumb-item--link {
   text-decoration: none;
-  transition: color 160ms ease;
+  transition: color var(--transition-fast);
 }
 
 .iot-access-page-shell__breadcrumb-item--link:hover {
@@ -87,9 +95,9 @@ withDefaults(
 
 .iot-access-page-shell__headline {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.88rem;
 }
 
 .iot-access-page-shell__copy {
@@ -99,16 +107,23 @@ withDefaults(
 .iot-access-page-shell__title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.3rem;
+  font-size: 1.18rem;
+  line-height: 1.25;
   font-weight: 700;
-  line-height: 1.3;
+}
+
+.iot-access-page-shell__description {
+  margin: 0.28rem 0 0;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .iot-access-page-shell__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
 .iot-access-page-shell__body {
@@ -117,7 +132,6 @@ withDefaults(
 
 @media (max-width: 900px) {
   .iot-access-page-shell__headline {
-    align-items: flex-start;
     flex-direction: column;
   }
 
