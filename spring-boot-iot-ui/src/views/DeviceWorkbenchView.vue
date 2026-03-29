@@ -86,11 +86,11 @@
           ]"
         >
           <template #right>
-            <StandardButton v-permission="'iot:devices:delete'" action="delete" link :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="deviceToolbarActions"
+              @command="handleToolbarAction"
+            />
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
@@ -242,11 +242,13 @@
                   </div>
                 </div>
 
-                <StandardRowActions variant="card" gap="comfortable" class="device-mobile-card__actions">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  class="device-mobile-card__actions"
+                  :direct-items="getDeviceDirectActions(row)"
+                  :menu-items="getDeviceRowActions(row)"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </article>
             </div>
           </div>
@@ -288,11 +290,12 @@
             </StandardTableTextColumn>
             <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
               <template #default="{ row }">
-                <StandardRowActions variant="table" gap="wide">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getDeviceDirectActions(row)"
+                  :menu-items="getDeviceRowActions(row)"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </template>
             </el-table-column>
           </el-table>
@@ -823,6 +826,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { accessErrorApi } from '@/api/accessError'
@@ -903,7 +907,20 @@ interface DeviceRowAction {
   key?: string
   command: 'replace' | 'insight' | 'delete'
   label: string
-  permission?: string
+}
+
+interface DeviceDirectAction {
+  key?: string
+  command: 'detail' | 'edit'
+  label: string
+}
+
+interface DeviceToolbarAction {
+  key?: string
+  command: 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  label: string
+  disabled?: boolean
+  divided?: boolean
 }
 
 const route = useRoute()
@@ -1084,6 +1101,49 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
+  const actions: DeviceToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:devices:delete')) {
+    actions.push({
+      key: 'batch-delete',
+      command: 'batch-delete',
+      label: '批量删除',
+      disabled: selectedRows.value.length === 0
+    })
+  }
+
+  if (permissionStore.hasPermission('iot:devices:export')) {
+    actions.push({
+      key: 'export-config',
+      command: 'export-config',
+      label: '导出列设置',
+      divided: actions.length > 0
+    })
+    actions.push({
+      key: 'export-selected',
+      command: 'export-selected',
+      label: '导出选中',
+      disabled: selectedRows.value.length === 0
+    })
+    actions.push({
+      key: 'export-current',
+      command: 'export-current',
+      label: '导出当前结果',
+      disabled: tableData.value.length === 0
+    })
+  }
+
+  actions.push({
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0,
+    divided: actions.length > 0
+  })
+
+  return actions
+})
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
@@ -1382,14 +1442,28 @@ function canJumpToInsight(row?: Device | null) {
   return Boolean(row?.deviceCode && isRegisteredDeviceRow(row))
 }
 
+function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
+  const actions: DeviceDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
+
+  if (canEditDeviceRow(row) && permissionStore.hasPermission('iot:devices:update')) {
+    actions.push({ key: 'edit', command: 'edit', label: '编辑' })
+  }
+
+  return actions
+}
+
 function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
   if (canReplaceDeviceRow(row)) {
-    actions.push({ key: 'replace', command: 'replace', label: '更换', permission: 'iot:devices:replace' })
+    if (permissionStore.hasPermission('iot:devices:replace')) {
+      actions.push({ key: 'replace', command: 'replace', label: '更换' })
+    }
     actions.push({ key: 'insight', command: 'insight', label: '洞察' })
-    actions.push({ key: 'delete', command: 'delete', label: '删除', permission: 'iot:devices:delete' })
+    if (permissionStore.hasPermission('iot:devices:delete')) {
+      actions.push({ key: 'delete', command: 'delete', label: '删除' })
+    }
   }
-  return actions.filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+  return actions
 }
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {
@@ -1596,6 +1670,28 @@ function handleExportSelected() {
 
 function handleExportCurrent() {
   downloadRowsAsCsv('设备资产中心-当前结果.csv', tableData.value, getResolvedExportColumns())
+}
+
+function handleToolbarAction(command: string | number | object) {
+  switch (command) {
+    case 'batch-delete':
+      void handleBatchDelete()
+      break
+    case 'export-config':
+      openExportColumnSetting()
+      break
+    case 'export-selected':
+      handleExportSelected()
+      break
+    case 'export-current':
+      handleExportCurrent()
+      break
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
 }
 
 function syncAppliedFilters() {
@@ -2694,7 +2790,15 @@ function handleJumpToInsight(row?: Device | null) {
   })
 }
 
-function handleMobileRowAction(command: string | number | object, row: Device) {
+function handleRowAction(command: string | number | object, row: Device) {
+  if (command === 'detail') {
+    handleOpenDetail(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
   if (command === 'replace') {
     void handleOpenReplace(row)
     return

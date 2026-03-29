@@ -121,6 +121,23 @@ const StandardTableToolbarStub = defineComponent({
   `
 })
 
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'directItems', 'menuItems'],
+  template: `
+    <div class="device-workbench-row-actions-stub" :data-variant="variant">
+      <span
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        class="device-workbench-row-actions-stub__direct"
+      >
+        {{ item.label }}
+      </span>
+      <span class="device-workbench-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
+})
+
 const ElFormItemStub = defineComponent({
   name: 'ElFormItem',
   template: '<div class="el-form-item-stub"><slot /></div>'
@@ -217,6 +234,7 @@ function mountView() {
         IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
         StandardInlineState: StandardInlineStateStub,
@@ -331,5 +349,40 @@ describe('DeviceWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自失败归档')
     expect(wrapper.text()).toContain('demo-device-01')
+  })
+
+  it('reuses the shared workbench row-actions component for registered device cards', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findComponent(StandardWorkbenchRowActionsStub)
+
+    expect(rowActions.exists()).toBe(true)
+    expect(rowActions.props('variant')).toBe('card')
+    expect((rowActions.props('directItems') as Array<{ label: string }>).map((item) => item.label)).toEqual([
+      '详情',
+      '编辑'
+    ])
+    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(3)
   })
 })

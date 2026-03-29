@@ -92,7 +92,7 @@
 13. 统一表单抽屉：`StandardFormDrawer`。
 14. `StandardDrawerFooter` + `confirmAction`：统一新增/修改/删除/确认类底部按钮和二次确认交互。
 15. `StandardButton`：统一查询、新增、重置、删除、批量、刷新及其他常见动作按钮的语义、尺寸、配色和状态。
-16. `StandardActionLink` + `StandardActionMenu` + `StandardRowActions`：统一表格/卡片操作列中的“详情 / 编辑 / 更多”类轻操作语法、颜色和布局。
+16. `StandardActionLink` + `StandardActionMenu` + `StandardRowActions` + `StandardWorkbenchRowActions`：统一表格/卡片操作列中的“详情 / 编辑 / 更多”类轻操作语法、颜色和布局；其中页级组合优先复用 `StandardWorkbenchRowActions`，不要在页面内重复手拼。
 17. `StandardChoiceGroup`：统一“点击前 / 点击后”状态切换按钮的未选中、悬浮、选中样式；当前优先用于链路验证中心的传输方式与上报模式切换，后续同类 pill/toggle 交互优先复用。
 18. `StandardInlineState`：统一工作台顶部或列表内联提示，优先承接查询反馈、诊断来源提示、轻量刷新状态和空列表前的下一步建议。
 19. `IotAccessPageShell` + `IotAccessTabWorkspace`：统一 `接入智维` 资产/诊断子页的轻量标题壳与真业务页签；页面定位统一依赖全局 `ShellBreadcrumb`，`IotAccessPageShell` 不再重复渲染同路径页内面包屑。组件级默认 `showBreadcrumbs=false`，只有 `/device-access` 这类分组总览页才允许显式开启单行 breadcrumb。单主列表页默认只保留全局面包屑层和主工作台层，不再重复渲染中间页标题或私有伪页签。
@@ -105,9 +105,15 @@
   - `table`：桌面表格操作列，默认不换行。
   - `card`：移动卡片操作区，由共享组件统一处理等宽和触控尺寸。
   - `editor`：可换行编辑区，允许操作项自动折行。
+- `StandardWorkbenchRowActions` 当前负责把 `StandardRowActions + StandardActionLink + StandardActionMenu` 收口为同一层页级组合：
+  - `table` 变体默认使用 `wide` 间距，保持与设备资产中心桌面操作列一致。
+  - `card` / `editor` 变体默认使用 `comfortable` 间距，兼顾触控点击区与移动端换行节奏。
+  - `产品定义中心`、`设备资产中心` 及后续同类高频台账，若存在“直出动作 + 更多菜单”的组合，必须优先复用该组件，不再在页面 template 中重复拼装。
 - `gap` 继续只允许 `compact | comfortable | wide` 三档；页面不要再把操作列间距写回 scoped CSS 或 `:deep(...)` 覆写。
 - 详情抽屉优先采用“列表摘要秒开 + 完整详情后台静默补数”的体验；不得用红色错误提示表达正常刷新中的补数过程。
 - 当表格操作列固定为 2~3 个轻操作时，优先通过 `StandardRowActions` 的共享 `gap` 档位统一间距；不要在页面 scoped CSS 里再单独覆写“详情 / 编辑 / 更多”的 gap。
+- 当表格操作列已演进为“多个直出动作 + 更多菜单”时，优先把动作数据传给 `StandardWorkbenchRowActions`，而不是在页面里再写第二套 `StandardActionLink + StandardActionMenu` 模板。
+- `eyebrow` 当前只允许保留在最底层共享壳组件 `PanelCard`、`StandardWorkbenchPanel`；`StandardDetailDrawer`、`StandardFormDrawer`、`ResponsePanel`、`DeviceListDrawer` 与 `IotAccessWorkbenchHero / IotAccessSignalDeck` 这类中层包装组件不得继续暴露或透传该契约，避免页面重新长出第三层重复标题。
 
 ### 3.1 链路验证中心专项约束
 
@@ -115,6 +121,7 @@
 - 新增接入侧页面时先判断是否真的存在两个及以上高频业务视图：`/device-access`、`/reporting`、`/message-trace`、`/file-debug` 可复用 `IotAccessTabWorkspace`，`/products`、`/devices`、`/system-log` 应保持单主列表 / 单主结果页，不再自起假工作区或说明型页签。
 - `接入智维` 下的 `产品定义中心`、`设备资产中心`、`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台`，当前统一采用“全局 `ShellBreadcrumb` + 页面主工作台”的两层结构；`IotAccessPageShell` 仅保留可选 headline / body 壳，不再输出第二条页内面包屑。除分组总览页外，不得通过传 `breadcrumbs` 或局部样式把这条页内导航再开回来。不得再加回页面主标题层、说明墙、中间一级大标题或同路径重复导航条。
 - `产品定义中心`、`设备资产中心`、`异常观测台` 这类单主列表页，不得再出现“分组末级 / 页头标题 / 主卡标题”三层重复引导；主卡标题应直接对应当前主列表语义，并统一使用 `StandardWorkbenchPanel.titleVariant=section` 的二级标题样式。当前基线为：`/products=产品定义中心`、`/devices=设备台账`、`/system-log=异常台账`。
+- `/system-log` 的系统异常模式当前固定使用 `异常台账` 作为主列表标题、`异常详情` 作为详情抽屉标题、`异常台账导出列设置` 作为导出弹窗标题；同一路由内不得再把 `异常观测台` 与 `异常台账` 混用到同一层级，也不得在页头回流 `链路追踪台 / 失败归档` 这类跨页按钮。
 - `产品定义中心`、`设备资产中心` 顶部文案必须保持资产治理语气，主战区仍是台账和治理动作；`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台` 顶部文案必须保持诊断语气，主战区直接进入验证、追踪或校验结果。
 - 当同一路由需要两个及以上真实业务视图时，模式切换统一放在面包屑下方的 `IotAccessTabWorkspace`；不得再把模式切换伪装成右上角命令菜单、header-actions 假页签或页面私有 pill。
 - `接入智维` 子页若存在两个及以上并列内容域，必须优先复用 `IotAccessPageShell + IotAccessTabWorkspace` 组织结构；只有真实业务视图才允许建 Tab，`IotAccessResultSection` 与 `IotAccessFilterBar` 不再作为正文结构组件回流。
@@ -201,12 +208,13 @@
 - 产品定义中心、设备资产中心等高频台账页的查询行默认顺序为“常用筛选项 -> 查询 -> 重置 -> 主操作按钮（如新增、批量导入）”；后续同类页面重构优先复用该顺序。
 - 查询行中的主操作按钮若属于当前台账主入口（如新增产品、新增设备），默认与“查询”保持同一主色口径，避免使用低对比度的 `primary plain` 样式导致文案可读性下降。
 - 查询、新增、重置、删除、批量、刷新及同类高频动作，优先通过 `StandardButton` 表达语义；共享筛选头、工具条、抽屉底部和空态动作不得再各自维护一套按钮尺寸、圆角、配色和 hover 风格。
-- 当前常用按钮按语义分成两条共享主线：查询类按钮与对象洞察台“刷新洞察”统一使用更亮的 query 橙色渐变白字；新增、提交、确认、删除、批量等其他主操作继续使用品牌橙渐变白字。重置、取消、刷新、返回等次操作使用橙色描边与浅橙悬浮态；不得再回退到灰字次按钮或红色删除按钮的旧分支。
+- 当前常用按钮继续统一复用品牌主橙渐变白字主线：查询类按钮、对象洞察台“刷新洞察”、新增、提交、确认、删除、批量等主操作保持同一套主按钮配色与阴影层级；重置、取消、刷新、返回等次操作使用橙色描边与浅橙悬浮态；不得再回退到灰字次按钮或红色删除按钮的旧分支。
 - 按钮文字当前统一遵循共享 token：主操作按钮固定白字，次操作与 `link / text` 按钮固定品牌橙字；不要在页面内再单独覆写按钮文案颜色。
 - 正文、表头和筛选标签优先使用统一蓝灰字体系，不使用接近纯黑的生硬字色；表格操作列、工具条轻操作和查询行按钮统一使用品牌橙，与主按钮保持同一品牌识别。
 - 系统弹窗按钮、抽屉底部按钮和遗留 `primary-button / secondary-button / ghost-button` 全局类，也必须复用同一套橙色按钮体系；允许统一尺寸与圆角，但不得继续保留页面私有红色删除分支或灰色旧按钮语法。
 - 传输方式、模式切换、分组选项等“点前 / 点后”切换类按钮，不得在页面内继续散写 `active` class 和私有样式；优先复用 `StandardChoiceGroup`，统一未选中、hover、选中三态。
 - 桌面表格“操作”列若动作超过 2 项，应按“高频动作直出 + 低频动作进入更多下拉”的口径收口，避免横向平铺过多按钮挤压列表可读性。
+- `产品定义中心`、`设备台账` 这类高频台账的工具栏右侧，若同时存在 `导出列设置 / 导出选中 / 导出当前结果 / 清空选中 / 批量删除` 等低频治理动作，统一通过 `StandardActionMenu` 的 `更多操作` 收口；桌面端只保留刷新和当前最核心入口直出，减少工具栏噪音。
 - 系统数据列表与卡片操作区中的 `详情 / 编辑 / 更多 / 查看设备 / 删除 / 更换 / 洞察`，当前统一使用查询橙按钮语义；不得再为操作列单独保留红色删除按钮或另一套私有链接颜色。
 - 产品定义中心与设备资产中心的查询头已统一抽离为 `StandardListFilterHeader`；后续同类列表页默认复用该组件，不再复制页面私有筛选头模板。
 - `/message-trace`、`/audit-log` 与 `/system-log` 这类链路 / 日志台账页也必须复用 `StandardListFilterHeader + StandardAppliedFiltersBar`；高频入口走快速搜索，其余条件收口到“更多筛选”，隐藏条件生效时继续通过提示文案和筛选标签保持可感知。

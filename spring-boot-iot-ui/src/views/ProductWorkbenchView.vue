@@ -121,14 +121,11 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-            <StandardButton v-permission="'iot:products:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton v-permission="'iot:products:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
-              导出选中
-            </StandardButton>
-            <StandardButton v-permission="'iot:products:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">
-              导出当前结果
-            </StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="productToolbarActions"
+              @command="handleToolbarAction"
+            />
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
@@ -233,18 +230,13 @@
                   </div>
                 </div>
 
-                <StandardRowActions variant="card" gap="comfortable" class="product-mobile-card__actions">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionLink
-                    v-permission="'iot:products:update'"
-                    data-testid="open-product-model-designer"
-                    @click="handleOpenProductModelDesigner(row)"
-                  >
-                    物模型设计器
-                  </StandardActionLink>
-                  <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  class="product-mobile-card__actions"
+                  :direct-items="getProductDirectActions('card')"
+                  :menu-items="productRowActions"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </article>
             </div>
           </div>
@@ -282,21 +274,14 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column label="操作" width="288" fixed="right" :show-overflow-tooltip="false">
                 <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="comfortable">
-                    <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                    <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                    <StandardActionLink
-                      v-permission="'iot:products:update'"
-                      data-testid="open-product-model-designer"
-                      title="打开物模型设计器"
-                      @click="handleOpenProductModelDesigner(row)"
-                    >
-                      物模型
-                    </StandardActionLink>
-                    <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
-                  </StandardRowActions>
+                  <StandardWorkbenchRowActions
+                    variant="table"
+                    :direct-items="getProductDirectActions('table')"
+                    :menu-items="productRowActions"
+                    @command="(command) => handleRowAction(command, row)"
+                  />
                 </template>
               </el-table-column>
             </el-table>
@@ -504,6 +489,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
@@ -570,7 +556,22 @@ interface ProductRowAction {
   key?: string
   command: 'devices' | 'delete'
   label: string
-  permission?: string
+}
+
+interface ProductDirectAction {
+  key?: string
+  command: 'detail' | 'edit' | 'model'
+  label: string
+  disabled?: boolean
+  title?: string
+  dataTestid?: string
+}
+
+interface ProductToolbarAction {
+  key?: string
+  command: 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  label: string
+  disabled?: boolean
 }
 
 const route = useRoute()
@@ -706,9 +707,39 @@ const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value)
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
     { key: 'devices', command: 'devices', label: '查看设备' },
-    { key: 'delete', command: 'delete', label: '删除', permission: 'iot:products:delete' }
-  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+    permissionStore.hasPermission('iot:products:delete')
+      ? { key: 'delete', command: 'delete', label: '删除' }
+      : null
+  ].filter((action): action is ProductRowAction => Boolean(action))
 )
+const productToolbarActions = computed<ProductToolbarAction[]>(() => {
+  const actions: ProductToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:products:export')) {
+    actions.push({ key: 'export-config', command: 'export-config', label: '导出列设置' })
+    actions.push({
+      key: 'export-selected',
+      command: 'export-selected',
+      label: '导出选中',
+      disabled: selectedRows.value.length === 0
+    })
+    actions.push({
+      key: 'export-current',
+      command: 'export-current',
+      label: '导出当前结果',
+      disabled: tableData.value.length === 0
+    })
+  }
+
+  actions.push({
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  })
+
+  return actions
+})
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()
@@ -789,6 +820,23 @@ function formatTextValue(value?: string | number | null) {
     return '--'
   }
   return String(value)
+}
+
+function getProductDirectActions(variant: 'table' | 'card'): ProductDirectAction[] {
+  const actions: ProductDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
+
+  if (permissionStore.hasPermission('iot:products:update')) {
+    actions.push({ key: 'edit', command: 'edit', label: '编辑' })
+    actions.push({
+      key: 'model',
+      command: 'model',
+      label: variant === 'table' ? '物模型' : '物模型设计器',
+      title: '打开物模型设计器',
+      dataTestid: 'open-product-model-designer'
+    })
+  }
+
+  return actions
 }
 
 function getProductDetailCacheKey(row?: Partial<Product> | null) {
@@ -1250,6 +1298,25 @@ function handleExportCurrent() {
   downloadRowsAsCsv('产品定义中心-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
+function handleToolbarAction(command: string | number | object) {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting()
+      break
+    case 'export-selected':
+      handleExportSelected()
+      break
+    case 'export-current':
+      handleExportCurrent()
+      break
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
+}
+
 function applyRouteQueryToFilters() {
   searchForm.productName = typeof route.query.productName === 'string' ? route.query.productName.trim() : ''
   searchForm.nodeType = parseRouteNumberQuery(route.query.nodeType)
@@ -1646,6 +1713,18 @@ async function loadDeviceList(productKey: string) {
 }
 
 function handleRowAction(command: string | number | object, row: Product) {
+  if (command === 'detail') {
+    handleOpenDetail(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'model') {
+    handleOpenProductModelDesigner(row)
+    return
+  }
   if (command === 'devices') {
     handleOpenDeviceListDrawer(row)
     return

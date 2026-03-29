@@ -118,6 +118,27 @@ const StandardTableToolbarStub = defineComponent({
   `
 })
 
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'directItems', 'menuItems'],
+  emits: ['command'],
+  template: `
+    <div class="product-workbench-row-actions-stub" :data-variant="variant">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        class="product-workbench-row-actions-stub__direct"
+        :data-testid="item.dataTestid"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="product-workbench-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
+})
+
 const StandardRowActionsStub = defineComponent({
   name: 'StandardRowActions',
   template: '<div class="product-row-actions-stub"><slot /></div>'
@@ -225,6 +246,7 @@ function mountView() {
         IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         StandardRowActions: StandardRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
         StandardActionMenu: StandardActionMenuStub,
@@ -336,6 +358,42 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('服务模型')
     expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
     expect(wrapper.text()).toContain('暂无物模型')
+  })
+
+  it('reuses the shared workbench row-actions component for product card rows', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 1001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        dataFormat: 'JSON',
+        manufacturer: 'GHLZM',
+        status: 1,
+        deviceCount: 0,
+        onlineDeviceCount: 0,
+        createTime: '2026-03-24T09:00:00',
+        updateTime: '2026-03-24T09:00:00'
+      }
+    ]
+    ;(wrapper.vm as any).viewType = 'card'
+    await nextTick()
+
+    const rowActions = wrapper.findComponent(StandardWorkbenchRowActionsStub)
+
+    expect(rowActions.exists()).toBe(true)
+    expect(rowActions.props('variant')).toBe('card')
+    expect((rowActions.props('directItems') as Array<{ label: string }>).map((item) => item.label)).toEqual([
+      '详情',
+      '编辑',
+      '物模型设计器'
+    ])
+    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(2)
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {
