@@ -162,6 +162,22 @@ const StandardButtonStub = defineComponent({
   `
 });
 
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label', 'items', 'disabled'],
+  emits: ['command'],
+  template: `
+    <div
+      class="audit-log-action-menu-stub"
+      :data-label="label"
+      :data-disabled="Boolean(disabled)"
+      :data-items="JSON.stringify(items || [])"
+    >
+      <button type="button">{{ label }}</button>
+    </div>
+  `
+});
+
 const StandardRowActionsStub = defineComponent({
   name: 'StandardRowActions',
   template: '<div class="audit-log-row-actions-stub"><slot /></div>'
@@ -269,6 +285,7 @@ function mountView() {
         StandardTableToolbar: StandardTableToolbarStub,
         StandardChoiceGroup: StandardChoiceGroupStub,
         StandardButton: StandardButtonStub,
+        StandardActionMenu: StandardActionMenuStub,
         StandardRowActions: StandardRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
@@ -351,6 +368,33 @@ describe('AuditLogView', () => {
 
     expect(wrapper.findComponent(AuditLogDetailDrawerStub).props('title')).toBe('异常详情');
     expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常台账导出列设置');
+  });
+
+  it('keeps refresh as the only direct toolbar action and moves export utilities into more actions', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const toolbarText = wrapper.find('.audit-log-toolbar-stub').text();
+
+    expect(toolbarText).toContain('刷新列表');
+    expect(toolbarText).toContain('更多操作');
+    expect(toolbarText).not.toContain('导出列设置');
+    expect(toolbarText).not.toContain('导出选中');
+    expect(toolbarText).not.toContain('导出当前结果');
+    expect(toolbarText).not.toContain('清空选中');
+
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub);
+    expect(actionMenu.exists()).toBe(true);
+    expect(actionMenu.props('label')).toBe('更多操作');
+    expect(actionMenu.props('items')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ command: 'export-config', label: '导出列设置' }),
+        expect.objectContaining({ command: 'export-selected', label: '导出选中' }),
+        expect.objectContaining({ command: 'export-current', label: '导出当前结果' }),
+        expect.objectContaining({ command: 'clear-selection', label: '清空选中' })
+      ])
+    );
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {

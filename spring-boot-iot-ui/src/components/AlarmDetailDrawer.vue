@@ -15,7 +15,7 @@
       <div class="detail-section-header">
         <div>
           <h3>告警概览</h3>
-          <p>突出告警等级、当前状态、监测对象与处置进展，值班人员打开抽屉即可快速完成判断。</p>
+          <p>突出告警等级、处置态势、监测对象与处置进展，值班人员打开抽屉即可快速完成判断。</p>
         </div>
       </div>
       <div class="detail-summary-grid">
@@ -27,7 +27,7 @@
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">当前状态</span>
           <strong class="detail-summary-card__value">{{ getStatusText(detail?.status) }}</strong>
-          <p class="detail-summary-card__hint">触发时间：{{ formatDateTime(detail?.triggerTime) }}</p>
+          <p class="detail-summary-card__hint">发生时间：{{ formatDateTime(detail?.triggerTime) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">监测对象</span>
@@ -106,10 +106,6 @@
         <div class="detail-field">
           <span class="detail-field__label">触发时间</span>
           <strong class="detail-field__value">{{ formatDateTime(detail?.triggerTime) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">当前状态</span>
-          <strong class="detail-field__value">{{ getStatusText(detail?.status) }}</strong>
         </div>
       </div>
     </section>

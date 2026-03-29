@@ -69,11 +69,12 @@
           ]"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="eventToolbarActions"
+              @command="handleToolbarAction"
+            />
           </template>
         </StandardTableToolbar>
       </template>
@@ -136,7 +137,7 @@
     <StandardFormDrawer
       v-model="dispatchVisible"
       title="工单派发"
-      subtitle="统一通过右侧抽屉配置派发对象与处理时限。"
+      subtitle="配置派发对象与处理时限。"
       size="34rem"
       @close="closeDispatchDialog"
     >
@@ -170,7 +171,7 @@
     <StandardFormDrawer
       v-model="closeVisible"
       title="事件关闭"
-      subtitle="统一通过右侧抽屉填写关闭原因并完成事件收口。"
+      subtitle="填写关闭原因并完成事件收口。"
       size="34rem"
       @close="closeCloseDialog"
     >
@@ -208,6 +209,7 @@ import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardActionMenu from '@/components/StandardActionMenu.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
@@ -270,6 +272,31 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+const eventToolbarActions = computed(() => [
+  {
+    key: 'export-config',
+    command: 'export-config',
+    label: '导出列设置'
+  },
+  {
+    key: 'export-selected',
+    command: 'export-selected',
+    label: '导出选中',
+    disabled: selectedRows.value.length === 0
+  },
+  {
+    key: 'export-current',
+    command: 'export-current',
+    label: '导出当前结果',
+    disabled: eventList.value.length === 0
+  },
+  {
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  }
+]);
 
 const stats = ref({
   pendingEvents: 0,
@@ -466,6 +493,25 @@ const handleExportSelected = () => {
 
 const handleExportCurrent = () => {
   downloadRowsAsCsv('事件协同台-当前结果.csv', eventList.value, getResolvedExportColumns());
+};
+
+const handleToolbarAction = (command: string | number | object) => {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting();
+      break;
+    case 'export-selected':
+      handleExportSelected();
+      break;
+    case 'export-current':
+      handleExportCurrent();
+      break;
+    case 'clear-selection':
+      clearSelection();
+      break;
+    default:
+      break;
+  }
 };
 
 const handleSizeChange = (size: number) => {

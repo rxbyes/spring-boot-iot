@@ -157,11 +157,12 @@
           ]"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="auditToolbarActions"
+              @command="handleToolbarAction"
+            />
           </template>
         </StandardTableToolbar>
       </template>
@@ -270,6 +271,7 @@ import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
@@ -473,6 +475,31 @@ const {
   }
 })
 const appliedQuickSearchValue = computed(() => (isSystemMode.value ? appliedFilters.traceId.trim() : appliedFilters.userName.trim()))
+const auditToolbarActions = computed(() => [
+  {
+    key: 'export-config',
+    command: 'export-config',
+    label: '导出列设置'
+  },
+  {
+    key: 'export-selected',
+    command: 'export-selected',
+    label: '导出选中',
+    disabled: selectedRows.value.length === 0
+  },
+  {
+    key: 'export-current',
+    command: 'export-current',
+    label: '导出当前结果',
+    disabled: tableData.value.length === 0
+  },
+  {
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  }
+])
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
     return ''
@@ -853,6 +880,25 @@ const handleExportSelected = () => {
 
 const handleExportCurrent = () => {
   downloadRowsAsCsv(`${pageTitle.value}-当前结果.csv`, tableData.value, getResolvedExportColumns())
+}
+
+const handleToolbarAction = (command: string | number | object) => {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting()
+      break
+    case 'export-selected':
+      handleExportSelected()
+      break
+    case 'export-current':
+      handleExportCurrent()
+      break
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
 }
 
 // 分页大小变化

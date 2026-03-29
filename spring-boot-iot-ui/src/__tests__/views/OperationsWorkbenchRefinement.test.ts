@@ -275,6 +275,20 @@ describe('operations workbench refinement', () => {
     expect(wrapper.text()).toContain('告警列表');
   });
 
+  it('keeps the alarm workbench toolbar focused by collapsing secondary actions into a more-actions menu', () => {
+    const wrapper = mountView(AlarmCenterView);
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub);
+
+    expect(wrapper.text()).toContain('刷新列表');
+    expect(actionMenu.exists()).toBe(true);
+    expect(actionMenu.props('label')).toBe('更多操作');
+    expect((actionMenu.props('items') as Array<unknown>)?.length ?? 0).toBe(4);
+    expect(wrapper.text()).not.toContain('导出列设置');
+    expect(wrapper.text()).not.toContain('导出选中');
+    expect(wrapper.text()).not.toContain('导出当前结果');
+    expect(wrapper.text()).not.toContain('清空选中');
+  });
+
   it('removes the standalone hero card from the event workbench', () => {
     const wrapper = mountView(EventDisposalView);
 

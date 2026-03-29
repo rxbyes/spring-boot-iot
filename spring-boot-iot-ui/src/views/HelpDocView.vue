@@ -61,8 +61,12 @@
       <template #toolbar>
         <StandardTableToolbar compact :meta-items="[ `当前结果 ${pagination.total} 条`, `已选 ${selectedRows.length} 项` ]">
           <template #right>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="helpDocToolbarActions"
+              @command="handleToolbarAction"
+            />
           </template>
         </StandardTableToolbar>
       </template>
@@ -170,21 +174,21 @@
         <section class="detail-panel">
           <div class="detail-section-header">
             <div>
-              <h3>检索与范围</h3>
-              <p>帮助中心会按 `visibleRoleCodes + relatedPaths + currentPath` 过滤与排序文档。</p>
+              <h3>命中规则</h3>
+              <p>帮助中心会结合关键词、角色范围和当前页面路径决定文档是否命中与如何排序。</p>
             </div>
           </div>
           <div class="detail-grid">
             <div class="detail-field detail-field--full">
-              <span class="detail-field__label">关键词</span>
+              <span class="detail-field__label">检索关键词</span>
               <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailRecord?.keywords) }}</strong>
             </div>
             <div class="detail-field detail-field--full">
-              <span class="detail-field__label">可见角色</span>
+              <span class="detail-field__label">角色命中范围</span>
               <strong class="detail-field__value">{{ detailRoleSummary }}</strong>
             </div>
             <div class="detail-field detail-field--full">
-              <span class="detail-field__label">关联页面</span>
+              <span class="detail-field__label">页面命中范围</span>
               <strong class="detail-field__value detail-field__value--plain">{{ detailPathSummary }}</strong>
             </div>
           </div>
@@ -331,6 +335,7 @@ import {
 } from '@/api/helpDoc'
 import { listRoles, type Role } from '@/api/role'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -427,6 +432,14 @@ const detailPathCount = computed(() => {
   const count = splitCsvValue(detailRecord.value?.relatedPaths).length
   return count > 0 ? `${count} 个页面` : '不限制'
 })
+const helpDocToolbarActions = computed(() => [
+  {
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  }
+])
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -610,6 +623,16 @@ function handleSizeChange(pageSize: number) {
 function handleRefresh() {
   clearSelection()
   loadHelpDocPage()
+}
+
+function handleToolbarAction(command: string | number | object) {
+  switch (command) {
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
 }
 
 function handleDialogClose() {

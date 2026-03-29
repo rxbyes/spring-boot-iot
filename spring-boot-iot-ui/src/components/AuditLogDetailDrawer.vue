@@ -30,7 +30,7 @@
           <p class="detail-summary-card__hint">请求通道：{{ formatValue(detail?.requestMethod) }}</p>
         </article>
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">操作时间</span>
+          <span class="detail-summary-card__label">执行时间</span>
           <strong class="detail-summary-card__value">{{ formatDateTime(detail?.operationTime) }}</strong>
           <p class="detail-summary-card__hint">TraceId：{{ formatValue(detail?.traceId) }}</p>
         </article>
@@ -78,14 +78,6 @@
         <div class="detail-field">
           <span class="detail-field__label">操作方法</span>
           <strong class="detail-field__value">{{ formatValue(detail?.operationMethod) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">操作时间</span>
-          <strong class="detail-field__value">{{ formatDateTime(detail?.operationTime) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">操作用户</span>
-          <strong class="detail-field__value">{{ formatValue(detail?.userName) }}</strong>
         </div>
         <div class="detail-field detail-field--full">
           <span class="detail-field__label">请求 URL / 目标</span>

@@ -2,7 +2,7 @@
   <div class="ops-workbench alarm-center-view">
     <StandardWorkbenchPanel
       title="告警列表"
-      :description="`当前 ${pagination.total} 条告警记录，支持选择、导出和批量排查。`"
+      :description="`当前 ${pagination.total} 条告警记录，支持确认、抑制、关闭和导出复核。`"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
@@ -68,11 +68,12 @@
           ]"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="alarmList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="alarmToolbarActions"
+              @command="handleToolbarAction"
+            />
           </template>
         </StandardTableToolbar>
       </template>
@@ -152,6 +153,7 @@ import { ElMessage } from '@/utils/message';
 import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardActionMenu from '@/components/StandardActionMenu.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
@@ -209,6 +211,31 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+const alarmToolbarActions = computed(() => [
+  {
+    key: 'export-config',
+    command: 'export-config',
+    label: '导出列设置'
+  },
+  {
+    key: 'export-selected',
+    command: 'export-selected',
+    label: '导出选中',
+    disabled: selectedRows.value.length === 0
+  },
+  {
+    key: 'export-current',
+    command: 'export-current',
+    label: '导出当前结果',
+    disabled: alarmList.value.length === 0
+  },
+  {
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  }
+]);
 
 const stats = ref({
   todayAlarms: 0,
@@ -391,6 +418,25 @@ const handleExportSelected = () => {
 
 const handleExportCurrent = () => {
   downloadRowsAsCsv('告警运营台-当前结果.csv', alarmList.value, getResolvedExportColumns());
+};
+
+const handleToolbarAction = (command: string | number | object) => {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting();
+      break;
+    case 'export-selected':
+      handleExportSelected();
+      break;
+    case 'export-current':
+      handleExportCurrent();
+      break;
+    case 'clear-selection':
+      clearSelection();
+      break;
+    default:
+      break;
+  }
 };
 
 const handleSizeChange = (size: number) => {
