@@ -14,9 +14,9 @@ spring:
             minimum-idle: ${IOT_MYSQL_HIKARI_MIN_IDLE:5}
             connection-timeout: ${IOT_MYSQL_HIKARI_CONNECTION_TIMEOUT_MS:30000}
             validation-timeout: ${IOT_MYSQL_HIKARI_VALIDATION_TIMEOUT_MS:5000}
-            idle-timeout: ${IOT_MYSQL_HIKARI_IDLE_TIMEOUT_MS:600000}
-            max-lifetime: ${IOT_MYSQL_HIKARI_MAX_LIFETIME_MS:1800000}
-            keepalive-time: ${IOT_MYSQL_HIKARI_KEEPALIVE_TIME_MS:300000}
+            idle-timeout: ${IOT_MYSQL_HIKARI_IDLE_TIMEOUT_MS:180000}
+            max-lifetime: ${IOT_MYSQL_HIKARI_MAX_LIFETIME_MS:240000}
+            keepalive-time: ${IOT_MYSQL_HIKARI_KEEPALIVE_TIME_MS:120000}
             leak-detection-threshold: ${IOT_MYSQL_HIKARI_LEAK_DETECTION_THRESHOLD_MS:20000}
             connection-test-query: SELECT 1
 
