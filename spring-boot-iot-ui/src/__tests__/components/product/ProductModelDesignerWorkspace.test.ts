@@ -252,7 +252,10 @@ describe('ProductModelDesignerWorkspace', () => {
     await nextTick()
 
     expect(mockListProductModelCandidates).toHaveBeenCalledWith(1001)
-    expect(wrapper.find('.product-model-designer__hero-stage').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__hero-stage').exists()).toBe(false)
+    expect(wrapper.find('.product-model-designer__header').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__summary-strip').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__workspace-shell').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__candidate-workspace').exists()).toBe(true)
     expect(wrapper.text()).toContain('真实证据概览')
     expect(wrapper.text()).toContain('4G 信号强度')

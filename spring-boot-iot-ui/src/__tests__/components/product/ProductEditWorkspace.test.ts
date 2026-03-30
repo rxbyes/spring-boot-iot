@@ -38,7 +38,7 @@ const ElFormStub = defineComponent({
 })
 
 describe('ProductEditWorkspace', () => {
-  it('renders the embedded edit workspace and emits cancel and submit actions', async () => {
+  it('renders the flattened edit workspace and emits cancel and submit actions', async () => {
     const wrapper = mount(ProductEditWorkspace, {
       props: {
         model: {
@@ -72,8 +72,10 @@ describe('ProductEditWorkspace', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('编辑治理')
-    expect(wrapper.text()).toContain('编辑影响提示')
+    expect(wrapper.find('.product-edit-workspace__hero').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__summary-band').exists()).toBe(true)
+    expect(wrapper.find('.product-edit-workspace__notice').exists()).toBe(false)
+    expect(wrapper.find('.standard-inline-state-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('基础档案')
     expect(wrapper.text()).toContain('接入基线')
     expect(wrapper.text()).toContain('补充说明')

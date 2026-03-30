@@ -18,7 +18,7 @@ const StandardDetailDrawerStub = defineComponent({
 })
 
 describe('ProductBusinessWorkbenchDrawer', () => {
-  it('renders one business header and keeps all visited views inside the same drawer stage', () => {
+  it('renders the flattened business header and keeps all visited views inside the same drawer stage', () => {
     const wrapper = mount(ProductBusinessWorkbenchDrawer, {
       props: {
         modelValue: true,
@@ -50,12 +50,17 @@ describe('ProductBusinessWorkbenchDrawer', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('演示产品')
-    expect(wrapper.text()).toContain('demo-product')
+    expect(wrapper.find('.product-business-workbench__hero').exists()).toBe(false)
+    expect(wrapper.find('.product-business-workbench__header').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__identity').text()).toContain('演示产品')
+    expect(wrapper.find('.product-business-workbench__identity').text()).toContain('demo-product')
+    expect(wrapper.find('.product-business-workbench__status-badge').text()).toContain('稳定使用中')
+    expect(wrapper.find('.product-business-workbench__meta').text()).toContain('mqtt-json')
     expect(wrapper.text()).toContain('经营总览')
     expect(wrapper.text()).toContain('物模型治理')
     expect(wrapper.text()).toContain('关联设备')
     expect(wrapper.text()).toContain('编辑治理')
+    expect(wrapper.find('.product-business-workbench__view-shell').exists()).toBe(true)
     expect(wrapper.get('[data-view="models"]').text()).toContain('models-slot')
     expect(wrapper.get('[data-view="overview"]').text()).toContain('overview-slot')
     expect(wrapper.get('[data-view="overview"]').attributes('style')).toContain('display: none;')

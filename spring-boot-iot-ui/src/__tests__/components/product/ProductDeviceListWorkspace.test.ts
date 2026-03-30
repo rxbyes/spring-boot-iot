@@ -16,7 +16,7 @@ const StandardRowActionsStub = defineComponent({
 })
 
 describe('ProductDeviceListWorkspace', () => {
-  it('renders device summary and ledger content without relying on an outer drawer shell', () => {
+  it('renders a compact metric band and keeps the ledger table as the primary stage', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
       props: {
         product: {
@@ -58,7 +58,10 @@ describe('ProductDeviceListWorkspace', () => {
     expect(wrapper.text()).toContain('离线设备')
     expect(wrapper.text()).toContain('在线比例')
     expect(wrapper.text()).toContain('关联设备台账')
-    expect(wrapper.find('.device-drawer__table-shell').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__summary-band').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__table-stage').exists()).toBe(true)
+    expect(wrapper.find('.device-drawer__summary').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__section-copy').text()).toContain('关联设备台账')
     expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toHaveLength(1)
   })
 })

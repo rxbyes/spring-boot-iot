@@ -27,7 +27,7 @@ const baseProduct: Product = {
 }
 
 describe('ProductDetailWorkbench', () => {
-  it('renders the streamlined four-part detail hierarchy without the legacy English stage tier', () => {
+  it('renders the flattened four-part detail hierarchy with one primary hero stage', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {
         product: baseProduct
@@ -43,6 +43,11 @@ describe('ProductDetailWorkbench', () => {
       '维护与治理'
     ])
 
+    expect(wrapper.find('[data-testid="product-detail-hero-stage"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-primary-metric"]').text()).toContain('关联设备总量')
+    expect(wrapper.find('[data-testid="product-detail-secondary-metrics"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-judgement-stage"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-contract-archive-stage"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="product-detail-hero-total"]').text()).toBe('2486')
     expect(wrapper.get('[data-testid="product-detail-hero-secondary-onlineDeviceCount-value"]').text()).toBe('1842')
     expect(wrapper.get('[data-testid="product-detail-hero-secondary-thirtyDaysActiveCount-value"]').text()).toBe('2117')
@@ -53,7 +58,7 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.text()).not.toContain('Governance Stage')
   })
 
-  it('keeps the trend stage visible with a quiet placeholder when no activity metrics exist', () => {
+  it('keeps the judgement stage visible with a quiet placeholder when no activity metrics exist', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {
         product: {
@@ -67,7 +72,7 @@ describe('ProductDetailWorkbench', () => {
       }
     })
 
-    expect(wrapper.get('[data-testid="product-detail-stage-trend"]').text()).toContain('当前还没有足够的活跃度样本')
+    expect(wrapper.get('[data-testid="product-detail-judgement-stage"]').text()).toContain('当前还没有足够的活跃度样本')
     expect(wrapper.find('[data-testid="product-detail-trend-metrics"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('接入契约')
     expect(wrapper.text()).toContain('产品档案')
