@@ -9,11 +9,29 @@ spring:
           username: ${IOT_MYSQL_USERNAME:root}
           password: ${IOT_MYSQL_PASSWORD:mI8%pB1*gD}
           driver-class-name: com.mysql.cj.jdbc.Driver
+          hikari:
+            maximum-pool-size: ${IOT_MYSQL_HIKARI_MAX_POOL_SIZE:30}
+            minimum-idle: ${IOT_MYSQL_HIKARI_MIN_IDLE:5}
+            connection-timeout: ${IOT_MYSQL_HIKARI_CONNECTION_TIMEOUT_MS:30000}
+            validation-timeout: ${IOT_MYSQL_HIKARI_VALIDATION_TIMEOUT_MS:5000}
+            idle-timeout: ${IOT_MYSQL_HIKARI_IDLE_TIMEOUT_MS:600000}
+            max-lifetime: ${IOT_MYSQL_HIKARI_MAX_LIFETIME_MS:1800000}
+            keepalive-time: ${IOT_MYSQL_HIKARI_KEEPALIVE_TIME_MS:300000}
+            leak-detection-threshold: ${IOT_MYSQL_HIKARI_LEAK_DETECTION_THRESHOLD_MS:20000}
+            connection-test-query: SELECT 1
         slave_1:
           url: ${IOT_TDENGINE_URL:jdbc:TAOS-RS://8.130.107.120:6041/iot}
           username: ${IOT_TDENGINE_USERNAME:root}
           password: ${IOT_TDENGINE_PASSWORD:Fc11QetNg4RX}
           driver-class-name: com.taosdata.jdbc.rs.RestfulDriver
+          hikari:
+            maximum-pool-size: ${IOT_TDENGINE_HIKARI_MAX_POOL_SIZE:8}
+            minimum-idle: ${IOT_TDENGINE_HIKARI_MIN_IDLE:1}
+            connection-timeout: ${IOT_TDENGINE_HIKARI_CONNECTION_TIMEOUT_MS:30000}
+            validation-timeout: ${IOT_TDENGINE_HIKARI_VALIDATION_TIMEOUT_MS:5000}
+            idle-timeout: ${IOT_TDENGINE_HIKARI_IDLE_TIMEOUT_MS:600000}
+            max-lifetime: ${IOT_TDENGINE_HIKARI_MAX_LIFETIME_MS:1800000}
+            keepalive-time: ${IOT_TDENGINE_HIKARI_KEEPALIVE_TIME_MS:300000}
 
   data:
     redis:
@@ -78,7 +96,7 @@ iot:
     cluster-lock-renew-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_RENEW_INTERVAL_SECONDS:10}
     cluster-lock-acquire-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_ACQUIRE_INTERVAL_SECONDS:5}
     default-subscribe-topics:
-#      - $dp
+      - $dp
       - /sys/+/+/thing/property/post
       - /sys/+/+/thing/event/post
       - /sys/+/+/thing/property/reply

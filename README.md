@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-03-29
+> 更新时间：2026-03-30
 
 ## 项目简介
 
@@ -37,6 +37,7 @@
 - Phase 1~3 主链路已形成长期稳定基线。
 - 设备接入主链路当前已重构为固定 `Pipeline`：HTTP / MQTT 统一按 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE` 执行，不再依赖“旁路日志推断”判断阶段顺序。
 - `spring-boot-iot-telemetry` 已进入 telemetry v2 foundation 基线；`application-dev.yml` / `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`。标准化后的 `properties` 会在 `PAYLOAD_APPLY` 之后优先批量写入 TDengine v2 raw stable，再异步投影 MySQL latest 并按配置镜像 legacy stable；`iot_device_telemetry_point` 继续保留为 legacy 兼容回退表，`reply` / 文件载荷 / 空属性消息继续跳过时序落库。
+- `application-dev.yml`、`application-prod.yml`、`application-test.yml` 当前已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 TDengine `slave_1` 也已补齐独立 Hikari 基线，避免共享环境继续沿用默认 `10` 连接池。
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
 - `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认先读 telemetry v2 latest MySQL 投影表 `iot_device_metric_latest`，并在 `legacy-read-fallback-enabled=true` 时继续补齐 legacy stable + `iot_device_telemetry_point` 缺失指标；`mysql` 模式兼容回退到 `iot_device_property`。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
@@ -59,6 +60,7 @@
 - 唯一验收基线：`spring-boot-iot-admin/src/main/resources/application-dev.yml`
 - 可通过环境变量覆盖数据库、Redis、MQTT、TDengine 和可观测配置
 - `application-dev.yml` 与 `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`；`application-test.yml` 保持 `mysql`
+- 当前主库 Hikari 连接池不再依赖框架默认值；如共享环境再次出现 `HikariPool-1 - Connection is not available`，优先检查 `IOT_MYSQL_HIKARI_*` 覆盖值、慢 SQL 摘要与 `/actuator/metrics/hikaricp.connections.*`
 - Redis 当前同时承担 `message-flow` 时间线短期留存和 MQTT consumer 领导权租约；若 Redis 不可用，本轮链路时间线 / MQTT 集群单消费者验收都视为环境阻塞，不回退到仅控制台日志模式
 - 不允许回退到旧 H2 验收 profile、独立 H2 schema 脚本或 H2-only 验收路径
 - 当真实环境访问受阻时，必须明确报告环境阻塞，不用降级链路替代验收结论
