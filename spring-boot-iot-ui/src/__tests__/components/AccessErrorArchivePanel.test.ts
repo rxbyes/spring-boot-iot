@@ -67,6 +67,21 @@ const StandardTableToolbarStub = defineComponent({
   `
 });
 
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'className'],
+  template: `
+    <div class="access-error-column-stub" :data-label="label" :data-class-name="className">
+      <slot />
+    </div>
+  `
+});
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  template: '<section class="access-error-table-stub"><slot /></section>'
+});
+
 describe('AccessErrorArchivePanel', () => {
   beforeEach(() => {
     mockRouter.push.mockReset();
@@ -139,13 +154,13 @@ describe('AccessErrorArchivePanel', () => {
               template: '<section v-if="modelValue" class="access-error-detail-drawer-stub"><p v-if="eyebrow">{{ eyebrow }}</p><h2>{{ title }}</h2><slot /></section>'
             }),
             StandardChoiceGroup: true,
-            StandardButton: defineComponent({
+          StandardButton: defineComponent({
               name: 'StandardButton',
               emits: ['click'],
               template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
             }),
-            ElTable: true,
-            ElTableColumn: true,
+            ElTable: ElTableStub,
+            ElTableColumn: ElTableColumnStub,
             ElInput: true,
             ElFormItem: true,
             ElTag: true,
@@ -199,8 +214,8 @@ describe('AccessErrorArchivePanel', () => {
             emits: ['click'],
             template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
           }),
-          ElTable: true,
-          ElTableColumn: true,
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
           ElInput: true,
           ElFormItem: true,
           ElTag: true,
@@ -217,5 +232,42 @@ describe('AccessErrorArchivePanel', () => {
     expect(wrapper.text()).not.toContain('FAILURE ARCHIVE');
     expect(wrapper.text()).not.toContain('跳转异常观测台');
     expect(wrapper.text()).toContain('刷新列表');
+  });
+
+  it('marks the archive action column with the shared row-action class to keep the last action from being ellipsized', () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardRowActions: true,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: true,
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    const actionColumn = wrapper
+      .findAll('.access-error-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
   });
 });

@@ -230,12 +230,13 @@
                   </div>
                 </div>
 
-                <StandardWorkbenchRowActions
-                  variant="card"
-                  class="product-mobile-card__actions"
-                  :direct-items="getProductDirectActions('card')"
-                  :menu-items="productRowActions"
-                  @command="(command) => handleRowAction(command, row)"
+                  <StandardWorkbenchRowActions
+                    variant="card"
+                    gap="compact"
+                    class="product-mobile-card__actions"
+                    :direct-items="getProductDirectActions('card')"
+                    :menu-items="productRowActions"
+                    @command="(command) => handleRowAction(command, row)"
                 />
               </article>
             </div>
@@ -274,10 +275,17 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="288" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column
+                label="操作"
+                width="288"
+                fixed="right"
+                class-name="standard-row-actions-column"
+                :show-overflow-tooltip="false"
+              >
                 <template #default="{ row }">
                   <StandardWorkbenchRowActions
                     variant="table"
+                    gap="compact"
                     :direct-items="getProductDirectActions('table')"
                     :menu-items="productRowActions"
                     @command="(command) => handleRowAction(command, row)"
@@ -312,44 +320,57 @@
       </template>
     </StandardWorkbenchPanel>
 
-    <StandardDetailDrawer
-      v-model="detailVisible"
-      class="product-detail-drawer"
-      size="60rem"
-      :title="detailTitle"
-      :subtitle="detailSubtitle"
-      :loading="detailLoading"
-      :error-message="detailErrorMessage"
-      :empty="!detailData"
+    <ProductBusinessWorkbenchDrawer
+      v-model="businessWorkbenchVisible"
+      :active-view="businessWorkbenchActiveView"
+      :product="businessWorkbenchProduct"
+      @update:activeView="handleBusinessWorkbenchViewChange"
     >
-      <template #header-actions>
-        <StandardButton
-          v-permission="'iot:products:update'"
-          action="confirm"
-          size="small"
-          @click="handleEditFromDetail"
-        >
-          编辑
-        </StandardButton>
+      <template #overview>
+        <ProductDetailWorkbench
+          v-if="businessWorkbenchLoadedViews.overview && (detailData || businessWorkbenchProduct)"
+          :product="detailData || businessWorkbenchProduct"
+        />
       </template>
-      <ProductDetailWorkbench v-if="detailData" :product="detailData" />
 
-      <template #footer>
-        <StandardDrawerFooter @cancel="detailVisible = false">
-          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
-            关闭
-          </StandardButton>
-          <StandardButton
-            action="confirm"
-            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
-            :disabled="!detailData?.productKey"
-            @click="detailData && handleOpenDeviceListDrawer(detailData)"
-          >
-            查看设备
-          </StandardButton>
-        </StandardDrawerFooter>
+      <template #models>
+        <ProductModelDesignerWorkspace
+          v-if="businessWorkbenchLoadedViews.models && businessWorkbenchProduct"
+          :product="businessWorkbenchProduct"
+        />
       </template>
-    </StandardDetailDrawer>
+
+      <template #devices>
+        <ProductDeviceListWorkspace
+          v-if="businessWorkbenchLoadedViews.devices && businessWorkbenchProduct"
+          :product="businessWorkbenchProduct"
+          :devices="deviceListData"
+          :total-devices="deviceListTotal"
+          :online-devices="deviceListOnlineCount"
+          :offline-devices="deviceListOfflineCount"
+          :loading="devicesLoading && deviceListData.length === 0 && !deviceListErrorMessage"
+          :error-message="deviceListErrorMessage"
+          :empty="!devicesLoading && !deviceListErrorMessage && deviceListTotal === 0"
+          :devices-loading="devicesLoading"
+          @view-device="handleViewDevice"
+        />
+      </template>
+
+      <template #edit>
+        <ProductEditWorkspace
+          v-if="businessWorkbenchLoadedViews.edit"
+          ref="editWorkspaceRef"
+          :model="formData"
+          :rules="formRules"
+          :editing="Boolean(editingProductId)"
+          :submit-loading="submitLoading"
+          :refresh-state="formRefreshState"
+          :refresh-message="formRefreshMessage"
+          @cancel="handleCancelEdit"
+          @submit="handleSubmit"
+        />
+      </template>
+    </ProductBusinessWorkbenchDrawer>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -358,7 +379,7 @@
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
-        <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
+        <el-form ref="createFormRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <h3>基础档案</h3>
@@ -454,22 +475,6 @@
       @confirm="handleExportColumnConfirm"
     />
 
-    <DeviceListDrawer
-      v-model="deviceListDrawerVisible"
-      :title="currentProduct?.productName || currentProduct?.productKey || '设备列表'"
-      :devices="deviceListData"
-      :total-devices="deviceListTotal"
-      :online-devices="deviceListOnlineCount"
-      :offline-devices="deviceListOfflineCount"
-      :loading="devicesLoading"
-      :devices-loading="devicesLoading"
-      @view-device="handleViewDevice"
-    />
-
-    <ProductModelDesignerDrawer
-      v-model="productModelDesignerVisible"
-      :product="productModelTarget"
-    />
   </div>
 </template>
 
@@ -481,7 +486,6 @@ import { ElMessage, type FormInstance, type FormRules, type TableInstance } from
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
-import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
@@ -492,14 +496,18 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
-import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
+import ProductBusinessWorkbenchDrawer, {
+  type ProductBusinessWorkbenchView
+} from '@/components/product/ProductBusinessWorkbenchDrawer.vue'
+import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWorkspace.vue'
 import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
-import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
+import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
+import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
-import type { PageResult, Product, ProductAddPayload } from '@/types/api'
+import type { Device, PageResult, Product, ProductAddPayload } from '@/types/api'
 import {
   buildProductPageCacheKey,
   cloneProductDetailCacheEntry,
@@ -552,15 +560,20 @@ type ProductFilterKey = keyof ProductSearchForm
 
 interface ProductFormState extends ProductAddPayload {}
 
+interface ProductEditWorkspaceExposed {
+  validate: () => Promise<boolean>
+  clearValidate: () => void
+}
+
 interface ProductRowAction {
   key?: string
-  command: 'devices' | 'delete'
+  command: 'delete'
   label: string
 }
 
 interface ProductDirectAction {
   key?: string
-  command: 'detail' | 'edit' | 'model'
+  command: 'detail' | 'delete'
   label: string
   disabled?: boolean
   title?: string
@@ -578,26 +591,32 @@ const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
-const formRef = ref<FormInstance>()
+const createFormRef = ref<FormInstance>()
+const editWorkspaceRef = ref<ProductEditWorkspaceExposed>()
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
-const detailVisible = ref(false)
 const detailLoading = ref(false)
 const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
+const businessWorkbenchVisible = ref(false)
+const businessWorkbenchActiveView = ref<ProductBusinessWorkbenchView>('overview')
+const businessWorkbenchProduct = ref<Product | null>(null)
+const businessWorkbenchLoadedViews = reactive<Record<ProductBusinessWorkbenchView, boolean>>({
+  overview: false,
+  models: false,
+  devices: false,
+  edit: false
+})
 
 // 设备列表抽屉相关状态
-import type { Device } from '@/types/api'
-const deviceListDrawerVisible = ref(false)
 const deviceListData = ref<Device[]>([])
 const deviceListTotal = ref(0)
 const deviceListOnlineCount = ref(0)
 const deviceListOfflineCount = ref(0)
 const devicesLoading = ref(false)
-const productModelDesignerVisible = ref(false)
-const productModelTarget = ref<Product | null>(null)
+const deviceListErrorMessage = ref('')
 
 // 当前选择的产品
 const currentProduct = ref<Product | null>(null)
@@ -685,8 +704,6 @@ const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTota
 const formTitle = computed(() => (editingProductId.value ? '编辑产品' : '新增产品'))
 const submitButtonText = computed(() => (editingProductId.value ? '保存' : '新增'))
 const submitPermission = computed(() => (editingProductId.value ? 'iot:products:update' : 'iot:products:add'))
-const detailTitle = computed(() => detailData.value?.productName || detailData.value?.productKey || '产品详情')
-const detailSubtitle = computed(() => '按设备规模、活跃趋势、接入契约与产品档案、维护治理四段结构查看。')
 const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
@@ -704,14 +721,7 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
-const productRowActions = computed<ProductRowAction[]>(() =>
-  [
-    { key: 'devices', command: 'devices', label: '查看设备' },
-    permissionStore.hasPermission('iot:products:delete')
-      ? { key: 'delete', command: 'delete', label: '删除' }
-      : null
-  ].filter((action): action is ProductRowAction => Boolean(action))
-)
+const productRowActions = computed<ProductRowAction[]>(() => [])
 const productToolbarActions = computed<ProductToolbarAction[]>(() => {
   const actions: ProductToolbarAction[] = []
 
@@ -823,16 +833,21 @@ function formatTextValue(value?: string | number | null) {
 }
 
 function getProductDirectActions(variant: 'table' | 'card'): ProductDirectAction[] {
-  const actions: ProductDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
+  const actions: ProductDirectAction[] = [
+    {
+      key: 'detail',
+      command: 'detail',
+      label: '进入工作台',
+      title: '进入产品经营工作台',
+      dataTestid: 'open-product-business-workbench'
+    }
+  ]
 
-  if (permissionStore.hasPermission('iot:products:update')) {
-    actions.push({ key: 'edit', command: 'edit', label: '编辑' })
+  if (permissionStore.hasPermission('iot:products:delete')) {
     actions.push({
-      key: 'model',
-      command: 'model',
-      label: variant === 'table' ? '物模型' : '物模型设计器',
-      title: '打开物模型设计器',
-      dataTestid: 'open-product-model-designer'
+      key: 'delete',
+      command: 'delete',
+      label: '删除'
     })
   }
 
@@ -948,6 +963,43 @@ function clearFormRefreshState() {
 function clearListRefreshState() {
   listRefreshMessage.value = ''
   listRefreshState.value = ''
+}
+
+function markBusinessWorkbenchViewLoaded(view: ProductBusinessWorkbenchView) {
+  businessWorkbenchLoadedViews[view] = true
+}
+
+function resetBusinessWorkbenchLoadedViews() {
+  businessWorkbenchLoadedViews.overview = false
+  businessWorkbenchLoadedViews.models = false
+  businessWorkbenchLoadedViews.devices = false
+  businessWorkbenchLoadedViews.edit = false
+}
+
+function getBusinessWorkbenchProductKey() {
+  return businessWorkbenchProduct.value?.productKey || currentProduct.value?.productKey || ''
+}
+
+function handleBusinessWorkbenchViewChange(view: ProductBusinessWorkbenchView) {
+  businessWorkbenchActiveView.value = view
+  markBusinessWorkbenchViewLoaded(view)
+
+  if (view === 'devices') {
+    const productKey = getBusinessWorkbenchProductKey()
+    if (productKey) {
+      void loadDeviceList(productKey)
+    }
+  }
+}
+
+function handleCancelEdit() {
+  const snapshot = businessWorkbenchProduct.value || currentProduct.value
+  applyFormDataWithoutDirty(snapshot ?? undefined)
+  clearFormRefreshState()
+  editWorkspaceRef.value?.clearValidate()
+  if (businessWorkbenchVisible.value) {
+    handleBusinessWorkbenchViewChange('overview')
+  }
 }
 
 function isAbortError(error: unknown) {
@@ -1490,10 +1542,13 @@ async function openDetail(row: Product) {
   const detailSnapshot = resolveDetailSnapshot(row, cachedDetail)
   abortDetailRequest()
 
-  detailVisible.value = true
+  currentProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('overview')
   detailLoading.value = false
   detailErrorMessage.value = ''
   detailData.value = detailSnapshot
+  businessWorkbenchProduct.value = detailSnapshot
 
   // 如果没有缓存或者需要刷新详情，则发起后台补数请求
   if (!cachedDetail && shouldRefreshProductDetail(row, cachedDetail)) {
@@ -1510,6 +1565,7 @@ async function openDetail(row: Product) {
       }
       if (res.code === 200 && res.data) {
         detailData.value = res.data
+        businessWorkbenchProduct.value = res.data
         cacheProductDetail(res.data)
       }
     } catch (error) {
@@ -1561,7 +1617,7 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
       cacheProductDetail(res.data)
       if (!formDirtySinceOpen) {
         applyFormDataWithoutDirty(res.data)
-        formRef.value?.clearValidate()
+        editWorkspaceRef.value?.clearValidate()
         clearFormRefreshState()
       } else {
         formRefreshState.value = 'warning'
@@ -1651,8 +1707,11 @@ function handleEdit(row: Product) {
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty(editSnapshot)
-  formVisible.value = true
-  formRef.value?.clearValidate()
+  currentProduct.value = row
+  businessWorkbenchProduct.value = editSnapshot
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('edit')
+  editWorkspaceRef.value?.clearValidate()
   void refreshEditableDetail(row, editSessionId, cachedDetail)
 }
 
@@ -1660,23 +1719,18 @@ function handleOpenDetail(row: Product) {
   void openDetail(row)
 }
 
-function handleEditFromDetail() {
-  if (!detailData.value?.id) {
-    return
-  }
-  handleEdit(detailData.value)
-}
-
-// 打开设备列表抽屉
 function handleOpenDeviceListDrawer(row: Product) {
   currentProduct.value = row
-  deviceListDrawerVisible.value = true
-  void loadDeviceList(row.productKey)
+  businessWorkbenchProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('devices')
 }
 
 function handleOpenProductModelDesigner(row: Product) {
-  productModelTarget.value = row
-  productModelDesignerVisible.value = true
+  currentProduct.value = row
+  businessWorkbenchProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('models')
 }
 
 // 查看设备
@@ -1688,6 +1742,7 @@ function handleViewDevice(device: Device) {
 // 加载设备列表
 async function loadDeviceList(productKey: string) {
   devicesLoading.value = true
+  deviceListErrorMessage.value = ''
   try {
     const res = await deviceApi.pageDevices({
       productKey,
@@ -1703,6 +1758,7 @@ async function loadDeviceList(productKey: string) {
     }
   } catch (error) {
     console.error('获取设备列表失败', error)
+    deviceListErrorMessage.value = error instanceof Error ? error.message : '获取设备列表失败'
     deviceListData.value = []
     deviceListTotal.value = 0
     deviceListOnlineCount.value = 0
@@ -1893,7 +1949,9 @@ async function handleDelete(row: Product) {
 }
 
 async function handleSubmit() {
-  const valid = await formRef.value?.validate().catch(() => false)
+  const valid = editingProductId.value
+    ? await editWorkspaceRef.value?.validate()
+    : await createFormRef.value?.validate().catch(() => false)
   if (!valid) {
     return
   }
@@ -1903,14 +1961,20 @@ async function handleSubmit() {
     if (editingProductId.value) {
       const res = await productApi.updateProduct(editingProductId.value, { ...formData })
       cacheProductDetail(res.data)
+      currentProduct.value = res.data
+      detailData.value = res.data
+      businessWorkbenchProduct.value = res.data
       if (matchesCurrentFilters(res.data)) {
         mergeLocalTableRow(res.data)
       } else {
         removeLocalTableRow(res.data)
       }
       rebuildVisibleProductPageCache()
+      applyFormDataWithoutDirty(res.data)
+      editWorkspaceRef.value?.clearValidate()
+      clearFormRefreshState()
+      formDirtySinceOpen = false
       ElMessage.success('更新成功')
-      formVisible.value = false
       void loadProductPage({ silent: true, force: true })
     } else {
       const res = await productApi.addProduct({ ...formData })
@@ -1944,7 +2008,7 @@ async function handleSubmit() {
 function handleFormClose() {
   activeEditSessionId += 1
   abortEditRequest()
-  formRef.value?.clearValidate()
+  createFormRef.value?.clearValidate?.()
   clearFormRefreshState()
   formDirtySinceOpen = false
   applyFormDataWithoutDirty()
@@ -1972,7 +2036,7 @@ watch(
   }
 )
 
-watch(detailVisible, (visible) => {
+watch(businessWorkbenchVisible, (visible) => {
   if (visible) {
     return
   }
@@ -1981,21 +2045,25 @@ watch(detailVisible, (visible) => {
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''
-  // detailRefreshErrorMessage 已移除
   detailData.value = null
-})
-
-watch(productModelDesignerVisible, (visible) => {
-  if (visible) {
-    return
+  businessWorkbenchProduct.value = null
+  deviceListErrorMessage.value = ''
+  resetBusinessWorkbenchLoadedViews()
+  if (editingProductId.value) {
+    activeEditSessionId += 1
+    abortEditRequest()
+    editWorkspaceRef.value?.clearValidate()
+    clearFormRefreshState()
+    formDirtySinceOpen = false
+    applyFormDataWithoutDirty()
+    editingProductId.value = null
   }
-  productModelTarget.value = null
 })
 
 watch(
   formData,
   () => {
-    if (!formVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
+    if (!businessWorkbenchVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
       return
     }
     formDirtySinceOpen = true

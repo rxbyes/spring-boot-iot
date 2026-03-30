@@ -35,7 +35,6 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -58,6 +57,7 @@ public class UpMessageProcessingPipeline {
     private final MessageFlowProperties messageFlowProperties;
     private final MessageFlowMetricsRecorder messageFlowMetricsRecorder;
     private final MessageFlowTimelineStore messageFlowTimelineStore;
+    private final MessagePipelineTransactionExecutor transactionExecutor;
     private final MqttTopicRouter mqttTopicRouter;
     private final ProtocolAdapterRegistry protocolAdapterRegistry;
     private final DeviceContractStageHandler deviceContractStageHandler;
@@ -70,6 +70,7 @@ public class UpMessageProcessingPipeline {
     public UpMessageProcessingPipeline(MessageFlowProperties messageFlowProperties,
                                        MessageFlowMetricsRecorder messageFlowMetricsRecorder,
                                        MessageFlowTimelineStore messageFlowTimelineStore,
+                                       MessagePipelineTransactionExecutor transactionExecutor,
                                        MqttTopicRouter mqttTopicRouter,
                                        ProtocolAdapterRegistry protocolAdapterRegistry,
                                        DeviceContractStageHandler deviceContractStageHandler,
@@ -81,6 +82,7 @@ public class UpMessageProcessingPipeline {
         this.messageFlowProperties = messageFlowProperties;
         this.messageFlowMetricsRecorder = messageFlowMetricsRecorder;
         this.messageFlowTimelineStore = messageFlowTimelineStore;
+        this.transactionExecutor = transactionExecutor;
         this.mqttTopicRouter = mqttTopicRouter;
         this.protocolAdapterRegistry = protocolAdapterRegistry;
         this.deviceContractStageHandler = deviceContractStageHandler;
@@ -91,7 +93,6 @@ public class UpMessageProcessingPipeline {
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
     }
 
-    @Transactional(rollbackFor = Exception.class)
     public MessageFlowExecutionResult process(UpMessageProcessingRequest request) {
         String previousTraceId = TraceContextHolder.getTraceId();
         ProcessingContext context = new ProcessingContext(request);
@@ -100,11 +101,15 @@ public class UpMessageProcessingPipeline {
             executeStage(context, MessageFlowStages.TOPIC_ROUTE, MqttTopicRouter.class.getSimpleName(), "route", () -> topicRoute(context));
             executeStage(context, MessageFlowStages.PROTOCOL_DECODE, resolveProtocolHandlerClass(context), "decode", () -> protocolDecode(context));
             executeStage(context, MessageFlowStages.DEVICE_CONTRACT, DeviceContractStageHandler.class.getSimpleName(), "resolve", () -> deviceContract(context));
-            executeStage(context, MessageFlowStages.MESSAGE_LOG, DeviceMessageLogStageHandler.class.getSimpleName(), "save", () -> messageLog(context));
-            executeStage(context, MessageFlowStages.PAYLOAD_APPLY, DevicePayloadApplyStageHandler.class.getSimpleName(), "apply", () -> payloadApply(context));
+            executeWithinTransaction(() -> {
+                executeStage(context, MessageFlowStages.MESSAGE_LOG, DeviceMessageLogStageHandler.class.getSimpleName(), "save", () -> messageLog(context));
+                executeStage(context, MessageFlowStages.PAYLOAD_APPLY, DevicePayloadApplyStageHandler.class.getSimpleName(), "apply", () -> payloadApply(context));
+            });
             executeStage(context, MessageFlowStages.TELEMETRY_PERSIST, TelemetryPersistStageHandler.class.getSimpleName(), "persist", () -> telemetryPersist(context));
-            executeStage(context, MessageFlowStages.DEVICE_STATE, DeviceStateStageHandler.class.getSimpleName(), "refresh", () -> deviceState(context));
-            executeStage(context, MessageFlowStages.RISK_DISPATCH, DeviceRiskDispatchStageHandler.class.getSimpleName(), "dispatch", () -> riskDispatch(context));
+            executeWithinTransaction(() -> {
+                executeStage(context, MessageFlowStages.DEVICE_STATE, DeviceStateStageHandler.class.getSimpleName(), "refresh", () -> deviceState(context));
+                executeStage(context, MessageFlowStages.RISK_DISPATCH, DeviceRiskDispatchStageHandler.class.getSimpleName(), "dispatch", () -> riskDispatch(context));
+            });
             executeStage(context, MessageFlowStages.COMPLETE, getClass().getSimpleName(), "complete", () -> complete(context));
             finalizeTimeline(context, null);
             return buildExecutionResult(context);
@@ -591,6 +596,10 @@ public class UpMessageProcessingPipeline {
             );
             throw ex;
         }
+    }
+
+    private void executeWithinTransaction(Runnable action) {
+        transactionExecutor.execute(action);
     }
 
     private void applyStageResult(MessageFlowStep step, MessageFlowStageResult stageResult) {

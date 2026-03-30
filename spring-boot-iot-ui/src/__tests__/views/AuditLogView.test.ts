@@ -229,12 +229,13 @@ const ElTableStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
+  props: ['label', 'className'],
   setup() {
     const rows = inject('tableRows', ref([]));
     return { rows };
   },
   template: `
-    <div class="audit-log-column-stub">
+    <div class="audit-log-column-stub" :data-label="label" :data-class-name="className">
       <div v-for="(row, index) in rows" :key="index">
         <slot :row="row" />
       </div>
@@ -395,6 +396,18 @@ describe('AuditLogView', () => {
         expect.objectContaining({ command: 'clear-selection', label: '清空选中' })
       ])
     );
+  });
+
+  it('marks the system action column with the shared row-action class to prevent clipped trailing dots', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const actionColumn = wrapper
+      .findAll('.audit-log-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {

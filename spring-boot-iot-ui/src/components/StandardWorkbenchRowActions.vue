@@ -16,6 +16,7 @@
     </StandardActionLink>
 
     <StandardActionMenu
+      v-if="hasMenuItems"
       :label="menuLabel"
       :items="resolvedMenuItems"
       @command="emit('command', $event)"
@@ -76,4 +77,5 @@ const emit = defineEmits<{
 const resolvedGap = computed(() => props.gap ?? (props.variant === 'table' ? 'wide' : 'comfortable'))
 const resolvedDirectItems = computed(() => props.directItems ?? [])
 const resolvedMenuItems = computed(() => props.menuItems ?? [])
+const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)
 </script>

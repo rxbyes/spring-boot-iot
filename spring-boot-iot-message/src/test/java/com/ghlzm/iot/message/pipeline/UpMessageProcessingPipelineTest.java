@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -62,6 +63,8 @@ class UpMessageProcessingPipelineTest {
     private MessageFlowMetricsRecorder messageFlowMetricsRecorder;
     @Mock
     private MessageFlowTimelineStore messageFlowTimelineStore;
+    @Mock
+    private MessagePipelineTransactionExecutor transactionExecutor;
     @Mock
     private MqttTopicRouter mqttTopicRouter;
     @Mock
@@ -95,6 +98,7 @@ class UpMessageProcessingPipelineTest {
                 messageFlowProperties,
                 messageFlowMetricsRecorder,
                 messageFlowTimelineStore,
+                transactionExecutor,
                 mqttTopicRouter,
                 protocolAdapterRegistry,
                 deviceContractStageHandler,
@@ -104,6 +108,11 @@ class UpMessageProcessingPipelineTest {
                 deviceStateStageHandler,
                 deviceRiskDispatchStageHandler
         );
+        lenient().doAnswer(invocation -> {
+            Runnable action = invocation.getArgument(0);
+            action.run();
+            return null;
+        }).when(transactionExecutor).execute(any());
         lenient().when(telemetryPersistStageHandler.persist(any()))
                 .thenReturn(TelemetryPersistResult.skipped("EMPTY_PROPERTIES"));
     }
@@ -368,6 +377,32 @@ class UpMessageProcessingPipelineTest {
         assertEquals("CHILD_PROPERTY", payloadSteps.get(2).getBranch());
         assertEquals("child-02", payloadSteps.get(2).getSummary().get("childDeviceCode"));
         assertEquals(2, payloadSteps.get(2).getSummary().get("metricCount"));
+    }
+
+    @Test
+    void processShouldExecuteMutatingStagesWithinTwoShortTransactions() {
+        UpMessageProcessingRequest request = buildHttpRequest();
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");
+        DeviceProcessingTarget target = buildTarget("demo-device-01", upMessage);
+
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(target);
+        when(devicePayloadApplyStageHandler.apply(target)).thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(target)).thenReturn(TelemetryPersistResult.persisted(1));
+
+        pipeline.process(request);
+
+        verify(transactionExecutor, times(2)).execute(any());
+        org.mockito.InOrder inOrder = inOrder(transactionExecutor, deviceMessageLogStageHandler, devicePayloadApplyStageHandler,
+                telemetryPersistStageHandler, deviceStateStageHandler, deviceRiskDispatchStageHandler);
+        inOrder.verify(transactionExecutor).execute(any());
+        inOrder.verify(deviceMessageLogStageHandler).save(target);
+        inOrder.verify(devicePayloadApplyStageHandler).apply(target);
+        inOrder.verify(telemetryPersistStageHandler).persist(target);
+        inOrder.verify(transactionExecutor).execute(any());
+        inOrder.verify(deviceStateStageHandler).refresh(target);
+        inOrder.verify(deviceRiskDispatchStageHandler).dispatch(target);
     }
 
     private UpMessageProcessingRequest buildHttpRequest() {

@@ -205,7 +205,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="isSystemMode ? 210 : 150" fixed="right">
+        <el-table-column
+          label="操作"
+          :width="isSystemMode ? 210 : 150"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
             <StandardRowActions variant="table" gap="wide">
               <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>

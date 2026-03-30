@@ -1,10 +1,18 @@
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ProductWorkbenchView from '@/views/ProductWorkbenchView.vue'
 
-const { mockRoute, mockRouter, mockPageProducts } = vi.hoisted(() => ({
+const {
+  mockRoute,
+  mockRouter,
+  mockPageProducts,
+  mockGetProductById,
+  mockAddProduct,
+  mockUpdateProduct,
+  mockDeleteProduct
+} = vi.hoisted(() => ({
   mockRoute: {
     path: '/products',
     query: {} as Record<string, unknown>
@@ -13,7 +21,11 @@ const { mockRoute, mockRouter, mockPageProducts } = vi.hoisted(() => ({
     replace: vi.fn(),
     push: vi.fn()
   },
-  mockPageProducts: vi.fn()
+  mockPageProducts: vi.fn(),
+  mockGetProductById: vi.fn(),
+  mockAddProduct: vi.fn(),
+  mockUpdateProduct: vi.fn(),
+  mockDeleteProduct: vi.fn()
 }))
 
 vi.mock('vue-router', () => ({
@@ -24,10 +36,10 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/product', () => ({
   productApi: {
     pageProducts: mockPageProducts,
-    getProductById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
-    addProduct: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
-    updateProduct: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
-    deleteProduct: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
+    getProductById: mockGetProductById,
+    addProduct: mockAddProduct,
+    updateProduct: mockUpdateProduct,
+    deleteProduct: mockDeleteProduct
   }
 }))
 
@@ -120,7 +132,7 @@ const StandardTableToolbarStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['variant', 'directItems', 'menuItems'],
+  props: ['variant', 'gap', 'directItems', 'menuItems'],
   emits: ['command'],
   template: `
     <div class="product-workbench-row-actions-stub" :data-variant="variant">
@@ -175,6 +187,59 @@ const ProductDetailWorkbenchStub = defineComponent({
   name: 'ProductDetailWorkbench',
   props: ['product'],
   template: '<section class="product-detail-workbench-stub">{{ product?.productName }}</section>'
+})
+
+const ProductBusinessWorkbenchDrawerStub = defineComponent({
+  name: 'ProductBusinessWorkbenchDrawer',
+  props: ['modelValue', 'product', 'activeView'],
+  emits: ['update:modelValue', 'update:activeView', 'saved'],
+  template: `
+    <section v-if="modelValue" class="product-business-workbench-drawer-stub">
+      <h2 class="product-business-workbench-drawer-stub__title">{{ product?.productName }}</h2>
+      <p class="product-business-workbench-drawer-stub__key">{{ product?.productKey }}</p>
+      <p data-testid="product-business-workbench-active-view">{{ activeView }}</p>
+      <slot v-if="activeView === 'overview'" name="overview" />
+      <slot v-else-if="activeView === 'models'" name="models" />
+      <slot v-else-if="activeView === 'devices'" name="devices" />
+      <slot v-else name="edit" />
+    </section>
+  `
+})
+
+const ProductModelDesignerWorkspaceStub = defineComponent({
+  name: 'ProductModelDesignerWorkspace',
+  props: ['product'],
+  template: '<section class="product-model-designer-workspace-stub">{{ product?.productKey }}</section>'
+})
+
+const ProductDeviceListWorkspaceStub = defineComponent({
+  name: 'ProductDeviceListWorkspace',
+  props: ['product', 'devices', 'totalDevices', 'onlineDevices', 'offlineDevices'],
+  template: `
+    <section class="product-device-list-workspace-stub">
+      <span>{{ product?.productKey }}</span>
+      <span>{{ totalDevices }}</span>
+      <span>{{ onlineDevices }}</span>
+      <span>{{ offlineDevices }}</span>
+    </section>
+  `
+})
+
+const ProductEditWorkspaceStub = defineComponent({
+  name: 'ProductEditWorkspace',
+  props: ['model', 'editing'],
+  emits: ['cancel', 'submit'],
+  setup(props, { expose }) {
+    expose({
+      validate: () => Promise.resolve(true),
+      clearValidate: () => undefined
+    })
+    return () =>
+      h('section', { class: 'product-edit-workspace-stub' }, [
+        h('span', props.model?.productName || ''),
+        h('span', props.editing ? 'editing' : 'creating')
+      ])
+  }
 })
 
 const StandardFormDrawerStub = defineComponent({
@@ -255,7 +320,11 @@ function mountView() {
         StandardButton: StandardButtonStub,
         StandardTableToolbar: StandardTableToolbarStub,
         ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
+        ProductBusinessWorkbenchDrawer: ProductBusinessWorkbenchDrawerStub,
         ProductDetailWorkbench: ProductDetailWorkbenchStub,
+        ProductModelDesignerWorkspace: ProductModelDesignerWorkspaceStub,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductEditWorkspace: ProductEditWorkspaceStub,
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
         StandardInlineState: StandardInlineStateStub,
@@ -278,6 +347,10 @@ describe('ProductWorkbenchView', () => {
     mockRouter.replace.mockResolvedValue(undefined)
     mockRouter.push.mockResolvedValue(undefined)
     mockPageProducts.mockReset()
+    mockGetProductById.mockReset()
+    mockAddProduct.mockReset()
+    mockUpdateProduct.mockReset()
+    mockDeleteProduct.mockReset()
     mockPageProducts.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -288,6 +361,10 @@ describe('ProductWorkbenchView', () => {
         records: []
       }
     })
+    mockGetProductById.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockAddProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockUpdateProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockDeleteProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
     installSessionStorageMock()
   })
 
@@ -296,12 +373,7 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
-    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
-    const deviceListDrawer = wrapper.findComponent(DeviceListDrawerStub)
-
     expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
-    expect(detailDrawer.props('eyebrow')).toBeUndefined()
-    expect(deviceListDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')
@@ -322,7 +394,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('清空选中')
   })
 
-  it('renders a product-model designer entry and opens the empty designer state', async () => {
+  it('opens the unified business workbench from the single direct entry with overview as the default view', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
@@ -346,18 +418,18 @@ describe('ProductWorkbenchView', () => {
     ;(wrapper.vm as any).viewType = 'card'
     await nextTick()
 
-    const designerEntry = wrapper.find('[data-testid="open-product-model-designer"]')
-    expect(designerEntry.exists()).toBe(true)
+    const workbenchEntry = wrapper.find('[data-testid="open-product-business-workbench"]')
+    expect(workbenchEntry.exists()).toBe(true)
 
-    await designerEntry.trigger('click')
+    await workbenchEntry.trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.text()).toContain('属性模型')
-    expect(wrapper.text()).toContain('事件模型')
-    expect(wrapper.text()).toContain('服务模型')
-    expect(wrapper.text()).toContain('基于真实上报提炼产品契约')
-    expect(wrapper.text()).toContain('暂无物模型')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('overview')
+    expect(wrapper.find('.product-detail-workbench-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('演示产品')
+    expect(wrapper.text()).toContain('demo-product')
   })
 
   it('reuses the shared workbench row-actions component for product card rows', async () => {
@@ -388,12 +460,12 @@ describe('ProductWorkbenchView', () => {
 
     expect(rowActions.exists()).toBe(true)
     expect(rowActions.props('variant')).toBe('card')
+    expect(rowActions.props('gap')).toBe('compact')
     expect((rowActions.props('directItems') as Array<{ label: string }>).map((item) => item.label)).toEqual([
-      '详情',
-      '编辑',
-      '物模型设计器'
+      '进入工作台',
+      '删除'
     ])
-    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(2)
+    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(0)
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {
@@ -421,11 +493,10 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('Trace trace-001')
   })
 
-  it('renders the widened detail drawer shell through ProductDetailWorkbench', async () => {
+  it('opens the unified business workbench with overview as the default detail view', async () => {
     const wrapper = mountView()
 
-    ;(wrapper.vm as any).detailVisible = true
-    ;(wrapper.vm as any).detailData = {
+    const product = {
       id: 1001,
       productKey: 'demo-product',
       productName: '演示产品',
@@ -437,13 +508,99 @@ describe('ProductWorkbenchView', () => {
       onlineDeviceCount: 8
     }
 
+    ;(wrapper.vm as any).handleRowAction('detail', product)
     await nextTick()
 
-    expect(wrapper.get('.product-detail-drawer-stub').attributes('data-size')).toBe('60rem')
-    expect(wrapper.get('.product-detail-drawer-stub__title').text()).toBe('演示产品')
-    expect(wrapper.get('.product-detail-drawer-stub__subtitle').text()).toContain('四段结构查看')
-    expect(wrapper.get('.product-detail-workbench-stub').text()).toContain('演示产品')
-    expect(wrapper.text()).toContain('编辑')
-    expect(wrapper.text()).toContain('查看设备')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('overview')
+    expect(wrapper.get('.product-business-workbench-drawer-stub__title').text()).toBe('演示产品')
+  })
+
+  it('routes edit and devices into the same business workbench with their own default views', async () => {
+    const wrapper = mountView()
+
+    const product = {
+      id: 1001,
+      productKey: 'demo-product',
+      productName: '演示产品',
+      protocolCode: 'mqtt-json',
+      nodeType: 1,
+      dataFormat: 'JSON',
+      status: 1,
+      deviceCount: 12,
+      onlineDeviceCount: 8
+    }
+
+    ;(wrapper.vm as any).handleRowAction('devices', product)
+    await nextTick()
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('devices')
+    expect(wrapper.find('.product-device-list-workspace-stub').exists()).toBe(true)
+
+    ;(wrapper.vm as any).businessWorkbenchVisible = false
+    ;(wrapper.vm as any).handleRowAction('edit', product)
+    await nextTick()
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
+    expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
+  })
+
+  it('keeps the unified workbench context in sync after saving product edits', async () => {
+    const wrapper = mountView()
+
+    const product = {
+      id: 1001,
+      productKey: 'demo-product',
+      productName: '演示产品',
+      protocolCode: 'mqtt-json',
+      nodeType: 1,
+      dataFormat: 'JSON',
+      manufacturer: 'GHLZM',
+      description: '原始说明',
+      status: 1,
+      deviceCount: 12,
+      onlineDeviceCount: 8
+    }
+
+    const updatedProduct = {
+      ...product,
+      productName: '演示产品（已更新）',
+      manufacturer: '更新厂商'
+    }
+
+    mockUpdateProduct.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: updatedProduct
+    })
+
+    ;(wrapper.vm as any).handleRowAction('edit', product)
+    await nextTick()
+
+    ;(wrapper.vm as any).formData.productName = '演示产品（已更新）'
+    ;(wrapper.vm as any).formData.manufacturer = '更新厂商'
+
+    await (wrapper.vm as any).handleSubmit()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProduct).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        productName: '演示产品（已更新）',
+        manufacturer: '更新厂商'
+      })
+    )
+    expect((wrapper.vm as any).businessWorkbenchVisible).toBe(true)
+    expect((wrapper.vm as any).businessWorkbenchProduct.productName).toBe('演示产品（已更新）')
+    expect((wrapper.vm as any).detailData.productName).toBe('演示产品（已更新）')
+  })
+
+  it('removes the standalone device and model drawers from the /products page composition', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent(DeviceListDrawerStub).exists()).toBe(false)
+    expect(wrapper.findComponent(ProductModelDesignerDrawerStub).exists()).toBe(false)
+    expect(wrapper.findComponent(StandardDetailDrawerStub).exists()).toBe(false)
   })
 })

@@ -90,7 +90,7 @@ describe('StandardWorkbenchRowActions', () => {
 
     expect(rowActions.attributes('data-variant')).toBe('card')
     expect(rowActions.attributes('data-gap')).toBe('comfortable')
-    expect(wrapper.get('.standard-action-menu-stub').text()).toBe('更多')
+    expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(false)
   })
 
   it('respects an explicit gap override', () => {
@@ -102,5 +102,19 @@ describe('StandardWorkbenchRowActions', () => {
     })
 
     expect(wrapper.get('.standard-row-actions-stub').attributes('data-gap')).toBe('compact')
+  })
+
+  it('hides the menu trigger when there are no menu items', () => {
+    const wrapper = mountComponent({
+      variant: 'table',
+      directItems: [
+        { key: 'detail', command: 'detail', label: '进入工作台' },
+        { key: 'delete', command: 'delete', label: '删除' }
+      ],
+      menuItems: []
+    })
+
+    expect(wrapper.findAll('.standard-action-link-stub').map((button) => button.text())).toEqual(['进入工作台', '删除'])
+    expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(false)
   })
 })

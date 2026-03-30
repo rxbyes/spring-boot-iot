@@ -279,12 +279,13 @@ const ElTableStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
+  props: ['label', 'className'],
   setup() {
     const rows = inject('tableRows', ref([]));
     return { rows };
   },
   template: `
-    <div class="el-table-column-stub">
+    <div class="el-table-column-stub" :data-label="label" :data-class-name="className">
       <div v-for="(row, index) in rows" :key="index" class="el-table-column-stub__row">
         <slot :row="row" />
       </div>
@@ -556,6 +557,18 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('最近会话');
     expect(wrapper.text()).not.toContain('异常观测台');
     expect(wrapper.text()).not.toContain('数据校验台');
+  });
+
+  it('marks the action column with the shared row-action class to avoid fixed-column truncation', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const actionColumn = wrapper
+      .findAll('.el-table-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {

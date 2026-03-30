@@ -288,7 +288,13 @@
             <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
               <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
             </StandardTableTextColumn>
-            <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
+            <el-table-column
+              label="操作"
+              width="224"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
               <template #default="{ row }">
                 <StandardWorkbenchRowActions
                   variant="table"

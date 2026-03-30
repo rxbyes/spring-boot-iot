@@ -159,9 +159,19 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.18rem;
+  gap: 0.24rem;
   min-width: 0;
   white-space: nowrap;
+}
+
+.standard-row-actions > .standard-button,
+.standard-row-actions > .standard-action-menu .standard-action-menu__trigger {
+  min-height: auto;
+  padding-inline: 0.08rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
 }
 
 .standard-row-actions--variant-table {
@@ -198,11 +208,11 @@ textarea {
 }
 
 .standard-row-actions--comfortable {
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .standard-row-actions--wide {
-  gap: 0.9rem;
+  gap: 0.72rem;
 }
 
 .standard-row-actions--wrap {
@@ -235,9 +245,14 @@ textarea {
   color: var(--text-disabled);
 }
 
+.standard-row-actions-column .cell {
+  overflow: hidden;
+  text-overflow: clip;
+}
+
 @media (max-width: 900px) {
   .standard-row-actions--wide {
-    gap: 0.65rem;
+    gap: 0.56rem;
   }
 
   .standard-row-actions--variant-card > .standard-button,

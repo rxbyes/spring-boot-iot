@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,7 +46,7 @@ class DeviceStateStageHandlerTest {
     }
 
     @Test
-    void refreshShouldForwardReportTimeToSessionService() {
+    void refreshShouldRefreshLastSeenWithoutDuplicatingOnlineUpdate() {
         LocalDateTime reportTime = LocalDateTime.of(2026, 3, 28, 10, 48, 4);
         Device device = new Device();
         device.setId(2001L);
@@ -62,7 +63,7 @@ class DeviceStateStageHandlerTest {
 
         deviceStateStageHandler.refresh(target);
 
-        verify(deviceSessionService).online("demo-device-01", "client-1", reportTime);
+        verify(deviceSessionService, never()).online("demo-device-01", "client-1", reportTime);
         verify(deviceSessionService).refreshLastSeen("demo-device-01", "client-1", "$dp", reportTime);
 
         ArgumentCaptor<Device> updateCaptor = ArgumentCaptor.forClass(Device.class);

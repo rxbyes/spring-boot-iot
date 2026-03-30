@@ -11,9 +11,6 @@ import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.springframework.stereotype.Component;
 
-/**
- * 设备契约校验 stage。
- */
 @Component
 public class DeviceContractStageHandler {
 
@@ -26,7 +23,7 @@ public class DeviceContractStageHandler {
     }
 
     public DeviceProcessingTarget resolve(DeviceUpMessage upMessage) {
-        Device device = findDeviceByCode(upMessage.getDeviceCode());
+        Device device = findDevice(upMessage);
         if (device == null) {
             throw new BizException("设备不存在: " + upMessage.getDeviceCode());
         }
@@ -42,13 +39,19 @@ public class DeviceContractStageHandler {
         return target;
     }
 
-    private Device findDeviceByCode(String deviceCode) {
-        return deviceMapper.selectOne(
-                new LambdaQueryWrapper<Device>()
-                        .eq(Device::getDeviceCode, deviceCode)
-                        .eq(Device::getDeleted, 0)
-                        .last("limit 1")
-        );
+    private Device findDevice(DeviceUpMessage upMessage) {
+        String deviceCode = normalizeText(upMessage == null ? null : upMessage.getDeviceCode());
+        if (!hasText(deviceCode)) {
+            return null;
+        }
+        LambdaQueryWrapper<Device> queryWrapper = new LambdaQueryWrapper<Device>()
+                .eq(Device::getDeviceCode, deviceCode)
+                .eq(Device::getDeleted, 0);
+        Long tenantId = parseTenantId(upMessage == null ? null : upMessage.getTenantId());
+        if (tenantId != null) {
+            queryWrapper.eq(Device::getTenantId, tenantId);
+        }
+        return deviceMapper.selectOne(queryWrapper.last("limit 1"));
     }
 
     private Product getRequiredProduct(Device device) {
@@ -107,6 +110,18 @@ public class DeviceContractStageHandler {
                     + ", actual=" + displayText(actualProtocolCode));
         }
         upMessage.setProtocolCode(expectedProtocolCode);
+    }
+
+    private Long parseTenantId(String tenantId) {
+        String normalizedTenantId = normalizeText(tenantId);
+        if (!hasText(normalizedTenantId)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(normalizedTenantId);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private boolean hasText(String value) {
