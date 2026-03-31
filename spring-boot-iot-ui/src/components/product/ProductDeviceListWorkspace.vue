@@ -3,18 +3,18 @@
     <div v-if="loading" class="device-state">{{ loadingText }}</div>
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
-    <div v-else class="device-drawer__content">
-      <section class="device-drawer__summary">
-        <div class="device-drawer__summary-copy">
-          <p class="device-drawer__summary-title">设备运行概览</p>
-          <p class="device-drawer__summary-description">统一查看当前产品关联设备的在线状态、激活状态和最近上报。</p>
+    <div v-else class="device-workspace__content">
+      <section class="device-workspace__summary-band">
+        <div class="device-workspace__summary-copy">
+          <p class="device-workspace__summary-title">设备运行概览</p>
+          <p class="device-workspace__summary-description">先看设备规模和在线覆盖，再进入台账核对当前产品的运行情况。</p>
         </div>
 
-        <ul class="device-drawer__metrics">
+        <ul class="device-workspace__metrics">
           <li
             v-for="metric in summaryMetrics"
             :key="metric.key"
-            class="device-drawer__metric"
+            class="device-workspace__metric"
             :data-tone="metric.tone"
           >
             <span>{{ metric.label }}</span>
@@ -24,13 +24,13 @@
         </ul>
       </section>
 
-      <section class="device-drawer__section">
-        <div class="device-drawer__section-head">
+      <section class="device-workspace__table-stage">
+        <div class="device-workspace__section-copy">
           <strong>关联设备台账</strong>
           <small>快速核对设备身份、在线状态、激活状态和最近上报。</small>
         </div>
 
-        <div class="device-drawer__table-shell">
+        <div class="device-workspace__table-shell">
           <el-table
             v-loading="devicesLoading"
             :data="devices"
@@ -61,7 +61,13 @@
                 <span>{{ formatDateTime(row.lastReportTime) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right" show-overflow-tooltip>
+            <el-table-column
+              label="操作"
+              width="100"
+              fixed="right"
+              show-overflow-tooltip
+              class-name="standard-row-actions-column"
+            >
               <template #default="{ row }">
                 <StandardRowActions>
                   <StandardActionLink @click="handleViewDevice(row)">查看</StandardActionLink>
@@ -170,9 +176,9 @@ function handleViewDevice(device: Device) {
 
 <style scoped>
 .product-device-workspace,
-.device-drawer__content {
+.device-workspace__content {
   display: grid;
-  gap: 0.92rem;
+  gap: 0.88rem;
 }
 
 .device-state {
@@ -196,44 +202,49 @@ function handleViewDevice(device: Device) {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 241, 0.96));
 }
 
-.device-drawer__summary {
+.device-workspace__summary-band,
+.device-workspace__table-stage {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--panel-border));
-  border-radius: 0.98rem;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 8%, white), var(--bg-card));
+  gap: 0.48rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.device-drawer__summary-copy {
+.device-workspace__summary-copy,
+.device-workspace__section-copy {
   display: grid;
   gap: 0.18rem;
 }
 
-.device-drawer__summary-title {
+.device-workspace__summary-title,
+.device-workspace__section-copy strong {
   margin: 0;
   color: var(--text-heading);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
-.device-drawer__summary-description {
+.device-workspace__summary-description,
+.device-workspace__section-copy small {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   line-height: 1.56;
 }
 
-.device-drawer__metrics {
+.device-workspace__metrics {
   list-style: none;
   margin: 0.04rem 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.46rem;
 }
 
-.device-drawer__metric {
+.device-workspace__metric {
   display: grid;
   gap: 0.14rem;
   min-width: 0;
@@ -243,68 +254,46 @@ function handleViewDevice(device: Device) {
   background: rgba(255, 255, 255, 0.84);
 }
 
-.device-drawer__metric span {
+.device-workspace__metric span {
   color: var(--text-tertiary);
   font-size: 0.68rem;
   line-height: 1.4;
 }
 
-.device-drawer__metric strong {
+.device-workspace__metric strong {
   color: var(--text-heading);
   font-size: 0.84rem;
   font-weight: 600;
   line-height: 1.42;
 }
 
-.device-drawer__metric small {
+.device-workspace__metric small {
   color: var(--text-secondary);
   font-size: 0.7rem;
   line-height: 1.52;
 }
 
-.device-drawer__metric[data-tone='brand'] {
+.device-workspace__metric[data-tone='brand'] {
   border-color: color-mix(in srgb, var(--brand) 18%, transparent);
   background: color-mix(in srgb, var(--brand) 8%, white);
 }
 
-.device-drawer__metric[data-tone='accent'] {
+.device-workspace__metric[data-tone='accent'] {
   border-color: color-mix(in srgb, var(--accent) 18%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, white);
 }
 
-.device-drawer__metric[data-tone='success'] {
+.device-workspace__metric[data-tone='success'] {
   border-color: color-mix(in srgb, var(--success) 20%, transparent);
   background: color-mix(in srgb, var(--success) 10%, white);
 }
 
-.device-drawer__metric[data-tone='danger'] {
+.device-workspace__metric[data-tone='danger'] {
   border-color: color-mix(in srgb, var(--danger) 22%, transparent);
   background: color-mix(in srgb, var(--danger) 8%, white);
 }
 
-.device-drawer__section {
-  display: grid;
-  gap: 0.46rem;
-}
-
-.device-drawer__section-head {
-  display: grid;
-  gap: 0.12rem;
-  padding: 0 0.12rem;
-}
-
-.device-drawer__section-head strong {
-  color: var(--text-heading);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.device-drawer__section-head small {
-  color: var(--text-tertiary);
-  font-size: 0.72rem;
-}
-
-.device-drawer__table-shell {
+.device-workspace__table-shell {
   overflow: hidden;
   border: 1px solid var(--panel-border);
   border-radius: 0.94rem;
@@ -312,29 +301,35 @@ function handleViewDevice(device: Device) {
   box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.device-drawer__table :deep(.el-table) {
+.device-workspace__table-shell :deep(.el-table) {
   background: transparent;
 }
 
-.device-drawer__table :deep(.el-table__inner-wrapper::before) {
+.device-workspace__table-shell :deep(.el-table__inner-wrapper::before) {
   display: none;
 }
 
-.device-drawer__table :deep(.el-table th.el-table__cell) {
+.device-workspace__table-shell :deep(.el-table th.el-table__cell) {
   background: color-mix(in srgb, var(--brand) 6%, white);
   border-bottom-color: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
-.device-drawer__table :deep(.el-table td.el-table__cell) {
+.device-workspace__table-shell :deep(.el-table td.el-table__cell) {
   border-bottom-color: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
-.device-drawer__table :deep(.el-table__row:hover) {
+.device-workspace__table-shell :deep(.el-table__row:hover) {
   background: color-mix(in srgb, var(--brand) 4%, transparent);
 }
 
+@media (max-width: 960px) {
+  .device-workspace__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
-  .device-drawer__metrics {
+  .device-workspace__metrics {
     grid-template-columns: 1fr;
   }
 }

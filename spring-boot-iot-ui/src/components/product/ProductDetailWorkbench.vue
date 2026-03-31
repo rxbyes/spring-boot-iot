@@ -1,10 +1,10 @@
 <template>
   <div class="product-detail-workbench">
-    <section class="detail-panel product-detail-workbench__panel">
+    <section class="detail-panel product-detail-workbench__hero-stage" data-testid="product-detail-hero-stage">
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">设备规模与经营判断</h3>
-          <p>先看关联设备、在线覆盖与最近上报，判断当前产品是否已经进入稳定使用阶段。</p>
+          <p>首屏只保留一个规模主舞台，先看设备体量、在线覆盖和当前经营判断。</p>
         </div>
         <span
           class="product-detail-workbench__status-chip"
@@ -14,35 +14,48 @@
         </span>
       </div>
 
-      <div class="detail-summary-grid">
-        <article class="detail-summary-card">
+      <div class="product-detail-workbench__hero-grid">
+        <article class="detail-summary-card product-detail-workbench__primary-card" data-testid="product-detail-primary-metric">
           <span class="detail-summary-card__label">关联设备总量</span>
           <strong class="detail-summary-card__value" data-testid="product-detail-hero-total">{{ heroTotal }}</strong>
           <p class="detail-summary-card__hint">{{ deviceScaleHint }}</p>
+          <p class="product-detail-workbench__statement">{{ heroHeadline }}</p>
         </article>
-        <article
-          v-for="metric in heroSecondaryMetrics"
-          :key="metric.key"
-          class="detail-summary-card"
-        >
-          <span class="detail-summary-card__label">{{ metric.label }}</span>
-          <strong
-            class="detail-summary-card__value"
-            :data-testid="`product-detail-hero-secondary-${metric.key}-value`"
+
+        <div class="product-detail-workbench__secondary-metrics" data-testid="product-detail-secondary-metrics">
+          <article
+            v-for="metric in heroSecondaryMetrics"
+            :key="metric.key"
+            class="detail-summary-card"
           >
-            {{ metric.value }}
-          </strong>
-          <p class="detail-summary-card__hint">{{ metric.hint }}</p>
-        </article>
+            <span class="detail-summary-card__label">{{ metric.label }}</span>
+            <strong
+              class="detail-summary-card__value"
+              :data-testid="`product-detail-hero-secondary-${metric.key}-value`"
+            >
+              {{ metric.value }}
+            </strong>
+            <p class="detail-summary-card__hint">{{ metric.hint }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="detail-panel product-detail-workbench__judgement-stage" data-testid="product-detail-judgement-stage">
+      <div class="detail-section-header">
+        <div>
+          <h3 data-testid="product-detail-stage-title">活跃趋势与状态判断</h3>
+          <p>把近期活跃表现、最近上报和接入影响放在同一阅读层里，快速判断产品近期稳定性。</p>
+        </div>
       </div>
 
-      <div class="product-detail-workbench__brief-grid">
+      <div class="product-detail-workbench__judgement-grid">
         <article class="detail-card">
           <div class="detail-card__header">
-            <strong>当前判断</strong>
+            <strong>趋势摘要</strong>
           </div>
-          <p class="product-detail-workbench__copy">{{ heroHeadline }}</p>
-          <p class="product-detail-workbench__subcopy">{{ heroSummary }}</p>
+          <p class="product-detail-workbench__copy">{{ trendHeadline }}</p>
+          <p class="product-detail-workbench__subcopy">{{ trendSummary }}</p>
         </article>
         <article class="detail-card">
           <div class="detail-card__header">
@@ -52,30 +65,13 @@
           <p class="product-detail-workbench__subcopy">{{ operationReminder }}</p>
         </article>
       </div>
-    </section>
 
-    <section class="detail-panel" data-testid="product-detail-stage-trend">
-      <div class="detail-section-header">
-        <div>
-          <h3 data-testid="product-detail-stage-title">活跃趋势与状态判断</h3>
-          <p>把活跃设备数和在线时长合在一起看，快速判断产品最近的使用热度与接入稳定性。</p>
-        </div>
-      </div>
-
-      <div v-if="hasTrendMetrics" data-testid="product-detail-trend-metrics" class="product-detail-workbench__trend-stack">
-        <article class="detail-card product-detail-workbench__trend-lead">
-          <div class="detail-card__header">
-            <strong>{{ trendHeadline }}</strong>
-          </div>
-          <p class="product-detail-workbench__copy">{{ trendSummary }}</p>
+      <div v-if="hasTrendMetrics" data-testid="product-detail-trend-metrics" class="product-detail-workbench__trend-strip">
+        <article v-for="metric in trendMetrics" :key="metric.key" class="detail-summary-card">
+          <span class="detail-summary-card__label">{{ metric.label }}</span>
+          <strong class="detail-summary-card__value">{{ metric.value }}</strong>
+          <p class="detail-summary-card__hint">{{ metric.hint }}</p>
         </article>
-        <div class="detail-summary-grid">
-          <article v-for="metric in trendMetrics" :key="metric.key" class="detail-summary-card">
-            <span class="detail-summary-card__label">{{ metric.label }}</span>
-            <strong class="detail-summary-card__value">{{ metric.value }}</strong>
-            <p class="detail-summary-card__hint">{{ metric.hint }}</p>
-          </article>
-        </div>
       </div>
 
       <div v-else class="detail-notice">
@@ -84,7 +80,7 @@
       </div>
     </section>
 
-    <section class="detail-panel">
+    <section class="detail-panel product-detail-workbench__contract-archive-stage" data-testid="product-detail-contract-archive-stage">
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">接入契约与产品档案</h3>
@@ -92,55 +88,57 @@
         </div>
       </div>
 
-      <div class="detail-summary-grid" data-testid="product-detail-contract">
-        <article v-for="card in contractCards" :key="card.key" class="detail-summary-card">
-          <span class="detail-summary-card__label">{{ card.label }}</span>
-          <strong class="detail-summary-card__value">{{ card.value }}</strong>
-          <p class="detail-summary-card__hint">{{ card.hint }}</p>
-        </article>
-      </div>
+      <div class="product-detail-workbench__contract-archive-grid">
+        <div class="product-detail-workbench__contract-grid" data-testid="product-detail-contract">
+          <article v-for="card in contractCards" :key="card.key" class="detail-summary-card">
+            <span class="detail-summary-card__label">{{ card.label }}</span>
+            <strong class="detail-summary-card__value">{{ card.value }}</strong>
+            <p class="detail-summary-card__hint">{{ card.hint }}</p>
+          </article>
+        </div>
 
-      <div class="detail-grid" data-testid="product-detail-archive">
-        <div class="detail-field">
-          <span class="detail-field__label">产品 ID</span>
-          <strong class="detail-field__value">{{ archiveFields.id }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">产品 Key</span>
-          <strong class="detail-field__value">{{ archiveFields.productKey }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">产品名称</span>
-          <strong class="detail-field__value">{{ archiveFields.productName }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">厂商</span>
-          <strong class="detail-field__value">{{ archiveFields.manufacturer }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">创建时间</span>
-          <strong class="detail-field__value">{{ archiveFields.createTime }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">更新时间</span>
-          <strong class="detail-field__value">{{ archiveFields.updateTime }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">最近上报</span>
-          <strong class="detail-field__value">{{ archiveFields.lastReportTime }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">产品状态</span>
-          <strong class="detail-field__value">{{ archiveFields.status }}</strong>
-        </div>
-        <div class="detail-field detail-field--full">
-          <span class="detail-field__label">产品说明</span>
-          <strong class="detail-field__value detail-field__value--plain">{{ archiveFields.description }}</strong>
+        <div class="detail-grid product-detail-workbench__archive-grid" data-testid="product-detail-archive">
+          <div class="detail-field">
+            <span class="detail-field__label">产品 ID</span>
+            <strong class="detail-field__value">{{ archiveFields.id }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">产品 Key</span>
+            <strong class="detail-field__value">{{ archiveFields.productKey }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">产品名称</span>
+            <strong class="detail-field__value">{{ archiveFields.productName }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">厂商</span>
+            <strong class="detail-field__value">{{ archiveFields.manufacturer }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">创建时间</span>
+            <strong class="detail-field__value">{{ archiveFields.createTime }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">更新时间</span>
+            <strong class="detail-field__value">{{ archiveFields.updateTime }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">最近上报</span>
+            <strong class="detail-field__value">{{ archiveFields.lastReportTime }}</strong>
+          </div>
+          <div class="detail-field">
+            <span class="detail-field__label">产品状态</span>
+            <strong class="detail-field__value">{{ archiveFields.status }}</strong>
+          </div>
+          <div class="detail-field detail-field--full">
+            <span class="detail-field__label">产品说明</span>
+            <strong class="detail-field__value detail-field__value--plain">{{ archiveFields.description }}</strong>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="detail-panel" data-testid="product-detail-governance">
+    <section class="detail-panel product-detail-workbench__governance-stage" data-testid="product-detail-governance">
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">维护与治理</h3>
@@ -187,6 +185,9 @@ const props = defineProps<{
 }>()
 
 function toDisplayCount(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
   const count = Number(value)
   return Number.isFinite(count) ? String(count) : '--'
 }
@@ -203,6 +204,9 @@ function toDisplayDuration(value?: number | null) {
 }
 
 function toCountValue(value?: number | null) {
+  if (value === undefined || value === null) {
+    return null
+  }
   const count = Number(value)
   return Number.isFinite(count) ? count : null
 }
@@ -264,7 +268,6 @@ const heroHeadline = computed(() => {
   }
   return '当前产品下已有设备，但在线覆盖偏弱，建议结合最近上报和链路验证继续排查。'
 })
-const heroSummary = computed(() => `最近设备上报：${formatDateTime(product.value.lastReportTime)}`)
 const contractReminder = computed(
   () => `接入基线：${toDisplayText(product.value.protocolCode)} / ${getNodeTypeText(product.value.nodeType)} / ${toDisplayText(product.value.dataFormat)}`
 )
@@ -433,12 +436,15 @@ const changeChecklist = [
 <style scoped>
 .product-detail-workbench {
   display: grid;
-  gap: 1rem;
+  gap: 0.95rem;
 }
 
-.product-detail-workbench__panel {
+.product-detail-workbench__hero-stage,
+.product-detail-workbench__judgement-stage,
+.product-detail-workbench__contract-archive-stage,
+.product-detail-workbench__governance-stage {
   display: grid;
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
 .product-detail-workbench__status-chip {
@@ -463,22 +469,33 @@ const changeChecklist = [
   color: color-mix(in srgb, var(--danger, #d84f45) 82%, var(--text-heading));
 }
 
-.product-detail-workbench__brief-grid,
+.product-detail-workbench__hero-grid,
+.product-detail-workbench__judgement-grid,
+.product-detail-workbench__contract-archive-grid,
 .product-detail-workbench__governance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
 }
 
-.product-detail-workbench__trend-stack {
+.product-detail-workbench__primary-card,
+.product-detail-workbench__secondary-metrics,
+.product-detail-workbench__contract-grid,
+.product-detail-workbench__archive-grid {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.75rem;
 }
 
-.product-detail-workbench__trend-lead {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.9));
+.product-detail-workbench__primary-card {
+  align-content: start;
 }
 
+.product-detail-workbench__secondary-metrics,
+.product-detail-workbench__trend-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-detail-workbench__statement,
 .product-detail-workbench__copy,
 .product-detail-workbench__subcopy,
 .product-detail-workbench__notice-copy {
@@ -486,6 +503,10 @@ const changeChecklist = [
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.7;
+}
+
+.product-detail-workbench__statement {
+  color: var(--text-body);
 }
 
 .product-detail-workbench__subcopy,
@@ -506,9 +527,13 @@ const changeChecklist = [
   margin-top: 0.48rem;
 }
 
-@media (max-width: 900px) {
-  .product-detail-workbench__brief-grid,
-  .product-detail-workbench__governance-grid {
+@media (max-width: 960px) {
+  .product-detail-workbench__hero-grid,
+  .product-detail-workbench__judgement-grid,
+  .product-detail-workbench__contract-archive-grid,
+  .product-detail-workbench__governance-grid,
+  .product-detail-workbench__secondary-metrics,
+  .product-detail-workbench__trend-strip {
     grid-template-columns: 1fr;
   }
 }

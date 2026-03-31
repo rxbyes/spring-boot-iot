@@ -1,26 +1,26 @@
 <template>
   <div class="product-edit-workspace">
-    <section class="detail-panel detail-panel--hero product-edit-workspace__hero">
-      <div class="product-edit-workspace__hero-copy">
-        <p class="product-edit-workspace__eyebrow">编辑治理</p>
+    <section class="detail-panel product-edit-workspace__summary-band">
+      <div class="product-edit-workspace__summary-copy">
+        <p class="product-edit-workspace__kicker">编辑治理</p>
         <h3>{{ heroTitle }}</h3>
-        <p class="product-edit-workspace__hero-description">
+        <p class="product-edit-workspace__summary-description">
           在同一产品经营上下文中维护基础档案、接入基线和补充说明，保存后同步回写当前工作台头部和列表台账。
         </p>
       </div>
 
-      <div class="product-edit-workspace__hero-metrics">
-        <article class="product-edit-workspace__metric">
+      <div class="product-edit-workspace__summary-metrics">
+        <article class="product-edit-workspace__summary-card">
           <span>产品 Key</span>
           <strong>{{ formatText(model.productKey) }}</strong>
           <small>编辑状态下保持标识稳定，避免影响设备接入契约。</small>
         </article>
-        <article class="product-edit-workspace__metric">
+        <article class="product-edit-workspace__summary-card">
           <span>协议编码</span>
           <strong>{{ formatText(model.protocolCode) }}</strong>
           <small>统一对齐协议解码与后续物模型治理基线。</small>
         </article>
-        <article class="product-edit-workspace__metric">
+        <article class="product-edit-workspace__summary-card">
           <span>节点与状态</span>
           <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
           <small>调整节点类型或状态前先确认设备接入边界与影响范围。</small>
@@ -28,30 +28,9 @@
       </div>
     </section>
 
-    <section class="detail-panel product-edit-workspace__notice">
-      <div class="detail-section-header">
-        <div>
-          <h3>编辑影响提示</h3>
-          <p>优先核对产品标识、协议编码、节点类型与状态，避免正在运行的接入链路发生漂移。</p>
-        </div>
-      </div>
-
-      <div class="product-edit-workspace__notice-grid">
-        <article class="product-edit-workspace__notice-card">
-          <span>契约一致性</span>
-          <strong>产品 Key 与协议编码变更会影响接入与诊断上下文。</strong>
-        </article>
-        <article class="product-edit-workspace__notice-card">
-          <span>设备影响面</span>
-          <strong>停用产品前需确认关联设备、下游规则和物模型治理不受阻断。</strong>
-        </article>
-      </div>
-    </section>
-
     <StandardInlineState
-      v-if="refreshMessage"
       class="product-edit-workspace__inline-state"
-      :message="refreshMessage"
+      :message="inlineMessage"
       :tone="refreshTone"
     />
 
@@ -128,11 +107,7 @@
     </el-form>
 
     <div class="product-edit-workspace__footer">
-      <StandardButton
-        data-testid="product-edit-cancel"
-        action="cancel"
-        @click="emit('cancel')"
-      >
+      <StandardButton data-testid="product-edit-cancel" action="cancel" @click="emit('cancel')">
         {{ cancelText }}
       </StandardButton>
       <StandardButton
@@ -187,6 +162,15 @@ const cancelText = computed(() => (props.editing ? '取消编辑' : '取消'))
 const nodeTypeText = computed(() => (props.model.nodeType === 2 ? '网关设备' : '直连设备'))
 const statusText = computed(() => (props.model.status === 0 ? '停用' : '启用'))
 const refreshTone = computed<'info' | 'error'>(() => (props.refreshState === 'error' ? 'error' : 'info'))
+const inlineMessage = computed(() => {
+  if (props.refreshMessage) {
+    return props.refreshMessage
+  }
+  if (props.model.status === 0) {
+    return '停用产品前请先核对关联设备、协议边界和物模型治理是否会受到影响。'
+  }
+  return '优先核对产品标识、协议编码、节点类型与状态，避免运行中的接入链路发生漂移。'
+})
 
 function formatText(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
@@ -212,78 +196,63 @@ defineExpose({
 
 <style scoped>
 .product-edit-workspace,
-.product-edit-workspace__hero-copy,
-.product-edit-workspace__hero-metrics,
-.product-edit-workspace__notice-grid {
+.product-edit-workspace__summary-copy,
+.product-edit-workspace__summary-metrics {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.85rem;
 }
 
 .product-edit-workspace {
-  gap: 1rem;
+  gap: 0.95rem;
 }
 
-.product-edit-workspace__hero {
+.product-edit-workspace__summary-band {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 1rem;
-  padding: 1.1rem 1.15rem;
+  gap: 0.8rem;
+  padding: 0.98rem 1.02rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.product-edit-workspace__eyebrow {
-  margin: 0;
-  color: color-mix(in srgb, var(--brand) 60%, var(--text-caption));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.product-edit-workspace__hero-copy h3,
-.product-edit-workspace__metric strong,
-.product-edit-workspace__notice-card strong {
-  margin: 0;
-  color: var(--text-heading);
-}
-
-.product-edit-workspace__hero-description,
-.product-edit-workspace__metric span,
-.product-edit-workspace__metric small,
-.product-edit-workspace__notice-card span {
+.product-edit-workspace__kicker,
+.product-edit-workspace__summary-description,
+.product-edit-workspace__summary-card span,
+.product-edit-workspace__summary-card small {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
 }
 
-.product-edit-workspace__hero-metrics {
+.product-edit-workspace__kicker {
+  color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.product-edit-workspace__summary-copy h3,
+.product-edit-workspace__summary-card strong {
+  margin: 0;
+  color: var(--text-heading);
+}
+
+.product-edit-workspace__summary-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.product-edit-workspace__metric,
-.product-edit-workspace__notice-card {
+.product-edit-workspace__summary-card {
   display: grid;
   gap: 0.3rem;
-  padding: 0.92rem 0.95rem;
+  padding: 0.82rem 0.88rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-surface-soft-sm);
+  background: rgba(255, 255, 255, 0.9);
 }
 
-.product-edit-workspace__metric strong {
-  font-size: 1rem;
-}
-
-.product-edit-workspace__notice {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.product-edit-workspace__notice-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.product-edit-workspace__notice-card {
-  border-color: color-mix(in srgb, var(--brand) 14%, var(--panel-border));
+.product-edit-workspace__summary-card strong {
+  font-size: 0.98rem;
 }
 
 .product-edit-workspace__footer {
@@ -293,9 +262,7 @@ defineExpose({
 }
 
 @media (max-width: 960px) {
-  .product-edit-workspace__hero,
-  .product-edit-workspace__hero-metrics,
-  .product-edit-workspace__notice-grid {
+  .product-edit-workspace__summary-metrics {
     grid-template-columns: 1fr;
   }
 }

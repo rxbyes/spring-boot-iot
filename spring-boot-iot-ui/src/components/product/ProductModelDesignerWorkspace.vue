@@ -16,22 +16,16 @@
     </div>
 
     <template v-else>
-      <section class="detail-panel detail-panel--hero product-model-designer__hero-stage">
-        <div class="product-model-designer__hero-copy">
-          <p class="product-model-designer__hero-kicker">物模型目录</p>
-          <h3>{{ designerStageTitle }}</h3>
-          <p class="product-model-designer__hero-description">
-            先看真实证据与正式契约，再进入完整治理抽屉处理深度变更。
-          </p>
-          <div class="product-model-designer__hero-product">
-            <span>{{ product.productName || '--' }}</span>
-            <span>{{ product.productKey || '--' }}</span>
-            <span>{{ product.protocolCode || '--' }}</span>
-            <span>{{ productNodeTypeLabel }}</span>
+      <section class="detail-panel product-model-designer__header">
+        <div class="product-model-designer__header-heading">
+          <div class="product-model-designer__header-copy">
+            <p class="product-model-designer__kicker">物模型治理</p>
+            <h3>{{ designerStageTitle }}</h3>
+            <p class="product-model-designer__header-description">
+              先看候选目录和正式契约，再进入完整治理抽屉处理深度变更。
+            </p>
           </div>
-        </div>
 
-        <div class="product-model-designer__hero-actions">
           <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
             <button
               type="button"
@@ -50,37 +44,40 @@
               正式模型
             </button>
           </div>
-          <p class="product-model-designer__hero-action-hint">{{ designerStageHint }}</p>
-          <StandardButton action="confirm" @click="fullDesignerVisible = true">
-            进入完整治理
-          </StandardButton>
+        </div>
+
+        <div class="product-model-designer__header-meta">
+          <span>{{ product.productName || '--' }}</span>
+          <span>{{ product.productKey || '--' }}</span>
+          <span>{{ product.protocolCode || '--' }}</span>
+          <span>{{ productNodeTypeLabel }}</span>
         </div>
       </section>
 
-      <section v-if="designerMode === 'candidates'" class="detail-panel product-model-designer__section">
-        <div class="product-model-designer__overview">
-          <article class="product-model-designer__overview-lead">
-            <span class="product-model-designer__summary-label">真实证据概览</span>
-            <strong>先提炼，再确认，再沉淀为正式物模型</strong>
-            <p>属性优先来源于真实属性与消息快照，事件和服务在缺证据时保留诚实空态。</p>
-          </article>
-          <article class="product-model-designer__overview-metric">
-            <span class="product-model-designer__summary-label">属性</span>
-            <strong>{{ candidateSummary.propertyCandidateCount ?? 0 }}</strong>
-            <p>原始证据 {{ candidateSummary.propertyEvidenceCount ?? 0 }} 条</p>
-          </article>
-          <article class="product-model-designer__overview-metric">
-            <span class="product-model-designer__summary-label">事件</span>
-            <strong>{{ candidateSummary.eventCandidateCount ?? 0 }}</strong>
-            <p>{{ candidateSummary.eventHint || '已发现可提炼事件候选' }}</p>
-          </article>
-          <article class="product-model-designer__overview-metric">
-            <span class="product-model-designer__summary-label">服务</span>
-            <strong>{{ candidateSummary.serviceCandidateCount ?? 0 }}</strong>
-            <p>{{ candidateSummary.serviceHint || '已发现可提炼服务候选' }}</p>
-          </article>
-        </div>
+      <section class="product-model-designer__summary-strip">
+        <article class="product-model-designer__summary-card product-model-designer__summary-card--lead">
+          <span class="product-model-designer__summary-label">真实证据概览</span>
+          <strong>先提炼，再确认，再沉淀为正式物模型</strong>
+          <p>属性优先来源于真实属性与消息快照，事件和服务在缺证据时保留诚实空态。</p>
+        </article>
+        <article class="product-model-designer__summary-card">
+          <span class="product-model-designer__summary-label">属性候选</span>
+          <strong>{{ candidateSummary.propertyCandidateCount ?? 0 }}</strong>
+          <p>原始证据 {{ candidateSummary.propertyEvidenceCount ?? 0 }} 条</p>
+        </article>
+        <article class="product-model-designer__summary-card">
+          <span class="product-model-designer__summary-label">待人工确认</span>
+          <strong>{{ candidateSummary.needsReviewCount ?? 0 }}</strong>
+          <p>{{ candidateSummary.eventHint || '当前无事件候选冲突' }}</p>
+        </article>
+        <article class="product-model-designer__summary-card">
+          <span class="product-model-designer__summary-label">正式模型</span>
+          <strong>{{ models.length }}</strong>
+          <p>最近提炼：{{ formatDateTime(candidateSummary.lastExtractedAt) }}</p>
+        </article>
+      </section>
 
+      <section v-if="designerMode === 'candidates'" class="detail-panel product-model-designer__workspace-shell">
         <div class="product-model-designer__candidate-workspace">
           <aside class="product-model-designer__candidate-nav">
             <button
@@ -156,7 +153,7 @@
         </div>
       </section>
 
-      <section v-else class="detail-panel product-model-designer__section">
+      <section v-else class="detail-panel product-model-designer__workspace-shell product-model-designer__workspace-shell--formal">
         <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
           <button
             v-for="item in typeOptions"
@@ -173,6 +170,7 @@
         </div>
 
         <div class="product-model-designer__formal-stage">
+          <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
           <div v-if="activeModels.length" class="product-model-designer__list">
             <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__card">
               <header class="product-model-designer__card-header">
@@ -251,9 +249,6 @@ const fullDesignerVisible = ref(false)
 
 const designerStageTitle = computed(() =>
   designerMode.value === 'candidates' ? '基于真实上报提炼产品契约' : '统一维护产品正式物模型'
-)
-const designerStageHint = computed(() =>
-  designerMode.value === 'candidates' ? '先看证据，再进入治理' : '查看已确认契约'
 )
 const productNodeTypeLabel = computed(() => (props.product?.nodeType === 2 ? '网关设备' : '直连设备'))
 const candidateSummary = computed<ProductModelCandidateSummary>(() => candidateResult.value?.summary ?? createEmptySummary())
@@ -382,37 +377,9 @@ function formatServiceSummary(model: ProductModel) {
 </script>
 
 <style scoped>
-.product-model-designer-workspace {
-  display: grid;
-  gap: 1rem;
-}
-
-.product-model-designer__hero-stage,
-.product-model-designer__overview-lead,
-.product-model-designer__overview-metric,
-.product-model-designer__candidate-nav,
-.product-model-designer__candidate-body,
-.product-model-designer__candidate-rail,
-.product-model-designer__formal-overview-card,
-.product-model-designer__formal-stage,
-.product-model-designer__candidate-card,
-.product-model-designer__card {
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-surface-soft-sm);
-}
-
-.product-model-designer__hero-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 22rem);
-  gap: 1rem;
-  align-items: start;
-  padding: 1.1rem 1.15rem;
-}
-
-.product-model-designer__hero-copy,
-.product-model-designer__hero-actions,
+.product-model-designer-workspace,
+.product-model-designer__header,
+.product-model-designer__header-copy,
 .product-model-designer__candidate-nav,
 .product-model-designer__candidate-body,
 .product-model-designer__candidate-rail,
@@ -423,7 +390,37 @@ function formatServiceSummary(model: ProductModel) {
   gap: 0.85rem;
 }
 
-.product-model-designer__hero-kicker,
+.product-model-designer-workspace {
+  gap: 0.95rem;
+}
+
+.product-model-designer__header,
+.product-model-designer__summary-card,
+.product-model-designer__candidate-nav,
+.product-model-designer__candidate-body,
+.product-model-designer__candidate-rail,
+.product-model-designer__formal-overview-card,
+.product-model-designer__formal-stage,
+.product-model-designer__candidate-card,
+.product-model-designer__card {
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: var(--shadow-surface-soft-sm);
+}
+
+.product-model-designer__header {
+  padding: 1rem 1.05rem;
+}
+
+.product-model-designer__header-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.product-model-designer__kicker,
 .product-model-designer__summary-label {
   margin: 0;
   color: color-mix(in srgb, var(--brand) 60%, var(--text-caption));
@@ -432,38 +429,21 @@ function formatServiceSummary(model: ProductModel) {
   letter-spacing: 0.04em;
 }
 
-.product-model-designer__hero-copy h3,
-.product-model-designer__overview-lead strong,
+.product-model-designer__header-copy h3,
+.product-model-designer__summary-card strong,
 .product-model-designer__card-heading strong,
 .product-model-designer__candidate-card-title strong {
   margin: 0;
   color: var(--text-heading);
 }
 
-.product-model-designer__hero-product,
-.product-model-designer__candidate-card-tags,
-.product-model-designer__card-summary,
-.product-model-designer__overview-meta,
-.product-model-designer__candidate-card-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.product-model-designer__hero-product span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-}
-
-.product-model-designer__hero-actions {
-  justify-items: end;
+.product-model-designer__header-description,
+.product-model-designer__description,
+.product-model-designer__candidate-body-meta,
+.product-model-designer__summary-card p {
+  margin: 0;
+  color: var(--text-caption);
+  line-height: 1.6;
 }
 
 .product-model-designer__mode-switcher {
@@ -476,7 +456,7 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__mode-chip {
   min-width: 6.8rem;
-  padding: 0.58rem 0.9rem;
+  padding: 0.52rem 0.9rem;
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -491,35 +471,69 @@ function formatServiceSummary(model: ProductModel) {
   box-shadow: var(--shadow-surface-soft-sm);
 }
 
-.product-model-designer__overview {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 0.9fr));
-  gap: 0.85rem;
+.product-model-designer__header-meta,
+.product-model-designer__candidate-card-tags,
+.product-model-designer__card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
-.product-model-designer__overview-lead,
-.product-model-designer__overview-metric,
-.product-model-designer__candidate-nav,
-.product-model-designer__candidate-body,
-.product-model-designer__candidate-rail,
-.product-model-designer__formal-stage {
-  padding: 1rem 1.05rem;
+.product-model-designer__header-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0.26rem 0.7rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.product-model-designer__summary-strip,
+.product-model-designer__confirm-metrics,
+.product-model-designer__formal-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.product-model-designer__summary-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 0.95rem;
+}
+
+.product-model-designer__summary-card--lead {
+  grid-column: span 1;
+}
+
+.product-model-designer__workspace-shell {
+  padding: 0.95rem 1rem;
 }
 
 .product-model-designer__candidate-workspace {
   display: grid;
-  grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr) minmax(16rem, 18rem);
-  gap: 1rem;
+  grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr) minmax(15rem, 17rem);
+  gap: 0.9rem;
   align-items: start;
+}
+
+.product-model-designer__candidate-nav,
+.product-model-designer__candidate-body,
+.product-model-designer__candidate-rail,
+.product-model-designer__formal-stage {
+  padding: 0.95rem 1rem;
 }
 
 .product-model-designer__candidate-nav-item,
 .product-model-designer__formal-overview-card {
   width: 100%;
-  padding: 0.84rem 0.92rem;
+  padding: 0.82rem 0.9rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   text-align: left;
   cursor: pointer;
 }
@@ -533,13 +547,6 @@ function formatServiceSummary(model: ProductModel) {
   gap: 0.9rem;
 }
 
-.product-model-designer__confirm-metrics,
-.product-model-designer__formal-overview {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
 .product-model-designer__confirm-metrics div {
   display: grid;
   gap: 0.2rem;
@@ -547,6 +554,12 @@ function formatServiceSummary(model: ProductModel) {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(252, 253, 255, 0.96);
+}
+
+.product-model-designer__formal-title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
 }
 
 .product-model-designer__empty {
@@ -558,17 +571,9 @@ function formatServiceSummary(model: ProductModel) {
   background: linear-gradient(180deg, rgba(246, 250, 255, 0.92), rgba(255, 255, 255, 0.96));
 }
 
-.product-model-designer__description,
-.product-model-designer__hero-description,
-.product-model-designer__hero-action-hint,
-.product-model-designer__candidate-body-meta {
-  margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-}
-
 @media (max-width: 1200px) {
-  .product-model-designer__overview {
+  .product-model-designer__summary-strip,
+  .product-model-designer__formal-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -582,23 +587,19 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 @media (max-width: 768px) {
-  .product-model-designer__hero-stage,
-  .product-model-designer__overview,
-  .product-model-designer__candidate-workspace,
-  .product-model-designer__formal-overview,
-  .product-model-designer__confirm-metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .product-model-designer__hero-actions {
-    justify-items: start;
-  }
-
+  .product-model-designer__header-heading,
   .product-model-designer__candidate-body-header,
   .product-model-designer__candidate-card-header,
   .product-model-designer__card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .product-model-designer__summary-strip,
+  .product-model-designer__candidate-workspace,
+  .product-model-designer__formal-overview,
+  .product-model-designer__confirm-metrics {
+    grid-template-columns: 1fr;
   }
 }
 </style>
