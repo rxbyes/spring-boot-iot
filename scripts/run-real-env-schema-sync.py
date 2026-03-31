@@ -19,6 +19,52 @@ ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
+    "iot_device_online_session": """
+CREATE TABLE IF NOT EXISTS iot_device_online_session (
+    id BIGINT NOT NULL COMMENT 'pk',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    product_id BIGINT NOT NULL COMMENT 'product id',
+    device_id BIGINT NOT NULL COMMENT 'device id',
+    device_code VARCHAR(64) NOT NULL COMMENT 'device code',
+    online_time DATETIME NOT NULL COMMENT 'online time',
+    last_seen_time DATETIME DEFAULT NULL COMMENT 'last seen time',
+    offline_time DATETIME DEFAULT NULL COMMENT 'offline time',
+    duration_minutes BIGINT DEFAULT NULL COMMENT 'duration minutes',
+    remark VARCHAR(500) DEFAULT NULL COMMENT 'remark',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_online_session_device_active (deleted, device_id, offline_time),
+    KEY idx_online_session_product_time (deleted, product_id, online_time, offline_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='device online session'
+""",
+    "iot_device_metric_latest": """
+CREATE TABLE IF NOT EXISTS iot_device_metric_latest (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'pk',
+    tenant_id BIGINT NOT NULL COMMENT 'tenant id',
+    device_id BIGINT NOT NULL COMMENT 'device id',
+    product_id BIGINT NOT NULL COMMENT 'product id',
+    metric_id VARCHAR(128) NOT NULL COMMENT 'metric id',
+    metric_code VARCHAR(128) NOT NULL COMMENT 'metric code',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT 'metric name',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT 'value type',
+    value_double DOUBLE DEFAULT NULL COMMENT 'double value',
+    value_long BIGINT DEFAULT NULL COMMENT 'long value',
+    value_bool TINYINT(1) DEFAULT NULL COMMENT 'bool value',
+    value_text TEXT DEFAULT NULL COMMENT 'text value',
+    quality_code VARCHAR(32) DEFAULT NULL COMMENT 'quality code',
+    alarm_flag TINYINT(1) DEFAULT NULL COMMENT 'alarm flag',
+    reported_at DATETIME DEFAULT NULL COMMENT 'reported at',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),
+    KEY idx_tel_latest_device_reported (device_id, reported_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='telemetry v2 latest projection'
+""",
     "iot_device_access_error_log": """
 CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -50,6 +96,41 @@ CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     KEY idx_access_error_device_time (device_code, create_time),
     KEY idx_access_error_stage_time (failure_stage, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='device access error archive'
+""",
+    "iot_device_invalid_report_state": """
+CREATE TABLE IF NOT EXISTS iot_device_invalid_report_state (
+    id BIGINT NOT NULL COMMENT 'pk',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    governance_key VARCHAR(255) NOT NULL COMMENT 'governance key',
+    reason_code VARCHAR(64) NOT NULL COMMENT 'reason code',
+    request_method VARCHAR(16) DEFAULT NULL COMMENT 'request method',
+    failure_stage VARCHAR(32) DEFAULT NULL COMMENT 'failure stage',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT 'device code',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT 'product key',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT 'protocol code',
+    topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic route type',
+    topic VARCHAR(255) DEFAULT NULL COMMENT 'topic',
+    client_id VARCHAR(128) DEFAULT NULL COMMENT 'client id',
+    payload_size INT DEFAULT NULL COMMENT 'payload size',
+    payload_encoding VARCHAR(16) DEFAULT NULL COMMENT 'payload encoding',
+    last_payload LONGTEXT DEFAULT NULL COMMENT 'last payload',
+    last_trace_id VARCHAR(64) DEFAULT NULL COMMENT 'last trace id',
+    sample_error_message VARCHAR(500) DEFAULT NULL COMMENT 'sample error message',
+    sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT 'sample exception class',
+    first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'first seen time',
+    last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'last seen time',
+    hit_count BIGINT NOT NULL DEFAULT 0 COMMENT 'hit count',
+    sampled_count BIGINT NOT NULL DEFAULT 0 COMMENT 'sampled count',
+    suppressed_count BIGINT NOT NULL DEFAULT 0 COMMENT 'suppressed count',
+    suppressed_until DATETIME DEFAULT NULL COMMENT 'suppressed until',
+    resolved TINYINT NOT NULL DEFAULT 0 COMMENT 'resolved',
+    resolved_time DATETIME DEFAULT NULL COMMENT 'resolved time',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_invalid_report_state_governance_key (governance_key),
+    KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),
+    KEY idx_invalid_report_reason_time (reason_code, last_seen_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='invalid mqtt report latest state'
 """,
     "risk_point_device": """
 CREATE TABLE IF NOT EXISTS risk_point_device (
@@ -92,6 +173,26 @@ CREATE TABLE IF NOT EXISTS sys_notification_channel (
     KEY idx_channel_code (channel_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='sys notification channel'
 """,
+}
+
+VIEW_SQL: CreateSqlMap = {
+    "iot_message_log": """
+CREATE OR REPLACE VIEW iot_message_log AS
+SELECT
+    id,
+    tenant_id,
+    device_id,
+    product_id,
+    trace_id,
+    device_code,
+    product_key,
+    message_type,
+    topic,
+    payload,
+    report_time,
+    create_time
+FROM iot_device_message_log
+"""
 }
 
 
@@ -357,6 +458,10 @@ def main() -> int:
 
             ensure_menu_compat(cur, args.db)
             print("[menu] sys_menu legacy columns aligned")
+
+            for view_name, ddl in VIEW_SQL.items():
+                cur.execute(ddl)
+                print(f"[view] ensured {view_name}")
 
         print("Schema sync completed.")
         return 0

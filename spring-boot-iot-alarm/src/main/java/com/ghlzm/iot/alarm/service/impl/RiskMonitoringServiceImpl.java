@@ -70,7 +70,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             "update_by",
             "deleted");
     private static final String RISK_MONITORING_SCHEMA_HINT =
-            "风险监测依赖表 risk_point_device 缺失，请先执行 sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql";
+            "风险监测依赖表 risk_point_device 缺失，请先按最新 sql/init.sql 对齐当前初始化基线；若无法重建，可执行 python scripts/run-real-env-schema-sync.py";
 
     private final RiskPointMapper riskPointMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;

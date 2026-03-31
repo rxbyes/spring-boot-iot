@@ -21,11 +21,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SystemContentSchemaSupport {
 
     static final String SCHEMA_HINT =
-            "系统内容依赖表缺失，请先执行 sql/upgrade/20260321_phase5_in_app_message_help_docs.sql，若为旧库升级请继续执行 sql/upgrade/20260322_phase5_notification_center_followup.sql";
+            "系统内容依赖表缺失，请先按最新 sql/init.sql、sql/init-data.sql 对齐当前初始化基线；若无法重建，可执行 python scripts/run-real-env-schema-sync.py";
     static final String BRIDGE_SCHEMA_HINT =
-            "站内消息渠道桥接依赖表缺失，请先执行 sql/upgrade/20260322_phase5_notification_channel_bridge.sql";
+            "站内消息渠道桥接依赖表缺失，请先按最新 sql/init.sql 对齐当前初始化基线；若无法重建，可执行 python scripts/run-real-env-schema-sync.py";
     static final String BRIDGE_ATTEMPT_SCHEMA_HINT =
-            "站内消息桥接尝试明细依赖表缺失，请先执行 sql/upgrade/20260322_phase5_notification_channel_bridge_attempt_log.sql";
+            "站内消息桥接尝试明细依赖表缺失，请先按最新 sql/init.sql 对齐当前初始化基线；若无法重建，可执行 python scripts/run-real-env-schema-sync.py";
 
     private static final String TABLE_EXISTS_SQL =
             "SELECT COUNT(1) FROM information_schema.tables "

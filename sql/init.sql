@@ -18,8 +18,12 @@ DROP TABLE IF EXISTS risk_point_device;
 DROP TABLE IF EXISTS risk_point;
 
 DROP TABLE IF EXISTS iot_command_record;
+DROP TABLE IF EXISTS iot_device_metric_latest;
+DROP TABLE IF EXISTS iot_device_invalid_report_state;
+DROP TABLE IF EXISTS iot_device_access_error_log;
 DROP TABLE IF EXISTS iot_device_message_log;
 DROP TABLE IF EXISTS iot_device_property;
+DROP TABLE IF EXISTS iot_device_online_session;
 DROP TABLE IF EXISTS iot_device;
 DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
@@ -544,6 +548,29 @@ CREATE TABLE iot_device_property (
     PRIMARY KEY (id),
     UNIQUE KEY uk_device_identifier (device_id, identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备最新属性表';
+
+CREATE TABLE iot_device_metric_latest (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    tenant_id BIGINT NOT NULL COMMENT '租户ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    metric_id VARCHAR(128) NOT NULL COMMENT '指标唯一键',
+    metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
+    value_double DOUBLE DEFAULT NULL COMMENT '浮点值',
+    value_long BIGINT DEFAULT NULL COMMENT '整型值',
+    value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',
+    value_text TEXT DEFAULT NULL COMMENT '文本值',
+    quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量码',
+    alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',
+    reported_at DATETIME DEFAULT NULL COMMENT '实际上报时间',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),
+    KEY idx_tel_latest_device_reported (device_id, reported_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='telemetry v2 latest投影表';
 
 CREATE TABLE iot_device_message_log (
     id BIGINT NOT NULL COMMENT '主键',
