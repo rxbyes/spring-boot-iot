@@ -151,21 +151,21 @@ const summaryMetrics = computed(() => [
     label: '在线设备',
     value: String(onlineDevices.value),
     hint: onlineDevices.value > 0 ? '当前保持在线的设备数量。' : '当前没有设备在线。',
-    tone: 'success'
+    tone: 'brand'
   },
   {
     key: 'offline',
     label: '离线设备',
     value: String(offlineDevices.value),
     hint: offlineDevices.value > 0 ? '当前未在线的设备数量。' : '当前没有离线设备。',
-    tone: 'danger'
+    tone: 'brand'
   },
   {
     key: 'ratio',
     label: '在线比例',
     value: onlineRatioText.value,
     hint: totalDevices.value > 0 ? '在线设备在关联设备中的占比。' : '当前没有设备，暂不统计。',
-    tone: 'accent'
+    tone: 'brand'
   }
 ])
 
@@ -282,23 +282,9 @@ function handleViewDevice(device: Device) {
 }
 
 .device-workspace__metric[data-tone='brand'] {
-  border-color: color-mix(in srgb, var(--brand) 18%, transparent);
-  background: color-mix(in srgb, var(--brand) 8%, white);
-}
-
-.device-workspace__metric[data-tone='accent'] {
-  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, white);
-}
-
-.device-workspace__metric[data-tone='success'] {
-  border-color: color-mix(in srgb, var(--success) 20%, transparent);
-  background: color-mix(in srgb, var(--success) 10%, white);
-}
-
-.device-workspace__metric[data-tone='danger'] {
-  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
-  background: color-mix(in srgb, var(--danger) 8%, white);
+  border-color: color-mix(in srgb, var(--brand) 16%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 246, 0.98), rgba(255, 255, 255, 0.96));
 }
 
 .device-workspace__table-shell {

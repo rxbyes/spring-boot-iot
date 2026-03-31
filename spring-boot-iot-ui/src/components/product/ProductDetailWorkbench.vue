@@ -5,7 +5,6 @@
         <div>
           <p class="product-detail-workbench__section-kicker" data-testid="product-detail-hero-stage-kicker">经营主判断</p>
           <h3 data-testid="product-detail-stage-title">设备规模与经营判断</h3>
-          <p>首屏只保留一个规模主舞台，先看设备体量、在线覆盖和当前经营判断。</p>
         </div>
         <span
           class="product-detail-workbench__status-chip"
@@ -46,7 +45,6 @@
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">活跃趋势与状态判断</h3>
-          <p>把近期活跃表现、最近上报和接入影响放在同一阅读层里，快速判断产品近期稳定性。</p>
         </div>
       </div>
 
@@ -56,14 +54,12 @@
             <strong>趋势摘要</strong>
           </div>
           <p class="product-detail-workbench__copy">{{ trendHeadline }}</p>
-          <p class="product-detail-workbench__subcopy">{{ trendSummary }}</p>
         </article>
         <article class="detail-card">
           <div class="detail-card__header">
             <strong>接入提示</strong>
           </div>
           <p class="product-detail-workbench__copy">{{ contractReminder }}</p>
-          <p class="product-detail-workbench__subcopy">{{ operationReminder }}</p>
         </article>
       </div>
 
@@ -85,20 +81,14 @@
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">接入契约与产品档案</h3>
-          <p>统一归拢产品标识、协议基线和建档说明，减少排障时在多处切换信息的成本。</p>
         </div>
       </div>
 
       <div class="product-detail-workbench__contract-archive-grid" data-testid="product-detail-contract-summary">
         <div class="product-detail-workbench__contract-grid" data-testid="product-detail-contract">
-          <div class="product-detail-workbench__section-brief">
-            <span>接入契约摘要</span>
-            <strong>把协议、节点和数据格式收束为同一接入基线。</strong>
-          </div>
           <article v-for="card in contractCards" :key="card.key" class="detail-summary-card">
             <span class="detail-summary-card__label">{{ card.label }}</span>
             <strong class="detail-summary-card__value">{{ card.value }}</strong>
-            <p class="detail-summary-card__hint">{{ card.hint }}</p>
           </article>
         </div>
 
@@ -147,19 +137,12 @@
       <div class="detail-section-header">
         <div>
           <h3 data-testid="product-detail-stage-title">维护与治理</h3>
-          <p>把稳定性判断落成可执行约束，确保产品变更前先评估对现网设备和接入链路的影响。</p>
         </div>
-      </div>
-
-      <div class="product-detail-workbench__section-brief" data-testid="product-detail-governance-summary">
-        <span>治理摘要</span>
-        <strong>先落结论，再对照规则和变更前确认逐项执行。</strong>
       </div>
 
       <div :class="['detail-notice', { 'detail-notice--danger': product.status === 0 }]">
         <span class="detail-notice__label">当前建议</span>
         <strong class="detail-notice__value">{{ governanceHeadline }}</strong>
-        <p class="product-detail-workbench__notice-copy">{{ governanceNotice }}</p>
       </div>
 
       <div class="product-detail-workbench__governance-grid">
@@ -281,15 +264,6 @@ const heroHeadline = computed(() => {
 const contractReminder = computed(
   () => `接入基线：${toDisplayText(product.value.protocolCode)} / ${getNodeTypeText(product.value.nodeType)} / ${toDisplayText(product.value.dataFormat)}`
 )
-const operationReminder = computed(() => {
-  if (product.value.status === 0) {
-    return '停用状态下，新增设备、设备替换与链路验证都应先确认是否需要重启用或新建版本。'
-  }
-  if ((product.value.deviceCount ?? 0) > 0) {
-    return '已有设备在用时，协议编码、节点类型和数据格式调整前要先做兼容性评估。'
-  }
-  return '当前还处于接入准备阶段，可以继续整理产品说明、命名边界和首批接入规则。'
-})
 const heroSecondaryMetrics = computed(() => [
   {
     key: 'onlineDeviceCount',
@@ -320,15 +294,12 @@ const hasTrendMetrics = computed(() => {
 })
 const trendHeadline = computed(() => {
   if (product.value.status === 0) {
-    return '当前产品已停用，活跃趋势仅作为历史回看依据。'
+    return '当前产品已停用，活跃趋势仅供历史回看。'
   }
   if ((product.value.todayActiveCount ?? 0) > 0 && (product.value.sevenDaysActiveCount ?? 0) > 0) {
-    return '近期活跃表现稳定，可继续结合最长在线时长和最近上报观察现场波动。'
+    return '近期活跃表现稳定。'
   }
-  return '活跃表现仍在爬坡，建议继续核对在线覆盖、首批设备使用情况和最近上报节奏。'
-})
-const trendSummary = computed(() => {
-  return `最近上报 ${formatDateTime(product.value.lastReportTime)}，用于辅助判断当前产品链路是否稳定。`
+  return '活跃表现仍在爬坡。'
 })
 const trendMetrics = computed(() => {
   const metrics: Array<{ key: string; label: string; value: string; hint: string }> = []
@@ -385,20 +356,17 @@ const contractCards = computed(() => [
   {
     key: 'protocolCode',
     label: '协议编码',
-    value: toDisplayText(product.value.protocolCode),
-    hint: '接入链路识别和报文解析的核心基线。'
+    value: toDisplayText(product.value.protocolCode)
   },
   {
     key: 'nodeType',
     label: '节点类型',
-    value: getNodeTypeText(product.value.nodeType),
-    hint: '用于区分直连设备与网关设备的接入方式。'
+    value: getNodeTypeText(product.value.nodeType)
   },
   {
     key: 'dataFormat',
     label: '数据格式',
-    value: toDisplayText(product.value.dataFormat),
-    hint: '统一定义产品消息结构和载荷组织方式。'
+    value: toDisplayText(product.value.dataFormat)
   }
 ])
 const archiveFields = computed(() => ({
@@ -415,31 +383,22 @@ const archiveFields = computed(() => ({
 
 const governanceHeadline = computed(() => {
   if (product.value.status === 0) {
-    return '先核查停用是否会影响现有设备，再决定是否保留或重建产品定义。'
+    return '先核查停用是否影响现有设备。'
   }
   if ((product.value.deviceCount ?? 0) === 0) {
-    return '当前还没有现网设备压力，可以继续作为新设备接入模板完善。'
+    return '当前还没有现网设备压力。'
   }
   return '当前已有设备在用，任何核心契约变更都应先做影响评估和灰度验证。'
 })
-const governanceNotice = computed(() => {
-  if (product.value.status === 0) {
-    return '停用状态下建议同步核查设备替换计划、历史日志查询和现场库存处理，避免业务仍依赖旧产品定义。'
-  }
-  if ((product.value.deviceCount ?? 0) > 0) {
-    return '协议编码、节点类型、数据格式和物模型边界都属于高影响项，变更前要先确认不会影响设备建档、上报和链路追踪。'
-  }
-  return '当前适合继续补齐说明文档、命名边界和首批接入校验规则，为后续规模化接入做准备。'
-})
 const maintenanceRules = [
-  '产品 Key 建立后尽量保持稳定，不建议直接改名。',
-  '协议编码、节点类型和数据格式属于接入核心规则，应避免频繁调整。',
-  '已有设备在用时，优先通过新建版本或灰度方式承接兼容性变化。'
+  '产品 Key 尽量保持稳定。',
+  '协议、节点、格式不要频繁调整。',
+  '有存量设备时优先走灰度或新版本。'
 ]
 const changeChecklist = [
-  '先确认现场是否已经有设备在使用这条产品定义。',
-  '再确认协议或物模型变化是否更适合通过新版本承接。',
-  '最后确认调整后不会影响设备建档、上报链路和历史检索。'
+  '先确认是否已有设备在用。',
+  '再确认是否应由新版本承接。',
+  '最后确认不影响建档和上报。'
 ]
 </script>
 
@@ -547,7 +506,6 @@ const changeChecklist = [
 
 .product-detail-workbench__statement,
 .product-detail-workbench__copy,
-.product-detail-workbench__subcopy,
 .product-detail-workbench__notice-copy {
   margin: 0;
   color: var(--text-caption);
@@ -560,12 +518,6 @@ const changeChecklist = [
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.6;
-}
-
-.product-detail-workbench__subcopy,
-.product-detail-workbench__notice-copy {
-  margin-top: 0.45rem;
-  color: var(--text-caption-2);
 }
 
 .product-detail-workbench__archive-grid {
