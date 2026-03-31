@@ -92,6 +92,35 @@ CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
 -- - iot_raw_status_point：状态类指标
 -- - iot_raw_event_point：事件类指标
 -- ========================================
+
+-- ----------------------------------------
+-- stable：iot_raw_measure_point
+-- 表介绍：
+-- - telemetry v2 测量类 raw stable
+-- - 承载温度、湿度、雨量、位移、倾角等连续测量指标
+-- - 运行时通过 `tb_m_<tenantId>_<deviceId>` 派生设备子表
+-- 字段含义：
+-- - ts：行键时间
+-- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多测点覆盖
+-- - reported_at：设备真实上报时间
+-- - ingested_at：平台写入时间
+-- - value_double：浮点型测量值
+-- - value_long：整型测量值
+-- - value_bool：布尔型测量值
+-- - value_text：文本型测量值
+-- - quality_code：质量码
+-- - alarm_flag：是否为告警关联点位
+-- - trace_id：全链路追踪 ID
+-- - session_id：message-flow 会话 ID
+-- - source_message_type：来源消息类型
+-- tags 含义：
+-- - tenant_id：租户 ID
+-- - device_id：设备主键
+-- - product_id：产品主键
+-- - sensor_group：测点分组
+-- - location_code：位置编码
+-- - risk_point_id：绑定风险点 ID
+-- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
     ts TIMESTAMP,
     metric_id BINARY(128) COMPOSITE KEY,
@@ -115,6 +144,34 @@ CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
     risk_point_id BIGINT
 );
 
+-- ----------------------------------------
+-- stable：iot_raw_status_point
+-- 表介绍：
+-- - telemetry v2 状态类 raw stable
+-- - 承载在线状态、开关状态、运行状态、故障状态等离散状态指标
+-- - 运行时通过 `tb_s_<tenantId>_<deviceId>` 派生设备子表
+-- 字段含义：
+-- - ts：行键时间
+-- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多状态覆盖
+-- - reported_at：设备真实上报时间
+-- - ingested_at：平台写入时间
+-- - value_double：浮点型状态值
+-- - value_long：整型状态值
+-- - value_bool：布尔型状态值
+-- - value_text：文本型状态值
+-- - quality_code：质量码
+-- - alarm_flag：是否为告警关联点位
+-- - trace_id：全链路追踪 ID
+-- - session_id：message-flow 会话 ID
+-- - source_message_type：来源消息类型
+-- tags 含义：
+-- - tenant_id：租户 ID
+-- - device_id：设备主键
+-- - product_id：产品主键
+-- - sensor_group：状态分组
+-- - location_code：位置编码
+-- - risk_point_id：绑定风险点 ID
+-- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_status_point (
     ts TIMESTAMP,
     metric_id BINARY(128) COMPOSITE KEY,
@@ -138,6 +195,34 @@ CREATE STABLE IF NOT EXISTS iot_raw_status_point (
     risk_point_id BIGINT
 );
 
+-- ----------------------------------------
+-- stable：iot_raw_event_point
+-- 表介绍：
+-- - telemetry v2 事件类 raw stable
+-- - 承载告警事件、动作事件、业务事件等事件型指标
+-- - 运行时通过 `tb_e_<tenantId>_<deviceId>` 派生设备子表
+-- 字段含义：
+-- - ts：行键时间
+-- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多事件覆盖
+-- - reported_at：事件真实发生/上报时间
+-- - ingested_at：平台写入时间
+-- - value_double：浮点型事件值
+-- - value_long：整型事件值
+-- - value_bool：布尔型事件值
+-- - value_text：文本型事件值或事件描述
+-- - quality_code：质量码
+-- - alarm_flag：是否为告警事件
+-- - trace_id：全链路追踪 ID
+-- - session_id：message-flow 会话 ID
+-- - source_message_type：来源消息类型
+-- tags 含义：
+-- - tenant_id：租户 ID
+-- - device_id：设备主键
+-- - product_id：产品主键
+-- - sensor_group：事件分组
+-- - location_code：位置编码
+-- - risk_point_id：绑定风险点 ID
+-- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_event_point (
     ts TIMESTAMP,
     metric_id BINARY(128) COMPOSITE KEY,
