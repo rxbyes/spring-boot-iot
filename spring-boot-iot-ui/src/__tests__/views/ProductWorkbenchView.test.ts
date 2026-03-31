@@ -265,6 +265,35 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['prop', 'label', 'minWidth', 'width'],
+  template: `
+    <section class="standard-table-text-column-stub" :data-prop="prop">
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
+})
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: ['data'],
+  emits: ['selection-change'],
+  template: '<section class="el-table-stub"><slot /></section>'
+})
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['prop', 'label', 'width', 'fixed', 'type', 'align', 'className', 'showOverflowTooltip'],
+  template: `
+    <section class="el-table-column-stub" :data-prop="prop || type || 'column'">
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
+})
+
 const ProductModelDesignerDrawerStub = defineComponent({
   name: 'ProductModelDesignerDrawer',
   props: ['modelValue', 'product'],
@@ -329,10 +358,12 @@ function mountView() {
         StandardAppliedFiltersBar: true,
         StandardInlineState: StandardInlineStateStub,
         StandardPagination: true,
-        StandardTableTextColumn: true,
+        StandardTableTextColumn: StandardTableTextColumnStub,
         CsvColumnSettingDialog: true,
         DeviceListDrawer: DeviceListDrawerStub,
-        EmptyState: true
+        EmptyState: true,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub
       }
     }
   })
@@ -388,10 +419,44 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('批量操作')
     expect(wrapper.text()).toContain('刷新列表')
     expect(wrapper.text()).toContain('更多操作')
+    expect(wrapper.text()).not.toContain('表格视图')
+    expect(wrapper.text()).not.toContain('卡片视图')
     expect(wrapper.text()).not.toContain('导出列设置')
     expect(wrapper.text()).not.toContain('导出选中')
     expect(wrapper.text()).not.toContain('导出当前结果')
     expect(wrapper.text()).not.toContain('清空选中')
+  })
+
+  it('keeps /products as a single main list with desktop table and responsive mobile cards', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 1001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        dataFormat: 'JSON',
+        manufacturer: 'GHLZM',
+        status: 1,
+        deviceCount: 0,
+        onlineDeviceCount: 0,
+        createTime: '2026-03-24T09:00:00',
+        updateTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    expect(wrapper.find('.product-mobile-list').exists()).toBe(true)
+    expect(wrapper.find('.product-desktop-table').exists()).toBe(true)
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+
+    expect(rowActions.some((component) => component.props('variant') === 'card')).toBe(true)
+    expect(rowActions.some((component) => component.props('variant') === 'table')).toBe(true)
   })
 
   it('opens the unified business workbench from the single direct entry with overview as the default view', async () => {
@@ -415,7 +480,6 @@ describe('ProductWorkbenchView', () => {
         updateTime: '2026-03-24T09:00:00'
       }
     ]
-    ;(wrapper.vm as any).viewType = 'card'
     await nextTick()
 
     const workbenchEntry = wrapper.find('[data-testid="open-product-business-workbench"]')
@@ -432,7 +496,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('demo-product')
   })
 
-  it('reuses the shared workbench row-actions component for product card rows', async () => {
+  it('reuses the shared workbench row-actions component for both table and mobile product rows', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
@@ -453,19 +517,26 @@ describe('ProductWorkbenchView', () => {
         updateTime: '2026-03-24T09:00:00'
       }
     ]
-    ;(wrapper.vm as any).viewType = 'card'
     await nextTick()
 
-    const rowActions = wrapper.findComponent(StandardWorkbenchRowActionsStub)
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+    const tableRowActions = rowActions.find((component) => component.props('variant') === 'table')
 
-    expect(rowActions.exists()).toBe(true)
-    expect(rowActions.props('variant')).toBe('card')
-    expect(rowActions.props('gap')).toBe('compact')
-    expect((rowActions.props('directItems') as Array<{ label: string }>).map((item) => item.label)).toEqual([
+    expect(cardRowActions?.exists()).toBe(true)
+    expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.props('gap')).toBe('compact')
+    expect(tableRowActions?.props('gap')).toBe('compact')
+    expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
       '进入工作台',
       '删除'
     ])
-    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(0)
+    expect(((tableRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+      '进入工作台',
+      '删除'
+    ])
+    expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(0)
+    expect(((tableRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(0)
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {

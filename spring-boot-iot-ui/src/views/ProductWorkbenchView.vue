@@ -71,28 +71,6 @@
           ]"
         >
           <template #right>
-            <!-- 视图切换下拉菜单 -->
-            <el-dropdown
-              v-permission="'iot:products:view'"
-              @command="(command) => handleViewTypeChange(command)"
-            >
-              <StandardActionLink>
-                <span>{{ viewTypeName }}</span>
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </StandardActionLink>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="table">
-                    <el-icon><List /></el-icon>
-                    <span>表格视图</span>
-                  </el-dropdown-item>
-                  <el-dropdown-item command="card">
-                    <el-icon><Grid /></el-icon>
-                    <span>卡片视图</span>
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
             <!-- 批量操作下拉菜单 -->
             <el-dropdown
               v-permission="'iot:products:update'"
@@ -189,8 +167,7 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <!-- 卡片视图 -->
-          <div v-if="viewType === 'card'" class="product-card-view">
+          <div class="product-mobile-list">
             <div class="product-mobile-list__grid">
               <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
                 <div class="product-mobile-card__header">
@@ -230,70 +207,67 @@
                   </div>
                 </div>
 
-                  <StandardWorkbenchRowActions
-                    variant="card"
-                    gap="compact"
-                    class="product-mobile-card__actions"
-                    :direct-items="getProductDirectActions('card')"
-                    :menu-items="productRowActions"
-                    @command="(command) => handleRowAction(command, row)"
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  gap="compact"
+                  class="product-mobile-card__actions"
+                  :direct-items="getProductDirectActions('card')"
+                  :menu-items="productRowActions"
+                  @command="(command) => handleRowAction(command, row)"
                 />
               </article>
             </div>
           </div>
 
-          <!-- 表格视图 -->
-          <template v-if="viewType === 'table'">
-            <el-table
-              ref="tableRef"
-              class="product-desktop-table"
-              :data="tableData"
-              border
-              stripe
-              @selection-change="handleSelectionChange"
+          <el-table
+            ref="tableRef"
+            class="product-desktop-table"
+            :data="tableData"
+            border
+            stripe
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
+            <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
+            <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
+            <el-table-column prop="nodeType" label="节点类型" width="120">
+              <template #default="{ row }">
+                <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
+            <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
+            <el-table-column prop="status" label="产品状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
+            <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+            </StandardTableTextColumn>
+            <el-table-column
+              label="操作"
+              width="288"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
             >
-              <el-table-column type="selection" width="48" />
-              <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
-              <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
-              <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
-              <el-table-column prop="nodeType" label="节点类型" width="120">
-                <template #default="{ row }">
-                  <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
-                </template>
-              </el-table-column>
-              <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
-              <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
-              <el-table-column prop="status" label="产品状态" width="110">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
-              <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
-                <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
-              </StandardTableTextColumn>
-              <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
-                <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-              </StandardTableTextColumn>
-              <el-table-column
-                label="操作"
-                width="288"
-                fixed="right"
-                class-name="standard-row-actions-column"
-                :show-overflow-tooltip="false"
-              >
-                <template #default="{ row }">
-                  <StandardWorkbenchRowActions
-                    variant="table"
-                    gap="compact"
-                    :direct-items="getProductDirectActions('table')"
-                    :menu-items="productRowActions"
-                    @command="(command) => handleRowAction(command, row)"
-                  />
-                </template>
-              </el-table-column>
-            </el-table>
-          </template>
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  gap="compact"
+                  :direct-items="getProductDirectActions('table')"
+                  :menu-items="productRowActions"
+                  @command="(command) => handleRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
         </template>
 
         <div v-else-if="!loading" class="product-empty-state">
@@ -480,7 +454,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowDown, Bottom, Delete, Grid, List, Top } from '@element-plus/icons-vue'
+import { ArrowDown, Bottom, Delete, Top } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
@@ -672,19 +646,6 @@ const quickSearchKeyword = computed({
     searchForm.productName = value
   }
 })
-
-// 视图类型：table 或 card
-const viewType = ref<'table' | 'card'>('table')
-
-const viewTypeName = computed(() => {
-  return viewType.value === 'table' ? '表格视图' : '卡片视图'
-})
-
-function handleViewTypeChange(command: string) {
-  if (command === 'table' || command === 'card') {
-    viewType.value = command
-  }
-}
 
 const createDefaultFormData = (): ProductFormState => ({
   productKey: '',
@@ -2129,330 +2090,6 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* ============================================
-   卡片视图 - 精致现代风格
-   ============================================ */
-.product-card-view {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-
-/* 卡片网格布局 */
-.product-card-view .product-mobile-list__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-/* 卡片容器 - 精致卡片设计 */
-.product-card-view .product-mobile-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 3px rgba(24, 45, 77, 0.02);
-  transition:
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s ease;
-  cursor: pointer;
-}
-
-.product-card-view .product-mobile-card:hover {
-  box-shadow:
-    0 8px 24px rgba(24, 45, 77, 0.08),
-    0 4px 12px rgba(24, 45, 77, 0.04);
-  transform: translateY(-2px);
-  border-color: rgba(78, 89, 105, 0.15);
-}
-
-/* 卡片选中状态 */
-.product-card-view .product-mobile-card.selected {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
-}
-
-/* ============================================
-   卡片头部 - 棋盘布局
-   ============================================ */
-.product-card-view .product-mobile-card__header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 8px 12px;
-  margin-bottom: 12px;
-}
-
-/* 卡片复选框 */
-.product-card-view .product-mobile-card__header .el-checkbox {
-  grid-row: 1 / span 2;
-  margin: 0;
-}
-
-/* 卡片标题区域 */
-.product-card-view .product-mobile-card__heading {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.product-card-view .product-mobile-card__title {
-  color: #1a1d21;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-}
-
-.product-card-view .product-mobile-card__sub {
-  overflow: hidden;
-  color: #7d8692;
-  font-size: 12px;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 卡片状态标签 */
-.product-card-view .product-mobile-card__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================
-   卡片视图 - 精致现代风格
-   ============================================ */
-.product-card-view {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-
-/* 卡片网格布局 */
-.product-card-view .product-mobile-list__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-/* 卡片容器 - 精致卡片设计 */
-.product-card-view .product-mobile-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 3px rgba(24, 45, 77, 0.02);
-  transition:
-    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s ease,
-    box-shadow 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 卡片悬停效果 */
-.product-card-view .product-mobile-card:hover {
-  box-shadow:
-    0 12px 32px rgba(24, 45, 77, 0.08),
-    0 6px 16px rgba(24, 45, 77, 0.04);
-  transform: translateY(-4px);
-  border-color: rgba(78, 89, 105, 0.15);
-}
-
-/* 卡片选中状态 */
-.product-card-view .product-mobile-card.selected {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
-}
-
-/* 卡片选中伪元素装饰 */
-.product-card-view .product-mobile-card.selected::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
-  -webkit-mask: 
-    linear-gradient(#fff 0 0) content-box, 
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ============================================
-   卡片头部 - 棋盘布局
-   ============================================ */
-.product-card-view .product-mobile-card__header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 8px 12px;
-  margin-bottom: 12px;
-}
-
-/* 卡片复选框 */
-.product-card-view .product-mobile-card__header .el-checkbox {
-  grid-row: 1 / span 2;
-  margin: 0;
-}
-
-/* 卡片标题区域 */
-.product-card-view .product-mobile-card__heading {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.product-card-view .product-mobile-card__title {
-  color: #1a1d21;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-}
-
-.product-card-view .product-mobile-card__sub {
-  overflow: hidden;
-  color: #7d8692;
-  font-size: 12px;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 卡片状态标签 */
-.product-card-view .product-mobile-card__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================
-   卡片元数据标签组
-   ============================================ */
-.product-card-view .product-mobile-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.product-card-view .product-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border: 1px solid rgba(228, 235, 246, 0.7);
-  border-radius: var(--radius-xl);
-  background: #ffffff;
-  color: #525a66;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.product-card-view .product-mobile-card__meta-item:first-child {
-  background: rgba(78, 89, 105, 0.04);
-  border-color: rgba(78, 89, 105, 0.1);
-  color: #3e4651;
-}
-
-/* ============================================
-   卡片信息网格
-   ============================================ */
-.product-card-view .product-mobile-card__info {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-  flex-grow: 1;
-}
-
-.product-card-view .product-mobile-card__field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(228, 235, 246, 0.6);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: #fcfdfd;
-}
-
-.product-card-view .product-mobile-card__field span {
-  color: #95a0ae;
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.4;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.product-card-view .product-mobile-card__field strong {
-  overflow: hidden;
-  color: #1a1d21;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ============================================
-   卡片操作区域
-   ============================================ */
-.product-card-view .product-mobile-card__actions {
-  padding-top: 12px;
-  border-top: 1px solid rgba(228, 235, 246, 0.5);
-}
-
-/* 响应式卡片视图 */
-.product-mobile-list {
-  display: none;
-  margin-bottom: 0.72rem;
-}
-
-/* 卡片视图响应式 - 桌面端显示 */
-@media (min-width: 721px) {
-  .product-card-view {
-    display: flex;
-  }
-  
-  .product-mobile-list {
-    display: none;
-  }
-}
-
-/* 卡片视图响应式 - 移动端显示 */
-@media (max-width: 720px) {
-  .product-card-view {
-    display: none;
-  }
-  
-  .product-mobile-list {
-    display: block;
-  }
-}
-
-/* 响应式卡片视图 */
 .product-mobile-list {
   display: none;
   margin-bottom: 0.72rem;
