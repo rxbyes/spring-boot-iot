@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent, h, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -679,5 +681,13 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.findComponent(DeviceListDrawerStub).exists()).toBe(false)
     expect(wrapper.findComponent(ProductModelDesignerDrawerStub).exists()).toBe(false)
     expect(wrapper.findComponent(StandardDetailDrawerStub).exists()).toBe(false)
+  })
+
+  it('uses the shared list surface and mobile-card grammar', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/ProductWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain('standard-list-surface')
+    expect(source).toContain('standard-mobile-record-grid')
+    expect(source).toContain('standard-mobile-record-card')
   })
 })

@@ -116,7 +116,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="product-result-panel"
+        class="product-result-panel standard-list-surface"
         element-loading-text="正在刷新产品列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -165,9 +165,13 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <div class="product-mobile-list">
-            <div class="product-mobile-list__grid">
-              <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
+          <div class="product-mobile-list standard-mobile-record-list">
+            <div class="product-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="getProductRowKey(row)"
+                class="product-mobile-card standard-mobile-record-card"
+              >
                 <div class="product-mobile-card__header">
                   <el-checkbox
                     :model-value="isRowSelected(row)"
@@ -181,27 +185,27 @@
                 </div>
 
                 <div class="product-mobile-card__meta">
-                  <span class="product-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
-                  <span class="product-mobile-card__meta-item">{{ row.protocolCode || '--' }}</span>
-                  <span class="product-mobile-card__meta-item">{{ row.dataFormat || '--' }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ row.protocolCode || '--' }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ row.dataFormat || '--' }}</span>
                 </div>
 
                 <div class="product-mobile-card__info">
                   <div class="product-mobile-card__field">
-                    <span>厂商</span>
-                    <strong>{{ formatTextValue(row.manufacturer) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">厂商</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.manufacturer) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>关联设备</span>
-                    <strong>{{ formatCount(row.deviceCount) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">关联设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatCount(row.deviceCount) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>最近上报</span>
-                    <strong>{{ formatDateTime(row.lastReportTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">最近上报</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.lastReportTime) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>更新时间</span>
-                    <strong>{{ formatDateTime(row.updateTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">更新时间</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.updateTime) }}</strong>
                   </div>
                 </div>
 
@@ -2101,20 +2105,6 @@ onMounted(async () => {
   margin-bottom: 0.72rem;
 }
 
-.product-result-panel {
-  position: relative;
-  isolation: isolate;
-  min-height: 14rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
-}
-
-.product-result-panel :deep(.el-loading-mask) {
-  border-radius: inherit;
-  background: rgba(248, 250, 255, 0.78) !important;
-  backdrop-filter: blur(5px);
-}
-
 .product-result-panel :deep(.el-loading-spinner .el-loading-text) {
   margin-top: 0.72rem;
   color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
@@ -2297,21 +2287,6 @@ onMounted(async () => {
   border-radius: 0.3rem;
 }
 
-.product-mobile-list__grid {
-  display: grid;
-  gap: 12px;
-}
-
-.product-mobile-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-76);
-}
-
 .product-mobile-card__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2347,18 +2322,6 @@ onMounted(async () => {
   gap: 0.45rem;
 }
 
-.product-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.6rem;
-  padding: 0.2rem 0.58rem;
-  border-radius: var(--radius-pill);
-  background: rgba(78, 89, 105, 0.08);
-  color: var(--text-caption);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
 .product-mobile-card__info {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2371,18 +2334,9 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.product-mobile-card__field span {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-.product-mobile-card__field strong {
+.product-mobile-card__field .standard-mobile-record-card__field-value {
   overflow: hidden;
-  color: var(--text-heading);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.52;
+  display: block;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

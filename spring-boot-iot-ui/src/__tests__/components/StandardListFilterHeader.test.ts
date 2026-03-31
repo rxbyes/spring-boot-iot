@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { nextTick } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -156,5 +158,16 @@ describe('StandardListFilterHeader', () => {
 
     expect(wrapper.classes()).toContain('standard-list-filter-header--minimal')
     expect(wrapper.find('.standard-list-filter-header__actions-row').classes()).toContain('standard-list-filter-header__actions-row--minimal')
+  })
+
+  it('keeps the filter grid and actions row on shared spacing variables', () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, '../../components/StandardListFilterHeader.vue'),
+      'utf8'
+    )
+
+    expect(source).toContain('--ops-filter-grid-gap')
+    expect(source).toContain('--ops-filter-actions-gap')
+    expect(source).toContain('StandardActionGroup gap="sm"')
   })
 })

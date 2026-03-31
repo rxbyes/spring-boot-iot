@@ -77,6 +77,7 @@ withDefaults(defineProps<{
 
 <style scoped>
 .standard-workbench-panel {
+  --ops-workbench-gap: var(--ops-workbench-gap);
   min-width: 0;
 }
 
@@ -143,7 +144,7 @@ withDefaults(defineProps<{
 .standard-workbench-panel__notices,
 .standard-workbench-panel__toolbar,
 .standard-workbench-panel__inline-state {
-  margin-bottom: 0.72rem;
+  margin-bottom: var(--ops-workbench-gap, 0.72rem);
 }
 
 .standard-workbench-panel__filters-extra {
@@ -155,7 +156,7 @@ withDefaults(defineProps<{
 }
 
 .standard-workbench-panel__pagination {
-  margin-top: 0.72rem;
+  margin-top: var(--ops-workbench-gap, 0.72rem);
 }
 
 @media (max-width: 720px) {

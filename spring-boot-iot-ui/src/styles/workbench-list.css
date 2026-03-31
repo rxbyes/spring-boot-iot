@@ -1,0 +1,57 @@
+.standard-list-surface {
+  position: relative;
+  isolation: isolate;
+  min-height: 14rem;
+  border-radius: var(--ops-list-surface-radius);
+  background: var(--ops-list-surface-bg);
+}
+
+.standard-list-surface .el-loading-mask {
+  border-radius: inherit;
+  background: var(--ops-list-surface-mask) !important;
+  backdrop-filter: blur(5px);
+}
+
+.standard-mobile-record-list {
+  min-width: 0;
+}
+
+.standard-mobile-record-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.standard-mobile-record-card {
+  display: grid;
+  gap: var(--ops-mobile-card-gap);
+  padding: var(--ops-mobile-card-padding);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--ops-list-surface-radius);
+  background: var(--ops-list-surface-bg-strong);
+  box-shadow: var(--shadow-inset-highlight-76);
+}
+
+.standard-mobile-record-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+  padding: 0.2rem 0.58rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
+  color: var(--text-caption);
+  font-size: var(--ops-meta-chip-font-size);
+  line-height: 1.4;
+}
+
+.standard-mobile-record-card__field-label {
+  color: var(--text-caption-2);
+  font-size: var(--ops-field-label-font-size);
+  line-height: 1.4;
+}
+
+.standard-mobile-record-card__field-value {
+  color: var(--text-heading);
+  font-size: var(--ops-field-value-font-size);
+  font-weight: 600;
+  line-height: 1.52;
+}

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -412,5 +414,15 @@ describe('DeviceWorkbenchView', () => {
       .find((component) => component.props('label') === '操作')
 
     expect(String(actionColumn?.props('width'))).toBe('200')
+  })
+
+  it('keeps the device workbench on the shared list surface and trims toolbar density', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain('standard-list-surface')
+    expect(source).toContain('standard-mobile-record-grid')
+    expect(source).toContain('compact')
+    expect(source).toContain('已登记 ${registeredCount} 台')
+    expect(source).not.toContain('`未登记 ${unregisteredCount} 台`')
   })
 })

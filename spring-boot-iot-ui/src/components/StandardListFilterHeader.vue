@@ -143,7 +143,7 @@ onUpdated(() => {
 .standard-list-filter-header__row {
   display: grid;
   grid-template-columns: var(--slfh-primary-columns);
-  gap: 8px;
+  gap: var(--ops-filter-grid-gap, 8px);
   align-items: end;
 }
 
@@ -165,7 +165,7 @@ onUpdated(() => {
 .standard-list-filter-header__advanced-grid {
   display: grid;
   grid-template-columns: var(--slfh-advanced-columns);
-  gap: 8px;
+  gap: var(--ops-filter-grid-gap, 8px);
 }
 
 .standard-list-filter-header__advanced-grid :deep(.el-form-item) {
@@ -183,7 +183,7 @@ onUpdated(() => {
 
 .standard-list-filter-header__actions-row--minimal {
   margin-top: 12px;
-  gap: 8px 14px;
+  gap: 8px var(--ops-filter-actions-gap, 14px);
 }
 
 .standard-list-filter-header__actions {
