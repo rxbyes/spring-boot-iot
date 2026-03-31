@@ -37,6 +37,7 @@ class TelemetryV2SchemaSupportTest {
         schemaSupport.ensureTables();
 
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_measure_point"));
+        verify(jdbcTemplate, times(3)).execute(contains("metric_id BINARY(128) COMPOSITE KEY"));
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_status_point"));
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_event_point"));
     }

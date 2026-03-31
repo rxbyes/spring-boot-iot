@@ -74,7 +74,7 @@ public class TelemetryV2SchemaSupport {
     private String buildStableSql(TelemetryStreamKind streamKind) {
         return "CREATE STABLE IF NOT EXISTS " + tableNamingStrategy.resolveStableName(streamKind) + " ("
                 + "ts TIMESTAMP,"
-                + " metric_id BINARY(128),"
+                + " metric_id BINARY(128) COMPOSITE KEY,"
                 + " reported_at TIMESTAMP,"
                 + " ingested_at TIMESTAMP,"
                 + " value_double DOUBLE,"

@@ -36,10 +36,11 @@
 
 - Phase 1~3 主链路已形成长期稳定基线。
 - 设备接入主链路当前已重构为固定 `Pipeline`：HTTP / MQTT 统一按 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE` 执行，不再依赖“旁路日志推断”判断阶段顺序。
-- `spring-boot-iot-telemetry` 已进入 telemetry v2 foundation 基线；`application-dev.yml` / `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`。标准化后的 `properties` 会在 `PAYLOAD_APPLY` 之后优先批量写入 TDengine v2 raw stable，再异步投影 MySQL latest 并按配置镜像 legacy stable；`iot_device_telemetry_point` 继续保留为 legacy 兼容回退表，`reply` / 文件载荷 / 空属性消息继续跳过时序落库。
+- `spring-boot-iot-telemetry` 已进入 telemetry v2 foundation 基线；`application-dev.yml` / `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`。标准化后的 `properties` 会在 `PAYLOAD_APPLY` 之后优先批量写入 TDengine v2 raw stable，再异步投影 MySQL latest 并按配置镜像 legacy stable；应用启动时会自动补齐 `iot_device_telemetry_point` 兼容表和 `iot_raw_measure_point / iot_raw_status_point / iot_raw_event_point` 三张 raw stable，其中 raw stable 采用 `(ts, metric_id)` 复合主键语义避免同一子表同一时刻多测点互相覆盖，`reply` / 文件载荷 / 空属性消息继续跳过时序落库。
 - `application-dev.yml`、`application-prod.yml`、`application-test.yml` 当前已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 TDengine `slave_1` 也已补齐独立 Hikari 基线，避免共享环境继续沿用默认 `10` 连接池。
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
 - `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认先读 telemetry v2 latest MySQL 投影表 `iot_device_metric_latest`，并在 `legacy-read-fallback-enabled=true` 时继续补齐 legacy stable + `iot_device_telemetry_point` 缺失指标；`mysql` 模式兼容回退到 `iot_device_property`。
+- `POST /api/telemetry/migrate-history` 当前提供 TDengine 历史补迁入口：默认优先读取 `iot_device_telemetry_point` 标准化兼容表，缺失时再按 `specsJson.tdengineLegacy` 与 `metadataJson.tdengineLegacy` 映射回放 legacy stable；该迁移由业务代码手动触发，不会在启动阶段自动全量回灌历史数据。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；standby 节点保持健康且仍可通过临时 publisher 客户端调用 `/api/message/mqtt/report/publish`。
 - 设备离线超时调度当前也启用独立 Redis 单实例锁：默认通过 `iot:device:offline-timeout:leader` 只允许 1 个 leader 节点执行离线收口，避免共享环境多实例或旧节点把设备状态反复写回离线。
 - 2026-03-27 起，MQTT 无效上报治理已进入默认基线：首批对 `DEVICE_NOT_FOUND` 与 `EMPTY_DECRYPTED_PAYLOAD` 执行 Redis 分钟桶计数与冷却抑制，`iot_device_access_error_log` 收口为失败样本归档，未登记设备最新态改由 `iot_device_invalid_report_state` 承载，设备补录 / 更换成功后会自动标记对应记录为已解封。
