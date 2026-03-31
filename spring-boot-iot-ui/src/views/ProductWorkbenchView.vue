@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack product-asset-view">
-    <IotAccessPageShell :show-title="false" />
-
+  <StandardPageShell class="product-asset-view">
     <StandardWorkbenchPanel
       title="产品定义中心"
       description="统一维护产品台账、协议绑定与接入契约。"
@@ -252,7 +250,7 @@
             </StandardTableTextColumn>
             <el-table-column
               label="操作"
-              width="288"
+              :width="productActionColumnWidth"
               fixed="right"
               class-name="standard-row-actions-column"
               :show-overflow-tooltip="false"
@@ -449,7 +447,7 @@
       @confirm="handleExportColumnConfirm"
     />
 
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -464,12 +462,12 @@ import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import ProductBusinessWorkbenchDrawer, {
   type ProductBusinessWorkbenchView
 } from '@/components/product/ProductBusinessWorkbenchDrawer.vue'
@@ -516,6 +514,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
@@ -683,6 +682,12 @@ const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagno
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const productRowActions = computed<ProductRowAction[]>(() => [])
+const productActionColumnWidth = computed(() =>
+  resolveAdaptiveActionColumnWidth({
+    directLabels: getProductDirectActions('table').map((item) => item.label),
+    gap: 'compact'
+  })
+)
 const productToolbarActions = computed<ProductToolbarAction[]>(() => {
   const actions: ProductToolbarAction[] = []
 
@@ -2050,7 +2055,8 @@ onMounted(async () => {
 <style scoped>
 .product-asset-view {
   display: grid;
-  gap: 16px;
+  gap: 0.72rem;
+  min-width: 0;
 }
 
 :deep(.product-detail-drawer .el-drawer__header) {

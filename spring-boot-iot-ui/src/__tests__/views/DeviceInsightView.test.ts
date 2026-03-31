@@ -103,6 +103,17 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
+  props: ['title', 'showTitle'],
+  template: `
+    <section class="standard-page-shell-stub">
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
+    </section>
+  `
+});
+
 const PanelCardStub = defineComponent({
   name: 'PanelCard',
   props: ['eyebrow', 'title', 'description'],
@@ -148,6 +159,7 @@ function mountView() {
     global: {
       renderStubDefaultSlot: true,
       stubs: {
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: true,
         StandardInlineState: true,
@@ -185,6 +197,7 @@ describe('DeviceInsightView', () => {
 
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.findAll('.device-insight-workbench-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(workbench.props('showFilters')).toBe(true);

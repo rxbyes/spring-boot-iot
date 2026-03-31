@@ -74,7 +74,7 @@ const emit = defineEmits<{
   (event: 'command', command: WorkbenchRowCommand): void
 }>()
 
-const resolvedGap = computed(() => props.gap ?? (props.variant === 'table' ? 'wide' : 'comfortable'))
+const resolvedGap = computed(() => props.gap ?? (props.variant === 'table' ? 'compact' : 'comfortable'))
 const resolvedDirectItems = computed(() => props.directItems ?? [])
 const resolvedMenuItems = computed(() => props.menuItems ?? [])
 const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)

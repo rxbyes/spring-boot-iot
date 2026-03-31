@@ -67,11 +67,11 @@ const PanelCardStub = defineComponent({
   `
 })
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -119,7 +119,7 @@ function mountView() {
   return mount(SectionLandingView, {
     global: {
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: true,
@@ -141,7 +141,7 @@ describe('SectionLandingView', () => {
     const wrapper = mountView()
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub)
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true)
     expect(workbench.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('资产底座')

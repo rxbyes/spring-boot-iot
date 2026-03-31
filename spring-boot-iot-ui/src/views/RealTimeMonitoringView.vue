@@ -1,5 +1,5 @@
 <template>
-  <div class="ops-workbench risk-monitoring-view">
+  <StandardPageShell class="risk-monitoring-view">
     <StandardWorkbenchPanel
       title="实时监测台"
       :description="`当前 ${pagination.total} 条监测记录，支持按区域、风险点、设备编码和在线状态快速定位。`"
@@ -107,7 +107,7 @@
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
                 <StandardActionLink @click="openDetail(row.bindingId)">详情</StandardActionLink>
               </StandardRowActions>
             </template>
@@ -132,7 +132,7 @@
     </StandardWorkbenchPanel>
 
     <RiskMonitoringDetailDrawer v-model="detailVisible" :binding-id="activeBindingId" />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -142,6 +142,7 @@ import { ElMessage } from '@/utils/message';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import StandardPagination from '../components/StandardPagination.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
+import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
@@ -348,9 +349,6 @@ function formatCurrentValue(value?: string | null, unit?: string | null) {
 
 <style scoped>
 .risk-monitoring-view {
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  min-width: 0;
 }
 </style>

@@ -111,7 +111,7 @@
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
         <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
               <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
               <StandardActionLink v-permission="'system:help-doc:update'" @click="handleEdit(row)">编辑</StandardActionLink>
               <StandardActionLink v-permission="'system:help-doc:delete'" @click="handleDelete(row)">删除</StandardActionLink>

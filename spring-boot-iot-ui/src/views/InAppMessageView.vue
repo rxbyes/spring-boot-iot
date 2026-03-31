@@ -226,7 +226,7 @@
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
         <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide" wrap>
+              <StandardRowActions variant="table" gap="compact" wrap>
               <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
               <StandardActionLink
                 v-if="canEditMessage(row)"
@@ -517,7 +517,7 @@
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
               <StandardActionLink @click="handleViewBridge(row)">桥接详情</StandardActionLink>
             </StandardRowActions>
           </template>

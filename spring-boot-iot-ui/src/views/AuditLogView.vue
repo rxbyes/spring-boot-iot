@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack audit-log-view">
-    <IotAccessPageShell v-if="isSystemMode" :show-title="false" />
-
+  <StandardPageShell class="page-stack audit-log-view" :show-title="false">
     <StandardWorkbenchPanel
       :title="panelTitle"
       :description="pageDescription"
@@ -207,13 +205,13 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          :width="isSystemMode ? 210 : 150"
+          :width="auditActionColumnWidth"
           fixed="right"
           class-name="standard-row-actions-column"
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
               <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>
               <StandardActionLink
                 v-if="isSystemMode"
@@ -264,7 +262,7 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -284,7 +282,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
@@ -302,6 +300,7 @@ import {
   resolveDiagnosticContext,
   type DiagnosticContext
 } from '@/utils/iotAccessDiagnostics'
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
 
@@ -310,6 +309,12 @@ const router = useRouter()
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
+const auditActionColumnWidth = computed(() =>
+  resolveAdaptiveActionColumnWidth({
+    directLabels: isSystemMode.value ? ['详情', '追踪', '删除'] : ['详情', '删除'],
+    gap: 'wide'
+  })
+)
 const pageTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
 const panelTitle = computed(() => pageTitle.value)
 const pageDescription = computed(() =>

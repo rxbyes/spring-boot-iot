@@ -167,13 +167,13 @@
       </StandardTableTextColumn>
       <el-table-column
         label="操作"
-        width="210"
+        :width="accessErrorActionColumnWidth"
         fixed="right"
         class-name="standard-row-actions-column"
         :show-overflow-tooltip="false"
       >
         <template #default="{ row }">
-          <StandardRowActions variant="table" gap="wide">
+              <StandardRowActions variant="table" gap="compact">
             <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>
             <StandardActionLink :disabled="!canJumpToTrace(row)" @click="jumpToMessageTrace(row)">追踪</StandardActionLink>
             <StandardActionLink :disabled="!canJumpToSystemLog(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
@@ -355,6 +355,7 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceAccessErrorLog, DeviceAccessErrorStats } from '@/types/api';
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { formatDateTime, prettyJson } from '@/utils/format';
 import {
   buildDiagnosticRouteQuery,
@@ -364,6 +365,10 @@ import {
 
 const route = useRoute();
 const router = useRouter();
+const accessErrorActionColumnWidth = resolveAdaptiveActionColumnWidth({
+  directLabels: ['详情', '追踪', '观测'],
+  gap: 'wide'
+});
 
 const searchForm = reactive({
   traceId: '',

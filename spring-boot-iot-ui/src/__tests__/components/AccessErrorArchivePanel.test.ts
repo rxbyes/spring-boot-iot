@@ -69,9 +69,9 @@ const StandardTableToolbarStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
-  props: ['label', 'className'],
+  props: ['label', 'className', 'width'],
   template: `
-    <div class="access-error-column-stub" :data-label="label" :data-class-name="className">
+    <div class="access-error-column-stub" :data-label="label" :data-class-name="className" :data-width="width">
       <slot />
     </div>
   `
@@ -269,5 +269,6 @@ describe('AccessErrorArchivePanel', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('200');
   });
 });

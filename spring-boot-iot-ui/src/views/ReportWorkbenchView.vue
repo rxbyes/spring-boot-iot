@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack reporting-view ops-workbench">
-    <IotAccessPageShell :show-title="false" />
-
+  <StandardPageShell class="page-stack reporting-view ops-workbench" :show-title="false">
     <IotAccessTabWorkspace
       v-model="reportingWorkspaceTab"
       :items="reportingWorkspaceTabs"
@@ -373,7 +371,7 @@
         </PanelCard>
       </template>
     </IotAccessTabWorkspace>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -383,10 +381,10 @@ import { useRouter } from 'vue-router';
 
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '../api/iot';
 import { messageApi } from '../api/message';
-import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import IotAccessTabWorkspace from '../components/iotAccess/IotAccessTabWorkspace.vue';
 import PanelCard from '../components/PanelCard.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardFlowRail from '../components/StandardFlowRail.vue';
 import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';

@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack device-asset-view">
-    <IotAccessPageShell :show-title="false" />
-
+  <StandardPageShell class="device-asset-view">
     <StandardWorkbenchPanel
       title="设备台账"
       description="统一维护设备主数据、在线状态与登记信息。"
@@ -244,6 +242,7 @@
 
                 <StandardWorkbenchRowActions
                   variant="card"
+                  gap="compact"
                   class="device-mobile-card__actions"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
@@ -290,7 +289,7 @@
             </StandardTableTextColumn>
             <el-table-column
               label="操作"
-              width="224"
+              :width="deviceActionColumnWidth"
               fixed="right"
               class-name="standard-row-actions-column"
               :show-overflow-tooltip="false"
@@ -298,6 +297,7 @@
               <template #default="{ row }">
                 <StandardWorkbenchRowActions
                   variant="table"
+                  gap="compact"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
                   @command="(command) => handleRowAction(command, row)"
@@ -812,7 +812,7 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -829,12 +829,12 @@ import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { accessErrorApi } from '@/api/accessError'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
@@ -885,6 +885,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime, prettyJson } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
@@ -1471,6 +1472,26 @@ function getDeviceRowActions(row: Device): DeviceRowAction[] {
   }
   return actions
 }
+
+const deviceActionColumnWidth = computed(() => {
+  const visibleRowWidths = tableData.value.map((row) =>
+    resolveAdaptiveActionColumnWidth({
+      directLabels: getDeviceDirectActions(row).map((item) => item.label),
+      menuLabel: getDeviceRowActions(row).length > 0 ? '更多' : undefined,
+      gap: 'wide'
+    })
+  )
+
+  if (visibleRowWidths.length > 0) {
+    return Math.max(...visibleRowWidths)
+  }
+
+  return resolveAdaptiveActionColumnWidth({
+    directLabels: ['详情', ...(permissionStore.hasPermission('iot:devices:update') ? ['编辑'] : [])],
+    menuLabel: '更多',
+    gap: 'wide'
+  })
+})
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {
   return keys.reduce((count, key) => count + (hasFilledFilter(filters, key) ? 1 : 0), 0)
@@ -3159,7 +3180,8 @@ onMounted(async () => {
 <style scoped>
 .device-asset-view {
   display: grid;
-  gap: 16px;
+  gap: 0.72rem;
+  min-width: 0;
 }
 
 .device-result-panel {
@@ -3630,10 +3652,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
-  .device-asset-view {
-    padding: 16px;
-  }
-
   .device-loading-table {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

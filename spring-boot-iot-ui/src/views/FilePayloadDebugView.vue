@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack file-payload-debug-view">
-    <IotAccessPageShell :show-title="false" />
-
+  <StandardPageShell class="page-stack file-payload-debug-view" :show-title="false">
     <StandardWorkbenchPanel
       title="数据校验台"
       description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
@@ -91,7 +89,7 @@
         </section>
       </div>
     </StandardWorkbenchPanel>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -104,8 +102,8 @@ import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
-import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import { recordActivity } from '../stores/activity';
 import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';

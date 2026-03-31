@@ -1,5 +1,5 @@
 <template>
-  <div class="page-stack device-insight-view">
+  <StandardPageShell class="page-stack device-insight-view" :show-title="false">
     <StandardWorkbenchPanel
       title="对象洞察台"
       description="按设备编码查看对象状态、关键指标、研判依据与最近链路线索。"
@@ -227,7 +227,7 @@
         </section>
       </div>
     </StandardWorkbenchPanel>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -241,6 +241,7 @@ import PanelCard from '../components/PanelCard.vue';
 import PropertyTrendPanel from '../components/PropertyTrendPanel.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
+import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { recordActivity } from '../stores/activity';

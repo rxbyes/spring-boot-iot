@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ops-workbench alarm-center-view">
+  <StandardPageShell class="alarm-center-view">
     <StandardWorkbenchPanel
       title="告警列表"
       :description="`当前 ${pagination.total} 条告警记录，支持确认、抑制、关闭和导出复核。`"
@@ -102,14 +102,19 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="alarmActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide" wrap>
-                <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
-                <StandardActionLink v-if="row.status === 0" @click="handleConfirm(row)">确认</StandardActionLink>
-                <StandardActionLink v-if="row.status === 0" @click="handleSuppress(row)">抑制</StandardActionLink>
-                <StandardActionLink v-if="row.status !== 3" @click="handleClose(row)">关闭</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                :direct-items="getAlarmDirectActions(row)"
+                @command="(command) => handleAlarmRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -144,7 +149,7 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -154,13 +159,16 @@ import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardActionMenu from '@/components/StandardActionMenu.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -172,6 +180,8 @@ import { confirmAction, isConfirmCancelled } from '@/utils/confirm';
 
 import { closeAlarm, confirmAlarm, getAlarmDetail, getAlarmList, suppressAlarm } from '../api/alarm';
 import type { AlarmRecord } from '../api/alarm';
+
+type AlarmRowActionCommand = 'detail' | 'confirm' | 'suppress' | 'close';
 
 const loading = ref(false);
 const detailVisible = ref(false);
@@ -211,6 +221,10 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+const alarmActionColumnWidth = resolveAdaptiveActionColumnWidth({
+  directLabels: ['详情', '确认', '抑制', '关闭'],
+  gap: 'compact'
+});
 const alarmToolbarActions = computed(() => [
   {
     key: 'export-config',
@@ -385,6 +399,60 @@ const clearSelection = () => {
   selectedRows.value = [];
 };
 
+const getAlarmDirectActions = (row: AlarmRecord) => {
+  const actions: Array<{ key: AlarmRowActionCommand; command: AlarmRowActionCommand; label: string }> = [
+    {
+      key: 'detail',
+      command: 'detail',
+      label: '详情'
+    }
+  ];
+
+  if (row.status === 0) {
+    actions.push(
+      {
+        key: 'confirm',
+        command: 'confirm',
+        label: '确认'
+      },
+      {
+        key: 'suppress',
+        command: 'suppress',
+        label: '抑制'
+      }
+    );
+  }
+
+  if (row.status !== 3) {
+    actions.push({
+      key: 'close',
+      command: 'close',
+      label: '关闭'
+    });
+  }
+
+  return actions;
+};
+
+const handleAlarmRowAction = (command: AlarmRowActionCommand, row: AlarmRecord) => {
+  switch (command) {
+    case 'detail':
+      void handleViewDetail(row);
+      break;
+    case 'confirm':
+      void handleConfirm(row);
+      break;
+    case 'suppress':
+      void handleSuppress(row);
+      break;
+    case 'close':
+      void handleClose(row);
+      break;
+    default:
+      break;
+  }
+};
+
 const handleRefresh = () => {
   clearSelection();
   void loadAlarmList();
@@ -544,10 +612,6 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .alarm-center-view {
-  padding: 18px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
-  border: 1px solid rgba(41, 60, 92, 0.08);
-  box-shadow: var(--shadow-inset-highlight-72);
+  min-width: 0;
 }
 </style>

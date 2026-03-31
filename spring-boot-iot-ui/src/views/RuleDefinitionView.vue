@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ops-workbench rule-definition-view">
+  <StandardPageShell class="rule-definition-view">
     <StandardWorkbenchPanel
       title="阈值策略"
       :description="`当前 ${pagination.total} 条阈值策略，支持告警触发和转事件配置。`"
@@ -110,7 +110,7 @@
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
                 <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
                 <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
               </StandardRowActions>
@@ -231,7 +231,7 @@
         />
       </template>
     </StandardFormDrawer>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -241,6 +241,7 @@ import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vu
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
@@ -530,9 +531,6 @@ onMounted(() => {
 
 <style scoped>
 .rule-definition-view {
-  padding: 20px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
+  min-width: 0;
 }
 </style>

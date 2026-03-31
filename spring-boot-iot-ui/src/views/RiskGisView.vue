@@ -1,5 +1,5 @@
 <template>
-  <div class="ops-workbench risk-gis-view">
+  <StandardPageShell class="risk-gis-view">
     <StandardWorkbenchPanel
       title="GIS态势图"
       :description="`当前 ${totalPoints} 个风险点，支持按区域聚焦空间分布并联动查看监测详情。`"
@@ -73,7 +73,7 @@
           </StandardTableTextColumn>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
                 <StandardActionLink @click="openDetailByRiskPoint(row.riskPointId)">详情</StandardActionLink>
               </StandardRowActions>
             </template>
@@ -112,7 +112,7 @@
     </StandardWorkbenchPanel>
 
     <RiskMonitoringDetailDrawer v-model="detailVisible" :binding-id="activeBindingId" />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -121,6 +121,7 @@ import { ElMessage } from '@/utils/message';
 
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
+import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
@@ -269,10 +270,7 @@ function formatCoordinate(longitude?: number | null, latitude?: number | null) {
 
 <style scoped>
 .risk-gis-view {
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  min-width: 0;
 }
 
 .ops-section {

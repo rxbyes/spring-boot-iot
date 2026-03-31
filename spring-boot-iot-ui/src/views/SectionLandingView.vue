@@ -1,12 +1,11 @@
 <template>
-  <div class="section-landing page-stack">
+  <StandardPageShell
+    class="section-landing page-stack"
+    :show-breadcrumbs="accessibleCards.length > 0"
+    :breadcrumbs="accessibleCards.length ? [{ label: config?.title || '接入智维' }] : []"
+    :show-title="false"
+  >
     <template v-if="accessibleCards.length">
-      <IotAccessPageShell
-        show-breadcrumbs
-        :breadcrumbs="[{ label: config?.title || '接入智维' }]"
-        :show-title="false"
-      />
-
       <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
@@ -61,7 +60,7 @@
         description="当前账号没有该一级分组下的可用页面，暂时无法进入具体能力页。"
       />
     </PanelCard>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -71,8 +70,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import EmptyState from '@/components/EmptyState.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import {
   getSectionHomeConfigByPath,

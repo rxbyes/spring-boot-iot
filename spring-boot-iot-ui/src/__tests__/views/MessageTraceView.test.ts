@@ -76,11 +76,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -279,13 +279,13 @@ const ElTableStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
-  props: ['label', 'className'],
+  props: ['label', 'className', 'width'],
   setup() {
     const rows = inject('tableRows', ref([]));
     return { rows };
   },
   template: `
-    <div class="el-table-column-stub" :data-label="label" :data-class-name="className">
+    <div class="el-table-column-stub" :data-label="label" :data-class-name="className" :data-width="width">
       <div v-for="(row, index) in rows" :key="index" class="el-table-column-stub__row">
         <slot :row="row" />
       </div>
@@ -392,7 +392,7 @@ function mountView() {
       },
       stubs: {
         AccessErrorArchivePanel: AccessErrorArchivePanelStub,
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         IotAccessWorkbenchHero: IotAccessWorkbenchHeroStub,
         IotAccessSignalDeck: IotAccessSignalDeckStub,
@@ -543,7 +543,7 @@ describe('MessageTraceView', () => {
 
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
     expect(detailDrawer.props('eyebrow')).toBeUndefined();
     expect(messageApi.getMessageFlowOpsOverview).not.toHaveBeenCalled();
@@ -569,6 +569,7 @@ describe('MessageTraceView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('144');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {

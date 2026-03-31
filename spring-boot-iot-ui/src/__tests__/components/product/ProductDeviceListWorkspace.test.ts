@@ -15,6 +15,23 @@ const StandardRowActionsStub = defineComponent({
   template: '<div class="standard-row-actions-stub"><slot /></div>'
 })
 
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: ['data'],
+  template: '<section class="product-device-table-stub"><slot /></section>'
+})
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'width', 'className'],
+  template: `
+    <section class="product-device-table-column-stub" :data-label="label" :data-width="width" :data-class-name="className">
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
+})
+
 describe('ProductDeviceListWorkspace', () => {
   it('renders a compact metric band and keeps the ledger table as the primary stage', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
@@ -44,8 +61,8 @@ describe('ProductDeviceListWorkspace', () => {
       global: {
         stubs: {
           ElTag: true,
-          ElTable: true,
-          ElTableColumn: true,
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
           StandardActionLink: StandardActionLinkStub,
           StandardRowActions: StandardRowActionsStub
         }
@@ -68,5 +85,11 @@ describe('ProductDeviceListWorkspace', () => {
     expect(wrapper.find('.device-workspace__metric[data-tone="danger"]').exists()).toBe(false)
     expect(wrapper.find('.device-workspace__metric[data-tone="accent"]').exists()).toBe(false)
     expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toHaveLength(1)
+
+    const actionColumn = wrapper
+      .findAllComponents(ElTableColumnStub)
+      .find((component) => component.props('label') === '操作')
+
+    expect(String(actionColumn?.props('width'))).toBe('96')
   })
 })

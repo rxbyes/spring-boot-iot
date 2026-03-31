@@ -83,7 +83,7 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
               <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
               <StandardActionLink :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">测试通知</StandardActionLink>
               <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>

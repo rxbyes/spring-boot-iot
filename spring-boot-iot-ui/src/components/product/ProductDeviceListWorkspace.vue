@@ -63,7 +63,7 @@
             </el-table-column>
             <el-table-column
               label="操作"
-              width="100"
+              :width="deviceLedgerActionColumnWidth"
               fixed="right"
               show-overflow-tooltip
               class-name="standard-row-actions-column"
@@ -87,6 +87,7 @@ import { computed, toRefs } from 'vue'
 import StandardActionLink from '@/components/StandardActionLink.vue'
 import StandardRowActions from '@/components/StandardRowActions.vue'
 import type { Device, Product } from '@/types/api'
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 
 const props = withDefaults(
@@ -168,6 +169,11 @@ const summaryMetrics = computed(() => [
     tone: 'brand'
   }
 ])
+
+const deviceLedgerActionColumnWidth = resolveAdaptiveActionColumnWidth({
+  directLabels: ['查看'],
+  gap: 'compact'
+})
 
 function handleViewDevice(device: Device) {
   emit('viewDevice', device)

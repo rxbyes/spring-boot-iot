@@ -55,7 +55,7 @@ function mountComponent(props: Record<string, unknown>) {
 }
 
 describe('StandardWorkbenchRowActions', () => {
-  it('uses the device-table spacing baseline for table rows and forwards commands', async () => {
+  it('uses the compact product-table spacing baseline for table rows and forwards commands', async () => {
     const wrapper = mountComponent({
       variant: 'table',
       directItems: [
@@ -69,7 +69,7 @@ describe('StandardWorkbenchRowActions', () => {
     const directButtons = wrapper.findAll('.standard-action-link-stub')
 
     expect(rowActions.attributes('data-variant')).toBe('table')
-    expect(rowActions.attributes('data-gap')).toBe('wide')
+    expect(rowActions.attributes('data-gap')).toBe('compact')
     expect(directButtons.map((button) => button.text())).toEqual(['详情', '编辑'])
     expect(directButtons[1].attributes('title')).toBe('打开编辑')
 

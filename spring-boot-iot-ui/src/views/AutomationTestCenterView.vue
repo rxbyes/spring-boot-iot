@@ -1,20 +1,21 @@
 ﻿<template>
-  <div class="page-stack automation-test-view">
-    <section class="hero-panel">
-      <h1 class="headline">自动化工场</h1>
-      <p class="hero-description">
-        以现有 Playwright 骨架为执行底座，通过前端可视化配置生成声明式测试计划，覆盖登录、页面交互、接口回执、断言、报告与测试建议。
-      </p>
-      <div class="hero-chip-list">
-        <span>配置驱动</span>
-        <span>可插拔步骤</span>
-        <span>任意 Web 接入</span>
-        <span>测试报告输出</span>
-        <span>改进建议生成</span>
-      </div>
-    </section>
+  <StandardPageShell class="automation-test-view">
+    <StandardWorkbenchPanel
+      title="自动化工场"
+      description="以现有 Playwright 骨架为执行底座，通过前端可视化配置生成声明式测试计划，覆盖登录、页面交互、接口回执、断言、报告与测试建议。"
+      show-notices
+    >
+      <template #notices>
+        <div class="automation-chip-list">
+          <span>配置驱动</span>
+          <span>可插拔步骤</span>
+          <span>任意 Web 接入</span>
+          <span>测试报告输出</span>
+          <span>改进建议生成</span>
+        </div>
+      </template>
 
-    <section class="tri-grid">
+      <section class="tri-grid">
       <PanelCard title="计划概况" description="先用场景粒度组织业务，再按步骤粒度沉淀可复用自动化模板。">
         <div class="quad-grid automation-plan-metrics">
           <MetricCard
@@ -150,6 +151,8 @@
       />
     </section>
 
+    </StandardWorkbenchPanel>
+
     <AutomationPlanImportDrawer
       v-model="showImportDialog"
       @confirm="applyImport"
@@ -162,7 +165,7 @@
       :build-template-label="buildTemplateLabel"
       @save="saveManualPage"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -176,8 +179,10 @@ import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
 import StandardActionGroup from '../components/StandardActionGroup.vue';
+import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { useAutomationPlanBuilder } from '../composables/useAutomationPlanBuilder';
 
 const {
@@ -226,24 +231,16 @@ const {
 
 <style scoped>
 .automation-test-view {
-  padding-bottom: 1rem;
+  min-width: 0;
 }
 
-.hero-description {
-  margin: 0.85rem 0 0;
-  max-width: 72rem;
-  color: var(--text-secondary);
-  line-height: 1.8;
-}
-
-.hero-chip-list {
+.automation-chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin-top: 1.2rem;
 }
 
-.hero-chip-list span {
+.automation-chip-list span {
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 5%, white);

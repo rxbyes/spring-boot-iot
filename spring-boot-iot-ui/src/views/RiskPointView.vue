@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ops-workbench risk-point-view">
+  <StandardPageShell class="risk-point-view">
     <StandardWorkbenchPanel
       title="风险对象中心"
       :description="`当前 ${pagination.total} 条风险点记录，支持档案维护和设备绑定。`"
@@ -99,7 +99,7 @@
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
                 <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
                 <StandardActionLink @click="handleBindDevice(row)">绑定设备</StandardActionLink>
                 <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
@@ -245,7 +245,7 @@
         />
       </template>
     </StandardFormDrawer>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -255,6 +255,7 @@ import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vu
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
@@ -653,9 +654,6 @@ onMounted(() => {
 
 <style scoped>
 .risk-point-view {
-  padding: 20px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
+  min-width: 0;
 }
 </style>

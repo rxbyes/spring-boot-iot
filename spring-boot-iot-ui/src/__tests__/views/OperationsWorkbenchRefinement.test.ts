@@ -1,4 +1,4 @@
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +10,55 @@ import RiskPointView from '@/views/RiskPointView.vue';
 import RuleDefinitionView from '@/views/RuleDefinitionView.vue';
 import LinkageRuleView from '@/views/LinkageRuleView.vue';
 import EmergencyPlanView from '@/views/EmergencyPlanView.vue';
+import AutomationTestCenterView from '@/views/AutomationTestCenterView.vue';
+
+vi.mock('@/composables/useAutomationPlanBuilder', () => ({
+  useAutomationPlanBuilder: () => ({
+    scopeOptions: [],
+    locatorTypeOptions: [],
+    stepTypeOptions: [],
+    inventoryTemplateOptions: [],
+    plan: {
+      target: { project: 'demo-project' },
+      scenarios: []
+    },
+    inventoryTableRef: ref(null),
+    showImportDialog: false,
+    showManualPageDialog: false,
+    scenarioPreviews: [],
+    suggestions: [],
+    pageInventory: [],
+    inventorySourceText: '静态路由种子 + 自定义页面',
+    planMetrics: [],
+    inventoryMetrics: [],
+    commandPreview: 'node scripts/auto/run-browser-acceptance.mjs --plan=demo.json',
+    buildTemplateLabel: () => '页面冒烟',
+    buildInventorySourceLabel: () => '静态种子',
+    isRouteCovered: () => false,
+    handleInventorySelectionChange: vi.fn(),
+    refreshPageInventory: vi.fn(),
+    selectUncoveredPages: vi.fn(),
+    generateSelectedInventoryScenarios: vi.fn(),
+    generateUncoveredInventoryScenarios: vi.fn(),
+    openManualPageDialog: vi.fn(),
+    saveManualPage: vi.fn(),
+    removeManualPage: vi.fn(),
+    addScenario: vi.fn(),
+    copyScenario: vi.fn(),
+    removeScenario: vi.fn(),
+    moveScenario: vi.fn(),
+    addInitialApi: vi.fn(),
+    addStep: vi.fn(),
+    addCapture: vi.fn(),
+    handleStepTypeChange: vi.fn(),
+    handleScreenshotTargetChange: vi.fn(),
+    moveStep: vi.fn(),
+    copyCommand: vi.fn(),
+    downloadPlan: vi.fn(),
+    resetPlan: vi.fn(),
+    applyImport: vi.fn()
+  })
+}));
 
 vi.mock('@/api/riskPoint', () => ({
   pageRiskPointList: vi.fn().mockResolvedValue({
@@ -162,6 +211,19 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
+  props: ['eyebrow', 'title', 'description', 'showTitle', 'showBreadcrumbs', 'breadcrumbs'],
+  template: `
+    <section class="standard-page-shell-stub">
+      <p v-if="eyebrow" class="standard-page-shell-stub__eyebrow">{{ eyebrow }}</p>
+      <h1 v-if="showTitle !== false && title" class="standard-page-shell-stub__title">{{ title }}</h1>
+      <p v-if="description" class="standard-page-shell-stub__description">{{ description }}</p>
+      <div class="standard-page-shell-stub__body"><slot /></div>
+    </section>
+  `
+});
+
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
   props: ['eyebrow', 'title', 'subtitle'],
@@ -187,6 +249,20 @@ const StandardActionMenuStub = defineComponent({
   `
 });
 
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems'],
+  template: `
+    <section
+      class="standard-workbench-row-actions-stub"
+      :data-variant="variant"
+      :data-gap="gap"
+      :data-direct-count="(directItems || []).length"
+      :data-menu-count="(menuItems || []).length"
+    />
+  `
+});
+
 const StandardButtonStub = defineComponent({
   name: 'StandardButton',
   emits: ['click'],
@@ -203,11 +279,35 @@ const StandardTableToolbarStub = defineComponent({
   `
 });
 
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: ['data'],
+  template: '<section class="el-table-stub"><slot /></section>'
+});
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['prop', 'label', 'width', 'fixed', 'type', 'align', 'className', 'showOverflowTooltip'],
+  template: `
+    <section
+      class="el-table-column-stub"
+      :data-prop="prop || type || 'column'"
+      :data-label="label"
+      :data-width="width"
+      :data-class-name="$attrs['class-name'] || className"
+    >
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
+});
+
 function mountView(component: object) {
   return shallowMount(component, {
     global: {
       renderStubDefaultSlot: true,
       stubs: {
+        StandardPageShell: StandardPageShellStub,
         PanelCard: PanelCardStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         MetricCard: true,
@@ -216,6 +316,8 @@ function mountView(component: object) {
         StandardPagination: true,
         StandardButton: StandardButtonStub,
         StandardActionMenu: StandardActionMenuStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+        'standard-workbench-row-actions': StandardWorkbenchRowActionsStub,
         StandardRowActions: true,
         StandardActionLink: true,
         StandardListFilterHeader: true,
@@ -234,8 +336,8 @@ function mountView(component: object) {
         'el-option': true,
         'el-input': true,
         'el-input-number': true,
-        'el-table': true,
-        'el-table-column': true,
+        'el-table': ElTableStub,
+        'el-table-column': ElTableColumnStub,
         'el-tag': true,
         'el-alert': true
       }
@@ -253,6 +355,7 @@ describe('operations workbench refinement', () => {
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).toContain('实时监测台');
@@ -263,6 +366,7 @@ describe('operations workbench refinement', () => {
     const wrapper = mountView(RiskGisView);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(wrapper.text()).toContain('GIS态势图');
   });
@@ -271,6 +375,7 @@ describe('operations workbench refinement', () => {
     const wrapper = mountView(AlarmCenterView);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(wrapper.text()).toContain('告警列表');
   });
@@ -289,10 +394,21 @@ describe('operations workbench refinement', () => {
     expect(wrapper.text()).not.toContain('清空选中');
   });
 
+  it('aligns the alarm table action column with the product-definition spacing baseline', () => {
+    const wrapper = mountView(AlarmCenterView);
+    const actionColumn = wrapper
+      .findAll('.el-table-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('232');
+  });
+
   it('removes the standalone hero card from the event workbench', () => {
     const wrapper = mountView(EventDisposalView);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(wrapper.text()).toContain('事件列表');
   });
@@ -327,6 +443,7 @@ describe('operations workbench refinement', () => {
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).toContain('风险对象中心');
@@ -338,6 +455,7 @@ describe('operations workbench refinement', () => {
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).toContain('阈值策略');
@@ -349,6 +467,7 @@ describe('operations workbench refinement', () => {
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).toContain('联动编排');
@@ -360,9 +479,18 @@ describe('operations workbench refinement', () => {
     const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
 
     expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(workbench.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).toContain('应急预案库');
     expect(wrapper.text()).not.toContain('Emergency Plans');
+  });
+
+  it('removes the standalone hero panel from the automation workbench and aligns it with the shared governance shell', () => {
+    const wrapper = mountView(AutomationTestCenterView);
+
+    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
+    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
+    expect(wrapper.text()).toContain('自动化工场');
   });
 });

@@ -99,11 +99,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 })
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -337,7 +337,7 @@ function mountView() {
       },
       renderStubDefaultSlot: true,
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
@@ -399,12 +399,12 @@ describe('ProductWorkbenchView', () => {
     installSessionStorageMock()
   })
 
-  it('renders the product page inside the two-level access shell without the legacy eyebrow tier', async () => {
+  it('renders the product page inside the shared governance shell without the legacy eyebrow tier', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')
@@ -537,6 +537,12 @@ describe('ProductWorkbenchView', () => {
     ])
     expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(0)
     expect(((tableRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(0)
+
+    const actionColumn = wrapper
+      .findAllComponents(ElTableColumnStub)
+      .find((component) => component.props('label') === '操作')
+
+    expect(String(actionColumn?.props('width'))).toBe('176')
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {

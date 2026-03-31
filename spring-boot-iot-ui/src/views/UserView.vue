@@ -153,7 +153,7 @@
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+              <StandardRowActions variant="table" gap="compact">
               <StandardActionLink
                 v-permission="'system:user:update'"
                 @click="handleEdit(row)"

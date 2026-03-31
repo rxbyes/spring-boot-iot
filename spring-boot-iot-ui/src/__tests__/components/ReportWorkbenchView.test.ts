@@ -113,11 +113,11 @@ const PanelCardStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -226,7 +226,7 @@ function mountView() {
   return mount(ReportWorkbenchView, {
     global: {
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         ElButton: ElButtonStub,
         ElInput: ElInputStub,
         PanelCard: PanelCardStub,
@@ -277,7 +277,7 @@ describe('ReportWorkbenchView', () => {
   it('renders the reporting page inside the two-level access shell', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.text()).toContain('结果复盘');
     expect(wrapper.text()).toContain('模拟上报');
     expect(wrapper.text()).not.toContain('SIMULATION LAB');

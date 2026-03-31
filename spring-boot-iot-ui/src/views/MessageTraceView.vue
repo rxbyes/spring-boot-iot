@@ -1,7 +1,5 @@
 <template>
-  <div class="page-stack message-trace-view">
-    <IotAccessPageShell :show-title="false" />
-
+  <StandardPageShell class="page-stack message-trace-view" :show-title="false">
     <IotAccessTabWorkspace
       :items="pageModeOptions"
       :default-key="'message-trace'"
@@ -147,13 +145,13 @@
           </StandardTableTextColumn>
           <el-table-column
             label="操作"
-            width="180"
+            :width="messageTraceActionColumnWidth"
             fixed="right"
             class-name="standard-row-actions-column"
             :show-overflow-tooltip="false"
           >
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
+              <StandardRowActions variant="table" gap="compact">
                 <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
                 <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
               </StandardRowActions>
@@ -298,7 +296,7 @@
           </div>
         </section>
     </StandardDetailDrawer>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -319,8 +317,8 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardActionLink from '@/components/StandardActionLink.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardRowActions from '@/components/StandardRowActions.vue';
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue';
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
@@ -335,12 +333,17 @@ import type {
   MessageFlowTimeline,
   MessageTraceStats
 } from '@/types/api';
+import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { formatDateTime, prettyJson } from '@/utils/format';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
 const router = useRouter();
+const messageTraceActionColumnWidth = resolveAdaptiveActionColumnWidth({
+  directLabels: ['详情', '观测'],
+  gap: 'wide'
+});
 const pageModeOptions = [
   { key: 'message-trace', label: '链路追踪' },
   { key: 'access-error', label: '失败归档' }

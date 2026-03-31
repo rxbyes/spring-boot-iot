@@ -96,11 +96,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -229,13 +229,13 @@ const ElTableStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
-  props: ['label', 'className'],
+  props: ['label', 'className', 'width'],
   setup() {
     const rows = inject('tableRows', ref([]));
     return { rows };
   },
   template: `
-    <div class="audit-log-column-stub" :data-label="label" :data-class-name="className">
+    <div class="audit-log-column-stub" :data-label="label" :data-class-name="className" :data-width="width">
       <div v-for="(row, index) in rows" :key="index">
         <slot :row="row" />
       </div>
@@ -279,7 +279,7 @@ function mountView() {
         loading: () => undefined
       },
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
@@ -354,7 +354,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常台账');
     expect(wrapper.text()).toContain('追踪');
     expect(wrapper.text()).not.toContain('链路追踪台');
@@ -408,6 +408,7 @@ describe('AuditLogView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('200');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {

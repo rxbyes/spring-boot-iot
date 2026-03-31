@@ -89,11 +89,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 })
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -123,7 +123,7 @@ const StandardTableToolbarStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['variant', 'directItems', 'menuItems'],
+  props: ['variant', 'gap', 'directItems', 'menuItems'],
   template: `
     <div class="device-workbench-row-actions-stub" :data-variant="variant">
       <span
@@ -203,6 +203,22 @@ const StandardFormDrawerStub = defineComponent({
   `
 })
 
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  template: '<section class="device-table-stub"><slot /></section>'
+})
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'width', 'className', 'fixed', 'type', 'align', 'showOverflowTooltip'],
+  template: `
+    <section class="device-table-column-stub" :data-label="label" :data-width="width" :data-class-name="className">
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -231,7 +247,7 @@ function mountView() {
         permission: () => undefined
       },
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
@@ -242,7 +258,9 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
-        StandardFormDrawer: StandardFormDrawerStub
+        StandardFormDrawer: StandardFormDrawerStub,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub
       }
     }
   })
@@ -295,7 +313,7 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders the device page inside the two-level access shell without the legacy eyebrow tier', async () => {
+  it('renders the device page inside the shared governance shell without the legacy eyebrow tier', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
@@ -303,7 +321,7 @@ describe('DeviceWorkbenchView', () => {
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
     const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(detailDrawer.props('eyebrow')).toBeUndefined()
     expect(formDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('设备台账')
@@ -375,14 +393,24 @@ describe('DeviceWorkbenchView', () => {
     ]
     await nextTick()
 
-    const rowActions = wrapper.findComponent(StandardWorkbenchRowActionsStub)
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+    const tableRowActions = rowActions.find((component) => component.props('variant') === 'table')
 
-    expect(rowActions.exists()).toBe(true)
-    expect(rowActions.props('variant')).toBe('card')
-    expect((rowActions.props('directItems') as Array<{ label: string }>).map((item) => item.label)).toEqual([
-      '详情',
-      '编辑'
-    ])
-    expect((rowActions.props('menuItems') as Array<unknown>).length).toBe(3)
+    expect(cardRowActions?.exists()).toBe(true)
+    expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.props('gap')).toBe('compact')
+    expect(tableRowActions?.props('gap')).toBe('compact')
+    expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+        '详情',
+        '编辑'
+      ])
+    expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(3)
+
+    const actionColumn = wrapper
+      .findAllComponents(ElTableColumnStub)
+      .find((component) => component.props('label') === '操作')
+
+    expect(String(actionColumn?.props('width'))).toBe('200')
   })
 })

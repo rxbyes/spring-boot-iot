@@ -6,7 +6,7 @@
 > 上游来源：`spring-boot-iot-ui` 当前实现、共享组件、shell 编排和视觉 token。
 > 下游消费：页面开发、重构收口、前端治理计划、skills。
 > 变更触发条件：共享组件模式变化、壳层结构变化、设计 token 变化、详情/列表交互规则变化。
-> 更新时间：2026-03-29
+> 更新时间：2026-03-31
 
 ## 1. 技术栈与目录
 
@@ -64,7 +64,7 @@
 - 桥接详情当前必须使用独立于消息详情的 `StandardDetailDrawer` 状态，统一展示“桥接结果摘要 + 消息原文 + 尝试明细”；桥接分页继续复用 `StandardPagination`，日志表与尝试表继续复用 `StandardTableTextColumn` / 统一表格 token，不再引入页面私有表格样式。
 - 桥接筛选中的渠道下拉当前只允许展示 `webhook / wechat / feishu / dingtalk` 四类渠道，并继续直接复用 `/api/system/channel/list` 结果过滤；不要在前端另维护一份私有渠道字典。
 - 桥接响应摘要、目标摘要和尝试明细当前必须继续使用安全文本切片展示，不得在治理页用 `v-html` 直接注入后端响应内容。
-- 系统内容编排页遇到后端 `code=500` 或依赖表/升级脚本类技术异常时，页面提示只保留友好文案，不直接透出 `sql/upgrade/*.sql`、缺表名或内部排障原文；真实升级步骤仍以 [07-部署运行与配置说明.md](./07-部署运行与配置说明.md) 为准。
+- 系统内容编排页遇到后端 `code=500` 或依赖表/初始化基线未对齐类技术异常时，页面提示只保留友好文案，不直接透出具体 SQL 文件名、缺表名或内部排障原文；真实对齐步骤仍以 [07-部署运行与配置说明.md](./07-部署运行与配置说明.md) 为准。
 - `/channel` 当前维护的 `config.scenes` 需继续与后端自动场景同源：`system_error` 用于后台异常通知，`observability_alert` 用于规则化运维告警，`in_app_unread_bridge` 用于高优未读阈值后的渠道桥接；`ChannelView` 的提示文案与示例 JSON 必须同步这三类场景，前端只负责提示和示例，不在页面内额外维护第二套告警/桥接规则。
 - 系统内容编排页中的“关联页面”候选项必须优先复用共享 workspace schema 派生结果，不得在页面内再维护另一份私有路由字典，避免帮助中心和命令面板对同一路径出现两套文案。
 - `AppShell` 只通过 `src/composables/useShellOrchestrator.ts` 承接壳层编排；后续若新增壳层交互、导航规则或路由副作用，应优先扩展对应 composable，并最终由 orchestrator 统一装配，不再回到壳层主文件直接拼接多组状态。
@@ -95,7 +95,7 @@
 16. `StandardActionLink` + `StandardActionMenu` + `StandardRowActions` + `StandardWorkbenchRowActions`：统一表格/卡片操作列中的“详情 / 编辑 / 更多”类轻操作语法、颜色和布局；其中页级组合优先复用 `StandardWorkbenchRowActions`，不要在页面内重复手拼。
 17. `StandardChoiceGroup`：统一“点击前 / 点击后”状态切换按钮的未选中、悬浮、选中样式；当前优先用于链路验证中心的传输方式与上报模式切换，后续同类 pill/toggle 交互优先复用。
 18. `StandardInlineState`：统一工作台顶部或列表内联提示，优先承接查询反馈、诊断来源提示、轻量刷新状态和空列表前的下一步建议。
-19. `IotAccessPageShell` + `IotAccessTabWorkspace`：统一 `接入智维` 资产/诊断子页的轻量标题壳与真业务页签；页面定位统一依赖全局 `ShellBreadcrumb`，`IotAccessPageShell` 不再重复渲染同路径页内面包屑。组件级默认 `showBreadcrumbs=false`，只有 `/device-access` 这类分组总览页才允许显式开启单行 breadcrumb。单主列表页默认只保留全局面包屑层和主工作台层，不再重复渲染中间页标题或私有伪页签。
+19. `StandardPageShell` + `IotAccessTabWorkspace`：统一五个一级工作台下的页级标题壳、breadcrumb 节奏与真业务页签；页面定位统一依赖全局 `ShellBreadcrumb`，`StandardPageShell` 只负责页级节奏与可选 headline / breadcrumb，不得在功能页重复渲染第二条同路径页内导航。`IotAccessPageShell` 当前仅作为历史兼容壳保留，不再作为新页面默认入口。单主列表页默认只保留全局面包屑层和主工作台层，不再重复渲染中间页标题或私有伪页签。
 20. `IotAccessResultSection`、`IotAccessFilterBar`：已废弃，不再作为 `接入智维` 正文结构组件回流。
 
 补充规则：
@@ -120,8 +120,9 @@
 
 - `接入智维` 一级模块当前统一采用“轻量标题壳 / 入口筛选 + 单主内容区”的页面语法；总览页只保留 `资产底座 / 诊断排障` 真业务页签、最近使用和全部能力，子页不得重复模块目录或能力墙。
 - 新增接入侧页面时先判断是否真的存在两个及以上高频业务视图：`/device-access`、`/reporting`、`/message-trace`、`/file-debug` 可复用 `IotAccessTabWorkspace`，`/products`、`/devices`、`/system-log` 应保持单主列表 / 单主结果页，不再自起假工作区或说明型页签。
-- `接入智维` 下的 `产品定义中心`、`设备资产中心`、`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台`，当前统一采用“全局 `ShellBreadcrumb` + 页面主工作台”的两层结构；`IotAccessPageShell` 仅保留可选 headline / body 壳，不再输出第二条页内面包屑。除分组总览页外，不得通过传 `breadcrumbs` 或局部样式把这条页内导航再开回来。不得再加回页面主标题层、说明墙、中间一级大标题或同路径重复导航条。
+- `接入智维` 下的 `总览入口`、`产品定义中心`、`设备资产中心`、`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台`，当前统一采用“全局 `ShellBreadcrumb` + `StandardPageShell` + 页面主工作台”的收口语法；除分组总览页外，不得通过传 `breadcrumbs`、页面私有根容器或局部样式把第二条页内导航再开回来。不得再加回页面主标题层、说明墙、中间一级大标题或同路径重复导航条。
 - `产品定义中心`、`设备资产中心`、`异常观测台` 这类单主列表页，不得再出现“分组末级 / 页头标题 / 主卡标题”三层重复引导；主卡标题应直接对应当前主列表语义，并统一使用 `StandardWorkbenchPanel.titleVariant=section` 的二级标题样式。当前基线为：`/products=产品定义中心`、`/devices=设备台账`、`/system-log=异常台账`。
+- 列表页“操作”列当前统一以 `产品定义中心` 为间距基线：表格行内动作必须复用 `StandardWorkbenchRowActions` 或 `StandardRowActions variant="table" gap="compact"`，不得再为单页显式写 `gap="wide"` 或放大动作之间的水平留白。
 - `/system-log` 的系统异常模式当前固定使用 `异常台账` 作为主列表标题、`异常详情` 作为详情抽屉标题、`异常台账导出列设置` 作为导出弹窗标题；同一路由内不得再把 `异常观测台` 与 `异常台账` 混用到同一层级，也不得在页头回流 `链路追踪台 / 失败归档` 这类跨页按钮。
 - `产品定义中心`、`设备资产中心` 顶部文案必须保持资产治理语气，主战区仍是台账和治理动作；`链路验证中心`、`异常观测台`、`链路追踪台`、`数据校验台` 顶部文案必须保持诊断语气，主战区直接进入验证、追踪或校验结果。
 - `/products` 当前固定为单主列表页：桌面端主视图只能是共享表格，移动卡片仅作为 `720px` 以下的响应式补充，不得再回流“表格视图 / 卡片视图”手动切换、桌面私有卡片模式或第二套产品列表视觉系统。
@@ -141,6 +142,8 @@
 - `风险对象中心`、`阈值策略`、`联动编排`、`应急预案库` 当前也统一收口为单一 `StandardWorkbenchPanel` 主工作台；新增主操作优先上收至 `header-actions`，原首屏指标并入共享工具条元信息，不再保留独立 Hero 概况卡或“双首屏”结构。
 - 风险策略域抽屉不得再使用 `Risk Platform Form` 这类英文 eyebrow；抽屉层级应只通过中文标题、副标题和区块标题表达。
 - `/insight` 的 `对象洞察台` 当前统一采用“单一 `StandardWorkbenchPanel` + `StandardListFilterHeader` + `StandardInlineState` + 正文内容分区”语法；相关页面联动动作统一下沉到正文卡片或行内操作，不再保留英文 hero 眉标、首屏大按钮组或第二张概况 Hero 卡。
+- `接入智维`、`风险运营`、`风险策略`、`质量工场` 下的主工作台页，当前统一通过 `StandardPageShell + StandardWorkbenchPanel` 对齐平台治理的字距、标题节奏和导航到首卡片的垂直留白；`/device-access`、`/reporting`、`/message-trace`、`/file-debug`、`/system-log`、`/insight`、`/report-analysis` 这类页级入口也已纳入同一规则，页面根节点不得再声明私有 `padding / background / border / box-shadow` 来制造第二层壳。
+- `自动化工场` 这类非列表型工程工作台，若正文仍由多个 `PanelCard`、编排器或结果面板组成，也必须把首屏标题与说明收口到同一 `StandardWorkbenchPanel` 头部；不得再保留独立 Hero 页头抬高导航到主卡片的间距。
 - `接入智维` 六个核心页在完成两层结构收口后，第二轮视觉精修继续保持当前系统主配色不变；现代化优先通过标题层级、筛选密度、工具条轻重、表头亮度和操作列节奏实现，不得为单页引入新的综合色或私有主题。
 - 单主列表页与真页签诊断页当前统一采用“静稳控制台”语法：更轻的边框、更软的卡片阴影、更淡的表头底色、更短的说明文案和更明确的主按钮，不回退到厚重卡片、营销式渐变头或大段引导文案。
 - `deviceCode` 是链路验证中心唯一主查询入口；`productKey`、`protocolCode`、`clientId` 必须保持只读派生字段，不得恢复为手工填写。
@@ -206,7 +209,7 @@
 - 共享壳层统一采用“顶部一级导航固定 + 左侧二级菜单固定 + 右侧内容区独立滚动”布局；当正文超过一屏时，只允许 `AppShell` 的 `cloud-content` 承接纵向滚动，不再让 `body/window` 与左侧菜单一起滚动。
 - 右上角通知/帮助弹层属于全局壳层能力，必须统一使用共享 token、统一分类结构和权限过滤规则；不得在单页重新发明一套右上角消息/帮助面板样式或文案口径。
 - 壳层通知/帮助若接入真实接口，必须保持“接口数据 -> 壳层适配函数 -> `ShellPopoverContent`”的单向收口方式；不要在组件内直接拼接接口字段，避免 UI contract 再次分叉。
-- 页面根容器应继续复用 `.page-stack`、`.standard-list-view`、`.ops-workbench`、`.section-landing`、`.report-analysis-view` 等共享基线，并保持 `min-width: 0`、不声明页面级 `100vh`/整页 `overflow-y: auto`，避免共享壳层切换为内容区滚动后再次出现局部外溢或双滚动。
+- 页面根容器应继续复用 `.page-stack`、`.standard-page-shell`、`.standard-list-view`、`.ops-workbench`、`.section-landing`、`.report-analysis-view` 等共享基线，并保持 `min-width: 0`、不声明页面级 `100vh`/整页 `overflow-y: auto`，避免共享壳层切换为内容区滚动后再次出现局部外溢或双滚动。
 - 五个一级工作台下的功能页顶部导航统一为仅保留阿里云式面包屑的极简结构；不得再重复渲染最近访问标签栏、主标题、同组横向切换，以及 `当前分区`、`页面类型`、`可见菜单`、`返回概览` 这类说明性文案。
 - 最近访问标签栏已下线，禁止继续新增 `trackTab`、`visitedTabs`、`TabsView` 一类旧机制；功能页定位统一依赖面包屑、左侧菜单和命令面板。
 - 页面说明文案只在分组首页、空态页或确有必要的引导场景保留；普通功能页默认不再展示“列表/筛选/详情抽屉”一类低信息密度说明。
@@ -253,6 +256,7 @@
 - `/products` 当前固定把 `详情 / 物模型治理 / 关联设备 / 编辑治理` 四个既有对象入口统一收口到同一 `产品经营工作台` 抽屉；页面本身不得再并行挂载独立 `详情 / 物模型 / 查看设备 / 编辑` 四套对象抽屉壳。
 - `产品经营工作台` 内的 `经营总览 / 物模型治理 / 关联设备 / 编辑治理` 视图必须共享同一经营头部和产品上下文；首次进入后应在同一抽屉内保留已加载工作区，不要在视图切换时反复销毁后重拉。
 - `/products` 列表行内当前固定只直出 `进入工作台` 和 `删除`，不再显示 `更多`；该两按钮组必须使用双功能紧凑间距，`编辑 / 物模型治理 / 关联设备` 必须下沉到统一工作台内部，不得再回流成多枚同级行内按钮。
+- 复用 `standard-row-actions-column` 的桌面表格当前必须走共享自适应列宽策略：操作列宽度要按直出动作数量、是否存在 `更多` 菜单和实际标签长度自动收口，不得再在页面里手写 `210 / 224 / 288` 一类超宽固定值，导致“操作”后方出现大块留白。
 - `产品定义中心` 详情首屏只允许保留一个主焦点：关联设备规模主舞台；活跃趋势为第二阅读层，接入契约与产品档案下沉到第三阅读层，`物模型设计器` 不得回流到详情头部动作。
 - `产品经营工作台` 当前进一步固定为“轻头部 + 真页签 + 扁平主板块”的统一语法：头部只保留产品身份、一句状态判断和 `productKey / 协议 / 节点 / 数据格式` 元信息；不得再回流厚 hero 背景、第二组概况卡或大块说明墙。
 - `经营总览` 当前固定采用“一主舞台 + 辅助指标列 + 判断板块 + 契约档案板块 + 治理板块”结构；只允许保留一个规模主焦点，不得再把在线、活跃、契约、档案都平铺成同权重摘要卡。
@@ -326,6 +330,6 @@
 
 ## 8. 已知问题与技术债
 
-- `RealTimeMonitoringView`、`UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView`、`AutomationTestCenterView`、`DeviceInsightView`、`ProductWorkbenchView`、`DeviceWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`FutureLabView` 已完成当前批次的统一组件化迁移。
+- `RealTimeMonitoringView`、`UserView`、`RoleView`、`OrganizationView`、`RegionView`、`DictView`、`ChannelView`、`SectionLandingView`、`MessageTraceView`、`AuditLogView`、`RiskPointView`、`RuleDefinitionView`、`LinkageRuleView`、`EmergencyPlanView`、`RiskGisView`、`AutomationTestCenterView`、`DeviceInsightView`、`ProductWorkbenchView`、`DeviceWorkbenchView`、`FilePayloadDebugView`、`ReportWorkbenchView`、`ReportAnalysisView`、`FutureLabView` 已完成当前批次的统一组件化迁移。
 - 当前剩余债务主要集中在自动化测试中心个别展示块是否继续拆成更细粒度组件，以及后续新增页面若继续直接书写原生工具栏/文本列/确认弹窗的防回退治理。
 - 当前仍缺独立 ESLint / Stylelint 流水线脚本，现阶段继续以 `build + test + style:guard` 作为最小门禁。

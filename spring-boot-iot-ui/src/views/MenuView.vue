@@ -97,7 +97,7 @@
         <StandardTableTextColumn prop="sort" label="排序" :width="80" />
         <el-table-column label="操作" width="240" fixed="right" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
+            <StandardRowActions variant="table" gap="compact">
               <StandardActionLink v-permission="'system:menu:update'" @click="openEdit(row.id)">编辑</StandardActionLink>
               <StandardActionLink v-permission="'system:menu:add'" @click="openAddChild(row.id)">新增子级</StandardActionLink>
               <StandardActionLink v-permission="'system:menu:delete'" @click="removeMenu(row.id)">删除</StandardActionLink>

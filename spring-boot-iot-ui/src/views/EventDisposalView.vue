@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ops-workbench event-disposal-view">
+  <StandardPageShell class="event-disposal-view">
     <StandardWorkbenchPanel
       title="事件列表"
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
@@ -104,7 +104,7 @@
           <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
           <el-table-column label="操作" width="250" fixed="right">
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide" wrap>
+              <StandardRowActions variant="table" gap="compact" wrap>
                 <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
                 <StandardActionLink v-if="row.status === 0" @click="handleDispatch(row)">派发</StandardActionLink>
                 <StandardActionLink v-if="row.status !== 4" @click="handleClose(row)">关闭</StandardActionLink>
@@ -200,7 +200,7 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -212,6 +212,7 @@ import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vu
 import StandardActionMenu from '@/components/StandardActionMenu.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
@@ -618,10 +619,7 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .event-disposal-view {
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  min-width: 0;
 }
 
 .event-drawer-form :deep(.el-select),
