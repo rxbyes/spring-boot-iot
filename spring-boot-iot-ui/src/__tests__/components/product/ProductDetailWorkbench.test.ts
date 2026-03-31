@@ -44,7 +44,9 @@ describe('ProductDetailWorkbench', () => {
     ])
 
     expect(wrapper.find('[data-testid="product-detail-hero-stage"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-hero-stage-kicker"]').text()).toContain('经营主判断')
     expect(wrapper.find('[data-testid="product-detail-primary-metric"]').text()).toContain('关联设备总量')
+    expect(wrapper.find('[data-testid="product-detail-primary-statement"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-secondary-metrics"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-judgement-stage"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-contract-archive-stage"]').exists()).toBe(true)
@@ -88,6 +90,8 @@ describe('ProductDetailWorkbench', () => {
 
     expect(wrapper.get('[data-testid="product-detail-trend-metrics"]').text()).toContain('今日活跃')
     expect(wrapper.get('[data-testid="product-detail-trend-metrics"]').text()).toContain('最长在线时长')
+    expect(wrapper.get('[data-testid="product-detail-judgement-summary"]').text()).toContain('趋势摘要')
+    expect(wrapper.get('[data-testid="product-detail-contract-summary"]').text()).toContain('接入契约摘要')
     expect(wrapper.get('[data-testid="product-detail-contract"]').text()).toContain('mqtt-json')
     expect(wrapper.get('[data-testid="product-detail-contract"]').text()).toContain('直连设备')
     expect(wrapper.get('[data-testid="product-detail-archive"]').text()).toContain('GHLZM')
@@ -96,6 +100,7 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('当前建议')
     expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('当前已有设备在用')
     expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('影响评估')
+    expect(wrapper.get('[data-testid="product-detail-governance-summary"]').text()).toContain('治理摘要')
     expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('维护规则')
     expect(wrapper.get('[data-testid="product-detail-governance"]').text()).toContain('变更前确认')
   })

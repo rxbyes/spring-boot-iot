@@ -6,11 +6,11 @@
     <div v-else class="device-workspace__content">
       <section class="device-workspace__summary-band">
         <div class="device-workspace__summary-copy">
-          <p class="device-workspace__summary-title">设备运行概览</p>
+          <p class="device-workspace__summary-title device-workspace__section-kicker">设备运行概览</p>
           <p class="device-workspace__summary-description">先看设备规模和在线覆盖，再进入台账核对当前产品的运行情况。</p>
         </div>
 
-        <ul class="device-workspace__metrics">
+        <ul class="device-workspace__metrics device-workspace__metric-band">
           <li
             v-for="metric in summaryMetrics"
             :key="metric.key"
@@ -24,8 +24,8 @@
         </ul>
       </section>
 
-      <section class="device-workspace__table-stage">
-        <div class="device-workspace__section-copy">
+      <section class="device-workspace__table-stage device-workspace__ledger-stage">
+        <div class="device-workspace__section-copy device-workspace__ledger-heading">
           <strong>关联设备台账</strong>
           <small>快速核对设备身份、在线状态、激活状态和最近上报。</small>
         </div>
@@ -205,72 +205,80 @@ function handleViewDevice(device: Device) {
 .device-workspace__summary-band,
 .device-workspace__table-stage {
   display: grid;
-  gap: 0.48rem;
-  padding: 0.88rem 0.92rem;
+  gap: 0.68rem;
+  padding: 1rem 1.04rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: var(--shadow-surface-soft-sm);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background:
+    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 16px 34px rgba(28, 53, 87, 0.06);
 }
 
 .device-workspace__summary-copy,
 .device-workspace__section-copy {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.26rem;
 }
 
 .device-workspace__summary-title,
 .device-workspace__section-copy strong {
   margin: 0;
   color: var(--text-heading);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .device-workspace__summary-description,
 .device-workspace__section-copy small {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.72rem;
-  line-height: 1.56;
+  font-size: 0.86rem;
+  line-height: 1.68;
+}
+
+.device-workspace__section-kicker {
+  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption));
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
 }
 
 .device-workspace__metrics {
   list-style: none;
-  margin: 0.04rem 0 0;
+  margin: 0.1rem 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.46rem;
+  gap: 0.72rem;
 }
 
 .device-workspace__metric {
   display: grid;
-  gap: 0.14rem;
+  gap: 0.22rem;
   min-width: 0;
-  padding: 0.56rem 0.62rem;
+  padding: 0.88rem 0.94rem;
   border: 1px solid var(--panel-border);
-  border-radius: 0.82rem;
-  background: rgba(255, 255, 255, 0.84);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .device-workspace__metric span {
   color: var(--text-tertiary);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   line-height: 1.4;
 }
 
 .device-workspace__metric strong {
   color: var(--text-heading);
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: 1.18rem;
+  font-weight: 700;
   line-height: 1.42;
 }
 
 .device-workspace__metric small {
   color: var(--text-secondary);
-  font-size: 0.7rem;
-  line-height: 1.52;
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
 .device-workspace__metric[data-tone='brand'] {
@@ -296,9 +304,9 @@ function handleViewDevice(device: Device) {
 .device-workspace__table-shell {
   overflow: hidden;
   border: 1px solid var(--panel-border);
-  border-radius: 0.94rem;
+  border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.94));
-  box-shadow: var(--shadow-surface-soft-sm);
+  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
 .device-workspace__table-shell :deep(.el-table) {

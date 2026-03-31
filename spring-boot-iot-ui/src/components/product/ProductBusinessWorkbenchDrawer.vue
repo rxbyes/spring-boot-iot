@@ -14,10 +14,10 @@
     <section class="product-business-workbench__header">
       <div class="product-business-workbench__header-top">
         <div class="product-business-workbench__identity">
-          <p class="product-business-workbench__kicker">产品经营工作台</p>
-          <h3>{{ productTitle }}</h3>
+          <p class="product-business-workbench__kicker product-business-workbench__header-kicker">产品经营工作台</p>
+          <h3 class="product-business-workbench__headline">{{ productTitle }}</h3>
           <p class="product-business-workbench__identity-key">{{ productKeyText }}</p>
-          <p class="product-business-workbench__description">{{ headerDescription }}</p>
+          <p class="product-business-workbench__description product-business-workbench__brief">{{ headerDescription }}</p>
         </div>
         <span
           class="product-business-workbench__status-badge"
@@ -27,14 +27,14 @@
         </span>
       </div>
 
-      <div class="product-business-workbench__meta">
+      <div class="product-business-workbench__meta product-business-workbench__meta-strip">
         <span>{{ productKeyText }}</span>
         <span>{{ protocolText }}</span>
         <span>{{ nodeTypeText }}</span>
         <span>{{ dataFormatText }}</span>
       </div>
 
-      <nav class="product-business-workbench__tabs" aria-label="产品经营工作台视图">
+      <nav class="product-business-workbench__tabs product-business-workbench__tab-rail" aria-label="产品经营工作台视图">
         <button
           v-for="view in viewOptions"
           :key="view.key"
@@ -162,26 +162,28 @@ const headerDescription = computed(() => {
 <style scoped>
 .product-business-workbench__header {
   display: grid;
-  gap: 0.9rem;
-  padding: 1rem 1.05rem;
+  gap: 1rem;
+  padding: 1.25rem 1.28rem 1.15rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-xl) + 2px);
-  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: var(--shadow-surface-soft-sm);
+  border-radius: calc(var(--radius-xl) + 4px);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
 }
 
 .product-business-workbench__header-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .product-business-workbench__identity,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.8rem;
 }
 
 .product-business-workbench__kicker,
@@ -189,92 +191,111 @@ const headerDescription = computed(() => {
 .product-business-workbench__description {
   margin: 0;
   color: var(--text-caption);
-  font-size: 0.82rem;
-  line-height: 1.65;
+  font-size: 0.84rem;
+  line-height: 1.7;
 }
 
 .product-business-workbench__identity-key {
   color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .product-business-workbench__kicker {
   color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
-.product-business-workbench__identity h3 {
+.product-business-workbench__headline {
   margin: 0;
   color: var(--text-heading);
-  font-size: clamp(1.24rem, 1.9vw, 1.6rem);
-  line-height: 1.18;
+  font-size: clamp(1.68rem, 2.3vw, 2.35rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.product-business-workbench__brief {
+  max-width: 52rem;
+  color: color-mix(in srgb, var(--text-secondary) 92%, white);
 }
 
 .product-business-workbench__status-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 1.95rem;
-  padding: 0.28rem 0.82rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
+  min-height: 2.4rem;
+  padding: 0.34rem 0.98rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 8%, white);
+  background: linear-gradient(180deg, rgba(255, 250, 247, 0.98), rgba(255, 244, 236, 0.98));
   color: color-mix(in srgb, var(--brand) 78%, var(--text-heading));
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 700;
   white-space: nowrap;
+  box-shadow: 0 10px 20px rgba(217, 120, 47, 0.12);
 }
 
 .product-business-workbench__status-badge--inactive {
   border-color: color-mix(in srgb, var(--danger, #d84f45) 18%, transparent);
-  background: color-mix(in srgb, var(--danger, #d84f45) 8%, white);
+  background: linear-gradient(180deg, rgba(255, 248, 247, 0.98), rgba(255, 240, 239, 0.98));
   color: color-mix(in srgb, var(--danger, #d84f45) 82%, var(--text-heading));
+  box-shadow: 0 10px 20px rgba(216, 79, 69, 0.1);
 }
 
 .product-business-workbench__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.58rem;
+}
+
+.product-business-workbench__meta-strip {
+  padding-bottom: 0.1rem;
 }
 
 .product-business-workbench__meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.85rem;
-  padding: 0.26rem 0.7rem;
+  min-height: 1.96rem;
+  padding: 0.28rem 0.78rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
 .product-business-workbench__tabs {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.55rem;
+}
+
+.product-business-workbench__tab-rail {
+  padding-top: 0.1rem;
 }
 
 .product-business-workbench__tab {
-  min-height: 2.05rem;
-  padding: 0.36rem 0.88rem;
+  min-height: 2.28rem;
+  padding: 0.42rem 1rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.96);
-  color: var(--text-caption);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .product-business-workbench__tab--active {
-  border-color: color-mix(in srgb, var(--brand) 32%, white);
-  background: rgba(255, 246, 238, 0.98);
+  border-color: color-mix(in srgb, var(--brand) 28%, white);
+  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 245, 236, 0.98));
   color: var(--brand);
-  box-shadow: var(--shadow-surface-soft-sm);
+  box-shadow: 0 12px 20px rgba(217, 120, 47, 0.12);
 }
 
 .product-business-workbench__view-shell {
-  margin-top: 1rem;
+  margin-top: 1.15rem;
 }
 
 @media (max-width: 960px) {

@@ -19,8 +19,8 @@
       <section class="detail-panel product-model-designer__header">
         <div class="product-model-designer__header-heading">
           <div class="product-model-designer__header-copy">
-            <p class="product-model-designer__kicker">物模型治理</p>
-            <h3>{{ designerStageTitle }}</h3>
+            <p class="product-model-designer__kicker product-model-designer__header-kicker">物模型治理</p>
+            <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
             <p class="product-model-designer__header-description">
               先看候选目录和正式契约，再进入完整治理抽屉处理深度变更。
             </p>
@@ -55,7 +55,7 @@
       </section>
 
       <section class="product-model-designer__summary-strip">
-        <article class="product-model-designer__summary-card product-model-designer__summary-card--lead">
+        <article class="product-model-designer__summary-card product-model-designer__summary-card--lead product-model-designer__summary-lead">
           <span class="product-model-designer__summary-label">真实证据概览</span>
           <strong>先提炼，再确认，再沉淀为正式物模型</strong>
           <p>属性优先来源于真实属性与消息快照，事件和服务在缺证据时保留诚实空态。</p>
@@ -93,7 +93,7 @@
             </button>
           </aside>
 
-          <div class="product-model-designer__candidate-body">
+          <div class="product-model-designer__candidate-body product-model-designer__workspace-main">
             <div class="product-model-designer__candidate-body-header">
               <div>
                 <h3>{{ activeCandidateViewTitle }}</h3>
@@ -131,7 +131,7 @@
             </div>
           </div>
 
-          <aside class="product-model-designer__candidate-rail">
+          <aside class="product-model-designer__candidate-rail product-model-designer__workspace-rail">
             <div class="product-model-designer__confirm-metrics">
               <div>
                 <span>属性候选</span>
@@ -410,14 +410,19 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 .product-model-designer__header {
-  padding: 1rem 1.05rem;
+  padding: 1.18rem 1.2rem 1.08rem;
+  gap: 1rem;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
 }
 
 .product-model-designer__header-heading {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .product-model-designer__kicker,
@@ -429,12 +434,18 @@ function formatServiceSummary(model: ProductModel) {
   letter-spacing: 0.04em;
 }
 
-.product-model-designer__header-copy h3,
+.product-model-designer__headline,
 .product-model-designer__summary-card strong,
 .product-model-designer__card-heading strong,
 .product-model-designer__candidate-card-title strong {
   margin: 0;
   color: var(--text-heading);
+}
+
+.product-model-designer__headline {
+  font-size: clamp(1.4rem, 2vw, 1.9rem);
+  line-height: 1.14;
+  letter-spacing: -0.02em;
 }
 
 .product-model-designer__header-description,
@@ -448,7 +459,7 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__mode-switcher {
   display: inline-flex;
-  padding: 0.24rem;
+  padding: 0.28rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.92);
@@ -456,11 +467,13 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__mode-chip {
   min-width: 6.8rem;
-  padding: 0.52rem 0.9rem;
+  padding: 0.56rem 0.94rem;
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-caption);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -468,7 +481,8 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__candidate-nav-item--active,
 .product-model-designer__formal-overview-card--active {
   color: var(--brand);
-  box-shadow: var(--shadow-surface-soft-sm);
+  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 245, 236, 0.98));
+  box-shadow: 0 12px 20px rgba(217, 120, 47, 0.1);
 }
 
 .product-model-designer__header-meta,
@@ -496,27 +510,30 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__formal-overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .product-model-designer__summary-card {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.9rem 0.95rem;
+  gap: 0.38rem;
+  padding: 1rem 1.02rem;
 }
 
 .product-model-designer__summary-card--lead {
   grid-column: span 1;
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  background:
+    linear-gradient(180deg, rgba(255, 251, 248, 0.98), rgba(255, 255, 255, 0.98));
 }
 
 .product-model-designer__workspace-shell {
-  padding: 0.95rem 1rem;
+  padding: 1rem 1.05rem;
 }
 
 .product-model-designer__candidate-workspace {
   display: grid;
   grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr) minmax(15rem, 17rem);
-  gap: 0.9rem;
+  gap: 1rem;
   align-items: start;
 }
 
@@ -524,13 +541,13 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__candidate-body,
 .product-model-designer__candidate-rail,
 .product-model-designer__formal-stage {
-  padding: 0.95rem 1rem;
+  padding: 1rem 1.04rem;
 }
 
 .product-model-designer__candidate-nav-item,
 .product-model-designer__formal-overview-card {
   width: 100%;
-  padding: 0.82rem 0.9rem;
+  padding: 0.9rem 0.96rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.94);
@@ -550,7 +567,7 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__confirm-metrics div {
   display: grid;
   gap: 0.2rem;
-  padding: 0.8rem 0.88rem;
+  padding: 0.92rem 0.96rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(252, 253, 255, 0.96);

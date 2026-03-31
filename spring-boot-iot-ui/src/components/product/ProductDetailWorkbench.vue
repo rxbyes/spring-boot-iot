@@ -3,6 +3,7 @@
     <section class="detail-panel product-detail-workbench__hero-stage" data-testid="product-detail-hero-stage">
       <div class="detail-section-header">
         <div>
+          <p class="product-detail-workbench__section-kicker" data-testid="product-detail-hero-stage-kicker">经营主判断</p>
           <h3 data-testid="product-detail-stage-title">设备规模与经营判断</h3>
           <p>首屏只保留一个规模主舞台，先看设备体量、在线覆盖和当前经营判断。</p>
         </div>
@@ -19,7 +20,7 @@
           <span class="detail-summary-card__label">关联设备总量</span>
           <strong class="detail-summary-card__value" data-testid="product-detail-hero-total">{{ heroTotal }}</strong>
           <p class="detail-summary-card__hint">{{ deviceScaleHint }}</p>
-          <p class="product-detail-workbench__statement">{{ heroHeadline }}</p>
+          <p class="product-detail-workbench__statement" data-testid="product-detail-primary-statement">{{ heroHeadline }}</p>
         </article>
 
         <div class="product-detail-workbench__secondary-metrics" data-testid="product-detail-secondary-metrics">
@@ -49,7 +50,7 @@
         </div>
       </div>
 
-      <div class="product-detail-workbench__judgement-grid">
+      <div class="product-detail-workbench__judgement-grid" data-testid="product-detail-judgement-summary">
         <article class="detail-card">
           <div class="detail-card__header">
             <strong>趋势摘要</strong>
@@ -88,8 +89,12 @@
         </div>
       </div>
 
-      <div class="product-detail-workbench__contract-archive-grid">
+      <div class="product-detail-workbench__contract-archive-grid" data-testid="product-detail-contract-summary">
         <div class="product-detail-workbench__contract-grid" data-testid="product-detail-contract">
+          <div class="product-detail-workbench__section-brief">
+            <span>接入契约摘要</span>
+            <strong>把协议、节点和数据格式收束为同一接入基线。</strong>
+          </div>
           <article v-for="card in contractCards" :key="card.key" class="detail-summary-card">
             <span class="detail-summary-card__label">{{ card.label }}</span>
             <strong class="detail-summary-card__value">{{ card.value }}</strong>
@@ -144,6 +149,11 @@
           <h3 data-testid="product-detail-stage-title">维护与治理</h3>
           <p>把稳定性判断落成可执行约束，确保产品变更前先评估对现网设备和接入链路的影响。</p>
         </div>
+      </div>
+
+      <div class="product-detail-workbench__section-brief" data-testid="product-detail-governance-summary">
+        <span>治理摘要</span>
+        <strong>先落结论，再对照规则和变更前确认逐项执行。</strong>
       </div>
 
       <div :class="['detail-notice', { 'detail-notice--danger': product.status === 0 }]">
@@ -436,7 +446,7 @@ const changeChecklist = [
 <style scoped>
 .product-detail-workbench {
   display: grid;
-  gap: 0.95rem;
+  gap: 1.15rem;
 }
 
 .product-detail-workbench__hero-stage,
@@ -444,23 +454,33 @@ const changeChecklist = [
 .product-detail-workbench__contract-archive-stage,
 .product-detail-workbench__governance-stage {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
+}
+
+.product-detail-workbench__section-kicker,
+.product-detail-workbench__section-brief span {
+  margin: 0;
+  color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .product-detail-workbench__status-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 1.9rem;
-  padding: 0.28rem 0.78rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
+  min-height: 2.05rem;
+  padding: 0.3rem 0.84rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 8%, white);
+  background: linear-gradient(180deg, rgba(255, 249, 245, 0.98), rgba(255, 244, 237, 0.98));
   color: color-mix(in srgb, var(--brand) 78%, var(--text-heading));
   font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
+  box-shadow: 0 10px 18px rgba(217, 120, 47, 0.1);
 }
 
 .product-detail-workbench__status-chip--inactive {
@@ -475,7 +495,7 @@ const changeChecklist = [
 .product-detail-workbench__governance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .product-detail-workbench__primary-card,
@@ -483,16 +503,46 @@ const changeChecklist = [
 .product-detail-workbench__contract-grid,
 .product-detail-workbench__archive-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.82rem;
 }
 
 .product-detail-workbench__primary-card {
   align-content: start;
+  padding: 1.12rem 1.16rem;
+  border-radius: calc(var(--radius-lg) + 4px);
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 36%),
+    linear-gradient(180deg, rgba(255, 251, 248, 0.98), rgba(255, 255, 255, 0.98));
 }
 
 .product-detail-workbench__secondary-metrics,
 .product-detail-workbench__trend-strip {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-detail-workbench__secondary-metrics .detail-summary-card,
+.product-detail-workbench__trend-strip .detail-summary-card,
+.product-detail-workbench__contract-grid .detail-summary-card {
+  padding: 0.92rem 0.96rem;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.product-detail-workbench__section-brief {
+  display: grid;
+  gap: 0.26rem;
+  padding: 0.92rem 0.96rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.product-detail-workbench__section-brief strong {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 .product-detail-workbench__statement,
@@ -502,17 +552,24 @@ const changeChecklist = [
   margin: 0;
   color: var(--text-caption);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.72;
 }
 
 .product-detail-workbench__statement {
-  color: var(--text-body);
+  color: var(--text-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
 }
 
 .product-detail-workbench__subcopy,
 .product-detail-workbench__notice-copy {
   margin-top: 0.45rem;
   color: var(--text-caption-2);
+}
+
+.product-detail-workbench__archive-grid {
+  padding: 0.2rem;
 }
 
 .product-detail-workbench__rule-list {

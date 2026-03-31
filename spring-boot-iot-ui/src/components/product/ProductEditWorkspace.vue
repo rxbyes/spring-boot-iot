@@ -2,14 +2,14 @@
   <div class="product-edit-workspace">
     <section class="detail-panel product-edit-workspace__summary-band">
       <div class="product-edit-workspace__summary-copy">
-        <p class="product-edit-workspace__kicker">编辑治理</p>
-        <h3>{{ heroTitle }}</h3>
+        <p class="product-edit-workspace__kicker product-edit-workspace__section-kicker">编辑治理</p>
+        <h3 class="product-edit-workspace__headline">{{ heroTitle }}</h3>
         <p class="product-edit-workspace__summary-description">
           在同一产品经营上下文中维护基础档案、接入基线和补充说明，保存后同步回写当前工作台头部和列表台账。
         </p>
       </div>
 
-      <div class="product-edit-workspace__summary-metrics">
+      <div class="product-edit-workspace__summary-metrics product-edit-workspace__context-strip">
         <article class="product-edit-workspace__summary-card">
           <span>产品 Key</span>
           <strong>{{ formatText(model.productKey) }}</strong>
@@ -39,7 +39,7 @@
       :model="model"
       :rules="rules"
       label-position="top"
-      class="ops-drawer-form product-edit-workspace__form"
+      class="ops-drawer-form product-edit-workspace__form product-edit-workspace__form-stage"
     >
       <section class="ops-drawer-section">
         <div class="ops-drawer-section__header">
@@ -203,17 +203,19 @@ defineExpose({
 }
 
 .product-edit-workspace {
-  gap: 0.95rem;
+  gap: 1.08rem;
 }
 
 .product-edit-workspace__summary-band {
   display: grid;
-  gap: 0.8rem;
-  padding: 0.98rem 1.02rem;
+  gap: 0.92rem;
+  padding: 1.12rem 1.16rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: var(--shadow-surface-soft-sm);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
 }
 
 .product-edit-workspace__kicker,
@@ -229,30 +231,47 @@ defineExpose({
   color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
-.product-edit-workspace__summary-copy h3,
+.product-edit-workspace__headline,
 .product-edit-workspace__summary-card strong {
   margin: 0;
   color: var(--text-heading);
 }
 
+.product-edit-workspace__headline {
+  font-size: clamp(1.42rem, 2vw, 1.92rem);
+  line-height: 1.16;
+  letter-spacing: -0.02em;
+}
+
 .product-edit-workspace__summary-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.78rem;
 }
 
 .product-edit-workspace__summary-card {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.82rem 0.88rem;
+  gap: 0.36rem;
+  padding: 0.96rem 1rem;
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .product-edit-workspace__summary-card strong {
-  font-size: 0.98rem;
+  font-size: 1.08rem;
+}
+
+.product-edit-workspace__form-stage {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.04rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 12px 28px rgba(28, 53, 87, 0.05);
 }
 
 .product-edit-workspace__footer {
