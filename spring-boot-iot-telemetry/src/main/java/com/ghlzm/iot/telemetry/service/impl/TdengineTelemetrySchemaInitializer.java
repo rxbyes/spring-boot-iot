@@ -13,11 +13,14 @@ public class TdengineTelemetrySchemaInitializer implements ApplicationRunner {
 
     private final IotProperties iotProperties;
     private final TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport;
+    private final TelemetryV2SchemaSupport telemetryV2SchemaSupport;
 
     public TdengineTelemetrySchemaInitializer(IotProperties iotProperties,
-                                              TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport) {
+                                              TdengineTelemetrySchemaSupport tdengineTelemetrySchemaSupport,
+                                              TelemetryV2SchemaSupport telemetryV2SchemaSupport) {
         this.iotProperties = iotProperties;
         this.tdengineTelemetrySchemaSupport = tdengineTelemetrySchemaSupport;
+        this.telemetryV2SchemaSupport = telemetryV2SchemaSupport;
     }
 
     @Override
@@ -28,5 +31,6 @@ public class TdengineTelemetrySchemaInitializer implements ApplicationRunner {
             return;
         }
         tdengineTelemetrySchemaSupport.ensureTable();
+        telemetryV2SchemaSupport.ensureTables();
     }
 }
