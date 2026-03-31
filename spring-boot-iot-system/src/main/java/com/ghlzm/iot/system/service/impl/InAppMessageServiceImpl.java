@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
@@ -190,7 +191,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     public InAppMessageUnreadStatsVO getMyUnreadStats(Long userId) {
         ensureMyMessageAccessReady();
-        List<InAppMessage> accessibleMessages = listAccessibleMessages(userId);
+        List<InAppMessage> accessibleMessages = listAccessibleMessagesForUnreadStats(userId);
         Map<Long, InAppMessageRead> readMap = queryReadMap(userId, accessibleMessages.stream().map(InAppMessage::getId).toList());
         InAppMessageUnreadStatsVO stats = new InAppMessageUnreadStatsVO();
         for (InAppMessage message : accessibleMessages) {
@@ -405,24 +406,57 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     }
 
     private List<InAppMessage> listAccessibleMessages(Long userId) {
+        return listAccessibleMessages(userId, false, true);
+    }
+
+    private List<InAppMessage> listAccessibleMessagesForUnreadStats(Long userId) {
+        return listAccessibleMessages(userId, true, false);
+    }
+
+    private List<InAppMessage> listAccessibleMessages(Long userId, boolean lightweightSelect, boolean ordered) {
         systemContentSchemaSupport.ensureInAppMessageReady();
         UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
         Set<String> roleCodes = SystemContentAccessSupport.toUpperCaseSet(authContext.getRoleCodes());
         Date now = new Date();
+        java.util.stream.Stream<InAppMessage> accessibleStream = (lightweightSelect
+                ? inAppMessageMapper.selectList(buildAccessibleMessageSummaryQuery(now))
+                : inAppMessageMapper.selectList(buildAccessibleMessageQuery(now, ordered))).stream()
+                .filter(message -> matchesTarget(message, userId, roleCodes))
+                .filter(Objects::nonNull);
+        if (ordered) {
+            accessibleStream = accessibleStream.sorted(accessibleMessageComparator());
+        }
+        return accessibleStream.toList();
+    }
+
+    private LambdaQueryWrapper<InAppMessage> buildAccessibleMessageQuery(Date now, boolean ordered) {
         LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(InAppMessage::getDeleted, 0)
                 .eq(InAppMessage::getStatus, 1)
                 .le(InAppMessage::getPublishTime, now)
                 .and(wrapper -> wrapper.isNull(InAppMessage::getExpireTime)
                         .or()
-                        .gt(InAppMessage::getExpireTime, now))
-                .orderByAsc(InAppMessage::getSortNo)
-                .orderByDesc(InAppMessage::getPublishTime)
-                .orderByDesc(InAppMessage::getId);
-        return inAppMessageMapper.selectList(queryWrapper).stream()
-                .filter(message -> matchesTarget(message, userId, roleCodes))
-                .sorted(accessibleMessageComparator())
-                .toList();
+                        .gt(InAppMessage::getExpireTime, now));
+        if (ordered) {
+            queryWrapper.orderByAsc(InAppMessage::getSortNo)
+                    .orderByDesc(InAppMessage::getPublishTime)
+                    .orderByDesc(InAppMessage::getId);
+        }
+        return queryWrapper;
+    }
+
+    private QueryWrapper<InAppMessage> buildAccessibleMessageSummaryQuery(Date now) {
+        QueryWrapper<InAppMessage> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "message_type", "target_type", "target_role_codes", "target_user_ids");
+        // 壳层未读角标不需要正文和排序，只取最小字段集以减少后台自动刷新对主库的占用。
+        queryWrapper.lambda()
+                .eq(InAppMessage::getDeleted, 0)
+                .eq(InAppMessage::getStatus, 1)
+                .le(InAppMessage::getPublishTime, now)
+                .and(wrapper -> wrapper.isNull(InAppMessage::getExpireTime)
+                        .or()
+                        .gt(InAppMessage::getExpireTime, now));
+        return queryWrapper;
     }
 
     private boolean matchesTarget(InAppMessage message, Long userId, Set<String> roleCodes) {

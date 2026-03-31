@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getMyInAppMessageUnreadStats,
   getInAppMessageBridgeStats,
   listInAppMessageBridgeAttempts,
   pageInAppMessageBridgeLogs
@@ -82,6 +83,19 @@ describe('inAppMessage bridge api', () => {
     })
 
     expect(request).toHaveBeenCalledWith('/api/system/in-app-message/bridge/3001/attempts', {
+      method: 'GET',
+      signal: controller.signal
+    })
+  })
+
+  it('passes abort signal when requesting unread stats', async () => {
+    const controller = new AbortController()
+
+    await getMyInAppMessageUnreadStats({
+      signal: controller.signal
+    })
+
+    expect(request).toHaveBeenCalledWith('/api/system/in-app-message/my/unread-count', {
       method: 'GET',
       signal: controller.signal
     })

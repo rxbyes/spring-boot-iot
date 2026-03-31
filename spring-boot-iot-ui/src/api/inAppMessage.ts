@@ -336,9 +336,12 @@ export function pageMyInAppMessages(
   })
 }
 
-export function getMyInAppMessageUnreadStats(): Promise<ApiEnvelope<InAppMessageUnreadStats>> {
+export function getMyInAppMessageUnreadStats(
+  options: InAppMessageRequestOptions = {}
+): Promise<ApiEnvelope<InAppMessageUnreadStats>> {
   return request<InAppMessageUnreadStats>('/api/system/in-app-message/my/unread-count', {
-    method: 'GET'
+    method: 'GET',
+    ...options
   })
 }
 

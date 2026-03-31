@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.InAppMessage;
@@ -15,11 +16,13 @@ import com.ghlzm.iot.system.vo.UserAuthContextVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -61,7 +64,7 @@ class InAppMessageServiceImplTest {
     void shouldAggregateUnreadStatsByAccessibleMessageType() {
         Long userId = 2L;
         when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
-        when(inAppMessageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(
+        when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(101L, "system", "high", "all", null, null),
                 message(102L, "business", "medium", "role", "BUSINESS_STAFF", null),
                 message(103L, "error", "critical", "user", null, "2"),
@@ -78,10 +81,33 @@ class InAppMessageServiceImplTest {
     }
 
     @Test
+    void shouldQueryUnreadStatsWithoutSelectingMessageBodyColumns() {
+        Long userId = 2L;
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
+                message(101L, "system", "high", "all", null, null)
+        ));
+        when(inAppMessageReadMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        inAppMessageService.getMyUnreadStats(userId);
+
+        ArgumentCaptor<QueryWrapper<InAppMessage>> captor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(inAppMessageMapper).selectList(captor.capture());
+        QueryWrapper<InAppMessage> queryWrapper = captor.getValue();
+
+        String sqlSelect = String.valueOf(queryWrapper.getSqlSelect()).toLowerCase(Locale.ROOT);
+        assertTrue(sqlSelect.contains("id"));
+        assertTrue(sqlSelect.contains("message_type"));
+        assertTrue(sqlSelect.contains("target_type"));
+        assertFalse(sqlSelect.contains("content"));
+        assertFalse(sqlSelect.contains("summary"));
+    }
+
+    @Test
     void shouldReturnOnlyUnreadAccessibleMessagesForCurrentUser() {
         Long userId = 2L;
         when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
-        when(inAppMessageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(
+        when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(201L, "system", "critical", "all", null, null),
                 message(202L, "business", "medium", "role", "BUSINESS_STAFF", null),
                 message(203L, "error", "high", "user", null, "99")
@@ -114,7 +140,7 @@ class InAppMessageServiceImplTest {
     void shouldSortUnreadMessagesBeforeReadMessages() {
         Long userId = 2L;
         when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
-        when(inAppMessageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(
+        when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(401L, "system", "critical", "all", null, null),
                 message(402L, "business", "low", "all", null, null),
                 message(403L, "error", "high", "all", null, null)

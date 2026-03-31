@@ -83,6 +83,54 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
+function createShellOptions() {
+  return {
+    headerRef: ref(null),
+    navigationGroups: computed(() => [{
+      key: 'iot-access',
+      label: 'Ops',
+      description: 'desc',
+      menuTitle: 'Ops',
+      menuHint: 'hint',
+      items: [
+        { to: '/system-log', label: 'System Log', caption: 'caption', short: 'SL' }
+      ]
+    }]),
+    flattenedItems: computed(() => [
+      { to: '/system-log', label: 'System Log', caption: 'caption', short: 'SL' }
+    ]),
+    activeGroup: computed(() => ({
+      key: 'iot-access',
+      label: 'Ops',
+      description: 'desc',
+      menuTitle: 'Ops',
+      menuHint: 'hint',
+      items: [
+        { to: '/system-log', label: 'System Log', caption: 'caption', short: 'SL' }
+      ]
+    }))
+  }
+}
+
+function mountSubject() {
+  let state!: ReturnType<typeof useShellHeaderInteractions>
+  const wrapper = mount(defineComponent({
+    setup() {
+      state = useShellHeaderInteractions(createShellOptions())
+      return () => null
+    }
+  }))
+  return { state, wrapper }
+}
+
 describe('useShellHeaderInteractions', () => {
   beforeEach(() => {
     BroadcastChannelMock.reset()
@@ -104,15 +152,15 @@ describe('useShellHeaderInteractions', () => {
       },
       roleProfile: {
         key: 'ops',
-        label: '运维人员',
+        label: 'Ops',
         roleCodes: ['OPS_STAFF'],
-        roleNameKeywords: ['运维'],
+        roleNameKeywords: ['ops'],
         defaultPath: '/device-access',
         preferredWorkspaceKeys: ['iot-access', 'risk-ops'],
         featuredPaths: ['/devices', '/message-trace', '/system-log'],
         cockpitRole: 'ops',
-        focusLabel: '接入智维',
-        focusDescription: '优先处理链路稳定性、设备在线与排障事项。'
+        focusLabel: 'Ops Focus',
+        focusDescription: 'Focus on message flow and diagnostics.'
       },
       homePath: '/device-access',
       allowedPaths: ['/devices', '/message-trace', '/system-log', '/alarm-center'],
@@ -131,9 +179,9 @@ describe('useShellHeaderInteractions', () => {
               id: '1',
               messageType: 'system',
               priority: 'high',
-              title: '系统维护窗口提醒',
-              summary: '今晚 23:00 执行维护',
-              content: '维护详情',
+              title: 'Maintenance Notice',
+              summary: 'Scheduled maintenance tonight.',
+              content: 'Full maintenance detail',
               targetType: 'all',
               relatedPath: '/system-log',
               sourceType: 'system',
@@ -160,9 +208,9 @@ describe('useShellHeaderInteractions', () => {
         id: '1',
         messageType: 'system',
         priority: 'high',
-        title: '系统维护窗口提醒',
-        summary: '今晚 23:00 执行维护',
-        content: '完整维护详情',
+        title: 'Maintenance Notice',
+        summary: 'Scheduled maintenance tonight.',
+        content: 'Full maintenance detail',
         targetType: 'all',
         relatedPath: '/system-log',
         sourceType: 'system',
@@ -193,43 +241,13 @@ describe('useShellHeaderInteractions', () => {
   })
 
   it('keeps unread count until explicit read action and opens center/detail flows', async () => {
-    let state!: ReturnType<typeof useShellHeaderInteractions>
-    const wrapper = mount(defineComponent({
-      setup() {
-        state = useShellHeaderInteractions({
-          headerRef: ref(null),
-          navigationGroups: computed(() => [{
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }]),
-          flattenedItems: computed(() => [
-            { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-          ]),
-          activeGroup: computed(() => ({
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }))
-        })
-        return () => null
-      }
-    }))
+    const { state, wrapper } = mountSubject()
 
     await flushPromises()
 
     expect(state.unreadNoticeCount.value).toBe(1)
     state.toggleNoticePanel()
+    await flushPromises()
 
     expect(state.showNoticePanel.value).toBe(true)
     expect(state.unreadNoticeCount.value).toBe(1)
@@ -245,7 +263,7 @@ describe('useShellHeaderInteractions', () => {
     await flushPromises()
 
     expect(mocks.getMyInAppMessageMock).toHaveBeenCalledWith('1', expect.any(Object))
-    expect(state.noticeDetailRecord.value?.content).toContain('完整维护详情')
+    expect(state.noticeDetailRecord.value?.content).toContain('Full maintenance detail')
 
     await state.markNoticeRead(state.noticeCenterItems.value[0])
 
@@ -256,86 +274,100 @@ describe('useShellHeaderInteractions', () => {
     wrapper.unmount()
   })
 
-  it('refreshes notice summary when tab becomes visible again', async () => {
-    let state!: ReturnType<typeof useShellHeaderInteractions>
-    mount(defineComponent({
-      setup() {
-        state = useShellHeaderInteractions({
-          headerRef: ref(null),
-          navigationGroups: computed(() => [{
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }]),
-          flattenedItems: computed(() => [
-            { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-          ]),
-          activeGroup: computed(() => ({
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }))
-        })
-        return () => null
-      }
-    }))
+  it('loads unread stats on mount without preloading notice page records', async () => {
+    const { state, wrapper } = mountSubject()
 
     await flushPromises()
-    const initialCalls = mocks.pageMyInAppMessagesMock.mock.calls.length
 
+    expect(mocks.getMyInAppMessageUnreadStatsMock).toHaveBeenCalledTimes(1)
+    expect(mocks.getMyInAppMessageUnreadStatsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signal: expect.any(AbortSignal)
+      })
+    )
+    expect(mocks.pageMyInAppMessagesMock).not.toHaveBeenCalled()
+    expect(state.unreadNoticeCount.value).toBe(1)
+    wrapper.unmount()
+  })
+
+  it('refreshes notice summary when tab becomes visible again after the auto refresh window expires', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000)
+    const { state, wrapper } = mountSubject()
+
+    await flushPromises()
+    const initialPageCalls = mocks.pageMyInAppMessagesMock.mock.calls.length
+    const initialStatsCalls = mocks.getMyInAppMessageUnreadStatsMock.mock.calls.length
+
+    now.mockReturnValue(62_000)
     document.dispatchEvent(new Event('visibilitychange'))
     await flushPromises()
 
-    expect(mocks.pageMyInAppMessagesMock.mock.calls.length).toBeGreaterThan(initialCalls)
+    expect(mocks.getMyInAppMessageUnreadStatsMock.mock.calls.length).toBeGreaterThan(initialStatsCalls)
+    expect(mocks.pageMyInAppMessagesMock.mock.calls.length).toBe(initialPageCalls)
     expect(state.unreadNoticeCount.value).toBe(1)
+    wrapper.unmount()
+    now.mockRestore()
+  })
+
+  it('skips repeated auto stats refreshes while unread stats are still fresh', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000)
+    const { wrapper } = mountSubject()
+
+    await flushPromises()
+    expect(mocks.getMyInAppMessageUnreadStatsMock).toHaveBeenCalledTimes(1)
+
+    now.mockReturnValue(2_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+
+    expect(mocks.getMyInAppMessageUnreadStatsMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+    now.mockRestore()
+  })
+
+  it('reuses the pending auto stats request instead of issuing another one', async () => {
+    const statsDeferred = createDeferred<{
+      data: {
+        totalUnreadCount: number
+        systemUnreadCount: number
+        businessUnreadCount: number
+        errorUnreadCount: number
+      }
+    }>()
+
+    mocks.getMyInAppMessageUnreadStatsMock.mockReset()
+    mocks.getMyInAppMessageUnreadStatsMock.mockImplementation(() => statsDeferred.promise)
+
+    const { wrapper } = mountSubject()
+    await flushPromises()
+
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+
+    expect(mocks.getMyInAppMessageUnreadStatsMock).toHaveBeenCalledTimes(1)
+
+    statsDeferred.resolve({
+      data: {
+        totalUnreadCount: 1,
+        systemUnreadCount: 1,
+        businessUnreadCount: 0,
+        errorUnreadCount: 0
+      }
+    })
+    await flushPromises()
+    wrapper.unmount()
   })
 
   it('syncs unread state from broadcast channel events across tabs', async () => {
-    let state!: ReturnType<typeof useShellHeaderInteractions>
-    mount(defineComponent({
-      setup() {
-        state = useShellHeaderInteractions({
-          headerRef: ref(null),
-          navigationGroups: computed(() => [{
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }]),
-          flattenedItems: computed(() => [
-            { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-          ]),
-          activeGroup: computed(() => ({
-            key: 'iot-access',
-            label: '接入智维',
-            description: 'desc',
-            menuTitle: '接入智维',
-            menuHint: 'hint',
-            items: [
-              { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
-            ]
-          }))
-        })
-        return () => null
-      }
-    }))
+    const { state, wrapper } = mountSubject()
 
     await flushPromises()
-    const initialCalls = mocks.pageMyInAppMessagesMock.mock.calls.length
+    const initialPageCalls = mocks.pageMyInAppMessagesMock.mock.calls.length
+    const initialStatsCalls = mocks.getMyInAppMessageUnreadStatsMock.mock.calls.length
 
     BroadcastChannelMock.instances[0]?.emit({
       reason: 'read-all',
@@ -344,7 +376,9 @@ describe('useShellHeaderInteractions', () => {
     })
     await flushPromises()
 
-    expect(mocks.pageMyInAppMessagesMock.mock.calls.length).toBeGreaterThan(initialCalls)
+    expect(mocks.getMyInAppMessageUnreadStatsMock.mock.calls.length).toBeGreaterThan(initialStatsCalls)
+    expect(mocks.pageMyInAppMessagesMock.mock.calls.length).toBe(initialPageCalls)
     expect(state.unreadNoticeCount.value).toBe(1)
+    wrapper.unmount()
   })
 })

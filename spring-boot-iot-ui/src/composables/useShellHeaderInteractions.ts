@@ -48,6 +48,12 @@ type CommandSearchEntry = WorkspaceCommandEntry & { searchText: string }
 
 const NOTICE_SYNC_CHANNEL_NAME = 'spring-boot-iot:shell-notice-sync'
 const NOTICE_SYNC_STORAGE_KEY = 'spring-boot-iot:shell-notice-sync-event'
+const NOTICE_STATS_AUTO_REFRESH_INTERVAL_MS = 60_000
+const NOTICE_STATS_ERROR_RETRY_INTERVAL_MS = 15_000
+
+interface NoticeRefreshOptions {
+  force?: boolean
+}
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
@@ -118,6 +124,10 @@ export function useShellHeaderInteractions({
   let remoteNoticeRequestId = 0
   let remoteHelpRequestId = 0
   let remoteNoticeController: AbortController | null = null
+  let remoteNoticeStatsRequestId = 0
+  let remoteNoticeStatsController: AbortController | null = null
+  let remoteNoticeStatsRefreshTask: Promise<void> | null = null
+  let remoteNoticeStatsLastRequestedAt = 0
   let remoteHelpController: AbortController | null = null
   let noticeCenterController: AbortController | null = null
   let helpCenterController: AbortController | null = null
@@ -178,8 +188,10 @@ export function useShellHeaderInteractions({
   )
 
   const unreadNoticeCount = computed(() =>
-    remoteNoticeLoaded.value
-      ? Number(remoteNoticeStats.value?.totalUnreadCount ?? remoteNoticeMessages.value.filter((item) => !item.read).length)
+    remoteNoticeStats.value
+      ? Number(remoteNoticeStats.value.totalUnreadCount ?? 0)
+      : remoteNoticeLoaded.value
+        ? remoteNoticeMessages.value.filter((item) => !item.read).length
       : fallbackNoticeItems.value.filter((item) => !readNoticeIds.value.includes(item.id)).length
   )
 
@@ -521,6 +533,8 @@ export function useShellHeaderInteractions({
   function abortControllers() {
     remoteNoticeController?.abort()
     remoteNoticeController = null
+    remoteNoticeStatsController?.abort()
+    remoteNoticeStatsController = null
     remoteHelpController?.abort()
     remoteHelpController = null
     noticeCenterController?.abort()
@@ -533,8 +547,12 @@ export function useShellHeaderInteractions({
     helpDetailController = null
   }
 
-  function refreshNoticeSurfaces() {
-    void refreshRemoteNoticeContent()
+  function refreshNoticeSurfaces(options: NoticeRefreshOptions = {}) {
+    if (showNoticePanel.value) {
+      void refreshRemoteNoticeContent(options)
+    } else {
+      void refreshRemoteNoticeStats(options)
+    }
     if (showNoticeCenterDrawer.value) {
       void refreshNoticeCenter()
     }
@@ -567,7 +585,7 @@ export function useShellHeaderInteractions({
     if (userId && userId !== String(permissionStore.authContext?.userId || '')) {
       return
     }
-    refreshNoticeSurfaces()
+    refreshNoticeSurfaces({ force: true })
   }
 
   function handleStorageSync(event: StorageEvent) {
@@ -601,25 +619,34 @@ export function useShellHeaderInteractions({
     }
   }
 
-  async function refreshRemoteNoticeContent() {
+  async function refreshRemoteNoticeContent(options: NoticeRefreshOptions = {}) {
     const userId = permissionStore.authContext?.userId
     if (!userId) {
       remoteNoticeController?.abort()
+      remoteNoticeStatsController?.abort()
+      remoteNoticeStatsRefreshTask = null
+      remoteNoticeStatsLastRequestedAt = 0
       remoteNoticeMessages.value = []
       remoteNoticeStats.value = null
       remoteNoticeLoaded.value = false
       return
     }
 
+    if (!options.force && remoteNoticeController) {
+      return
+    }
+
     const requestId = ++remoteNoticeRequestId
     remoteNoticeController?.abort()
+    remoteNoticeStatsController?.abort()
     const controller = new AbortController()
     remoteNoticeController = controller
+    remoteNoticeStatsLastRequestedAt = Date.now()
 
     try {
       const [messageResponse, statsResponse] = await Promise.all([
         pageMyInAppMessages({ pageNum: 1, pageSize: 6 }, { signal: controller.signal }),
-        getMyInAppMessageUnreadStats()
+        getMyInAppMessageUnreadStats({ signal: controller.signal })
       ])
       if (requestId !== remoteNoticeRequestId || controller.signal.aborted) {
         return
@@ -639,6 +666,69 @@ export function useShellHeaderInteractions({
         remoteNoticeController = null
       }
     }
+  }
+
+  async function refreshRemoteNoticeStats(options: NoticeRefreshOptions = {}) {
+    const userId = permissionStore.authContext?.userId
+    if (!userId) {
+      remoteNoticeStatsController?.abort()
+      remoteNoticeStatsRefreshTask = null
+      remoteNoticeStatsLastRequestedAt = 0
+      remoteNoticeStats.value = null
+      remoteNoticeLoaded.value = false
+      return
+    }
+
+    const forceRefresh = options.force === true
+    if (!forceRefresh) {
+      // 壳层自动刷新只做轻量保活：复用进行中的请求，并对成功/失败场景分别限流，避免焦点恢复类事件持续放大后台压力。
+      if (remoteNoticeController) {
+        return
+      }
+      if (remoteNoticeStatsRefreshTask) {
+        return remoteNoticeStatsRefreshTask
+      }
+      const minIntervalMs = remoteNoticeStats.value
+        ? NOTICE_STATS_AUTO_REFRESH_INTERVAL_MS
+        : NOTICE_STATS_ERROR_RETRY_INTERVAL_MS
+      if (remoteNoticeStatsLastRequestedAt > 0 && Date.now() - remoteNoticeStatsLastRequestedAt < minIntervalMs) {
+        return
+      }
+    }
+
+    const requestId = ++remoteNoticeStatsRequestId
+    remoteNoticeStatsController?.abort()
+    const controller = new AbortController()
+    remoteNoticeStatsController = controller
+    remoteNoticeStatsLastRequestedAt = Date.now()
+    let refreshTask: Promise<void> | null = null
+
+    refreshTask = (async () => {
+      try {
+        const statsResponse = await getMyInAppMessageUnreadStats({
+          signal: controller.signal
+        })
+        if (requestId !== remoteNoticeStatsRequestId || controller.signal.aborted) {
+          return
+        }
+        remoteNoticeStats.value = statsResponse.data
+      } catch (error) {
+        if (requestId !== remoteNoticeStatsRequestId || isAbortError(error)) {
+          return
+        }
+        remoteNoticeStats.value = null
+        remoteNoticeLoaded.value = false
+      } finally {
+        if (remoteNoticeStatsController === controller) {
+          remoteNoticeStatsController = null
+        }
+        if (remoteNoticeStatsRefreshTask === refreshTask) {
+          remoteNoticeStatsRefreshTask = null
+        }
+      }
+    })()
+    remoteNoticeStatsRefreshTask = refreshTask
+    return refreshTask
   }
 
   async function refreshRemoteHelpContent() {
@@ -799,7 +889,7 @@ export function useShellHeaderInteractions({
     showNoticeDetailDrawer.value = false
     showHelpDetailDrawer.value = false
     showNoticeCenterDrawer.value = true
-    void refreshRemoteNoticeContent()
+    void refreshRemoteNoticeStats({ force: true })
     void refreshNoticeCenter()
   }
 
@@ -1072,7 +1162,7 @@ export function useShellHeaderInteractions({
   watch(
     () => `${permissionStore.authContext?.userId || ''}|${allowedPathSignature.value}`,
     () => {
-      void refreshRemoteNoticeContent()
+      void refreshRemoteNoticeStats()
     },
     { immediate: true }
   )
