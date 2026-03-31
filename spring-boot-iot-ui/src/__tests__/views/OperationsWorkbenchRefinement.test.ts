@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineComponent, ref } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +13,8 @@ import RuleDefinitionView from '@/views/RuleDefinitionView.vue';
 import LinkageRuleView from '@/views/LinkageRuleView.vue';
 import EmergencyPlanView from '@/views/EmergencyPlanView.vue';
 import AutomationTestCenterView from '@/views/AutomationTestCenterView.vue';
+
+const sourceRoot = resolve(import.meta.dirname, '../../..');
 
 vi.mock('@/composables/useAutomationPlanBuilder', () => ({
   useAutomationPlanBuilder: () => ({
@@ -395,13 +399,13 @@ describe('operations workbench refinement', () => {
   });
 
   it('aligns the alarm table action column with the product-definition spacing baseline', () => {
-    const wrapper = mountView(AlarmCenterView);
-    const actionColumn = wrapper
-      .findAll('.el-table-column-stub')
-      .find((column) => column.attributes('data-label') === '操作');
+    const source = readFileSync(resolve(sourceRoot, 'src/views/AlarmCenterView.vue'), 'utf8');
 
-    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('232');
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('class-name="standard-row-actions-column"');
+    expect(source).toContain(':width="alarmActionColumnWidth"');
+    expect(source).toContain("const alarmActionColumnWidth = resolveAdaptiveActionColumnWidth({");
+    expect(source).toContain("directLabels: ['详情', '确认', '抑制', '关闭']");
   });
 
   it('removes the standalone hero card from the event workbench', () => {
