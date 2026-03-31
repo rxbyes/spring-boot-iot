@@ -152,23 +152,18 @@
         />
         <el-table-column
           label="操作"
-          width="220"
+          :width="roleActionColumnWidth"
           fixed="right"
+          class-name="standard-row-actions-column"
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-              <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink
-                v-permission="'system:role:update'"
-                @click="handleEdit(row)"
-                >编辑/授权</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:role:delete'"
-                @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getRoleRowActions()"
+              @command="(command) => handleRoleRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -407,9 +402,11 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { useServerPagination } from "@/composables/useServerPagination";
 import { listMenuTree } from "@/api/menu";
+import { usePermissionStore } from "@/stores/permission";
 import {
   addRole,
   deleteRole,
@@ -431,6 +428,7 @@ import {
   resolveRoleCheckedMenuIds,
   resolveRoleMenuSummary,
 } from "@/utils/menuAuth";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 
 interface SearchFormState {
   roleName: string;
@@ -451,6 +449,8 @@ interface RoleMenuTreeNode extends MenuTreeNode {
   disabled?: boolean;
   children: RoleMenuTreeNode[];
 }
+
+type RoleRowActionCommand = "edit" | "delete";
 
 const formRef = ref();
 const tableRef = ref();
@@ -508,6 +508,14 @@ const selectedExportColumnKeys = ref<string[]>(
   ),
 );
 const exportColumnDialogVisible = ref(false);
+const permissionStore = usePermissionStore();
+const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑/授权" },
+    { command: "delete", label: "删除" },
+  ],
+  gap: "compact",
+});
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
@@ -694,6 +702,25 @@ function clearSelection() {
 function handleRefresh() {
   clearSelection();
   getRoles();
+}
+
+function getRoleRowActions() {
+  const actions: Array<{ command: RoleRowActionCommand; label: string }> = [];
+  if (permissionStore.hasPermission("system:role:update")) {
+    actions.push({ command: "edit", label: "编辑/授权" });
+  }
+  if (permissionStore.hasPermission("system:role:delete")) {
+    actions.push({ command: "delete", label: "删除" });
+  }
+  return actions;
+}
+
+function handleRoleRowAction(command: RoleRowActionCommand, row: Role) {
+  if (command === "edit") {
+    void handleEdit(row);
+    return;
+  }
+  void handleDelete(row);
 }
 
 function handleRemoveAppliedFilter(key: string) {

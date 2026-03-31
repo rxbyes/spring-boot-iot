@@ -58,6 +58,12 @@ vi.mock('@/utils/confirm', () => ({
   isConfirmCancelled: vi.fn(() => false)
 }))
 
+vi.mock('@/stores/permission', () => ({
+  usePermissionStore: () => ({
+    hasPermission: () => true
+  })
+}))
+
 vi.mock('element-plus', async (importOriginal) => {
   const actual = await importOriginal<typeof import('element-plus')>()
   return {

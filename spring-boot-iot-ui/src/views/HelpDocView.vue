@@ -109,13 +109,20 @@
         <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
         <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
-        <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="helpDocActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
-              <StandardActionLink v-permission="'system:help-doc:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-              <StandardActionLink v-permission="'system:help-doc:delete'" @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getHelpDocRowActions()"
+              @command="(command) => handleHelpDocRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -344,10 +351,13 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
+import { usePermissionStore } from '@/stores/permission'
 import type { IdType } from '@/types/api'
 
 interface SearchFormState {
@@ -369,8 +379,19 @@ interface HelpDocFormState {
   sortNo: number
 }
 
+type HelpDocRowActionCommand = 'view' | 'edit' | 'delete'
+
 const formRef = ref()
 const tableRef = ref()
+const permissionStore = usePermissionStore()
+const helpDocActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'view', label: '详情' },
+    { command: 'edit', label: '编辑' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+})
 const loading = ref(false)
 const submitLoading = ref(false)
 const dialogVisible = ref(false)
@@ -578,6 +599,29 @@ function clearSelection() {
 
 function handleSelectionChange(rows: HelpDocumentRecord[]) {
   selectedRows.value = rows
+}
+
+function getHelpDocRowActions() {
+  const actions: Array<{ command: HelpDocRowActionCommand; label: string }> = [{ command: 'view', label: '详情' }]
+  if (permissionStore.hasPermission('system:help-doc:update')) {
+    actions.push({ command: 'edit', label: '编辑' })
+  }
+  if (permissionStore.hasPermission('system:help-doc:delete')) {
+    actions.push({ command: 'delete', label: '删除' })
+  }
+  return actions
+}
+
+function handleHelpDocRowAction(command: HelpDocRowActionCommand, row: HelpDocumentRecord) {
+  if (command === 'view') {
+    handleView(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  handleDelete(row)
 }
 
 function handleSearch() {

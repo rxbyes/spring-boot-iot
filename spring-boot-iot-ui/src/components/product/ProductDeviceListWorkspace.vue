@@ -4,12 +4,14 @@
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
     <div v-else class="device-workspace__content">
-      <section class="device-workspace__summary-band">
+      <section class="device-workspace__chapter-header">
         <div class="device-workspace__summary-copy">
           <p class="device-workspace__summary-title device-workspace__section-kicker">设备运行概览</p>
-          <p class="device-workspace__summary-description">先看设备规模和在线覆盖，再进入台账核对当前产品的运行情况。</p>
+          <h3 class="device-workspace__chapter-title">先看设备规模，再核对关联台账</h3>
         </div>
+      </section>
 
+      <section class="device-workspace__summary-band device-workspace__summary-strip">
         <ul class="device-workspace__metrics device-workspace__metric-band">
           <li
             v-for="metric in summaryMetrics"
@@ -19,15 +21,15 @@
           >
             <span>{{ metric.label }}</span>
             <strong>{{ metric.value }}</strong>
-            <small>{{ metric.hint }}</small>
           </li>
         </ul>
       </section>
 
       <section class="device-workspace__table-stage device-workspace__ledger-stage">
         <div class="device-workspace__section-copy device-workspace__ledger-heading">
+          <p class="device-workspace__ledger-kicker">关联设备台账</p>
           <strong>关联设备台账</strong>
-          <small>快速核对设备身份、在线状态、激活状态和最近上报。</small>
+          <small>核对设备身份、在线状态和最近上报。</small>
         </div>
 
         <div class="device-workspace__table-shell">
@@ -69,9 +71,12 @@
               class-name="standard-row-actions-column"
             >
               <template #default="{ row }">
-                <StandardRowActions>
-                  <StandardActionLink @click="handleViewDevice(row)">查看</StandardActionLink>
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  gap="compact"
+                  :direct-items="deviceLedgerRowActions"
+                  @command="() => handleViewDevice(row)"
+                />
               </template>
             </el-table-column>
           </el-table>
@@ -84,10 +89,9 @@
 <script setup lang="ts">
 import { computed, toRefs } from 'vue'
 
-import StandardActionLink from '@/components/StandardActionLink.vue'
-import StandardRowActions from '@/components/StandardRowActions.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import type { Device, Product } from '@/types/api'
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 
 const props = withDefaults(
@@ -131,6 +135,7 @@ const {
 const emit = defineEmits<{
   (event: 'viewDevice', device: Device): void
 }>()
+const deviceLedgerRowActions = [{ command: 'view' as const, label: '查看' }]
 
 const onlineRatioText = computed(() => {
   if (totalDevices.value <= 0) {
@@ -144,34 +149,30 @@ const summaryMetrics = computed(() => [
     key: 'total',
     label: '设备总数',
     value: String(totalDevices.value),
-    hint: totalDevices.value > 0 ? '当前产品下已建档的设备数量。' : '当前还没有关联设备。',
     tone: 'brand'
   },
   {
     key: 'online',
     label: '在线设备',
     value: String(onlineDevices.value),
-    hint: onlineDevices.value > 0 ? '当前保持在线的设备数量。' : '当前没有设备在线。',
     tone: 'brand'
   },
   {
     key: 'offline',
     label: '离线设备',
     value: String(offlineDevices.value),
-    hint: offlineDevices.value > 0 ? '当前未在线的设备数量。' : '当前没有离线设备。',
     tone: 'brand'
   },
   {
     key: 'ratio',
     label: '在线比例',
     value: onlineRatioText.value,
-    hint: totalDevices.value > 0 ? '在线设备在关联设备中的占比。' : '当前没有设备，暂不统计。',
     tone: 'brand'
   }
 ])
 
-const deviceLedgerActionColumnWidth = resolveAdaptiveActionColumnWidth({
-  directLabels: ['查看'],
+const deviceLedgerActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: deviceLedgerRowActions,
   gap: 'compact'
 })
 
@@ -184,7 +185,7 @@ function handleViewDevice(device: Device) {
 .product-device-workspace,
 .device-workspace__content {
   display: grid;
-  gap: 0.88rem;
+  gap: 0.96rem;
 }
 
 .device-state {
@@ -208,13 +209,14 @@ function handleViewDevice(device: Device) {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 241, 0.96));
 }
 
+.device-workspace__chapter-header,
 .device-workspace__summary-band,
 .device-workspace__table-stage {
   display: grid;
-  gap: 0.68rem;
-  padding: 1rem 1.04rem;
+  gap: 0.72rem;
+  padding: 1.06rem 1.08rem;
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: calc(var(--radius-lg) + 6px);
   background:
     linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
   box-shadow: 0 16px 34px rgba(28, 53, 87, 0.06);
@@ -223,35 +225,44 @@ function handleViewDevice(device: Device) {
 .device-workspace__summary-copy,
 .device-workspace__section-copy {
   display: grid;
-  gap: 0.26rem;
+  gap: 0.3rem;
 }
 
 .device-workspace__summary-title,
 .device-workspace__section-copy strong {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.12rem;
+  font-size: 1.16rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.device-workspace__chapter-title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: clamp(1.42rem, 2vw, 1.86rem);
+  line-height: 1.14;
+  letter-spacing: -0.02em;
 }
 
 .device-workspace__summary-description,
 .device-workspace__section-copy small {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.86rem;
-  line-height: 1.68;
+  font-size: 0.88rem;
+  line-height: 1.7;
 }
 
 .device-workspace__section-kicker {
   color: color-mix(in srgb, var(--brand) 64%, var(--text-caption));
   font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.05em;
 }
 
 .device-workspace__metrics {
   list-style: none;
-  margin: 0.1rem 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -260,11 +271,11 @@ function handleViewDevice(device: Device) {
 
 .device-workspace__metric {
   display: grid;
-  gap: 0.22rem;
+  gap: 0.28rem;
   min-width: 0;
-  padding: 0.88rem 0.94rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
+  padding: 0.94rem 0.98rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 3px);
   background: rgba(255, 255, 255, 0.92);
 }
 
@@ -276,15 +287,9 @@ function handleViewDevice(device: Device) {
 
 .device-workspace__metric strong {
   color: var(--text-heading);
-  font-size: 1.18rem;
+  font-size: 1.22rem;
   font-weight: 700;
   line-height: 1.42;
-}
-
-.device-workspace__metric small {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.6;
 }
 
 .device-workspace__metric[data-tone='brand'] {
@@ -293,10 +298,22 @@ function handleViewDevice(device: Device) {
     linear-gradient(180deg, rgba(255, 250, 246, 0.98), rgba(255, 255, 255, 0.96));
 }
 
+.device-workspace__ledger-heading {
+  gap: 0.22rem;
+}
+
+.device-workspace__ledger-kicker {
+  margin: 0;
+  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
 .device-workspace__table-shell {
   overflow: hidden;
   border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
+  border-radius: calc(var(--radius-lg) + 5px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.94));
   box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }

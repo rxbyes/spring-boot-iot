@@ -413,7 +413,7 @@ describe('DeviceWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('200')
+    expect(String(actionColumn?.props('width'))).toBe('136')
   })
 
   it('keeps the device workbench on the shared list surface and trims toolbar density', () => {

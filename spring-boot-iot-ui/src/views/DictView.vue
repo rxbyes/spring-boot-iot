@@ -86,13 +86,20 @@
         </el-table-column>
         <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
-        <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="dictActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-              <StandardActionLink @click="handleItems(row)">字典项</StandardActionLink>
-              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getDictRowActions()"
+              @command="(command) => handleDictRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -196,12 +203,20 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-          <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
+          <el-table-column
+            label="操作"
+            :width="dictItemActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="handleEditItem(row)">编辑</StandardActionLink>
-                <StandardActionLink @click="handleDeleteItem(row)">删除</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="getDictItemRowActions()"
+                @command="(command) => handleDictItemRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -274,7 +289,9 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -298,6 +315,9 @@ import {
   type DictItem
 } from '@/api/dict'
 import type { IdType } from '@/types/api'
+
+type DictRowActionCommand = 'edit' | 'items' | 'delete'
+type DictItemRowActionCommand = 'edit' | 'delete'
 
 const formRef = ref()
 const itemFormRef = ref()
@@ -386,6 +406,14 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 )
 const exportColumnDialogVisible = ref(false)
+const dictActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'items', label: '字典项' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+})
 
 const itemExportColumns: CsvColumn<DictItem>[] = [
   { key: 'itemName', label: '项名称' },
@@ -408,6 +436,13 @@ const selectedItemExportColumnKeys = ref<string[]>(
   )
 )
 const itemExportColumnDialogVisible = ref(false)
+const dictItemActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+})
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -483,6 +518,26 @@ const handleClearAppliedFilters = () => {
 
 const handleSelectionChange = (rows: Dict[]) => {
   selectedRows.value = rows
+}
+
+function getDictRowActions() {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'items' as const, label: '字典项' },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleDictRowAction(command: DictRowActionCommand, row: Dict) {
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'items') {
+    handleItems(row)
+    return
+  }
+  handleDelete(row)
 }
 
 const clearSelection = () => {
@@ -624,6 +679,21 @@ const handleExportSelectedItems = () => {
 
 const handleExportCurrentItems = () => {
   downloadRowsAsCsv('字典项管理-当前结果.csv', itemsTableData.value, getResolvedItemExportColumns())
+}
+
+function getDictItemRowActions() {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleDictItemRowAction(command: DictItemRowActionCommand, row: DictItem) {
+  if (command === 'edit') {
+    handleEditItem(row)
+    return
+  }
+  void handleDeleteItem(row)
 }
 
 const handleAddItem = () => {

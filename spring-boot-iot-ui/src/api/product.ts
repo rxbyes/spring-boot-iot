@@ -7,6 +7,7 @@ import type {
   Product,
   ProductAddPayload,
   ProductModelCandidateConfirmPayload,
+  ProductModelManualExtractPayload,
   ProductModelCandidateResult,
   ProductModelCandidateSummary,
   ProductModel,
@@ -108,6 +109,19 @@ export const productApi = {
    */
   listProductModelCandidates(productId: IdType): Promise<ApiEnvelope<ProductModelCandidateResult>> {
     return request<ProductModelCandidateResult>(`/api/device/product/${productId}/model-candidates`);
+  },
+
+  /**
+   * 基于手动输入的单设备样本提炼物模型候选
+   */
+  manualExtractProductModelCandidates(
+    productId: IdType,
+    payload: ProductModelManualExtractPayload
+  ): Promise<ApiEnvelope<ProductModelCandidateResult>> {
+    return request<ProductModelCandidateResult>(`/api/device/product/${productId}/model-candidates/manual-extract`, {
+      method: 'POST',
+      body: payload
+    })
   },
 
   /**

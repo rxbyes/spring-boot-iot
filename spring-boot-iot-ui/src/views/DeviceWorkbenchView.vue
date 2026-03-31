@@ -74,10 +74,10 @@
 
       <template #toolbar>
         <StandardTableToolbar
+          compact
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
             `已登记 ${registeredCount} 台`,
-            `未登记 ${unregisteredCount} 台`,
             `在线 ${onlineCount} 台`,
             `已激活 ${activatedCount} 台`,
             `停用 ${disabledCount} 台`
@@ -103,7 +103,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="device-result-panel"
+        class="device-result-panel standard-list-surface"
         element-loading-text="正在刷新设备列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -154,9 +154,13 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <div class="device-mobile-list">
-            <div class="device-mobile-list__grid">
-              <article v-for="row in tableData" :key="getDeviceRowKey(row)" class="device-mobile-card">
+          <div class="device-mobile-list standard-mobile-record-list">
+            <div class="device-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="getDeviceRowKey(row)"
+                class="device-mobile-card standard-mobile-record-card"
+              >
                 <div class="device-mobile-card__header">
                   <el-checkbox
                     :model-value="isRowSelected(row)"
@@ -171,10 +175,11 @@
                 </div>
 
                 <div class="device-mobile-card__meta">
-                  <span class="device-mobile-card__meta-item" :title="formatTextValue(row.productKey)">{{ formatTextValue(row.productKey) }}</span>
+                  <span class="device-mobile-card__meta-item standard-mobile-record-card__meta-item" :title="formatTextValue(row.productKey)">{{ formatTextValue(row.productKey) }}</span>
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       isRegisteredDeviceRow(row)
                         ? 'device-mobile-card__meta-item--success'
                         : 'device-mobile-card__meta-item--warning'
@@ -182,10 +187,11 @@
                   >
                     {{ getRegistrationStatusText(row.registrationStatus) }}
                   </span>
-                  <span class="device-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
+                  <span class="device-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       row.activateStatus === 1
                         ? 'device-mobile-card__meta-item--success'
                         : row.activateStatus === 0
@@ -198,6 +204,7 @@
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       row.deviceStatus === 1
                         ? 'device-mobile-card__meta-item--success'
                         : row.deviceStatus === 0
@@ -211,32 +218,32 @@
 
                 <div class="device-mobile-card__info">
                   <div class="device-mobile-card__field">
-                    <span>产品名称</span>
-                    <strong>{{ formatTextValue(row.productName) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">产品名称</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.productName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>父设备</span>
-                    <strong>{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">父设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>网关设备</span>
-                    <strong>{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">网关设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>接入协议</span>
-                    <strong>{{ formatTextValue(row.protocolCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">接入协议</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.protocolCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>固件版本</span>
-                    <strong>{{ formatTextValue(row.firmwareVersion) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">固件版本</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.firmwareVersion) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>最近上报</span>
-                    <strong>{{ formatDateTime(row.lastReportTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">最近上报</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.lastReportTime) }}</strong>
                   </div>
                   <div class="device-mobile-card__field device-mobile-card__field--full">
-                    <span>部署位置</span>
-                    <strong class="device-mobile-card__address">{{ formatTextValue(row.address) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">部署位置</span>
+                    <strong class="standard-mobile-record-card__field-value device-mobile-card__address">{{ formatTextValue(row.address) }}</strong>
                   </div>
                 </div>
 
@@ -885,7 +892,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime, prettyJson } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
@@ -1062,7 +1069,6 @@ const onlineCount = computed(() => tableData.value.filter((item) => item.onlineS
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
 const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
 const registeredCount = computed(() => tableData.value.filter((item) => item.registrationStatus !== 0).length)
-const unregisteredCount = computed(() => tableData.value.filter((item) => item.registrationStatus === 0).length)
 const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
 const deviceOptionMap = computed(() => new Map(deviceOptions.value.map((option) => [normalizeIdKey(option.id), option])))
 const selectedFormProduct = computed(() => productOptions.value.find((product) => product.productKey === formData.productKey) ?? null)
@@ -1475,10 +1481,10 @@ function getDeviceRowActions(row: Device): DeviceRowAction[] {
 
 const deviceActionColumnWidth = computed(() => {
   const visibleRowWidths = tableData.value.map((row) =>
-    resolveAdaptiveActionColumnWidth({
-      directLabels: getDeviceDirectActions(row).map((item) => item.label),
-      menuLabel: getDeviceRowActions(row).length > 0 ? '更多' : undefined,
-      gap: 'wide'
+    resolveWorkbenchActionColumnWidth({
+      directItems: getDeviceDirectActions(row),
+      menuItems: getDeviceRowActions(row),
+      gap: 'compact'
     })
   )
 
@@ -1486,10 +1492,13 @@ const deviceActionColumnWidth = computed(() => {
     return Math.max(...visibleRowWidths)
   }
 
-  return resolveAdaptiveActionColumnWidth({
-    directLabels: ['详情', ...(permissionStore.hasPermission('iot:devices:update') ? ['编辑'] : [])],
-    menuLabel: '更多',
-    gap: 'wide'
+  return resolveWorkbenchActionColumnWidth({
+    directItems: [
+      { command: 'detail', label: '详情' },
+      ...(permissionStore.hasPermission('iot:devices:update') ? [{ command: 'edit', label: '编辑' }] : [])
+    ],
+    menuItems: [{ command: 'more', label: '更多' }],
+    gap: 'compact'
   })
 })
 
@@ -3184,16 +3193,6 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.device-result-panel {
-  position: relative;
-  isolation: isolate;
-  min-height: 0;
-}
-
-.device-result-panel :deep(.el-loading-mask) {
-  background: rgba(248, 250, 255, 0.62) !important;
-}
-
 .device-result-panel :deep(.el-loading-spinner .el-loading-text) {
   margin-top: 0.72rem;
   color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
@@ -3375,21 +3374,6 @@ onMounted(async () => {
   display: none;
 }
 
-.device-mobile-list__grid {
-  display: grid;
-  gap: 12px;
-}
-
-.device-mobile-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-76);
-}
-
 .device-mobile-card__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3426,17 +3410,8 @@ onMounted(async () => {
 }
 
 .device-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
   max-width: 100%;
-  min-height: 1.6rem;
-  padding: 0.2rem 0.58rem;
   overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
-  color: var(--text-caption);
-  font-size: 11.5px;
-  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3472,18 +3447,9 @@ onMounted(async () => {
   grid-column: 1 / -1;
 }
 
-.device-mobile-card__field span {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-.device-mobile-card__field strong {
+.device-mobile-card__field .standard-mobile-record-card__field-value {
   overflow: hidden;
-  color: var(--text-heading);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.52;
+  display: block;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

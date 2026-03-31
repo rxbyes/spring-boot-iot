@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.CommandRecord;
 import com.ghlzm.iot.device.entity.Device;
@@ -348,6 +349,74 @@ class ProductModelServiceImplTest {
         assertTrue(result.getSummary().getEventHint().contains("暂无真实事件证据"));
         assertTrue(result.getSummary().getServiceHint().contains("iot_command_record"));
         assertTrue(result.getSummary().getServiceHint().contains("字段"));
+    }
+
+    @Test
+    void manualExtractShouldFlattenSingleDeviceBusinessSampleIntoPropertyCandidates() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("business");
+        dto.setSamplePayload("""
+                {"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"AZI":-8.6772,"X":-0.0376,"Y":-0.0567,"Z":-0.0292,"angle":83.0074}},"L1_JS_1":{"2026-03-31T04:05:55.000Z":{"gX":-0.2396,"gY":-1.1563,"gZ":-0.3125}},"L1_LF_1":{"2026-03-31T04:05:55.000Z":{"value":0.0305}}}}
+                """);
+
+        ProductModelCandidateResultVO result = productModelService.manualExtractModelCandidates(1001L, dto);
+
+        assertEquals(9, result.getPropertyCandidates().size());
+        assertEquals("manual", result.getSummary().getExtractionMode());
+        assertEquals("business", result.getSummary().getSampleType());
+        assertEquals("SK11E80D1307426AZ", result.getSummary().getSampleDeviceCode());
+        assertEquals(9, result.getSummary().getPropertyEvidenceCount());
+        assertTrue(result.getEventCandidates().isEmpty());
+        assertTrue(result.getServiceCandidates().isEmpty());
+
+        ProductModelCandidateVO angle = candidate(result.getPropertyCandidates(), "L1_QJ_1.angle");
+        assertEquals("telemetry", angle.getGroupKey());
+        assertEquals(Boolean.FALSE, angle.getNeedsReview());
+        assertEquals(List.of("manual_sample"), angle.getSourceTables());
+
+        ProductModelCandidateVO crack = candidate(result.getPropertyCandidates(), "L1_LF_1.value");
+        assertEquals("double", crack.getDataType());
+        assertTrue(crack.getDescription().contains("手动"));
+    }
+
+    @Test
+    void manualExtractShouldMarkOtherSampleCandidatesForReviewAndIgnoreArrays() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("other");
+        dto.setSamplePayload("""
+                {"SK11E80D1307426AZ":{"S1_ZT_1":{"2026-03-31T04:05:55.000Z":{"temp":22,"signal_4g":-67,"wave":[1,2,3]}}}}
+                """);
+
+        ProductModelCandidateResultVO result = productModelService.manualExtractModelCandidates(1001L, dto);
+
+        ProductModelCandidateVO temp = candidate(result.getPropertyCandidates(), "S1_ZT_1.temp");
+        assertEquals("device_status", temp.getGroupKey());
+        assertEquals(Boolean.TRUE, temp.getNeedsReview());
+        assertEquals("needs_review", temp.getCandidateStatus());
+        assertTrue(temp.getReviewReason().contains("其他数据"));
+        assertEquals(1, result.getSummary().getIgnoredFieldCount());
+    }
+
+    @Test
+    void manualExtractShouldRejectMultipleDeviceRoots() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("business");
+        dto.setSamplePayload("""
+                {"device-a":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":1}}},"device-b":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":2}}}}
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.manualExtractModelCandidates(1001L, dto));
+
+        assertEquals("单次只支持解析一个设备样本", ex.getMessage());
     }
 
     @Test

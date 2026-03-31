@@ -22,18 +22,19 @@
             <p class="product-model-designer__kicker product-model-designer__header-kicker">物模型治理</p>
             <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
             <p class="product-model-designer__header-description">
-              先看候选目录和正式契约，再进入完整治理抽屉处理深度变更。
+              当前产品治理默认走“手动提炼 -> 正式模型 -> 确认写库”，不再以内置运行期候选作为默认入口。
             </p>
+            <p class="product-model-designer__header-statement">{{ headerStatement }}</p>
           </div>
 
           <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
             <button
               type="button"
               class="product-model-designer__mode-chip"
-              :class="{ 'product-model-designer__mode-chip--active': designerMode === 'candidates' }"
-              @click="designerMode = 'candidates'"
+              :class="{ 'product-model-designer__mode-chip--active': designerMode === 'manual' }"
+              @click="designerMode = 'manual'"
             >
-              候选提炼
+              手动提炼
             </button>
             <button
               type="button"
@@ -56,94 +57,111 @@
 
       <section class="product-model-designer__summary-strip">
         <article class="product-model-designer__summary-card product-model-designer__summary-card--lead product-model-designer__summary-lead">
-          <span class="product-model-designer__summary-label">真实证据概览</span>
-          <strong>先提炼，再确认，再沉淀为正式物模型</strong>
-          <p>属性优先来源于真实属性与消息快照，事件和服务在缺证据时保留诚实空态。</p>
+          <span class="product-model-designer__summary-label">默认流程</span>
+          <strong>手动提炼 -> 正式模型 -> 确认写库</strong>
+          <p>通过手工粘贴单设备样本 JSON 提炼候选，再把确认后的正式契约写入 `iot_product_model`。</p>
         </article>
         <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">属性候选</span>
-          <strong>{{ candidateSummary.propertyCandidateCount ?? 0 }}</strong>
-          <p>原始证据 {{ candidateSummary.propertyEvidenceCount ?? 0 }} 条</p>
+          <span class="product-model-designer__summary-label">单次样本</span>
+          <strong>1 台设备</strong>
+          <p>单次只解析一个设备样本，并始终服务于当前选中的产品。</p>
         </article>
         <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">待人工确认</span>
-          <strong>{{ candidateSummary.needsReviewCount ?? 0 }}</strong>
-          <p>{{ candidateSummary.eventHint || '当前无事件候选冲突' }}</p>
+          <span class="product-model-designer__summary-label">支持类别</span>
+          <strong>业务 / 状态 / 其他</strong>
+          <p>“其他数据”也可提炼，但默认标记为待人工确认。</p>
         </article>
         <article class="product-model-designer__summary-card">
           <span class="product-model-designer__summary-label">正式模型</span>
           <strong>{{ models.length }}</strong>
-          <p>最近提炼：{{ formatDateTime(candidateSummary.lastExtractedAt) }}</p>
+          <p>当前产品已定义 {{ models.length }} 条正式物模型。</p>
         </article>
       </section>
 
-      <section v-if="designerMode === 'candidates'" class="detail-panel product-model-designer__workspace-shell">
+      <section v-if="designerMode === 'manual'" class="detail-panel product-model-designer__workspace-shell">
         <div class="product-model-designer__candidate-workspace">
           <aside class="product-model-designer__candidate-nav">
             <button
-              v-for="item in candidateNavItems"
-              :key="item.key"
               type="button"
-              class="product-model-designer__candidate-nav-item"
-              :class="{ 'product-model-designer__candidate-nav-item--active': activeCandidateView === item.key }"
-              @click="activeCandidateView = item.key"
+              class="product-model-designer__candidate-nav-item product-model-designer__candidate-nav-item--active"
             >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.count }}</strong>
+              <span>手动提炼</span>
+              <strong>默认</strong>
             </button>
+            <button type="button" class="product-model-designer__candidate-nav-item">
+              <span>正式模型</span>
+              <strong>{{ models.length }}</strong>
+            </button>
+            <p class="product-model-designer__candidate-nav-tip">
+              运行期候选仍保留在后端能力中，但不再作为工作台默认入口，避免把临时证据直接当成正式契约。
+            </p>
           </aside>
 
           <div class="product-model-designer__candidate-body product-model-designer__workspace-main">
             <div class="product-model-designer__candidate-body-header">
               <div>
-                <h3>{{ activeCandidateViewTitle }}</h3>
-                <p>{{ activeCandidateViewDescription }}</p>
+                <h3>手动提炼</h3>
+                <p class="product-model-designer__candidate-body-intro">
+                  粘贴单设备业务数据、状态数据或其他数据样本 JSON，在完整治理抽屉中提炼 property 候选、补充中文名称并确认写库。
+                </p>
               </div>
               <span class="product-model-designer__candidate-body-meta">
-                最近提炼：{{ formatDateTime(candidateSummary.lastExtractedAt) }}
+                当前产品：{{ product.productKey || '--' }}
               </span>
             </div>
 
-            <div v-if="visibleCandidates.length" class="product-model-designer__candidate-list">
-              <article
-                v-for="candidate in visibleCandidates"
-                :key="candidateKey(candidate)"
-                class="product-model-designer__candidate-card"
-              >
+            <div class="product-model-designer__manual-flow">
+              <article class="product-model-designer__candidate-card">
                 <header class="product-model-designer__candidate-card-header">
                   <div class="product-model-designer__candidate-card-title">
-                    <strong>{{ candidate.modelName }}</strong>
-                    <span>{{ candidate.identifier }}</span>
+                    <strong>1. 粘贴样本 JSON</strong>
+                    <span>单次只解析一个设备样本</span>
                   </div>
-                  <el-tag round>{{ candidate.needsReview ? '待人工确认' : '可直接采纳' }}</el-tag>
                 </header>
-                <div class="product-model-designer__candidate-card-tags">
-                  <el-tag round>{{ candidateTypeLabel(candidate.modelType) }}</el-tag>
-                  <el-tag round>{{ candidateGroupLabel(candidate.groupKey) }}</el-tag>
-                </div>
-                <p class="product-model-designer__description">{{ candidate.description || '暂无补充说明' }}</p>
+                <p class="product-model-designer__description">
+                  支持业务数据、状态数据和其他数据三类样本。时间戳层只作为证据层，不会进入正式 `identifier`。
+                </p>
               </article>
-            </div>
 
-            <div v-else class="product-model-designer__empty">
-              <strong>当前目录暂无候选</strong>
-              <p>{{ activeCandidateViewDescription }}</p>
+              <article class="product-model-designer__candidate-card">
+                <header class="product-model-designer__candidate-card-header">
+                  <div class="product-model-designer__candidate-card-title">
+                    <strong>2. 核对正式候选</strong>
+                    <span>其他数据默认 `needsReview`</span>
+                  </div>
+                </header>
+                <p class="product-model-designer__description">
+                  数组不会自动进入正式物模型；对象会继续下钻到标量叶子后再生成候选，避免把结构噪音直接写成属性。
+                </p>
+              </article>
+
+              <article class="product-model-designer__candidate-card">
+                <header class="product-model-designer__candidate-card-header">
+                  <div class="product-model-designer__candidate-card-title">
+                    <strong>3. 确认写库</strong>
+                    <span>继续落在 `iot_product_model`</span>
+                  </div>
+                </header>
+                <p class="product-model-designer__description">
+                  提炼后的候选会先进入正式模型确认，再通过“确认写库”提交到数据库，不新增草稿表和并行路由。
+                </p>
+              </article>
             </div>
           </div>
 
           <aside class="product-model-designer__candidate-rail product-model-designer__workspace-rail">
             <div class="product-model-designer__confirm-metrics">
               <div>
-                <span>属性候选</span>
-                <strong>{{ candidateSummary.propertyCandidateCount ?? 0 }}</strong>
-              </div>
-              <div>
-                <span>待人工确认</span>
-                <strong>{{ candidateSummary.needsReviewCount ?? 0 }}</strong>
+                <span>当前产品</span>
+                <strong>{{ product.productKey || '--' }}</strong>
               </div>
               <div>
                 <span>正式模型</span>
                 <strong>{{ models.length }}</strong>
+              </div>
+              <div>
+                <span>治理入口</span>
+                <strong>手动提炼</strong>
               </div>
             </div>
             <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
@@ -171,6 +189,9 @@
 
         <div class="product-model-designer__formal-stage">
           <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
+          <p class="product-model-designer__formal-intro">
+            正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
+          </p>
           <div v-if="activeModels.length" class="product-model-designer__list">
             <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__card">
               <header class="product-model-designer__card-header">
@@ -212,19 +233,11 @@ import { computed, ref, watch } from 'vue'
 import StandardButton from '@/components/StandardButton.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'
-import type {
-  Product,
-  ProductModel,
-  ProductModelCandidate,
-  ProductModelCandidateResult,
-  ProductModelCandidateSummary,
-  ProductModelType
-} from '@/types/api'
+import type { Product, ProductModel, ProductModelType } from '@/types/api'
 
 const props = defineProps<{ product: Product | null }>()
 
-type DesignerMode = 'candidates' | 'formal'
-type CandidateViewKey = ProductModelType | 'review'
+type DesignerMode = 'manual' | 'formal'
 
 const typeOptions: Array<{ label: string; value: ProductModelType }> = [
   { label: '属性模型', value: 'property' },
@@ -241,75 +254,37 @@ const emptyDescriptionMap: Record<ProductModelType, string> = {
 const loading = ref(false)
 const errorMessage = ref('')
 const models = ref<ProductModel[]>([])
-const candidateResult = ref<ProductModelCandidateResult | null>(null)
-const designerMode = ref<DesignerMode>('candidates')
+const designerMode = ref<DesignerMode>('manual')
 const activeType = ref<ProductModelType>('property')
-const activeCandidateView = ref<CandidateViewKey>('property')
 const fullDesignerVisible = ref(false)
 
 const designerStageTitle = computed(() =>
-  designerMode.value === 'candidates' ? '基于真实上报提炼产品契约' : '统一维护产品正式物模型'
+  designerMode.value === 'manual' ? '基于手动样本提炼产品契约' : '统一维护产品正式物模型'
 )
 const productNodeTypeLabel = computed(() => (props.product?.nodeType === 2 ? '网关设备' : '直连设备'))
-const candidateSummary = computed<ProductModelCandidateSummary>(() => candidateResult.value?.summary ?? createEmptySummary())
-const allCandidates = computed<ProductModelCandidate[]>(() => [
-  ...(candidateResult.value?.propertyCandidates ?? []),
-  ...(candidateResult.value?.eventCandidates ?? []),
-  ...(candidateResult.value?.serviceCandidates ?? [])
-])
-const reviewCandidates = computed(() => allCandidates.value.filter((candidate) => Boolean(candidate.needsReview)))
-const candidateNavItems = computed(() => [
-  { key: 'property' as const, label: '属性候选', count: candidateResult.value?.propertyCandidates?.length ?? 0 },
-  { key: 'event' as const, label: '事件候选', count: candidateResult.value?.eventCandidates?.length ?? 0 },
-  { key: 'service' as const, label: '服务候选', count: candidateResult.value?.serviceCandidates?.length ?? 0 },
-  { key: 'review' as const, label: '待人工确认', count: reviewCandidates.value.length }
-])
-const visibleCandidates = computed<ProductModelCandidate[]>(() => {
-  if (activeCandidateView.value === 'review') return reviewCandidates.value
-  if (activeCandidateView.value === 'property') return candidateResult.value?.propertyCandidates ?? []
-  if (activeCandidateView.value === 'event') return candidateResult.value?.eventCandidates ?? []
-  return candidateResult.value?.serviceCandidates ?? []
-})
-const activeCandidateViewTitle = computed(() => {
-  if (activeCandidateView.value === 'review') return '待人工确认'
-  return candidateTypeLabel(activeCandidateView.value)
-})
-const activeCandidateViewDescription = computed(() => {
-  if (activeCandidateView.value === 'review') return '集中处理临时验证字段、命名漂移和边界尚不稳定的候选。'
-  if (activeCandidateView.value === 'event') return candidateSummary.value.eventHint || '仅在存在真实事件证据时生成事件候选。'
-  if (activeCandidateView.value === 'service') return candidateSummary.value.serviceHint || '仅在存在稳定命令证据时生成服务候选。'
-  return '从真实属性快照和消息证据中提炼出的属性候选。'
-})
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
+const headerStatement = computed(() => {
+  if (designerMode.value === 'formal') {
+    return '当前判断：先维护正式契约，再回到手动提炼流程补充新样本的候选。'
+  }
+  return '当前判断：先粘贴单设备样本 JSON 进行手动提炼，再进入正式模型确认并写库。'
+})
 
 watch(
   () => props.product?.id,
   async (productId) => {
     if (!productId) {
       models.value = []
-      candidateResult.value = null
       errorMessage.value = ''
       return
     }
     loading.value = true
     errorMessage.value = ''
     try {
-      const [modelResponse, candidateResponse] = await Promise.allSettled([
-        productApi.listProductModels(productId),
-        productApi.listProductModelCandidates(productId)
-      ])
-      if (modelResponse.status === 'rejected') throw modelResponse.reason
-      models.value = modelResponse.value.data ?? []
-      if (candidateResponse.status === 'fulfilled') {
-        candidateResult.value = candidateResponse.value.data ?? createEmptyResult(productId)
-      } else {
-        candidateResult.value = createEmptyResult(productId)
-        designerMode.value = 'formal'
-      }
-      activeCandidateView.value = candidateNavItems.value.find((item) => item.count > 0)?.key ?? 'property'
+      const response = await productApi.listProductModels(productId)
+      models.value = response.data ?? []
     } catch (error) {
       models.value = []
-      candidateResult.value = createEmptyResult(productId)
       errorMessage.value = error instanceof Error ? error.message : '加载产品物模型失败'
     } finally {
       loading.value = false
@@ -318,52 +293,8 @@ watch(
   { immediate: true }
 )
 
-function createEmptySummary(): ProductModelCandidateSummary {
-  return {
-    propertyEvidenceCount: 0,
-    propertyCandidateCount: 0,
-    eventCandidateCount: 0,
-    serviceCandidateCount: 0,
-    needsReviewCount: 0,
-    eventHint: '暂无真实事件证据。',
-    serviceHint: '暂无真实服务证据。',
-    lastExtractedAt: null
-  }
-}
-
-function createEmptyResult(productId?: string | number): ProductModelCandidateResult {
-  return {
-    productId: productId ?? '',
-    summary: createEmptySummary(),
-    propertyCandidates: [],
-    eventCandidates: [],
-    serviceCandidates: []
-  }
-}
-
 function countByType(type: ProductModelType) {
   return models.value.filter((model) => model.modelType === type).length
-}
-
-function candidateTypeLabel(type: ProductModelType) {
-  return typeOptions.find((item) => item.value === type)?.label ?? '物模型'
-}
-
-function candidateKey(candidate: ProductModelCandidate) {
-  return `${candidate.modelType}:${candidate.identifier}`
-}
-
-function candidateGroupLabel(groupKey?: string | null) {
-  if (groupKey === 'telemetry') return '业务测点'
-  if (groupKey === 'device_status') return '设备状态'
-  if (groupKey === 'location') return '定位信息'
-  if (groupKey === 'service') return '服务证据'
-  if (groupKey === 'event') return '事件证据'
-  return '待归类'
-}
-
-function formatDateTime(value?: string | null) {
-  return value?.trim() || '--'
 }
 
 function formatServiceSummary(model: ProductModel) {
@@ -385,7 +316,8 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__candidate-rail,
 .product-model-designer__formal-stage,
 .product-model-designer__candidate-card,
-.product-model-designer__card {
+.product-model-designer__card,
+.product-model-designer__manual-flow {
   display: grid;
   gap: 0.85rem;
 }
@@ -451,10 +383,20 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__header-description,
 .product-model-designer__description,
 .product-model-designer__candidate-body-meta,
-.product-model-designer__summary-card p {
+.product-model-designer__summary-card p,
+.product-model-designer__formal-intro {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
+}
+
+.product-model-designer__header-statement {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.7;
 }
 
 .product-model-designer__mode-switcher {
@@ -486,7 +428,6 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 .product-model-designer__header-meta,
-.product-model-designer__candidate-card-tags,
 .product-model-designer__card-summary {
   display: flex;
   flex-wrap: wrap;
@@ -520,10 +461,8 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 .product-model-designer__summary-card--lead {
-  grid-column: span 1;
   border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-  background:
-    linear-gradient(180deg, rgba(255, 251, 248, 0.98), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(180deg, rgba(255, 251, 248, 0.98), rgba(255, 255, 255, 0.98));
 }
 
 .product-model-designer__workspace-shell {
@@ -552,7 +491,6 @@ function formatServiceSummary(model: ProductModel) {
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.94);
   text-align: left;
-  cursor: pointer;
 }
 
 .product-model-designer__candidate-card-header,
@@ -562,6 +500,22 @@ function formatServiceSummary(model: ProductModel) {
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.9rem;
+}
+
+.product-model-designer__candidate-body-intro {
+  margin: 0.24rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.72;
+}
+
+.product-model-designer__candidate-nav-tip {
+  margin: 0;
+  padding: 0.9rem 0.95rem;
+  border: 1px dashed color-mix(in srgb, var(--brand) 18%, white);
+  border-radius: var(--radius-lg);
+  background: rgba(246, 250, 255, 0.94);
+  color: var(--text-caption);
+  line-height: 1.65;
 }
 
 .product-model-designer__confirm-metrics div {

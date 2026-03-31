@@ -148,28 +148,18 @@
         />
         <el-table-column
           label="操作"
-          width="200"
+          :width="userActionColumnWidth"
           fixed="right"
+          class-name="standard-row-actions-column"
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-              <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink
-                v-permission="'system:user:update'"
-                @click="handleEdit(row)"
-                >编辑</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:user:reset-password'"
-                @click="handleResetPassword(row)"
-                >重置密码</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:user:delete'"
-                @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getUserRowActions()"
+              @command="(command) => handleUserRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -277,9 +267,12 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { useServerPagination } from "@/composables/useServerPagination";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
+import { usePermissionStore } from "@/stores/permission";
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -301,6 +294,8 @@ import {
   type User,
 } from "@/api/user";
 
+type UserRowActionCommand = "edit" | "reset-password" | "delete";
+
 const formRef = ref();
 const tableRef = ref();
 const loading = ref(false);
@@ -309,6 +304,15 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("新增用户");
 const tableData = ref<User[]>([]);
 const selectedRows = ref<User[]>([]);
+const permissionStore = usePermissionStore();
+const userActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑" },
+    { command: "reset-password", label: "重置密码" },
+    { command: "delete", label: "删除" },
+  ],
+  gap: "compact",
+});
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();
 
@@ -442,6 +446,32 @@ const handleReset = () => {
 
 const handleSelectionChange = (rows: User[]) => {
   selectedRows.value = rows;
+};
+
+const getUserRowActions = () => {
+  const actions: Array<{ command: UserRowActionCommand; label: string }> = [];
+  if (permissionStore.hasPermission("system:user:update")) {
+    actions.push({ command: "edit", label: "编辑" });
+  }
+  if (permissionStore.hasPermission("system:user:reset-password")) {
+    actions.push({ command: "reset-password", label: "重置密码" });
+  }
+  if (permissionStore.hasPermission("system:user:delete")) {
+    actions.push({ command: "delete", label: "删除" });
+  }
+  return actions;
+};
+
+const handleUserRowAction = (command: UserRowActionCommand, row: User) => {
+  if (command === "edit") {
+    handleEdit(row);
+    return;
+  }
+  if (command === "reset-password") {
+    handleResetPassword(row);
+    return;
+  }
+  handleDelete(row);
 };
 
 const clearSelection = () => {

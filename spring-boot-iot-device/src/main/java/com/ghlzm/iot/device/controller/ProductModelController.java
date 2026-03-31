@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
@@ -42,6 +43,12 @@ public class ProductModelController {
     @GetMapping("/api/device/product/{productId}/model-candidates")
     public R<ProductModelCandidateResultVO> listCandidates(@PathVariable Long productId) {
         return R.ok(productModelService.listModelCandidates(productId));
+    }
+
+    @PostMapping("/api/device/product/{productId}/model-candidates/manual-extract")
+    public R<ProductModelCandidateResultVO> manualExtract(@PathVariable Long productId,
+                                                          @RequestBody @Valid ProductModelManualExtractDTO dto) {
+        return R.ok(productModelService.manualExtractModelCandidates(productId, dto));
     }
 
     @PostMapping("/api/device/product/{productId}/model-candidates/confirm")

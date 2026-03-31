@@ -6,19 +6,18 @@ import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesi
 
 const {
   mockListProductModels,
-  mockListProductModelCandidates,
-  mockConfirmProductModelCandidates
+  mockListProductModelCandidates
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
-  mockListProductModelCandidates: vi.fn(),
-  mockConfirmProductModelCandidates: vi.fn()
+  mockListProductModelCandidates: vi.fn()
 }))
 
 vi.mock('@/api/product', () => ({
   productApi: {
     listProductModels: mockListProductModels,
     listProductModelCandidates: mockListProductModelCandidates,
-    confirmProductModelCandidates: mockConfirmProductModelCandidates,
+    manualExtractProductModelCandidates: vi.fn(),
+    confirmProductModelCandidates: vi.fn(),
     addProductModel: vi.fn(),
     updateProductModel: vi.fn(),
     deleteProductModel: vi.fn()
@@ -73,6 +72,12 @@ const StandardButtonStub = defineComponent({
 const StandardDrawerFooterStub = defineComponent({
   name: 'StandardDrawerFooter',
   template: '<footer class="standard-drawer-footer-stub"><slot /></footer>'
+})
+
+const ProductModelDesignerDrawerStub = defineComponent({
+  name: 'ProductModelDesignerDrawer',
+  props: ['modelValue', 'product'],
+  template: '<section class="product-model-designer-drawer-stub" />'
 })
 
 const StandardActionLinkStub = defineComponent({
@@ -142,46 +147,7 @@ function flushPromises() {
 }
 
 function candidateResult() {
-  return {
-    productId: 1001,
-    summary: {
-      propertyEvidenceCount: 3,
-      propertyCandidateCount: 1,
-      eventEvidenceCount: 0,
-      eventCandidateCount: 0,
-      serviceEvidenceCount: 0,
-      serviceCandidateCount: 0,
-      needsReviewCount: 0,
-      existingModelCount: 0,
-      createdCount: 0,
-      skippedCount: 0,
-      conflictCount: 0,
-      eventHint: '暂无真实事件证据，当前产品最近 30 天未发现稳定事件上报。',
-      serviceHint: '当前真实库 iot_command_record 字段仍未完全对齐服务标识，暂不自动生成服务模型。',
-      lastExtractedAt: '2026-03-27T12:00:00'
-    },
-    propertyCandidates: [
-      {
-        modelType: 'property',
-        identifier: 'S1_ZT_1.signal_4g',
-        modelName: '4G 信号强度',
-        dataType: 'integer',
-        sortNo: 110,
-        requiredFlag: 0,
-        description: '归属设备状态属性，用于反映终端运行、联网或传感器状态，不应与业务测点混写。',
-        groupKey: 'device_status',
-        confidence: 0.93,
-        needsReview: false,
-        candidateStatus: 'ready',
-        evidenceCount: 1,
-        messageEvidenceCount: 1,
-        lastReportTime: '2026-03-27T11:58:00',
-        sourceTables: ['iot_device_property', 'iot_device_message_log']
-      }
-    ],
-    eventCandidates: [],
-    serviceCandidates: []
-  }
+  return undefined
 }
 
 function mountWorkspace() {
@@ -200,6 +166,7 @@ function mountWorkspace() {
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
         StandardDrawerFooter: StandardDrawerFooterStub,
+        ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
         StandardActionLink: StandardActionLinkStub,
         StandardRowActions: StandardRowActionsStub,
         ElTag: ElTagStub,
@@ -224,47 +191,31 @@ describe('ProductModelDesignerWorkspace', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
     mockListProductModelCandidates.mockReset()
-    mockConfirmProductModelCandidates.mockReset()
     mockListProductModels.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
     })
-    mockListProductModelCandidates.mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: candidateResult()
-    })
-    mockConfirmProductModelCandidates.mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: {
-        createdCount: 1,
-        skippedCount: 0,
-        conflictCount: 0
-      }
-    })
   })
 
-  it('loads candidate evidence in the embedded workspace mode', async () => {
+  it('loads manual extraction guidance in the embedded workspace mode', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
 
-    expect(mockListProductModelCandidates).toHaveBeenCalledWith(1001)
+    expect(mockListProductModelCandidates).not.toHaveBeenCalled()
     expect(wrapper.find('.product-model-designer__hero-stage').exists()).toBe(false)
     expect(wrapper.find('.product-model-designer__header').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__header-kicker').text()).toContain('物模型治理')
     expect(wrapper.find('.product-model-designer__headline').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__header-statement').text()).toContain('当前判断')
     expect(wrapper.find('.product-model-designer__summary-strip').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__summary-lead').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__workspace-shell').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__candidate-workspace').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__workspace-main').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__workspace-rail').exists()).toBe(true)
-    expect(wrapper.text()).toContain('真实证据概览')
-    expect(wrapper.text()).toContain('4G 信号强度')
-    expect(wrapper.text()).toContain('暂无真实事件证据')
+    expect(wrapper.text()).toContain('手动提炼')
+    expect(wrapper.text()).toContain('单次只解析一个设备样本')
+    expect(wrapper.text()).toContain('业务 / 状态 / 其他')
+    expect(wrapper.text()).toContain('进入完整治理')
   })
 
   it('renders formal mode cards from the same embedded workspace', async () => {
@@ -296,8 +247,10 @@ describe('ProductModelDesignerWorkspace', () => {
 
     expect(wrapper.find('.product-model-designer__formal-overview').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__formal-stage').exists()).toBe(true)
+    expect(wrapper.find('.product-model-designer__formal-intro').text()).toContain('正式模型')
     expect(wrapper.text()).toContain('统一维护产品正式物模型')
     expect(wrapper.text()).toContain('温度')
     expect(wrapper.text()).toContain('设备温度正式契约')
+    expect(mockListProductModelCandidates).not.toHaveBeenCalled()
   })
 })

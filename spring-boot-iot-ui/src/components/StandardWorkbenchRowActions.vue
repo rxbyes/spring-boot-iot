@@ -29,6 +29,7 @@ import { computed } from 'vue'
 import StandardActionLink from '@/components/StandardActionLink.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardRowActions from '@/components/StandardRowActions.vue'
+import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn'
 
 defineOptions({
   name: 'StandardWorkbenchRowActions'
@@ -60,13 +61,15 @@ const props = withDefaults(
     directItems?: WorkbenchDirectActionItem[]
     menuItems?: WorkbenchMenuActionItem[]
     menuLabel?: string
+    maxDirectItems?: number
   }>(),
   {
     variant: 'table',
     gap: undefined,
     directItems: () => [],
     menuItems: () => [],
-    menuLabel: '更多'
+    menuLabel: '更多',
+    maxDirectItems: 2
   }
 )
 
@@ -75,7 +78,14 @@ const emit = defineEmits<{
 }>()
 
 const resolvedGap = computed(() => props.gap ?? (props.variant === 'table' ? 'compact' : 'comfortable'))
-const resolvedDirectItems = computed(() => props.directItems ?? [])
-const resolvedMenuItems = computed(() => props.menuItems ?? [])
+const resolvedActions = computed(() =>
+  splitWorkbenchRowActions({
+    directItems: props.directItems,
+    menuItems: props.menuItems,
+    maxDirectItems: props.maxDirectItems
+  })
+)
+const resolvedDirectItems = computed(() => resolvedActions.value.directItems)
+const resolvedMenuItems = computed(() => resolvedActions.value.menuItems)
 const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)
 </script>

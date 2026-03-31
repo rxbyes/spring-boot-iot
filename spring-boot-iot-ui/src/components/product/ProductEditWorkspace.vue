@@ -1,11 +1,11 @@
 <template>
   <div class="product-edit-workspace">
     <section class="detail-panel product-edit-workspace__summary-band">
-      <div class="product-edit-workspace__summary-copy">
+      <div class="product-edit-workspace__summary-copy product-edit-workspace__chapter-header">
         <p class="product-edit-workspace__kicker product-edit-workspace__section-kicker">编辑治理</p>
         <h3 class="product-edit-workspace__headline">{{ heroTitle }}</h3>
-        <p class="product-edit-workspace__summary-description">
-          在同一产品经营上下文中维护基础档案、接入基线和补充说明，保存后同步回写当前工作台头部和列表台账。
+        <p class="product-edit-workspace__summary-description product-edit-workspace__chapter-brief">
+          {{ chapterBrief }}
         </p>
       </div>
 
@@ -41,6 +41,10 @@
       label-position="top"
       class="ops-drawer-form product-edit-workspace__form product-edit-workspace__form-stage"
     >
+      <div class="product-edit-workspace__form-intro">
+        按基础档案、接入基线和补充说明三段完成本次变更，保存后同步回写当前工作台头部和列表台账。
+      </div>
+
       <section class="ops-drawer-section">
         <div class="ops-drawer-section__header">
           <h3>基础档案</h3>
@@ -161,6 +165,12 @@ const submitText = computed(() => (props.editing ? '保存' : '新增'))
 const cancelText = computed(() => (props.editing ? '取消编辑' : '取消'))
 const nodeTypeText = computed(() => (props.model.nodeType === 2 ? '网关设备' : '直连设备'))
 const statusText = computed(() => (props.model.status === 0 ? '停用' : '启用'))
+const chapterBrief = computed(() => {
+  if (props.editing) {
+    return '当前变更会直接回写产品经营工作台的头部信息、治理语境和列表档案。'
+  }
+  return '先锁定接入身份、协议边界和节点类型，再把补充说明沉淀到同一份产品档案。'
+})
 const refreshTone = computed<'info' | 'error'>(() => (props.refreshState === 'error' ? 'error' : 'info'))
 const inlineMessage = computed(() => {
   if (props.refreshMessage) {
@@ -241,9 +251,9 @@ defineExpose({
 }
 
 .product-edit-workspace__headline {
-  font-size: clamp(1.42rem, 2vw, 1.92rem);
-  line-height: 1.16;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.52rem, 2.1vw, 2.04rem);
+  line-height: 1.14;
+  letter-spacing: -0.03em;
 }
 
 .product-edit-workspace__summary-metrics {
@@ -264,6 +274,13 @@ defineExpose({
   font-size: 1.08rem;
 }
 
+.product-edit-workspace__chapter-brief {
+  max-width: 44rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.72;
+}
+
 .product-edit-workspace__form-stage {
   display: grid;
   gap: 1rem;
@@ -272,6 +289,12 @@ defineExpose({
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(255, 255, 255, 0.98));
   box-shadow: 0 12px 28px rgba(28, 53, 87, 0.05);
+}
+
+.product-edit-workspace__form-intro {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.72;
 }
 
 .product-edit-workspace__footer {

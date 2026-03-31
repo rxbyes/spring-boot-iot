@@ -6,6 +6,10 @@ const workspaceRoot = process.cwd();
 const viewsRoot = path.join(workspaceRoot, "src", "views");
 
 const governedViews = [
+  "ProductWorkbenchView.vue",
+  "DeviceWorkbenchView.vue",
+  "AuditLogView.vue",
+  "MessageTraceView.vue",
   "AlarmCenterView.vue",
   "EventDisposalView.vue",
   "RiskPointView.vue",
@@ -21,8 +25,6 @@ const governedViews = [
   "ChannelView.vue",
   "InAppMessageView.vue",
   "HelpDocView.vue",
-  "AuditLogView.vue",
-  "MessageTraceView.vue",
 ].map((fileName) => path.join(viewsRoot, fileName));
 
 function toRelative(filePath) {
@@ -51,6 +53,18 @@ function scanRequiredUsage(filePath, content, errors) {
       pattern: /<StandardPagination\b/,
       message: "纳管页分页必须使用 StandardPagination。",
     },
+    {
+      pattern: /<StandardWorkbenchRowActions\b/,
+      message: "纳管页表格操作列必须使用 StandardWorkbenchRowActions。",
+    },
+    {
+      pattern: /class-name\s*=\s*["'][^"']*\bstandard-row-actions-column\b[^"']*["']/,
+      message: '纳管页的“操作”列必须声明 class-name="standard-row-actions-column"。',
+    },
+    {
+      pattern: /resolve(?:Workbench|Adaptive)ActionColumnWidth\(/,
+      message: "纳管页的“操作”列必须使用共享自适应列宽解析器。",
+    },
   ];
 
   requirements.forEach(({ pattern, message }) => {
@@ -69,6 +83,14 @@ function scanForbiddenPatterns(filePath, content, errors) {
     {
       pattern: /class\s*=\s*["'][^"']*\btext-right\b[^"']*["']/g,
       message: "纳管页禁止继续使用 text-right 按钮对齐行。",
+    },
+    {
+      pattern: /<StandardRowActions\b[^>]*variant\s*=\s*["']table["']/g,
+      message: "纳管页表格操作列禁止直接写 StandardRowActions table 变体，必须走 StandardWorkbenchRowActions。",
+    },
+    {
+      pattern: /label\s*=\s*["']操作["'][\s\S]{0,200}\swidth\s*=\s*["'][^"']+["']/g,
+      message: '纳管页“操作”列禁止写死静态 width，必须改为共享自适应列宽。',
     },
   ];
 

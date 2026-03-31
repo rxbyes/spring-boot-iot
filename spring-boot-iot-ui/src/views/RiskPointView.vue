@@ -97,13 +97,20 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="riskPointActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-                <StandardActionLink @click="handleBindDevice(row)">绑定设备</StandardActionLink>
-                <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="getRiskPointRowActions()"
+                @command="(command) => handleRiskPointRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -260,13 +267,17 @@ import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
+
+type RiskPointRowActionCommand = 'edit' | 'bind-device' | 'delete';
 
 const loading = ref(false);
 const formVisible = ref(false);
@@ -276,6 +287,14 @@ const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
+const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'bind-device', label: '绑定设备' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+});
 
 const filters = reactive({
   riskPointCode: '',
@@ -468,6 +487,24 @@ const handlePageChange = (page: number) => {
 
 const handleSelectionChange = (rows: RiskPoint[]) => {
   selectedRows.value = rows;
+};
+
+const getRiskPointRowActions = () => [
+  { command: 'edit' as const, label: '编辑' },
+  { command: 'bind-device' as const, label: '绑定设备' },
+  { command: 'delete' as const, label: '删除' }
+];
+
+const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskPoint) => {
+  if (command === 'edit') {
+    handleEdit(row);
+    return;
+  }
+  if (command === 'bind-device') {
+    handleBindDevice(row);
+    return;
+  }
+  handleDelete(row);
 };
 
 const clearSelection = () => {

@@ -116,48 +116,111 @@
           </StandardTableToolbar>
         </template>
 
-        <el-table
+        <div
           v-loading="loading"
-          class="message-trace-table"
-          :data="tableData"
-          border
-          stripe
-          style="width: 100%"
+          class="message-trace-table-wrap standard-list-surface"
+          element-loading-text="正在刷新链路追踪结果"
+          element-loading-background="var(--loading-mask-bg)"
         >
-          <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-          <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-          <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
-          <StandardTableTextColumn label="消息类型" :width="120">
-            <template #default="{ row }">
-              {{ getMessageTypeLabel(row.messageType) }}
-            </template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
-          <StandardTableTextColumn label="Payload 摘要" :min-width="260">
-            <template #default="{ row }">
-              {{ formatInlineText(row.payload) }}
-            </template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn label="上报时间" :width="180">
-            <template #default="{ row }">
-              {{ formatDateTime(row.reportTime || row.createTime) }}
-            </template>
-          </StandardTableTextColumn>
-          <el-table-column
-            label="操作"
-            :width="messageTraceActionColumnWidth"
-            fixed="right"
-            class-name="standard-row-actions-column"
-            :show-overflow-tooltip="false"
+          <div v-if="tableData.length > 0" class="message-trace-mobile-list standard-mobile-record-list">
+            <div class="message-trace-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="row.id || row.traceId || row.topic"
+                class="message-trace-mobile-card standard-mobile-record-card"
+              >
+                <div class="message-trace-mobile-card__header">
+                  <div class="message-trace-mobile-card__heading">
+                    <strong class="message-trace-mobile-card__title">{{ formatValue(row.traceId) }}</strong>
+                    <span class="message-trace-mobile-card__sub">{{ formatValue(row.deviceCode) }}</span>
+                  </div>
+                  <span class="message-trace-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ getMessageTypeLabel(row.messageType) }}
+                  </span>
+                </div>
+
+                <div class="message-trace-mobile-card__meta">
+                  <span class="message-trace-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ formatValue(row.productKey) }}
+                  </span>
+                  <span class="message-trace-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ formatDateTime(row.reportTime || row.createTime) }}
+                  </span>
+                </div>
+
+                <div class="message-trace-mobile-card__info">
+                  <div class="message-trace-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">TraceId</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatValue(row.traceId) }}</strong>
+                  </div>
+                  <div class="message-trace-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">产品标识</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatValue(row.productKey) }}</strong>
+                  </div>
+                  <div class="message-trace-mobile-card__field message-trace-mobile-card__field--full">
+                    <span class="standard-mobile-record-card__field-label">Topic</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatValue(row.topic) }}</strong>
+                  </div>
+                  <div class="message-trace-mobile-card__field message-trace-mobile-card__field--full">
+                    <span class="standard-mobile-record-card__field-label">Payload 摘要</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatInlineText(row.payload) }}</strong>
+                  </div>
+                </div>
+
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  gap="compact"
+                  :direct-items="getTraceDirectActions(row)"
+                  @command="(command) => handleTraceRowAction(command, row)"
+                />
+              </article>
+            </div>
+          </div>
+
+          <el-table
+            class="message-trace-table"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
           >
-            <template #default="{ row }">
-              <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
-                <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
-              </StandardRowActions>
-            </template>
-          </el-table-column>
-        </el-table>
+            <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+            <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
+            <StandardTableTextColumn label="消息类型" :width="120">
+              <template #default="{ row }">
+                {{ getMessageTypeLabel(row.messageType) }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
+            <StandardTableTextColumn label="Payload 摘要" :min-width="260">
+              <template #default="{ row }">
+                {{ formatInlineText(row.payload) }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn label="上报时间" :width="180">
+              <template #default="{ row }">
+                {{ formatDateTime(row.reportTime || row.createTime) }}
+              </template>
+            </StandardTableTextColumn>
+            <el-table-column
+              label="操作"
+              :width="messageTraceActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  gap="compact"
+                  :direct-items="getTraceDirectActions(row)"
+                  @command="(command) => handleTraceRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <template #pagination>
           <div v-if="pagination.total > 0" class="ops-pagination">
@@ -316,9 +379,8 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardPageShell from '@/components/StandardPageShell.vue';
-import StandardRowActions from '@/components/StandardRowActions.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
@@ -333,16 +395,19 @@ import type {
   MessageFlowTimeline,
   MessageTraceStats
 } from '@/types/api';
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { formatDateTime, prettyJson } from '@/utils/format';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
 const router = useRouter();
-const messageTraceActionColumnWidth = resolveAdaptiveActionColumnWidth({
-  directLabels: ['详情', '观测'],
-  gap: 'wide'
+const messageTraceActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'detail', label: '详情' },
+    { command: 'observe', label: '观测' }
+  ],
+  gap: 'compact'
 });
 const pageModeOptions = [
   { key: 'message-trace', label: '链路追踪' },
@@ -718,6 +783,26 @@ function handlePageChange(page: number) {
   loadTableData();
 }
 
+function getTraceDirectActions(row: DeviceMessageLog) {
+  return [
+    { command: 'detail', label: '详情' },
+    { command: 'observe', label: '观测', disabled: !canJumpWithRow(row) }
+  ];
+}
+
+function handleTraceRowAction(command: string | number, row: DeviceMessageLog) {
+  if (command === 'detail') {
+    openDetail(row);
+    return;
+  }
+  if (command === 'observe') {
+    if (!canJumpWithRow(row)) {
+      return;
+    }
+    jumpToSystemLog(row);
+  }
+}
+
 function openDetail(row: DeviceMessageLog) {
   detailData.value = { ...row };
   detailVisible.value = true;
@@ -910,6 +995,84 @@ onMounted(() => {
   margin: 0;
 }
 
+.message-trace-table-wrap {
+  min-width: 0;
+}
+
+.message-trace-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
+}
+
+.message-trace-mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.72rem;
+}
+
+.message-trace-mobile-card__heading {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.message-trace-mobile-card__title {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.message-trace-mobile-card__sub {
+  overflow: hidden;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-trace-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.message-trace-mobile-card__meta-item {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-trace-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+}
+
+.message-trace-mobile-card__field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.message-trace-mobile-card__field--full {
+  grid-column: 1 / -1;
+}
+
+.message-trace-mobile-card__field .standard-mobile-record-card__field-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-trace-table {
+  display: block;
+}
+
 .message-trace-notice-grid {
   display: grid;
   gap: 0.72rem;
@@ -1055,6 +1218,18 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .message-trace-mobile-list {
+    display: block;
+  }
+
+  .message-trace-table {
+    display: none;
+  }
+
+  .message-trace-mobile-card__info {
+    grid-template-columns: 1fr;
+  }
+
   .message-trace-ops-metrics {
     grid-template-columns: 1fr;
   }

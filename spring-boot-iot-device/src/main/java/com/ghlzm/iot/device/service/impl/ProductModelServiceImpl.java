@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.CommandRecord;
 import com.ghlzm.iot.device.entity.Device;
@@ -56,9 +57,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String NON_PROPERTY_COMPAT_DATA_TYPE = "json";
     private static final String STATUS_READY = "ready";
     private static final String STATUS_NEEDS_REVIEW = "needs_review";
+    private static final String EXTRACTION_MODE_RUNTIME = "runtime";
+    private static final String EXTRACTION_MODE_MANUAL = "manual";
+    private static final String SAMPLE_TYPE_BUSINESS = "business";
+    private static final String SAMPLE_TYPE_STATUS = "status";
+    private static final String SAMPLE_TYPE_OTHER = "other";
     private static final int EXTRACTION_WINDOW_DAYS = 30;
     private static final Pattern EVENT_TOPIC_PATTERN = Pattern.compile("/event/([^/]+)/?");
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
+    private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final Set<String> PROPERTY_LOG_TYPES = Set.of("property", "status");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of(
             "properties",
@@ -200,32 +207,47 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(properties, logs, existingIdentifiers);
         EventEvidenceBundle eventBundle = collectEventCandidates(logs, existingIdentifiers);
         ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, existingIdentifiers);
+        return buildCandidateResult(
+                productId,
+                existingModels.size(),
+                propertyBundle,
+                eventBundle,
+                serviceBundle,
+                EXTRACTION_MODE_RUNTIME,
+                null,
+                null,
+                0
+        );
+    }
 
-        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
-        summary.setPropertyEvidenceCount(propertyBundle.evidenceCount());
-        summary.setPropertyCandidateCount(propertyBundle.candidates().size());
-        summary.setEventEvidenceCount(eventBundle.evidenceCount());
-        summary.setEventCandidateCount(eventBundle.candidates().size());
-        summary.setServiceEvidenceCount(serviceBundle.evidenceCount());
-        summary.setServiceCandidateCount(serviceBundle.candidates().size());
-        summary.setNeedsReviewCount(propertyBundle.needsReviewCount()
-                + countNeedsReview(eventBundle.candidates())
-                + countNeedsReview(serviceBundle.candidates()));
-        summary.setExistingModelCount(existingModels.size());
-        summary.setCreatedCount(0);
-        summary.setSkippedCount(0);
-        summary.setConflictCount(0);
-        summary.setEventHint(eventBundle.hint());
-        summary.setServiceHint(serviceBundle.hint());
-        summary.setLastExtractedAt(LocalDateTime.now());
-
-        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
-        result.setProductId(productId);
-        result.setSummary(summary);
-        result.setPropertyCandidates(propertyBundle.candidates());
-        result.setEventCandidates(eventBundle.candidates());
-        result.setServiceCandidates(serviceBundle.candidates());
-        return result;
+    @Override
+    public ProductModelCandidateResultVO manualExtractModelCandidates(Long productId, ProductModelManualExtractDTO dto) {
+        getRequiredProduct(productId);
+        List<ProductModel> existingModels = listActiveModels(productId);
+        Set<String> existingIdentifiers = toIdentifierSet(existingModels.stream().map(ProductModel::getIdentifier).toList());
+        ManualSampleSnapshot snapshot = parseManualSample(dto);
+        PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, existingIdentifiers);
+        EventEvidenceBundle eventBundle = new EventEvidenceBundle(
+                List.of(),
+                0,
+                "手动提炼当前仅生成属性候选，事件请在正式模型中人工补充。"
+        );
+        ServiceEvidenceBundle serviceBundle = new ServiceEvidenceBundle(
+                List.of(),
+                0,
+                "手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。"
+        );
+        return buildCandidateResult(
+                productId,
+                existingModels.size(),
+                propertyBundle,
+                eventBundle,
+                serviceBundle,
+                EXTRACTION_MODE_MANUAL,
+                snapshot.sampleType(),
+                snapshot.deviceCode(),
+                snapshot.ignoredFieldCount()
+        );
     }
 
     @Override
@@ -362,6 +384,167 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         );
     }
 
+    private ProductModelCandidateResultVO buildCandidateResult(Long productId,
+                                                               int existingModelCount,
+                                                               PropertyEvidenceBundle propertyBundle,
+                                                               EventEvidenceBundle eventBundle,
+                                                               ServiceEvidenceBundle serviceBundle,
+                                                               String extractionMode,
+                                                               String sampleType,
+                                                               String sampleDeviceCode,
+                                                               int ignoredFieldCount) {
+        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
+        summary.setExtractionMode(extractionMode);
+        summary.setSampleType(sampleType);
+        summary.setSampleDeviceCode(sampleDeviceCode);
+        summary.setPropertyEvidenceCount(propertyBundle.evidenceCount());
+        summary.setPropertyCandidateCount(propertyBundle.candidates().size());
+        summary.setEventEvidenceCount(eventBundle.evidenceCount());
+        summary.setEventCandidateCount(eventBundle.candidates().size());
+        summary.setServiceEvidenceCount(serviceBundle.evidenceCount());
+        summary.setServiceCandidateCount(serviceBundle.candidates().size());
+        summary.setNeedsReviewCount(propertyBundle.needsReviewCount()
+                + countNeedsReview(eventBundle.candidates())
+                + countNeedsReview(serviceBundle.candidates()));
+        summary.setExistingModelCount(existingModelCount);
+        summary.setCreatedCount(0);
+        summary.setSkippedCount(0);
+        summary.setConflictCount(0);
+        summary.setEventHint(eventBundle.hint());
+        summary.setServiceHint(serviceBundle.hint());
+        summary.setIgnoredFieldCount(ignoredFieldCount);
+        summary.setLastExtractedAt(LocalDateTime.now());
+
+        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
+        result.setProductId(productId);
+        result.setSummary(summary);
+        result.setPropertyCandidates(propertyBundle.candidates());
+        result.setEventCandidates(eventBundle.candidates());
+        result.setServiceCandidates(serviceBundle.candidates());
+        return result;
+    }
+
+    private PropertyEvidenceBundle collectManualPropertyCandidates(ManualSampleSnapshot snapshot, Set<String> existingIdentifiers) {
+        Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
+        int evidenceCount = 0;
+        for (ManualLeafEvidence evidence : snapshot.leaves()) {
+            evidenceCount++;
+            String identifier = normalizeOptional(evidence.identifier());
+            if (identifier == null || existingIdentifiers.contains(identifier)) {
+                continue;
+            }
+            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
+                    .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence);
+        }
+
+        List<ProductModelCandidateVO> candidates = accumulators.values().stream()
+                .map(this::toPropertyCandidate)
+                .sorted(Comparator
+                        .comparing(ProductModelCandidateVO::getNeedsReview)
+                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getIdentifier))
+                .toList();
+        return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
+    }
+
+    private ManualSampleSnapshot parseManualSample(ProductModelManualExtractDTO dto) {
+        String sampleType = normalizeSampleType(dto == null ? null : dto.getSampleType());
+        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(dto == null ? null : dto.getSamplePayload()));
+        if (normalizedPayload == null) {
+            throw new BizException("样本报文不能为空");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(normalizedPayload);
+            if (!(root instanceof ObjectNode objectNode) || objectNode.size() != 1) {
+                throw new BizException("单次只支持解析一个设备样本");
+            }
+            var iterator = objectNode.properties().iterator();
+            Map.Entry<String, JsonNode> entry = iterator.next();
+            String deviceCode = normalizeRequired(entry.getKey(), "设备编码");
+            if (!(entry.getValue() instanceof ObjectNode deviceNode)) {
+                throw new BizException("设备样本内容必须是 JSON 对象");
+            }
+            ManualLeafCollector collector = new ManualLeafCollector();
+            collectManualLeafValues(deviceNode, "", collector, true);
+            return new ManualSampleSnapshot(deviceCode, sampleType, List.copyOf(collector.leaves()), collector.ignoredFieldCount());
+        } catch (BizException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BizException("样本报文必须是合法 JSON");
+        }
+    }
+
+    private void collectManualLeafValues(JsonNode node,
+                                         String prefix,
+                                         ManualLeafCollector collector,
+                                         boolean rootLevel) {
+        if (node == null || node.isNull()) {
+            return;
+        }
+        if (node.isValueNode()) {
+            if (StringUtils.hasText(prefix)) {
+                collector.add(prefix, node.asText(), resolveNodeValueType(node));
+            }
+            return;
+        }
+        if (node.isArray()) {
+            collector.incrementIgnoredFieldCount();
+            return;
+        }
+        if (!(node instanceof ObjectNode objectNode)) {
+            collector.incrementIgnoredFieldCount();
+            return;
+        }
+        if (objectNode.size() == 0) {
+            collector.incrementIgnoredFieldCount();
+            return;
+        }
+        objectNode.properties().forEach(entry -> {
+            String fieldName = normalizeOptional(entry.getKey());
+            if (fieldName == null) {
+                return;
+            }
+            if (rootLevel && IGNORED_ROOT_KEYS.contains(fieldName)) {
+                return;
+            }
+            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(fieldName.toLowerCase(Locale.ROOT));
+            boolean unwrapTimestamp = isTimestampKey(fieldName);
+            String nextPrefix = unwrapRoot || unwrapTimestamp ? prefix : appendIdentifier(prefix, fieldName);
+            collectManualLeafValues(entry.getValue(), nextPrefix, collector, false);
+        });
+    }
+
+    private String normalizeSampleType(String sampleType) {
+        String normalized = normalizeRequired(sampleType, "样本类型").toLowerCase(Locale.ROOT);
+        if (!Set.of(SAMPLE_TYPE_BUSINESS, SAMPLE_TYPE_STATUS, SAMPLE_TYPE_OTHER).contains(normalized)) {
+            throw new BizException("样本类型不支持: " + normalized);
+        }
+        return normalized;
+    }
+
+    private boolean isTimestampKey(String fieldName) {
+        return TIMESTAMP_KEY_PATTERN.matcher(fieldName).matches();
+    }
+
+    private String resolveNodeValueType(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isBoolean()) {
+            return "bool";
+        }
+        if (node.isIntegralNumber()) {
+            return "integer";
+        }
+        if (node.isNumber()) {
+            return "double";
+        }
+        if (node.isTextual()) {
+            return "string";
+        }
+        return null;
+    }
+
     private PropertyEvidenceBundle collectPropertyCandidates(List<DeviceProperty> properties,
                                                              List<DeviceMessageLog> logs,
                                                              Set<String> existingIdentifiers) {
@@ -467,9 +650,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private ProductModelCandidateVO toPropertyCandidate(PropertyAccumulator accumulator) {
         String groupKey = classifyPropertyGroup(accumulator.identifier);
-        boolean needsReview = isSuspiciousIdentifier(accumulator.identifier) || "unknown".equals(groupKey);
+        boolean manualOtherSample = SAMPLE_TYPE_OTHER.equals(accumulator.sampleType);
+        boolean needsReview = manualOtherSample
+                || isSuspiciousIdentifier(accumulator.identifier)
+                || "unknown".equals(groupKey);
         String modelName = suggestPropertyModelName(accumulator.identifier, accumulator.propertyName, groupKey);
-        String description = buildPropertyDescription(accumulator.identifier, modelName, groupKey, needsReview);
+        String description = buildPropertyDescription(
+                accumulator.identifier,
+                modelName,
+                groupKey,
+                needsReview,
+                accumulator.sampleType
+        );
 
         ProductModelCandidateVO candidate = new ProductModelCandidateVO();
         candidate.setModelType(MODEL_TYPE_PROPERTY);
@@ -483,7 +675,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setConfidence(resolveConfidence(groupKey, needsReview, accumulator.messageEvidenceCount > 0));
         candidate.setNeedsReview(needsReview);
         candidate.setCandidateStatus(needsReview ? STATUS_NEEDS_REVIEW : STATUS_READY);
-        candidate.setReviewReason(needsReview ? "命名需人工归一后再入正式契约" : null);
+        candidate.setReviewReason(resolvePropertyReviewReason(needsReview, accumulator.sampleType));
         candidate.setEvidenceCount(accumulator.evidenceCount);
         candidate.setMessageEvidenceCount(accumulator.messageEvidenceCount);
         candidate.setLastReportTime(accumulator.lastReportTime);
@@ -874,7 +1066,27 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return pointLabel + "传感器状态";
     }
 
-    private String buildPropertyDescription(String identifier, String modelName, String groupKey, boolean needsReview) {
+    private String buildPropertyDescription(String identifier,
+                                            String modelName,
+                                            String groupKey,
+                                            boolean needsReview,
+                                            String sampleType) {
+        if (SAMPLE_TYPE_OTHER.equals(sampleType)) {
+            return "来源于手动录入的其他数据样本，当前字段 "
+                    + identifier
+                    + " 默认按待人工确认处理，确认归类后再写入正式契约。";
+        }
+        if (sampleType != null) {
+            if ("telemetry".equals(groupKey)) {
+                return "来源于手动录入样本，归属测点属性，反映 " + modelName + " 的核心监测值，建议确认后写入正式产品契约。";
+            }
+            if ("device_status".equals(groupKey)) {
+                return "来源于手动录入样本，归属设备状态属性，用于反映终端运行、联网或传感器状态，不应与业务测点混写。";
+            }
+            if ("location".equals(groupKey)) {
+                return "来源于手动录入样本，归属定位属性，用于表达设备安装位置或空间坐标，建议保持经纬度成对维护。";
+            }
+        }
         if (needsReview) {
             return "来源于真实上报，但当前标识 "
                     + identifier
@@ -890,6 +1102,16 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return "归属定位属性，用于表达设备安装位置或空间坐标，建议保持经纬度成对维护。";
         }
         return "来源于真实上报，但当前边界仍不稳定，建议人工确认命名与归类后再入库。";
+    }
+
+    private String resolvePropertyReviewReason(boolean needsReview, String sampleType) {
+        if (!needsReview) {
+            return null;
+        }
+        if (SAMPLE_TYPE_OTHER.equals(sampleType)) {
+            return "来源类别为其他数据，默认需人工确认后再入正式契约";
+        }
+        return "命名需人工归一后再入正式契约";
     }
 
     private Double resolveConfidence(String groupKey, boolean needsReview, boolean hasMessageEvidence) {
@@ -995,11 +1217,42 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private record ServiceEvidenceBundle(List<ProductModelCandidateVO> candidates, int evidenceCount, String hint) {
     }
 
+    private record ManualSampleSnapshot(String deviceCode,
+                                        String sampleType,
+                                        List<ManualLeafEvidence> leaves,
+                                        int ignoredFieldCount) {
+    }
+
+    private record ManualLeafEvidence(String identifier, String sampleValue, String valueType) {
+    }
+
+    private static final class ManualLeafCollector {
+        private final List<ManualLeafEvidence> leaves = new ArrayList<>();
+        private int ignoredFieldCount;
+
+        private void add(String identifier, String sampleValue, String valueType) {
+            leaves.add(new ManualLeafEvidence(identifier, sampleValue, valueType));
+        }
+
+        private void incrementIgnoredFieldCount() {
+            ignoredFieldCount++;
+        }
+
+        private List<ManualLeafEvidence> leaves() {
+            return leaves;
+        }
+
+        private int ignoredFieldCount() {
+            return ignoredFieldCount;
+        }
+    }
+
     private static final class PropertyAccumulator {
         private final String identifier;
         private String propertyName;
         private String valueType;
         private String sampleValue;
+        private String sampleType;
         private int evidenceCount;
         private int messageEvidenceCount;
         private LocalDateTime lastReportTime;
@@ -1033,6 +1286,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             updateLastReportTime(logTime);
         }
 
+        private void acceptManualSample(String sampleType, LocalDateTime reportTime, ManualLeafEvidence evidence) {
+            evidenceCount++;
+            messageEvidenceCount++;
+            sourceTables.add("manual_sample");
+            this.sampleType = sampleType;
+            String identifierTail = tailSegment(evidence.identifier());
+            if (normalizeText(identifierTail) != null) {
+                propertyName = normalizeText(identifierTail);
+            }
+            if (normalizeText(evidence.valueType()) != null) {
+                valueType = normalizeText(evidence.valueType());
+            }
+            if (normalizeText(evidence.sampleValue()) != null) {
+                sampleValue = normalizeText(evidence.sampleValue());
+            }
+            updateLastReportTime(reportTime);
+        }
+
         private void updateLastReportTime(LocalDateTime candidateTime) {
             if (candidateTime == null) {
                 return;
@@ -1048,6 +1319,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             }
             String normalized = value.trim();
             return normalized.isEmpty() ? null : normalized;
+        }
+
+        private static String tailSegment(String identifier) {
+            if (identifier == null) {
+                return null;
+            }
+            int index = identifier.lastIndexOf('.');
+            return index >= 0 ? identifier.substring(index + 1) : identifier;
         }
     }
 

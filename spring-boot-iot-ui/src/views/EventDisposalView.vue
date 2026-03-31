@@ -102,13 +102,20 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
-          <el-table-column label="操作" width="250" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="eventActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="compact" wrap>
-                <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
-                <StandardActionLink v-if="row.status === 0" @click="handleDispatch(row)">派发</StandardActionLink>
-                <StandardActionLink v-if="row.status !== 4" @click="handleClose(row)">关闭</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="getEventRowActions(row)"
+                @command="(command) => handleEventRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -217,8 +224,10 @@ import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -231,6 +240,8 @@ import { confirmAction, isConfirmCancelled } from '@/utils/confirm';
 
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
 import type { EventRecord } from '../api/alarm';
+
+type EventRowActionCommand = 'detail' | 'dispatch' | 'close';
 
 const loading = ref(false);
 const detailVisible = ref(false);
@@ -273,6 +284,14 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+const eventActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'detail', label: '详情' },
+    { command: 'dispatch', label: '派发' },
+    { command: 'close', label: '关闭' }
+  ],
+  gap: 'compact'
+});
 const eventToolbarActions = computed(() => [
   {
     key: 'export-config',
@@ -459,6 +478,33 @@ const handleSelectionChange = (rows: EventRecord[]) => {
 const clearSelection = () => {
   tableRef.value?.clearSelection();
   selectedRows.value = [];
+};
+
+const getEventRowActions = (row: EventRecord) => {
+  const actions: Array<{ command: EventRowActionCommand; label: string }> = [{ command: 'detail', label: '详情' }];
+  if (row.status === 0) {
+    actions.push({ command: 'dispatch', label: '派发' });
+  }
+  if (row.status !== 4) {
+    actions.push({ command: 'close', label: '关闭' });
+  }
+  return actions;
+};
+
+const handleEventRowAction = (command: EventRowActionCommand, row: EventRecord) => {
+  switch (command) {
+    case 'detail':
+      void handleViewDetail(row);
+      break;
+    case 'dispatch':
+      void handleDispatch(row);
+      break;
+    case 'close':
+      void handleClose(row);
+      break;
+    default:
+      break;
+  }
 };
 
 const handleRefresh = () => {

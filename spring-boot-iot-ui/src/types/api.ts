@@ -232,6 +232,9 @@ export interface ProductModelCandidate {
 }
 
 export interface ProductModelCandidateSummary {
+  extractionMode?: string | null;
+  sampleType?: string | null;
+  sampleDeviceCode?: string | null;
   propertyEvidenceCount?: number | null;
   propertyCandidateCount?: number | null;
   eventEvidenceCount?: number | null;
@@ -245,6 +248,7 @@ export interface ProductModelCandidateSummary {
   conflictCount?: number | null;
   eventHint?: string | null;
   serviceHint?: string | null;
+  ignoredFieldCount?: number | null;
   lastExtractedAt?: string | null;
 }
 
@@ -272,6 +276,13 @@ export interface ProductModelCandidateConfirmItem {
 
 export interface ProductModelCandidateConfirmPayload {
   items: ProductModelCandidateConfirmItem[];
+}
+
+export type ProductModelManualSampleType = 'business' | 'status' | 'other';
+
+export interface ProductModelManualExtractPayload {
+  sampleType: ProductModelManualSampleType;
+  samplePayload: string;
 }
 
 export interface Device {

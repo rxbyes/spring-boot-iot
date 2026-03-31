@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
@@ -102,6 +103,26 @@ class ProductModelControllerTest {
 
         assertEquals(1, response.getData().getCreatedCount());
         verify(productModelService).confirmModelCandidates(1001L, dto);
+    }
+
+    @Test
+    void manualExtractShouldDelegateToService() {
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("business");
+        dto.setSamplePayload("{\"SK11\":{\"L1_QJ_1\":{\"2026-03-31T04:05:55.000Z\":{\"X\":-0.0376}}}}");
+        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
+        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
+        summary.setExtractionMode("manual");
+        summary.setSampleType("business");
+        summary.setSampleDeviceCode("SK11");
+        result.setProductId(1001L);
+        result.setSummary(summary);
+        when(productModelService.manualExtractModelCandidates(1001L, dto)).thenReturn(result);
+
+        R<ProductModelCandidateResultVO> response = controller.manualExtract(1001L, dto);
+
+        assertEquals("SK11", response.getData().getSummary().getSampleDeviceCode());
+        verify(productModelService).manualExtractModelCandidates(1001L, dto);
     }
 
     private ProductModelVO modelVO(Long id, String identifier, Integer sortNo) {

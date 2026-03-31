@@ -165,66 +165,169 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
+      <div
         v-loading="loading"
-        class="audit-log-table"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+        class="audit-log-table-wrap standard-list-surface"
+        element-loading-text="正在刷新审计列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <el-table-column v-if="isBusinessMode" prop="operationType" label="操作类型" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getOperationTypeTag(row.operationType)">
-              {{ getOperationTypeName(row.operationType) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
-        <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
-        <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
-        <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="traceId" label="TraceId" :min-width="180" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="deviceCode" label="设备编码" :min-width="140" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="productKey" label="产品标识" :min-width="140" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="errorCode" label="异常编码" :min-width="120" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="exceptionClass" label="异常类型" :min-width="180" />
-        <StandardTableTextColumn v-if="isBusinessMode" prop="userName" label="操作用户" :width="120" />
-        <StandardTableTextColumn v-if="isBusinessMode" prop="ipAddress" label="操作IP" :width="150" />
-        <StandardTableTextColumn v-if="isSystemMode" prop="resultMessage" label="异常摘要" :min-width="220" />
-        <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
-        <el-table-column prop="operationResult" label="操作结果" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getOperationResultTag(row.operationResult)" round>
-              {{ getOperationResultName(row.operationResult) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="操作"
-          :width="auditActionColumnWidth"
-          fixed="right"
-          class-name="standard-row-actions-column"
-          :show-overflow-tooltip="false"
+        <div v-if="tableData.length > 0" class="audit-log-mobile-list standard-mobile-record-list">
+          <div class="audit-log-mobile-list__grid standard-mobile-record-grid">
+            <article
+              v-for="row in tableData"
+              :key="row.id || row.traceId || row.operationTime || row.operationModule"
+              class="audit-log-mobile-card standard-mobile-record-card"
+            >
+              <div class="audit-log-mobile-card__header">
+                <div class="audit-log-mobile-card__heading">
+                  <strong class="audit-log-mobile-card__title">
+                    {{ isSystemMode ? formatValue(row.traceId || row.operationModule) : formatValue(row.operationModule || row.userName) }}
+                  </strong>
+                  <span class="audit-log-mobile-card__sub">
+                    {{ isSystemMode ? formatValue(row.deviceCode) : formatValue(row.userName) }}
+                  </span>
+                </div>
+                <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                  {{ getOperationResultName(row.operationResult) }}
+                </span>
+              </div>
+
+              <div class="audit-log-mobile-card__meta">
+                <span
+                  v-if="isBusinessMode"
+                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
+                >
+                  {{ getOperationTypeName(row.operationType || '') }}
+                </span>
+                <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                  {{ formatValue(row.requestMethod) }}
+                </span>
+                <span
+                  v-if="isSystemMode"
+                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
+                >
+                  {{ formatValue(row.errorCode) }}
+                </span>
+                <span
+                  v-else
+                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
+                >
+                  {{ formatValue(row.ipAddress) }}
+                </span>
+              </div>
+
+              <div class="audit-log-mobile-card__info">
+                <div class="audit-log-mobile-card__field">
+                  <span class="standard-mobile-record-card__field-label">
+                    {{ isSystemMode ? '异常模块' : '操作模块' }}
+                  </span>
+                  <strong class="standard-mobile-record-card__field-value">
+                    {{ formatValue(row.operationModule) }}
+                  </strong>
+                </div>
+                <div class="audit-log-mobile-card__field">
+                  <span class="standard-mobile-record-card__field-label">
+                    {{ isSystemMode ? '设备编码' : '操作方法' }}
+                  </span>
+                  <strong class="standard-mobile-record-card__field-value">
+                    {{ isSystemMode ? formatValue(row.deviceCode) : formatValue(row.operationMethod) }}
+                  </strong>
+                </div>
+                <div class="audit-log-mobile-card__field">
+                  <span class="standard-mobile-record-card__field-label">
+                    {{ isSystemMode ? '产品标识' : '操作时间' }}
+                  </span>
+                  <strong class="standard-mobile-record-card__field-value">
+                    {{ isSystemMode ? formatValue(row.productKey) : formatValue(row.operationTime) }}
+                  </strong>
+                </div>
+                <div class="audit-log-mobile-card__field">
+                  <span class="standard-mobile-record-card__field-label">
+                    {{ isSystemMode ? '异常类型' : '操作结果' }}
+                  </span>
+                  <strong class="standard-mobile-record-card__field-value">
+                    {{ isSystemMode ? formatValue(row.exceptionClass) : getOperationResultName(row.operationResult) }}
+                  </strong>
+                </div>
+                <div class="audit-log-mobile-card__field audit-log-mobile-card__field--full">
+                  <span class="standard-mobile-record-card__field-label">
+                    {{ isSystemMode ? '异常摘要' : '请求目标' }}
+                  </span>
+                  <strong class="standard-mobile-record-card__field-value">
+                    {{ isSystemMode ? formatValue(row.resultMessage) : formatValue(row.requestUrl) }}
+                  </strong>
+                </div>
+              </div>
+
+              <StandardWorkbenchRowActions
+                variant="card"
+                gap="compact"
+                :direct-items="getAuditDirectActions(row)"
+                :menu-items="auditMenuItems"
+                menu-label="更多"
+                @command="(command) => handleAuditRowAction(command, row)"
+              />
+            </article>
+          </div>
+        </div>
+
+        <el-table
+          ref="tableRef"
+          class="audit-log-table"
+          :data="tableData"
+          border
+          stripe
+          style="width: 100%"
+          @selection-change="handleSelectionChange"
         >
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>
-              <StandardActionLink
-                v-if="isSystemMode"
-                :disabled="!canJumpToMessageTrace(row)"
-                @click="handleJumpToMessageTrace(row)"
-              >
-                追踪
-              </StandardActionLink>
-              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column type="selection" width="48" />
+          <el-table-column v-if="isBusinessMode" prop="operationType" label="操作类型" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getOperationTypeTag(row.operationType)">
+                {{ getOperationTypeName(row.operationType) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
+          <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
+          <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
+          <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="traceId" label="TraceId" :min-width="180" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="deviceCode" label="设备编码" :min-width="140" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="productKey" label="产品标识" :min-width="140" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="errorCode" label="异常编码" :min-width="120" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="exceptionClass" label="异常类型" :min-width="180" />
+          <StandardTableTextColumn v-if="isBusinessMode" prop="userName" label="操作用户" :width="120" />
+          <StandardTableTextColumn v-if="isBusinessMode" prop="ipAddress" label="操作IP" :width="150" />
+          <StandardTableTextColumn v-if="isSystemMode" prop="resultMessage" label="异常摘要" :min-width="220" />
+          <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
+          <el-table-column prop="operationResult" label="操作结果" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getOperationResultTag(row.operationResult)" round>
+                {{ getOperationResultName(row.operationResult) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            :width="auditActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
+            <template #default="{ row }">
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="getAuditDirectActions(row)"
+                :menu-items="auditMenuItems"
+                menu-label="更多"
+                @command="(command) => handleAuditRowAction(command, row)"
+              />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <template #pagination>
         <div v-if="pagination.total > 0" class="ops-pagination">
@@ -283,6 +386,7 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
@@ -300,7 +404,7 @@ import {
   resolveDiagnosticContext,
   type DiagnosticContext
 } from '@/utils/iotAccessDiagnostics'
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
 
@@ -310,9 +414,18 @@ const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' 
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
 const auditActionColumnWidth = computed(() =>
-  resolveAdaptiveActionColumnWidth({
-    directLabels: isSystemMode.value ? ['详情', '追踪', '删除'] : ['详情', '删除'],
-    gap: 'wide'
+  resolveWorkbenchActionColumnWidth({
+    directItems: isSystemMode.value
+      ? [
+          { command: 'detail', label: '详情' },
+          { command: 'trace', label: '追踪' },
+          { command: 'delete', label: '删除' }
+        ]
+      : [
+          { command: 'detail', label: '详情' },
+          { command: 'delete', label: '删除' }
+        ],
+    gap: 'compact'
   })
 )
 const pageTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
@@ -511,6 +624,7 @@ const auditToolbarActions = computed(() => [
     disabled: selectedRows.value.length === 0
   }
 ])
+const auditMenuItems = computed(() => (isSystemMode.value ? [{ command: 'delete', label: '删除' }] : []))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
     return ''
@@ -825,6 +939,14 @@ const handleRefresh = () => {
   triggerSearch(false)
 }
 
+const formatValue = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  const text = String(value).trim()
+  return text ? text : '--'
+}
+
 const buildSystemDiagnosticContext = (source?: Partial<AuditLogRecord>): DiagnosticContext => {
   const traceId = source?.traceId || quickSearchKeyword.value.trim() || searchForm.traceId || undefined
   const deviceCode = source?.deviceCode || searchForm.deviceCode || undefined
@@ -922,6 +1044,37 @@ const handleSizeChange = (size: number) => {
 const handlePageChange = (page: number) => {
   setPageNum(page)
   getAuditLogList()
+}
+
+const getAuditDirectActions = (row: AuditLogRecord) => {
+  if (isSystemMode.value) {
+    return [
+      { command: 'detail', label: '详情' },
+      { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) }
+    ]
+  }
+
+  return [
+    { command: 'detail', label: '详情' },
+    { command: 'delete', label: '删除' }
+  ]
+}
+
+const handleAuditRowAction = (command: string | number | object, row: AuditLogRecord) => {
+  if (command === 'detail') {
+    void handleDetail(row)
+    return
+  }
+  if (command === 'trace') {
+    if (!canJumpToMessageTrace(row)) {
+      return
+    }
+    handleJumpToMessageTrace(row)
+    return
+  }
+  if (command === 'delete') {
+    void handleDelete(row)
+  }
 }
 
 // 查看详情
@@ -1027,49 +1180,6 @@ watch(detailVisible, (visible) => {
   min-width: 0;
 }
 
-.audit-log-command-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.2rem;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
-  box-shadow: var(--shadow-card);
-}
-
-.audit-log-command-strip__copy {
-  min-width: 0;
-}
-
-.audit-log-command-strip__title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.22rem;
-}
-
-.audit-log-command-strip__judgement {
-  margin: 0.42rem 0 0;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
-.audit-log-command-strip__meta {
-  margin: 0.3rem 0 0;
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  line-height: 1.6;
-}
-
-.audit-log-command-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.72rem;
-}
-
 .audit-log-quick-search-tag {
   margin-top: 0.72rem;
 }
@@ -1078,15 +1188,88 @@ watch(detailVisible, (visible) => {
   margin: 0;
 }
 
-@media (max-width: 900px) {
-  .audit-log-command-strip {
-    flex-direction: column;
-    align-items: flex-start;
+.audit-log-table-wrap {
+  min-width: 0;
+}
+
+.audit-log-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
+}
+
+.audit-log-mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.72rem;
+}
+
+.audit-log-mobile-card__heading {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.audit-log-mobile-card__title,
+.audit-log-mobile-card__sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-mobile-card__title {
+  color: var(--text-heading);
+  font-size: 0.96rem;
+}
+
+.audit-log-mobile-card__sub {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.audit-log-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-log-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.audit-log-mobile-card__field {
+  min-width: 0;
+}
+
+.audit-log-mobile-card__field--full {
+  grid-column: 1 / -1;
+}
+
+.audit-log-mobile-card__field .standard-mobile-record-card__field-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-table {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .audit-log-mobile-list {
+    display: block;
   }
 
-  .audit-log-command-strip__actions {
-    width: 100%;
-    justify-content: flex-start;
+  .audit-log-table {
+    display: none;
+  }
+
+  .audit-log-mobile-card__info {
+    grid-template-columns: 1fr;
   }
 }
 

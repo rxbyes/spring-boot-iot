@@ -81,13 +81,20 @@
         </el-table-column>
         <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
-        <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="channelActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-              <StandardActionLink :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">测试通知</StandardActionLink>
-              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getChannelRowActions(row)"
+              @command="(command) => handleChannelRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -178,8 +185,10 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -198,6 +207,8 @@ import {
   updateChannel,
   type ChannelRecord
 } from '@/api/channel'
+
+type ChannelRowActionCommand = 'edit' | 'test' | 'delete'
 
 const formRef = ref()
 const tableRef = ref()
@@ -301,6 +312,14 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 )
 const exportColumnDialogVisible = ref(false)
+const channelActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'test', label: '测试通知' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+})
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -376,6 +395,29 @@ const handleClearAppliedFilters = () => {
 
 const handleSelectionChange = (rows: ChannelRecord[]) => {
   selectedRows.value = rows
+}
+
+function getChannelRowActions(row: ChannelRecord) {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'test' as const, label: '测试通知', disabled: !isTestableChannel(row.channelType) },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleChannelRowAction(command: ChannelRowActionCommand, row: ChannelRecord) {
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'test') {
+    if (!isTestableChannel(row.channelType)) {
+      return
+    }
+    handleTest(row)
+    return
+  }
+  handleDelete(row)
 }
 
 const clearSelection = () => {

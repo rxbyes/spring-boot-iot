@@ -8,6 +8,8 @@
 
 **Tech Stack:** Vue 3、TypeScript、Element Plus、Vitest、scoped CSS、共享 `Standard*` 组件
 
+**Execution Note:** 仓库 `AGENTS.md` 明确要求编码、验证与交付准备默认只能在 `codex/dev` 上进行。本计划执行时不新开功能分支 worktree，而是在当前 `codex/dev` 工作区只修改本计划列出的目标文件，并显式避开现有未提交的其他改动。
+
 ---
 
 ## File Structure

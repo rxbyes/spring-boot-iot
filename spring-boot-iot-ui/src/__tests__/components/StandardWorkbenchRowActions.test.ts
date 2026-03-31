@@ -117,4 +117,23 @@ describe('StandardWorkbenchRowActions', () => {
     expect(wrapper.findAll('.standard-action-link-stub').map((button) => button.text())).toEqual(['进入工作台', '删除'])
     expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(false)
   })
+
+  it('keeps at most two direct actions and folds overflow actions into the more menu', async () => {
+    const wrapper = mountComponent({
+      variant: 'table',
+      directItems: [
+        { key: 'detail', command: 'detail', label: '详情' },
+        { key: 'edit', command: 'edit', label: '编辑' },
+        { key: 'delete', command: 'delete', label: '删除' }
+      ],
+      menuItems: []
+    })
+
+    expect(wrapper.findAll('.standard-action-link-stub').map((button) => button.text())).toEqual(['详情', '编辑'])
+    expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(true)
+
+    await wrapper.get('.standard-action-menu-stub').trigger('click')
+
+    expect(wrapper.emitted('command')).toEqual([['delete']])
+  })
 })

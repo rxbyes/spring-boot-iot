@@ -95,12 +95,20 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="planActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-                <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="getPlanRowActions()"
+                @command="(command) => handlePlanRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -203,17 +211,28 @@ import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
+
+type EmergencyPlanRowActionCommand = 'edit' | 'delete';
 
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
 const tableRef = ref();
 const selectedRows = ref<EmergencyPlan[]>([]);
+const planActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+});
 
 const filters = reactive({
   planName: '',
@@ -381,6 +400,21 @@ const handleRefresh = () => {
   clearSelection();
   void loadPlanList();
 };
+
+function getPlanRowActions() {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'delete' as const, label: '删除' }
+  ];
+}
+
+function handlePlanRowAction(command: EmergencyPlanRowActionCommand, row: EmergencyPlan) {
+  if (command === 'edit') {
+    handleEdit(row);
+    return;
+  }
+  void handleDelete(row);
+}
 
 const handleRemoveAppliedFilter = (key: string) => {
   removeAppliedFilter(key);

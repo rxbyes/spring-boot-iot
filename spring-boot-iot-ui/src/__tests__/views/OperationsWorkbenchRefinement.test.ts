@@ -404,8 +404,9 @@ describe('operations workbench refinement', () => {
     expect(source).toContain('<StandardWorkbenchRowActions');
     expect(source).toContain('class-name="standard-row-actions-column"');
     expect(source).toContain(':width="alarmActionColumnWidth"');
-    expect(source).toContain("const alarmActionColumnWidth = resolveAdaptiveActionColumnWidth({");
-    expect(source).toContain("directLabels: ['详情', '确认', '抑制', '关闭']");
+    expect(source).toContain('const alarmActionColumnWidth = resolveWorkbenchActionColumnWidth({');
+    expect(source).toContain("{ command: 'confirm', label: '确认' }");
+    expect(source).not.toContain("gap: 'wide'");
   });
 
   it('removes the standalone hero card from the event workbench', () => {
@@ -496,5 +497,31 @@ describe('operations workbench refinement', () => {
     expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
     expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
     expect(wrapper.text()).toContain('自动化工场');
+  });
+
+  it('aligns audit-log action columns with adaptive shared row actions', () => {
+    const source = readFileSync(resolve(sourceRoot, 'src/views/AuditLogView.vue'), 'utf8');
+
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('class-name="standard-row-actions-column"');
+    expect(source).toContain('auditActionColumnWidth');
+  });
+
+  it('keeps governed list row actions on the shared workbench contract', () => {
+    const governedSources = [
+      'src/views/RuleDefinitionView.vue',
+      'src/views/LinkageRuleView.vue',
+      'src/views/EmergencyPlanView.vue',
+      'src/views/RoleView.vue',
+      'src/views/DictView.vue',
+      'src/views/InAppMessageView.vue'
+    ];
+
+    governedSources.forEach((relativePath) => {
+      const source = readFileSync(resolve(sourceRoot, relativePath), 'utf8');
+
+      expect(source).not.toContain('<StandardRowActions variant="table"');
+      expect(source).not.toMatch(/label="操作"[\s\S]{0,160}\swidth="/);
+    });
   });
 });

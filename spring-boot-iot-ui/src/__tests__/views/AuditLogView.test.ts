@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -178,9 +180,24 @@ const StandardActionMenuStub = defineComponent({
   `
 });
 
-const StandardRowActionsStub = defineComponent({
-  name: 'StandardRowActions',
-  template: '<div class="audit-log-row-actions-stub"><slot /></div>'
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  emits: ['command'],
+  template: `
+    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="audit-log-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
 });
 
 const StandardActionLinkStub = defineComponent({
@@ -287,7 +304,7 @@ function mountView() {
         StandardChoiceGroup: StandardChoiceGroupStub,
         StandardButton: StandardButtonStub,
         StandardActionMenu: StandardActionMenuStub,
-        StandardRowActions: StandardRowActionsStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
         StandardPagination: StandardPaginationStub,
@@ -408,7 +425,7 @@ describe('AuditLogView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('200');
+    expect(actionColumn?.attributes('data-width')).toBe('136');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -546,5 +563,13 @@ describe('AuditLogView', () => {
     expect(persisted.context.sourcePage).toBe('system-log');
     expect(persisted.context.topic).toBe('$dp');
     expect(persisted.context.reportStatus).toBe('failed');
+  });
+
+  it('uses shared workbench row actions and mobile list grammar in system mode', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/AuditLogView.vue'), 'utf8');
+
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('standard-list-surface');
+    expect(source).toContain('standard-mobile-record-grid');
   });
 });

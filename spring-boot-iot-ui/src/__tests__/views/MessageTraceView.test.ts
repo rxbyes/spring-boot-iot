@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -183,9 +185,24 @@ const StandardButtonStub = defineComponent({
   `
 });
 
-const StandardRowActionsStub = defineComponent({
-  name: 'StandardRowActions',
-  template: '<div class="message-trace-row-actions-stub"><slot /></div>'
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  emits: ['command'],
+  template: `
+    <div class="message-trace-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="message-trace-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
 });
 
 const StandardActionLinkStub = defineComponent({
@@ -405,7 +422,7 @@ function mountView() {
         StandardPagination: StandardPaginationStub,
         StandardChoiceGroup: StandardChoiceGroupStub,
         StandardButton: StandardButtonStub,
-        StandardRowActions: StandardRowActionsStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
         StandardTraceTimeline: StandardTraceTimelineStub,
@@ -569,7 +586,7 @@ describe('MessageTraceView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('144');
+    expect(actionColumn?.attributes('data-width')).toBe('104');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {
@@ -793,6 +810,14 @@ describe('MessageTraceView', () => {
     expect(persistedRaw).toBeTruthy();
     const persisted = JSON.parse(persistedRaw as string);
     expect(persisted.context.sourcePage).toBe('message-trace');
+  });
+
+  it('uses shared workbench row actions and shared list surface in trace mode', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/MessageTraceView.vue'), 'utf8');
+
+    expect(source).toContain('class="message-trace-table-wrap standard-list-surface"');
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('standard-mobile-record-grid');
   });
 
 });

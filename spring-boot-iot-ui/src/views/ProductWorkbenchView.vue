@@ -518,7 +518,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
@@ -687,8 +687,8 @@ const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.v
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
-  resolveAdaptiveActionColumnWidth({
-    directLabels: getProductDirectActions('table').map((item) => item.label),
+  resolveWorkbenchActionColumnWidth({
+    directItems: getProductDirectActions('table'),
     gap: 'compact'
   })
 )

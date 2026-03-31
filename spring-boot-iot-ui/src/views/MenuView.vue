@@ -95,13 +95,20 @@
           </template>
         </el-table-column>
         <StandardTableTextColumn prop="sort" label="排序" :width="80" />
-        <el-table-column label="操作" width="240" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="menuActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink v-permission="'system:menu:update'" @click="openEdit(row.id)">编辑</StandardActionLink>
-              <StandardActionLink v-permission="'system:menu:add'" @click="openAddChild(row.id)">新增子级</StandardActionLink>
-              <StandardActionLink v-permission="'system:menu:delete'" @click="removeMenu(row.id)">删除</StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getMenuRowActions()"
+              @command="(command) => handleMenuRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -207,17 +214,31 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { usePermissionStore } from '@/stores/permission'
+
+type MenuRowActionCommand = 'edit' | 'add-child' | 'delete'
 
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const loading = ref(false)
 const submitLoading = ref(false)
 const tableData = ref<Menu[]>([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增菜单')
 const dialogMode = ref<'add' | 'edit'>('add')
+const menuActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'add-child', label: '新增子级' },
+    { command: 'delete', label: '删除' }
+  ],
+  gap: 'compact'
+})
 const formRef = ref()
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
 
@@ -289,6 +310,32 @@ function typeText(type?: number) {
   if (type === 1) return '页面'
   if (type === 2) return '按钮'
   return '--'
+}
+
+function getMenuRowActions() {
+  const actions: Array<{ command: MenuRowActionCommand; label: string }> = []
+  if (permissionStore.hasPermission('system:menu:update')) {
+    actions.push({ command: 'edit', label: '编辑' })
+  }
+  if (permissionStore.hasPermission('system:menu:add')) {
+    actions.push({ command: 'add-child', label: '新增子级' })
+  }
+  if (permissionStore.hasPermission('system:menu:delete')) {
+    actions.push({ command: 'delete', label: '删除' })
+  }
+  return actions
+}
+
+function handleMenuRowAction(command: MenuRowActionCommand, row: Menu) {
+  if (command === 'edit') {
+    openEdit(row.id)
+    return
+  }
+  if (command === 'add-child') {
+    openAddChild(row.id)
+    return
+  }
+  removeMenu(row.id)
 }
 
 function resetForm(parentId = 0) {

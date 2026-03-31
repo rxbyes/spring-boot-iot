@@ -160,22 +160,18 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column
           label="操作"
-          width="200"
+          :width="regionActionColumnWidth"
           fixed="right"
+          class-name="standard-row-actions-column"
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleEdit(row)"
-                >编辑</StandardActionLink
-              >
-              <StandardActionLink @click="handleAddSub(row)"
-                >新增子级</StandardActionLink
-              >
-              <StandardActionLink @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getRegionRowActions()"
+              @command="(command) => handleRegionRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -295,8 +291,10 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -315,6 +313,8 @@ import {
   type Region,
 } from "@/api/region";
 
+type RegionRowActionCommand = "edit" | "add-sub" | "delete";
+
 const formRef = ref();
 const tableRef = ref();
 const loading = ref(false);
@@ -323,6 +323,14 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("新增区域");
 const tableData = ref<Region[]>([]);
 const selectedRows = ref<Region[]>([]);
+const regionActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑" },
+    { command: "add-sub", label: "新增子级" },
+    { command: "delete", label: "删除" },
+  ],
+  gap: "compact",
+});
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();
 
@@ -517,6 +525,24 @@ const handleReset = () => {
 
 const handleSelectionChange = (rows: Region[]) => {
   selectedRows.value = rows;
+};
+
+const getRegionRowActions = () => [
+  { command: "edit" as const, label: "编辑" },
+  { command: "add-sub" as const, label: "新增子级" },
+  { command: "delete" as const, label: "删除" },
+];
+
+const handleRegionRowAction = (command: RegionRowActionCommand, row: Region) => {
+  if (command === "edit") {
+    handleEdit(row);
+    return;
+  }
+  if (command === "add-sub") {
+    handleAddSub(row);
+    return;
+  }
+  handleDelete(row);
 };
 
 const clearSelection = () => {

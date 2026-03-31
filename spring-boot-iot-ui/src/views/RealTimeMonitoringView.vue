@@ -105,11 +105,20 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="monitoringActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="openDetail(row.bindingId)">详情</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="monitoringRowActions"
+                @command="() => openDetail(row.bindingId)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -146,10 +155,12 @@ import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '../components/StandardWorkbenchRowActions.vue';
 import { useServerPagination } from '../composables/useServerPagination';
 import { getRiskMonitoringList, type RiskMonitoringListItem } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
+import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 import { formatDateTime } from '../utils/format';
 
 interface SelectOption {
@@ -163,6 +174,11 @@ const riskPoints = ref<RiskPoint[]>([]);
 const detailVisible = ref(false);
 const activeBindingId = ref<number | null>(null);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
+const monitoringRowActions = [{ command: 'detail' as const, label: '详情' }];
+const monitoringActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: monitoringRowActions,
+  gap: 'compact'
+});
 
 const filters = reactive<{
   regionId?: number;

@@ -33,7 +33,7 @@ const ElTableColumnStub = defineComponent({
 })
 
 describe('ProductDeviceListWorkspace', () => {
-  it('renders a compact metric band and keeps the ledger table as the primary stage', () => {
+  it('renders a compact metric band without verbose hints and keeps the ledger table as the primary stage', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
       props: {
         product: {
@@ -69,17 +69,21 @@ describe('ProductDeviceListWorkspace', () => {
       }
     })
 
+    expect(wrapper.find('.device-workspace__chapter-header').exists()).toBe(true)
     expect(wrapper.find('.device-workspace__section-kicker').text()).toContain('设备运行概览')
+    expect(wrapper.find('.device-workspace__chapter-brief').exists()).toBe(false)
     expect(wrapper.text()).toContain('设备总数')
     expect(wrapper.text()).toContain('在线设备')
     expect(wrapper.text()).toContain('离线设备')
     expect(wrapper.text()).toContain('在线比例')
     expect(wrapper.text()).toContain('关联设备台账')
-    expect(wrapper.find('.device-workspace__summary-band').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__summary-strip').exists()).toBe(true)
     expect(wrapper.find('.device-workspace__metric-band').exists()).toBe(true)
     expect(wrapper.find('.device-workspace__ledger-stage').exists()).toBe(true)
     expect(wrapper.find('.device-drawer__summary').exists()).toBe(false)
     expect(wrapper.find('.device-workspace__ledger-heading').text()).toContain('关联设备台账')
+    expect(wrapper.find('.device-workspace__ledger-kicker').text()).toContain('关联设备台账')
+    expect(wrapper.find('.device-workspace__metric small').exists()).toBe(false)
     expect(wrapper.find('.device-workspace__metric[data-tone="brand"]').exists()).toBe(true)
     expect(wrapper.find('.device-workspace__metric[data-tone="success"]').exists()).toBe(false)
     expect(wrapper.find('.device-workspace__metric[data-tone="danger"]').exists()).toBe(false)

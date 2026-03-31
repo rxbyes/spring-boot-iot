@@ -9,6 +9,12 @@ import lombok.Data;
 @Data
 public class ProductModelCandidateSummaryVO {
 
+    private String extractionMode;
+
+    private String sampleType;
+
+    private String sampleDeviceCode;
+
     private Integer propertyEvidenceCount;
 
     private Integer propertyCandidateCount;
@@ -34,6 +40,8 @@ public class ProductModelCandidateSummaryVO {
     private String eventHint;
 
     private String serviceHint;
+
+    private Integer ignoredFieldCount;
 
     private LocalDateTime lastExtractedAt;
 }

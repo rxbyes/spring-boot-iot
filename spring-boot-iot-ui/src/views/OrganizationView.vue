@@ -155,22 +155,18 @@
         <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
         <el-table-column
           label="操作"
-          width="200"
+          :width="organizationActionColumnWidth"
           fixed="right"
+          class-name="standard-row-actions-column"
           :show-overflow-tooltip="false"
         >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-              <StandardActionLink @click="handleEdit(row)"
-                >编辑</StandardActionLink
-              >
-              <StandardActionLink @click="handleAddSub(row)"
-                >新增子级</StandardActionLink
-              >
-              <StandardActionLink @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getOrganizationRowActions()"
+              @command="(command) => handleOrganizationRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -279,8 +275,10 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -299,6 +297,8 @@ import {
   type Organization,
 } from "@/api/organization";
 
+type OrganizationRowActionCommand = "edit" | "add-sub" | "delete";
+
 const formRef = ref();
 const tableRef = ref();
 const loading = ref(false);
@@ -307,6 +307,14 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("新增组织机构");
 const tableData = ref<Organization[]>([]);
 const selectedRows = ref<Organization[]>([]);
+const organizationActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑" },
+    { command: "add-sub", label: "新增子级" },
+    { command: "delete", label: "删除" },
+  ],
+  gap: "compact",
+});
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();
 
@@ -498,6 +506,27 @@ const handleReset = () => {
 
 const handleSelectionChange = (rows: Organization[]) => {
   selectedRows.value = rows;
+};
+
+const getOrganizationRowActions = () => [
+  { command: "edit" as const, label: "编辑" },
+  { command: "add-sub" as const, label: "新增子级" },
+  { command: "delete" as const, label: "删除" },
+];
+
+const handleOrganizationRowAction = (
+  command: OrganizationRowActionCommand,
+  row: Organization
+) => {
+  if (command === "edit") {
+    handleEdit(row);
+    return;
+  }
+  if (command === "add-sub") {
+    handleAddSub(row);
+    return;
+  }
+  handleDelete(row);
 };
 
 const clearSelection = () => {

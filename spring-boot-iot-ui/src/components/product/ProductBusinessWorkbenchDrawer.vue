@@ -3,8 +3,7 @@
     :model-value="modelValue"
     class="product-business-workbench"
     size="72rem"
-    :title="productTitle"
-    :subtitle="drawerSubtitle"
+    :title="drawerTitle"
     @update:modelValue="emit('update:modelValue', $event)"
   >
     <template #header-actions>
@@ -15,23 +14,25 @@
       <div class="product-business-workbench__header-top">
         <div class="product-business-workbench__identity">
           <p class="product-business-workbench__kicker product-business-workbench__header-kicker">产品经营工作台</p>
-          <h3 class="product-business-workbench__headline">{{ productTitle }}</h3>
-          <p class="product-business-workbench__identity-key">{{ productKeyText }}</p>
-          <p class="product-business-workbench__description product-business-workbench__brief">{{ headerDescription }}</p>
+          <h3 class="product-business-workbench__headline">{{ productHeadline }}</h3>
         </div>
-        <span
-          class="product-business-workbench__status-badge"
-          :class="`product-business-workbench__status-badge--${statusTone}`"
-        >
-          {{ statusLabel }}
-        </span>
+
+        <div class="product-business-workbench__header-summary">
+          <article
+            v-for="card in headerSummaryCards"
+            :key="card.key"
+            class="product-business-workbench__summary-card"
+            :class="{ 'product-business-workbench__summary-card--primary': card.primary }"
+            :data-testid="`product-workbench-summary-${card.key}`"
+          >
+            <span class="product-business-workbench__summary-label">{{ card.label }}</span>
+            <span class="product-business-workbench__summary-value">{{ card.value }}</span>
+          </article>
+        </div>
       </div>
 
-      <div class="product-business-workbench__meta product-business-workbench__meta-strip">
-        <span>{{ productKeyText }}</span>
-        <span>{{ protocolText }}</span>
-        <span>{{ nodeTypeText }}</span>
-        <span>{{ dataFormatText }}</span>
+      <div v-if="metaItems.length" class="product-business-workbench__meta product-business-workbench__meta-strip">
+        <span v-for="item in metaItems" :key="item.key">{{ item.value }}</span>
       </div>
 
       <nav class="product-business-workbench__tabs product-business-workbench__tab-rail" aria-label="产品经营工作台视图">
@@ -124,11 +125,22 @@ function formatText(value?: string | null) {
   return value
 }
 
-const productTitle = computed(() => props.product?.productName || props.product?.productKey || '产品经营工作台')
+function formatCount(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  const count = Number(value)
+  return Number.isFinite(count) ? String(count) : '--'
+}
+
+const drawerTitle = '产品经营工作台'
 const productKeyText = computed(() => formatText(props.product?.productKey))
 const protocolText = computed(() => formatText(props.product?.protocolCode))
 const dataFormatText = computed(() => formatText(props.product?.dataFormat))
-const drawerSubtitle = computed(() => '把经营总览、物模型治理、关联设备和编辑治理收口到同一产品上下文中。')
+const productHeadline = computed(() => {
+  const text = formatText(props.product?.productName || props.product?.productKey)
+  return text === '--' ? '未命名产品' : text
+})
 const nodeTypeText = computed(() => {
   if (props.product?.nodeType === 1) {
     return '直连设备'
@@ -138,108 +150,147 @@ const nodeTypeText = computed(() => {
   }
   return '--'
 })
-const statusLabel = computed(() => {
-  if (props.product?.status === 0) {
-    return '已停用'
-  }
-  if ((props.product?.deviceCount ?? 0) > 0) {
-    return '稳定使用中'
-  }
-  return '接入调试中'
+const metaItems = computed(() => {
+  const items = [
+    {
+      key: 'productKey',
+      value: productKeyText.value,
+      visible: productKeyText.value !== '--' && productKeyText.value !== productHeadline.value
+    },
+    {
+      key: 'protocolCode',
+      value: protocolText.value,
+      visible: protocolText.value !== '--'
+    },
+    {
+      key: 'nodeType',
+      value: nodeTypeText.value,
+      visible: nodeTypeText.value !== '--'
+    },
+    {
+      key: 'dataFormat',
+      value: dataFormatText.value,
+      visible: dataFormatText.value !== '--'
+    }
+  ]
+
+  return items.filter((item) => item.visible)
 })
-const statusTone = computed(() => (props.product?.status === 0 ? 'inactive' : 'active'))
-const headerDescription = computed(() => {
-  if (props.product?.status === 0) {
-    return '当前产品已停用，建议结合关联设备和接入链路继续核查存量影响。'
+const headerSummaryCards = computed(() => [
+  {
+    key: 'deviceCount',
+    label: '关联设备',
+    value: formatCount(props.product?.deviceCount),
+    primary: true
+  },
+  {
+    key: 'onlineDeviceCount',
+    label: '在线设备',
+    value: formatCount(props.product?.onlineDeviceCount),
+    primary: false
+  },
+  {
+    key: 'thirtyDaysActiveCount',
+    label: '30 日活跃',
+    value: formatCount(props.product?.thirtyDaysActiveCount),
+    primary: false
   }
-  if ((props.product?.deviceCount ?? 0) > 0) {
-    return '统一在同一产品上下文中查看经营状态、模型治理、关联设备和档案变更。'
-  }
-  return '当前产品仍在接入准备阶段，可继续补齐经营判断、模型治理和基础档案。'
-})
+])
 </script>
 
 <style scoped>
 .product-business-workbench__header {
   display: grid;
   gap: 1rem;
-  padding: 1.25rem 1.28rem 1.15rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-xl) + 4px);
+  padding: 1.4rem 1.44rem 1.16rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 13%, var(--panel-border));
+  border-radius: calc(var(--radius-xl) + 6px);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 34%),
     linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
+  box-shadow: 0 20px 44px rgba(28, 53, 87, 0.08);
 }
 
 .product-business-workbench__header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
+  gap: 1.4rem;
+  align-items: stretch;
 }
 
 .product-business-workbench__identity,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.56rem;
 }
 
 .product-business-workbench__kicker,
-.product-business-workbench__identity-key,
-.product-business-workbench__description {
+.product-business-workbench__summary-label {
   margin: 0;
   color: var(--text-caption);
   font-size: 0.84rem;
-  line-height: 1.7;
-}
-
-.product-business-workbench__identity-key {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  line-height: 1.72;
 }
 
 .product-business-workbench__kicker {
   color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .product-business-workbench__headline {
   margin: 0;
   color: var(--text-heading);
-  font-size: clamp(1.68rem, 2.3vw, 2.35rem);
+  font-size: clamp(1.76rem, 2.4vw, 2.46rem);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
-.product-business-workbench__brief {
-  max-width: 52rem;
-  color: color-mix(in srgb, var(--text-secondary) 92%, white);
+.product-business-workbench__header-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(5.1rem, auto);
+  gap: 0.82rem;
+  align-self: stretch;
 }
 
-.product-business-workbench__status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.4rem;
-  padding: 0.34rem 0.98rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, rgba(255, 250, 247, 0.98), rgba(255, 244, 236, 0.98));
-  color: color-mix(in srgb, var(--brand) 78%, var(--text-heading));
-  font-size: 0.8rem;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 10px 20px rgba(217, 120, 47, 0.12);
+.product-business-workbench__summary-card {
+  display: grid;
+  gap: 0.16rem;
+  align-content: center;
+  min-height: 5.1rem;
+  padding: 0.92rem 0.96rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
-.product-business-workbench__status-badge--inactive {
-  border-color: color-mix(in srgb, var(--danger, #d84f45) 18%, transparent);
-  background: linear-gradient(180deg, rgba(255, 248, 247, 0.98), rgba(255, 240, 239, 0.98));
-  color: color-mix(in srgb, var(--danger, #d84f45) 82%, var(--text-heading));
-  box-shadow: 0 10px 20px rgba(216, 79, 69, 0.1);
+.product-business-workbench__summary-card--primary {
+  grid-column: 1 / -1;
+  min-height: 6.2rem;
+  padding-block: 1.02rem;
+  background:
+    linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.product-business-workbench__summary-label {
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.product-business-workbench__summary-value {
+  color: var(--text-heading);
+  font-size: 1.16rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.product-business-workbench__summary-card--primary .product-business-workbench__summary-value {
+  font-size: 1.58rem;
 }
 
 .product-business-workbench__meta {
@@ -249,14 +300,14 @@ const headerDescription = computed(() => {
 }
 
 .product-business-workbench__meta-strip {
-  padding-bottom: 0.1rem;
+  padding-bottom: 0.14rem;
 }
 
 .product-business-workbench__meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.96rem;
-  padding: 0.28rem 0.78rem;
+  min-height: 2rem;
+  padding: 0.28rem 0.82rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.96);
@@ -267,21 +318,21 @@ const headerDescription = computed(() => {
 .product-business-workbench__tabs {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.58rem;
 }
 
 .product-business-workbench__tab-rail {
-  padding-top: 0.1rem;
+  padding-top: 0.12rem;
 }
 
 .product-business-workbench__tab {
-  min-height: 2.28rem;
-  padding: 0.42rem 1rem;
+  min-height: 2.38rem;
+  padding: 0.44rem 1.06rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.96);
   color: var(--text-secondary);
-  font-size: 0.92rem;
+  font-size: 0.93rem;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
@@ -295,13 +346,18 @@ const headerDescription = computed(() => {
 }
 
 .product-business-workbench__view-shell {
-  margin-top: 1.15rem;
+  margin-top: 1.22rem;
 }
 
 @media (max-width: 960px) {
   .product-business-workbench__header-top {
-    flex-direction: column;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .product-business-workbench__header-summary {
+    grid-template-columns: 1fr;
   }
 }
 </style>

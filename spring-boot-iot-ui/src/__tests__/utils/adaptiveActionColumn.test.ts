@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import {
+  resolveAdaptiveActionColumnWidth,
+  resolveWorkbenchActionColumnWidth,
+  splitWorkbenchRowActions
+} from '@/utils/adaptiveActionColumn'
 
 describe('resolveAdaptiveActionColumnWidth', () => {
   it('keeps one lightweight action at the minimum compact width baseline', () => {
@@ -18,7 +22,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         directLabels: ['进入工作台', '删除'],
         gap: 'compact'
       })
-    ).toBe(176)
+    ).toBe(144)
   })
 
   it('shrinks two short wide-gap actions below the old fixed 180px column', () => {
@@ -27,7 +31,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         directLabels: ['详情', '观测'],
         gap: 'wide'
       })
-    ).toBe(144)
+    ).toBe(112)
   })
 
   it('expands for three direct actions in wide mode', () => {
@@ -36,7 +40,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         directLabels: ['详情', '追踪', '删除'],
         gap: 'wide'
       })
-    ).toBe(200)
+    ).toBe(152)
   })
 
   it('accounts for the more-actions trigger in adaptive mode', () => {
@@ -46,6 +50,37 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         menuLabel: '更多',
         gap: 'wide'
       })
-    ).toBe(200)
+    ).toBe(152)
+  })
+
+  it('splits row actions into two direct entries plus a more-menu payload', () => {
+    expect(
+      splitWorkbenchRowActions({
+        directItems: [
+          { command: 'detail', label: '详情' },
+          { command: 'edit', label: '编辑' },
+          { command: 'delete', label: '删除' }
+        ]
+      })
+    ).toEqual({
+      directItems: [
+        { command: 'detail', label: '详情' },
+        { command: 'edit', label: '编辑' }
+      ],
+      menuItems: [{ command: 'delete', label: '删除', disabled: undefined, key: undefined }]
+    })
+  })
+
+  it('uses the same compact baseline when overflow direct actions are folded into more', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'detail', label: '详情' },
+          { command: 'trace', label: '追踪' },
+          { command: 'observe', label: '观测' }
+        ],
+        gap: 'compact'
+      })
+    ).toBe(136)
   })
 })

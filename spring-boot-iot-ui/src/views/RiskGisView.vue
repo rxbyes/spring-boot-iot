@@ -71,11 +71,20 @@
           <StandardTableTextColumn prop="onlineDeviceCount" label="在线设备" :width="100">
             <template #default="{ row }">{{ row.onlineDeviceCount ?? 0 }}</template>
           </StandardTableTextColumn>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="gisActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-            <StandardRowActions variant="table" gap="compact">
-                <StandardActionLink @click="openDetailByRiskPoint(row.riskPointId)">详情</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                gap="compact"
+                :direct-items="gisRowActions"
+                @command="() => openDetailByRiskPoint(row.riskPointId)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -102,9 +111,12 @@
               <span>活跃告警 {{ point.activeAlarmCount ?? 0 }}</span>
             </div>
             <div class="ops-resource-card__footer">
-              <StandardRowActions variant="card" gap="wide">
-                <StandardActionLink @click="openDetailByRiskPoint(point.riskPointId)">详情</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="card"
+                gap="compact"
+                :direct-items="gisRowActions"
+                @command="() => openDetailByRiskPoint(point.riskPointId)"
+              />
             </div>
           </article>
         </div>
@@ -125,9 +137,11 @@ import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '../components/StandardWorkbenchRowActions.vue';
 import { getRiskMonitoringGisPoints, getRiskMonitoringList, type RiskMonitoringGisPoint } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
+import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 
 interface SelectOption {
   value: number;
@@ -142,6 +156,11 @@ const regionOptions = ref<SelectOption[]>([]);
 const detailVisible = ref(false);
 const activeBindingId = ref<number | null>(null);
 const gisAdvice = '优先补齐未定位风险点的经纬度信息';
+const gisRowActions = [{ command: 'detail' as const, label: '详情' }];
+const gisActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: gisRowActions,
+  gap: 'compact'
+});
 
 const totalPoints = computed(() => points.value.length);
 const locatedPoints = computed(() =>

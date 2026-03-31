@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,6 +65,26 @@ const StandardTableToolbarStub = defineComponent({
     <div class="access-error-toolbar-stub">
       <slot />
       <slot name="right" />
+    </div>
+  `
+});
+
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  emits: ['command'],
+  template: `
+    <div class="access-error-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="access-error-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
     </div>
   `
 });
@@ -142,12 +164,12 @@ describe('AccessErrorArchivePanel', () => {
           stubs: {
             StandardWorkbenchPanel: StandardWorkbenchPanelStub,
             StandardListFilterHeader: true,
-          StandardAppliedFiltersBar: true,
-          StandardTableToolbar: StandardTableToolbarStub,
-          StandardPagination: true,
-          StandardTableTextColumn: true,
-          StandardRowActions: true,
-          StandardActionLink: true,
+            StandardAppliedFiltersBar: true,
+            StandardTableToolbar: StandardTableToolbarStub,
+            StandardPagination: true,
+            StandardTableTextColumn: true,
+            StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+            StandardActionLink: true,
           StandardDetailDrawer: defineComponent({
               name: 'StandardDetailDrawer',
               props: ['modelValue', 'eyebrow', 'title'],
@@ -204,7 +226,7 @@ describe('AccessErrorArchivePanel', () => {
           StandardTableToolbar: StandardTableToolbarStub,
           StandardPagination: true,
           StandardTableTextColumn: true,
-          StandardRowActions: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
           StandardActionLink: true,
           StandardInlineState: true,
           StandardDetailDrawer: true,
@@ -244,7 +266,7 @@ describe('AccessErrorArchivePanel', () => {
           StandardTableToolbar: StandardTableToolbarStub,
           StandardPagination: true,
           StandardTableTextColumn: true,
-          StandardRowActions: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
           StandardActionLink: true,
           StandardInlineState: true,
           StandardDetailDrawer: true,
@@ -269,6 +291,15 @@ describe('AccessErrorArchivePanel', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('200');
+    expect(actionColumn?.attributes('data-width')).toBe('136');
+  });
+
+  it('collapses archive actions into direct actions plus menu and uses shared list surface', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../components/AccessErrorArchivePanel.vue'), 'utf8');
+
+    expect(source).toContain('class="access-error-table-wrap standard-list-surface"');
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('standard-mobile-record-grid');
+    expect(source).toContain('menu-label="更多"');
   });
 });

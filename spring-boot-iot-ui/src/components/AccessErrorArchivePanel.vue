@@ -135,52 +135,121 @@
       </StandardTableToolbar>
     </template>
 
-    <el-table
+    <div
       v-loading="loading"
-      class="access-error-table"
-      :data="tableData"
-      border
-      stripe
-      style="width: 100%"
+      class="access-error-table-wrap standard-list-surface"
+      element-loading-text="正在刷新失败归档列表"
+      element-loading-background="var(--loading-mask-bg)"
     >
-      <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-      <StandardTableTextColumn label="失败阶段" :width="150">
-        <template #default="{ row }">
-          {{ getFailureStageLabel(row.failureStage) }}
-        </template>
-      </StandardTableTextColumn>
-      <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-      <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
-      <StandardTableTextColumn prop="protocolCode" label="协议编码" :min-width="130" />
-      <StandardTableTextColumn prop="errorCode" label="异常编码" :min-width="120" />
-      <StandardTableTextColumn prop="exceptionClass" label="异常类型" :min-width="180" />
-      <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
-      <StandardTableTextColumn label="异常摘要" :min-width="240">
-        <template #default="{ row }">
-          {{ formatInlineText(row.errorMessage) }}
-        </template>
-      </StandardTableTextColumn>
-      <StandardTableTextColumn label="归档时间" :width="180">
-        <template #default="{ row }">
-          {{ formatDateTime(row.createTime) }}
-        </template>
-      </StandardTableTextColumn>
-      <el-table-column
-        label="操作"
-        :width="accessErrorActionColumnWidth"
-        fixed="right"
-        class-name="standard-row-actions-column"
-        :show-overflow-tooltip="false"
+      <div v-if="tableData.length > 0" class="access-error-mobile-list standard-mobile-record-list">
+        <div class="access-error-mobile-list__grid standard-mobile-record-grid">
+          <article
+            v-for="row in tableData"
+            :key="row.id || row.traceId || row.deviceCode"
+            class="access-error-mobile-card standard-mobile-record-card"
+          >
+            <div class="access-error-mobile-card__header">
+              <div class="access-error-mobile-card__heading">
+                <strong class="access-error-mobile-card__title">{{ formatValue(row.traceId) }}</strong>
+                <span class="access-error-mobile-card__sub">{{ formatValue(row.deviceCode) }}</span>
+              </div>
+              <span class="access-error-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                {{ getFailureStageLabel(row.failureStage) }}
+              </span>
+            </div>
+
+            <div class="access-error-mobile-card__meta">
+              <span class="access-error-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                {{ formatValue(row.productKey) }}
+              </span>
+              <span class="access-error-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                {{ formatValue(row.protocolCode) }}
+              </span>
+              <span class="access-error-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                {{ formatValue(row.errorCode) }}
+              </span>
+            </div>
+
+            <div class="access-error-mobile-card__info">
+              <div class="access-error-mobile-card__field">
+                <span class="standard-mobile-record-card__field-label">产品标识</span>
+                <strong class="standard-mobile-record-card__field-value">{{ formatValue(row.productKey) }}</strong>
+              </div>
+              <div class="access-error-mobile-card__field">
+                <span class="standard-mobile-record-card__field-label">归档时间</span>
+                <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.createTime) }}</strong>
+              </div>
+              <div class="access-error-mobile-card__field access-error-mobile-card__field--full">
+                <span class="standard-mobile-record-card__field-label">Topic</span>
+                <strong class="standard-mobile-record-card__field-value">{{ formatValue(row.topic) }}</strong>
+              </div>
+              <div class="access-error-mobile-card__field access-error-mobile-card__field--full">
+                <span class="standard-mobile-record-card__field-label">异常摘要</span>
+                <strong class="standard-mobile-record-card__field-value">{{ formatInlineText(row.errorMessage) }}</strong>
+              </div>
+            </div>
+
+            <StandardWorkbenchRowActions
+              variant="card"
+              gap="compact"
+              :direct-items="getArchiveDirectActions(row)"
+              :menu-items="accessErrorMenuItems"
+              menu-label="更多"
+              @command="(command) => handleArchiveRowAction(command, row)"
+            />
+          </article>
+        </div>
+      </div>
+
+      <el-table
+        class="access-error-table"
+        :data="tableData"
+        border
+        stripe
+        style="width: 100%"
       >
-        <template #default="{ row }">
-              <StandardRowActions variant="table" gap="compact">
-            <StandardActionLink @click="handleDetail(row)">详情</StandardActionLink>
-            <StandardActionLink :disabled="!canJumpToTrace(row)" @click="jumpToMessageTrace(row)">追踪</StandardActionLink>
-            <StandardActionLink :disabled="!canJumpToSystemLog(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
-          </StandardRowActions>
-        </template>
-      </el-table-column>
-    </el-table>
+        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+        <StandardTableTextColumn label="失败阶段" :width="150">
+          <template #default="{ row }">
+            {{ getFailureStageLabel(row.failureStage) }}
+          </template>
+        </StandardTableTextColumn>
+        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+        <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
+        <StandardTableTextColumn prop="protocolCode" label="协议编码" :min-width="130" />
+        <StandardTableTextColumn prop="errorCode" label="异常编码" :min-width="120" />
+        <StandardTableTextColumn prop="exceptionClass" label="异常类型" :min-width="180" />
+        <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
+        <StandardTableTextColumn label="异常摘要" :min-width="240">
+          <template #default="{ row }">
+            {{ formatInlineText(row.errorMessage) }}
+          </template>
+        </StandardTableTextColumn>
+        <StandardTableTextColumn label="归档时间" :width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.createTime) }}
+          </template>
+        </StandardTableTextColumn>
+        <el-table-column
+          label="操作"
+          :width="accessErrorActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
+          <template #default="{ row }">
+            <StandardWorkbenchRowActions
+              variant="table"
+              gap="compact"
+              :direct-items="getArchiveDirectActions(row)"
+              :menu-items="accessErrorMenuItems"
+              menu-label="更多"
+              @command="(command) => handleArchiveRowAction(command, row)"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <template #pagination>
       <div v-if="pagination.total > 0" class="ops-pagination">
@@ -352,10 +421,11 @@ import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceAccessErrorLog, DeviceAccessErrorStats } from '@/types/api';
-import { resolveAdaptiveActionColumnWidth } from '@/utils/adaptiveActionColumn';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { formatDateTime, prettyJson } from '@/utils/format';
 import {
   buildDiagnosticRouteQuery,
@@ -365,10 +435,17 @@ import {
 
 const route = useRoute();
 const router = useRouter();
-const accessErrorActionColumnWidth = resolveAdaptiveActionColumnWidth({
-  directLabels: ['详情', '追踪', '观测'],
-  gap: 'wide'
+const accessErrorActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'detail', label: '详情' },
+    { command: 'trace', label: '追踪' },
+    { command: 'observe', label: '观测' }
+  ],
+  gap: 'compact'
 });
+const accessErrorMenuItems = [
+  { command: 'observe', label: '观测' }
+];
 
 const searchForm = reactive({
   traceId: '',
@@ -680,6 +757,33 @@ function handlePageChange(page: number) {
   loadTableData();
 }
 
+function getArchiveDirectActions(row: DeviceAccessErrorLog) {
+  return [
+    { command: 'detail', label: '详情' },
+    { command: 'trace', label: '追踪', disabled: !canJumpToTrace(row) }
+  ];
+}
+
+function handleArchiveRowAction(command: string | number, row: DeviceAccessErrorLog) {
+  if (command === 'detail') {
+    void handleDetail(row);
+    return;
+  }
+  if (command === 'trace') {
+    if (!canJumpToTrace(row)) {
+      return;
+    }
+    jumpToMessageTrace(row);
+    return;
+  }
+  if (command === 'observe') {
+    if (!canJumpToSystemLog(row)) {
+      return;
+    }
+    jumpToSystemLog(row);
+  }
+}
+
 async function handleDetail(row: DeviceAccessErrorLog) {
   if (row.id === undefined || row.id === null || row.id === '') {
     ElMessage.warning('当前失败归档缺少主键，无法查看详情');
@@ -875,5 +979,97 @@ onMounted(() => {
 .access-error-notice-grid {
   display: grid;
   gap: 0.72rem;
+}
+
+.access-error-table-wrap {
+  min-width: 0;
+}
+
+.access-error-mobile-list {
+  display: none;
+  margin-bottom: 0.72rem;
+}
+
+.access-error-mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.72rem;
+}
+
+.access-error-mobile-card__heading {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.access-error-mobile-card__title {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.access-error-mobile-card__sub {
+  overflow: hidden;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-error-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.access-error-mobile-card__meta-item {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-error-mobile-card__info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+}
+
+.access-error-mobile-card__field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.access-error-mobile-card__field--full {
+  grid-column: 1 / -1;
+}
+
+.access-error-mobile-card__field .standard-mobile-record-card__field-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-error-table {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .access-error-mobile-list {
+    display: block;
+  }
+
+  .access-error-table {
+    display: none;
+  }
+
+  .access-error-mobile-card__info {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

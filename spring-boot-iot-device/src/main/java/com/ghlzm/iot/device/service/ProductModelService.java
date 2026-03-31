@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
@@ -28,6 +29,11 @@ public interface ProductModelService extends IService<ProductModel> {
      * 基于真实上报数据提炼物模型候选。
      */
     ProductModelCandidateResultVO listModelCandidates(Long productId);
+
+    /**
+     * 基于单设备样本手动提炼物模型候选。
+     */
+    ProductModelCandidateResultVO manualExtractModelCandidates(Long productId, ProductModelManualExtractDTO dto);
 
     /**
      * 确认候选并写入正式物模型。
