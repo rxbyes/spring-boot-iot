@@ -75,6 +75,12 @@ mysql < sql/init.sql
 mysql < sql/init-data.sql
 ```
 
+TDengine 时序库可按需单独初始化：
+
+```bash
+taos -f sql/init-tdengine.sql
+```
+
 历史库升级请先阅读 [docs/04-数据库设计与初始化数据.md](docs/04-数据库设计与初始化数据.md)。
 
 ### 2. 安装后端依赖
