@@ -6,9 +6,14 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 
 const StandardRowActionsStub = defineComponent({
   name: 'StandardRowActions',
-  props: ['variant', 'gap'],
+  props: ['variant', 'gap', 'distribution'],
   template: `
-    <div class="standard-row-actions-stub" :data-variant="variant" :data-gap="gap">
+    <div
+      class="standard-row-actions-stub"
+      :data-variant="variant"
+      :data-gap="gap"
+      :data-distribution="distribution"
+    >
       <slot />
     </div>
   `
@@ -102,6 +107,20 @@ describe('StandardWorkbenchRowActions', () => {
     })
 
     expect(wrapper.get('.standard-row-actions-stub').attributes('data-gap')).toBe('compact')
+  })
+
+  it('forwards the distribution mode to the shared row-actions layout', () => {
+    const wrapper = mountComponent({
+      variant: 'table',
+      distribution: 'between',
+      directItems: [
+        { key: 'detail', command: 'detail', label: '详情' },
+        { key: 'edit', command: 'edit', label: '编辑' }
+      ],
+      menuItems: [{ key: 'delete', command: 'delete', label: '删除' }]
+    })
+
+    expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('between')
   })
 
   it('hides the menu trigger when there are no menu items', () => {

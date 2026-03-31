@@ -2,6 +2,7 @@
   <StandardRowActions
     :variant="variant"
     :gap="resolvedGap"
+    :distribution="distribution"
     class="standard-workbench-row-actions"
   >
     <StandardActionLink
@@ -58,6 +59,7 @@ const props = withDefaults(
   defineProps<{
     variant?: 'table' | 'card' | 'editor'
     gap?: 'compact' | 'comfortable' | 'wide'
+    distribution?: 'start' | 'between'
     directItems?: WorkbenchDirectActionItem[]
     menuItems?: WorkbenchMenuActionItem[]
     menuLabel?: string
@@ -66,6 +68,7 @@ const props = withDefaults(
   {
     variant: 'table',
     gap: undefined,
+    distribution: 'start',
     directItems: () => [],
     menuItems: () => [],
     menuLabel: '更多',

@@ -1,7 +1,7 @@
 <template>
   <StandardPageShell class="device-asset-view">
     <StandardWorkbenchPanel
-      title="设备台账"
+      title="设备资产中心"
       description="统一维护设备主数据、在线状态与登记信息。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
@@ -305,6 +305,7 @@
                 <StandardWorkbenchRowActions
                   variant="table"
                   gap="compact"
+                  distribution="between"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
                   @command="(command) => handleRowAction(command, row)"
@@ -1487,19 +1488,19 @@ const deviceActionColumnWidth = computed(() => {
       gap: 'compact'
     })
   )
+  const resolvedWidth =
+    visibleRowWidths.length > 0
+      ? Math.max(...visibleRowWidths)
+      : resolveWorkbenchActionColumnWidth({
+          directItems: [
+            { command: 'detail', label: '详情' },
+            ...(permissionStore.hasPermission('iot:devices:update') ? [{ command: 'edit', label: '编辑' }] : [])
+          ],
+          menuItems: [{ command: 'more', label: '更多' }],
+          gap: 'compact'
+        })
 
-  if (visibleRowWidths.length > 0) {
-    return Math.max(...visibleRowWidths)
-  }
-
-  return resolveWorkbenchActionColumnWidth({
-    directItems: [
-      { command: 'detail', label: '详情' },
-      ...(permissionStore.hasPermission('iot:devices:update') ? [{ command: 'edit', label: '编辑' }] : [])
-    ],
-    menuItems: [{ command: 'more', label: '更多' }],
-    gap: 'compact'
-  })
+  return Math.max(144, resolvedWidth)
 })
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {

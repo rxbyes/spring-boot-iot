@@ -179,6 +179,22 @@ textarea {
   display: inline-flex;
 }
 
+.standard-row-actions--variant-table.standard-row-actions--distribution-between {
+  width: 100%;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.standard-row-actions--variant-table.standard-row-actions--distribution-between > .standard-button,
+.standard-row-actions--variant-table.standard-row-actions--distribution-between > .standard-action-menu {
+  flex: 0 0 auto;
+}
+
+.standard-row-actions--variant-table.standard-row-actions--distribution-between .standard-button__content > .el-icon,
+.standard-row-actions--variant-table.standard-row-actions--distribution-between .standard-action-menu__trigger .el-icon {
+  display: none;
+}
+
 .standard-row-actions--variant-card {
   display: flex;
   width: 100%;

@@ -125,9 +125,13 @@ const StandardTableToolbarStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['variant', 'gap', 'directItems', 'menuItems'],
+  props: ['variant', 'gap', 'distribution', 'directItems', 'menuItems'],
   template: `
-    <div class="device-workbench-row-actions-stub" :data-variant="variant">
+    <div
+      class="device-workbench-row-actions-stub"
+      :data-variant="variant"
+      :data-distribution="distribution"
+    >
       <span
         v-for="item in directItems || []"
         :key="item.key || item.command"
@@ -326,7 +330,8 @@ describe('DeviceWorkbenchView', () => {
     expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(detailDrawer.props('eyebrow')).toBeUndefined()
     expect(formDrawer.props('eyebrow')).toBeUndefined()
-    expect(wrapper.text()).toContain('设备台账')
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).not.toContain('设备台账')
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
   })
 
@@ -403,6 +408,7 @@ describe('DeviceWorkbenchView', () => {
     expect(tableRowActions?.exists()).toBe(true)
     expect(cardRowActions?.props('gap')).toBe('compact')
     expect(tableRowActions?.props('gap')).toBe('compact')
+    expect(tableRowActions?.props('distribution')).toBe('between')
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
         '详情',
         '编辑'
@@ -413,7 +419,7 @@ describe('DeviceWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('136')
+    expect(String(actionColumn?.props('width'))).toBe('144')
   })
 
   it('keeps the device workbench on the shared list surface and trims toolbar density', () => {

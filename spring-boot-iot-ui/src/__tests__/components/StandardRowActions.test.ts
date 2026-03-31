@@ -20,6 +20,20 @@ describe('StandardRowActions', () => {
     expect(wrapper.classes()).toContain('standard-row-actions--wide')
   })
 
+  it('adds the between-distribution class when table actions need equal spacing', () => {
+    const wrapper = mount(StandardRowActions, {
+      props: {
+        variant: 'table',
+        distribution: 'between'
+      },
+      slots: {
+        default: '<button>详情</button><button>编辑</button><button>更多</button>'
+      }
+    })
+
+    expect(wrapper.classes()).toContain('standard-row-actions--distribution-between')
+  })
+
   it('uses the card variant class for touch action rows', () => {
     const wrapper = mount(StandardRowActions, {
       props: {
