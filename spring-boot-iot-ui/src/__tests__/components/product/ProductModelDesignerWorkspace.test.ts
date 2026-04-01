@@ -231,9 +231,11 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.findAll('.product-model-designer__curation-item')).toHaveLength(0)
     expect(wrapper.find('.product-model-designer__candidate-card').exists()).toBe(false)
     expect(wrapper.text()).toContain('手动提炼')
+    expect(wrapper.text()).toContain('自动提炼')
     expect(wrapper.text()).toContain('单次只解析一个设备样本')
-    expect(wrapper.text()).toContain('业务 / 状态 / 其他')
-    expect(wrapper.text()).toContain('进入完整治理')
+    expect(wrapper.text()).toContain('运行期证据')
+    expect(wrapper.text()).toContain('对比治理')
+    expect(wrapper.text()).toContain('进入双证据治理')
   })
 
   it('renders formal mode cards from the same embedded workspace', async () => {

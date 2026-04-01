@@ -57,11 +57,11 @@
       <section v-if="designerMode === 'manual'" class="product-model-designer__governance-sheet">
         <div class="product-model-designer__sheet-head">
           <div class="product-model-designer__sheet-copy">
-            <strong>手动提炼</strong>
-            <p>围绕当前产品的单设备业务 / 状态 / 其他样本完成提炼、核对与写库确认。</p>
+            <strong>手动提炼 + 自动提炼</strong>
+            <p>围绕当前产品的单设备样本与运行期证据完成对比治理，再进入正式模型确认。</p>
           </div>
           <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
-            进入完整治理
+            进入双证据治理
           </StandardButton>
         </div>
 
@@ -159,21 +159,21 @@ const typeOptions: Array<{ label: string; value: ProductModelType }> = [
 const manualLedgerItems = [
   {
     key: 'sample',
-    title: '粘贴样本 JSON',
+    title: '录入手动证据',
     summary: '单次只解析一个设备样本',
-    description: '支持业务数据、状态数据和其他数据三类样本。时间戳层只作为证据层，不会进入正式 identifier。'
+    description: '支持业务数据、状态数据和其他数据三类样本，并允许补录属性、事件、服务候选。时间戳层只作为证据层，不会进入正式 identifier。'
   },
   {
     key: 'review',
-    title: '核对正式候选',
-    summary: '其他数据默认 needsReview',
-    description: '数组不会自动进入正式物模型；对象会继续下钻到标量叶子后再生成候选，避免把结构噪音直接写成属性。'
+    title: '并列核对运行期证据',
+    summary: '手动提炼与自动提炼统一对比治理',
+    description: '运行期证据会补齐属性、事件和服务候选；数组不会自动进入正式物模型，对比区只围绕可核对的稳定叶子字段展开。'
   },
   {
     key: 'confirm',
-    title: '确认写库',
+    title: '确认正式应用',
     summary: '继续落在 iot_product_model',
-    description: '提炼后的候选会先进入正式模型确认，再通过“确认写库”提交到数据库，不新增草稿表和并行路由。'
+    description: '对比后的候选会先进入正式确认区，再通过新增 / 修订 / 跳过的显式决策写库，不新增草稿表和并行路由。'
   }
 ] as const
 
@@ -191,25 +191,25 @@ const activeType = ref<ProductModelType>('property')
 const fullDesignerVisible = ref(false)
 
 const designerStageTitle = computed(() =>
-  designerMode.value === 'manual' ? '基于手动样本提炼产品契约' : '统一维护产品正式物模型'
+  designerMode.value === 'manual' ? '基于手动 + 自动双证据治理产品契约' : '统一维护产品正式物模型'
 )
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
     return '正式模型维持当前契约总表，新增字段再回到手动提炼核对来源证据。'
   }
-  return '先围绕单设备样本 JSON 手动提炼，再进入正式模型确认并写库。'
+  return '先围绕单设备样本 JSON 汇总手动证据，再并列拉取运行期证据进入对比治理，最后确认正式写库。'
 })
 const summaryCards = computed(() => [
   {
     key: 'currentMode',
     label: '当前入口',
-    value: designerMode.value === 'manual' ? '手动提炼' : '正式模型'
+    value: designerMode.value === 'manual' ? '对比治理' : '正式模型'
   },
   {
     key: 'evidenceBoundary',
-    label: '证据边界',
-    value: '单设备 JSON'
+    label: '运行期证据',
+    value: designerMode.value === 'manual' ? '手动 + 自动' : '正式契约'
   },
   {
     key: 'formalModels',

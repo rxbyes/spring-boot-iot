@@ -6,20 +6,22 @@ import ProductModelDesignerDrawer from '@/components/product/ProductModelDesigne
 
 const {
   mockListProductModels,
-  mockManualExtractProductModelCandidates,
-  mockConfirmProductModelCandidates
+  mockCompareProductModelGovernance,
+  mockApplyProductModelGovernance
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
-  mockManualExtractProductModelCandidates: vi.fn(),
-  mockConfirmProductModelCandidates: vi.fn()
+  mockCompareProductModelGovernance: vi.fn(),
+  mockApplyProductModelGovernance: vi.fn()
 }))
 
 vi.mock('@/api/product', () => ({
   productApi: {
     listProductModels: mockListProductModels,
     listProductModelCandidates: vi.fn(),
-    manualExtractProductModelCandidates: mockManualExtractProductModelCandidates,
-    confirmProductModelCandidates: mockConfirmProductModelCandidates,
+    manualExtractProductModelCandidates: vi.fn(),
+    confirmProductModelCandidates: vi.fn(),
+    compareProductModelGovernance: mockCompareProductModelGovernance,
+    applyProductModelGovernance: mockApplyProductModelGovernance,
     addProductModel: vi.fn(),
     updateProductModel: vi.fn(),
     deleteProductModel: vi.fn()
@@ -76,7 +78,21 @@ const StandardButtonStub = defineComponent({
 
 const StandardDrawerFooterStub = defineComponent({
   name: 'StandardDrawerFooter',
-  template: '<footer class="standard-drawer-footer-stub"><slot /></footer>'
+  props: ['confirmDisabled', 'confirmLoading'],
+  emits: ['confirm', 'cancel'],
+  template: `
+    <footer class="standard-drawer-footer-stub">
+      <button type="button" data-testid="governance-apply-cancel" @click="$emit('cancel')">关闭</button>
+      <button
+        type="button"
+        data-testid="governance-apply-submit"
+        :disabled="Boolean(confirmDisabled) || Boolean(confirmLoading)"
+        @click="$emit('confirm')"
+      >
+        确认应用
+      </button>
+    </footer>
+  `
 })
 
 const StandardActionLinkStub = defineComponent({
@@ -145,67 +161,72 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function manualResult() {
+function compareResult() {
   return {
     productId: 1001,
     summary: {
+      manualCount: 1,
+      runtimeCount: 1,
+      formalCount: 0,
+      propertyCount: 1,
+      eventCount: 0,
+      serviceCount: 0,
+      doubleAlignedCount: 1,
+      manualOnlyCount: 0,
+      runtimeOnlyCount: 0,
+      formalExistsCount: 0,
+      suspectedConflictCount: 0,
+      evidenceInsufficientCount: 0,
+      lastComparedAt: '2026-03-31T12:00:00'
+    },
+    manualSummary: {
       extractionMode: 'manual',
       sampleType: 'business',
       sampleDeviceCode: 'SK11E80D1307426AZ',
-      propertyEvidenceCount: 2,
-      propertyCandidateCount: 2,
-      eventEvidenceCount: 0,
-      eventCandidateCount: 0,
-      serviceEvidenceCount: 0,
-      serviceCandidateCount: 0,
-      needsReviewCount: 0,
-      existingModelCount: 0,
-      createdCount: 0,
-      skippedCount: 0,
-      conflictCount: 0,
-      eventHint: '手动提炼当前仅生成属性候选，事件请在正式模型中人工补充。',
-      serviceHint: '手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。',
-      ignoredFieldCount: 0,
-      lastExtractedAt: '2026-03-31T12:00:00'
+      propertyEvidenceCount: 1,
+      propertyCandidateCount: 1
     },
-    propertyCandidates: [
+    runtimeSummary: {
+      extractionMode: 'runtime',
+      propertyEvidenceCount: 1,
+      propertyCandidateCount: 1
+    },
+    formalSummary: {
+      formalCount: 0,
+      propertyCount: 0,
+      eventCount: 0,
+      serviceCount: 0
+    },
+    compareRows: [
       {
         modelType: 'property',
         identifier: 'L1_QJ_1.X',
-        modelName: '1号倾角测点X轴位移',
-        dataType: 'double',
-        sortNo: 10,
-        requiredFlag: 0,
-        description: '来源于手动录入样本，归属测点属性。',
-        groupKey: 'telemetry',
-        confidence: 0.96,
-        needsReview: false,
-        candidateStatus: 'ready',
-        evidenceCount: 1,
-        messageEvidenceCount: 1,
-        lastReportTime: '2026-03-31T12:00:00',
-        sourceTables: ['manual_sample']
-      },
-      {
-        modelType: 'property',
-        identifier: 'L1_QJ_1.AZI',
-        modelName: '1号倾角测点方位角',
-        dataType: 'double',
-        sortNo: 10,
-        requiredFlag: 0,
-        description: '来源于手动录入样本，归属测点属性。',
-        groupKey: 'telemetry',
-        confidence: 0.96,
-        needsReview: false,
-        candidateStatus: 'ready',
-        evidenceCount: 1,
-        messageEvidenceCount: 1,
-        lastReportTime: '2026-03-31T12:00:00',
-        sourceTables: ['manual_sample']
+        compareStatus: 'double_aligned',
+        suggestedAction: '纳入新增',
+        riskFlags: [],
+        suspectedMatches: [],
+        manualCandidate: {
+          modelType: 'property',
+          identifier: 'L1_QJ_1.X',
+          modelName: '1号倾角测点X轴位移',
+          dataType: 'double',
+          sortNo: 10,
+          requiredFlag: 0,
+          description: '来源于手动录入样本，归属测点属性。',
+          sourceTables: ['manual_sample']
+        },
+        runtimeCandidate: {
+          modelType: 'property',
+          identifier: 'L1_QJ_1.X',
+          modelName: '1号倾角测点X轴位移',
+          dataType: 'double',
+          sortNo: 10,
+          requiredFlag: 0,
+          description: '来源于真实上报证据。',
+          sourceTables: ['iot_device_property']
+        }
       }
-    ],
-    eventCandidates: [],
-    serviceCandidates: []
+    ]
   }
 }
 
@@ -246,47 +267,79 @@ function mountDrawer() {
 describe('ProductModelDesignerDrawer', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
-    mockManualExtractProductModelCandidates.mockReset()
-    mockConfirmProductModelCandidates.mockReset()
+    mockCompareProductModelGovernance.mockReset()
+    mockApplyProductModelGovernance.mockReset()
     mockListProductModels.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
     })
-    mockManualExtractProductModelCandidates.mockResolvedValue({
+    mockCompareProductModelGovernance.mockResolvedValue({
       code: 200,
       msg: 'success',
-      data: manualResult()
+      data: compareResult()
     })
-    mockConfirmProductModelCandidates.mockResolvedValue({
+    mockApplyProductModelGovernance.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: {
-        createdCount: 2,
+        createdCount: 1,
+        updatedCount: 0,
         skippedCount: 0,
-        conflictCount: 0
+        conflictCount: 0,
+        lastAppliedAt: '2026-03-31T12:05:00'
       }
     })
   })
 
-  it('extracts candidates from a manual sample payload', async () => {
+  it('builds compare rows from dual evidence and applies the default governance decision', async () => {
     const wrapper = mountDrawer()
     await flushPromises()
     await nextTick()
 
     const sampleInput = wrapper.find('[data-testid="manual-sample-input"] textarea')
     await sampleInput.setValue('{"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":-0.0376,"AZI":-8.6772}}}}')
-    await wrapper.find('[data-testid="manual-extract-submit"]').trigger('click')
+    await wrapper.find('[data-testid="governance-compare-submit"]').trigger('click')
     await flushPromises()
     await nextTick()
 
     expect(mockListProductModels).toHaveBeenCalledWith(1001)
-    expect(mockManualExtractProductModelCandidates).toHaveBeenCalledWith(1001, {
-      sampleType: 'business',
-      samplePayload: '{"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":-0.0376,"AZI":-8.6772}}}}'
+    expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
+      manualExtract: {
+        sampleType: 'business',
+        samplePayload: '{"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":-0.0376,"AZI":-8.6772}}}}'
+      },
+      manualDraftItems: [],
+      includeRuntimeCandidates: true
     })
     expect(wrapper.text()).toContain('SK11E80D1307426AZ')
+    expect(wrapper.text()).toContain('双证据一致')
     expect(wrapper.text()).toContain('L1_QJ_1.X')
-    expect(wrapper.text()).toContain('1号倾角测点方位角')
+    expect(wrapper.text()).toContain('纳入新增')
+
+    await wrapper.get('[data-testid="governance-apply-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockApplyProductModelGovernance).toHaveBeenCalledWith(1001, {
+      items: [
+        {
+          decision: 'create',
+          targetModelId: undefined,
+          modelType: 'property',
+          identifier: 'L1_QJ_1.X',
+          modelName: '1号倾角测点X轴位移',
+          dataType: 'double',
+          specsJson: undefined,
+          eventType: undefined,
+          serviceInputJson: undefined,
+          serviceOutputJson: undefined,
+          sortNo: 10,
+          requiredFlag: 0,
+          description: '来源于手动录入样本，归属测点属性。',
+          compareStatus: 'double_aligned'
+        }
+      ]
+    })
   })
 })

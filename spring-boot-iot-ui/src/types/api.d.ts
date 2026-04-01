@@ -65,6 +65,125 @@ export interface ProductModelUpsertPayload {
   description?: string;
 }
 
+export type ProductModelGovernanceCompareStatus =
+  | 'double_aligned'
+  | 'manual_only'
+  | 'runtime_only'
+  | 'formal_exists'
+  | 'suspected_conflict'
+  | 'evidence_insufficient';
+
+export type ProductModelGovernanceDecision = 'create' | 'update' | 'skip';
+
+export interface ProductModelGovernanceEvidence {
+  modelId?: string | number | null;
+  modelType: 'property' | 'event' | 'service';
+  identifier: string;
+  modelName: string;
+  dataType?: string | null;
+  specsJson?: string | null;
+  eventType?: string | null;
+  serviceInputJson?: string | null;
+  serviceOutputJson?: string | null;
+  sortNo?: number | null;
+  requiredFlag?: number | null;
+  description?: string | null;
+  groupKey?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  candidateStatus?: string | null;
+  reviewReason?: string | null;
+  evidenceCount?: number | null;
+  messageEvidenceCount?: number | null;
+  lastReportTime?: string | null;
+  sourceTables?: string[] | null;
+}
+
+export interface ProductModelGovernanceCompareRow {
+  modelType: 'property' | 'event' | 'service';
+  identifier: string;
+  manualCandidate?: ProductModelGovernanceEvidence | null;
+  runtimeCandidate?: ProductModelGovernanceEvidence | null;
+  formalModel?: ProductModelGovernanceEvidence | null;
+  compareStatus: ProductModelGovernanceCompareStatus;
+  riskFlags?: string[] | null;
+  suggestedAction?: string | null;
+  suspectedMatches?: string[] | null;
+}
+
+export interface ProductModelGovernanceSummary {
+  manualCount?: number | null;
+  runtimeCount?: number | null;
+  formalCount?: number | null;
+  propertyCount?: number | null;
+  eventCount?: number | null;
+  serviceCount?: number | null;
+  doubleAlignedCount?: number | null;
+  manualOnlyCount?: number | null;
+  runtimeOnlyCount?: number | null;
+  formalExistsCount?: number | null;
+  suspectedConflictCount?: number | null;
+  evidenceInsufficientCount?: number | null;
+  lastComparedAt?: string | null;
+}
+
+export interface ProductModelGovernanceComparePayload {
+  manualExtract?: {
+    sampleType: 'business' | 'status' | 'other';
+    samplePayload: string;
+  };
+  manualDraftItems?: Array<{
+    modelType: 'property' | 'event' | 'service';
+    identifier: string;
+    modelName: string;
+    dataType?: string | null;
+    specsJson?: string | null;
+    eventType?: string | null;
+    serviceInputJson?: string | null;
+    serviceOutputJson?: string | null;
+    description?: string | null;
+  }>;
+  includeRuntimeCandidates?: boolean;
+}
+
+export interface ProductModelGovernanceCompareResult {
+  productId: string | number;
+  summary: ProductModelGovernanceSummary;
+  manualSummary?: Record<string, unknown> | null;
+  runtimeSummary?: Record<string, unknown> | null;
+  formalSummary?: ProductModelGovernanceSummary | null;
+  compareRows: ProductModelGovernanceCompareRow[];
+}
+
+export interface ProductModelGovernanceApplyItem {
+  decision: ProductModelGovernanceDecision;
+  targetModelId?: string | number;
+  modelType: 'property' | 'event' | 'service';
+  identifier: string;
+  modelName: string;
+  dataType?: string;
+  specsJson?: string;
+  eventType?: string;
+  serviceInputJson?: string;
+  serviceOutputJson?: string;
+  sortNo?: number;
+  requiredFlag?: number;
+  description?: string;
+  compareStatus?: ProductModelGovernanceCompareStatus;
+}
+
+export interface ProductModelGovernanceApplyPayload {
+  items: ProductModelGovernanceApplyItem[];
+}
+
+export interface ProductModelGovernanceApplyResult {
+  createdCount?: number | null;
+  updatedCount?: number | null;
+  skippedCount?: number | null;
+  conflictCount?: number | null;
+  lastAppliedAt?: string | null;
+}
+
 /**
  * 设备相关类型
  */
