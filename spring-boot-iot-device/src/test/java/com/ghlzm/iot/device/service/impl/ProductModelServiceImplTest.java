@@ -2,6 +2,8 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.CommandRecord;
@@ -19,6 +21,9 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -442,6 +447,83 @@ class ProductModelServiceImplTest {
         assertEquals(1, summary.getSkippedCount());
     }
 
+    @Test
+    void compareGovernanceShouldBuildRowsAcrossManualRuntimeAndFormalEvidence() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "L1_QJ_1.angle", 10)));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "S1_ZT_1.signal_4g", "4G 信号强度", "int", LocalDateTime.of(2026, 4, 1, 10, 0))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("event", "{\"eventId\":\"alarmRaised\"}", LocalDateTime.of(2026, 4, 1, 10, 2))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of(commandRecord("service", "reboot")));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setIncludeRuntimeCandidates(true);
+        dto.setManualDraftItems(List.of(manualDraftItem("service", "reboot", "重启设备")));
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        assertEquals("formal_exists", compareRow(result, "property", "L1_QJ_1.angle").getCompareStatus());
+        assertEquals("runtime_only", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
+        assertEquals("double_aligned", compareRow(result, "service", "reboot").getCompareStatus());
+    }
+
+    @Test
+    void compareGovernanceShouldFlagSameIdentifierDefinitionMismatchAsConflict() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(existingEventModel(2001L, "alarmRaised", 10, "info")));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("event", "{\"eventId\":\"alarmRaised\"}", LocalDateTime.of(2026, 4, 1, 11, 0))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setManualDraftItems(List.of(manualEventDraft("alarmRaised", "warning")));
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        assertEquals("suspected_conflict", compareRow(result, "event", "alarmRaised").getCompareStatus());
+        assertEquals("人工裁决", compareRow(result, "event", "alarmRaised").getSuggestedAction());
+    }
+
+    @Test
+    void applyGovernanceShouldCreateUpdateAndSkipExplicitDecisions() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectById(2001L)).thenReturn(existingEventModel(2001L, "alarmRaised", 10, "info"));
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "S1_ZT_1.signal_4g", "4G 信号强度"),
+                applyItem("update", 2001L, "event", "alarmRaised", "告警触发"),
+                applyItem("skip", null, "service", "reboot", "重启设备")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+
+        verify(productModelMapper).insert(any(ProductModel.class));
+        verify(productModelMapper).updateById(any(ProductModel.class));
+        assertEquals(1, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(1, result.getSkippedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldRejectUpdateWithoutTargetModelId() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("update", null, "event", "alarmRaised", "告警触发")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(1001L, dto));
+
+        assertEquals("治理修订必须指定 targetModelId", ex.getMessage());
+    }
+
     private Product product(Long id) {
         return product(id, "accept-product", "验收产品");
     }
@@ -464,6 +546,20 @@ class ProductModelServiceImplTest {
         model.setIdentifier(identifier);
         model.setModelName(identifier);
         model.setDataType("double");
+        model.setSortNo(sortNo);
+        model.setDeleted(0);
+        return model;
+    }
+
+    private ProductModel existingEventModel(Long id, String identifier, Integer sortNo, String eventType) {
+        ProductModel model = new ProductModel();
+        model.setId(id);
+        model.setProductId(1001L);
+        model.setModelType("event");
+        model.setIdentifier(identifier);
+        model.setModelName(identifier);
+        model.setDataType("json");
+        model.setEventType(eventType);
         model.setSortNo(sortNo);
         model.setDeleted(0);
         return model;
@@ -541,5 +637,56 @@ class ProductModelServiceImplTest {
         item.setSortNo(10);
         item.setRequiredFlag(0);
         return item;
+    }
+
+    private ProductModelGovernanceCompareDTO.ManualDraftItem manualDraftItem(String modelType,
+                                                                             String identifier,
+                                                                             String modelName) {
+        ProductModelGovernanceCompareDTO.ManualDraftItem item = new ProductModelGovernanceCompareDTO.ManualDraftItem();
+        item.setModelType(modelType);
+        item.setIdentifier(identifier);
+        item.setModelName(modelName);
+        return item;
+    }
+
+    private ProductModelGovernanceCompareDTO.ManualDraftItem manualEventDraft(String identifier, String eventType) {
+        ProductModelGovernanceCompareDTO.ManualDraftItem item = manualDraftItem("event", identifier, "事件-" + identifier);
+        item.setEventType(eventType);
+        return item;
+    }
+
+    private ProductModelGovernanceApplyDTO.ApplyItem applyItem(String decision,
+                                                               Long targetModelId,
+                                                               String modelType,
+                                                               String identifier,
+                                                               String modelName) {
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision(decision);
+        item.setTargetModelId(targetModelId);
+        item.setModelType(modelType);
+        item.setIdentifier(identifier);
+        item.setModelName(modelName);
+        item.setSortNo(10);
+        item.setRequiredFlag(0);
+        item.setDescription("治理测试项");
+        if ("property".equals(modelType)) {
+            item.setDataType("integer");
+            item.setSpecsJson("{\"unit\":\"dBm\"}");
+        } else if ("event".equals(modelType)) {
+            item.setEventType("warning");
+        } else if ("service".equals(modelType)) {
+            item.setServiceInputJson("[]");
+            item.setServiceOutputJson("[]");
+        }
+        return item;
+    }
+
+    private ProductModelGovernanceCompareRowVO compareRow(ProductModelGovernanceCompareVO result,
+                                                          String modelType,
+                                                          String identifier) {
+        return result.getCompareRows().stream()
+                .filter(row -> modelType.equals(row.getModelType()) && identifier.equals(row.getIdentifier()))
+                .findFirst()
+                .orElseThrow();
     }
 }

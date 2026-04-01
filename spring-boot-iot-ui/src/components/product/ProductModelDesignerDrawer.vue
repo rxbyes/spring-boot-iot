@@ -2,9 +2,9 @@
   <StandardDetailDrawer
     :model-value="modelValue"
     class="product-model-designer-drawer"
-    size="60rem"
-    title="物模型完整治理"
-    subtitle="围绕当前产品执行手动提炼、候选确认和正式模型回刷，不新增并行草稿入口。"
+    size="68rem"
+    title="物模型双证据治理"
+    subtitle="围绕当前产品执行手动提炼、自动提炼对比与正式应用，不新增并行草稿入口。"
     :loading="loading && !hasLoadedContent"
     loading-text="正在加载产品物模型..."
     :error-message="errorMessage"
@@ -14,7 +14,7 @@
   >
     <section v-if="product" class="detail-panel product-model-designer-drawer__header">
       <div class="product-model-designer-drawer__identity">
-        <p class="product-model-designer-drawer__kicker">手动提炼</p>
+        <p class="product-model-designer-drawer__kicker">双证据治理</p>
         <h3 class="product-model-designer-drawer__headline">{{ product.productName || product.productKey || '--' }}</h3>
         <div class="product-model-designer-drawer__meta">
           <span>{{ product.productKey || '--' }}</span>
@@ -29,17 +29,21 @@
           <strong>{{ models.length }}</strong>
         </div>
         <div class="product-model-designer-drawer__summary-item">
-          <span>候选条数</span>
-          <strong>{{ allCandidates.length }}</strong>
+          <span>对比结果</span>
+          <strong>{{ compareRows.length }}</strong>
+        </div>
+        <div class="product-model-designer-drawer__summary-item">
+          <span>待应用项</span>
+          <strong>{{ selectedApplyItems.length }}</strong>
         </div>
       </div>
     </section>
 
-    <section v-if="product" class="detail-panel product-model-designer-drawer__manual-stage">
+    <section v-if="product" class="detail-panel product-model-designer-drawer__evidence-stage">
       <div class="detail-section-header">
         <div>
-          <h3>手动样本提炼</h3>
-          <p>单次只支持一个设备样本。先粘贴 JSON，再把候选确认写入 `iot_product_model`。</p>
+          <h3>证据入口</h3>
+          <p>手动样本与人工补录用于表达业务理解，运行期证据用于补齐真实上报，最终统一进入 compare。</p>
         </div>
       </div>
 
@@ -61,93 +65,160 @@
           v-model="manualSamplePayload"
           type="textarea"
           :rows="10"
-          placeholder="请输入当前产品下单设备样本 JSON。"
+          placeholder="请输入当前产品下单设备样本 JSON，作为手动证据来源。"
         />
+      </div>
+
+      <div class="product-model-designer-drawer__runtime-toggle">
+        <button
+          type="button"
+          class="product-model-designer-drawer__runtime-button"
+          :class="{ 'product-model-designer-drawer__runtime-button--active': includeRuntimeCandidates }"
+          @click="includeRuntimeCandidates = !includeRuntimeCandidates"
+        >
+          自动提炼：{{ includeRuntimeCandidates ? '开启' : '关闭' }}
+        </button>
+        <span>开启后会并列拉取属性快照、消息日志与命令记录形成自动证据。</span>
+      </div>
+
+      <div class="product-model-designer-drawer__draft-stage">
+        <div class="product-model-designer-drawer__draft-head">
+          <strong>人工补录候选</strong>
+          <button type="button" class="product-model-designer-drawer__draft-add" data-testid="add-manual-draft" @click="addManualDraft">
+            添加补录
+          </button>
+        </div>
+
+        <div v-if="manualDrafts.length" class="product-model-designer-drawer__draft-list">
+          <article
+            v-for="draft in manualDrafts"
+            :key="draft.key"
+            class="product-model-designer-drawer__draft-card"
+          >
+            <div class="product-model-designer-drawer__draft-type-switch">
+              <button
+                v-for="option in draftTypeOptions"
+                :key="option.value"
+                type="button"
+                class="product-model-designer-drawer__draft-type-button"
+                :class="{ 'product-model-designer-drawer__draft-type-button--active': draft.modelType === option.value }"
+                @click="draft.modelType = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+
+            <div class="product-model-designer-drawer__draft-grid">
+              <label>
+                <span>标识</span>
+                <input v-model.trim="draft.identifier" type="text" />
+              </label>
+              <label>
+                <span>名称</span>
+                <input v-model.trim="draft.modelName" type="text" />
+              </label>
+              <label v-if="draft.modelType === 'property'">
+                <span>数据类型</span>
+                <input v-model.trim="draft.dataType" type="text" />
+              </label>
+              <label v-if="draft.modelType === 'property'">
+                <span>规格 JSON</span>
+                <input v-model.trim="draft.specsJson" type="text" />
+              </label>
+              <label v-if="draft.modelType === 'event'">
+                <span>事件类型</span>
+                <input v-model.trim="draft.eventType" type="text" />
+              </label>
+              <label v-if="draft.modelType === 'service'">
+                <span>输入 JSON</span>
+                <input v-model.trim="draft.serviceInputJson" type="text" />
+              </label>
+              <label v-if="draft.modelType === 'service'">
+                <span>输出 JSON</span>
+                <input v-model.trim="draft.serviceOutputJson" type="text" />
+              </label>
+              <label class="product-model-designer-drawer__draft-description">
+                <span>说明</span>
+                <input v-model.trim="draft.description" type="text" />
+              </label>
+            </div>
+
+            <button type="button" class="product-model-designer-drawer__draft-remove" @click="removeManualDraft(draft.key)">
+              移除
+            </button>
+          </article>
+        </div>
+
+        <div v-else class="detail-empty">
+          当前没有人工补录项；如需补充事件或服务定义，可在这里手工添加。
+        </div>
       </div>
 
       <div class="product-model-designer-drawer__actions">
         <StandardButton
           action="confirm"
-          :loading="manualExtractLoading"
-          :disabled="!manualSamplePayload.trim()"
-          data-testid="manual-extract-submit"
-          @click="handleManualExtract"
+          :loading="compareLoading"
+          data-testid="governance-compare-submit"
+          @click="handleCompare"
         >
-          提炼候选
+          生成对比结果
         </StandardButton>
       </div>
     </section>
 
-    <section v-if="product && extractionSummary" class="detail-panel product-model-designer-drawer__summary-stage">
+    <section v-if="product && compareSummary" class="detail-panel product-model-designer-drawer__summary-stage">
       <div class="detail-section-header">
         <div>
-          <h3>提炼摘要</h3>
-          <p>当前只保留与你本次样本直接相关的结果。</p>
+          <h3>治理摘要</h3>
+          <p>治理摘要按对比结果汇总风险与收获，不再只统计本次提炼条数。</p>
         </div>
       </div>
 
       <div class="product-model-designer-drawer__result-grid">
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">样本设备</span>
-          <strong class="detail-summary-card__value">{{ extractionSummary.sampleDeviceCode || '--' }}</strong>
+          <strong class="detail-summary-card__value">{{ compareResult?.manualSummary?.sampleDeviceCode || '--' }}</strong>
         </article>
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">提炼模式</span>
-          <strong class="detail-summary-card__value">{{ extractionSummary.extractionMode || 'manual' }}</strong>
+          <span class="detail-summary-card__label">手动命中</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.manualCount ?? 0 }}</strong>
         </article>
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">属性候选</span>
-          <strong class="detail-summary-card__value">{{ extractionSummary.propertyCandidateCount ?? 0 }}</strong>
+          <span class="detail-summary-card__label">自动命中</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.runtimeCount ?? 0 }}</strong>
         </article>
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">待人工确认</span>
-          <strong class="detail-summary-card__value">{{ extractionSummary.needsReviewCount ?? 0 }}</strong>
+          <span class="detail-summary-card__label">双证据一致</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.doubleAlignedCount ?? 0 }}</strong>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">正式已存在</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.formalExistsCount ?? 0 }}</strong>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">冲突待裁决</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.suspectedConflictCount ?? 0 }}</strong>
         </article>
       </div>
     </section>
 
-    <section v-if="product" class="detail-panel product-model-designer-drawer__candidate-stage">
+    <section v-if="product" class="detail-panel product-model-designer-drawer__compare-stage">
       <div class="detail-section-header">
         <div>
-          <h3>候选确认</h3>
-          <p>默认勾选本次提炼的全部候选，确认后直接写入正式模型。</p>
+          <h3>对比工作区</h3>
+          <p>对比行统一收口手动证据、自动证据与正式模型基线，并支持显式决策。</p>
         </div>
       </div>
 
-      <div v-if="allCandidates.length" class="product-model-designer-drawer__candidate-list">
-        <article
-          v-for="candidate in allCandidates"
-          :key="candidateKey(candidate)"
-          class="detail-card product-model-designer-drawer__candidate-card"
-        >
-          <div class="product-model-designer-drawer__candidate-select">
-            <ElCheckbox
-              :model-value="selectedCandidateKeys.includes(candidateKey(candidate))"
-              @update:modelValue="toggleCandidate(candidate, $event)"
-            />
-          </div>
-
-          <div class="product-model-designer-drawer__candidate-body">
-            <div class="detail-card__header">
-              <strong>{{ candidate.modelName }}</strong>
-              <span class="product-model-designer-drawer__candidate-identifier">{{ candidate.identifier }}</span>
-            </div>
-
-            <div class="detail-card__meta">
-              <span>{{ candidate.modelType }}</span>
-              <span>{{ candidate.dataType || '--' }}</span>
-              <span>{{ candidate.groupKey || '--' }}</span>
-            </div>
-
-            <p class="product-model-designer-drawer__candidate-description">
-              {{ candidate.description?.trim() || '当前没有补充说明。' }}
-            </p>
-          </div>
-        </article>
-      </div>
+      <ProductModelGovernanceCompareTable
+        v-if="compareRows.length"
+        :rows="compareRows"
+        :decision-state="decisionState"
+        @change-decision="handleDecisionChange"
+      />
 
       <div v-else class="detail-empty">
-        当前还没有候选项，请先完成一次手动提炼。
+        当前还没有对比结果，请先生成一次双证据 compare。
       </div>
     </section>
 
@@ -155,7 +226,7 @@
       <div class="detail-section-header">
         <div>
           <h3>正式模型</h3>
-          <p>确认写库后会回刷当前产品的正式模型列表。</p>
+          <p>治理应用成功后会回刷当前产品的正式模型列表。</p>
         </div>
       </div>
 
@@ -184,11 +255,11 @@
     <template #footer>
       <StandardDrawerFooter
         cancel-text="关闭"
-        confirm-text="确认写库"
-        :confirm-loading="confirmLoading"
-        :confirm-disabled="!selectedCandidateItems.length"
+        confirm-text="确认应用"
+        :confirm-loading="applyLoading"
+        :confirm-disabled="!selectedApplyItems.length"
         @cancel="emit('update:modelValue', false)"
-        @confirm="handleConfirm"
+        @confirm="handleApply"
       />
     </template>
   </StandardDetailDrawer>
@@ -200,15 +271,18 @@ import { computed, ref, watch } from 'vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
+import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
 import { productApi } from '@/api/product'
 import type {
   Product,
   ProductModel,
-  ProductModelCandidate,
-  ProductModelCandidateConfirmItem,
-  ProductModelCandidateResult,
-  ProductModelCandidateSummary,
-  ProductModelManualSampleType
+  ProductModelGovernanceApplyItem,
+  ProductModelGovernanceCompareResult,
+  ProductModelGovernanceCompareRow,
+  ProductModelGovernanceDecision,
+  ProductModelGovernanceManualDraftItem,
+  ProductModelManualSampleType,
+  ProductModelType
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
 
@@ -223,68 +297,71 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
 }>()
 
+interface ManualDraftForm extends ProductModelGovernanceManualDraftItem {
+  key: string
+  dataType: string
+  specsJson: string
+  eventType: string
+  serviceInputJson: string
+  serviceOutputJson: string
+  description: string
+}
+
 const sampleTypeOptions: Array<{ label: string; value: ProductModelManualSampleType }> = [
   { label: '业务数据', value: 'business' },
   { label: '状态数据', value: 'status' },
   { label: '其他数据', value: 'other' }
 ]
 
+const draftTypeOptions: Array<{ label: string; value: ProductModelType }> = [
+  { label: '属性', value: 'property' },
+  { label: '事件', value: 'event' },
+  { label: '服务', value: 'service' }
+]
+
 const loading = ref(false)
-const manualExtractLoading = ref(false)
-const confirmLoading = ref(false)
+const compareLoading = ref(false)
+const applyLoading = ref(false)
 const errorMessage = ref('')
 const manualSampleType = ref<ProductModelManualSampleType>('business')
 const manualSamplePayload = ref('')
+const includeRuntimeCandidates = ref(true)
 const models = ref<ProductModel[]>([])
-const candidateResult = ref<ProductModelCandidateResult | null>(null)
-const selectedCandidateKeys = ref<string[]>([])
+const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
+const manualDrafts = ref<ManualDraftForm[]>([])
+const decisionState = ref<Record<string, ProductModelGovernanceDecision>>({})
+let manualDraftSeed = 0
 
-const extractionSummary = computed<ProductModelCandidateSummary | null>(() => candidateResult.value?.summary ?? null)
-const allCandidates = computed<ProductModelCandidate[]>(() => {
-  if (!candidateResult.value) {
-    return []
-  }
-  return [
-    ...(candidateResult.value.propertyCandidates ?? []),
-    ...(candidateResult.value.eventCandidates ?? []),
-    ...(candidateResult.value.serviceCandidates ?? [])
-  ]
-})
-const selectedCandidateItems = computed<ProductModelCandidateConfirmItem[]>(() =>
-  allCandidates.value
-    .filter((candidate) => selectedCandidateKeys.value.includes(candidateKey(candidate)))
-    .map((candidate) => ({
-      modelType: candidate.modelType,
-      identifier: candidate.identifier,
-      modelName: candidate.modelName,
-      dataType: candidate.dataType ?? undefined,
-      specsJson: candidate.specsJson ?? undefined,
-      eventType: candidate.eventType ?? undefined,
-      serviceInputJson: candidate.serviceInputJson ?? undefined,
-      serviceOutputJson: candidate.serviceOutputJson ?? undefined,
-      sortNo: candidate.sortNo ?? undefined,
-      requiredFlag: candidate.requiredFlag ?? undefined,
-      description: candidate.description ?? undefined
-    }))
+const compareSummary = computed(() => compareResult.value?.summary ?? null)
+const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
+const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() =>
+  compareRows.value
+    .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
+    .filter((item) => item.decision && item.decision !== 'skip')
+    .map(({ row, decision }) => buildApplyItem(row, decision))
 )
-const hasLoadedContent = computed(() => Boolean(models.value.length || candidateResult.value))
+const hasLoadedContent = computed(() => Boolean(models.value.length || compareResult.value))
 
 watch(
   () => [props.modelValue, props.product?.id] as const,
-  async ([visible, productId]) => {
+  async ([visible, productId], previousValue) => {
+    const previousProductId = previousValue?.[1]
     if (!visible || !productId) {
       if (!visible) {
         errorMessage.value = ''
       }
       return
     }
+    if (productId !== previousProductId) {
+      resetGovernanceSession()
+    }
     await loadModels(productId)
   },
   { immediate: true }
 )
 
-function candidateKey(candidate: ProductModelCandidate) {
-  return `${candidate.modelType}:${candidate.identifier}`
+function rowKey(row: ProductModelGovernanceCompareRow) {
+  return `${row.modelType}:${row.identifier}`
 }
 
 async function loadModels(productId: string | number) {
@@ -301,87 +378,165 @@ async function loadModels(productId: string | number) {
   }
 }
 
-function toggleCandidate(candidate: ProductModelCandidate, checked: unknown) {
-  const key = candidateKey(candidate)
-  if (checked) {
-    if (!selectedCandidateKeys.value.includes(key)) {
-      selectedCandidateKeys.value = [...selectedCandidateKeys.value, key]
+function addManualDraft() {
+  manualDraftSeed += 1
+  manualDrafts.value = [
+    ...manualDrafts.value,
+    {
+      key: `draft-${manualDraftSeed}`,
+      modelType: 'property',
+      identifier: '',
+      modelName: '',
+      dataType: '',
+      specsJson: '',
+      eventType: '',
+      serviceInputJson: '',
+      serviceOutputJson: '',
+      description: ''
     }
-    return
-  }
-  selectedCandidateKeys.value = selectedCandidateKeys.value.filter((item) => item !== key)
+  ]
 }
 
-async function handleManualExtract() {
-  if (!props.product?.id || !manualSamplePayload.value.trim()) {
+function removeManualDraft(key: string) {
+  manualDrafts.value = manualDrafts.value.filter((draft) => draft.key !== key)
+}
+
+async function handleCompare() {
+  if (!props.product?.id) {
     return
   }
-  manualExtractLoading.value = true
+  compareLoading.value = true
   errorMessage.value = ''
   try {
-    const response = await productApi.manualExtractProductModelCandidates(props.product.id, {
-      sampleType: manualSampleType.value,
-      samplePayload: manualSamplePayload.value.trim()
+    const response = await productApi.compareProductModelGovernance(props.product.id, {
+      manualExtract: manualSamplePayload.value.trim()
+        ? {
+            sampleType: manualSampleType.value,
+            samplePayload: manualSamplePayload.value.trim()
+          }
+        : undefined,
+      manualDraftItems: normalizedManualDraftItems(),
+      includeRuntimeCandidates: includeRuntimeCandidates.value
     })
-    candidateResult.value = response.data
-    selectedCandidateKeys.value = allCandidates.value.map((candidate) => candidateKey(candidate))
+    compareResult.value = response.data
+    decisionState.value = Object.fromEntries(
+      (response.data?.compareRows ?? []).map((row) => [rowKey(row), defaultDecisionForRow(row)])
+    )
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '手动提炼失败'
-    candidateResult.value = null
-    selectedCandidateKeys.value = []
+    compareResult.value = null
+    decisionState.value = {}
+    errorMessage.value = error instanceof Error ? error.message : '生成对比结果失败'
   } finally {
-    manualExtractLoading.value = false
+    compareLoading.value = false
   }
 }
 
-async function handleConfirm() {
-  if (!props.product?.id || !selectedCandidateItems.value.length) {
+function handleDecisionChange(payload: { key: string; decision: ProductModelGovernanceDecision }) {
+  decisionState.value = {
+    ...decisionState.value,
+    [payload.key]: payload.decision
+  }
+}
+
+async function handleApply() {
+  if (!props.product?.id || !selectedApplyItems.value.length) {
     return
   }
-  confirmLoading.value = true
+  applyLoading.value = true
   errorMessage.value = ''
   try {
-    await productApi.confirmProductModelCandidates(props.product.id, {
-      items: selectedCandidateItems.value
+    await productApi.applyProductModelGovernance(props.product.id, {
+      items: selectedApplyItems.value
     })
-    ElMessage.success('确认写库成功')
-    candidateResult.value = null
-    selectedCandidateKeys.value = []
-    manualSamplePayload.value = ''
+    ElMessage.success('治理应用成功')
     await loadModels(props.product.id)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '确认写库失败'
+    errorMessage.value = error instanceof Error ? error.message : '治理应用失败'
     ElMessage.error(errorMessage.value)
   } finally {
-    confirmLoading.value = false
+    applyLoading.value = false
   }
+}
+
+function defaultDecisionForRow(row: ProductModelGovernanceCompareRow): ProductModelGovernanceDecision {
+  return row.compareStatus === 'double_aligned' ? 'create' : 'skip'
+}
+
+function normalizedManualDraftItems(): ProductModelGovernanceManualDraftItem[] {
+  return manualDrafts.value
+    .filter((draft) => draft.identifier.trim() && draft.modelName.trim())
+    .map((draft) => ({
+      modelType: draft.modelType,
+      identifier: draft.identifier.trim(),
+      modelName: draft.modelName.trim(),
+      dataType: draft.dataType.trim() || undefined,
+      specsJson: draft.specsJson.trim() || undefined,
+      eventType: draft.eventType.trim() || undefined,
+      serviceInputJson: draft.serviceInputJson.trim() || undefined,
+      serviceOutputJson: draft.serviceOutputJson.trim() || undefined,
+      description: draft.description.trim() || undefined
+    }))
+}
+
+function buildApplyItem(row: ProductModelGovernanceCompareRow, decision: ProductModelGovernanceDecision): ProductModelGovernanceApplyItem {
+  const source = row.manualCandidate ?? row.runtimeCandidate ?? row.formalModel
+  return {
+    decision,
+    targetModelId: decision === 'update' ? row.formalModel?.modelId ?? undefined : undefined,
+    modelType: row.modelType,
+    identifier: row.identifier,
+    modelName: source?.modelName || row.identifier,
+    dataType: source?.dataType ?? undefined,
+    specsJson: source?.specsJson ?? undefined,
+    eventType: source?.eventType ?? undefined,
+    serviceInputJson: source?.serviceInputJson ?? undefined,
+    serviceOutputJson: source?.serviceOutputJson ?? undefined,
+    sortNo: source?.sortNo ?? undefined,
+    requiredFlag: source?.requiredFlag ?? undefined,
+    description: source?.description ?? undefined,
+    compareStatus: row.compareStatus
+  }
+}
+
+function resetGovernanceSession() {
+  manualSampleType.value = 'business'
+  manualSamplePayload.value = ''
+  includeRuntimeCandidates.value = true
+  compareResult.value = null
+  manualDrafts.value = []
+  decisionState.value = {}
 }
 </script>
 
 <style scoped>
 .product-model-designer-drawer__header,
-.product-model-designer-drawer__manual-stage,
+.product-model-designer-drawer__evidence-stage,
 .product-model-designer-drawer__summary-stage,
-.product-model-designer-drawer__candidate-stage,
-.product-model-designer-drawer__formal-stage {
+.product-model-designer-drawer__compare-stage,
+.product-model-designer-drawer__formal-stage,
+.product-model-designer-drawer__draft-stage {
   display: grid;
   gap: 1rem;
 }
 
 .product-model-designer-drawer__header {
-  grid-template-columns: minmax(0, 1fr) 14rem;
+  grid-template-columns: minmax(0, 1fr) 18rem;
   align-items: start;
 }
 
 .product-model-designer-drawer__identity,
-.product-model-designer-drawer__summary {
+.product-model-designer-drawer__summary,
+.product-model-designer-drawer__draft-list,
+.product-model-designer-drawer__draft-grid {
   display: grid;
   gap: 0.72rem;
 }
 
 .product-model-designer-drawer__kicker,
 .product-model-designer-drawer__summary-item span,
-.product-model-designer-drawer__candidate-identifier {
+.product-model-designer-drawer__candidate-identifier,
+.product-model-designer-drawer__runtime-toggle span,
+.product-model-designer-drawer__draft-grid label span {
   margin: 0;
   color: var(--text-caption);
   font-size: 0.82rem;
@@ -403,10 +558,27 @@ async function handleConfirm() {
 }
 
 .product-model-designer-drawer__meta,
-.product-model-designer-drawer__actions {
+.product-model-designer-drawer__actions,
+.product-model-designer-drawer__sample-type,
+.product-model-designer-drawer__draft-type-switch,
+.product-model-designer-drawer__runtime-toggle,
+.product-model-designer-drawer__draft-head {
   display: flex;
   flex-wrap: wrap;
   gap: 0.58rem;
+  align-items: center;
+}
+
+.product-model-designer-drawer__meta span,
+.product-model-designer-drawer__summary-item,
+.product-model-designer-drawer__runtime-button,
+.product-model-designer-drawer__sample-type-button,
+.product-model-designer-drawer__draft-type-button,
+.product-model-designer-drawer__draft-add,
+.product-model-designer-drawer__draft-remove {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .product-model-designer-drawer__meta span {
@@ -414,97 +586,90 @@ async function handleConfirm() {
   align-items: center;
   min-height: 1.92rem;
   padding: 0.24rem 0.72rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.94);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+}
+
+.product-model-designer-drawer__summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .product-model-designer-drawer__summary-item {
   display: grid;
-  gap: 0.24rem;
-  padding: 0.88rem 0.94rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: rgba(255, 255, 255, 0.95);
+  gap: 0.26rem;
+  padding: 0.84rem 0.9rem;
 }
 
-.product-model-designer-drawer__summary-item strong {
+.product-model-designer-drawer__summary-item strong,
+.product-model-designer-drawer__draft-head strong {
   color: var(--text-heading);
-  font-size: 1.14rem;
-  line-height: 1.3;
 }
 
-.product-model-designer-drawer__sample-type {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.58rem;
-}
-
-.product-model-designer-drawer__sample-type-button {
-  min-height: 2.2rem;
-  padding: 0.4rem 0.94rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.94);
+.product-model-designer-drawer__runtime-button,
+.product-model-designer-drawer__sample-type-button,
+.product-model-designer-drawer__draft-type-button,
+.product-model-designer-drawer__draft-add,
+.product-model-designer-drawer__draft-remove {
+  min-height: 2rem;
+  padding: 0.24rem 0.78rem;
   color: var(--text-secondary);
-  font-size: 0.88rem;
   cursor: pointer;
 }
 
-.product-model-designer-drawer__sample-type-button--active {
-  border-color: color-mix(in srgb, var(--brand) 24%, white);
-  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 245, 236, 0.98));
+.product-model-designer-drawer__runtime-button--active,
+.product-model-designer-drawer__sample-type-button--active,
+.product-model-designer-drawer__draft-type-button--active {
+  border-color: color-mix(in srgb, var(--brand) 52%, #fff);
   color: var(--brand);
 }
 
-.product-model-designer-drawer__sample-input {
-  min-width: 0;
+.product-model-designer-drawer__draft-list {
+  gap: 0.86rem;
 }
 
-.product-model-designer-drawer__sample-input :deep(textarea) {
-  min-height: 14rem;
-  font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-  line-height: 1.65;
+.product-model-designer-drawer__draft-card {
+  display: grid;
+  gap: 0.86rem;
+  padding: 0.92rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 253, 0.98));
+}
+
+.product-model-designer-drawer__draft-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.product-model-designer-drawer__draft-grid label {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.product-model-designer-drawer__draft-grid input {
+  min-height: 2.3rem;
+  padding: 0.46rem 0.7rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.8rem;
+  color: var(--text-primary);
+}
+
+.product-model-designer-drawer__draft-description {
+  grid-column: 1 / -1;
+}
+
+.product-model-designer-drawer__result-grid,
+.product-model-designer-drawer__formal-list {
+  display: grid;
+  gap: 0.86rem;
 }
 
 .product-model-designer-drawer__result-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.product-model-designer-drawer__candidate-list,
-.product-model-designer-drawer__formal-list {
-  display: grid;
-  gap: 0.84rem;
-}
-
-.product-model-designer-drawer__candidate-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.82rem;
-  align-items: start;
-}
-
-.product-model-designer-drawer__candidate-select {
-  padding-top: 0.12rem;
-}
-
-.product-model-designer-drawer__candidate-body {
-  min-width: 0;
-}
-
-.product-model-designer-drawer__candidate-description {
-  margin: 0.66rem 0 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.68;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .product-model-designer-drawer__header,
+  .product-model-designer-drawer__summary,
+  .product-model-designer-drawer__draft-grid,
   .product-model-designer-drawer__result-grid {
     grid-template-columns: 1fr;
   }

@@ -129,6 +129,9 @@ export default defineConfig(({ mode }) => {
     environment: 'jsdom',
     setupFiles: './src/__tests__/setup.ts',
     include: ['./src/__tests__/**/*.test.ts'],
+    api: {
+      host: '127.0.0.1'
+    },
     server: {
       deps: {
         inline: ['element-plus']

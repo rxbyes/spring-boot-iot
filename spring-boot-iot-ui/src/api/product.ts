@@ -6,6 +6,10 @@ import type {
   PageResult,
   Product,
   ProductAddPayload,
+  ProductModelGovernanceApplyPayload,
+  ProductModelGovernanceApplyResult,
+  ProductModelGovernanceComparePayload,
+  ProductModelGovernanceCompareResult,
   ProductModelCandidateConfirmPayload,
   ProductModelManualExtractPayload,
   ProductModelCandidateResult,
@@ -132,6 +136,32 @@ export const productApi = {
     payload: ProductModelCandidateConfirmPayload
   ): Promise<ApiEnvelope<ProductModelCandidateSummary>> {
     return request<ProductModelCandidateSummary>(`/api/device/product/${productId}/model-candidates/confirm`, {
+      method: 'POST',
+      body: payload
+    });
+  },
+
+  /**
+   * 构建产品物模型双证据对比结果
+   */
+  compareProductModelGovernance(
+    productId: IdType,
+    payload: ProductModelGovernanceComparePayload
+  ): Promise<ApiEnvelope<ProductModelGovernanceCompareResult>> {
+    return request<ProductModelGovernanceCompareResult>(`/api/device/product/${productId}/model-governance/compare`, {
+      method: 'POST',
+      body: payload
+    });
+  },
+
+  /**
+   * 应用产品物模型双证据治理决策
+   */
+  applyProductModelGovernance(
+    productId: IdType,
+    payload: ProductModelGovernanceApplyPayload
+  ): Promise<ApiEnvelope<ProductModelGovernanceApplyResult>> {
+    return request<ProductModelGovernanceApplyResult>(`/api/device/product/${productId}/model-governance/apply`, {
       method: 'POST',
       body: payload
     });
