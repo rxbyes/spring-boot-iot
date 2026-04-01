@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>产品经营工作台节奏进化对比</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --panel: #fbfbfc;
+      --panel-2: #f6f7f9;
+      --ink: #18212e;
+      --muted: #697586;
+      --line: #d6dce5;
+      --line-2: #e5e9ef;
+      --accent: #b97836;
+      --accent-soft: rgba(185, 120, 54, 0.14);
+      --shadow: 0 22px 44px rgba(19, 31, 45, 0.08);
+      --radius: 26px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(185, 120, 54, 0.08), transparent 24%),
+        linear-gradient(180deg, #f5f7fa 0%, #eceff3 100%);
+      color: var(--ink);
+    }
+
+    .page {
+      width: min(1520px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 40px 0 48px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      font-weight: 600;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+      border: 1px solid rgba(214, 220, 229, 0.92);
+      border-radius: 30px;
+      background: rgba(251, 251, 252, 0.94);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .card--recommended {
+      border-color: rgba(185, 120, 54, 0.4);
+      box-shadow:
+        0 26px 50px rgba(19, 31, 45, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    .card-header {
+      display: grid;
+      gap: 8px;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .badge--recommended {
+      border-color: rgba(185, 120, 54, 0.34);
+      color: var(--accent);
+      background: rgba(185, 120, 54, 0.08);
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .card-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+      min-height: 74px;
+    }
+
+    .pros {
+      display: grid;
+      gap: 8px;
+      padding-top: 2px;
+    }
+
+    .pro {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .mock {
+      display: grid;
+      min-height: 760px;
+      padding: 22px 24px 26px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line-2);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 247, 249, 0.96));
+    }
+
+    .mock-shell {
+      display: grid;
+      height: 100%;
+    }
+
+    .header-band {
+      display: grid;
+      grid-template-columns: 1.2fr 0.95fr;
+      align-items: end;
+      border-bottom: 1px solid rgba(203, 210, 220, 0.85);
+    }
+
+    .header-left {
+      display: grid;
+    }
+
+    .header-kicker {
+      color: #7c8796;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .header-title {
+      font-size: 27px;
+      line-height: 1.08;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .summary-band {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      min-height: 110px;
+    }
+
+    .metric {
+      display: grid;
+      align-content: end;
+      gap: 6px;
+      position: relative;
+      padding: 0 14px 14px;
+    }
+
+    .metric:first-child {
+      padding-left: 0;
+    }
+
+    .metric + .metric::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 12px;
+      width: 1px;
+      background: rgba(205, 212, 222, 0.9);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .metric-value {
+      font-size: 22px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 500;
+    }
+
+    .metric-value--primary {
+      font-size: 42px;
+      font-weight: 600;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .tabs span:last-child {
+      color: var(--accent);
+      position: relative;
+    }
+
+    .tabs span:last-child::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -8px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(185, 120, 54, 0.9);
+    }
+
+    .section {
+      display: grid;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-title {
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .trend-grid,
+    .archive-grid {
+      display: grid;
+      border-top: 1px solid rgba(208, 214, 223, 0.9);
+    }
+
+    .trend-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .archive-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cell {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      min-height: 104px;
+      padding: 16px 12px 18px 0;
+      border-right: 1px solid rgba(223, 228, 235, 0.88);
+      border-bottom: 1px solid rgba(223, 228, 235, 0.88);
+    }
+
+    .cell:nth-child(3n) {
+      border-right: none;
+      padding-right: 0;
+      padding-left: 12px;
+    }
+
+    .cell:nth-child(3n + 2) {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .cell:nth-last-child(-n + 3) {
+      border-bottom: none;
+    }
+
+    .archive-grid .cell:last-child,
+    .archive-grid .cell:nth-last-child(2) {
+      border-bottom: none;
+    }
+
+    .cell--wide {
+      grid-column: span 2;
+      padding-right: 12px;
+    }
+
+    .cell-label {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .cell-value {
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    .mock-a {
+      gap: 38px;
+    }
+
+    .mock-a .header-band {
+      padding-bottom: 20px;
+    }
+
+    .mock-a .header-left {
+      gap: 10px;
+    }
+
+    .mock-a .section {
+      gap: 18px;
+    }
+
+    .mock-b {
+      gap: 28px;
+    }
+
+    .mock-b .header-band {
+      padding-bottom: 18px;
+    }
+
+    .mock-b .header-left {
+      gap: 8px;
+    }
+
+    .mock-b .section {
+      gap: 12px;
+    }
+
+    .mock-b .cell {
+      min-height: 92px;
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+
+    .mock-c {
+      gap: 52px;
+    }
+
+    .mock-c .header-band {
+      padding-bottom: 26px;
+    }
+
+    .mock-c .header-left {
+      gap: 12px;
+    }
+
+    .mock-c .section {
+      gap: 22px;
+    }
+
+    .mock-c .trend-grid,
+    .mock-c .archive-grid {
+      border-top-color: rgba(219, 224, 232, 0.7);
+    }
+
+    .mock-c .cell {
+      min-height: 116px;
+      border-right-color: rgba(229, 233, 239, 0.6);
+      border-bottom-color: rgba(229, 233, 239, 0.6);
+    }
+
+    .foot {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .foot strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    @media (max-width: 1280px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .mock {
+        min-height: 660px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">A. 首长简报式 / 整体节奏进化</span>
+      <h1>产品经营工作台进一步做高级感，核心不在加设计，而在重排呼吸节奏</h1>
+      <p>
+        这次只比较“整体节奏”，不改内容结构。三版都保留当前的页眉横向经营带、趋势摘要、接入契约与产品档案，
+        但分别强化不同的上下留白、章节落差和阅读秩序。建议优先看每一版的“页眉到底下两段正文”的气口是否更像正式简报。
+      </p>
+    </section>
+
+    <section class="layout">
+      <article class="card card--recommended">
+        <header class="card-header">
+          <div class="topline">
+            <span class="badge badge--recommended">A</span>
+            <span class="badge badge--recommended">推荐</span>
+          </div>
+          <h2 class="card-title">分区递进式节奏</h2>
+          <p class="card-copy">
+            页眉明显更高，页眉与正文之间留白拉开；两段正文一高一稳，章节之间有正式汇报页的“段落落点”。
+            这是最庄重克制、也最符合你前面路线的方案。
+          </p>
+        </header>
+
+        <div class="pros">
+          <div class="pro">优点：正式、稳、气场更像经营汇报，层级最清楚。</div>
+          <div class="pro">风险：如果后面细节不到位，会显得略偏保守。</div>
+        </div>
+
+        <div class="mock">
+          <div class="mock-shell mock-a">
+            <div class="header-band">
+              <div class="header-left">
+                <div class="header-kicker">产品经营工作台</div>
+                <div class="header-title">中海达预警型声光报警器</div>
+                <div class="meta">
+                  <span>zhd-warning-sound-light-alarm-v1</span>
+                  <span>mqtt-json</span>
+                  <span>直连设备</span>
+                  <span>JSON</span>
+                </div>
+                <div class="tabs">
+                  <span>物模型治理</span>
+                  <span>关联设备</span>
+                  <span>编辑治理</span>
+                  <span>经营总览</span>
+                </div>
+              </div>
+              <div class="summary-band">
+                <div class="metric">
+                  <div class="metric-label">关联设备</div>
+                  <div class="metric-value metric-value--primary">1,286</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">在线设备</div>
+                  <div class="metric-value">962</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">30 日活跃</div>
+                  <div class="metric-value">1,108</div>
+                </div>
+              </div>
+            </div>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">趋势摘要</div>
+                <div class="section-note">首屏先读趋势，再落字段，不抢主舞台。</div>
+              </div>
+              <div class="trend-grid">
+                <div class="cell"><div class="cell-label">趋势判断</div><div class="cell-value">近期活跃保持平稳，接入行为持续规律。</div></div>
+                <div class="cell"><div class="cell-label">今日活跃</div><div class="cell-value">426</div></div>
+                <div class="cell"><div class="cell-label">7 日活跃</div><div class="cell-value">913</div></div>
+                <div class="cell"><div class="cell-label">30 日活跃</div><div class="cell-value">1,108</div></div>
+                <div class="cell"><div class="cell-label">平均在线时长</div><div class="cell-value">126 分钟</div></div>
+                <div class="cell"><div class="cell-label">最长在线时长</div><div class="cell-value">538 分钟</div></div>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">接入契约与产品档案</div>
+                <div class="section-note">第二段更稳，更像正式字段页。</div>
+              </div>
+              <div class="archive-grid">
+                <div class="cell"><div class="cell-label">协议编码</div><div class="cell-value">mqtt-json</div></div>
+                <div class="cell"><div class="cell-label">节点类型</div><div class="cell-value">直连设备</div></div>
+                <div class="cell"><div class="cell-label">数据格式</div><div class="cell-value">JSON</div></div>
+                <div class="cell"><div class="cell-label">厂商</div><div class="cell-value">中海达</div></div>
+                <div class="cell"><div class="cell-label">最近上报</div><div class="cell-value">2026-04-01 09:16</div></div>
+                <div class="cell"><div class="cell-label">更新时间</div><div class="cell-value">2026-04-01 09:20</div></div>
+                <div class="cell"><div class="cell-label">产品状态</div><div class="cell-value">启用</div></div>
+                <div class="cell cell--wide"><div class="cell-label">产品说明</div><div class="cell-value">用于地灾预警现场的声光报警处置，接入与启停行为需保持同一协议约束。</div></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card-header">
+          <div class="topline">
+            <span class="badge">B</span>
+          </div>
+          <h2 class="card-title">均衡对称式节奏</h2>
+          <p class="card-copy">
+            各区块之间更均衡，页眉和正文距离没有拉得太开，整体更规整、更容易控制，
+            但高级感主要来自“整齐”，不是来自气场上的起落。
+          </p>
+        </header>
+
+        <div class="pros">
+          <div class="pro">优点：安全、克制、最不容易失衡。</div>
+          <div class="pro">风险：可能还是稍微像“整理过的组件页”，不够压场。</div>
+        </div>
+
+        <div class="mock">
+          <div class="mock-shell mock-b">
+            <div class="header-band">
+              <div class="header-left">
+                <div class="header-kicker">产品经营工作台</div>
+                <div class="header-title">中海达预警型声光报警器</div>
+                <div class="meta">
+                  <span>zhd-warning-sound-light-alarm-v1</span>
+                  <span>mqtt-json</span>
+                  <span>直连设备</span>
+                  <span>JSON</span>
+                </div>
+                <div class="tabs">
+                  <span>物模型治理</span>
+                  <span>关联设备</span>
+                  <span>编辑治理</span>
+                  <span>经营总览</span>
+                </div>
+              </div>
+              <div class="summary-band">
+                <div class="metric">
+                  <div class="metric-label">关联设备</div>
+                  <div class="metric-value metric-value--primary">1,286</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">在线设备</div>
+                  <div class="metric-value">962</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">30 日活跃</div>
+                  <div class="metric-value">1,108</div>
+                </div>
+              </div>
+            </div>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">趋势摘要</div>
+                <div class="section-note">更紧凑，更整齐。</div>
+              </div>
+              <div class="trend-grid">
+                <div class="cell"><div class="cell-label">趋势判断</div><div class="cell-value">近期活跃保持平稳，接入行为持续规律。</div></div>
+                <div class="cell"><div class="cell-label">今日活跃</div><div class="cell-value">426</div></div>
+                <div class="cell"><div class="cell-label">7 日活跃</div><div class="cell-value">913</div></div>
+                <div class="cell"><div class="cell-label">30 日活跃</div><div class="cell-value">1,108</div></div>
+                <div class="cell"><div class="cell-label">平均在线时长</div><div class="cell-value">126 分钟</div></div>
+                <div class="cell"><div class="cell-label">最长在线时长</div><div class="cell-value">538 分钟</div></div>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">接入契约与产品档案</div>
+                <div class="section-note">规整，但起伏较弱。</div>
+              </div>
+              <div class="archive-grid">
+                <div class="cell"><div class="cell-label">协议编码</div><div class="cell-value">mqtt-json</div></div>
+                <div class="cell"><div class="cell-label">节点类型</div><div class="cell-value">直连设备</div></div>
+                <div class="cell"><div class="cell-label">数据格式</div><div class="cell-value">JSON</div></div>
+                <div class="cell"><div class="cell-label">厂商</div><div class="cell-value">中海达</div></div>
+                <div class="cell"><div class="cell-label">最近上报</div><div class="cell-value">2026-04-01 09:16</div></div>
+                <div class="cell"><div class="cell-label">更新时间</div><div class="cell-value">2026-04-01 09:20</div></div>
+                <div class="cell"><div class="cell-label">产品状态</div><div class="cell-value">启用</div></div>
+                <div class="cell cell--wide"><div class="cell-label">产品说明</div><div class="cell-value">用于地灾预警现场的声光报警处置，接入与启停行为需保持同一协议约束。</div></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card-header">
+          <div class="topline">
+            <span class="badge">C</span>
+          </div>
+          <h2 class="card-title">极简呼吸式节奏</h2>
+          <p class="card-copy">
+            留白最大、线条最弱，章节感更像画册。视觉上最轻，但也最依赖细节控制；
+            一旦数据密度上来，就容易显得散。
+          </p>
+        </header>
+
+        <div class="pros">
+          <div class="pro">优点：最轻、最安静，质感上限高。</div>
+          <div class="pro">风险：过度留白会削弱政企经营页的稳定度。</div>
+        </div>
+
+        <div class="mock">
+          <div class="mock-shell mock-c">
+            <div class="header-band">
+              <div class="header-left">
+                <div class="header-kicker">产品经营工作台</div>
+                <div class="header-title">中海达预警型声光报警器</div>
+                <div class="meta">
+                  <span>zhd-warning-sound-light-alarm-v1</span>
+                  <span>mqtt-json</span>
+                  <span>直连设备</span>
+                  <span>JSON</span>
+                </div>
+                <div class="tabs">
+                  <span>物模型治理</span>
+                  <span>关联设备</span>
+                  <span>编辑治理</span>
+                  <span>经营总览</span>
+                </div>
+              </div>
+              <div class="summary-band">
+                <div class="metric">
+                  <div class="metric-label">关联设备</div>
+                  <div class="metric-value metric-value--primary">1,286</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">在线设备</div>
+                  <div class="metric-value">962</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">30 日活跃</div>
+                  <div class="metric-value">1,108</div>
+                </div>
+              </div>
+            </div>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">趋势摘要</div>
+                <div class="section-note">最轻，但最考验控制。</div>
+              </div>
+              <div class="trend-grid">
+                <div class="cell"><div class="cell-label">趋势判断</div><div class="cell-value">近期活跃保持平稳，接入行为持续规律。</div></div>
+                <div class="cell"><div class="cell-label">今日活跃</div><div class="cell-value">426</div></div>
+                <div class="cell"><div class="cell-label">7 日活跃</div><div class="cell-value">913</div></div>
+                <div class="cell"><div class="cell-label">30 日活跃</div><div class="cell-value">1,108</div></div>
+                <div class="cell"><div class="cell-label">平均在线时长</div><div class="cell-value">126 分钟</div></div>
+                <div class="cell"><div class="cell-label">最长在线时长</div><div class="cell-value">538 分钟</div></div>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="section-head">
+                <div class="section-title">接入契约与产品档案</div>
+                <div class="section-note">更像展示页，未必最适合经营页。</div>
+              </div>
+              <div class="archive-grid">
+                <div class="cell"><div class="cell-label">协议编码</div><div class="cell-value">mqtt-json</div></div>
+                <div class="cell"><div class="cell-label">节点类型</div><div class="cell-value">直连设备</div></div>
+                <div class="cell"><div class="cell-label">数据格式</div><div class="cell-value">JSON</div></div>
+                <div class="cell"><div class="cell-label">厂商</div><div class="cell-value">中海达</div></div>
+                <div class="cell"><div class="cell-label">最近上报</div><div class="cell-value">2026-04-01 09:16</div></div>
+                <div class="cell"><div class="cell-label">更新时间</div><div class="cell-value">2026-04-01 09:20</div></div>
+                <div class="cell"><div class="cell-label">产品状态</div><div class="cell-value">启用</div></div>
+                <div class="cell cell--wide"><div class="cell-label">产品说明</div><div class="cell-value">用于地灾预警现场的声光报警处置，接入与启停行为需保持同一协议约束。</div></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div class="foot">
+      <strong>我建议优先选 A。</strong>
+      它最符合你刚才确认的“更庄重克制 + 先优化整体节奏”，而且可以在不加设计语言的前提下，把页面做得更高级、更正式。
+    </div>
+  </main>
+</body>
+</html>
