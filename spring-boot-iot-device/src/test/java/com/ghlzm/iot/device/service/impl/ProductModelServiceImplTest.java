@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
@@ -20,6 +21,7 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
@@ -489,6 +491,39 @@ class ProductModelServiceImplTest {
         assertEquals("人工裁决", compareRow(result, "event", "alarmRaised").getSuggestedAction());
     }
 
+    @Test
+    void applyGovernanceShouldCreateUpdateAndSkipExplicitDecisions() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectById(2001L)).thenReturn(existingEventModel(2001L, "alarmRaised", 10, "info"));
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "S1_ZT_1.signal_4g", "4G 信号强度"),
+                applyItem("update", 2001L, "event", "alarmRaised", "告警触发"),
+                applyItem("skip", null, "service", "reboot", "重启设备")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+
+        verify(productModelMapper).insert(any(ProductModel.class));
+        verify(productModelMapper).updateById(any(ProductModel.class));
+        assertEquals(1, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(1, result.getSkippedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldRejectUpdateWithoutTargetModelId() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("update", null, "event", "alarmRaised", "告警触发")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(1001L, dto));
+
+        assertEquals("治理修订必须指定 targetModelId", ex.getMessage());
+    }
+
     private Product product(Long id) {
         return product(id, "accept-product", "验收产品");
     }
@@ -617,6 +652,32 @@ class ProductModelServiceImplTest {
     private ProductModelGovernanceCompareDTO.ManualDraftItem manualEventDraft(String identifier, String eventType) {
         ProductModelGovernanceCompareDTO.ManualDraftItem item = manualDraftItem("event", identifier, "事件-" + identifier);
         item.setEventType(eventType);
+        return item;
+    }
+
+    private ProductModelGovernanceApplyDTO.ApplyItem applyItem(String decision,
+                                                               Long targetModelId,
+                                                               String modelType,
+                                                               String identifier,
+                                                               String modelName) {
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision(decision);
+        item.setTargetModelId(targetModelId);
+        item.setModelType(modelType);
+        item.setIdentifier(identifier);
+        item.setModelName(modelName);
+        item.setSortNo(10);
+        item.setRequiredFlag(0);
+        item.setDescription("治理测试项");
+        if ("property".equals(modelType)) {
+            item.setDataType("integer");
+            item.setSpecsJson("{\"unit\":\"dBm\"}");
+        } else if ("event".equals(modelType)) {
+            item.setEventType("warning");
+        } else if ("service".equals(modelType)) {
+            item.setServiceInputJson("[]");
+            item.setServiceOutputJson("[]");
+        }
         return item;
     }
 

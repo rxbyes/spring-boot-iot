@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
@@ -21,6 +22,7 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.ProductModelService;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
@@ -262,6 +264,37 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size())
                 : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         return governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProductModelGovernanceApplyResultVO applyGovernance(Long productId, ProductModelGovernanceApplyDTO dto) {
+        getRequiredProduct(productId);
+        int createdCount = 0;
+        int updatedCount = 0;
+        int skippedCount = 0;
+        for (ProductModelGovernanceApplyDTO.ApplyItem item : safeApplyItems(dto)) {
+            String decision = normalizeRequired(item.getDecision(), "治理决策").toLowerCase(Locale.ROOT);
+            switch (decision) {
+                case "create" -> {
+                    createFromGovernanceItem(productId, item);
+                    createdCount++;
+                }
+                case "update" -> {
+                    updateFromGovernanceItem(productId, item);
+                    updatedCount++;
+                }
+                case "skip" -> skippedCount++;
+                default -> throw new BizException("治理决策不支持: " + decision);
+            }
+        }
+        ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
+        result.setCreatedCount(createdCount);
+        result.setUpdatedCount(updatedCount);
+        result.setSkippedCount(skippedCount);
+        result.setConflictCount(0);
+        result.setLastAppliedAt(LocalDateTime.now());
+        return result;
     }
 
     @Override
@@ -765,6 +798,37 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private <T> T firstNonNull(T preferred, T fallback) {
         return preferred != null ? preferred : fallback;
+    }
+
+    private List<ProductModelGovernanceApplyDTO.ApplyItem> safeApplyItems(ProductModelGovernanceApplyDTO dto) {
+        return dto == null || dto.getItems() == null ? List.of() : dto.getItems();
+    }
+
+    private void createFromGovernanceItem(Long productId, ProductModelGovernanceApplyDTO.ApplyItem item) {
+        createModel(productId, toUpsertDTO(item));
+    }
+
+    private void updateFromGovernanceItem(Long productId, ProductModelGovernanceApplyDTO.ApplyItem item) {
+        if (item.getTargetModelId() == null) {
+            throw new BizException("治理修订必须指定 targetModelId");
+        }
+        updateModel(productId, item.getTargetModelId(), toUpsertDTO(item));
+    }
+
+    private ProductModelUpsertDTO toUpsertDTO(ProductModelGovernanceApplyDTO.ApplyItem item) {
+        ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
+        dto.setModelType(item.getModelType());
+        dto.setIdentifier(item.getIdentifier());
+        dto.setModelName(item.getModelName());
+        dto.setDataType(item.getDataType());
+        dto.setSpecsJson(item.getSpecsJson());
+        dto.setEventType(item.getEventType());
+        dto.setServiceInputJson(item.getServiceInputJson());
+        dto.setServiceOutputJson(item.getServiceOutputJson());
+        dto.setSortNo(item.getSortNo());
+        dto.setRequiredFlag(item.getRequiredFlag());
+        dto.setDescription(item.getDescription());
+        return dto;
     }
 
     private PropertyEvidenceBundle collectManualPropertyCandidates(ManualSampleSnapshot snapshot, Set<String> existingIdentifiers) {
