@@ -38,7 +38,7 @@ const ElFormStub = defineComponent({
 })
 
 describe('ProductEditWorkspace', () => {
-  it('renders the flattened edit workspace and emits cancel and submit actions', async () => {
+  it('renders the government-brief edit workspace and emits cancel and submit actions', async () => {
     const wrapper = mount(ProductEditWorkspace, {
       props: {
         model: {
@@ -75,12 +75,12 @@ describe('ProductEditWorkspace', () => {
     expect(wrapper.find('.product-edit-workspace__hero').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__chapter-header').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__headline').exists()).toBe(false)
-    expect(wrapper.find('.product-edit-workspace__section-heading').exists()).toBe(true)
-    expect(wrapper.find('.product-edit-workspace__summary-band').exists()).toBe(true)
-    expect(wrapper.find('.product-edit-workspace__section-kicker').text()).toContain('编辑治理')
+    expect(wrapper.find('.product-edit-workspace__brief-head').exists()).toBe(true)
+    expect(wrapper.find('.product-edit-workspace__summary-band').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__section-kicker').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__section-note').text()).toContain('当前变更会直接回写')
-    expect(wrapper.find('.product-edit-workspace__context-strip').exists()).toBe(true)
-    expect(wrapper.findAll('.product-edit-workspace__summary-card')).toHaveLength(3)
+    expect(wrapper.find('.product-edit-workspace__brief-band').exists()).toBe(true)
+    expect(wrapper.findAll('.product-edit-workspace__brief-item')).toHaveLength(3)
     expect(wrapper.find('.product-edit-workspace__notice').exists()).toBe(false)
     expect(wrapper.find('.standard-inline-state-stub').exists()).toBe(true)
     expect(wrapper.find('.product-edit-workspace__form-stage').exists()).toBe(true)

@@ -18,7 +18,7 @@ const StandardDetailDrawerStub = defineComponent({
 })
 
 describe('ProductBusinessWorkbenchDrawer', () => {
-  it('renders the executive-flat shell with one product identity line and no duplicated header metrics', () => {
+  it('renders the government-brief shell with a centered identity stack and no duplicated header metrics', () => {
     const wrapper = mount(ProductBusinessWorkbenchDrawer, {
       props: {
         modelValue: true,
@@ -52,13 +52,15 @@ describe('ProductBusinessWorkbenchDrawer', () => {
 
     expect(wrapper.find('h2').text()).toBe('产品经营工作台')
     expect(wrapper.find('.product-business-workbench__header').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__header-brief').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__header-main').exists()).toBe(false)
     expect(wrapper.find('.product-business-workbench__headline').text()).toContain('演示产品')
     expect(wrapper.find('.product-business-workbench__kicker').exists()).toBe(false)
     expect(wrapper.find('.product-business-workbench__summary-band').exists()).toBe(false)
     expect(wrapper.findAll('.product-business-workbench__summary-metric')).toHaveLength(0)
     expect(wrapper.findAll('.product-business-workbench__summary-divider')).toHaveLength(0)
     expect(wrapper.find('.product-business-workbench__status-statement').exists()).toBe(true)
-    expect(wrapper.find('.product-business-workbench__status-statement').text()).toContain('当前状态')
+    expect(wrapper.find('.product-business-workbench__status-statement').text()).not.toContain('当前状态：')
     expect(wrapper.find('.product-business-workbench__meta-inline').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('demo-product')
     expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('mqtt-json')
@@ -70,6 +72,7 @@ describe('ProductBusinessWorkbenchDrawer', () => {
     expect(wrapper.text()).toContain('物模型治理')
     expect(wrapper.text()).toContain('关联设备')
     expect(wrapper.text()).toContain('编辑治理')
+    expect(wrapper.find('.product-business-workbench__tab-rail').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__tabs').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__tab--active').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__view-shell').exists()).toBe(true)

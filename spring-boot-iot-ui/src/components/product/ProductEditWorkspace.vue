@@ -1,23 +1,25 @@
 <template>
   <div class="product-edit-workspace">
-    <section class="detail-panel product-edit-workspace__summary-band">
+    <section class="detail-panel product-edit-workspace__brief-head">
       <div class="product-edit-workspace__summary-copy product-edit-workspace__section-heading">
-        <p class="product-edit-workspace__kicker product-edit-workspace__section-kicker">编辑治理</p>
+        <h3 class="product-edit-workspace__brief-title">编辑治理</h3>
         <p class="product-edit-workspace__summary-description product-edit-workspace__section-note">{{ sectionNote }}</p>
       </div>
+    </section>
 
+    <section class="detail-panel product-edit-workspace__brief-band">
       <div class="product-edit-workspace__summary-metrics product-edit-workspace__context-strip">
-        <article class="product-edit-workspace__summary-card">
+        <article class="product-edit-workspace__brief-item">
           <span>产品 Key</span>
           <strong>{{ formatText(model.productKey) }}</strong>
           <small>编辑状态下保持标识稳定，避免影响设备接入契约。</small>
         </article>
-        <article class="product-edit-workspace__summary-card">
+        <article class="product-edit-workspace__brief-item">
           <span>协议编码</span>
           <strong>{{ formatText(model.protocolCode) }}</strong>
           <small>统一对齐协议解码与后续物模型治理基线。</small>
         </article>
-        <article class="product-edit-workspace__summary-card">
+        <article class="product-edit-workspace__brief-item">
           <span>节点与状态</span>
           <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
           <small>调整节点类型或状态前先确认设备接入边界与影响范围。</small>
@@ -212,7 +214,8 @@ defineExpose({
   gap: 1.08rem;
 }
 
-.product-edit-workspace__summary-band {
+.product-edit-workspace__brief-head,
+.product-edit-workspace__brief-band {
   display: grid;
   gap: 0.82rem;
   padding: 1rem 1.04rem;
@@ -222,42 +225,49 @@ defineExpose({
   box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
-.product-edit-workspace__kicker,
 .product-edit-workspace__summary-description,
-.product-edit-workspace__summary-card span,
-.product-edit-workspace__summary-card small {
+.product-edit-workspace__brief-item span,
+.product-edit-workspace__brief-item small {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
 }
 
-.product-edit-workspace__kicker {
-  color: color-mix(in srgb, var(--brand) 62%, var(--text-caption));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+.product-edit-workspace__brief-head {
+  justify-items: center;
+  text-align: center;
 }
 
-.product-edit-workspace__summary-card strong {
+.product-edit-workspace__brief-title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.24rem;
+  line-height: 1.28;
+}
+
+.product-edit-workspace__brief-item strong {
   margin: 0;
   color: var(--text-heading);
 }
 
 .product-edit-workspace__summary-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.78rem;
+  gap: 0;
 }
 
-.product-edit-workspace__summary-card {
+.product-edit-workspace__brief-item {
   display: grid;
   gap: 0.36rem;
-  padding: 0.96rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: rgba(255, 255, 255, 0.94);
+  padding: 0.72rem 0.94rem;
+  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  text-align: center;
 }
 
-.product-edit-workspace__summary-card strong {
+.product-edit-workspace__brief-item:last-child {
+  border-right: none;
+}
+
+.product-edit-workspace__brief-item strong {
   font-size: 1.08rem;
 }
 
@@ -293,6 +303,15 @@ defineExpose({
 @media (max-width: 960px) {
   .product-edit-workspace__summary-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .product-edit-workspace__brief-item {
+    border-right: none;
+    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  }
+
+  .product-edit-workspace__brief-item:first-child {
+    border-top: none;
   }
 }
 </style>

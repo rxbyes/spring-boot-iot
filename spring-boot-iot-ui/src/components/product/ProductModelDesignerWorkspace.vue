@@ -16,14 +16,10 @@
     </div>
 
     <template v-else>
-      <section class="detail-panel product-model-designer__header">
+      <section class="detail-panel product-model-designer__brief-head">
         <div class="product-model-designer__header-copy">
-          <p class="product-model-designer__kicker product-model-designer__header-kicker">物模型治理</p>
           <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
-          <p class="product-model-designer__header-description">
-            当前产品治理默认走“手动提炼 -> 正式模型 -> 确认写库”，不再把运行期候选直接暴露成默认入口。
-          </p>
-          <p class="product-model-designer__header-statement">{{ headerStatement }}</p>
+          <p class="product-model-designer__brief-statement">{{ headerStatement }}</p>
         </div>
 
         <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
@@ -46,11 +42,11 @@
         </div>
       </section>
 
-      <section class="product-model-designer__summary-strip">
+      <section class="product-model-designer__brief-strip">
         <article
           v-for="card in summaryCards"
           :key="card.key"
-          class="detail-panel product-model-designer__summary-card"
+          class="detail-panel product-model-designer__brief-item"
         >
           <span class="product-model-designer__summary-label">{{ card.label }}</span>
           <strong>{{ card.value }}</strong>
@@ -60,18 +56,18 @@
 
       <section v-if="designerMode === 'manual'" class="detail-panel product-model-designer__workspace-shell">
         <div class="product-model-designer__candidate-stage">
-          <aside class="product-model-designer__candidate-nav">
+          <div class="product-model-designer__flow-strip">
             <article
               v-for="step in manualSteps"
               :key="step.key"
-              class="product-model-designer__candidate-nav-item"
+              class="product-model-designer__flow-item"
               :class="{ 'product-model-designer__candidate-nav-item--active': step.key === 'extract' }"
             >
               <span>{{ step.label }}</span>
               <strong>{{ step.title }}</strong>
               <small>{{ step.description }}</small>
             </article>
-          </aside>
+          </div>
 
           <div class="product-model-designer__candidate-body">
             <div class="product-model-designer__candidate-body-header">
@@ -241,9 +237,9 @@ const designerStageTitle = computed(() =>
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
-    return '当前判断：先维护正式契约，再回到手动提炼流程补充新样本的候选。'
+    return '先维护正式契约，再回到手动提炼流程补充新样本候选。'
   }
-  return '当前判断：先粘贴单设备样本 JSON 进行手动提炼，再进入正式模型确认并写库。'
+  return '先围绕单设备样本 JSON 手动提炼，再进入正式模型确认并写库。'
 })
 const summaryCards = computed(() => [
   {
@@ -307,9 +303,9 @@ function formatServiceSummary(model: ProductModel) {
 
 <style scoped>
 .product-model-designer-workspace,
-.product-model-designer__header,
+.product-model-designer__brief-head,
 .product-model-designer__header-copy,
-.product-model-designer__candidate-nav,
+.product-model-designer__flow-strip,
 .product-model-designer__candidate-body,
 .product-model-designer__formal-stage,
 .product-model-designer__candidate-card,
@@ -323,16 +319,17 @@ function formatServiceSummary(model: ProductModel) {
   gap: 0.95rem;
 }
 
-.product-model-designer__header {
+.product-model-designer__brief-head {
   padding: 1.12rem 1.18rem;
   gap: 1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
   box-shadow: 0 14px 28px rgba(28, 53, 87, 0.05);
+  justify-items: center;
+  text-align: center;
 }
 
-.product-model-designer__kicker,
 .product-model-designer__summary-label {
   margin: 0;
   color: color-mix(in srgb, var(--brand) 60%, var(--text-caption));
@@ -342,7 +339,7 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 .product-model-designer__headline,
-.product-model-designer__summary-card strong,
+.product-model-designer__brief-item strong,
 .product-model-designer__card-heading strong,
 .product-model-designer__candidate-card-title strong {
   margin: 0;
@@ -355,21 +352,20 @@ function formatServiceSummary(model: ProductModel) {
   letter-spacing: -0.02em;
 }
 
-.product-model-designer__header-description,
 .product-model-designer__description,
-.product-model-designer__summary-card p,
+.product-model-designer__brief-item p,
 .product-model-designer__formal-intro {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
 }
 
-.product-model-designer__header-statement {
+.product-model-designer__brief-statement {
   margin: 0;
   max-width: 46rem;
   color: var(--text-heading);
   font-size: 0.94rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.7;
 }
 
@@ -402,14 +398,14 @@ function formatServiceSummary(model: ProductModel) {
   background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 252, 248, 0.98));
 }
 
-.product-model-designer__summary-strip,
+.product-model-designer__brief-strip,
 .product-model-designer__formal-overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
 }
 
-.product-model-designer__summary-card {
+.product-model-designer__brief-item {
   display: grid;
   gap: 0.38rem;
   padding: 0.98rem 1rem;
@@ -429,12 +425,11 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__candidate-stage {
   display: grid;
-  grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 1rem;
   align-items: start;
 }
 
-.product-model-designer__candidate-nav,
 .product-model-designer__candidate-body,
 .product-model-designer__formal-stage {
   padding: 1rem 1.04rem;
@@ -443,7 +438,11 @@ function formatServiceSummary(model: ProductModel) {
   background: rgba(255, 255, 255, 0.98);
 }
 
-.product-model-designer__candidate-nav-item,
+.product-model-designer__flow-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-model-designer__flow-item,
 .product-model-designer__formal-overview-card {
   width: 100%;
   padding: 0.88rem 0.94rem;
@@ -453,12 +452,12 @@ function formatServiceSummary(model: ProductModel) {
   text-align: left;
 }
 
-.product-model-designer__candidate-nav-item {
+.product-model-designer__flow-item {
   display: grid;
   gap: 0.26rem;
 }
 
-.product-model-designer__candidate-nav-item small {
+.product-model-designer__flow-item small {
   color: var(--text-caption);
   line-height: 1.55;
 }
@@ -506,13 +505,13 @@ function formatServiceSummary(model: ProductModel) {
 }
 
 @media (max-width: 1200px) {
-  .product-model-designer__summary-strip,
+  .product-model-designer__brief-strip,
   .product-model-designer__formal-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .product-model-designer__candidate-stage {
-    grid-template-columns: minmax(11rem, 12rem) minmax(0, 1fr);
+  .product-model-designer__flow-strip {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -524,9 +523,12 @@ function formatServiceSummary(model: ProductModel) {
     align-items: flex-start;
   }
 
-  .product-model-designer__summary-strip,
-  .product-model-designer__candidate-stage,
+  .product-model-designer__brief-strip,
   .product-model-designer__formal-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .product-model-designer__flow-strip {
     grid-template-columns: 1fr;
   }
 

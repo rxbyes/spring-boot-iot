@@ -26,6 +26,27 @@ afterAll(() => {
 })
 
 describe('StandardRowActions', () => {
+  it('right-aligns shared table action cells to keep the trailing gutter consistent', () => {
+    const host = document.createElement('div')
+    host.innerHTML = `
+      <div class="standard-row-actions-column">
+        <div class="cell">
+          <div class="standard-row-actions standard-row-actions--variant-table standard-row-actions--wide">
+            <button class="el-button standard-button">详情</button>
+            <button class="el-button standard-button">观测</button>
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(host)
+
+    const cell = host.querySelector('.cell')
+    expect(cell).not.toBeNull()
+    expect(window.getComputedStyle(cell as Element).textAlign).toBe('right')
+
+    host.remove()
+  })
+
   it('uses the table variant and wide gap class for three-action table rows', () => {
     const wrapper = mount(StandardRowActions, {
       props: {

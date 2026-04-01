@@ -23,7 +23,7 @@
       </section>
     </section>
 
-    <section class="product-detail-workbench__context-grid">
+    <section class="product-detail-workbench__brief-stage" data-testid="product-detail-brief-stage">
       <section class="detail-panel product-detail-workbench__contract-stage" data-testid="product-detail-contract-stage">
         <strong class="product-detail-workbench__section-title">契约基线</strong>
         <div class="product-detail-workbench__contract-table">
@@ -38,7 +38,7 @@
         </div>
       </section>
 
-      <article class="detail-panel product-detail-workbench__archive-card" data-testid="product-detail-archive-card">
+      <article class="detail-panel product-detail-workbench__archive-stage" data-testid="product-detail-archive-stage">
         <strong class="product-detail-workbench__section-title">档案摘要</strong>
         <div class="product-detail-workbench__archive-list">
           <article
@@ -159,20 +159,20 @@ const archiveSummaryItems = computed(() => [
 <style scoped>
 .product-detail-workbench {
   display: grid;
-  gap: 1rem;
+  gap: 1.08rem;
 }
 
 .product-detail-workbench__hero-stage,
-.product-detail-workbench__context-grid,
+.product-detail-workbench__brief-stage,
 .product-detail-workbench__contract-stage,
-.product-detail-workbench__archive-card {
+.product-detail-workbench__archive-stage {
   display: grid;
   gap: 0.82rem;
 }
 
 .product-detail-workbench__hero-stage {
-  gap: 0.62rem;
-  padding: 1.18rem 1.22rem;
+  gap: 0.8rem;
+  padding: 1.42rem 1.38rem 1.22rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
@@ -180,16 +180,16 @@ const archiveSummaryItems = computed(() => [
 }
 
 .product-detail-workbench__hero-main {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.3rem;
 }
 
 .product-detail-workbench__hero-value-block {
   display: grid;
-  gap: 0.24rem;
+  gap: 0.3rem;
+  justify-items: center;
 }
 
 .product-detail-workbench__hero-label,
@@ -203,8 +203,8 @@ const archiveSummaryItems = computed(() => [
 
 .product-detail-workbench__hero-value {
   color: var(--text-heading);
-  font-size: clamp(2.18rem, 2.8vw, 2.72rem);
-  line-height: 1.02;
+  font-size: clamp(2.48rem, 3vw, 3.18rem);
+  line-height: 1;
   letter-spacing: -0.04em;
 }
 
@@ -217,13 +217,15 @@ const archiveSummaryItems = computed(() => [
 .product-detail-workbench__scale-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
-  padding-top: 0.92rem;
+  padding-top: 1.02rem;
   border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
 .product-detail-workbench__scale-metric {
   display: grid;
   gap: 0.28rem;
+  justify-items: center;
+  text-align: center;
 }
 
 .product-detail-workbench__scale-metric strong,
@@ -235,18 +237,18 @@ const archiveSummaryItems = computed(() => [
   line-height: 1.28;
 }
 
-.product-detail-workbench__context-grid {
-  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.92fr);
-  align-items: stretch;
+.product-detail-workbench__brief-stage {
+  gap: 0.92rem;
 }
 
 .product-detail-workbench__contract-stage,
-.product-detail-workbench__archive-card {
-  padding: 1rem 1.04rem;
+.product-detail-workbench__archive-stage {
+  padding: 1.04rem 1.08rem;
 }
 
 .product-detail-workbench__section-title {
   font-size: 1rem;
+  justify-self: center;
 }
 
 .product-detail-workbench__contract-table {
@@ -263,23 +265,30 @@ const archiveSummaryItems = computed(() => [
   border-bottom: 1px solid color-mix(in srgb, var(--brand) 6%, var(--panel-border));
 }
 
+.product-detail-workbench__contract-row strong {
+  text-align: right;
+}
+
 .product-detail-workbench__archive-list {
   display: grid;
-  gap: 0.74rem;
+  gap: 0;
+  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
 }
 
 .product-detail-workbench__archive-item {
   display: grid;
-  gap: 0.26rem;
-  padding: 1rem 1.04rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 3%, var(--surface-elevated));
+  grid-template-columns: 5.8rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 0.88rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 6%, var(--panel-border));
+  background: transparent;
 }
 
 .product-detail-workbench__archive-item strong {
   font-size: 0.96rem;
   line-height: 1.6;
+  text-align: right;
 }
 
 .product-detail-workbench__archive-item--multiline strong {
@@ -287,15 +296,21 @@ const archiveSummaryItems = computed(() => [
 }
 
 @media (max-width: 960px) {
-  .product-detail-workbench__context-grid {
-    grid-template-columns: 1fr;
+  .product-detail-workbench__hero-stage {
+    padding-inline: 1.16rem;
   }
 }
 
 @media (max-width: 720px) {
   .product-detail-workbench__scale-metrics,
-  .product-detail-workbench__contract-row {
+  .product-detail-workbench__contract-row,
+  .product-detail-workbench__archive-item {
     grid-template-columns: 1fr;
+  }
+
+  .product-detail-workbench__contract-row strong,
+  .product-detail-workbench__archive-item strong {
+    text-align: left;
   }
 }
 </style>

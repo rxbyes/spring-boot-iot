@@ -27,7 +27,7 @@ const baseProduct: Product = {
 }
 
 describe('ProductDetailWorkbench', () => {
-  it('renders overview content as one core scale stage plus contract baseline and archive summary sections', () => {
+  it('renders overview content as a centered brief stage with stacked contract and archive sections', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {
         product: baseProduct
@@ -38,9 +38,11 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="product-detail-primary-metric"]').text()).toContain('2486')
     expect(wrapper.find('[data-testid="product-detail-scale-metrics"]').exists()).toBe(true)
     expect(wrapper.findAll('.product-detail-workbench__scale-metric')).toHaveLength(3)
+    expect(wrapper.find('[data-testid="product-detail-brief-stage"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-contract-stage"]').exists()).toBe(true)
     expect(wrapper.findAll('.product-detail-workbench__contract-row')).toHaveLength(3)
-    expect(wrapper.find('[data-testid="product-detail-archive-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-archive-stage"]').exists()).toBe(true)
+    expect(wrapper.find('.product-detail-workbench__context-grid').exists()).toBe(false)
     expect(wrapper.find('[data-testid="product-detail-trend-stage"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="product-detail-secondary-metrics"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="product-detail-brief-grid"]').exists()).toBe(false)
@@ -61,7 +63,7 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.text()).not.toContain('维护与治理')
   })
 
-  it('keeps the primary stage, merged scale metrics, and archive card visible when activity metrics are missing', () => {
+  it('keeps the primary stage, merged scale metrics, and stacked brief sections visible when activity metrics are missing', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {
         product: {
@@ -77,8 +79,9 @@ describe('ProductDetailWorkbench', () => {
 
     expect(wrapper.find('[data-testid="product-detail-hero-stage"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-scale-metrics"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-brief-stage"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="product-detail-contract-stage"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="product-detail-archive-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="product-detail-archive-stage"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('在线覆盖')
     expect(wrapper.text()).toContain('--')
     expect(wrapper.text()).toContain('档案摘要')
@@ -97,8 +100,8 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="product-detail-contract-stage"]').text()).toContain('mqtt-json')
     expect(wrapper.get('[data-testid="product-detail-contract-stage"]').text()).toContain('直连设备')
     expect(wrapper.get('[data-testid="product-detail-contract-stage"]').text()).toContain('JSON')
-    expect(wrapper.get('[data-testid="product-detail-archive-card"]').text()).toContain('GHLZM')
-    expect(wrapper.get('[data-testid="product-detail-archive-card"]').text()).toContain('用于边坡监测的 GNSS 终端')
+    expect(wrapper.get('[data-testid="product-detail-archive-stage"]').text()).toContain('GHLZM')
+    expect(wrapper.get('[data-testid="product-detail-archive-stage"]').text()).toContain('用于边坡监测的 GNSS 终端')
     expect(wrapper.text()).not.toContain('north-monitor-gnss-v1')
     expect(wrapper.text()).not.toContain('北斗监测终端')
     expect(wrapper.text()).not.toContain('当前判断')

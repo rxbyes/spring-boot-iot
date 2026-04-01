@@ -4,12 +4,12 @@
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
     <div v-else class="device-workspace__content">
-      <section class="device-workspace__summary-band device-workspace__summary-strip">
-        <ul class="device-workspace__metrics device-workspace__metric-band">
+      <section class="device-workspace__brief-band">
+        <ul class="device-workspace__metrics">
           <li
             v-for="metric in summaryMetrics"
             :key="metric.key"
-            class="device-workspace__metric"
+            class="device-workspace__brief-item"
             :data-tone="metric.tone"
           >
             <span>{{ metric.label }}</span>
@@ -177,7 +177,7 @@ function handleViewDevice(device: Device) {
 .product-device-workspace,
 .device-workspace__content {
   display: grid;
-  gap: 0.96rem;
+  gap: 1.02rem;
 }
 
 .device-state {
@@ -201,11 +201,11 @@ function handleViewDevice(device: Device) {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 241, 0.96));
 }
 
-.device-workspace__summary-band,
+.device-workspace__brief-band,
 .device-workspace__table-stage {
   display: grid;
   gap: 0.72rem;
-  padding: 0.98rem 1rem;
+  padding: 1.02rem 1.08rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
@@ -231,35 +231,37 @@ function handleViewDevice(device: Device) {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.72rem;
+  gap: 0;
 }
 
-.device-workspace__metric {
+.device-workspace__brief-item {
   display: grid;
   gap: 0.28rem;
   min-width: 0;
-  padding: 0.86rem 0.92rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: rgba(255, 255, 255, 0.98);
+  padding: 0.72rem 0.9rem;
+  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  text-align: center;
 }
 
-.device-workspace__metric span {
+.device-workspace__brief-item:last-child {
+  border-right: none;
+}
+
+.device-workspace__brief-item span {
   color: var(--text-tertiary);
   font-size: 0.76rem;
   line-height: 1.4;
 }
 
-.device-workspace__metric strong {
+.device-workspace__brief-item strong {
   color: var(--text-heading);
   font-size: 1.22rem;
   font-weight: 700;
   line-height: 1.42;
 }
 
-.device-workspace__metric[data-tone='brand'] {
-  border-color: color-mix(in srgb, var(--brand) 16%, transparent);
-  background: linear-gradient(180deg, rgba(255, 250, 246, 0.98), rgba(255, 255, 255, 0.98));
+.device-workspace__brief-item[data-tone='brand'] {
+  background: transparent;
 }
 
 .device-workspace__ledger-heading {
@@ -306,11 +308,28 @@ function handleViewDevice(device: Device) {
   .device-workspace__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .device-workspace__brief-item:nth-child(2n) {
+    border-right: none;
+  }
+
+  .device-workspace__brief-item:nth-child(n + 3) {
+    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  }
 }
 
 @media (max-width: 720px) {
   .device-workspace__metrics {
     grid-template-columns: 1fr;
+  }
+
+  .device-workspace__brief-item {
+    border-right: none;
+    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  }
+
+  .device-workspace__brief-item:first-child {
+    border-top: none;
   }
 }
 </style>

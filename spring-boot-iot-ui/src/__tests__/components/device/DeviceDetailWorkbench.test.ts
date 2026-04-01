@@ -60,7 +60,7 @@ const unregisteredDevice: Device = {
 }
 
 describe('DeviceDetailWorkbench', () => {
-  it('renders the registered device detail as a flat summary band with paired ledgers', () => {
+  it('renders the registered device as the flat ledger layout from the detail reference', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
         device: registeredDevice
@@ -68,25 +68,40 @@ describe('DeviceDetailWorkbench', () => {
     })
 
     expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('资产状态与接入概况')
+    expect(wrapper.findAll('.device-detail-workbench__summary-cell')).toHaveLength(4)
     expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('身份与部署台账')
     expect(wrapper.get('[data-testid="device-detail-runtime-stage"]').text()).toContain('运行与认证台账')
     expect(wrapper.get('[data-testid="device-detail-support-pair"]').text()).toContain('关系与建档补充')
     expect(wrapper.get('[data-testid="device-detail-support-pair"]').text()).toContain('扩展元数据快照')
-    expect(wrapper.findAll('.device-detail-workbench__summary-cell')).toHaveLength(4)
-    expect(wrapper.findAll('.device-detail-workbench__identity-grid .device-detail-workbench__ledger-cell')).toHaveLength(9)
-    expect(wrapper.findAll('.device-detail-workbench__runtime-grid .device-detail-workbench__ledger-cell')).toHaveLength(9)
+    expect(wrapper.find('[data-testid="device-detail-hero"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="device-detail-overview-pair"]').exists()).toBe(false)
+
+    expect(wrapper.get('[data-testid="device-detail-identity-row-primary"]').text()).toContain('设备 ID')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-primary"]').text()).toContain('设备编码')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-primary"]').text()).toContain('设备名称')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-secondary"]').text()).toContain('产品归属')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-secondary"]').text()).toContain('节点类型')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-secondary"]').text()).toContain('接入协议')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-tertiary"]').text()).toContain('固件版本')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-tertiary"]').text()).toContain('IP 地址')
+    expect(wrapper.get('[data-testid="device-detail-identity-row-tertiary"]').text()).toContain('部署位置')
+
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-primary"]').text()).toContain('最近在线')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-primary"]').text()).toContain('最近离线')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-primary"]').text()).toContain('最近上报')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-secondary"]').text()).toContain('创建时间')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-secondary"]').text()).toContain('更新时间')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-secondary"]').text()).toContain('Client ID')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-tertiary"]').text()).toContain('用户名')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-tertiary"]').text()).toContain('密码')
+    expect(wrapper.get('[data-testid="device-detail-runtime-row-tertiary"]').text()).toContain('设备密钥')
+
     expect(wrapper.text()).toContain('北斗监测终端')
     expect(wrapper.text()).toContain('一号厂房东侧监测带')
     expect(wrapper.text()).toContain('client-00182')
-    expect(wrapper.text()).not.toContain('资产概览')
-    expect(wrapper.text()).not.toContain('资产档案')
-    expect(wrapper.text()).not.toContain('拓扑关系')
-    expect(wrapper.text()).not.toContain('运维信息')
-    expect(wrapper.text()).not.toContain('认证信息')
-    expect(wrapper.text()).not.toContain('扩展元数据用于保存库存')
   })
 
-  it('keeps the unregistered detail on the same flat syntax with source and payload stages', () => {
+  it('keeps the unregistered detail on the same flat syntax with matrix rows and wide blocks', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
         device: unregisteredDevice
@@ -98,12 +113,16 @@ describe('DeviceDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="device-detail-payload-stage"]').text()).toContain('最近载荷')
     expect(wrapper.find('[data-testid="device-detail-identity-stage"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="device-detail-runtime-stage"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="device-detail-hero"]').exists()).toBe(false)
     expect(wrapper.findAll('.device-detail-workbench__summary-cell')).toHaveLength(4)
-    expect(wrapper.text()).toContain('TEMP-UNREG-009')
+    expect(wrapper.get('[data-testid="device-detail-source-row-primary"]').text()).toContain('设备编码')
+    expect(wrapper.get('[data-testid="device-detail-source-row-primary"]').text()).toContain('产品标识')
+    expect(wrapper.get('[data-testid="device-detail-source-row-secondary"]').text()).toContain('协议编码')
+    expect(wrapper.get('[data-testid="device-detail-source-row-secondary"]').text()).toContain('来源记录')
+    expect(wrapper.get('[data-testid="device-detail-cell-lastReportTopic"]').classes()).toContain('device-detail-workbench__ledger-cell--wide')
+    expect(wrapper.get('[data-testid="device-detail-cell-lastErrorMessage"]').classes()).toContain('device-detail-workbench__ledger-cell--wide')
     expect(wrapper.text()).toContain('DEVICE_CONTRACT')
     expect(wrapper.text()).toContain('设备未登记，无法完成设备契约匹配。')
     expect(wrapper.text()).toContain('"battery": 92')
-    expect(wrapper.text()).not.toContain('上报档案')
-    expect(wrapper.text()).not.toContain('资产档案')
   })
 })

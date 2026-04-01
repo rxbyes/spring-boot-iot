@@ -269,6 +269,7 @@ textarea {
 .standard-row-actions-column .cell {
   overflow: hidden;
   text-overflow: clip;
+  text-align: right;
 }
 
 @media (max-width: 900px) {

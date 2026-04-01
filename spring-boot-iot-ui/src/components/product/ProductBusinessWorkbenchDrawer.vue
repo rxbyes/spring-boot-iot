@@ -11,7 +11,7 @@
     </template>
 
     <section class="product-business-workbench__header">
-      <div class="product-business-workbench__header-main">
+      <div class="product-business-workbench__header-brief">
         <div class="product-business-workbench__identity">
           <h3 class="product-business-workbench__headline">{{ productHeadline }}</h3>
           <p class="product-business-workbench__status-statement">{{ statusStatement }}</p>
@@ -26,18 +26,21 @@
             </span>
           </div>
         </div>
-        <nav class="product-business-workbench__tabs" aria-label="产品经营工作台视图">
-          <button
-            v-for="view in viewOptions"
-            :key="view.key"
-            type="button"
-            class="product-business-workbench__tab"
-            :class="{ 'product-business-workbench__tab--active': activeView === view.key }"
-            @click="emit('update:activeView', view.key)"
-          >
-            {{ view.label }}
-          </button>
-        </nav>
+
+        <div class="product-business-workbench__tab-rail">
+          <nav class="product-business-workbench__tabs" aria-label="产品经营工作台视图">
+            <button
+              v-for="view in viewOptions"
+              :key="view.key"
+              type="button"
+              class="product-business-workbench__tab"
+              :class="{ 'product-business-workbench__tab--active': activeView === view.key }"
+              @click="emit('update:activeView', view.key)"
+            >
+              {{ view.label }}
+            </button>
+          </nav>
+        </div>
       </div>
     </section>
 
@@ -136,27 +139,27 @@ const nodeTypeText = computed(() => {
 })
 const statusStatement = computed(() => {
   if (!props.product) {
-    return '当前状态：等待选择产品后进入经营工作台。'
+    return '选择产品后进入统一经营工作台。'
   }
 
   if (props.product.status === 0) {
-    return '当前状态：产品已停用，当前工作台仅保留历史档案与治理核对。'
+    return '产品已停用，当前以历史档案与治理核对为主。'
   }
 
   const totalDevices = Number(props.product.deviceCount ?? 0)
   const onlineDevices = Number(props.product.onlineDeviceCount ?? 0)
   if (totalDevices <= 0) {
-    return '当前状态：产品已完成建档，等待首批设备进入接入运行。'
+    return '产品已完成建档，待首批设备进入接入运行。'
   }
 
   const onlineCoverage = Math.round((onlineDevices / totalDevices) * 100)
   if (onlineCoverage >= 60) {
-    return '当前状态：设备接入已形成稳定运行，可继续围绕契约与台账治理收口。'
+    return '设备接入已形成稳定运行，后续以契约与台账治理收口。'
   }
   if (onlineCoverage > 0) {
-    return '当前状态：产品已进入运行期，在线覆盖仍有继续提升空间。'
+    return '产品已进入运行期，在线覆盖仍有提升空间。'
   }
-  return '当前状态：设备已接入，但在线覆盖尚未形成稳定基线。'
+  return '设备已接入，但在线覆盖尚未形成稳定基线。'
 })
 const metaItems = computed(() => {
   const items = [
@@ -188,16 +191,15 @@ const metaItems = computed(() => {
 
 <style scoped>
 .product-business-workbench__header {
-  padding: 1.32rem 1.48rem 1rem;
+  padding: 1.5rem 1.6rem 1.12rem;
   border-bottom: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
 }
 
-.product-business-workbench__header-main {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.2rem 1.4rem;
+.product-business-workbench__header-brief {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
 }
 
 .product-business-workbench__identity,
@@ -207,19 +209,24 @@ const metaItems = computed(() => {
   gap: 0.56rem;
 }
 
+.product-business-workbench__identity {
+  justify-items: center;
+  text-align: center;
+}
+
 .product-business-workbench__status-statement {
   margin: 0;
-  max-width: 38rem;
+  max-width: 44rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
-  line-height: 1.72;
+  line-height: 1.74;
 }
 
 .product-business-workbench__headline {
   margin: 0;
   color: var(--text-heading);
-  font-size: clamp(1.72rem, 2.25vw, 2.22rem);
-  line-height: 1.1;
+  font-size: clamp(1.82rem, 2.3vw, 2.34rem);
+  line-height: 1.08;
   letter-spacing: -0.04em;
 }
 
@@ -227,6 +234,7 @@ const metaItems = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.38rem 0.86rem;
   color: var(--text-secondary);
   font-size: 0.84rem;
@@ -248,12 +256,19 @@ const metaItems = computed(() => {
   transform: translateY(-50%);
 }
 
+.product-business-workbench__tab-rail {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 0.2rem;
+  border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+}
+
 .product-business-workbench__tabs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.58rem;
-  min-width: max-content;
 }
 
 .product-business-workbench__tab {
@@ -277,16 +292,13 @@ const metaItems = computed(() => {
 
 .product-business-workbench__view-shell {
   margin-top: 1.08rem;
+  max-width: 64rem;
+  margin-inline: auto;
 }
 
 @media (max-width: 960px) {
-  .product-business-workbench__header-main {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .product-business-workbench__tabs {
-    justify-content: flex-start;
+    justify-content: center;
   }
 }
 
