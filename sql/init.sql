@@ -809,6 +809,8 @@ CREATE TABLE risk_point (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     risk_point_code VARCHAR(64) NOT NULL COMMENT '风险点编号',
     risk_point_name VARCHAR(128) NOT NULL COMMENT '风险点名称',
+    org_id BIGINT DEFAULT NULL COMMENT '所属组织ID',
+    org_name VARCHAR(128) DEFAULT NULL COMMENT '所属组织名称',
     region_id BIGINT DEFAULT NULL COMMENT '区域ID',
     region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',
     responsible_user BIGINT DEFAULT NULL COMMENT '负责人',

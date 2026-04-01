@@ -34,6 +34,16 @@ public class RiskPoint implements Serializable {
       private String riskPointName;
 
       /**
+       * 所属组织ID
+       */
+      private Long orgId;
+
+      /**
+       * 所属组织名称
+       */
+      private String orgName;
+
+      /**
        * 区域ID
        */
       private Long regionId;

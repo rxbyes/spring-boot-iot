@@ -10,8 +10,11 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.List;
@@ -23,22 +26,25 @@ import java.util.List;
 public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint> implements RiskPointService {
 
       private final RiskPointDeviceMapper riskPointDeviceMapper;
+      private final OrganizationService organizationService;
 
-      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper) {
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  OrganizationService organizationService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
+            this.organizationService = organizationService;
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public RiskPoint addRiskPoint(RiskPoint riskPoint) {
-            // 检查风险点编号是否已存在
-            LambdaQueryWrapper<RiskPoint> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(RiskPoint::getRiskPointCode, riskPoint.getRiskPointCode());
-            queryWrapper.eq(RiskPoint::getDeleted, 0);
-            RiskPoint existing = getOne(queryWrapper);
-            if (existing != null) {
-                  throw new BizException("风险点编号已存在");
-            }
+            validateRiskPointForWrite(riskPoint);
+            Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
+            riskPoint.setOrgName(organization.getOrgName());
+            riskPoint.setRiskPointCode(generateRiskPointCode(
+                    riskPoint.getRiskPointName(),
+                    organization.getOrgName(),
+                    riskPoint.getRiskLevel()
+            ));
 
             riskPoint.setCreateTime(new Date());
             riskPoint.setUpdateTime(new Date());
@@ -50,20 +56,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       @Override
       @Transactional(rollbackFor = Exception.class)
       public RiskPoint updateRiskPoint(RiskPoint riskPoint) {
-            RiskPoint existing = getById(riskPoint.getId());
-            if (existing == null) {
+            if (riskPoint.getId() == null) {
                   throw new BizException("风险点不存在");
             }
-
-            // 检查风险点编号是否冲突
-            LambdaQueryWrapper<RiskPoint> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(RiskPoint::getRiskPointCode, riskPoint.getRiskPointCode());
-            queryWrapper.ne(RiskPoint::getId, riskPoint.getId());
-            queryWrapper.eq(RiskPoint::getDeleted, 0);
-            RiskPoint existingByCode = getOne(queryWrapper);
-            if (existingByCode != null) {
-                  throw new BizException("风险点编号已存在");
-            }
+            validateRiskPointForWrite(riskPoint);
+            RiskPoint existing = getById(riskPoint.getId());
+            Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
+            riskPoint.setOrgName(organization.getOrgName());
+            riskPoint.setRiskPointCode(existing.getRiskPointCode());
 
             riskPoint.setUpdateTime(new Date());
             updateById(riskPoint);
@@ -108,10 +108,22 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void bindDevice(RiskPointDevice riskPointDevice) {
+            if (riskPointDevice == null || riskPointDevice.getRiskPointId() == null) {
+                  throw new BizException("风险点不存在");
+            }
+            if (riskPointDevice.getDeviceId() == null) {
+                  throw new BizException("请选择设备");
+            }
+            if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  throw new BizException("请选择测点");
+            }
+            getById(riskPointDevice.getRiskPointId());
+
             // 检查是否已绑定
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
             queryWrapper.eq(RiskPointDevice::getDeviceId, riskPointDevice.getDeviceId());
+            queryWrapper.eq(RiskPointDevice::getMetricIdentifier, riskPointDevice.getMetricIdentifier());
             queryWrapper.eq(RiskPointDevice::getDeleted, 0);
             RiskPointDevice existing = riskPointDeviceMapper.selectOne(queryWrapper);
             if (existing != null) {
@@ -163,5 +175,80 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             wrapper.eq(RiskPoint::getDeleted, 0);
             wrapper.orderByDesc(RiskPoint::getCreateTime);
             return wrapper;
+      }
+
+      private void validateRiskPointForWrite(RiskPoint riskPoint) {
+            if (riskPoint == null) {
+                  throw new BizException("风险点不存在");
+            }
+            if (!StringUtils.hasText(riskPoint.getRiskPointName())) {
+                  throw new BizException("请输入风险点名称");
+            }
+            if (riskPoint.getOrgId() == null || riskPoint.getOrgId() <= 0) {
+                  throw new BizException("请选择所属组织");
+            }
+            if (!StringUtils.hasText(riskPoint.getRiskLevel())) {
+                  throw new BizException("请选择风险等级");
+            }
+      }
+
+      private Organization resolveRequiredOrganization(Long orgId) {
+            Organization organization = organizationService.getById(orgId);
+            if (organization == null || Integer.valueOf(1).equals(organization.getDeleted())) {
+                  throw new BizException("所属组织不存在");
+            }
+            if (!Integer.valueOf(1).equals(organization.getStatus())) {
+                  throw new BizException("所属组织已停用");
+            }
+            return organization;
+      }
+
+      private String generateRiskPointCode(String riskPointName, String orgName, String riskLevel) {
+            String base = String.format(
+                    "RP-%s-%s-%s",
+                    buildCodeSegment(orgName, 6),
+                    buildCodeSegment(riskPointName, 6),
+                    buildCodeSegment(riskLevel, 4)
+            );
+            int suffix = 1;
+            String code = appendCodeSuffix(base, suffix);
+            while (existsActiveCode(code)) {
+                  suffix++;
+                  code = appendCodeSuffix(base, suffix);
+            }
+            return code;
+      }
+
+      private boolean existsActiveCode(String code) {
+            LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(RiskPoint::getRiskPointCode, code);
+            wrapper.eq(RiskPoint::getDeleted, 0);
+            return getOne(wrapper) != null;
+      }
+
+      private String appendCodeSuffix(String base, int suffix) {
+            return base + "-" + String.format("%03d", suffix);
+      }
+
+      private String buildCodeSegment(String source, int maxLength) {
+            if (!StringUtils.hasText(source)) {
+                  return "GEN";
+            }
+            String normalized = source.trim().replaceAll("[^\\p{IsAlphabetic}\\p{IsDigit}]+", "");
+            if (normalized.isBlank()) {
+                  return "GEN";
+            }
+            StringBuilder builder = new StringBuilder();
+            normalized.codePoints().forEach(codePoint -> {
+                  if (builder.length() >= maxLength) {
+                        return;
+                  }
+                  if (codePoint <= 127) {
+                        builder.appendCodePoint(Character.toUpperCase(codePoint));
+                  } else {
+                        builder.appendCodePoint(codePoint);
+                  }
+            });
+            return builder.isEmpty() ? "GEN" : builder.toString();
       }
 }

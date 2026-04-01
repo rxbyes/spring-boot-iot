@@ -672,13 +672,15 @@ ON DUPLICATE KEY UPDATE
 -- 4) 风险平台（告警/事件/风险点）
 -- =========================
 INSERT INTO risk_point (
-    id, risk_point_code, risk_point_name, region_id, region_name, responsible_user, responsible_phone,
+    id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
     risk_level, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8001, 'RP-HP-001', '锅炉温压监测点', 7002, '黄浦厂区', 1, '13800000000', 'critical', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8002, 'RP-HP-002', '振动监测点', 7002, '黄浦厂区', 1, '13800000000', 'warning', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'critical', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'warning', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
+    org_id = VALUES(org_id),
+    org_name = VALUES(org_name),
     region_id = VALUES(region_id),
     region_name = VALUES(region_name),
     responsible_user = VALUES(responsible_user),
