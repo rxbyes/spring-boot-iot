@@ -1,10 +1,23 @@
 :root {
   color-scheme: light;
 
-  /* 字体 - 阿里云控制台式浅色产品风格 */
-  --font-display: "Alibaba PuHuiTi 3.0", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
-  --font-body: "Alibaba PuHuiTi 3.0", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
+  /* 字体 - 全局宋感中文基线 */
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-body: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+  --font-letter-spacing-tight: -0.016em;
+  --font-letter-spacing-base: 0;
+  --font-letter-spacing-wide: 0.08em;
+  --type-title-1-size: clamp(1.46rem, 1.12rem + 0.82vw, 1.92rem);
+  --type-title-2-size: clamp(1.18rem, 1.02rem + 0.34vw, 1.36rem);
+  --type-title-3-size: 1.02rem;
+  --type-overline-size: 0.7rem;
+  --type-body-size: 0.92rem;
+  --type-body-line-height: 1.72;
+  --type-caption-size: 0.8rem;
+  --type-caption-line-height: 1.64;
+  --type-label-size: 0.74rem;
+  --type-toolbar-meta-size: 0.72rem;
 
   /* 主视觉色 - 阿里云控制台橙 */
   --primary: #ff6a00;

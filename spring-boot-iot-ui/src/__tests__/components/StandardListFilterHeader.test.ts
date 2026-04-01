@@ -170,4 +170,15 @@ describe('StandardListFilterHeader', () => {
     expect(source).toContain('--ops-filter-actions-gap')
     expect(source).toContain('StandardActionGroup gap="sm"')
   })
+
+  it('uses shared restrained copy tokens for helper text and toggles', () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, '../../components/StandardListFilterHeader.vue'),
+      'utf8'
+    )
+
+    expect(source).toContain('var(--type-caption-size)')
+    expect(source).toContain('var(--type-label-size)')
+    expect(source).toContain('var(--font-letter-spacing-wide)')
+  })
 })

@@ -79,7 +79,7 @@
 在上述新小节末尾增加一条引用，固定写法如下：
 
 ```md
-详细字段治理表与业务建档联调步骤，参考 [appendix/iot-field-governance-and-sop.md](./appendix/iot-field-governance-and-sop.md)。
+详细字段治理表与业务建档联调步骤，参考 [appendix/iot-field-governance-and-sop.md](../../appendix/iot-field-governance-and-sop.md)。
 ```
 
 - [ ] **Step 4: 运行文档存在性检查**
@@ -120,7 +120,7 @@ git commit -m "docs: add iot business governance summary"
 加入如下引用：
 
 ```md
-业务人员如需查看字段治理标准表和建档联调步骤，参考 [appendix/iot-field-governance-and-sop.md](./appendix/iot-field-governance-and-sop.md)。
+业务人员如需查看字段治理标准表和建档联调步骤，参考 [appendix/iot-field-governance-and-sop.md](../../appendix/iot-field-governance-and-sop.md)。
 ```
 
 - [ ] **Step 3: 运行边界一致性检查**
@@ -248,7 +248,7 @@ git commit -m "docs: add iot field governance appendix"
 在 `docs/README.md` 的常见任务或附录入口中加入如下描述：
 
 ```md
-| IoT 字段治理与建档联调指引 | [appendix/iot-field-governance-and-sop.md](./appendix/iot-field-governance-and-sop.md) |
+| IoT 字段治理与建档联调指引 | [appendix/iot-field-governance-and-sop.md](../../appendix/iot-field-governance-and-sop.md) |
 ```
 
 - [ ] **Step 2: 检查根 README 和 AGENTS 是否需要同步**

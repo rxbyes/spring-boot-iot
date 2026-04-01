@@ -1,5 +1,5 @@
 import type { RiskMonitoringDetail, RiskMonitoringListItem } from '@/api/riskMonitoring';
-import type { DeviceMessageLog, DeviceProperty } from '@/types/api';
+import type { Device, DeviceMessageLog, DeviceProperty } from '@/types/api';
 
 export type InsightObjectType = 'detect' | 'warning' | 'collect' | 'generic';
 
@@ -115,11 +115,42 @@ export function getRiskLevelLabel(value?: string | null) {
 export function buildInsightReasons(
   detail: RiskMonitoringDetail | null,
   properties: DeviceProperty[],
-  logs: DeviceMessageLog[]
+  logs: DeviceMessageLog[],
+  device?: Device | null
 ) {
   const reasons: InsightReason[] = [];
 
   if (!detail) {
+    reasons.push({
+      title: '当前设备未纳入风险监测绑定',
+      tag: '风险口径',
+      description: '当前页已退化为设备上报分析视图，风险等级和趋势预览需在完成风险监测绑定后才会出现。'
+    });
+
+    if (device?.onlineStatus !== 1) {
+      reasons.push({
+        title: '设备当前离线',
+        tag: '在线状态',
+        description: '设备离线会影响上报连续性，建议先核查供电、网络或网关链路。'
+      });
+    }
+
+    if (!properties.length) {
+      reasons.push({
+        title: '缺少属性快照',
+        tag: '数据完整性',
+        description: '当前没有可直接核查的设备属性快照，建议先确认最近上报是否已正常入库。'
+      });
+    }
+
+    if (!logs.length) {
+      reasons.push({
+        title: '缺少消息日志',
+        tag: '审计链路',
+        description: '当前没有可回看 topic 和 payload 的消息日志，无法直接复盘最近一次上报。'
+      });
+    }
+
     return reasons;
   }
 
@@ -174,12 +205,14 @@ export function buildInsightReasons(
   return reasons.slice(0, 6);
 }
 
-export function buildInsightDraft(detail: RiskMonitoringDetail | null, reasons: InsightReason[]) {
+export function buildInsightDraft(detail: RiskMonitoringDetail | null, reasons: InsightReason[], device?: Device | null) {
   if (!detail) {
     return {
-      summary: '当前尚未加载风险监测详情。',
-      actions: '请先输入设备编码或传入绑定对象后刷新洞察。',
-      followUp: '完成绑定解析后再查看趋势与研判依据。'
+      summary: `${device?.deviceName || device?.deviceCode || '当前设备'}尚未纳入风险监测绑定，当前草稿基于设备上报数据生成。`,
+      actions: reasons.length
+        ? reasons.map((item) => item.title).join('；')
+        : '建议先核查最近上报、属性快照和消息日志是否完整。',
+      followUp: '完成风险监测绑定后，可继续查看风险等级、绑定测点趋势和监测对象档案。'
     };
   }
 

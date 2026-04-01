@@ -80,8 +80,9 @@ const showHeadline = computed(() => Boolean(props.eyebrow) || (props.showTitle &
   align-items: center;
   gap: 0.34rem;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--type-label-size);
   line-height: 1.55;
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.45);
 }
 
 .standard-page-shell__breadcrumb-item {
@@ -123,28 +124,29 @@ const showHeadline = computed(() => Boolean(props.eyebrow) || (props.showTitle &
 
 .standard-page-shell__eyebrow {
   margin: 0 0 0.3rem;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.1em;
+  color: var(--text-caption);
+  font-size: var(--type-overline-size);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: var(--font-letter-spacing-wide);
   text-transform: uppercase;
 }
 
 .standard-page-shell__title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.18rem;
-  line-height: 1.25;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: var(--type-title-1-size);
+  line-height: 1.22;
+  font-weight: 600;
+  letter-spacing: var(--font-letter-spacing-tight);
 }
 
 .standard-page-shell__description {
   margin: 0.28rem 0 0;
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.6;
+  max-width: 54rem;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .standard-page-shell__actions {

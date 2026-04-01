@@ -2,6 +2,8 @@ import { defineComponent } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '@/api/iot';
+import { getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
@@ -292,5 +294,29 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('监测对象切换');
+  });
+
+  it('falls back to device report analysis when the device is not bound to risk monitoring', async () => {
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(getDeviceByCode).toHaveBeenCalledWith('demo-device-01');
+    expect(getDeviceProperties).toHaveBeenCalledWith('demo-device-01');
+    expect(getDeviceMessageLogs).toHaveBeenCalledWith('demo-device-01');
+    expect(wrapper.text()).toContain('演示设备');
+    expect(wrapper.text()).toContain('温度');
+    expect(wrapper.text()).toContain('当前设备未纳入风险监测绑定');
   });
 });

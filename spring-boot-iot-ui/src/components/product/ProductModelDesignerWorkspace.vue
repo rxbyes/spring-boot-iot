@@ -16,11 +16,11 @@
     </div>
 
     <template v-else>
-      <section class="detail-panel product-model-designer__exhibit-head">
-        <div class="product-model-designer__exhibit-copy">
-          <span class="product-model-designer__eyebrow">契约策展</span>
-          <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
-          <p class="product-model-designer__brief-statement">{{ headerStatement }}</p>
+      <section class="product-model-designer__journal-head">
+        <div class="product-model-designer__journal-copy">
+          <span class="product-model-designer__journal-kicker">物模型治理</span>
+          <h3 class="product-model-designer__journal-title">{{ designerStageTitle }}</h3>
+          <p class="product-model-designer__journal-summary">{{ headerStatement }}</p>
         </div>
 
         <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
@@ -43,105 +43,94 @@
         </div>
       </section>
 
-      <section class="product-model-designer__curation-strip">
-        <div class="product-model-designer__curation-strip-shell">
-          <article
-            v-for="card in summaryCards"
-            :key="card.key"
-            class="product-model-designer__curation-strip-item"
+      <section class="product-model-designer__journal-ruler">
+        <article
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="product-model-designer__journal-ruler-item"
+        >
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+        </article>
+      </section>
+
+      <section v-if="designerMode === 'manual'" class="product-model-designer__governance-sheet">
+        <div class="product-model-designer__sheet-head">
+          <div class="product-model-designer__sheet-copy">
+            <strong>手动提炼</strong>
+            <p>围绕当前产品的单设备业务 / 状态 / 其他样本完成提炼、核对与写库确认。</p>
+          </div>
+          <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
+            进入完整治理
+          </StandardButton>
+        </div>
+
+        <ol class="product-model-designer__governance-steps">
+          <li
+            v-for="(item, index) in manualLedgerItems"
+            :key="item.key"
+            class="product-model-designer__governance-step"
           >
-            <span class="product-model-designer__summary-label">{{ card.label }}</span>
-            <strong>{{ card.value }}</strong>
+            <span class="product-model-designer__step-index">
+              {{ String(index + 1).padStart(2, '0') }}
+            </span>
+            <div class="product-model-designer__step-copy">
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.summary }}</span>
+              <p>{{ item.description }}</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section v-else class="product-model-designer__formal-sheet">
+        <div class="product-model-designer__formal-stage-copy">
+          <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
+          <p class="product-model-designer__formal-intro">
+            正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
+          </p>
+        </div>
+        <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
+          <button
+            v-for="item in typeOptions"
+            :key="item.value"
+            type="button"
+            class="product-model-designer__formal-overview-card"
+            :class="{ 'product-model-designer__formal-overview-card--active': activeType === item.value }"
+            @click="activeType = item.value"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ countByType(item.value) }}</strong>
+            <small>{{ emptyDescriptionMap[item.value] }}</small>
+          </button>
+        </div>
+
+        <div v-if="activeModels.length" class="product-model-designer__list">
+          <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__card">
+            <header class="product-model-designer__card-header">
+              <div class="product-model-designer__card-heading">
+                <strong>{{ model.modelName }}</strong>
+                <span>{{ model.identifier }}</span>
+              </div>
+              <el-tag :type="model.requiredFlag === 1 ? 'warning' : 'info'" round>
+                {{ model.requiredFlag === 1 ? '必填' : '选填' }}
+              </el-tag>
+            </header>
+            <div class="product-model-designer__card-summary">
+              <span>排序：{{ model.sortNo ?? '--' }}</span>
+              <span v-if="model.modelType === 'property'">数据类型：{{ model.dataType || '--' }}</span>
+              <span v-else-if="model.modelType === 'event'">事件类型：{{ model.eventType || '--' }}</span>
+              <span v-else>服务输入/输出：{{ formatServiceSummary(model) }}</span>
+            </div>
+            <p class="product-model-designer__description">
+              {{ model.description?.trim() || emptyDescriptionMap[model.modelType] }}
+            </p>
           </article>
         </div>
-      </section>
 
-      <section v-if="designerMode === 'manual'" class="detail-panel product-model-designer__workspace-shell">
-        <div class="product-model-designer__candidate-stage">
-          <div class="product-model-designer__candidate-body">
-            <div class="product-model-designer__candidate-body-header">
-              <div class="product-model-designer__stage-copy">
-                <h3>手动提炼工作区</h3>
-                <p class="product-model-designer__candidate-body-intro">
-                  围绕当前产品的单设备业务 / 状态 / 其他样本完成提炼、核对与写库确认。
-                </p>
-              </div>
-              <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
-                进入完整治理
-              </StandardButton>
-            </div>
-
-            <section class="product-model-designer__curation-board">
-              <ol class="product-model-designer__curation-flow">
-                <li
-                  v-for="(item, index) in manualLedgerItems"
-                  :key="item.key"
-                  class="product-model-designer__curation-item product-model-designer__flow-item"
-                >
-                  <span class="product-model-designer__curation-index">
-                    {{ String(index + 1).padStart(2, '0') }}
-                  </span>
-                  <div class="product-model-designer__curation-copy">
-                    <strong>{{ item.title }}</strong>
-                    <span>{{ item.summary }}</span>
-                    <p class="product-model-designer__description">{{ item.description }}</p>
-                  </div>
-                </li>
-              </ol>
-            </section>
-          </div>
-        </div>
-      </section>
-
-      <section v-else class="detail-panel product-model-designer__workspace-shell product-model-designer__workspace-shell--formal">
-        <div class="product-model-designer__formal-stage">
-          <div class="product-model-designer__formal-stage-copy">
-            <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
-            <p class="product-model-designer__formal-intro">
-              正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
-            </p>
-          </div>
-          <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
-            <button
-              v-for="item in typeOptions"
-              :key="item.value"
-              type="button"
-              class="product-model-designer__formal-overview-card"
-              :class="{ 'product-model-designer__formal-overview-card--active': activeType === item.value }"
-              @click="activeType = item.value"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ countByType(item.value) }}</strong>
-              <small>{{ emptyDescriptionMap[item.value] }}</small>
-            </button>
-          </div>
-          <div v-if="activeModels.length" class="product-model-designer__list">
-            <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__card">
-              <header class="product-model-designer__card-header">
-                <div class="product-model-designer__card-heading">
-                  <strong>{{ model.modelName }}</strong>
-                  <span>{{ model.identifier }}</span>
-                </div>
-                <el-tag :type="model.requiredFlag === 1 ? 'warning' : 'info'" round>
-                  {{ model.requiredFlag === 1 ? '必填' : '选填' }}
-                </el-tag>
-              </header>
-              <div class="product-model-designer__card-summary">
-                <span>排序：{{ model.sortNo ?? '--' }}</span>
-                <span v-if="model.modelType === 'property'">数据类型：{{ model.dataType || '--' }}</span>
-                <span v-else-if="model.modelType === 'event'">事件类型：{{ model.eventType || '--' }}</span>
-                <span v-else>服务输入/输出：{{ formatServiceSummary(model) }}</span>
-              </div>
-              <p class="product-model-designer__description">
-                {{ model.description?.trim() || emptyDescriptionMap[model.modelType] }}
-              </p>
-            </article>
-          </div>
-
-          <div v-else class="product-model-designer__empty">
-            <strong>暂无物模型</strong>
-            <p>{{ emptyDescriptionMap[activeType] }}</p>
-          </div>
+        <div v-else class="product-model-designer__empty">
+          <strong>暂无物模型</strong>
+          <p>{{ emptyDescriptionMap[activeType] }}</p>
         </div>
       </section>
     </template>
@@ -207,7 +196,7 @@ const designerStageTitle = computed(() =>
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
-    return '先维护正式契约，再回到手动提炼流程补充新样本候选。'
+    return '正式模型维持当前契约总表，新增字段再回到手动提炼核对来源证据。'
   }
   return '先围绕单设备样本 JSON 手动提炼，再进入正式模型确认并写库。'
 })
@@ -268,303 +257,272 @@ function formatServiceSummary(model: ProductModel) {
 
 <style scoped>
 .product-model-designer-workspace,
-.product-model-designer__exhibit-head,
-.product-model-designer__exhibit-copy,
-.product-model-designer__curation-strip-shell,
-.product-model-designer__candidate-body,
-.product-model-designer__formal-stage,
+.product-model-designer__journal-copy,
+.product-model-designer__journal-ruler,
+.product-model-designer__governance-sheet,
+.product-model-designer__formal-sheet,
+.product-model-designer__list,
 .product-model-designer__card,
-.product-model-designer__curation-flow {
+.product-model-designer__formal-stage-copy,
+.product-model-designer__sheet-copy,
+.product-model-designer__governance-steps,
+.product-model-designer__step-copy {
   display: grid;
-  gap: 0.85rem;
 }
 
 .product-model-designer-workspace {
-  gap: 0.95rem;
-}
-
-.product-model-designer__exhibit-head {
-  padding: 1.4rem 1.34rem 1.22rem;
   gap: 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background:
-    radial-gradient(circle at top left, rgba(237, 230, 221, 0.58), transparent 30%),
-    linear-gradient(180deg, rgba(250, 248, 244, 0.7), rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: var(--shadow-form-surface);
 }
 
-.product-model-designer__eyebrow {
+.product-model-designer__journal-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.4rem;
+  align-items: end;
+  padding-top: 0.86rem;
+  border-top: 1px solid var(--panel-border-strong);
+}
+
+.product-model-designer__journal-copy {
+  gap: 0.34rem;
+}
+
+.product-model-designer__journal-kicker {
   display: inline-flex;
   width: max-content;
-  padding-bottom: 0.38rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 20%, var(--panel-border));
   color: color-mix(in srgb, var(--brand) 68%, var(--text-caption));
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.product-model-designer__summary-label {
-  margin: 0;
-  color: color-mix(in srgb, var(--brand) 60%, var(--text-caption));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.product-model-designer__headline,
-.product-model-designer__curation-strip-item strong,
-.product-model-designer__card-heading strong,
-.product-model-designer__curation-copy strong {
+.product-model-designer__journal-title,
+.product-model-designer__formal-title,
+.product-model-designer__sheet-copy strong,
+.product-model-designer__card-heading strong {
   margin: 0;
   color: var(--text-heading);
 }
 
-.product-model-designer__headline {
-  font-size: clamp(1.7rem, 2.4vw, 2.34rem);
-  line-height: 1.06;
-  letter-spacing: -0.04em;
+.product-model-designer__journal-title {
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  font-size: clamp(1.62rem, 2.4vw, 2.2rem);
+  line-height: 1.14;
 }
 
+.product-model-designer__journal-summary,
+.product-model-designer__sheet-copy p,
+.product-model-designer__formal-intro,
 .product-model-designer__description,
-.product-model-designer__formal-intro {
+.product-model-designer__empty p,
+.product-model-designer__step-copy p {
   margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-}
-
-.product-model-designer__brief-statement {
-  margin: 0;
-  max-width: 38rem;
-  color: var(--text-heading);
-  font-size: 0.9rem;
-  font-weight: 500;
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 
 .product-model-designer__mode-switcher {
   display: inline-flex;
-  width: max-content;
-  padding: 0.24rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.92);
+  gap: 0.4rem;
+  padding-bottom: 0.12rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
 }
 
 .product-model-designer__mode-chip {
-  min-width: 6.8rem;
-  padding: 0.56rem 0.94rem;
+  padding: 0 0 0.46rem;
   border: 0;
-  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.product-model-designer__mode-chip--active,
-.product-model-designer__formal-overview-card--active {
+.product-model-designer__mode-chip--active {
   color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
-  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 252, 248, 0.98));
 }
 
-.product-model-designer__curation-strip,
-.product-model-designer__formal-overview {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.product-model-designer__curation-strip-shell {
+.product-model-designer__journal-ruler {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background:
-    linear-gradient(180deg, rgba(248, 246, 242, 0.62), rgba(255, 255, 255, 0) 30%),
-    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: var(--shadow-surface-soft-sm);
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.product-model-designer__curation-strip-item {
+.product-model-designer__journal-ruler-item,
+.product-model-designer__formal-overview-card {
   display: grid;
-  gap: 0.4rem;
-  align-content: start;
-  padding: 1rem 1.08rem;
+  gap: 0.3rem;
+}
+
+.product-model-designer__journal-ruler-item {
+  min-width: 0;
+  padding: 0.96rem 1rem 0.9rem;
   border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
-.product-model-designer__curation-strip-item:last-child {
-  border-right: none;
+.product-model-designer__journal-ruler-item:last-child {
+  border-right: 0;
 }
 
-.product-model-designer__curation-strip-item strong {
-  font-size: 1rem;
-}
-
-.product-model-designer__workspace-shell {
-  padding: 1rem 1.08rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: var(--shadow-surface-soft-sm);
-}
-
-.product-model-designer__candidate-stage {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
-.product-model-designer__candidate-body,
-.product-model-designer__formal-stage {
-  padding: 1.04rem 1.08rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: rgba(255, 255, 255, 0.98);
-}
-
-.product-model-designer__curation-board {
-  display: grid;
-  gap: 0.88rem;
-  padding-top: 0.92rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 2px);
-  background:
-    linear-gradient(180deg, rgba(247, 244, 239, 0.48), rgba(255, 255, 255, 0) 22%),
-    linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-}
-
-.product-model-designer__curation-flow {
-  list-style: none;
-  margin: 0;
-  padding: 0 1rem 0.1rem;
-  gap: 0;
-}
-
-.product-model-designer__flow-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.96rem;
-  align-items: start;
-  padding: 0.96rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-}
-
-.product-model-designer__flow-item:last-child {
-  border-bottom-color: transparent;
-}
-
-.product-model-designer__curation-index {
-  color: color-mix(in srgb, var(--brand) 72%, var(--text-caption));
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.5;
-  letter-spacing: 0.06em;
-}
-
-.product-model-designer__curation-copy {
-  display: grid;
-  gap: 0.24rem;
-}
-
-.product-model-designer__curation-copy span {
+.product-model-designer__journal-ruler-item span,
+.product-model-designer__step-copy span,
+.product-model-designer__card-heading span,
+.product-model-designer__card-summary,
+.product-model-designer__empty strong,
+.product-model-designer__formal-overview-card span,
+.product-model-designer__formal-overview-card small {
   color: var(--text-secondary);
-  font-size: 0.84rem;
+}
+
+.product-model-designer__journal-ruler-item span,
+.product-model-designer__step-copy span,
+.product-model-designer__formal-overview-card span,
+.product-model-designer__formal-overview-card small {
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 
+.product-model-designer__journal-ruler-item strong,
+.product-model-designer__formal-overview-card strong,
+.product-model-designer__step-copy strong {
+  color: var(--text-heading);
+  font-size: 1.08rem;
+  line-height: 1.4;
+}
+
+.product-model-designer__governance-sheet,
+.product-model-designer__formal-sheet {
+  gap: 0.96rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--panel-border-strong);
+}
+
+.product-model-designer__sheet-head,
+.product-model-designer__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.product-model-designer__governance-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.product-model-designer__governance-step {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  gap: 0.94rem;
+  padding: 0.96rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
+}
+
+.product-model-designer__governance-step:last-child {
+  border-bottom: 0;
+}
+
+.product-model-designer__step-index {
+  color: color-mix(in srgb, var(--brand) 72%, var(--text-caption));
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+}
+
+.product-model-designer__step-copy {
+  gap: 0.22rem;
+}
+
+.product-model-designer__formal-title {
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
 .product-model-designer__formal-overview {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
 }
 
 .product-model-designer__formal-overview-card {
   width: 100%;
-  padding: 0.92rem 0.98rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.96);
+  padding: 0.94rem 1rem;
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brand-light) 22%, white), white);
   text-align: left;
 }
 
-.product-model-designer__card-header,
-.product-model-designer__candidate-body-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.9rem;
+.product-model-designer__formal-overview-card--active {
+  border-color: color-mix(in srgb, var(--brand) 24%, var(--panel-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
-.product-model-designer__candidate-body-intro {
-  margin: 0.24rem 0 0;
-  color: var(--text-secondary);
-  line-height: 1.72;
+.product-model-designer__list {
+  gap: 0;
+  border-top: 1px solid var(--panel-border);
 }
 
-.product-model-designer__formal-title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1rem;
-}
-
-.product-model-designer__formal-stage-copy,
-.product-model-designer__card-summary {
-  display: grid;
+.product-model-designer__card {
   gap: 0.44rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
 }
 
 .product-model-designer__card-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.45rem 0.8rem;
+  font-size: 0.84rem;
+  line-height: 1.6;
 }
 
 .product-model-designer__empty {
   display: grid;
-  gap: 0.45rem;
-  padding: 1.1rem 1rem;
-  border: 1px dashed color-mix(in srgb, var(--brand) 24%, white);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(246, 250, 255, 0.92), rgba(255, 255, 255, 0.96));
+  gap: 0.4rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--panel-border);
 }
 
-@media (max-width: 1200px) {
-  .product-model-designer__curation-strip-shell,
+@media (max-width: 900px) {
+  .product-model-designer__journal-head {
+    grid-template-columns: 1fr;
+  }
+
+  .product-model-designer__mode-switcher {
+    width: max-content;
+  }
+
+  .product-model-designer__journal-ruler,
   .product-model-designer__formal-overview {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .product-model-designer__journal-ruler-item {
+    border-right: 0;
+    border-top: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
+  }
+
+  .product-model-designer__journal-ruler-item:first-child {
+    border-top: 0;
   }
 }
 
-@media (max-width: 768px) {
-  .product-model-designer__candidate-body-header,
+@media (max-width: 720px) {
+  .product-model-designer__sheet-head,
   .product-model-designer__card-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .product-model-designer__curation-strip-shell,
-  .product-model-designer__formal-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .product-model-designer__curation-strip-item {
-    border-right: none;
-    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  }
-
-  .product-model-designer__curation-strip-item:first-child {
-    border-top: none;
-  }
-
   .product-model-designer__mode-switcher {
-    display: grid;
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: space-between;
   }
 }
 </style>

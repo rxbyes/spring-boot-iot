@@ -15,6 +15,9 @@ body {
   margin: 0;
   min-width: 320px;
   font-family: var(--font-body);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  letter-spacing: var(--font-letter-spacing-base);
   color: var(--text-primary);
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 22rem),
@@ -42,20 +45,51 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  letter-spacing: 0;
+  color: var(--text-heading);
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: var(--font-letter-spacing-tight);
+  text-wrap: pretty;
+}
+
+h1 {
+  font-size: var(--type-title-1-size);
+}
+
+h2 {
+  font-size: var(--type-title-2-size);
+}
+
+h3 {
+  font-size: var(--type-title-3-size);
+}
+
+h4 {
+  font-size: 0.94rem;
 }
 
 p,
 li {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
   color: var(--text-secondary);
 }
 
 a,
+label,
 button,
 input,
 textarea,
 select {
   font: inherit;
+  letter-spacing: var(--font-letter-spacing-base);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
 }
 
 button {
@@ -340,10 +374,11 @@ textarea {
 .field-group label,
 .field-group legend,
 .section-label {
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--font-letter-spacing-wide);
+  font-weight: 600;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-caption);
 }
 
 .button-row {
@@ -378,7 +413,7 @@ td {
 
 .info-chip span {
   color: var(--text-tertiary);
-  font-size: 0.8rem;
+  font-size: var(--type-caption-size);
   margin-bottom: 0.35rem;
 }
 
@@ -402,10 +437,10 @@ td {
 }
 
 th {
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
+  color: var(--text-caption);
+  font-size: var(--type-label-size);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--font-letter-spacing-wide);
   background: var(--surface-subtle);
 }
 
@@ -437,9 +472,11 @@ tbody tr:hover {
 }
 
 .card-header > span {
-  font-size: 1.02rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--type-title-3-size);
+  font-weight: 600;
+  color: var(--text-heading);
+  letter-spacing: var(--font-letter-spacing-tight);
 }
 
 .search-form {
@@ -455,8 +492,9 @@ tbody tr:hover {
 }
 
 .search-form .el-form-item__label {
-  color: #5f6b7a;
-  font-size: 0.8rem;
+  color: var(--text-caption);
+  font-size: var(--type-label-size);
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.7);
 }
 
 .text-right {
@@ -497,10 +535,11 @@ tbody tr:hover {
   border-radius: var(--radius-pill);
   border: 1px solid var(--line-panel-2);
   background: #ffffff;
-  font-size: 11px;
+  font-size: var(--type-toolbar-meta-size);
   font-weight: 600;
-  color: var(--text-caption-2);
+  color: var(--text-caption);
   line-height: 1;
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.62);
 }
 
 .table-action-bar__right .el-button {
@@ -604,21 +643,23 @@ tbody tr:hover {
 
 .eyebrow {
   margin: 0;
-  color: var(--text-tertiary);
+  color: var(--text-caption);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 0.72rem;
+  letter-spacing: var(--font-letter-spacing-wide);
+  font-size: var(--type-overline-size);
+  font-weight: 600;
 }
 
 .headline {
   margin: 0.35rem 0 0.7rem;
   font-size: clamp(2rem, 3vw, 3.2rem);
+  letter-spacing: var(--font-letter-spacing-tight);
 }
 
 .lead {
   margin: 0;
   max-width: 48rem;
-  line-height: 1.8;
+  line-height: var(--type-body-line-height);
   text-wrap: pretty;
 }
 

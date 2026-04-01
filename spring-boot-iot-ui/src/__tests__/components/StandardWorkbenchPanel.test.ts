@@ -41,4 +41,17 @@ describe('StandardWorkbenchPanel', () => {
     expect(source).toContain('var(--ops-workbench-gap')
     expect(source).toContain('standard-workbench-panel__body')
   })
+
+  it('binds heading typography to the shared song-style hierarchy tokens', () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, '../../components/StandardWorkbenchPanel.vue'),
+      'utf8'
+    )
+
+    expect(source).toContain('var(--type-overline-size)')
+    expect(source).toContain('var(--type-title-2-size)')
+    expect(source).toContain('var(--type-caption-size)')
+    expect(source).toContain('var(--font-letter-spacing-wide)')
+    expect(source).toContain('var(--font-letter-spacing-tight)')
+  })
 })

@@ -195,12 +195,14 @@ onUpdated(() => {
 .standard-list-filter-header__toggle {
   padding-inline: 0.08rem;
   font-weight: 600;
+  font-size: var(--type-label-size);
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.55);
 }
 
 .standard-list-filter-header__hint {
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 @media (max-width: 1240px) {

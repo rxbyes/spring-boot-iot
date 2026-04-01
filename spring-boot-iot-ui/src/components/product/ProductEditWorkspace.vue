@@ -1,28 +1,25 @@
 <template>
   <div class="product-edit-workspace">
-    <section class="detail-panel product-edit-workspace__revision-head">
-      <div class="product-edit-workspace__summary-copy product-edit-workspace__section-heading">
-        <span class="product-edit-workspace__revision-eyebrow">档案修订</span>
+    <section class="product-edit-workspace__journal-head">
+      <div class="product-edit-workspace__summary-copy">
         <h3 class="product-edit-workspace__revision-title">编辑治理</h3>
         <p class="product-edit-workspace__summary-description product-edit-workspace__section-note">{{ sectionNote }}</p>
       </div>
     </section>
 
-    <section class="detail-panel product-edit-workspace__revision-board">
-      <div class="product-edit-workspace__revision-strip product-edit-workspace__context-strip">
-        <article class="product-edit-workspace__revision-item">
-          <span>产品 Key</span>
-          <strong>{{ formatText(model.productKey) }}</strong>
-        </article>
-        <article class="product-edit-workspace__revision-item">
-          <span>协议编码</span>
-          <strong>{{ formatText(model.protocolCode) }}</strong>
-        </article>
-        <article class="product-edit-workspace__revision-item">
-          <span>节点与状态</span>
-          <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
-        </article>
-      </div>
+    <section class="product-edit-workspace__revision-ruler">
+      <article class="product-edit-workspace__revision-ruler-item">
+        <span>产品 Key</span>
+        <strong>{{ formatText(model.productKey) }}</strong>
+      </article>
+      <article class="product-edit-workspace__revision-ruler-item">
+        <span>协议编码</span>
+        <strong>{{ formatText(model.protocolCode) }}</strong>
+      </article>
+      <article class="product-edit-workspace__revision-ruler-item">
+        <span>节点与状态</span>
+        <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
+      </article>
     </section>
 
     <StandardInlineState
@@ -36,7 +33,7 @@
       :model="model"
       :rules="rules"
       label-position="top"
-      class="ops-drawer-form product-edit-workspace__form product-edit-workspace__form-stage"
+      class="ops-drawer-form product-edit-workspace__form product-edit-workspace__draft-sheet"
     >
       <section class="ops-drawer-section">
         <div class="ops-drawer-section__header">
@@ -199,100 +196,82 @@ defineExpose({
 <style scoped>
 .product-edit-workspace,
 .product-edit-workspace__summary-copy,
-.product-edit-workspace__revision-strip {
+.product-edit-workspace__revision-ruler {
   display: grid;
-  gap: 0.85rem;
 }
 
 .product-edit-workspace {
-  gap: 1.08rem;
+  gap: 1rem;
 }
 
-.product-edit-workspace__revision-head,
-.product-edit-workspace__revision-board {
+.product-edit-workspace__journal-head {
   display: grid;
-  gap: 0.88rem;
-  padding: 1.08rem 1.12rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background:
-    linear-gradient(180deg, rgba(250, 248, 244, 0.58), rgba(255, 255, 255, 0) 34%),
-    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: var(--shadow-surface-soft-sm);
+  gap: 0.4rem;
+  padding-top: 0.86rem;
+  border-top: 1px solid var(--panel-border-strong);
 }
 
-.product-edit-workspace__summary-description,
-.product-edit-workspace__revision-item span {
+.product-edit-workspace__summary-copy {
+  gap: 0.34rem;
+}
+
+.product-edit-workspace__revision-title,
+.product-edit-workspace__revision-ruler-item strong {
   margin: 0;
-  color: var(--text-caption);
-  line-height: 1.6;
-}
-
-.product-edit-workspace__revision-head {
-  justify-items: start;
-}
-
-.product-edit-workspace__revision-eyebrow {
-  display: inline-flex;
-  width: max-content;
-  padding-bottom: 0.34rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 18%, var(--panel-border));
-  color: color-mix(in srgb, var(--brand) 66%, var(--text-caption));
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--text-heading);
 }
 
 .product-edit-workspace__revision-title {
-  margin: 0;
-  color: var(--text-heading);
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
   font-size: 1.32rem;
-  line-height: 1.18;
-  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
-.product-edit-workspace__revision-strip {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-}
-
-.product-edit-workspace__revision-item {
-  display: grid;
-  gap: 0.34rem;
-  align-content: center;
-  min-height: 5rem;
-  padding: 0.88rem 0.96rem;
-  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  text-align: left;
-}
-
-.product-edit-workspace__revision-item:last-child {
-  border-right: none;
-}
-
-.product-edit-workspace__revision-item strong {
+.product-edit-workspace__summary-description,
+.product-edit-workspace__revision-ruler-item span {
   margin: 0;
-  color: var(--text-heading);
-  font-size: 1.08rem;
-  line-height: 1.36;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .product-edit-workspace__section-note {
   max-width: 42rem;
-  color: var(--text-secondary);
   font-size: 0.9rem;
-  line-height: 1.72;
 }
 
-.product-edit-workspace__form-stage {
+.product-edit-workspace__revision-ruler {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.product-edit-workspace__revision-ruler-item {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.96rem 1rem 0.9rem;
+  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+}
+
+.product-edit-workspace__revision-ruler-item:last-child {
+  border-right: 0;
+}
+
+.product-edit-workspace__revision-ruler-item span {
+  font-size: 0.8rem;
+}
+
+.product-edit-workspace__revision-ruler-item strong {
+  font-size: 1.08rem;
+  line-height: 1.4;
+}
+
+.product-edit-workspace__draft-sheet {
   display: grid;
   gap: 1rem;
-  padding: 1rem 1.04rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: var(--shadow-form-surface);
+  padding: 1rem 0;
+  border-top: 1px solid var(--panel-border-strong);
 }
 
 .product-edit-workspace__footer {
@@ -302,17 +281,17 @@ defineExpose({
 }
 
 @media (max-width: 960px) {
-  .product-edit-workspace__revision-strip {
+  .product-edit-workspace__revision-ruler {
     grid-template-columns: 1fr;
   }
 
-  .product-edit-workspace__revision-item {
-    border-right: none;
+  .product-edit-workspace__revision-ruler-item {
+    border-right: 0;
     border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   }
 
-  .product-edit-workspace__revision-item:first-child {
-    border-top: none;
+  .product-edit-workspace__revision-ruler-item:first-child {
+    border-top: 0;
   }
 }
 </style>
