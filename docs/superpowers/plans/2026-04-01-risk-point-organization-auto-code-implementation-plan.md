@@ -735,3 +735,110 @@ Plan complete and saved to `docs/superpowers/plans/2026-04-01-risk-point-organiz
 2. Inline Execution - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
 Which approach?
+
+---
+
+## 2026-04-01 Execution Snapshot
+
+- [x] 已完成风险点 `org_id / org_name` 后端档案落库。
+- [x] 已完成新增风险点自动编号，编号基于“所属组织 + 风险点名称 + 风险等级”生成。
+- [x] 已完成编辑保留历史编号、绑定重复校验与删除/绑定错误链路修复。
+- [x] 已完成前端“所属组织”树选择、只读编号展示和失败显式反馈。
+- [x] 已完成 `docs/02`、`03`、`04`、`08`、`13`、`21` 同步。
+- [x] 已完成定向验证：
+  - `mvn -pl spring-boot-iot-alarm -DskipTests=false -Dtest=RiskPointServiceImplTest test`
+  - `cd spring-boot-iot-ui && npx vitest run src/__tests__/views/RiskPointView.test.ts src/__tests__/views/RiskStrategyListContract.test.ts`
+
+当前刻意未交付的范围：
+
+- [ ] 未按登录用户自动过滤风险点列表。
+- [ ] 未给 `sys_user`、`UserAuthContextVO` 和 `/api/auth/me` 增加组织归属 / 组织范围字段。
+- [ ] 未在风险点详情、更新、删除、绑定接口上增加“越权对象不可操作”的组织范围校验。
+
+下次继续前必须先记住的事实：
+
+- 当前 `risk_point` 已有 `org_id / org_name`，但 `sys_user` 还没有组织归属字段。
+- 当前 `UserAuthContextVO` 只有用户、角色、菜单、按钮权限，没有组织范围。
+- 所以下一轮“不同组织人员登录后只看到各自风险点”的工作，第一步不是直接改 `RiskPointView.vue`，而是先补齐用户组织归属和鉴权上下文。
+
+## Next Session Plan: Deliver Login-Based Risk Point Visibility
+
+**Goal:** 在保持本轮自动编号与组织树录入口径不回退的前提下，补齐“用户所属组织 -> 登录态组织范围 -> 风险点可见范围”的完整闭环，让不同组织人员登录后只看到本组织范围内的风险点。
+
+**Architecture:** 先在 `sys_user` 上补齐所属组织字段，并把组织信息透出到 `UserAuthContextVO` / `/api/auth/me`；再由风险点查询与操作接口基于当前登录用户的组织范围过滤数据，超级管理员保留全量视图。前端沿用现有 `所属组织` 主语义，只增加登录态范围提示与回归测试，不回退到手工区域文本。
+
+**Tech Stack:** Spring Boot 4、Java 17、MyBatis-Plus、Spring Security JWT、Vue 3、TypeScript、Vitest、现有组织树与权限服务。
+
+### Follow-up Task 1: Add User Organization Ownership
+
+**Files:**
+- Modify: `sql/init.sql`
+- Modify: `sql/init-data.sql`
+- Modify: `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/entity/User.java`
+- Modify: `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/UserServiceImpl.java`
+- Modify: `spring-boot-iot-ui/src/api/user.ts`
+- Modify: `spring-boot-iot-ui/src/views/UserView.vue`
+
+- [ ] 在 `sys_user` 表增加 `org_id` 字段，并给初始化账号补齐演示组织归属；不要新开平行迁移脚本，直接同步 `sql/init.sql` 和 `sql/init-data.sql`。
+- [ ] 在 `User.java`、`user.ts`、`UserView.vue` 增加 `orgId`，账号中心新增/编辑统一复用 `/api/organization/tree` 下拉选择所属组织。
+- [ ] 在 `UserServiceImpl` 的新增、编辑逻辑里校验组织存在且启用；若用户未选择组织则返回明确业务错误。
+- [ ] 定向验证：
+  - `mvn -pl spring-boot-iot-system -DskipTests=false test`
+  - `cd spring-boot-iot-ui && npx vitest run src/__tests__/views/UserView.test.ts`
+
+### Follow-up Task 2: Extend Auth Context With Organization Scope
+
+**Files:**
+- Modify: `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/vo/UserAuthContextVO.java`
+- Modify: `spring-boot-iot-system/src/main/java/com/ghlzm/iot/system/service/impl/PermissionServiceImpl.java`
+- Modify: `spring-boot-iot-auth/src/main/java/com/ghlzm/iot/auth/service/impl/AuthServiceImpl.java`
+- Check: `spring-boot-iot-auth/src/main/java/com/ghlzm/iot/auth/controller/AuthController.java`
+
+- [ ] 在 `UserAuthContextVO` 增加 `orgId`、`orgName` 和 `orgScopeIds`，供页面和后端范围判断共用。
+- [ ] 在 `PermissionServiceImpl#getUserAuthContext` 内根据用户所属组织递归计算“本人组织 + 子组织”范围；超级管理员返回全量标识或空限制语义。
+- [ ] 继续保持 `/api/auth/me` 的既有菜单/按钮权限返回结构不破坏，只向 `authContext` 增量补充组织字段。
+- [ ] 定向验证：
+  - `mvn -pl spring-boot-iot-auth -pl spring-boot-iot-system -DskipTests=false test`
+  - 用两个不同组织账号调用 `GET /api/auth/me`，确认 `orgId` 与 `orgScopeIds` 有差异。
+
+### Follow-up Task 3: Enforce Organization Scope In Risk Point APIs
+
+**Files:**
+- Modify: `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/controller/RiskPointController.java`
+- Modify: `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/service/RiskPointService.java`
+- Modify: `spring-boot-iot-alarm/src/main/java/com/ghlzm/iot/alarm/service/impl/RiskPointServiceImpl.java`
+- Modify: `spring-boot-iot-alarm/src/test/java/com/ghlzm/iot/alarm/service/impl/RiskPointServiceImplTest.java`
+
+- [ ] 让风险点列表、分页、详情、更新、删除、绑定、解绑都能拿到当前登录用户 `userId` 或组织范围，不再只按公开参数查询。
+- [ ] 普通账号只能看到并操作 `orgScopeIds` 内的风险点；越权访问统一返回明确业务错误；超级管理员保留全量查询与操作。
+- [ ] 查询侧至少覆盖 `/list`、`/page`、`/get/{id}`，操作侧至少覆盖 `/update`、`/delete/{id}`、`/bind-device`、`/unbind-device`。
+- [ ] 定向验证：
+  - `mvn -pl spring-boot-iot-alarm -DskipTests=false -Dtest=RiskPointServiceImplTest test`
+  - 增补“不同组织账号查不到对方风险点、管理员仍可见全量”的服务层测试。
+
+### Follow-up Task 4: Frontend Visibility Feedback And Real-Env Acceptance
+
+**Files:**
+- Modify: `spring-boot-iot-ui/src/views/RiskPointView.vue`
+- Modify: `spring-boot-iot-ui/src/__tests__/views/RiskPointView.test.ts`
+- Modify: `docs/03-接口规范与接口清单.md`
+- Modify: `docs/04-数据库设计与初始化数据.md`
+- Modify: `docs/08-变更记录与技术债清单.md`
+- Modify: `docs/13-数据权限与多租户模型.md`
+- Modify: `docs/21-业务功能清单与验收标准.md`
+
+- [ ] 在 `RiskPointView.vue` 增加轻量提示，明确当前列表已按登录组织范围过滤；不要回流第二套说明墙或页头私有导航。
+- [ ] 补齐前端测试，锁定“页面继续用组织树维护所属组织，且列表结果依赖登录态组织范围”的合同。
+- [ ] 把组织范围过滤规则同步写回接口、数据库、权限和验收文档；说明超级管理员全量可见、普通账号受组织范围约束。
+- [ ] 用真实环境做最小验收：
+  - 账号 A 绑定组织 7101，只看到 7101 范围风险点。
+  - 账号 B 绑定组织 7102，只看到 7102 范围风险点。
+  - `admin` 仍可看到全部风险点。
+  - 新增风险点的自动编号、编辑保留编号、绑定设备与删除链路不因组织过滤退化。
+
+## Suggested Start Order For Next Time
+
+1. 先补 `sys_user.org_id` 与账号中心组织选择。
+2. 再补 `/api/auth/me` 的组织上下文。
+3. 然后给风险点接口加登录态组织过滤与越权校验。
+4. 最后做前端提示、文档同步和真实环境验收。
