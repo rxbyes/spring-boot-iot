@@ -84,6 +84,15 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     ).toBe(160)
   })
 
+  it('uses the shared single-action desktop width tier for one visible table action', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [{ command: 'detail', label: '详情' }],
+        gap: 'compact'
+      })
+    ).toBe(96)
+  })
+
   it('keeps short two-action desktop columns close to content width instead of the old 144px floor', () => {
     expect(
       resolveWorkbenchActionColumnWidth({

@@ -112,7 +112,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="getEventRowActions(row)"
                 @command="(command) => handleEventRowAction(command, row)"
               />
@@ -289,8 +288,7 @@ const eventActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'detail', label: '详情' },
     { command: 'dispatch', label: '派发' },
     { command: 'close', label: '关闭' }
-  ],
-  gap: 'compact'
+  ]
 });
 const eventToolbarActions = computed(() => [
   {

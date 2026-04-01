@@ -227,8 +227,7 @@ const alarmActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'confirm', label: '确认' },
     { command: 'suppress', label: '抑制' },
     { command: 'close', label: '关闭' }
-  ],
-  gap: 'compact'
+  ]
 });
 const alarmToolbarActions = computed(() => [
   {

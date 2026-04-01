@@ -81,7 +81,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="gisRowActions"
                 @command="() => openDetailByRiskPoint(row.riskPointId)"
               />
@@ -113,7 +112,6 @@
             <div class="ops-resource-card__footer">
               <StandardWorkbenchRowActions
                 variant="card"
-                gap="compact"
                 :direct-items="gisRowActions"
                 @command="() => openDetailByRiskPoint(point.riskPointId)"
               />
@@ -158,8 +156,7 @@ const activeBindingId = ref<number | null>(null);
 const gisAdvice = '优先补齐未定位风险点的经纬度信息';
 const gisRowActions = [{ command: 'detail' as const, label: '详情' }];
 const gisActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: gisRowActions,
-  gap: 'compact'
+  directItems: gisRowActions
 });
 
 const totalPoints = computed(() => points.value.length);

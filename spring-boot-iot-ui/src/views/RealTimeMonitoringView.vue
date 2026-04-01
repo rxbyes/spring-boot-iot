@@ -115,7 +115,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="monitoringRowActions"
                 @command="() => openDetail(row.bindingId)"
               />
@@ -176,8 +175,7 @@ const activeBindingId = ref<number | null>(null);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 const monitoringRowActions = [{ command: 'detail' as const, label: '详情' }];
 const monitoringActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: monitoringRowActions,
-  gap: 'compact'
+  directItems: monitoringRowActions
 });
 
 const filters = reactive<{

@@ -146,6 +146,21 @@ describe('StandardWorkbenchRowActions', () => {
     expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('start')
   })
 
+  it('ignores an explicit table gap override and keeps the shared desktop baseline', () => {
+    const wrapper = mountComponent({
+      variant: 'table',
+      gap: 'compact',
+      directItems: [
+        { key: 'detail', command: 'detail', label: '详情' },
+        { key: 'observe', command: 'observe', label: '观测' }
+      ],
+      menuItems: []
+    })
+
+    expect(wrapper.get('.standard-row-actions-stub').attributes('data-gap')).toBe('wide')
+    expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('start')
+  })
+
   it('still forwards an explicit distribution override when one is provided', () => {
     const wrapper = mountComponent({
       variant: 'table',
