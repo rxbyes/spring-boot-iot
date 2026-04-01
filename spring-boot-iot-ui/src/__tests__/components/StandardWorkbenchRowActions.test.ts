@@ -60,7 +60,7 @@ function mountComponent(props: Record<string, unknown>) {
 }
 
 describe('StandardWorkbenchRowActions', () => {
-  it('uses the compact product-table spacing baseline for table rows and forwards commands', async () => {
+  it('uses the shared desktop table spacing baseline and forwards commands', async () => {
     const wrapper = mountComponent({
       variant: 'table',
       directItems: [
@@ -74,8 +74,8 @@ describe('StandardWorkbenchRowActions', () => {
     const directButtons = wrapper.findAll('.standard-action-link-stub')
 
     expect(rowActions.attributes('data-variant')).toBe('table')
-    expect(rowActions.attributes('data-gap')).toBe('compact')
-    expect(rowActions.attributes('data-distribution')).toBe('between')
+    expect(rowActions.attributes('data-gap')).toBe('wide')
+    expect(rowActions.attributes('data-distribution')).toBe('start')
     expect(directButtons.map((button) => button.text())).toEqual(['详情', '编辑'])
     expect(directButtons[1].attributes('title')).toBe('打开编辑')
 
@@ -99,15 +99,15 @@ describe('StandardWorkbenchRowActions', () => {
     expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(false)
   })
 
-  it('respects an explicit gap override', () => {
+  it('respects an explicit gap override for non-table variants', () => {
     const wrapper = mountComponent({
-      variant: 'table',
-      gap: 'compact',
+      variant: 'card',
+      gap: 'wide',
       directItems: [{ key: 'detail', command: 'detail', label: '详情' }],
       menuItems: []
     })
 
-    expect(wrapper.get('.standard-row-actions-stub').attributes('data-gap')).toBe('compact')
+    expect(wrapper.get('.standard-row-actions-stub').attributes('data-gap')).toBe('wide')
   })
 
   it('keeps table rows with two visible actions on start distribution', () => {
@@ -123,7 +123,7 @@ describe('StandardWorkbenchRowActions', () => {
     expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('start')
   })
 
-  it('defaults table rows with three visible actions to between distribution', () => {
+  it('keeps table rows with three visible actions on start distribution', () => {
     const wrapper = mountComponent({
       variant: 'table',
       directItems: [
@@ -133,7 +133,7 @@ describe('StandardWorkbenchRowActions', () => {
       menuItems: [{ key: 'delete', command: 'delete', label: '删除' }]
     })
 
-    expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('between')
+    expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('start')
   })
 
   it('keeps single-action table rows on start distribution', () => {

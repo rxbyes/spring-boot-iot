@@ -1,0 +1,511 @@
+<style>
+.style-intro {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(220, 226, 234, 0.96);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(251, 252, 254, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.style-intro strong {
+  color: #203041;
+}
+
+.style-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.style-card {
+  border: 1px solid rgba(209, 216, 225, 0.96);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(21, 37, 61, 0.05);
+  overflow: hidden;
+}
+
+.style-card-head {
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid rgba(232, 236, 241, 0.96);
+}
+
+.style-card-head h3 {
+  margin: 0 0 6px;
+  color: #1f2d3d;
+  font-size: 20px;
+}
+
+.style-card-head p {
+  margin: 0;
+  color: #617082;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.style-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 10px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(232, 128, 56, 0.12);
+  color: #b96926;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.style-body {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.mock-shell {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(218, 224, 232, 0.96);
+  background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.mock-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(225, 230, 236, 0.96);
+}
+
+.mock-title {
+  display: grid;
+  gap: 5px;
+}
+
+.mock-title strong {
+  color: #1e2c3b;
+  font-size: 15px;
+}
+
+.mock-title span {
+  color: #77879a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mock-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mock-tab {
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 221, 229, 0.96);
+  background: #fff;
+  color: #6d7c8e;
+  font-size: 12px;
+  line-height: 24px;
+}
+
+.mock-tab.is-active {
+  border-color: rgba(232, 128, 56, 0.34);
+  background: rgba(255, 246, 238, 0.96);
+  color: #b8651f;
+}
+
+.hero-a,
+.hero-b,
+.hero-c {
+  border: 1px solid rgba(215, 221, 229, 0.96);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.hero-a {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hero-a-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.hero-a-main strong,
+.hero-b-left strong,
+.hero-c-stage strong {
+  color: #1f2d3d;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.hero-a-main span,
+.hero-b-left span,
+.hero-c-stage span {
+  display: block;
+  color: #758497;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(229, 233, 238, 0.96);
+}
+
+.metric-strip div strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #233143;
+  font-size: 18px;
+}
+
+.metric-strip div span {
+  color: #738294;
+  font-size: 12px;
+}
+
+.ledger-row {
+  display: grid;
+  gap: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 222, 230, 0.96);
+  background: #fff;
+}
+
+.ledger-line {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(232, 236, 241, 0.96);
+}
+
+.ledger-line:last-child {
+  border-bottom: none;
+}
+
+.ledger-line span {
+  color: #7b8898;
+  font-size: 12px;
+}
+
+.ledger-line strong {
+  color: #233143;
+  font-size: 13px;
+  text-align: right;
+}
+
+.hero-b {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  min-height: 168px;
+  overflow: hidden;
+}
+
+.hero-b-left {
+  padding: 16px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+}
+
+.hero-b-right {
+  padding: 16px;
+  border-left: 1px solid rgba(229, 233, 238, 0.96);
+  background: rgba(249, 251, 253, 0.88);
+  display: grid;
+  gap: 10px;
+}
+
+.hero-b-card {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(221, 227, 234, 0.96);
+  background: #fff;
+}
+
+.hero-b-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #223143;
+  font-size: 16px;
+}
+
+.hero-b-card span {
+  color: #77879a;
+  font-size: 12px;
+}
+
+.two-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.panel-card {
+  border: 1px solid rgba(216, 222, 230, 0.96);
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.panel-card h4 {
+  margin: 0;
+  color: #223143;
+  font-size: 14px;
+}
+
+.panel-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 0%, #eef2f7 58%, transparent 58%);
+}
+
+.panel-line.short {
+  background: linear-gradient(90deg, #eef2f7 0%, #eef2f7 42%, transparent 42%);
+}
+
+.hero-c {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hero-c-stage {
+  display: grid;
+  gap: 8px;
+  min-height: 110px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 248, 243, 0.98), rgba(255, 255, 255, 0.98));
+  border: 1px solid rgba(235, 203, 181, 0.72);
+}
+
+.hero-c-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 10px;
+}
+
+.hero-c-note {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(217, 223, 231, 0.96);
+  background: #fff;
+}
+
+.hero-c-note strong {
+  color: #223143;
+  font-size: 14px;
+}
+
+.hero-c-note span {
+  color: #738294;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.style-points {
+  display: grid;
+  gap: 8px;
+}
+
+.style-point {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f5f7fa;
+  color: #5a697a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1100px) {
+  .style-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<h2>同一套 A 方案，哪一种更接近你要的高级感？</h2>
+<p class="subtitle">我把“扁平经营简报式”继续细分成 3 种气质。核心差别不在功能，而在主轴、留白、对称感和板块之间的呼吸感。</p>
+
+<div class="style-intro">
+  <strong>我先判断当前问题：</strong>
+  现在的页面不是信息太多，而是“每块都像独立小卡片”，主次不够分明，视觉重心不够稳定，所以会像随意堆积。
+</div>
+
+<div class="style-cards cards">
+  <div class="style-card card option" data-choice="central-brief" onclick="toggleSelect(this)">
+    <div class="style-card-head">
+      <div class="style-badge">推荐</div>
+      <h3>A1. 中轴简报式</h3>
+      <p>最强调对称、秩序和压场感。先看一个大数，再沿同一条中轴线往下读。</p>
+    </div>
+    <div class="style-body">
+      <div class="mock-shell">
+        <div class="mock-top">
+          <div class="mock-title">
+            <strong>产品经营工作台</strong>
+            <span>标题压场，副信息退后，只保留一条稳定阅读轴。</span>
+          </div>
+          <div class="mock-tabs">
+            <div class="mock-tab is-active">经营总览</div>
+            <div class="mock-tab">物模型治理</div>
+            <div class="mock-tab">关联设备</div>
+            <div class="mock-tab">编辑治理</div>
+          </div>
+        </div>
+        <div class="hero-a">
+          <div class="hero-a-main">
+            <div>
+              <span>核心规模</span>
+              <strong>2,486</strong>
+            </div>
+            <span>关联设备总量</span>
+          </div>
+          <div class="metric-strip">
+            <div><strong>74%</strong><span>在线覆盖</span></div>
+            <div><strong>2,117</strong><span>30 日活跃</span></div>
+            <div><strong>128 分钟</strong><span>平均在线</span></div>
+          </div>
+        </div>
+        <div class="ledger-row">
+          <div class="ledger-line"><span>接入协议</span><strong>mqtt-json</strong></div>
+          <div class="ledger-line"><span>节点类型</span><strong>直连设备</strong></div>
+          <div class="ledger-line"><span>数据格式</span><strong>JSON</strong></div>
+          <div class="ledger-line"><span>厂商</span><strong>GHLZM</strong></div>
+        </div>
+      </div>
+      <div class="style-points">
+        <div class="style-point">优点：最稳，最有“经营简报”感，也最容易解决你说的“没有高级感”。</div>
+        <div class="style-point">代价：会更克制，趣味性最少，但秩序最好。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="style-card card option" data-choice="dual-ledger" onclick="toggleSelect(this)">
+    <div class="style-card-head">
+      <h3>A2. 对开账本式</h3>
+      <p>左右两栏更明确，像高质量 SaaS 年报页。规整，但会稍微弱一点“压场”。</p>
+    </div>
+    <div class="style-body">
+      <div class="mock-shell">
+        <div class="mock-top">
+          <div class="mock-title">
+            <strong>产品经营工作台</strong>
+            <span>左侧讲规模，右侧讲运营状态。</span>
+          </div>
+          <div class="mock-tabs">
+            <div class="mock-tab is-active">经营总览</div>
+            <div class="mock-tab">物模型治理</div>
+            <div class="mock-tab">关联设备</div>
+            <div class="mock-tab">编辑治理</div>
+          </div>
+        </div>
+        <div class="hero-b">
+          <div class="hero-b-left">
+            <div>
+              <span>核心规模</span>
+              <strong>2,486</strong>
+            </div>
+            <div class="metric-strip">
+              <div><strong>74%</strong><span>在线覆盖</span></div>
+              <div><strong>2,117</strong><span>30 日活跃</span></div>
+              <div><strong>128</strong><span>平均在线</span></div>
+            </div>
+          </div>
+          <div class="hero-b-right">
+            <div class="hero-b-card"><strong>mqtt-json</strong><span>接入协议</span></div>
+            <div class="hero-b-card"><strong>直连设备</strong><span>节点类型</span></div>
+            <div class="hero-b-card"><strong>JSON</strong><span>数据格式</span></div>
+          </div>
+        </div>
+        <div class="two-panel">
+          <div class="panel-card">
+            <h4>契约基线</h4>
+            <div class="panel-line"></div>
+            <div class="panel-line short"></div>
+            <div class="panel-line"></div>
+          </div>
+          <div class="panel-card">
+            <h4>档案摘要</h4>
+            <div class="panel-line"></div>
+            <div class="panel-line short"></div>
+            <div class="panel-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="style-points">
+        <div class="style-point">优点：更现代，也更像成熟企业工作台。</div>
+        <div class="style-point">代价：如果处理不好，会重新变成“两边都在抢重点”。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="style-card card option" data-choice="editorial-premium" onclick="toggleSelect(this)">
+    <div class="style-card-head">
+      <h3>A3. 留白陈列式</h3>
+      <p>最追求高级感和呼吸感，卡片更少，板块更像展板，但实用感会弱一点。</p>
+    </div>
+    <div class="style-body">
+      <div class="mock-shell">
+        <div class="mock-top">
+          <div class="mock-title">
+            <strong>产品经营工作台</strong>
+            <span>减少小框，靠留白和字重拉层级。</span>
+          </div>
+          <div class="mock-tabs">
+            <div class="mock-tab is-active">经营总览</div>
+            <div class="mock-tab">物模型治理</div>
+            <div class="mock-tab">关联设备</div>
+            <div class="mock-tab">编辑治理</div>
+          </div>
+        </div>
+        <div class="hero-c">
+          <div class="hero-c-stage">
+            <span>核心规模</span>
+            <strong>2,486</strong>
+            <span>在线覆盖 / 30 日活跃 / 平均在线 作为同一行辅助读数，弱化边框感。</span>
+          </div>
+          <div class="hero-c-grid">
+            <div class="hero-c-note">
+              <strong>契约基线</strong>
+              <span>改成更长的线性阅读，不再像功能卡片。</span>
+            </div>
+            <div class="hero-c-note">
+              <strong>档案摘要</strong>
+              <span>更安静，像经营简报的附注区。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="style-points">
+        <div class="style-point">优点：最有高级感，最不像后台拼装卡片。</div>
+        <div class="style-point">代价：如果你更看重“严肃政企工作台”，它可能会偏轻。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">请打开页面看一下，重点只回答一个问题：<strong>哪一种最接近你要的整体气质？</strong> 直接回复 A1 / A2 / A3，也可以说“以 A1 为主，但想要 A3 的留白”。</p>

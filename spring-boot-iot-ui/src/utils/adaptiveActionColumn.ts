@@ -46,7 +46,7 @@ const ACTION_GAP_PX: Record<ActionGap, number> = {
 const ACTION_MIN_WIDTH_PX = 96
 const WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT: Record<number, number> = {
   1: ACTION_MIN_WIDTH_PX,
-  2: 144,
+  2: 112,
   3: 160
 }
 const ACTION_WIDTH_STEP_PX = 8
@@ -117,7 +117,7 @@ export function resolveWorkbenchActionColumnWidth({
   menuItems = [],
   maxDirectItems = DEFAULT_MAX_DIRECT_ITEMS,
   menuLabel = '更多',
-  gap = WORKBENCH_TABLE_ACTION_GAP,
+  gap: _gap = WORKBENCH_TABLE_ACTION_GAP,
   minWidth = ACTION_MIN_WIDTH_PX
 }: ResolveWorkbenchActionColumnWidthOptions) {
   const resolvedActions = splitWorkbenchRowActions({
@@ -131,7 +131,7 @@ export function resolveWorkbenchActionColumnWidth({
   return resolveAdaptiveActionColumnWidth({
     directLabels: resolvedActions.directItems.map((item) => item.label),
     menuLabel: resolvedActions.menuItems.length > 0 ? menuLabel : undefined,
-    gap,
+    gap: WORKBENCH_TABLE_ACTION_GAP,
     minWidth: resolveWorkbenchTableMinWidth(visibleActionCount, minWidth)
   })
 }

@@ -30,7 +30,7 @@ import { computed } from 'vue'
 import StandardActionLink from '@/components/StandardActionLink.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardRowActions from '@/components/StandardRowActions.vue'
-import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn'
+import { splitWorkbenchRowActions, WORKBENCH_TABLE_ACTION_GAP } from '@/utils/adaptiveActionColumn'
 
 defineOptions({
   name: 'StandardWorkbenchRowActions'
@@ -80,7 +80,12 @@ const emit = defineEmits<{
   (event: 'command', command: WorkbenchRowCommand): void
 }>()
 
-const resolvedGap = computed(() => props.gap ?? (props.variant === 'table' ? 'compact' : 'comfortable'))
+const resolvedGap = computed(() => {
+  if (props.variant === 'table') {
+    return WORKBENCH_TABLE_ACTION_GAP
+  }
+  return props.gap ?? 'comfortable'
+})
 const resolvedActions = computed(() =>
   splitWorkbenchRowActions({
     directItems: props.directItems,
@@ -91,13 +96,9 @@ const resolvedActions = computed(() =>
 const resolvedDirectItems = computed(() => resolvedActions.value.directItems)
 const resolvedMenuItems = computed(() => resolvedActions.value.menuItems)
 const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)
-const visibleActionCount = computed(() => resolvedDirectItems.value.length + (hasMenuItems.value ? 1 : 0))
 const resolvedDistribution = computed<'start' | 'between'>(() => {
   if (props.distribution) {
     return props.distribution
-  }
-  if (props.variant === 'table' && visibleActionCount.value >= 3) {
-    return 'between'
   }
   return 'start'
 })

@@ -544,7 +544,7 @@ describe('ProductWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('144')
+    expect(String(actionColumn?.props('width'))).toBe('152')
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {

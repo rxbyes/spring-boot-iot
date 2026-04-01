@@ -84,7 +84,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     ).toBe(160)
   })
 
-  it('uses the shared dual-action desktop width tier for two visible table actions', () => {
+  it('keeps short two-action desktop columns close to content width instead of the old 144px floor', () => {
     expect(
       resolveWorkbenchActionColumnWidth({
         directItems: [
@@ -93,7 +93,19 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         ],
         gap: 'compact'
       })
-    ).toBe(144)
+    ).toBe(112)
+  })
+
+  it('still allows longer two-action desktop columns to expand to the product-workbench width', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'detail', label: '进入工作台' },
+          { command: 'delete', label: '删除' }
+        ],
+        gap: 'compact'
+      })
+    ).toBe(152)
   })
 
   it('uses the shared detail-edit-more desktop width tier when overflow actions fold into more', () => {

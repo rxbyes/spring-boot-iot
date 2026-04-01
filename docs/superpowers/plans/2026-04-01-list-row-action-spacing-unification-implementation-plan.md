@@ -4,7 +4,7 @@
 
 **Goal:** Unify governed list-page row action spacing on desktop tables while preserving mobile adaptive action layouts.
 
-**Architecture:** Move the desktop distribution rule and width tiers into shared row-action primitives so governed views inherit one default behavior, then remove page-level overrides and lock the rule with tests, guards, and docs.
+**Architecture:** Move the desktop fixed-gap rule and width tiers into shared row-action primitives so governed views inherit one default behavior, then remove page-level overrides and lock the rule with tests, guards, and docs.
 
 **Tech Stack:** Vue 3, TypeScript, Vitest, Node.js guard scripts, Markdown docs
 
@@ -55,7 +55,7 @@ it('uses the shared dual-action desktop width tier for two visible table actions
       ],
       gap: 'compact'
     })
-  ).toBe(144)
+  ).toBe(112)
 })
 
 it('uses the shared detail-edit-more desktop width tier when overflow actions fold into more', () => {
@@ -75,7 +75,7 @@ it('uses the shared detail-edit-more desktop width tier when overflow actions fo
 - [ ] **Step 3: Run the focused tests to verify they fail**
 
 Run: `npm test -- src/__tests__/components/StandardWorkbenchRowActions.test.ts src/__tests__/utils/adaptiveActionColumn.test.ts`
-Expected: FAIL because table rows still default to `start`, two-action widths stay below the new desktop tier, and folded `更多` rows still resolve to the old compact width.
+Expected: FAIL because table rows still use the old action-count-dependent spacing, and governed views still drift between narrow two-action rows and wider three-action rows.
 
 ### Task 2: Implement the shared row-action default behavior
 
@@ -83,22 +83,17 @@ Expected: FAIL because table rows still default to `start`, two-action widths st
 - Modify: `spring-boot-iot-ui/src/components/StandardWorkbenchRowActions.vue`
 - Modify: `spring-boot-iot-ui/src/utils/adaptiveActionColumn.ts`
 
-- [ ] **Step 1: Add the shared default distribution logic**
+- [ ] **Step 1: Add the shared fixed desktop gap logic**
 
 ```ts
-const visibleActionCount = computed(
-  () => resolvedDirectItems.value.length + (hasMenuItems.value ? 1 : 0)
-)
-
-const resolvedDistribution = computed(() => {
-  if (props.distribution) {
-    return props.distribution
+const resolvedGap = computed(() => {
+  if (props.variant === 'table') {
+    return WORKBENCH_TABLE_ACTION_GAP
   }
-if (props.variant === 'table' && visibleActionCount.value >= 3) {
-    return 'between'
-  }
-  return 'start'
+  return props.gap ?? 'comfortable'
 })
+
+const resolvedDistribution = computed(() => props.distribution ?? 'start')
 ```
 
 ```vue
@@ -115,7 +110,7 @@ if (props.variant === 'table' && visibleActionCount.value >= 3) {
 ```ts
 const WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT: Record<number, number> = {
   1: ACTION_MIN_WIDTH_PX,
-  2: 144,
+  2: 112,
   3: 160
 }
 
@@ -138,7 +133,7 @@ return resolveAdaptiveActionColumnWidth({
 - [ ] **Step 3: Run the focused tests to verify they pass**
 
 Run: `npm test -- src/__tests__/components/StandardWorkbenchRowActions.test.ts src/__tests__/utils/adaptiveActionColumn.test.ts`
-Expected: PASS with the new default desktop distribution and width tiers.
+Expected: PASS with the new fixed desktop gap baseline and width tiers.
 
 ### Task 3: Remove page-level action-column overrides
 
@@ -191,7 +186,7 @@ expect(String(actionColumn?.props('width'))).toBe('160')
 ```
 
 ```ts
-expect(actionColumn?.attributes('data-width')).toBe('144')
+expect(actionColumn?.attributes('data-width')).toBe('112')
 ```
 
 ```ts
@@ -222,12 +217,12 @@ Expected: PASS with desktop widths now resolved by the shared tiers and device v
 - [ ] **Step 2: Update the frontend spec**
 
 ```md
-- 列表页“操作”列当前统一以设备资产中心桌面端为基线：`StandardWorkbenchRowActions` 的 `table` 变体只在可见动作达到 3 个时默认启用共享等距分布，`1~2` 个可见动作继续保持共享紧凑分布，页面不得再显式传 `distribution` 覆写。
-- `resolveWorkbenchActionColumnWidth` 当前继续负责桌面操作列宽度收口，并统一采用共享宽度分层：双动作桌面列使用同一基线宽度，出现 `更多` 时自动提升到三段式基线；移动端 `card` 变体继续保持自适应触控布局。
+- 列表页“操作”列当前统一以设备资产中心桌面端为基线：`StandardWorkbenchRowActions` 的 `table` 变体统一使用固定共享间距，不再因可见动作数量不同切换桌面分布，页面不得再显式传 `distribution` 覆写。
+- `resolveWorkbenchActionColumnWidth` 当前继续负责桌面操作列宽度收口，并统一采用共享宽度分层：双动作桌面列收口到贴近内容的基线宽度，出现 `更多` 时自动提升到三段式基线；移动端 `card` 变体继续保持自适应触控布局。
 ```
 
 ```md
-- 纳管列表页的桌面 `操作` 列继续统一收口到共享规则：页面不得再通过 `distribution="between"`、`Math.max(160, ...)` 或 scoped CSS 自行放大间距；桌面等距与宽度分层由 `StandardWorkbenchRowActions + resolveWorkbenchActionColumnWidth` 统一负责，移动端卡片操作区仍复用 `card` 变体自适应。
+- 纳管列表页的桌面 `操作` 列继续统一收口到共享规则：页面不得再通过 `distribution="between"`、`Math.max(160, ...)` 或 scoped CSS 自行放大间距；桌面固定间距与宽度分层由 `StandardWorkbenchRowActions + resolveWorkbenchActionColumnWidth` 统一负责，移动端卡片操作区仍复用 `card` 变体自适应。
 ```
 
 ### Task 5: Verify the full frontend slice
