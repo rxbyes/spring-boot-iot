@@ -2,9 +2,13 @@ package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
@@ -123,6 +127,32 @@ class ProductModelControllerTest {
 
         assertEquals("SK11", response.getData().getSummary().getSampleDeviceCode());
         verify(productModelService).manualExtractModelCandidates(1001L, dto);
+    }
+
+    @Test
+    void compareGovernanceShouldDelegateToService() {
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareVO result = new ProductModelGovernanceCompareVO();
+        result.setProductId(1001L);
+        when(productModelService.compareGovernance(1001L, dto)).thenReturn(result);
+
+        R<ProductModelGovernanceCompareVO> response = controller.compareGovernance(1001L, dto);
+
+        assertEquals(1001L, response.getData().getProductId());
+        verify(productModelService).compareGovernance(1001L, dto);
+    }
+
+    @Test
+    void applyGovernanceShouldDelegateToService() {
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
+        result.setCreatedCount(1);
+        when(productModelService.applyGovernance(1001L, dto)).thenReturn(result);
+
+        R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto);
+
+        assertEquals(1, response.getData().getCreatedCount());
+        verify(productModelService).applyGovernance(1001L, dto);
     }
 
     private ProductModelVO modelVO(Long id, String identifier, Integer sortNo) {
