@@ -42,6 +42,16 @@ public class TelemetryStorageModeResolver {
         return Boolean.TRUE.equals(iotProperties.getTelemetry().getAggregate().getEnabled());
     }
 
+    public boolean isAggregateHourlyEnabled() {
+        return isAggregateEnabled()
+                && Boolean.TRUE.equals(iotProperties.getTelemetry().getAggregate().getHourlyEnabled());
+    }
+
+    public boolean isAggregateDailyEnabled() {
+        return isAggregateEnabled()
+                && Boolean.TRUE.equals(iotProperties.getTelemetry().getAggregate().getDailyEnabled());
+    }
+
     public boolean isColdArchiveEnabled() {
         return Boolean.TRUE.equals(iotProperties.getTelemetry().getColdArchive().getEnabled());
     }

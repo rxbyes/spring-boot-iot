@@ -59,7 +59,7 @@ public class TelemetryWriteFanoutService {
             publishTask(legacyMirrorTask);
             dispatch(legacyMirrorTask, telemetryLegacyMirrorProjector::project);
         }
-        if (storageModeResolver.isAggregateEnabled()) {
+        if (storageModeResolver.isAggregateHourlyEnabled()) {
             TelemetryProjectionTask aggregateTask = buildProjectionTask(TelemetryProjectionTask.ProjectionType.AGGREGATE, target, points);
             publishTask(aggregateTask);
             dispatch(aggregateTask, telemetryAggregateProjector::project);

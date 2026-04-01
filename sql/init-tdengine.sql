@@ -8,6 +8,7 @@ USE iot;
 -- 1. 创建 TDengine 数据库 `iot`
 -- 2. 初始化 telemetry legacy 兼容回退表
 -- 3. 初始化 telemetry v2 raw stable
+-- 4. 初始化 telemetry v2 MEASURE 小时聚合 stable
 -- 说明：
 -- - 本脚本支持重复执行，不要求先删库
 -- - 本脚本不预创建设备子表；子表由运行时按 tenant + device + stream 自动派生
@@ -236,6 +237,55 @@ CREATE STABLE IF NOT EXISTS iot_raw_event_point (
     alarm_flag BOOL,
     trace_id BINARY(64),
     session_id BINARY(64),
+    source_message_type BINARY(32)
+) TAGS (
+    tenant_id BIGINT,
+    device_id BIGINT,
+    product_id BIGINT,
+    sensor_group BINARY(64),
+    location_code BINARY(64),
+    risk_point_id BIGINT
+);
+
+-- ========================================
+-- Telemetry v2 MEASURE 小时聚合 stable 基线
+-- 表介绍：
+-- - iot_agg_measure_hour 承载设备维度、指标维度的小时级数值聚合结果
+-- - 当前只覆盖 MEASURE 数值类指标，不承载 STATUS / EVENT 聚合
+-- - 该 stable 必须通过本脚本手动初始化；应用运行时不会自动创建 stable
+-- - 运行时按设备自动派生 child table：tb_ah_<tenantId>_<deviceId>
+-- 字段含义：
+-- - ts：小时窗口起点时间，同时作为行键时间
+-- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同定位同小时同指标聚合行
+-- - metric_code / metric_name：指标编码与显示名称
+-- - value_type：值类型，当前统一为 double 聚合
+-- - first_reported_at / last_reported_at：窗口内最早 / 最晚真实上报时间
+-- - min_value_double / max_value_double / sum_value_double / last_value_double：窗口内最小、最大、求和、最后值
+-- - sample_count：窗口内样本数
+-- - trace_id：最后一次更新该聚合记录的 TraceId
+-- - source_message_type：最后一次更新该聚合记录的来源消息类型
+-- tags 含义：
+-- - tenant_id：租户 ID
+-- - device_id：设备主键
+-- - product_id：产品主键
+-- - sensor_group：测点分组
+-- - location_code：位置编码
+-- - risk_point_id：绑定风险点 ID
+-- ========================================
+CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (
+    ts TIMESTAMP,
+    metric_id BINARY(128) COMPOSITE KEY,
+    metric_code BINARY(128),
+    metric_name NCHAR(128),
+    value_type BINARY(32),
+    first_reported_at TIMESTAMP,
+    last_reported_at TIMESTAMP,
+    min_value_double DOUBLE,
+    max_value_double DOUBLE,
+    sum_value_double DOUBLE,
+    last_value_double DOUBLE,
+    sample_count BIGINT,
+    trace_id BINARY(64),
     source_message_type BINARY(32)
 ) TAGS (
     tenant_id BIGINT,

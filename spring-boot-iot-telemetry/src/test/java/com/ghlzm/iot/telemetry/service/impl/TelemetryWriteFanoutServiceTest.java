@@ -65,7 +65,7 @@ class TelemetryWriteFanoutServiceTest {
     void shouldPublishAndDispatchAllEnabledDownstreamTasks() {
         when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(true);
         when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(true);
-        when(storageModeResolver.isAggregateEnabled()).thenReturn(true);
+        when(storageModeResolver.isAggregateHourlyEnabled()).thenReturn(true);
         when(storageModeResolver.isColdArchiveEnabled()).thenReturn(true);
         DeviceProcessingTarget target = buildTarget();
         List<TelemetryV2Point> points = List.of(point());
@@ -93,7 +93,7 @@ class TelemetryWriteFanoutServiceTest {
     void shouldIgnoreQueuePublishFailureAndContinueDispatch() {
         when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(true);
         when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(false);
-        when(storageModeResolver.isAggregateEnabled()).thenReturn(true);
+        when(storageModeResolver.isAggregateHourlyEnabled()).thenReturn(true);
         when(storageModeResolver.isColdArchiveEnabled()).thenReturn(false);
         doThrow(new IllegalStateException("redis unavailable")).when(projectionQueue).publish(any());
         DeviceProcessingTarget target = buildTarget();
@@ -106,10 +106,24 @@ class TelemetryWriteFanoutServiceTest {
     }
 
     @Test
+    void shouldSkipAggregateProjectionWhenHourlyAggregateDisabled() {
+        when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(true);
+        when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(false);
+        when(storageModeResolver.isAggregateHourlyEnabled()).thenReturn(false);
+        when(storageModeResolver.isColdArchiveEnabled()).thenReturn(false);
+
+        telemetryWriteFanoutService.fanout(buildTarget(), List.of(point()));
+
+        verify(projectionQueue, times(1)).publish(any());
+        verify(telemetryLatestProjector).project(any());
+        verifyNoInteractions(telemetryAggregateProjector, telemetryLegacyMirrorProjector, telemetryColdArchiveWriter);
+    }
+
+    @Test
     void shouldSkipAllDownstreamWhenDisabled() {
         when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(false);
         when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(false);
-        when(storageModeResolver.isAggregateEnabled()).thenReturn(false);
+        when(storageModeResolver.isAggregateHourlyEnabled()).thenReturn(false);
         when(storageModeResolver.isColdArchiveEnabled()).thenReturn(false);
 
         telemetryWriteFanoutService.fanout(buildTarget(), List.of(point()));

@@ -13,6 +13,7 @@ com.ghlzm.iot
 第一至第三阶段主链路是长期稳定基线。第四阶段风险平台能力仍在推进中，但已经具备可用的真实环境基线。
 当前设备接入固定 Pipeline 为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE`。
 当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`，`application-test.yml` 继续保留 `mysql`。
+当前 `iot_agg_measure_hour` 已纳入 `sql/init-tdengine.sql` 手动初始化基线；应用运行时只会自动派生 `tb_ah_<tenantId>_<deviceId>` child table，不会自动创建该 stable。当前小时聚合仅覆盖 `MEASURE` 数值点位，且需同时开启 `iot.telemetry.aggregate.enabled=true` 与 `iot.telemetry.aggregate.hourly-enabled=true`。
 当前 `application-dev.yml` / `application-prod.yml` / `application-test.yml` 已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 `slave_1` 也补齐了独立 Hikari 基线，不再依赖默认 `10` 连接。
 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-31 起继续在 `/products` 内复用同一抽屉，默认治理流程收口为“手动提炼 -> 正式模型 -> 确认写库”。当前只支持围绕已选产品手工粘贴单设备样本 JSON 提炼候选，确认后直接写入 `iot_product_model`，不新增平行草稿表；运行期候选提炼仍保留在后端能力中，但不再作为默认 UI 入口。该增强当前仍作为下一阶段设备中心维护，不并入 Phase 4 已交付范围。
 
@@ -164,7 +165,7 @@ com.ghlzm.iot
 - `spring-boot-iot-gateway`：网关与子设备拓扑
 - `spring-boot-iot-protocol`：协议适配器、协议模型、编解码
 - `spring-boot-iot-message`：接入入口与分发，仅负责入口和调度
-- `spring-boot-iot-telemetry`：TDengine 时序落库、latest 查询与历史遥测存储抽象
+- `spring-boot-iot-telemetry`：TDengine 时序落库、MEASURE 小时聚合写入、latest 查询与历史遥测存储抽象
 - `spring-boot-iot-rule`：规则引擎
 - `spring-boot-iot-alarm`：告警中心、事件、风险点、规则、预案、风险监测
 - `spring-boot-iot-report`：报表分析
