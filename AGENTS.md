@@ -14,7 +14,7 @@ com.ghlzm.iot
 当前设备接入固定 Pipeline 为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE`。
 当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`，`application-test.yml` 继续保留 `mysql`。
 当前 `application-dev.yml` / `application-prod.yml` / `application-test.yml` 已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 `slave_1` 也补齐了独立 Hikari 基线，不再依赖默认 `10` 连接。
-产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 已继续在 `/products` 内升级为“候选提炼 + 正式模型”双模式工作台抽屉，但当前仍作为下一阶段设备中心增强，不并入 Phase 4 已交付范围。
+产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-31 起继续在 `/products` 内复用同一抽屉，默认治理流程收口为“手动提炼 -> 正式模型 -> 确认写库”。当前只支持围绕已选产品手工粘贴单设备样本 JSON 提炼候选，确认后直接写入 `iot_product_model`，不新增平行草稿表；运行期候选提炼仍保留在后端能力中，但不再作为默认 UI 入口。该增强当前仍作为下一阶段设备中心维护，不并入 Phase 4 已交付范围。
 
 ### 当前构建模块基线
 当前父 `pom.xml` 激活 `12` 个模块：

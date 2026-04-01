@@ -2,7 +2,7 @@
   <StandardRowActions
     :variant="variant"
     :gap="resolvedGap"
-    :distribution="distribution"
+    :distribution="resolvedDistribution"
     class="standard-workbench-row-actions"
   >
     <StandardActionLink
@@ -68,7 +68,7 @@ const props = withDefaults(
   {
     variant: 'table',
     gap: undefined,
-    distribution: 'start',
+    distribution: undefined,
     directItems: () => [],
     menuItems: () => [],
     menuLabel: '更多',
@@ -91,4 +91,14 @@ const resolvedActions = computed(() =>
 const resolvedDirectItems = computed(() => resolvedActions.value.directItems)
 const resolvedMenuItems = computed(() => resolvedActions.value.menuItems)
 const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)
+const visibleActionCount = computed(() => resolvedDirectItems.value.length + (hasMenuItems.value ? 1 : 0))
+const resolvedDistribution = computed<'start' | 'between'>(() => {
+  if (props.distribution) {
+    return props.distribution
+  }
+  if (props.variant === 'table' && visibleActionCount.value >= 3) {
+    return 'between'
+  }
+  return 'start'
+})
 </script>

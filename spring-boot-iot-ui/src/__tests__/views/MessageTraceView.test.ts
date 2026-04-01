@@ -586,7 +586,7 @@ describe('MessageTraceView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('104');
+    expect(actionColumn?.attributes('data-width')).toBe('144');
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {

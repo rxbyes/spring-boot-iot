@@ -71,7 +71,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     })
   })
 
-  it('uses the same compact baseline when overflow direct actions are folded into more', () => {
+  it('uses the shared three-action desktop baseline when overflow direct actions are folded into more', () => {
     expect(
       resolveWorkbenchActionColumnWidth({
         directItems: [
@@ -81,6 +81,31 @@ describe('resolveAdaptiveActionColumnWidth', () => {
         ],
         gap: 'compact'
       })
-    ).toBe(136)
+    ).toBe(160)
+  })
+
+  it('uses the shared dual-action desktop width tier for two visible table actions', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'detail', label: '详情' },
+          { command: 'observe', label: '观测' }
+        ],
+        gap: 'compact'
+      })
+    ).toBe(144)
+  })
+
+  it('uses the shared detail-edit-more desktop width tier when overflow actions fold into more', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'detail', label: '详情' },
+          { command: 'trace', label: '追踪' },
+          { command: 'observe', label: '观测' }
+        ],
+        gap: 'compact'
+      })
+    ).toBe(160)
   })
 })

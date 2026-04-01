@@ -18,7 +18,7 @@ const StandardDetailDrawerStub = defineComponent({
 })
 
 describe('ProductBusinessWorkbenchDrawer', () => {
-  it('renders a cleaner business header with one product title and a relaxed summary-card rail', () => {
+  it('renders the executive-flat shell with one product identity line and no duplicated header metrics', () => {
     const wrapper = mount(ProductBusinessWorkbenchDrawer, {
       props: {
         modelValue: true,
@@ -53,23 +53,25 @@ describe('ProductBusinessWorkbenchDrawer', () => {
     expect(wrapper.find('h2').text()).toBe('产品经营工作台')
     expect(wrapper.find('.product-business-workbench__header').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__headline').text()).toContain('演示产品')
-    expect(wrapper.find('.product-business-workbench__identity-key').exists()).toBe(false)
-    expect(wrapper.find('.product-business-workbench__brief').exists()).toBe(false)
-    expect(wrapper.find('.product-business-workbench__header-summary').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="product-workbench-summary-deviceCount"]').text()).toContain('12')
-    expect(wrapper.get('[data-testid="product-workbench-summary-onlineDeviceCount"]').text()).toContain('8')
-    expect(wrapper.get('[data-testid="product-workbench-summary-thirtyDaysActiveCount"]').text()).toContain('10')
-    expect(wrapper.find('.product-business-workbench__header-note').exists()).toBe(false)
-    expect(wrapper.find('.product-business-workbench__judgement').exists()).toBe(false)
-    expect(wrapper.find('.product-business-workbench__status-badge').exists()).toBe(false)
-    expect(wrapper.find('.product-business-workbench__meta-strip').text()).toContain('mqtt-json')
+    expect(wrapper.find('.product-business-workbench__kicker').exists()).toBe(false)
+    expect(wrapper.find('.product-business-workbench__summary-band').exists()).toBe(false)
+    expect(wrapper.findAll('.product-business-workbench__summary-metric')).toHaveLength(0)
+    expect(wrapper.findAll('.product-business-workbench__summary-divider')).toHaveLength(0)
+    expect(wrapper.find('.product-business-workbench__status-statement').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__status-statement').text()).toContain('当前状态')
+    expect(wrapper.find('.product-business-workbench__meta-inline').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('demo-product')
+    expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('mqtt-json')
+    expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('直连设备')
+    expect(wrapper.find('.product-business-workbench__meta-inline').text()).toContain('JSON')
     expect(wrapper.text().match(/演示产品/g)?.length).toBe(1)
     expect(wrapper.text().match(/demo-product/g)?.length).toBe(1)
     expect(wrapper.text()).toContain('经营总览')
     expect(wrapper.text()).toContain('物模型治理')
     expect(wrapper.text()).toContain('关联设备')
     expect(wrapper.text()).toContain('编辑治理')
-    expect(wrapper.find('.product-business-workbench__tab-rail').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__tabs').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench__tab--active').exists()).toBe(true)
     expect(wrapper.find('.product-business-workbench__view-shell').exists()).toBe(true)
     expect(wrapper.get('[data-view="models"]').text()).toContain('models-slot')
     expect(wrapper.get('[data-view="overview"]').text()).toContain('overview-slot')
@@ -109,5 +111,6 @@ describe('ProductBusinessWorkbenchDrawer', () => {
     })
 
     expect(wrapper.text().match(/zhd-warning-sound-light-alarm-v1/g)?.length).toBe(1)
+    expect(wrapper.find('.product-business-workbench__summary-band').exists()).toBe(false)
   })
 })

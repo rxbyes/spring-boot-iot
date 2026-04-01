@@ -1,3 +1,0 @@
-{"type":"click","text":"A\n    \n      推荐：表格优先\n      只保留真正切换业务数据的页签，页面主体始终只有一个主内容区。","choice":"a","id":null,"timestamp":1774682276434}
-{"type":"click","text":"B\n    \n      折中：保留轻状态条\n      保留一条顶部摘要，但不再有第二层说明卡和辅战区。","choice":"b","id":null,"timestamp":1774682277195}
-{"type":"click","text":"C\n    \n      不推荐：继续工作区卡片\n      维持现在的说明区和辅助卡，只做样式变薄。","choice":"c","id":null,"timestamp":1774682277784}

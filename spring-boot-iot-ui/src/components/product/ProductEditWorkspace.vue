@@ -1,12 +1,9 @@
 <template>
   <div class="product-edit-workspace">
     <section class="detail-panel product-edit-workspace__summary-band">
-      <div class="product-edit-workspace__summary-copy product-edit-workspace__chapter-header">
+      <div class="product-edit-workspace__summary-copy product-edit-workspace__section-heading">
         <p class="product-edit-workspace__kicker product-edit-workspace__section-kicker">编辑治理</p>
-        <h3 class="product-edit-workspace__headline">{{ heroTitle }}</h3>
-        <p class="product-edit-workspace__summary-description product-edit-workspace__chapter-brief">
-          {{ chapterBrief }}
-        </p>
+        <p class="product-edit-workspace__summary-description product-edit-workspace__section-note">{{ sectionNote }}</p>
       </div>
 
       <div class="product-edit-workspace__summary-metrics product-edit-workspace__context-strip">
@@ -160,12 +157,11 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>()
 
-const heroTitle = computed(() => (props.editing ? '在同一经营上下文中维护产品档案' : '创建新的产品接入档案'))
 const submitText = computed(() => (props.editing ? '保存' : '新增'))
 const cancelText = computed(() => (props.editing ? '取消编辑' : '取消'))
 const nodeTypeText = computed(() => (props.model.nodeType === 2 ? '网关设备' : '直连设备'))
 const statusText = computed(() => (props.model.status === 0 ? '停用' : '启用'))
-const chapterBrief = computed(() => {
+const sectionNote = computed(() => {
   if (props.editing) {
     return '当前变更会直接回写产品经营工作台的头部信息、治理语境和列表档案。'
   }
@@ -218,14 +214,12 @@ defineExpose({
 
 .product-edit-workspace__summary-band {
   display: grid;
-  gap: 0.92rem;
-  padding: 1.12rem 1.16rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  gap: 0.82rem;
+  padding: 1rem 1.04rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
-    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
 .product-edit-workspace__kicker,
@@ -244,16 +238,9 @@ defineExpose({
   letter-spacing: 0.05em;
 }
 
-.product-edit-workspace__headline,
 .product-edit-workspace__summary-card strong {
   margin: 0;
   color: var(--text-heading);
-}
-
-.product-edit-workspace__headline {
-  font-size: clamp(1.52rem, 2.1vw, 2.04rem);
-  line-height: 1.14;
-  letter-spacing: -0.03em;
 }
 
 .product-edit-workspace__summary-metrics {
@@ -274,8 +261,8 @@ defineExpose({
   font-size: 1.08rem;
 }
 
-.product-edit-workspace__chapter-brief {
-  max-width: 44rem;
+.product-edit-workspace__section-note {
+  max-width: 46rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.72;

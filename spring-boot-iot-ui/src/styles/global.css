@@ -175,6 +175,10 @@ textarea {
   letter-spacing: 0.01em;
 }
 
+.standard-row-actions > .standard-button + .standard-button {
+  margin-left: 0;
+}
+
 .standard-row-actions--variant-table {
   display: inline-flex;
 }

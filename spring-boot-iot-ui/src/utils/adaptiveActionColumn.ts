@@ -1,5 +1,6 @@
 type ActionGap = 'compact' | 'comfortable' | 'wide'
 type WorkbenchRowActionCommand = string | number | object
+export const WORKBENCH_TABLE_ACTION_GAP: ActionGap = 'wide'
 
 interface WorkbenchDirectActionItem {
   key?: string
@@ -43,6 +44,11 @@ const ACTION_GAP_PX: Record<ActionGap, number> = {
   wide: 12
 }
 const ACTION_MIN_WIDTH_PX = 96
+const WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT: Record<number, number> = {
+  1: ACTION_MIN_WIDTH_PX,
+  2: 144,
+  3: 160
+}
 const ACTION_WIDTH_STEP_PX = 8
 const DEFAULT_MAX_DIRECT_ITEMS = 2
 
@@ -62,6 +68,10 @@ function estimateActionLabelWidth(label: string) {
 
 function roundUpToStep(value: number, step: number) {
   return Math.ceil(value / step) * step
+}
+
+function resolveWorkbenchTableMinWidth(visibleActionCount: number, fallbackMinWidth: number) {
+  return WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT[visibleActionCount] ?? fallbackMinWidth
 }
 
 export function resolveAdaptiveActionColumnWidth({
@@ -107,7 +117,7 @@ export function resolveWorkbenchActionColumnWidth({
   menuItems = [],
   maxDirectItems = DEFAULT_MAX_DIRECT_ITEMS,
   menuLabel = '更多',
-  gap = 'compact',
+  gap = WORKBENCH_TABLE_ACTION_GAP,
   minWidth = ACTION_MIN_WIDTH_PX
 }: ResolveWorkbenchActionColumnWidthOptions) {
   const resolvedActions = splitWorkbenchRowActions({
@@ -115,11 +125,13 @@ export function resolveWorkbenchActionColumnWidth({
     menuItems,
     maxDirectItems
   })
+  const visibleActionCount =
+    resolvedActions.directItems.length + (resolvedActions.menuItems.length > 0 ? 1 : 0)
 
   return resolveAdaptiveActionColumnWidth({
     directLabels: resolvedActions.directItems.map((item) => item.label),
     menuLabel: resolvedActions.menuItems.length > 0 ? menuLabel : undefined,
     gap,
-    minWidth
+    minWidth: resolveWorkbenchTableMinWidth(visibleActionCount, minWidth)
   })
 }

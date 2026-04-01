@@ -19,7 +19,7 @@
 - [ ] **Step 1: Write the failing component test**
 
 ```ts
-it('defaults table rows with two visible actions to between distribution', () => {
+it('keeps table rows with two visible actions on start distribution', () => {
   const wrapper = mountComponent({
     variant: 'table',
     directItems: [
@@ -29,7 +29,7 @@ it('defaults table rows with two visible actions to between distribution', () =>
     menuItems: []
   })
 
-  expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('between')
+expect(wrapper.get('.standard-row-actions-stub').attributes('data-distribution')).toBe('start')
 })
 
 it('keeps single-action table rows on start distribution', () => {
@@ -94,7 +94,7 @@ const resolvedDistribution = computed(() => {
   if (props.distribution) {
     return props.distribution
   }
-  if (props.variant === 'table' && visibleActionCount.value >= 2) {
+if (props.variant === 'table' && visibleActionCount.value >= 3) {
     return 'between'
   }
   return 'start'
@@ -222,7 +222,7 @@ Expected: PASS with desktop widths now resolved by the shared tiers and device v
 - [ ] **Step 2: Update the frontend spec**
 
 ```md
-- 列表页“操作”列当前统一以设备资产中心桌面端为基线：`StandardWorkbenchRowActions` 的 `table` 变体在可见动作达到 2 个及以上时默认启用共享等距分布，页面不得再显式传 `distribution` 覆写。
+- 列表页“操作”列当前统一以设备资产中心桌面端为基线：`StandardWorkbenchRowActions` 的 `table` 变体只在可见动作达到 3 个时默认启用共享等距分布，`1~2` 个可见动作继续保持共享紧凑分布，页面不得再显式传 `distribution` 覆写。
 - `resolveWorkbenchActionColumnWidth` 当前继续负责桌面操作列宽度收口，并统一采用共享宽度分层：双动作桌面列使用同一基线宽度，出现 `更多` 时自动提升到三段式基线；移动端 `card` 变体继续保持自适应触控布局。
 ```
 

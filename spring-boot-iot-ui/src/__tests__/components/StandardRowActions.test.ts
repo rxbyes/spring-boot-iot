@@ -1,7 +1,29 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import StandardRowActions from '@/components/StandardRowActions.vue'
+
+const injectedStyleNodes: HTMLStyleElement[] = []
+
+beforeAll(() => {
+  const elementPlusStyle = document.createElement('style')
+  elementPlusStyle.textContent = '.el-button + .el-button { margin-left: 12px; }'
+  document.head.appendChild(elementPlusStyle)
+  injectedStyleNodes.push(elementPlusStyle)
+
+  const globalStyle = document.createElement('style')
+  globalStyle.textContent = readFileSync(resolve(import.meta.dirname, '../../styles/global.css'), 'utf8')
+  document.head.appendChild(globalStyle)
+  injectedStyleNodes.push(globalStyle)
+})
+
+afterAll(() => {
+  for (const node of injectedStyleNodes) {
+    node.remove()
+  }
+})
 
 describe('StandardRowActions', () => {
   it('uses the table variant and wide gap class for three-action table rows', () => {
@@ -32,6 +54,29 @@ describe('StandardRowActions', () => {
     })
 
     expect(wrapper.classes()).toContain('standard-row-actions--distribution-between')
+  })
+
+  it('resets Element Plus sibling button margins inside shared row actions', () => {
+    const wrapper = mount(StandardRowActions, {
+      props: {
+        variant: 'table',
+        distribution: 'between'
+      },
+      slots: {
+        default: `
+          <button class="el-button standard-button">详情</button>
+          <button class="el-button standard-button">编辑</button>
+          <button class="el-button standard-button">更多</button>
+        `
+      },
+      attachTo: document.body
+    })
+
+    const buttons = wrapper.findAll('button')
+
+    expect(window.getComputedStyle(buttons[1].element).marginLeft).toBe('0px')
+
+    wrapper.unmount()
   })
 
   it('uses the card variant class for touch action rows', () => {

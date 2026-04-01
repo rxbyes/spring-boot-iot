@@ -39,6 +39,17 @@ function pushError(errors, file, line, message) {
   errors.push({ file, line, message });
 }
 
+function sanitizeAllowedWorkbenchDistribution(filePath, content) {
+  if (path.basename(filePath) !== "DeviceWorkbenchView.vue") {
+    return content;
+  }
+
+  return content.replace(
+    /<StandardWorkbenchRowActions\b[\s\S]{0,240}?\bvariant\s*=\s*["']table["'][\s\S]{0,240}?\bdistribution\s*=\s*["']between["'][\s\S]{0,240}?\/>/g,
+    (snippet) => snippet.replace(/\s+\bdistribution\s*=\s*["']between["']/, ""),
+  );
+}
+
 function scanRequiredUsage(filePath, content, errors) {
   const requirements = [
     {
@@ -75,6 +86,7 @@ function scanRequiredUsage(filePath, content, errors) {
 }
 
 function scanForbiddenPatterns(filePath, content, errors) {
+  const sanitizedContent = sanitizeAllowedWorkbenchDistribution(filePath, content);
   const forbiddenPatterns = [
     {
       pattern: /class\s*=\s*["'][^"']*\bsearch-form\b[^"']*["']/g,
@@ -89,16 +101,20 @@ function scanForbiddenPatterns(filePath, content, errors) {
       message: "纳管页表格操作列禁止直接写 StandardRowActions table 变体，必须走 StandardWorkbenchRowActions。",
     },
     {
+      pattern: /<StandardWorkbenchRowActions\b[^>]*\bdistribution\s*=/g,
+      message: '纳管页桌面表格操作列禁止显式传 distribution，必须使用共享默认分布策略。',
+    },
+    {
       pattern: /label\s*=\s*["']操作["'][\s\S]{0,200}\swidth\s*=\s*["'][^"']+["']/g,
       message: '纳管页“操作”列禁止写死静态 width，必须改为共享自适应列宽。',
     },
   ];
 
   forbiddenPatterns.forEach(({ pattern, message }) => {
-    let match = pattern.exec(content);
+    let match = pattern.exec(sanitizedContent);
     while (match) {
-      pushError(errors, filePath, getLineNumber(content, match.index), message);
-      match = pattern.exec(content);
+      pushError(errors, filePath, getLineNumber(sanitizedContent, match.index), message);
+      match = pattern.exec(sanitizedContent);
     }
   });
 }

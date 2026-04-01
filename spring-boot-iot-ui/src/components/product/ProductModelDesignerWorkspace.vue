@@ -17,97 +17,73 @@
 
     <template v-else>
       <section class="detail-panel product-model-designer__header">
-        <div class="product-model-designer__header-heading">
-          <div class="product-model-designer__header-copy">
-            <p class="product-model-designer__kicker product-model-designer__header-kicker">物模型治理</p>
-            <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
-            <p class="product-model-designer__header-description">
-              当前产品治理默认走“手动提炼 -> 正式模型 -> 确认写库”，不再以内置运行期候选作为默认入口。
-            </p>
-            <p class="product-model-designer__header-statement">{{ headerStatement }}</p>
-          </div>
-
-          <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
-            <button
-              type="button"
-              class="product-model-designer__mode-chip"
-              :class="{ 'product-model-designer__mode-chip--active': designerMode === 'manual' }"
-              @click="designerMode = 'manual'"
-            >
-              手动提炼
-            </button>
-            <button
-              type="button"
-              class="product-model-designer__mode-chip"
-              :class="{ 'product-model-designer__mode-chip--active': designerMode === 'formal' }"
-              @click="designerMode = 'formal'"
-            >
-              正式模型
-            </button>
-          </div>
+        <div class="product-model-designer__header-copy">
+          <p class="product-model-designer__kicker product-model-designer__header-kicker">物模型治理</p>
+          <h3 class="product-model-designer__headline">{{ designerStageTitle }}</h3>
+          <p class="product-model-designer__header-description">
+            当前产品治理默认走“手动提炼 -> 正式模型 -> 确认写库”，不再把运行期候选直接暴露成默认入口。
+          </p>
+          <p class="product-model-designer__header-statement">{{ headerStatement }}</p>
         </div>
 
-        <div class="product-model-designer__header-meta">
-          <span>{{ product.productName || '--' }}</span>
-          <span>{{ product.productKey || '--' }}</span>
-          <span>{{ product.protocolCode || '--' }}</span>
-          <span>{{ productNodeTypeLabel }}</span>
+        <div class="product-model-designer__mode-switcher" role="tablist" aria-label="设计器模式">
+          <button
+            type="button"
+            class="product-model-designer__mode-chip"
+            :class="{ 'product-model-designer__mode-chip--active': designerMode === 'manual' }"
+            @click="designerMode = 'manual'"
+          >
+            手动提炼
+          </button>
+          <button
+            type="button"
+            class="product-model-designer__mode-chip"
+            :class="{ 'product-model-designer__mode-chip--active': designerMode === 'formal' }"
+            @click="designerMode = 'formal'"
+          >
+            正式模型
+          </button>
         </div>
       </section>
 
       <section class="product-model-designer__summary-strip">
-        <article class="product-model-designer__summary-card product-model-designer__summary-card--lead product-model-designer__summary-lead">
-          <span class="product-model-designer__summary-label">默认流程</span>
-          <strong>手动提炼 -> 正式模型 -> 确认写库</strong>
-          <p>通过手工粘贴单设备样本 JSON 提炼候选，再把确认后的正式契约写入 `iot_product_model`。</p>
-        </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">单次样本</span>
-          <strong>1 台设备</strong>
-          <p>单次只解析一个设备样本，并始终服务于当前选中的产品。</p>
-        </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">支持类别</span>
-          <strong>业务 / 状态 / 其他</strong>
-          <p>“其他数据”也可提炼，但默认标记为待人工确认。</p>
-        </article>
-        <article class="product-model-designer__summary-card">
-          <span class="product-model-designer__summary-label">正式模型</span>
-          <strong>{{ models.length }}</strong>
-          <p>当前产品已定义 {{ models.length }} 条正式物模型。</p>
+        <article
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="detail-panel product-model-designer__summary-card"
+        >
+          <span class="product-model-designer__summary-label">{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <p>{{ card.description }}</p>
         </article>
       </section>
 
       <section v-if="designerMode === 'manual'" class="detail-panel product-model-designer__workspace-shell">
-        <div class="product-model-designer__candidate-workspace">
+        <div class="product-model-designer__candidate-stage">
           <aside class="product-model-designer__candidate-nav">
-            <button
-              type="button"
-              class="product-model-designer__candidate-nav-item product-model-designer__candidate-nav-item--active"
+            <article
+              v-for="step in manualSteps"
+              :key="step.key"
+              class="product-model-designer__candidate-nav-item"
+              :class="{ 'product-model-designer__candidate-nav-item--active': step.key === 'extract' }"
             >
-              <span>手动提炼</span>
-              <strong>默认</strong>
-            </button>
-            <button type="button" class="product-model-designer__candidate-nav-item">
-              <span>正式模型</span>
-              <strong>{{ models.length }}</strong>
-            </button>
-            <p class="product-model-designer__candidate-nav-tip">
-              运行期候选仍保留在后端能力中，但不再作为工作台默认入口，避免把临时证据直接当成正式契约。
-            </p>
+              <span>{{ step.label }}</span>
+              <strong>{{ step.title }}</strong>
+              <small>{{ step.description }}</small>
+            </article>
           </aside>
 
-          <div class="product-model-designer__candidate-body product-model-designer__workspace-main">
+          <div class="product-model-designer__candidate-body">
             <div class="product-model-designer__candidate-body-header">
-              <div>
-                <h3>手动提炼</h3>
+              <div class="product-model-designer__stage-copy">
+                <h3>手动提炼工作区</h3>
                 <p class="product-model-designer__candidate-body-intro">
                   粘贴单设备业务数据、状态数据或其他数据样本 JSON，在完整治理抽屉中提炼 property 候选、补充中文名称并确认写库。
                 </p>
               </div>
-              <span class="product-model-designer__candidate-body-meta">
-                当前产品：{{ product.productKey || '--' }}
-              </span>
+              <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
+                进入完整治理
+              </StandardButton>
             </div>
 
             <div class="product-model-designer__manual-flow">
@@ -148,50 +124,31 @@
               </article>
             </div>
           </div>
-
-          <aside class="product-model-designer__candidate-rail product-model-designer__workspace-rail">
-            <div class="product-model-designer__confirm-metrics">
-              <div>
-                <span>当前产品</span>
-                <strong>{{ product.productKey || '--' }}</strong>
-              </div>
-              <div>
-                <span>正式模型</span>
-                <strong>{{ models.length }}</strong>
-              </div>
-              <div>
-                <span>治理入口</span>
-                <strong>手动提炼</strong>
-              </div>
-            </div>
-            <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
-              进入完整治理
-            </StandardButton>
-          </aside>
         </div>
       </section>
 
       <section v-else class="detail-panel product-model-designer__workspace-shell product-model-designer__workspace-shell--formal">
-        <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
-          <button
-            v-for="item in typeOptions"
-            :key="item.value"
-            type="button"
-            class="product-model-designer__formal-overview-card"
-            :class="{ 'product-model-designer__formal-overview-card--active': activeType === item.value }"
-            @click="activeType = item.value"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ countByType(item.value) }}</strong>
-            <small>{{ emptyDescriptionMap[item.value] }}</small>
-          </button>
-        </div>
-
         <div class="product-model-designer__formal-stage">
-          <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
-          <p class="product-model-designer__formal-intro">
-            正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
-          </p>
+          <div class="product-model-designer__formal-stage-copy">
+            <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
+            <p class="product-model-designer__formal-intro">
+              正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
+            </p>
+          </div>
+          <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
+            <button
+              v-for="item in typeOptions"
+              :key="item.value"
+              type="button"
+              class="product-model-designer__formal-overview-card"
+              :class="{ 'product-model-designer__formal-overview-card--active': activeType === item.value }"
+              @click="activeType = item.value"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ countByType(item.value) }}</strong>
+              <small>{{ emptyDescriptionMap[item.value] }}</small>
+            </button>
+          </div>
           <div v-if="activeModels.length" class="product-model-designer__list">
             <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__card">
               <header class="product-model-designer__card-header">
@@ -244,6 +201,26 @@ const typeOptions: Array<{ label: string; value: ProductModelType }> = [
   { label: '事件模型', value: 'event' },
   { label: '服务模型', value: 'service' }
 ]
+const manualSteps = [
+  {
+    key: 'extract',
+    label: '步骤 1',
+    title: '粘贴样本 JSON',
+    description: '单次只围绕当前产品解析一个设备样本。'
+  },
+  {
+    key: 'review',
+    label: '步骤 2',
+    title: '核对正式候选',
+    description: '数组与结构噪音不会直接进入正式物模型。'
+  },
+  {
+    key: 'confirm',
+    label: '步骤 3',
+    title: '确认写库',
+    description: '确认后的正式契约继续写入 iot_product_model。'
+  }
+] as const
 
 const emptyDescriptionMap: Record<ProductModelType, string> = {
   property: '当前还没有属性模型，可以先定义遥测属性、规格 JSON 和风险监测字段。',
@@ -261,7 +238,6 @@ const fullDesignerVisible = ref(false)
 const designerStageTitle = computed(() =>
   designerMode.value === 'manual' ? '基于手动样本提炼产品契约' : '统一维护产品正式物模型'
 )
-const productNodeTypeLabel = computed(() => (props.product?.nodeType === 2 ? '网关设备' : '直连设备'))
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
@@ -269,6 +245,28 @@ const headerStatement = computed(() => {
   }
   return '当前判断：先粘贴单设备样本 JSON 进行手动提炼，再进入正式模型确认并写库。'
 })
+const summaryCards = computed(() => [
+  {
+    key: 'currentMode',
+    label: '当前入口',
+    value: designerMode.value === 'manual' ? '手动提炼' : '正式模型',
+    description: designerMode.value === 'manual'
+      ? '默认流程继续收口为“手动提炼 -> 正式模型 -> 确认写库”。'
+      : '当前只围绕已经确认的正式契约做类型化核对与维护。'
+  },
+  {
+    key: 'evidenceBoundary',
+    label: '证据边界',
+    value: '单设备 JSON',
+    description: '支持业务 / 状态 / 其他三类样本；数组、空对象和结构噪音不会直接入模。'
+  },
+  {
+    key: 'formalModels',
+    label: '正式模型',
+    value: `${models.value.length} 条`,
+    description: '属性、事件、服务继续在同一工作区内维护，不再拆成第二套页面骨架。'
+  }
+])
 
 watch(
   () => props.product?.id,
@@ -313,7 +311,6 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__header-copy,
 .product-model-designer__candidate-nav,
 .product-model-designer__candidate-body,
-.product-model-designer__candidate-rail,
 .product-model-designer__formal-stage,
 .product-model-designer__candidate-card,
 .product-model-designer__card,
@@ -326,35 +323,13 @@ function formatServiceSummary(model: ProductModel) {
   gap: 0.95rem;
 }
 
-.product-model-designer__header,
-.product-model-designer__summary-card,
-.product-model-designer__candidate-nav,
-.product-model-designer__candidate-body,
-.product-model-designer__candidate-rail,
-.product-model-designer__formal-overview-card,
-.product-model-designer__formal-stage,
-.product-model-designer__candidate-card,
-.product-model-designer__card {
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: var(--shadow-surface-soft-sm);
-}
-
 .product-model-designer__header {
-  padding: 1.18rem 1.2rem 1.08rem;
+  padding: 1.12rem 1.18rem;
   gap: 1rem;
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 34%),
-    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 18px 42px rgba(28, 53, 87, 0.08);
-}
-
-.product-model-designer__header-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 14px 28px rgba(28, 53, 87, 0.05);
 }
 
 .product-model-designer__kicker,
@@ -382,7 +357,6 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__header-description,
 .product-model-designer__description,
-.product-model-designer__candidate-body-meta,
 .product-model-designer__summary-card p,
 .product-model-designer__formal-intro {
   margin: 0;
@@ -392,16 +366,17 @@ function formatServiceSummary(model: ProductModel) {
 
 .product-model-designer__header-statement {
   margin: 0;
-  max-width: 42rem;
+  max-width: 46rem;
   color: var(--text-heading);
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 0.94rem;
+  font-weight: 600;
   line-height: 1.7;
 }
 
 .product-model-designer__mode-switcher {
   display: inline-flex;
-  padding: 0.28rem;
+  width: max-content;
+  padding: 0.24rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.92);
@@ -423,74 +398,69 @@ function formatServiceSummary(model: ProductModel) {
 .product-model-designer__candidate-nav-item--active,
 .product-model-designer__formal-overview-card--active {
   color: var(--brand);
-  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 245, 236, 0.98));
-  box-shadow: 0 12px 20px rgba(217, 120, 47, 0.1);
-}
-
-.product-model-designer__header-meta,
-.product-model-designer__card-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.product-model-designer__header-meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.85rem;
-  padding: 0.26rem 0.7rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
+  background: linear-gradient(180deg, rgba(255, 249, 244, 0.98), rgba(255, 252, 248, 0.98));
 }
 
 .product-model-designer__summary-strip,
-.product-model-designer__confirm-metrics,
 .product-model-designer__formal-overview {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
 }
 
 .product-model-designer__summary-card {
   display: grid;
   gap: 0.38rem;
-  padding: 1rem 1.02rem;
-}
-
-.product-model-designer__summary-card--lead {
-  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-  background: linear-gradient(180deg, rgba(255, 251, 248, 0.98), rgba(255, 255, 255, 0.98));
+  padding: 0.98rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 20px rgba(28, 53, 87, 0.04);
 }
 
 .product-model-designer__workspace-shell {
-  padding: 1rem 1.05rem;
+  padding: 1rem 1.04rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
-.product-model-designer__candidate-workspace {
+.product-model-designer__candidate-stage {
   display: grid;
-  grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr) minmax(15rem, 17rem);
+  grid-template-columns: minmax(12rem, 13rem) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
 
 .product-model-designer__candidate-nav,
 .product-model-designer__candidate-body,
-.product-model-designer__candidate-rail,
 .product-model-designer__formal-stage {
   padding: 1rem 1.04rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .product-model-designer__candidate-nav-item,
 .product-model-designer__formal-overview-card {
   width: 100%;
-  padding: 0.9rem 0.96rem;
+  padding: 0.88rem 0.94rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.94);
   text-align: left;
+}
+
+.product-model-designer__candidate-nav-item {
+  display: grid;
+  gap: 0.26rem;
+}
+
+.product-model-designer__candidate-nav-item small {
+  color: var(--text-caption);
+  line-height: 1.55;
 }
 
 .product-model-designer__candidate-card-header,
@@ -508,29 +478,22 @@ function formatServiceSummary(model: ProductModel) {
   line-height: 1.72;
 }
 
-.product-model-designer__candidate-nav-tip {
-  margin: 0;
-  padding: 0.9rem 0.95rem;
-  border: 1px dashed color-mix(in srgb, var(--brand) 18%, white);
-  border-radius: var(--radius-lg);
-  background: rgba(246, 250, 255, 0.94);
-  color: var(--text-caption);
-  line-height: 1.65;
-}
-
-.product-model-designer__confirm-metrics div {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: rgba(252, 253, 255, 0.96);
-}
-
 .product-model-designer__formal-title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 0.98rem;
+  font-size: 1rem;
+}
+
+.product-model-designer__formal-stage-copy,
+.product-model-designer__card-summary {
+  display: grid;
+  gap: 0.44rem;
+}
+
+.product-model-designer__card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .product-model-designer__empty {
@@ -548,17 +511,12 @@ function formatServiceSummary(model: ProductModel) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .product-model-designer__candidate-workspace {
+  .product-model-designer__candidate-stage {
     grid-template-columns: minmax(11rem, 12rem) minmax(0, 1fr);
-  }
-
-  .product-model-designer__candidate-rail {
-    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 768px) {
-  .product-model-designer__header-heading,
   .product-model-designer__candidate-body-header,
   .product-model-designer__candidate-card-header,
   .product-model-designer__card-header {
@@ -567,10 +525,15 @@ function formatServiceSummary(model: ProductModel) {
   }
 
   .product-model-designer__summary-strip,
-  .product-model-designer__candidate-workspace,
-  .product-model-designer__formal-overview,
-  .product-model-designer__confirm-metrics {
+  .product-model-designer__candidate-stage,
+  .product-model-designer__formal-overview {
     grid-template-columns: 1fr;
+  }
+
+  .product-model-designer__mode-switcher {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

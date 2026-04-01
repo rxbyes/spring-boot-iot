@@ -408,7 +408,7 @@ describe('DeviceWorkbenchView', () => {
     expect(tableRowActions?.exists()).toBe(true)
     expect(cardRowActions?.props('gap')).toBe('compact')
     expect(tableRowActions?.props('gap')).toBe('compact')
-    expect(tableRowActions?.props('distribution')).toBe('between')
+    expect(tableRowActions?.props('distribution')).toBeUndefined()
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
         '详情',
         '编辑'
@@ -419,7 +419,7 @@ describe('DeviceWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('144')
+    expect(String(actionColumn?.props('width'))).toBe('160')
   })
 
   it('keeps the device workbench on the shared list surface and trims toolbar density', () => {
@@ -430,5 +430,18 @@ describe('DeviceWorkbenchView', () => {
     expect(source).toContain('compact')
     expect(source).toContain('已登记 ${registeredCount} 台')
     expect(source).not.toContain('`未登记 ${unregisteredCount} 台`')
+  })
+
+  it('delegates detail layout to the dedicated device detail workbench component', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
+    expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
+    expect(source).not.toContain('<h3>资产概览</h3>')
+    expect(source).not.toContain('<h3>资产档案</h3>')
+    expect(source).not.toContain('<h3>拓扑关系</h3>')
+    expect(source).not.toContain('<h3>运维信息</h3>')
+    expect(source).not.toContain('<h3>认证信息</h3>')
+    expect(source).not.toContain('<h3>上报档案</h3>')
   })
 })

@@ -3,7 +3,7 @@
 > 文档定位：面向业务人员的字段治理与建档联调补充指引。
 > 适用角色：业务、交付、实施、联调、运维。
 > 权威级别：附录补充；业务语义仍以 [../02-业务功能与流程说明.md](../02-%E4%B8%9A%E5%8A%A1%E5%8A%9F%E8%83%BD%E4%B8%8E%E6%B5%81%E7%A8%8B%E8%AF%B4%E6%98%8E.md) 为准，交付边界仍以 [../21-业务功能清单与验收标准.md](../21-%E4%B8%9A%E5%8A%A1%E5%8A%9F%E8%83%BD%E6%B8%85%E5%8D%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%A0%87%E5%87%86.md) 与 [../19-第四阶段交付边界与复验进展.md](../19-%E7%AC%AC%E5%9B%9B%E9%98%B6%E6%AE%B5%E4%BA%A4%E4%BB%98%E8%BE%B9%E7%95%8C%E4%B8%8E%E5%A4%8D%E9%AA%8C%E8%BF%9B%E5%B1%95.md) 为准。
-> 更新时间：2026-03-31
+> 更新时间：2026-04-01
 
 ## 1. 使用方式
 
@@ -409,7 +409,37 @@
 }
 ```
 
-### 2.8 调用接口时直接复用的请求体资产
+### 2.8 物模型治理模块的手动提炼口径
+
+当前产品物模型治理模块默认按照“手动提炼 -> 正式模型 -> 确认写库”执行，不再以内置运行期候选作为默认入口。
+
+手动提炼固定规则：
+
+1. 只服务于当前选中的产品。
+2. 单次只支持 `1` 个设备样本。
+3. 样本类型只允许：
+   - `business`
+   - `status`
+   - `other`
+4. 请求体通过 `POST /api/device/product/{productId}/model-candidates/manual-extract` 提交：
+
+```json
+{
+  "sampleType": "business",
+  "samplePayload": "{\"SK11E80D1307426AZ\":{\"L1_QJ_1\":{\"2026-03-31T04:05:55.000Z\":{\"AZI\":-8.6772,\"X\":-0.0376,\"Y\":-0.0567,\"Z\":-0.0292,\"angle\":83.0074}},\"L1_JS_1\":{\"2026-03-31T04:05:55.000Z\":{\"gX\":-0.2396,\"gY\":-1.1563,\"gZ\":-0.3125}},\"L1_LF_1\":{\"2026-03-31T04:05:55.000Z\":{\"value\":0.0305}}}}"
+}
+```
+
+补充说明：
+
+1. `samplePayload` 必须是 JSON 字符串，且根节点只能有 `1` 个设备编码。
+2. 时间戳层级会自动剥离，例如 `2026-03-31T04:05:55.000Z` 不会进入正式 `identifier`。
+3. 对象会继续下钻到标量叶子后再生成属性候选，例如 `sensor_state.L1_QJ_1` 会提炼为 `S1_ZT_1.sensor_state.L1_QJ_1`。
+4. 数组、空对象和不可识别结构不会生成属性，只会累计到 `ignoredFieldCount`。
+5. `other` 类型提炼出的字段会默认标记 `needsReview=true`，必须先人工归类后再确认写库。
+6. 手动提炼当前只自动生成 `property` 候选；事件和服务仍由正式模型人工补录。
+
+### 2.9 调用接口时直接复用的请求体资产
 
 当前接口 `POST /api/device/product/{productId}/models` 一次只接受 `1` 条 `ProductModelUpsertDTO`，不支持数组批量提交。
 
@@ -504,6 +534,7 @@ foreach ($item in $items) {
 8. 该字段是否 latest
 9. 该字段是否 telemetry
 10. 该字段是否用于风险规则
+11. 若走手动提炼，至少准备 `1` 份当前产品下的单设备样本 JSON
 
 ## 4. 业务建档与联调 SOP
 
@@ -511,7 +542,7 @@ foreach ($item in $items) {
 
 1. 先确认监测内容编码和监测类型编码。
 2. 创建产品，固定 `productKey / productName / manufacturer / protocolCode / nodeType / dataFormat`。
-3. 配置正式物模型，优先录入核心判定字段。
+3. 先通过手动提炼或人工录入配置正式物模型，优先确认核心判定字段。
 4. 创建设备，明确 `deviceCode`、区域、组织、安装位置和父子关系。
 5. 发起联调，验证 latest、telemetry、message-log 三类结果。
 6. 完成风险点绑定和规则配置，再验证告警 / 事件 / 工单闭环。
@@ -522,9 +553,10 @@ foreach ($item in $items) {
 
 1. `GET /api/device/{deviceCode}/properties`
 2. `GET /api/device/{deviceCode}/message-logs`
-3. `GET /api/telemetry/latest`
-4. `GET /api/device/message-flow/session/{sessionId}`
-5. `GET /api/device/message-flow/trace/{traceId}`
+3. `POST /api/device/product/{productId}/model-candidates/manual-extract`
+4. `GET /api/telemetry/latest`
+5. `GET /api/device/message-flow/session/{sessionId}`
+6. `GET /api/device/message-flow/trace/{traceId}`
 
 ### 4.3 父设备 / 子设备联调要点
 

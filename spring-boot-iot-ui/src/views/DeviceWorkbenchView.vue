@@ -305,7 +305,6 @@
                 <StandardWorkbenchRowActions
                   variant="table"
                   gap="compact"
-                  distribution="between"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
                   @command="(command) => handleRowAction(command, row)"
@@ -359,227 +358,7 @@
           {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
         </div>
 
-        <section class="detail-panel detail-panel--hero">
-          <div class="detail-section-header">
-            <div>
-              <h3>资产概览</h3>
-              <p>{{ detailIsRegistered ? '设备台账先回答“是否已入库、当前是否在线、是否已激活、是否可继续运维”。' : '未登记设备优先确认最近一次上报发生在什么阶段失败、当前来源于哪条失败归档。' }}</p>
-            </div>
-          </div>
-          <div class="detail-summary-grid">
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '产品归属' : '登记状态' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? detailData.productName || '--' : getRegistrationStatusText(detailData.registrationStatus) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailData.productKey || '--' }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '在线状态' : '最近上报' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getOnlineStatusText(detailData.onlineStatus) : formatDateTime(detailData.lastReportTime) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? formatDateTime(detailData.lastReportTime) : getSourceTypeText(detailData.assetSourceType) }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '激活状态' : '失败阶段' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getActivateStatusText(detailData.activateStatus) : formatTextValue(detailData.lastFailureStage) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '设备可用性基线' : formatTextValue(detailData.lastTraceId) }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '设备状态' : '失败摘要' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getDeviceStatusText(detailData.deviceStatus) : formatTextValue(detailData.lastErrorMessage) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '是否允许继续使用' : formatTextValue(detailData.lastReportTopic) }}</p>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>资产档案</h3>
-              <p>展示设备基础标识、协议、节点类型和部署位置，方便业务与现场核实库存。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">设备 ID</span>
-              <strong class="detail-field__value">{{ detailData.id }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备编码</span>
-              <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备名称</span>
-              <strong class="detail-field__value">{{ detailData.deviceName || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">节点类型</span>
-              <strong class="detail-field__value">{{ getNodeTypeText(detailData.nodeType) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">接入协议</span>
-              <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">固件版本</span>
-              <strong class="detail-field__value">{{ detailData.firmwareVersion || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">IP 地址</span>
-              <strong class="detail-field__value">{{ detailData.ipAddress || '--' }}</strong>
-            </div>
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">部署位置</span>
-              <strong class="detail-field__value detail-field__value--plain">{{ detailData.address || '--' }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>拓扑关系</h3>
-              <p>统一展示父设备和网关归属，便于资产中心直接识别设备是否已纳入父子拓扑。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">父设备</span>
-              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.parentDeviceName, detailData.parentDeviceCode) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">网关设备</span>
-              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.gatewayDeviceName, detailData.gatewayDeviceCode) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">父设备主键</span>
-              <strong class="detail-field__value">{{ formatTextValue(detailData.parentDeviceId) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">网关主键</span>
-              <strong class="detail-field__value">{{ formatTextValue(detailData.gatewayId) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>运维信息</h3>
-              <p>帮助运维与实施快速判断最近在线、离线和上报情况，确认现场是否需要介入。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">最近在线时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOnlineTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">最近离线时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOfflineTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">最近上报时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastReportTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">更新时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.updateTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">创建时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.createTime) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>认证信息</h3>
-              <p>面向接入与排障场景展示 MQTT 基础认证字段，敏感值按掩码形式展示。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">Client ID</span>
-              <strong class="detail-field__value">{{ detailData.clientId || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">用户名</span>
-              <strong class="detail-field__value">{{ detailData.username || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">密码</span>
-              <strong class="detail-field__value">{{ maskSecret(detailData.password) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备密钥</span>
-              <strong class="detail-field__value">{{ maskSecret(detailData.deviceSecret) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>扩展元数据</h3>
-              <p>用于保存库存、站点、维护责任、批次等可扩展信息，后续批量导入和设备更换也可复用该结构。</p>
-            </div>
-          </div>
-          <div class="detail-field detail-field--full">
-            <span class="detail-field__label">metadataJson</span>
-            <pre class="detail-field__value detail-field__value--pre">{{ metadataPreview }}</pre>
-          </div>
-        </section>
-
-        <template v-else>
-          <section class="detail-panel">
-            <div class="detail-section-header">
-              <div>
-                <h3>上报档案</h3>
-                <p>当前设备尚未登记，详情来自最近一次失败归档，只用于确认设备编码、产品标识、协议与 Topic。</p>
-              </div>
-            </div>
-            <div class="detail-grid">
-              <div class="detail-field">
-                <span class="detail-field__label">设备编码</span>
-                <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">产品标识</span>
-                <strong class="detail-field__value">{{ detailData.productKey || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">协议编码</span>
-                <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">来源记录</span>
-                <strong class="detail-field__value">{{ formatTextValue(detailData.sourceRecordId) }}</strong>
-              </div>
-              <div class="detail-field detail-field--full">
-                <span class="detail-field__label">Topic</span>
-                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastReportTopic || '--' }}</strong>
-              </div>
-              <div class="detail-field detail-field--full">
-                <span class="detail-field__label">失败摘要</span>
-                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastErrorMessage || '--' }}</strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="detail-panel">
-            <div class="detail-section-header">
-              <div>
-                <h3>最近载荷</h3>
-                <p>保留最近一次未登记上报的原始载荷，便于后续补建设备主档或回查协议映射。</p>
-              </div>
-            </div>
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">payload</span>
-              <pre class="detail-field__value detail-field__value--pre">{{ prettyJson(detailData.lastPayload || '--') }}</pre>
-            </div>
-          </section>
-        </template>
+        <DeviceDetailWorkbench :device="detailData" />
       </div>
 
       <template #footer>
@@ -828,6 +607,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -894,7 +674,7 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
-import { formatDateTime, prettyJson } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 interface DeviceSearchForm {
@@ -1063,14 +843,13 @@ const detailTitle = computed(() => {
 const detailIsRegistered = computed(() => isRegisteredDeviceRow(detailData.value))
 const detailSubtitle = computed(() =>
   detailIsRegistered.value
-    ? '统一查看设备资产主档、父子拓扑、维护状态、认证字段与扩展元数据。'
+    ? '统一查看设备资产概况、身份部署、运行状态、接入凭据与建档补充。'
     : '当前设备尚未登记，详情来自最近一次失败归档，用于补档和排障。'
 )
 const onlineCount = computed(() => tableData.value.filter((item) => item.onlineStatus === 1).length)
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
 const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
 const registeredCount = computed(() => tableData.value.filter((item) => item.registrationStatus !== 0).length)
-const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
 const deviceOptionMap = computed(() => new Map(deviceOptions.value.map((option) => [normalizeIdKey(option.id), option])))
 const selectedFormProduct = computed(() => productOptions.value.find((product) => product.productKey === formData.productKey) ?? null)
 const selectedFormNodeType = computed(() => selectedFormProduct.value?.nodeType ?? null)
@@ -1500,7 +1279,7 @@ const deviceActionColumnWidth = computed(() => {
           gap: 'compact'
         })
 
-  return Math.max(144, resolvedWidth)
+  return resolvedWidth
 })
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {
@@ -1533,16 +1312,6 @@ function applyQuickSearchKeywordToFilters() {
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.deviceCode || searchForm.deviceName
-}
-
-function maskSecret(value?: string | null) {
-  if (!value) {
-    return '--'
-  }
-  if (value.length <= 4) {
-    return '*'.repeat(value.length)
-  }
-  return `${value.slice(0, 2)}****${value.slice(-2)}`
 }
 
 function resetFormData(source?: Partial<Device>) {

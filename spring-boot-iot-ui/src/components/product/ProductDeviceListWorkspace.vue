@@ -4,13 +4,6 @@
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
     <div v-else class="device-workspace__content">
-      <section class="device-workspace__chapter-header">
-        <div class="device-workspace__summary-copy">
-          <p class="device-workspace__summary-title device-workspace__section-kicker">设备运行概览</p>
-          <h3 class="device-workspace__chapter-title">先看设备规模，再核对关联台账</h3>
-        </div>
-      </section>
-
       <section class="device-workspace__summary-band device-workspace__summary-strip">
         <ul class="device-workspace__metrics device-workspace__metric-band">
           <li
@@ -27,9 +20,8 @@
 
       <section class="device-workspace__table-stage device-workspace__ledger-stage">
         <div class="device-workspace__section-copy device-workspace__ledger-heading">
-          <p class="device-workspace__ledger-kicker">关联设备台账</p>
           <strong>关联设备台账</strong>
-          <small>核对设备身份、在线状态和最近上报。</small>
+          <p class="device-workspace__ledger-intro">核对设备身份、在线状态和最近上报。</p>
         </div>
 
         <div class="device-workspace__table-shell">
@@ -209,55 +201,28 @@ function handleViewDevice(device: Device) {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 241, 0.96));
 }
 
-.device-workspace__chapter-header,
 .device-workspace__summary-band,
 .device-workspace__table-stage {
   display: grid;
   gap: 0.72rem;
-  padding: 1.06rem 1.08rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 6px);
-  background:
-    linear-gradient(180deg, rgba(249, 251, 254, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 16px 34px rgba(28, 53, 87, 0.06);
+  padding: 0.98rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
 }
 
-.device-workspace__summary-copy,
 .device-workspace__section-copy {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.26rem;
 }
 
-.device-workspace__summary-title,
 .device-workspace__section-copy strong {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.16rem;
+  font-size: 1.04rem;
   font-weight: 700;
-  line-height: 1.35;
-}
-
-.device-workspace__chapter-title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: clamp(1.42rem, 2vw, 1.86rem);
-  line-height: 1.14;
-  letter-spacing: -0.02em;
-}
-
-.device-workspace__summary-description,
-.device-workspace__section-copy small {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.7;
-}
-
-.device-workspace__section-kicker {
-  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  line-height: 1.42;
 }
 
 .device-workspace__metrics {
@@ -273,10 +238,10 @@ function handleViewDevice(device: Device) {
   display: grid;
   gap: 0.28rem;
   min-width: 0;
-  padding: 0.94rem 0.98rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--panel-border));
-  border-radius: calc(var(--radius-lg) + 3px);
-  background: rgba(255, 255, 255, 0.92);
+  padding: 0.86rem 0.92rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .device-workspace__metric span {
@@ -294,20 +259,18 @@ function handleViewDevice(device: Device) {
 
 .device-workspace__metric[data-tone='brand'] {
   border-color: color-mix(in srgb, var(--brand) 16%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255, 250, 246, 0.98), rgba(255, 255, 255, 0.96));
+  background: linear-gradient(180deg, rgba(255, 250, 246, 0.98), rgba(255, 255, 255, 0.98));
 }
 
 .device-workspace__ledger-heading {
   gap: 0.22rem;
 }
 
-.device-workspace__ledger-kicker {
+.device-workspace__ledger-intro {
   margin: 0;
-  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.68;
 }
 
 .device-workspace__table-shell {
