@@ -58,62 +58,97 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新字典列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
-        <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
-        <el-table-column prop="dictType" label="字典类型" width="120">
-          <template #default="{ row }">
-            <el-tag :type="getDictTypeTag(row.dictType)">
-              {{ getDictTypeName(row.dictType) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
-        <el-table-column
-          label="操作"
-          :width="dictActionColumnWidth"
-          fixed="right"
-          class-name="standard-row-actions-column"
-          :show-overflow-tooltip="false"
-        >
-          <template #default="{ row }">
-            <StandardWorkbenchRowActions
-              variant="table"
-              :direct-items="getDictRowActions()"
-              @command="(command) => handleDictRowAction(command, row)"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`dict-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`dict-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
+            <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
+            <el-table-column prop="dictType" label="字典类型" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getDictTypeTag(row.dictType)">
+                  {{ getDictTypeName(row.dictType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+            <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
+            <el-table-column
+              label="操作"
+              :width="dictActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getDictRowActions()"
+                  @command="(command) => handleDictRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
 
       <StandardFormDrawer
@@ -275,10 +310,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -336,8 +372,9 @@ const itemsTableData = ref<DictItem[]>([])
 const selectedRows = ref<Dict[]>([])
 const selectedItemRows = ref<DictItem[]>([])
 const currentDictId = ref<IdType>()
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
 const currentDictName = ref('')
+let latestListRequestId = 0
 
 const searchForm = reactive({
   dictName: '',
@@ -458,8 +495,17 @@ const {
     dictType: undefined
   }
 })
+const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的字典记录' : '当前还没有字典数据'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有可展示的数据字典记录，建议稍后刷新，或先新增字典。'
+)
 
 const loadDictPage = async () => {
+  const requestId = ++latestListRequestId
   loading.value = true
   try {
     const res = await pageDicts({
@@ -469,13 +515,26 @@ const loadDictPage = async () => {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data)
+      return
     }
+    tableData.value = []
+    resetTotal()
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return
+    }
+    tableData.value = []
+    resetTotal()
     console.error('获取字典分页失败', error)
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
   }
 }
 
