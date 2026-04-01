@@ -59,10 +59,77 @@ vi.mock('@/api/iot', () => ({
         messageType: 'PROPERTY_REPORT',
         topic: '/demo/topic',
         traceId: 'trace-001',
-        payload: '{"temperature":23.5}',
+        payload: '{"properties":{"temperature":23.5}}',
         reportTime: '2026-03-28 10:05:00'
       }
     ]
+  })
+}));
+
+vi.mock('@/api/riskMonitoring', () => ({
+  getRiskMonitoringList: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 2,
+      pageNum: 1,
+      pageSize: 10,
+      records: [
+        {
+          bindingId: 11,
+          deviceCode: 'demo-device-01',
+          deviceName: '演示设备',
+          riskPointName: '北坡位移监测点',
+          riskLevel: 'INFO',
+          metricIdentifier: 'displacementX',
+          metricName: '位移 X',
+          onlineStatus: 1,
+          latestReportTime: '2026-04-01 08:00:00'
+        },
+        {
+          bindingId: 22,
+          deviceCode: 'demo-device-01',
+          deviceName: '演示设备',
+          riskPointName: '北坡预警点',
+          riskLevel: 'WARNING',
+          metricIdentifier: 'warningLightState',
+          metricName: '预警灯状态',
+          onlineStatus: 1,
+          latestReportTime: '2026-04-01 09:00:00'
+        }
+      ]
+    }
+  }),
+  getRiskMonitoringDetail: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      bindingId: 22,
+      riskPointId: 2,
+      riskPointCode: 'RP-022',
+      riskPointName: '北坡预警点',
+      riskLevel: 'WARNING',
+      deviceId: 1,
+      deviceCode: 'demo-device-01',
+      deviceName: '演示设备',
+      productName: '边坡预警终端',
+      metricIdentifier: 'warningLightState',
+      metricName: '预警灯状态',
+      currentValue: '1',
+      unit: '',
+      valueType: 'int',
+      monitorStatus: 'ALARM',
+      onlineStatus: 1,
+      latestReportTime: '2026-04-01 09:00:00',
+      regionName: '北坡区',
+      address: '北坡 1 号点',
+      activeAlarmCount: 2,
+      recentEventCount: 1,
+      trendPoints: [
+        { reportTime: '2026-04-01 08:00:00', value: '0', numericValue: 0 },
+        { reportTime: '2026-04-01 09:00:00', value: '1', numericValue: 1 }
+      ]
+    }
   })
 }));
 
@@ -135,6 +202,7 @@ const StandardTableTextColumnStub = defineComponent({
       <span>{{ label }}</span>
       <slot
         :row="{
+          identifier: 'temperature',
           propertyName: '温度',
           propertyValue: '23.5',
           valueType: 'double',
@@ -148,6 +216,11 @@ const StandardTableTextColumnStub = defineComponent({
       />
     </div>
   `
+});
+
+const TrendPanelStub = defineComponent({
+  name: 'TrendPanelStub',
+  template: '<section class="trend-panel-stub">属性趋势预览</section>'
 });
 
 function flushPromises() {
@@ -164,14 +237,15 @@ function mountView() {
         StandardListFilterHeader: true,
         StandardInlineState: true,
         StandardButton: true,
-        StandardActionGroup: true,
         MetricCard: true,
         PanelCard: PanelCardStub,
-        PropertyTrendPanel: true,
+        PropertyTrendPanel: TrendPanelStub,
+        RiskInsightTrendPanel: TrendPanelStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
         'el-form-item': true,
         'el-input': true,
         'el-tag': true,
+        'el-segmented': true,
         'el-descriptions': true,
         'el-descriptions-item': true,
         'el-empty': true,
@@ -190,32 +264,33 @@ describe('DeviceInsightView', () => {
     };
   });
 
-  it('renders object insight inside a single calm workbench without legacy English eyebrow tiers', async () => {
+  it('renders risk-monitoring-first insight content and removes legacy action cards', async () => {
     const wrapper = mountView();
 
     await flushPromises();
 
-    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
-
     expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.findAll('.device-insight-workbench-stub')).toHaveLength(1);
-    expect(workbench.props('eyebrow')).toBeUndefined();
-    expect(workbench.props('showFilters')).toBe(true);
-    expect(workbench.props('showInlineState')).toBe(true);
     expect(wrapper.text()).toContain('对象洞察台');
-    expect(wrapper.text()).toContain('当前建议动作');
+    expect(wrapper.text()).toContain('基础档案');
+    expect(wrapper.text()).toContain('研判依据');
+    expect(wrapper.text()).toContain('属性趋势预览');
     expect(wrapper.text()).toContain('关键监测指标');
-    expect(wrapper.text()).toContain('消息日志与审计回看');
-    expect(wrapper.text()).not.toContain('Risk Workbench');
-    expect(wrapper.text()).not.toContain('Instant Focus');
-    expect(wrapper.text()).not.toContain('Point Profile');
-    expect(wrapper.text()).not.toContain('Risk Reasons');
-    expect(wrapper.text()).not.toContain('Field Action');
-    expect(wrapper.text()).not.toContain('O&M Action');
-    expect(wrapper.text()).not.toContain('Dev Action');
-    expect(wrapper.text()).not.toContain('Key Properties');
-    expect(wrapper.text()).not.toContain('Report Draft');
-    expect(wrapper.text()).not.toContain('Latest Properties');
-    expect(wrapper.text()).not.toContain('Message Logs');
+    expect(wrapper.text()).toContain('风险分析草稿');
+    expect(wrapper.text()).toContain('设备属性快照');
+    expect(wrapper.text()).toContain('北坡预警点');
+    expect(wrapper.text()).not.toContain('当前建议动作');
+    expect(wrapper.text()).not.toContain('一线建议');
+    expect(wrapper.text()).not.toContain('运维建议');
+    expect(wrapper.text()).not.toContain('研发建议');
+    expect(wrapper.text()).not.toContain('消息日志与审计回看');
+  });
+
+  it('shows binding switcher when one device hits multiple monitoring bindings', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('监测对象切换');
   });
 });

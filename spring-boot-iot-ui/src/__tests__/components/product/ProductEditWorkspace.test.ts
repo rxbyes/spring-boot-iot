@@ -38,7 +38,7 @@ const ElFormStub = defineComponent({
 })
 
 describe('ProductEditWorkspace', () => {
-  it('renders the edit workspace as a revision board with an exhibition strip and no legacy brief shell', async () => {
+  it('renders the edit workspace as a journal revision section with a ruler and draft sheet', async () => {
     const wrapper = mount(ProductEditWorkspace, {
       props: {
         model: {
@@ -76,18 +76,19 @@ describe('ProductEditWorkspace', () => {
     expect(wrapper.find('.product-edit-workspace__chapter-header').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__headline').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__brief-head').exists()).toBe(false)
-    expect(wrapper.find('.product-edit-workspace__revision-head').exists()).toBe(true)
+    expect(wrapper.find('.product-edit-workspace__revision-head').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__journal-head').exists()).toBe(true)
     expect(wrapper.find('.product-edit-workspace__summary-band').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__section-kicker').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__section-note').text()).toContain('当前变更会直接回写')
     expect(wrapper.find('.product-edit-workspace__brief-band').exists()).toBe(false)
-    expect(wrapper.find('.product-edit-workspace__revision-board').exists()).toBe(true)
-    expect(wrapper.find('.product-edit-workspace__revision-strip').exists()).toBe(true)
-    expect(wrapper.findAll('.product-edit-workspace__revision-item')).toHaveLength(3)
-    expect(wrapper.find('.product-edit-workspace__revision-item small').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__revision-board').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__revision-ruler').exists()).toBe(true)
+    expect(wrapper.findAll('.product-edit-workspace__revision-ruler-item')).toHaveLength(3)
+    expect(wrapper.find('.product-edit-workspace__revision-ruler-item small').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__notice').exists()).toBe(false)
     expect(wrapper.find('.standard-inline-state-stub').exists()).toBe(true)
-    expect(wrapper.find('.product-edit-workspace__form-stage').exists()).toBe(true)
+    expect(wrapper.find('.product-edit-workspace__draft-sheet').exists()).toBe(true)
     expect(wrapper.find('.product-edit-workspace__form-intro').exists()).toBe(false)
     expect(wrapper.text()).toContain('基础档案')
     expect(wrapper.text()).toContain('接入基线')

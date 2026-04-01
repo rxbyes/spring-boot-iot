@@ -11,24 +11,34 @@
     </template>
 
     <section class="product-business-workbench__header">
-      <div class="product-business-workbench__exhibit-head">
-        <div class="product-business-workbench__exhibit-copy">
-          <span class="product-business-workbench__eyebrow">产品展陈</span>
-          <h3 class="product-business-workbench__headline">{{ productHeadline }}</h3>
-          <p class="product-business-workbench__status-statement">{{ statusStatement }}</p>
+      <div class="product-business-workbench__journal-head">
+        <div class="product-business-workbench__journal-masthead">
+          <div class="product-business-workbench__title-column">
+            <span class="product-business-workbench__journal-kicker">产品经营页</span>
+            <h3 class="product-business-workbench__journal-title">{{ productHeadline }}</h3>
+            <p class="product-business-workbench__journal-summary">{{ statusStatement }}</p>
+          </div>
+
+          <div class="product-business-workbench__scale-column">
+            <div class="product-business-workbench__scale-panel">
+              <span class="product-business-workbench__scale-label">核心规模</span>
+              <strong class="product-business-workbench__scale-value">{{ scaleValueText }}</strong>
+              <span class="product-business-workbench__scale-caption">{{ scaleCaption }}</span>
+            </div>
+          </div>
         </div>
 
-        <div v-if="metaItems.length" class="product-business-workbench__meta-inline">
+        <div v-if="metaItems.length" class="product-business-workbench__meta-line">
           <span
             v-for="item in metaItems"
             :key="item.key"
-            class="product-business-workbench__meta-item"
+            class="product-business-workbench__meta-point"
           >
             {{ item.value }}
           </span>
         </div>
 
-        <div class="product-business-workbench__tab-index">
+        <div class="product-business-workbench__tab-strip">
           <nav class="product-business-workbench__tabs" aria-label="产品经营工作台视图">
             <button
               v-for="view in viewOptions"
@@ -94,13 +104,16 @@ import type { Product } from '@/types/api'
 
 export type ProductBusinessWorkbenchView = 'overview' | 'models' | 'devices' | 'edit'
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean
-  activeView: ProductBusinessWorkbenchView
-  product?: Product | null
-}>(), {
-  product: null
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    activeView: ProductBusinessWorkbenchView
+    product?: Product | null
+  }>(),
+  {
+    product: null
+  }
+)
 
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
@@ -138,29 +151,34 @@ const nodeTypeText = computed(() => {
   }
   return '--'
 })
+const totalDevicesText = computed(() => {
+  const count = Number(props.product?.deviceCount ?? 0)
+  return Number.isFinite(count) && count > 0 ? String(count) : '--'
+})
+const scaleCaption = computed(() => (props.product?.status === 0 ? '历史关联设备总量' : '关联设备总量'))
 const statusStatement = computed(() => {
   if (!props.product) {
-    return '选择产品后进入统一经营工作台。'
+    return '选择产品后进入统一产品经营页。'
   }
 
   if (props.product.status === 0) {
-    return '产品已停用，当前以档案核对为主。'
+    return '当前产品处于停用状态，优先核对档案与契约。'
   }
 
   const totalDevices = Number(props.product.deviceCount ?? 0)
   const onlineDevices = Number(props.product.onlineDeviceCount ?? 0)
   if (totalDevices <= 0) {
-    return '产品已建档，待首批设备进入运行。'
+    return '当前已完成建档，等待首批设备进入稳定运行。'
   }
 
   const onlineCoverage = Math.round((onlineDevices / totalDevices) * 100)
   if (onlineCoverage >= 60) {
-    return '接入运行稳定，当前聚焦契约与台账。'
+    return '已进入运行期，当前继续围绕规模、契约与档案校准。'
   }
   if (onlineCoverage > 0) {
-    return '已进入运行期，当前继续提升在线覆盖。'
+    return '运行数据已形成基线，当前继续补齐在线覆盖。'
   }
-  return '已有设备接入，在线覆盖尚未形成稳定基线。'
+  return '已有关联设备，当前仍需补齐在线运行基线。'
 })
 const metaItems = computed(() => {
   const items = [
@@ -188,154 +206,215 @@ const metaItems = computed(() => {
 
   return items.filter((item) => item.visible)
 })
+const scaleValueText = computed(() => totalDevicesText.value)
 </script>
 
 <style scoped>
 .product-business-workbench__header {
-  padding: 1.9rem 2rem 1.3rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  padding: 1.8rem 2rem 1.26rem;
+  border-bottom: 1px solid var(--panel-border);
   background:
-    radial-gradient(circle at top left, rgba(236, 229, 220, 0.58), transparent 28%),
-    linear-gradient(180deg, rgba(248, 245, 239, 0.96), rgba(255, 255, 255, 0.98) 38%),
-    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 22rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-light) 42%, white), rgba(255, 255, 255, 0.98) 54%);
 }
 
-.product-business-workbench__exhibit-head,
-.product-business-workbench__exhibit-copy,
+.product-business-workbench__journal-head,
+.product-business-workbench__journal-masthead,
+.product-business-workbench__title-column,
+.product-business-workbench__scale-panel,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
 }
 
-.product-business-workbench__exhibit-head {
-  gap: 1.24rem;
+.product-business-workbench__journal-head {
+  gap: 0.95rem;
 }
 
-.product-business-workbench__exhibit-copy {
-  gap: 0.6rem;
+.product-business-workbench__journal-masthead {
+  grid-template-columns: minmax(0, 1.2fr) minmax(11rem, 0.8fr);
+  gap: 1.8rem;
+  align-items: start;
 }
 
-.product-business-workbench__eyebrow {
+.product-business-workbench__title-column {
+  gap: 0.54rem;
+}
+
+.product-business-workbench__journal-kicker {
   display: inline-flex;
-  align-items: center;
   width: max-content;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 20%, var(--panel-border));
   color: color-mix(in srgb, var(--brand) 68%, var(--text-caption));
   font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.product-business-workbench__status-statement {
-  margin: 0;
-  max-width: 36rem;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.78;
-}
-
-.product-business-workbench__headline {
+.product-business-workbench__journal-title {
   margin: 0;
   color: var(--text-heading);
-  font-size: clamp(2.1rem, 2.9vw, 2.9rem);
-  line-height: 1.02;
-  letter-spacing: -0.05em;
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  font-size: clamp(2.3rem, 3.1vw, 3.15rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
 }
 
-.product-business-workbench__meta-inline {
+.product-business-workbench__journal-summary {
+  margin: 0;
+  max-width: 38rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.74;
+}
+
+.product-business-workbench__scale-column {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.product-business-workbench__scale-panel {
+  gap: 0.18rem;
+  min-width: 11rem;
+  padding: 0.12rem 0 0.12rem 1.4rem;
+  border-left: 1px solid var(--panel-border);
+  text-align: right;
+}
+
+.product-business-workbench__scale-label,
+.product-business-workbench__scale-caption,
+.product-business-workbench__meta-line {
+  color: var(--text-secondary);
+}
+
+.product-business-workbench__scale-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-business-workbench__scale-value {
+  color: var(--text-heading);
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  font-size: clamp(2.2rem, 3vw, 3rem);
+  line-height: 1;
+}
+
+.product-business-workbench__scale-caption {
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.product-business-workbench__meta-line {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.44rem 0.96rem;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
+  gap: 0.42rem 0.92rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  font-size: 0.78rem;
   line-height: 1.7;
 }
 
-.product-business-workbench__meta-item {
+.product-business-workbench__meta-point {
   position: relative;
-  padding-right: 0.92rem;
+  padding-right: 0.88rem;
 }
 
-.product-business-workbench__meta-item:last-child {
-  padding-right: 0;
-}
-
-.product-business-workbench__meta-item + .product-business-workbench__meta-item::before {
+.product-business-workbench__meta-point::after {
   content: '';
   position: absolute;
-  left: -0.52rem;
   top: 50%;
+  right: 0;
   width: 1px;
-  height: 0.64rem;
+  height: 0.74rem;
   background: color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   transform: translateY(-50%);
 }
 
-.product-business-workbench__tab-index {
-  display: grid;
-  gap: 0.42rem;
-  padding-top: 0.82rem;
-  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+.product-business-workbench__meta-point:last-child {
+  padding-right: 0;
+}
+
+.product-business-workbench__meta-point:last-child::after {
+  display: none;
+}
+
+.product-business-workbench__tab-strip {
+  padding-top: 0.78rem;
+  border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
 .product-business-workbench__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 0.92rem 1.5rem;
 }
 
 .product-business-workbench__tab {
-  min-height: 2rem;
-  padding: 0;
+  position: relative;
+  padding: 0 0 0.58rem;
   border: 0;
-  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.94rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s ease;
 }
 
-.product-business-workbench__tab-label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding-bottom: 0.26rem;
-  border-bottom: 1px solid transparent;
+.product-business-workbench__tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: transparent;
 }
 
 .product-business-workbench__tab--active {
   color: var(--brand);
 }
 
-.product-business-workbench__tab--active .product-business-workbench__tab-label {
-  border-bottom-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
+.product-business-workbench__tab--active::after {
+  background: color-mix(in srgb, var(--brand) 72%, var(--text-heading));
+}
+
+.product-business-workbench__tab-label {
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .product-business-workbench__view-shell {
-  gap: 0.56rem;
-  margin-top: 1.42rem;
-  max-width: 65rem;
-  margin-inline: auto;
+  padding: 1.48rem 2rem 2rem;
 }
 
-@media (max-width: 960px) {
-  .product-business-workbench__tabs {
-    gap: 1rem 1.24rem;
-  }
+.product-business-workbench__view {
+  min-width: 0;
 }
 
-@media (max-width: 720px) {
-  .product-business-workbench__header {
-    padding-inline: 1.2rem;
+@media (max-width: 900px) {
+  .product-business-workbench__header,
+  .product-business-workbench__view-shell {
+    padding-right: 1.2rem;
+    padding-left: 1.2rem;
   }
 
-  .product-business-workbench__tabs {
-    gap: 0.88rem 1rem;
+  .product-business-workbench__journal-masthead {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .product-business-workbench__scale-column {
+    justify-content: flex-start;
+  }
+
+  .product-business-workbench__scale-panel {
+    min-width: 0;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 0.88rem;
+    text-align: left;
   }
 }
 </style>

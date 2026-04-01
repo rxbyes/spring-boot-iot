@@ -33,7 +33,7 @@ const ElTableColumnStub = defineComponent({
 })
 
 describe('ProductDeviceListWorkspace', () => {
-  it('keeps the device ledger as the primary stage and renders an exhibition marquee instead of the current brief band', () => {
+  it('keeps the device registry as the primary stage and renders a journal ruler instead of the current marquee', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
       props: {
         product: {
@@ -76,19 +76,20 @@ describe('ProductDeviceListWorkspace', () => {
     expect(wrapper.text()).toContain('在线比例')
     expect(wrapper.find('.device-workspace__summary-strip').exists()).toBe(false)
     expect(wrapper.find('.device-workspace__brief-band').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__ledger-marquee').exists()).toBe(true)
-    expect(wrapper.find('.device-workspace__marquee-metrics').exists()).toBe(true)
-    expect(wrapper.findAll('.device-workspace__marquee-item')).toHaveLength(4)
-    expect(wrapper.find('.device-workspace__ledger-stage').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__ledger-marquee').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ledger-ruler').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__ruler-metrics').exists()).toBe(true)
+    expect(wrapper.findAll('.device-workspace__ruler-item')).toHaveLength(4)
+    expect(wrapper.find('.device-workspace__registry-sheet').exists()).toBe(true)
     expect(wrapper.find('.device-drawer__summary').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__ledger-heading').text()).toContain('设备清册')
-    expect((wrapper.text().match(/关联设备台账/g) || []).length).toBe(1)
+    expect(wrapper.find('.device-workspace__registry-heading').text()).toContain('设备清册')
+    expect(wrapper.text()).not.toContain('关联设备台账')
     expect(wrapper.find('.device-workspace__ledger-intro').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__marquee-item small').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__marquee-item[data-tone="brand"]').exists()).toBe(true)
-    expect(wrapper.find('.device-workspace__marquee-item[data-tone="success"]').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__marquee-item[data-tone="danger"]').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__marquee-item[data-tone="accent"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ruler-item small').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ruler-item[data-tone="brand"]').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__ruler-item[data-tone="success"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ruler-item[data-tone="danger"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ruler-item[data-tone="accent"]').exists()).toBe(false)
     expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toHaveLength(1)
 
     const actionColumn = wrapper
