@@ -34,6 +34,8 @@ public class ProductModelGovernanceCompareDTO {
 
         private String dataType;
 
+        private String specsJson;
+
         private String eventType;
 
         private String serviceInputJson;

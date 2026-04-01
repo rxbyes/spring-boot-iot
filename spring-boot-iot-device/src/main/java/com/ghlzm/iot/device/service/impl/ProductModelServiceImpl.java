@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.CommandRecord;
@@ -23,6 +24,7 @@ import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -153,6 +155,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final DevicePropertyMapper devicePropertyMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final CommandRecordMapper commandRecordMapper;
+    private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
@@ -248,6 +251,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 snapshot.deviceCode(),
                 snapshot.ignoredFieldCount()
         );
+    }
+
+    @Override
+    public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
+        Product product = getRequiredProduct(productId);
+        List<ProductModel> existingModels = listActiveModels(productId);
+        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(productId, existingModels.size(), dto);
+        ProductModelCandidateResultVO runtimeResult = shouldLoadRuntimeCandidates(dto)
+                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size())
+                : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
+        return governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
     }
 
     @Override
@@ -422,6 +436,335 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         result.setEventCandidates(eventBundle.candidates());
         result.setServiceCandidates(serviceBundle.candidates());
         return result;
+    }
+
+    private ProductModelCandidateResultVO buildManualGovernanceCandidates(Long productId,
+                                                                          int existingModelCount,
+                                                                          ProductModelGovernanceCompareDTO dto) {
+        ProductModelCandidateResultVO result = dto != null && dto.getManualExtract() != null
+                ? manualExtractGovernanceCandidates(productId, existingModelCount, dto.getManualExtract())
+                : emptyCandidateResult(productId, existingModelCount, EXTRACTION_MODE_MANUAL);
+        mergeManualDraftItems(result, dto == null ? List.of() : dto.getManualDraftItems());
+        refreshCandidateSummary(result, existingModelCount);
+        return result;
+    }
+
+    private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Long productId,
+                                                                           Product product,
+                                                                           int existingModelCount) {
+        List<Device> devices = listActiveDevices(productId);
+        List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
+        List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
+
+        PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(properties, logs, Set.of());
+        EventEvidenceBundle eventBundle = collectEventCandidates(logs, Set.of());
+        ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, Set.of());
+        return buildCandidateResult(
+                productId,
+                existingModelCount,
+                propertyBundle,
+                eventBundle,
+                serviceBundle,
+                EXTRACTION_MODE_RUNTIME,
+                null,
+                null,
+                0
+        );
+    }
+
+    private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Long productId,
+                                                                            int existingModelCount,
+                                                                            ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
+        ManualSampleSnapshot snapshot = parseManualSample(toManualExtractDTO(manualExtract));
+        PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, Set.of());
+        EventEvidenceBundle eventBundle = new EventEvidenceBundle(
+                List.of(),
+                0,
+                "手动提炼当前仅生成属性候选，事件请在正式模型中人工补充。"
+        );
+        ServiceEvidenceBundle serviceBundle = new ServiceEvidenceBundle(
+                List.of(),
+                0,
+                "手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。"
+        );
+        return buildCandidateResult(
+                productId,
+                existingModelCount,
+                propertyBundle,
+                eventBundle,
+                serviceBundle,
+                EXTRACTION_MODE_MANUAL,
+                snapshot.sampleType(),
+                snapshot.deviceCode(),
+                snapshot.ignoredFieldCount()
+        );
+    }
+
+    private ProductModelManualExtractDTO toManualExtractDTO(ProductModelGovernanceCompareDTO.ManualExtractInput input) {
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType(input.getSampleType());
+        dto.setSamplePayload(input.getSamplePayload());
+        return dto;
+    }
+
+    private boolean shouldLoadRuntimeCandidates(ProductModelGovernanceCompareDTO dto) {
+        return dto == null || dto.getIncludeRuntimeCandidates() == null || dto.getIncludeRuntimeCandidates();
+    }
+
+    private ProductModelCandidateResultVO emptyCandidateResult(Long productId, int existingModelCount, String extractionMode) {
+        return buildCandidateResult(
+                productId,
+                existingModelCount,
+                new PropertyEvidenceBundle(List.of(), 0, 0),
+                new EventEvidenceBundle(List.of(), 0, null),
+                new ServiceEvidenceBundle(List.of(), 0, null),
+                extractionMode,
+                null,
+                null,
+                0
+        );
+    }
+
+    private void mergeManualDraftItems(ProductModelCandidateResultVO result,
+                                       List<ProductModelGovernanceCompareDTO.ManualDraftItem> items) {
+        if (result == null || items == null || items.isEmpty()) {
+            return;
+        }
+        Map<String, ProductModelCandidateVO> propertyMap = toCandidateMap(result.getPropertyCandidates());
+        Map<String, ProductModelCandidateVO> eventMap = toCandidateMap(result.getEventCandidates());
+        Map<String, ProductModelCandidateVO> serviceMap = toCandidateMap(result.getServiceCandidates());
+        for (ProductModelGovernanceCompareDTO.ManualDraftItem item : items) {
+            ProductModelCandidateVO candidate = toManualDraftCandidate(item);
+            Map<String, ProductModelCandidateVO> targetMap = resolveCandidateMap(propertyMap, eventMap, serviceMap, candidate.getModelType());
+            String key = governanceCandidateKey(candidate.getModelType(), candidate.getIdentifier());
+            ProductModelCandidateVO existing = targetMap.get(key);
+            targetMap.put(key, existing == null ? candidate : mergeManualCandidate(existing, candidate));
+        }
+        result.setPropertyCandidates(sortGovernanceCandidates(propertyMap.values()));
+        result.setEventCandidates(sortGovernanceCandidates(eventMap.values()));
+        result.setServiceCandidates(sortGovernanceCandidates(serviceMap.values()));
+    }
+
+    private Map<String, ProductModelCandidateVO> resolveCandidateMap(Map<String, ProductModelCandidateVO> propertyMap,
+                                                                     Map<String, ProductModelCandidateVO> eventMap,
+                                                                     Map<String, ProductModelCandidateVO> serviceMap,
+                                                                     String modelType) {
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return eventMap;
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return serviceMap;
+        }
+        return propertyMap;
+    }
+
+    private Map<String, ProductModelCandidateVO> toCandidateMap(List<ProductModelCandidateVO> candidates) {
+        Map<String, ProductModelCandidateVO> map = new LinkedHashMap<>();
+        for (ProductModelCandidateVO candidate : candidates == null ? List.<ProductModelCandidateVO>of() : candidates) {
+            map.put(governanceCandidateKey(candidate.getModelType(), candidate.getIdentifier()), candidate);
+        }
+        return map;
+    }
+
+    private String governanceCandidateKey(String modelType, String identifier) {
+        return normalizeModelType(modelType) + "::" + normalizeRequired(identifier, "物模型标识");
+    }
+
+    private List<ProductModelCandidateVO> sortGovernanceCandidates(Collection<ProductModelCandidateVO> candidates) {
+        return candidates.stream()
+                .sorted(Comparator
+                        .comparing(ProductModelCandidateVO::getNeedsReview, Comparator.nullsLast(Boolean::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private ProductModelCandidateVO mergeManualCandidate(ProductModelCandidateVO existing, ProductModelCandidateVO overlay) {
+        ProductModelCandidateVO merged = new ProductModelCandidateVO();
+        merged.setModelType(existing.getModelType());
+        merged.setIdentifier(existing.getIdentifier());
+        merged.setModelName(firstNonNull(overlay.getModelName(), existing.getModelName()));
+        merged.setDataType(firstNonNull(overlay.getDataType(), existing.getDataType()));
+        merged.setSpecsJson(firstNonNull(overlay.getSpecsJson(), existing.getSpecsJson()));
+        merged.setEventType(firstNonNull(overlay.getEventType(), existing.getEventType()));
+        merged.setServiceInputJson(firstNonNull(overlay.getServiceInputJson(), existing.getServiceInputJson()));
+        merged.setServiceOutputJson(firstNonNull(overlay.getServiceOutputJson(), existing.getServiceOutputJson()));
+        merged.setSortNo(firstNonNull(overlay.getSortNo(), existing.getSortNo()));
+        merged.setRequiredFlag(firstNonNull(overlay.getRequiredFlag(), existing.getRequiredFlag()));
+        merged.setDescription(firstNonNull(overlay.getDescription(), existing.getDescription()));
+        merged.setGroupKey(firstNonNull(overlay.getGroupKey(), existing.getGroupKey()));
+        merged.setConfidence(firstNonNull(overlay.getConfidence(), existing.getConfidence()));
+        merged.setNeedsReview(Boolean.TRUE.equals(existing.getNeedsReview()) || Boolean.TRUE.equals(overlay.getNeedsReview()));
+        merged.setCandidateStatus(Boolean.TRUE.equals(merged.getNeedsReview()) ? STATUS_NEEDS_REVIEW : STATUS_READY);
+        merged.setReviewReason(firstNonNull(overlay.getReviewReason(), existing.getReviewReason()));
+        merged.setEvidenceCount(firstNonNull(existing.getEvidenceCount(), 0) + firstNonNull(overlay.getEvidenceCount(), 0));
+        merged.setMessageEvidenceCount(firstNonNull(existing.getMessageEvidenceCount(), 0)
+                + firstNonNull(overlay.getMessageEvidenceCount(), 0));
+        merged.setLastReportTime(resolveLaterTime(existing.getLastReportTime(), overlay.getLastReportTime()));
+        LinkedHashSet<String> sources = new LinkedHashSet<>();
+        if (existing.getSourceTables() != null) {
+            sources.addAll(existing.getSourceTables());
+        }
+        if (overlay.getSourceTables() != null) {
+            sources.addAll(overlay.getSourceTables());
+        }
+        merged.setSourceTables(new ArrayList<>(sources));
+        return merged;
+    }
+
+    private ProductModelCandidateVO toManualDraftCandidate(ProductModelGovernanceCompareDTO.ManualDraftItem item) {
+        String modelType = normalizeModelType(normalizeOptional(item.getModelType()) == null ? MODEL_TYPE_PROPERTY : item.getModelType());
+        String identifier = normalizeRequired(item.getIdentifier(), "物模型标识");
+        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
+        candidate.setModelType(modelType);
+        candidate.setIdentifier(identifier);
+        candidate.setModelName(resolveManualDraftModelName(modelType, identifier, item.getModelName()));
+        candidate.setDataType(MODEL_TYPE_PROPERTY.equals(modelType)
+                ? normalizeOptional(item.getDataType())
+                : null);
+        candidate.setSpecsJson(MODEL_TYPE_PROPERTY.equals(modelType)
+                ? validateJsonField(item.getSpecsJson(), "specsJson")
+                : null);
+        candidate.setEventType(MODEL_TYPE_EVENT.equals(modelType) ? normalizeOptional(item.getEventType()) : null);
+        candidate.setServiceInputJson(MODEL_TYPE_SERVICE.equals(modelType)
+                ? validateJsonField(item.getServiceInputJson(), "serviceInputJson")
+                : null);
+        candidate.setServiceOutputJson(MODEL_TYPE_SERVICE.equals(modelType)
+                ? validateJsonField(item.getServiceOutputJson(), "serviceOutputJson")
+                : null);
+        candidate.setSortNo(resolveManualDraftSortNo(modelType, identifier));
+        candidate.setRequiredFlag(0);
+        candidate.setDescription(resolveManualDraftDescription(modelType, identifier, item.getDescription()));
+        candidate.setGroupKey(resolveManualDraftGroupKey(modelType, identifier));
+        boolean needsReview = MODEL_TYPE_PROPERTY.equals(modelType)
+                && (isSuspiciousIdentifier(identifier) || "unknown".equals(candidate.getGroupKey()));
+        candidate.setConfidence(resolveManualDraftConfidence(modelType, candidate.getGroupKey(), needsReview));
+        candidate.setNeedsReview(needsReview);
+        candidate.setCandidateStatus(needsReview ? STATUS_NEEDS_REVIEW : STATUS_READY);
+        candidate.setReviewReason(needsReview ? "命名需人工归一后再入正式契约" : null);
+        candidate.setEvidenceCount(1);
+        candidate.setMessageEvidenceCount(0);
+        candidate.setLastReportTime(LocalDateTime.now());
+        candidate.setSourceTables(new ArrayList<>(List.of("manual_draft")));
+        return candidate;
+    }
+
+    private String resolveManualDraftModelName(String modelType, String identifier, String modelName) {
+        String normalizedName = normalizeOptional(modelName);
+        if (normalizedName != null) {
+            return normalizedName;
+        }
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return suggestEventName(identifier);
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return suggestServiceName(identifier);
+        }
+        String groupKey = classifyPropertyGroup(identifier);
+        return suggestPropertyModelName(identifier, null, groupKey);
+    }
+
+    private Integer resolveManualDraftSortNo(String modelType, String identifier) {
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return 410;
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return 510;
+        }
+        return defaultSortNo(classifyPropertyGroup(identifier));
+    }
+
+    private String resolveManualDraftDescription(String modelType, String identifier, String description) {
+        String normalizedDescription = normalizeOptional(description);
+        if (normalizedDescription != null) {
+            return normalizedDescription;
+        }
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return "来源于人工补录候选，建议与真实事件证据对照后再纳入正式契约。";
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return "来源于人工补录候选，建议补齐服务入参与回执结构后再纳入正式契约。";
+        }
+        return buildPropertyDescription(
+                identifier,
+                suggestPropertyModelName(identifier, null, classifyPropertyGroup(identifier)),
+                classifyPropertyGroup(identifier),
+                isSuspiciousIdentifier(identifier) || "unknown".equals(classifyPropertyGroup(identifier)),
+                EXTRACTION_MODE_MANUAL
+        );
+    }
+
+    private String resolveManualDraftGroupKey(String modelType, String identifier) {
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return "event";
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return "service";
+        }
+        return classifyPropertyGroup(identifier);
+    }
+
+    private Double resolveManualDraftConfidence(String modelType, String groupKey, boolean needsReview) {
+        if (MODEL_TYPE_EVENT.equals(modelType)) {
+            return 0.78D;
+        }
+        if (MODEL_TYPE_SERVICE.equals(modelType)) {
+            return 0.74D;
+        }
+        return resolveConfidence(groupKey, needsReview, false);
+    }
+
+    private void refreshCandidateSummary(ProductModelCandidateResultVO result, int existingModelCount) {
+        if (result == null) {
+            return;
+        }
+        ProductModelCandidateSummaryVO summary = result.getSummary();
+        if (summary == null) {
+            summary = new ProductModelCandidateSummaryVO();
+            result.setSummary(summary);
+        }
+        summary.setPropertyEvidenceCount(countEvidence(result.getPropertyCandidates()));
+        summary.setPropertyCandidateCount(result.getPropertyCandidates().size());
+        summary.setEventEvidenceCount(countEvidence(result.getEventCandidates()));
+        summary.setEventCandidateCount(result.getEventCandidates().size());
+        summary.setServiceEvidenceCount(countEvidence(result.getServiceCandidates()));
+        summary.setServiceCandidateCount(result.getServiceCandidates().size());
+        summary.setNeedsReviewCount(countNeedsReview(result.getPropertyCandidates())
+                + countNeedsReview(result.getEventCandidates())
+                + countNeedsReview(result.getServiceCandidates()));
+        summary.setExistingModelCount(existingModelCount);
+        if (summary.getCreatedCount() == null) {
+            summary.setCreatedCount(0);
+        }
+        if (summary.getSkippedCount() == null) {
+            summary.setSkippedCount(0);
+        }
+        if (summary.getConflictCount() == null) {
+            summary.setConflictCount(0);
+        }
+        summary.setLastExtractedAt(LocalDateTime.now());
+    }
+
+    private int countEvidence(List<ProductModelCandidateVO> candidates) {
+        return candidates.stream()
+                .map(ProductModelCandidateVO::getEvidenceCount)
+                .filter(value -> value != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+    }
+
+    private LocalDateTime resolveLaterTime(LocalDateTime first, LocalDateTime second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null) {
+            return first;
+        }
+        return second.isAfter(first) ? second : first;
+    }
+
+    private <T> T firstNonNull(T preferred, T fallback) {
+        return preferred != null ? preferred : fallback;
     }
 
     private PropertyEvidenceBundle collectManualPropertyCandidates(ManualSampleSnapshot snapshot, Set<String> existingIdentifiers) {
