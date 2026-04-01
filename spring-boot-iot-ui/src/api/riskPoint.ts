@@ -11,6 +11,8 @@ export interface RiskPoint {
       id: IdType;
       riskPointCode: string;
       riskPointName: string;
+      orgId: IdType;
+      orgName: string;
       regionId: IdType;
       regionName: string;
       responsibleUser: number;
