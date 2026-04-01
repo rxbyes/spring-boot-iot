@@ -78,54 +78,86 @@
         </StandardTableToolbar>
       </template>
 
-      <div v-if="loading" class="ops-state">正在加载告警列表...</div>
-      <div v-else-if="alarmList.length === 0" class="ops-state">暂无符合条件的告警记录</div>
-      <template v-else>
-        <el-table ref="tableRef" :data="pagedAlarmList" border stripe @selection-change="handleSelectionChange">
-          <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="alarmCode" label="告警编号" :width="180" />
-          <StandardTableTextColumn prop="alarmTitle" label="告警标题" :min-width="220" />
-          <el-table-column prop="alarmLevel" label="告警等级" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
-          <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-          <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
-          <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
-          <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
-          <StandardTableTextColumn prop="thresholdValue" label="阈值" :width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
-          <el-table-column
-            label="操作"
-            :width="alarmActionColumnWidth"
-            fixed="right"
-            class-name="standard-row-actions-column"
-            :show-overflow-tooltip="false"
-          >
-            <template #default="{ row }">
-              <StandardWorkbenchRowActions
-                variant="table"
-                :direct-items="getAlarmDirectActions(row)"
-                @command="(command) => handleAlarmRowAction(command, row)"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新告警列表"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`alarm-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`alarm-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table ref="tableRef" :data="pagedAlarmList" border stripe @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="alarmCode" label="告警编号" :width="180" />
+            <StandardTableTextColumn prop="alarmTitle" label="告警标题" :min-width="220" />
+            <el-table-column prop="alarmLevel" label="告警等级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
+            <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
+            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
+            <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
+            <StandardTableTextColumn prop="thresholdValue" label="阈值" :width="120" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
+            <el-table-column
+              label="操作"
+              :width="alarmActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getAlarmDirectActions(row)"
+                  @command="(command) => handleAlarmRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <div class="ops-pagination">
+        <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -157,6 +189,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardActionMenu from '@/components/StandardActionMenu.vue';
 import StandardPageShell from '@/components/StandardPageShell.vue';
@@ -221,6 +254,7 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+let latestListRequestId = 0;
 const alarmActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidthByRows({
     rows: pagedAlarmList.value.map((row) => ({
@@ -282,6 +316,14 @@ const appliedFilters = reactive({
 
 const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
 const pagedAlarmList = computed(() => applyLocalRecords(alarmList.value));
+const hasRecords = computed(() => alarmList.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的告警记录' : '当前还没有告警记录'));
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有告警记录，建议先刷新列表，或检查监测阈值、联动规则和设备上报链路。'
+);
 
 const getAlarmLevelType = (level: string) => {
   switch (level) {
@@ -359,6 +401,7 @@ const {
 });
 
 const loadAlarmList = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const statusValue = appliedFilters.status === '' ? undefined : Number(appliedFilters.status);
@@ -369,6 +412,9 @@ const loadAlarmList = async () => {
       status: normalizedStatus
     });
 
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     if (res.code === 200) {
       alarmList.value = res.data || [];
       setTotal(alarmList.value.length);
@@ -378,9 +424,20 @@ const loadAlarmList = async () => {
       stats.value.closedAlarms = alarmList.value.filter((a) => a.status === 3).length;
     }
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    alarmList.value = [];
+    setTotal(0);
+    stats.value.todayAlarms = 0;
+    stats.value.unconfirmedAlarms = 0;
+    stats.value.confirmedAlarms = 0;
+    stats.value.closedAlarms = 0;
     console.error('查询告警列表失败', error);
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 

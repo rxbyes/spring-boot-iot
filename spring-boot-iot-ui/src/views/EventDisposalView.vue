@@ -79,53 +79,85 @@
         </StandardTableToolbar>
       </template>
 
-      <div v-if="loading" class="ops-state">正在加载事件列表...</div>
-      <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
-      <template v-else>
-        <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
-          <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
-          <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
-          <el-table-column prop="riskLevel" label="风险等级" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
-          <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-          <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
-          <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
-          <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
-          <el-table-column
-            label="操作"
-            :width="eventActionColumnWidth"
-            fixed="right"
-            class-name="standard-row-actions-column"
-            :show-overflow-tooltip="false"
-          >
-            <template #default="{ row }">
-              <StandardWorkbenchRowActions
-                variant="table"
-                :direct-items="getEventRowActions(row)"
-                @command="(command) => handleEventRowAction(command, row)"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新事件列表"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`event-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`event-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
+            <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
+            <el-table-column prop="riskLevel" label="风险等级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
+            <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
+            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
+            <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
+            <el-table-column
+              label="操作"
+              :width="eventActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getEventRowActions(row)"
+                  @command="(command) => handleEventRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <div class="ops-pagination">
+        <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -213,6 +245,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardActionMenu from '@/components/StandardActionMenu.vue';
@@ -283,6 +316,7 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+let latestListRequestId = 0;
 const eventActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidthByRows({
     rows: pagedEventList.value.map((row) => ({
@@ -343,6 +377,14 @@ const appliedFilters = reactive({
 
 const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
 const pagedEventList = computed(() => applyLocalRecords(eventList.value));
+const hasRecords = computed(() => eventList.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的事件记录' : '当前还没有事件记录'));
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有事件记录，建议先刷新列表，或检查告警转事件和闭环处置链路是否正常。'
+);
 
 const dispatchForm = reactive({
   dispatchUserName: '系统管理员',
@@ -436,6 +478,7 @@ const {
 });
 
 const loadEventList = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const params: { deviceCode?: string; riskLevel?: string; status?: number } = {};
@@ -444,6 +487,9 @@ const loadEventList = async () => {
     if (appliedFilters.status) params.status = parseInt(appliedFilters.status, 10);
 
     const res = await getEventList(params);
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     if (res.code === 200) {
       eventList.value = res.data || [];
       setTotal(eventList.value.length);
@@ -453,9 +499,20 @@ const loadEventList = async () => {
       stats.value.closedEvents = eventList.value.filter((e) => e.status === 4).length;
     }
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    eventList.value = [];
+    setTotal(0);
+    stats.value.pendingEvents = 0;
+    stats.value.dispatchedEvents = 0;
+    stats.value.processingEvents = 0;
+    stats.value.closedEvents = 0;
     console.error('查询事件列表失败', error);
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 

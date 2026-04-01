@@ -64,59 +64,91 @@
         </StandardTableToolbar>
       </template>
 
-      <div v-if="loading" class="ops-state">正在加载联动编排列表...</div>
-      <div v-else-if="ruleList.length === 0" class="ops-state">暂无符合条件的联动编排</div>
-      <template v-else>
-        <el-table
-          ref="tableRef"
-          :data="ruleList"
-          border
-          stripe
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
-          <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
-          <StandardTableTextColumn label="触发条件" :min-width="180">
-            <template #default="{ row }">
-              {{ row.triggerCondition || '--' }}
-            </template>
-          </StandardTableTextColumn>
-          <StandardTableTextColumn label="动作列表" :min-width="180">
-            <template #default="{ row }">
-              {{ row.actionList || '--' }}
-            </template>
-          </StandardTableTextColumn>
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
-          <el-table-column
-            label="操作"
-            :width="linkageActionColumnWidth"
-            fixed="right"
-            class-name="standard-row-actions-column"
-            :show-overflow-tooltip="false"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新联动编排列表"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`linkage-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`linkage-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="ruleList"
+            border
+            stripe
+            @selection-change="handleSelectionChange"
           >
-            <template #default="{ row }">
-              <StandardWorkbenchRowActions
-                variant="table"
-                :direct-items="getLinkageRowActions()"
-                @command="(command) => handleLinkageRowAction(command, row)"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+            <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
+            <StandardTableTextColumn label="触发条件" :min-width="180">
+              <template #default="{ row }">
+                {{ row.triggerCondition || '--' }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn label="动作列表" :min-width="180">
+              <template #default="{ row }">
+                {{ row.actionList || '--' }}
+              </template>
+            </StandardTableTextColumn>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
+            <el-table-column
+              label="操作"
+              :width="linkageActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getLinkageRowActions()"
+                  @command="(command) => handleLinkageRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="add" @click="handleAdd">新增规则</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <div class="ops-pagination">
+        <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -192,6 +224,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
+import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
@@ -253,10 +286,19 @@ const rules = {
 
 const submitLoading = ref(false);
 const linkageAdvice = '优先检查启用规则的触发条件与动作编排完整性';
+let latestListRequestId = 0;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
 const triggerConfiguredCount = computed(() => ruleList.value.filter((item) => Boolean(item.triggerCondition)).length);
 const actionConfiguredCount = computed(() => ruleList.value.filter((item) => Boolean(item.actionList)).length);
+const hasRecords = computed(() => ruleList.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的联动编排' : '还没有联动编排'));
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
+    : '当前还没有联动编排，先新增规则，再继续配置触发条件和动作编排。'
+);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -299,6 +341,7 @@ const {
 });
 
 const loadRuleList = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const res = await pageRuleList({
@@ -307,13 +350,21 @@ const loadRuleList = async () => {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     });
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     if (res.code === 200) {
       ruleList.value = applyPageResult(res.data);
     }
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     console.error('查询规则列表失败', error);
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 
