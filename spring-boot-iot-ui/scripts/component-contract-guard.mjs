@@ -42,7 +42,7 @@ const governedColumnAllowlist = new Map([
   ],
   [
     path.join(viewsRoot, 'RiskPointView.vue'),
-    new Set(['风险等级', '状态', '操作'])
+    new Set(['所属组织', '风险等级', '状态', '操作'])
   ],
   [
     path.join(viewsRoot, 'RuleDefinitionView.vue'),

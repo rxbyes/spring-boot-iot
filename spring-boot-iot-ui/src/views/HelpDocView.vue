@@ -71,72 +71,107 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新帮助文档列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="title" label="文档标题" :min-width="220" />
-        <el-table-column prop="docCategory" label="文档分类" width="110">
-          <template #default="{ row }">
-            <el-tag :type="categoryTagType(row.docCategory)">
-              {{ getCategoryLabel(row.docCategory) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn label="可见角色" :min-width="200">
-          <template #default="{ row }">
-            {{ getRoleSummary(row.visibleRoleCodes) }}
-          </template>
-        </StandardTableTextColumn>
-        <StandardTableTextColumn label="关联页面" :min-width="220">
-          <template #default="{ row }">
-            {{ getRelatedPathSummary(row.relatedPaths) }}
-          </template>
-        </StandardTableTextColumn>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-        <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
-        <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
-        <el-table-column
-          label="操作"
-          :width="helpDocActionColumnWidth"
-          fixed="right"
-          class-name="standard-row-actions-column"
-          :show-overflow-tooltip="false"
-        >
-          <template #default="{ row }">
-            <StandardWorkbenchRowActions
-              variant="table"
-              :direct-items="getHelpDocRowActions()"
-              @command="(command) => handleHelpDocRowAction(command, row)"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`help-doc-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`help-doc-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="title" label="文档标题" :min-width="220" />
+            <el-table-column prop="docCategory" label="文档分类" width="110">
+              <template #default="{ row }">
+                <el-tag :type="categoryTagType(row.docCategory)">
+                  {{ getCategoryLabel(row.docCategory) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn label="可见角色" :min-width="200">
+              <template #default="{ row }">
+                {{ getRoleSummary(row.visibleRoleCodes) }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn label="关联页面" :min-width="220">
+              <template #default="{ row }">
+                {{ getRelatedPathSummary(row.relatedPaths) }}
+              </template>
+            </StandardTableTextColumn>
+            <el-table-column prop="status" label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? '启用' : '停用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+            <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180" />
+            <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
+            <el-table-column
+              label="操作"
+              :width="helpDocActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getHelpDocRowActions()"
+                  @command="(command) => handleHelpDocRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
 
       <StandardDetailDrawer
@@ -340,6 +375,7 @@ import {
   type HelpDocumentRecord
 } from '@/api/helpDoc'
 import { listRoles, type Role } from '@/api/role'
+import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -399,7 +435,8 @@ const detailRecord = ref<HelpDocumentRecord | null>(null)
 const tableData = ref<HelpDocumentRecord[]>([])
 const selectedRows = ref<HelpDocumentRecord[]>([])
 const roleOptions = ref<Role[]>([])
-const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
+const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, resetTotal } = useServerPagination()
+let latestListRequestId = 0
 
 const searchForm = reactive<SearchFormState>({
   title: '',
@@ -478,6 +515,14 @@ const {
     status: undefined
   }
 })
+const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的帮助文档' : '当前还没有帮助文档'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有可展示的帮助文档记录，建议稍后刷新，或先新增文档。'
+)
 
 function createEmptyForm(): HelpDocFormState {
   return {
@@ -570,6 +615,7 @@ async function loadRoleOptions() {
 }
 
 async function loadHelpDocPage() {
+  const requestId = ++latestListRequestId
   loading.value = true
   try {
     const response = await pageHelpDocuments({
@@ -579,14 +625,27 @@ async function loadHelpDocPage() {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (response.code === 200 && response.data) {
       tableData.value = applyPageResult(response.data)
+      return
     }
+    tableData.value = []
+    resetTotal()
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return
+    }
+    tableData.value = []
+    resetTotal()
     console.error('获取帮助文档分页失败', error)
     ElMessage.error((error as Error).message || '获取帮助文档分页失败')
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
   }
 }
 
