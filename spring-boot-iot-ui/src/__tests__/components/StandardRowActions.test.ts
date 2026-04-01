@@ -26,7 +26,7 @@ afterAll(() => {
 })
 
 describe('StandardRowActions', () => {
-  it('right-aligns shared table action cells to keep the trailing gutter consistent', () => {
+  it('left-aligns shared table action cells to keep the leading gutter consistent', () => {
     const host = document.createElement('div')
     host.innerHTML = `
       <div class="standard-row-actions-column">
@@ -42,7 +42,7 @@ describe('StandardRowActions', () => {
 
     const cell = host.querySelector('.cell')
     expect(cell).not.toBeNull()
-    expect(window.getComputedStyle(cell as Element).textAlign).toBe('right')
+    expect(window.getComputedStyle(cell as Element).textAlign).toBe('left')
 
     host.remove()
   })
@@ -61,6 +61,56 @@ describe('StandardRowActions', () => {
     expect(wrapper.classes()).toContain('standard-row-actions')
     expect(wrapper.classes()).toContain('standard-row-actions--variant-table')
     expect(wrapper.classes()).toContain('standard-row-actions--wide')
+  })
+
+  it('uses the table variant as a full-width left-aligned action rail', () => {
+    const host = document.createElement('div')
+    host.style.width = '160px'
+    document.body.appendChild(host)
+
+    const wrapper = mount(StandardRowActions, {
+      props: {
+        variant: 'table',
+        gap: 'wide'
+      },
+      slots: {
+        default: '<button class="el-button standard-button">详情</button>'
+      },
+      attachTo: host
+    })
+
+    const styles = window.getComputedStyle(wrapper.element)
+
+    expect(styles.width).toBe('100%')
+    expect(styles.justifyContent).toBe('flex-start')
+
+    wrapper.unmount()
+    host.remove()
+  })
+
+  it('centers a single-action table rail when the shared distribution is center', () => {
+    const host = document.createElement('div')
+    host.style.width = '96px'
+    document.body.appendChild(host)
+
+    const wrapper = mount(StandardRowActions, {
+      props: {
+        variant: 'table',
+        gap: 'wide',
+        distribution: 'center'
+      },
+      slots: {
+        default: '<button class="el-button standard-button">详情</button>'
+      },
+      attachTo: host
+    })
+
+    const styles = window.getComputedStyle(wrapper.element)
+
+    expect(styles.justifyContent).toBe('center')
+
+    wrapper.unmount()
+    host.remove()
   })
 
   it('adds the between-distribution class when table actions need equal spacing', () => {

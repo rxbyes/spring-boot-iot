@@ -11,23 +11,24 @@
     </template>
 
     <section class="product-business-workbench__header">
-      <div class="product-business-workbench__header-brief">
-        <div class="product-business-workbench__identity">
+      <div class="product-business-workbench__exhibit-head">
+        <div class="product-business-workbench__exhibit-copy">
+          <span class="product-business-workbench__eyebrow">产品展陈</span>
           <h3 class="product-business-workbench__headline">{{ productHeadline }}</h3>
           <p class="product-business-workbench__status-statement">{{ statusStatement }}</p>
-
-          <div v-if="metaItems.length" class="product-business-workbench__meta-inline">
-            <span
-              v-for="item in metaItems"
-              :key="item.key"
-              class="product-business-workbench__meta-item"
-            >
-              {{ item.value }}
-            </span>
-          </div>
         </div>
 
-        <div class="product-business-workbench__tab-rail">
+        <div v-if="metaItems.length" class="product-business-workbench__meta-inline">
+          <span
+            v-for="item in metaItems"
+            :key="item.key"
+            class="product-business-workbench__meta-item"
+          >
+            {{ item.value }}
+          </span>
+        </div>
+
+        <div class="product-business-workbench__tab-index">
           <nav class="product-business-workbench__tabs" aria-label="产品经营工作台视图">
             <button
               v-for="view in viewOptions"
@@ -37,7 +38,7 @@
               :class="{ 'product-business-workbench__tab--active': activeView === view.key }"
               @click="emit('update:activeView', view.key)"
             >
-              {{ view.label }}
+              <span class="product-business-workbench__tab-label">{{ view.label }}</span>
             </button>
           </nav>
         </div>
@@ -143,23 +144,23 @@ const statusStatement = computed(() => {
   }
 
   if (props.product.status === 0) {
-    return '产品已停用，当前以历史档案与治理核对为主。'
+    return '产品已停用，当前以档案核对为主。'
   }
 
   const totalDevices = Number(props.product.deviceCount ?? 0)
   const onlineDevices = Number(props.product.onlineDeviceCount ?? 0)
   if (totalDevices <= 0) {
-    return '产品已完成建档，待首批设备进入接入运行。'
+    return '产品已建档，待首批设备进入运行。'
   }
 
   const onlineCoverage = Math.round((onlineDevices / totalDevices) * 100)
   if (onlineCoverage >= 60) {
-    return '设备接入已形成稳定运行，后续以契约与台账治理收口。'
+    return '接入运行稳定，当前聚焦契约与台账。'
   }
   if (onlineCoverage > 0) {
-    return '产品已进入运行期，在线覆盖仍有提升空间。'
+    return '已进入运行期，当前继续提升在线覆盖。'
   }
-  return '设备已接入，但在线覆盖尚未形成稳定基线。'
+  return '已有设备接入，在线覆盖尚未形成稳定基线。'
 })
 const metaItems = computed(() => {
   const items = [
@@ -191,124 +192,150 @@ const metaItems = computed(() => {
 
 <style scoped>
 .product-business-workbench__header {
-  padding: 1.5rem 1.6rem 1.12rem;
+  padding: 1.9rem 2rem 1.3rem;
   border-bottom: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  background:
+    radial-gradient(circle at top left, rgba(236, 229, 220, 0.58), transparent 28%),
+    linear-gradient(180deg, rgba(248, 245, 239, 0.96), rgba(255, 255, 255, 0.98) 38%),
+    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
 }
 
-.product-business-workbench__header-brief {
-  display: grid;
-  justify-items: center;
-  gap: 0.9rem;
-}
-
-.product-business-workbench__identity,
+.product-business-workbench__exhibit-head,
+.product-business-workbench__exhibit-copy,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
-  gap: 0.56rem;
 }
 
-.product-business-workbench__identity {
-  justify-items: center;
-  text-align: center;
+.product-business-workbench__exhibit-head {
+  gap: 1.24rem;
+}
+
+.product-business-workbench__exhibit-copy {
+  gap: 0.6rem;
+}
+
+.product-business-workbench__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 20%, var(--panel-border));
+  color: color-mix(in srgb, var(--brand) 68%, var(--text-caption));
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .product-business-workbench__status-statement {
   margin: 0;
-  max-width: 44rem;
+  max-width: 36rem;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.74;
+  font-size: 0.92rem;
+  line-height: 1.78;
 }
 
 .product-business-workbench__headline {
   margin: 0;
   color: var(--text-heading);
-  font-size: clamp(1.82rem, 2.3vw, 2.34rem);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.1rem, 2.9vw, 2.9rem);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
 }
 
 .product-business-workbench__meta-inline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 0.38rem 0.86rem;
+  gap: 0.44rem 0.96rem;
   color: var(--text-secondary);
-  font-size: 0.84rem;
-  line-height: 1.64;
+  font-size: 0.8rem;
+  line-height: 1.7;
 }
 
 .product-business-workbench__meta-item {
   position: relative;
+  padding-right: 0.92rem;
+}
+
+.product-business-workbench__meta-item:last-child {
+  padding-right: 0;
 }
 
 .product-business-workbench__meta-item + .product-business-workbench__meta-item::before {
   content: '';
   position: absolute;
-  left: -0.48rem;
+  left: -0.52rem;
   top: 50%;
   width: 1px;
-  height: 0.72rem;
+  height: 0.64rem;
   background: color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   transform: translateY(-50%);
 }
 
-.product-business-workbench__tab-rail {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding-top: 0.2rem;
-  border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+.product-business-workbench__tab-index {
+  display: grid;
+  gap: 0.42rem;
+  padding-top: 0.82rem;
+  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
 }
 
 .product-business-workbench__tabs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.58rem;
+  gap: 1.5rem;
 }
 
 .product-business-workbench__tab {
-  min-height: 2.32rem;
-  padding: 0.28rem 0.94rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.98);
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  transition: color 0.2s ease;
+}
+
+.product-business-workbench__tab-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding-bottom: 0.26rem;
+  border-bottom: 1px solid transparent;
 }
 
 .product-business-workbench__tab--active {
-  border-color: color-mix(in srgb, var(--brand) 24%, var(--panel-border));
-  background: linear-gradient(180deg, rgba(255, 248, 241, 0.98), rgba(255, 252, 248, 0.98));
   color: var(--brand);
 }
 
+.product-business-workbench__tab--active .product-business-workbench__tab-label {
+  border-bottom-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
+}
+
 .product-business-workbench__view-shell {
-  margin-top: 1.08rem;
-  max-width: 64rem;
+  gap: 0.56rem;
+  margin-top: 1.42rem;
+  max-width: 65rem;
   margin-inline: auto;
 }
 
 @media (max-width: 960px) {
   .product-business-workbench__tabs {
-    justify-content: center;
+    gap: 1rem 1.24rem;
   }
 }
 
 @media (max-width: 720px) {
   .product-business-workbench__header {
-    padding-inline: 1.16rem;
+    padding-inline: 1.2rem;
   }
 
   .product-business-workbench__tabs {
-    gap: 0.5rem;
+    gap: 0.88rem 1rem;
   }
 }
 </style>

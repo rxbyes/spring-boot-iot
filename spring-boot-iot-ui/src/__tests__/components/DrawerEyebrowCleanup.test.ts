@@ -150,6 +150,50 @@ describe('drawer eyebrow cleanup', () => {
     expect(wrapper.text()).not.toContain('设备替换操作')
   })
 
+  it('does not show the old automatic refresh hint in the device replace drawer', () => {
+    const wrapper = mount(DeviceReplaceDrawer, {
+      props: {
+        modelValue: true,
+        device: {
+          id: 1,
+          productKey: 'south-monitor',
+          deviceName: '旧设备',
+          deviceCode: 'device-001',
+          deviceStatus: 1,
+          onlineStatus: 1,
+          parentDeviceId: null,
+          parentDeviceName: '',
+          parentDeviceCode: '',
+          gatewayDeviceName: '',
+          gatewayDeviceCode: '',
+          deviceSecret: '',
+          clientId: '',
+          username: '',
+          password: '',
+          firmwareVersion: '',
+          ipAddress: '',
+          address: '',
+          metadataJson: ''
+        },
+        productOptions: [],
+        deviceOptions: [],
+        refreshing: true,
+        refreshMessage: '',
+        refreshState: 'info',
+        submitting: false
+      },
+      global: {
+        stubs: {
+          ...buildGlobalStubs(),
+          ElInputNumber: true
+        }
+      }
+    })
+
+    expect(wrapper.text()).not.toContain('已先填入当前设备摘要，正在补全最新设备档案。')
+    expect(wrapper.html()).not.toContain('device-replace-inline-state')
+  })
+
   it('keeps automation utility drawers in Chinese without English eyebrow tiers', () => {
     const manualWrapper = mount(AutomationManualPageDrawer, {
       props: {

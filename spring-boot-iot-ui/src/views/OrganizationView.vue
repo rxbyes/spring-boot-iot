@@ -163,7 +163,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getOrganizationRowActions()"
               @command="(command) => handleOrganizationRowAction(command, row)"
             />
@@ -313,7 +312,6 @@ const organizationActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: "add-sub", label: "新增子级" },
     { command: "delete", label: "删除" },
   ],
-  gap: "compact",
 });
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();

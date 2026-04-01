@@ -91,7 +91,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getChannelRowActions(row)"
               @command="(command) => handleChannelRowAction(command, row)"
             />
@@ -318,7 +317,6 @@ const channelActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'test', label: '测试通知' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 })
 const {
   tags: activeFilterTags,

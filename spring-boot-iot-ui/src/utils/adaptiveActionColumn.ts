@@ -36,6 +36,15 @@ interface ResolveWorkbenchActionColumnWidthOptions extends SplitWorkbenchRowActi
   minWidth?: number
 }
 
+interface ResolveWorkbenchActionColumnWidthByRowsOptions {
+  rows?: Array<SplitWorkbenchRowActionsOptions>
+  fallback?: SplitWorkbenchRowActionsOptions
+  maxDirectItems?: number
+  menuLabel?: string | null
+  gap?: ActionGap
+  minWidth?: number
+}
+
 const ACTION_CELL_PADDING_PX = 32
 const ACTION_TRIGGER_PADDING_PX = 4
 const ACTION_GAP_PX: Record<ActionGap, number> = {
@@ -134,4 +143,37 @@ export function resolveWorkbenchActionColumnWidth({
     gap: WORKBENCH_TABLE_ACTION_GAP,
     minWidth: resolveWorkbenchTableMinWidth(visibleActionCount, minWidth)
   })
+}
+
+export function resolveWorkbenchActionColumnWidthByRows({
+  rows = [],
+  fallback,
+  maxDirectItems = DEFAULT_MAX_DIRECT_ITEMS,
+  menuLabel = '更多',
+  gap = WORKBENCH_TABLE_ACTION_GAP,
+  minWidth = ACTION_MIN_WIDTH_PX
+}: ResolveWorkbenchActionColumnWidthByRowsOptions) {
+  if (rows.length === 0) {
+    return resolveWorkbenchActionColumnWidth({
+      directItems: fallback?.directItems,
+      menuItems: fallback?.menuItems,
+      maxDirectItems,
+      menuLabel,
+      gap,
+      minWidth
+    })
+  }
+
+  return rows.reduce((maxWidth, row) => {
+    const rowWidth = resolveWorkbenchActionColumnWidth({
+      directItems: row.directItems,
+      menuItems: row.menuItems,
+      maxDirectItems,
+      menuLabel,
+      gap,
+      minWidth
+    })
+
+    return Math.max(maxWidth, rowWidth)
+  }, minWidth)
 }

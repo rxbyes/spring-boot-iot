@@ -168,7 +168,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getRegionRowActions()"
               @command="(command) => handleRegionRowAction(command, row)"
             />
@@ -329,7 +328,6 @@ const regionActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: "add-sub", label: "新增子级" },
     { command: "delete", label: "删除" },
   ],
-  gap: "compact",
 });
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();

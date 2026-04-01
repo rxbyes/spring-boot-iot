@@ -156,7 +156,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getUserRowActions()"
               @command="(command) => handleUserRowAction(command, row)"
             />
@@ -311,7 +310,6 @@ const userActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: "reset-password", label: "重置密码" },
     { command: "delete", label: "删除" },
   ],
-  gap: "compact",
 });
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
   useServerPagination();

@@ -105,7 +105,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getMenuRowActions()"
               @command="(command) => handleMenuRowAction(command, row)"
             />
@@ -237,7 +236,6 @@ const menuActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'add-child', label: '新增子级' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 })
 const formRef = ref()
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()

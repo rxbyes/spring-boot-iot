@@ -1,6 +1,6 @@
 <template>
   <div class="product-detail-workbench">
-    <section class="detail-panel product-detail-workbench__hero-stage" data-testid="product-detail-hero-stage">
+    <section class="detail-panel product-detail-workbench__hero-plinth" data-testid="product-detail-hero-plinth">
       <div class="product-detail-workbench__hero-main">
         <span class="product-detail-workbench__hero-label">核心规模</span>
         <div class="product-detail-workbench__hero-value-block">
@@ -11,7 +11,7 @@
         </div>
       </div>
 
-      <section class="product-detail-workbench__scale-metrics" data-testid="product-detail-scale-metrics">
+      <section class="product-detail-workbench__metric-ribbon" data-testid="product-detail-metric-ribbon">
         <article
           v-for="metric in scaleMetrics"
           :key="metric.key"
@@ -24,34 +24,42 @@
     </section>
 
     <section class="product-detail-workbench__brief-stage" data-testid="product-detail-brief-stage">
-      <section class="detail-panel product-detail-workbench__contract-stage" data-testid="product-detail-contract-stage">
-        <strong class="product-detail-workbench__section-title">契约基线</strong>
-        <div class="product-detail-workbench__contract-table">
-          <article
-            v-for="item in contractBaselineRows"
-            :key="item.key"
-            class="product-detail-workbench__contract-row"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </article>
-        </div>
-      </section>
+      <div class="detail-panel product-detail-workbench__exhibit-sheet">
+        <section class="product-detail-workbench__contract-ledger" data-testid="product-detail-contract-ledger">
+          <header class="product-detail-workbench__section-head">
+            <strong class="product-detail-workbench__section-title">契约基线</strong>
+          </header>
+          <div class="product-detail-workbench__contract-table">
+            <article
+              v-for="item in contractBaselineRows"
+              :key="item.key"
+              class="product-detail-workbench__contract-row"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </section>
 
-      <article class="detail-panel product-detail-workbench__archive-stage" data-testid="product-detail-archive-stage">
-        <strong class="product-detail-workbench__section-title">档案摘要</strong>
-        <div class="product-detail-workbench__archive-list">
-          <article
-            v-for="item in archiveSummaryItems"
-            :key="item.key"
-            class="product-detail-workbench__archive-item"
-            :class="{ 'product-detail-workbench__archive-item--multiline': item.multiline }"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </article>
-        </div>
-      </article>
+        <div class="product-detail-workbench__brief-divider" aria-hidden="true" />
+
+        <section class="product-detail-workbench__archive-notes" data-testid="product-detail-archive-notes">
+          <header class="product-detail-workbench__section-head">
+            <strong class="product-detail-workbench__section-title">档案摘要</strong>
+          </header>
+          <div class="product-detail-workbench__archive-grid">
+            <article
+              v-for="item in archiveSummaryItems"
+              :key="item.key"
+              class="product-detail-workbench__archive-note-card"
+              :class="{ 'product-detail-workbench__archive-note-card--wide': item.wide }"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </section>
+      </div>
     </section>
   </div>
 </template>
@@ -139,19 +147,19 @@ const archiveSummaryItems = computed(() => [
     key: 'manufacturer',
     label: '厂商',
     value: toDisplayText(product.value.manufacturer),
-    multiline: false
+    wide: false
   },
   {
     key: 'updateTime',
     label: '最近更新',
     value: formatDateTime(product.value.updateTime),
-    multiline: false
+    wide: false
   },
   {
     key: 'description',
     label: '补充说明',
     value: product.value.description?.trim() || '当前没有补充说明',
-    multiline: true
+    wide: true
   }
 ])
 </script>
@@ -159,43 +167,44 @@ const archiveSummaryItems = computed(() => [
 <style scoped>
 .product-detail-workbench {
   display: grid;
-  gap: 1.08rem;
+  gap: 1.32rem;
 }
 
-.product-detail-workbench__hero-stage,
+.product-detail-workbench__hero-plinth,
 .product-detail-workbench__brief-stage,
-.product-detail-workbench__contract-stage,
-.product-detail-workbench__archive-stage {
+.product-detail-workbench__exhibit-sheet,
+.product-detail-workbench__contract-ledger,
+.product-detail-workbench__archive-notes {
   display: grid;
   gap: 0.82rem;
 }
 
-.product-detail-workbench__hero-stage {
-  gap: 0.8rem;
-  padding: 1.42rem 1.38rem 1.22rem;
+.product-detail-workbench__hero-plinth {
+  gap: 1.18rem;
+  padding: 1.9rem 1.72rem 1.46rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 14px 28px rgba(28, 53, 87, 0.05);
+  background:
+    radial-gradient(circle at top left, rgba(238, 230, 221, 0.6), transparent 28%),
+    linear-gradient(180deg, rgba(250, 248, 244, 0.72), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: var(--shadow-form-surface);
 }
 
 .product-detail-workbench__hero-main {
   display: grid;
-  justify-items: center;
-  text-align: center;
-  gap: 0.3rem;
+  gap: 0.5rem;
 }
 
 .product-detail-workbench__hero-value-block {
   display: grid;
-  gap: 0.3rem;
-  justify-items: center;
+  gap: 0.42rem;
 }
 
 .product-detail-workbench__hero-label,
 .product-detail-workbench__scale-metric span,
 .product-detail-workbench__contract-row span,
-.product-detail-workbench__archive-item span {
+.product-detail-workbench__archive-note-card span {
   color: var(--text-secondary);
   font-size: 0.84rem;
   line-height: 1.6;
@@ -203,52 +212,73 @@ const archiveSummaryItems = computed(() => [
 
 .product-detail-workbench__hero-value {
   color: var(--text-heading);
-  font-size: clamp(2.48rem, 3vw, 3.18rem);
+  font-size: clamp(3rem, 4vw, 4rem);
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.06em;
 }
 
 .product-detail-workbench__hero-caption {
   color: var(--text-secondary);
   font-size: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.48;
 }
 
-.product-detail-workbench__scale-metrics {
+.product-detail-workbench__metric-ribbon {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding-top: 1.02rem;
+  gap: 0;
+  padding-top: 1.14rem;
   border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
 .product-detail-workbench__scale-metric {
   display: grid;
   gap: 0.28rem;
-  justify-items: center;
-  text-align: center;
+  padding: 0.08rem 1rem;
+  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+}
+
+.product-detail-workbench__scale-metric:last-child {
+  border-right: none;
 }
 
 .product-detail-workbench__scale-metric strong,
 .product-detail-workbench__section-title,
 .product-detail-workbench__contract-row strong,
-.product-detail-workbench__archive-item strong {
+.product-detail-workbench__archive-note-card strong {
   color: var(--text-heading);
   font-size: 1.04rem;
   line-height: 1.28;
 }
 
 .product-detail-workbench__brief-stage {
-  gap: 0.92rem;
+  gap: 0;
 }
 
-.product-detail-workbench__contract-stage,
-.product-detail-workbench__archive-stage {
-  padding: 1.04rem 1.08rem;
+.product-detail-workbench__exhibit-sheet {
+  gap: 1.12rem;
+  padding: 1.18rem 1.26rem 1.3rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background:
+    linear-gradient(180deg, rgba(248, 246, 242, 0.64), rgba(255, 255, 255, 0) 30%),
+    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: var(--shadow-surface-soft-sm);
+}
+
+.product-detail-workbench__section-head {
+  display: grid;
+  justify-items: start;
+  gap: 0.24rem;
 }
 
 .product-detail-workbench__section-title {
   font-size: 1rem;
-  justify-self: center;
+}
+
+.product-detail-workbench__brief-divider {
+  height: 1px;
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
 .product-detail-workbench__contract-table {
@@ -269,48 +299,70 @@ const archiveSummaryItems = computed(() => [
   text-align: right;
 }
 
-.product-detail-workbench__archive-list {
+.product-detail-workbench__archive-grid {
   display: grid;
-  gap: 0;
-  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.82rem;
 }
 
-.product-detail-workbench__archive-item {
+.product-detail-workbench__archive-note-card {
   display: grid;
-  grid-template-columns: 5.8rem minmax(0, 1fr);
-  gap: 1rem;
+  gap: 0.32rem;
   align-items: start;
-  padding: 0.88rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 6%, var(--panel-border));
-  background: transparent;
+  min-height: 6rem;
+  padding: 0.92rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    linear-gradient(180deg, rgba(251, 252, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: var(--shadow-xs);
 }
 
-.product-detail-workbench__archive-item strong {
+.product-detail-workbench__archive-note-card--wide {
+  grid-column: 1 / -1;
+}
+
+.product-detail-workbench__archive-note-card strong {
   font-size: 0.96rem;
   line-height: 1.6;
-  text-align: right;
+  text-align: left;
 }
 
-.product-detail-workbench__archive-item--multiline strong {
+.product-detail-workbench__archive-note-card--wide strong {
   line-height: 1.72;
 }
 
 @media (max-width: 960px) {
-  .product-detail-workbench__hero-stage {
+  .product-detail-workbench__hero-plinth {
     padding-inline: 1.16rem;
   }
 }
 
 @media (max-width: 720px) {
-  .product-detail-workbench__scale-metrics,
+  .product-detail-workbench__metric-ribbon,
   .product-detail-workbench__contract-row,
-  .product-detail-workbench__archive-item {
+  .product-detail-workbench__archive-grid {
     grid-template-columns: 1fr;
   }
 
+  .product-detail-workbench__scale-metric {
+    border-right: none;
+    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+    padding-block: 0.74rem 0;
+  }
+
+  .product-detail-workbench__scale-metric:first-child {
+    border-top: none;
+    padding-top: 0.08rem;
+  }
+
   .product-detail-workbench__contract-row strong,
-  .product-detail-workbench__archive-item strong {
+  .product-detail-workbench__archive-note-card strong {
     text-align: left;
+  }
+
+  .product-detail-workbench__archive-note-card--wide {
+    grid-column: auto;
   }
 }
 </style>

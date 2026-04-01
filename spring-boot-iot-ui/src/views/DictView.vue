@@ -96,7 +96,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getDictRowActions()"
               @command="(command) => handleDictRowAction(command, row)"
             />
@@ -213,7 +212,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="getDictItemRowActions()"
                 @command="(command) => handleDictItemRowAction(command, row)"
               />
@@ -412,7 +410,6 @@ const dictActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'items', label: '字典项' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 })
 
 const itemExportColumns: CsvColumn<DictItem>[] = [
@@ -441,7 +438,6 @@ const dictItemActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'edit', label: '编辑' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 })
 const {
   tags: activeFilterTags,

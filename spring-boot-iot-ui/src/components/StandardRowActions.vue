@@ -11,7 +11,7 @@ const props = withDefaults(
   defineProps<{
     variant?: 'table' | 'card' | 'editor'
     gap?: 'compact' | 'comfortable' | 'wide'
-    distribution?: 'start' | 'between'
+    distribution?: 'start' | 'between' | 'center'
     wrap?: boolean
   }>(),
   {

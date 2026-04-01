@@ -119,7 +119,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getHelpDocRowActions()"
               @command="(command) => handleHelpDocRowAction(command, row)"
             />
@@ -390,7 +389,6 @@ const helpDocActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'edit', label: '编辑' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 })
 const loading = ref(false)
 const submitLoading = ref(false)

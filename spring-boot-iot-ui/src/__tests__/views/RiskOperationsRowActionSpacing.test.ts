@@ -34,7 +34,8 @@ describe('risk operations row action spacing governance', () => {
     expect(source).toContain('<StandardWorkbenchRowActions')
     expect(source).not.toContain('gap="compact"')
     expect(source).not.toContain("gap: 'compact'")
-    expect(source).toContain('resolveWorkbenchActionColumnWidth')
+    expect(source).toContain('resolveWorkbenchActionColumnWidthByRows')
+    expect(source).toContain('directItems: getAlarmDirectActions(row)')
   })
 
   it('keeps event disposal on shared row actions without a table gap override', () => {
@@ -44,6 +45,7 @@ describe('risk operations row action spacing governance', () => {
     expect(source).toContain('variant="table"')
     expect(source).not.toContain('gap="compact"')
     expect(source).not.toContain("gap: 'compact'")
-    expect(source).toContain('resolveWorkbenchActionColumnWidth')
+    expect(source).toContain('resolveWorkbenchActionColumnWidthByRows')
+    expect(source).toContain('directItems: getEventRowActions(row)')
   })
 })

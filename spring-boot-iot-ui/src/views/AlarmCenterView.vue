@@ -168,7 +168,7 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
+import { resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -221,14 +221,21 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
-const alarmActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: [
-    { command: 'detail', label: '详情' },
-    { command: 'confirm', label: '确认' },
-    { command: 'suppress', label: '抑制' },
-    { command: 'close', label: '关闭' }
-  ]
-});
+const alarmActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidthByRows({
+    rows: pagedAlarmList.value.map((row) => ({
+      directItems: getAlarmDirectActions(row)
+    })),
+    fallback: {
+      directItems: [
+        { command: 'detail', label: '详情' },
+        { command: 'confirm', label: '确认' },
+        { command: 'suppress', label: '抑制' },
+        { command: 'close', label: '关闭' }
+      ]
+    }
+  })
+);
 const alarmToolbarActions = computed(() => [
   {
     key: 'export-config',

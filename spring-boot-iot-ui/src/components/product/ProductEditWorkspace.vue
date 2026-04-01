@@ -1,28 +1,26 @@
 <template>
   <div class="product-edit-workspace">
-    <section class="detail-panel product-edit-workspace__brief-head">
+    <section class="detail-panel product-edit-workspace__revision-head">
       <div class="product-edit-workspace__summary-copy product-edit-workspace__section-heading">
-        <h3 class="product-edit-workspace__brief-title">编辑治理</h3>
+        <span class="product-edit-workspace__revision-eyebrow">档案修订</span>
+        <h3 class="product-edit-workspace__revision-title">编辑治理</h3>
         <p class="product-edit-workspace__summary-description product-edit-workspace__section-note">{{ sectionNote }}</p>
       </div>
     </section>
 
-    <section class="detail-panel product-edit-workspace__brief-band">
-      <div class="product-edit-workspace__summary-metrics product-edit-workspace__context-strip">
-        <article class="product-edit-workspace__brief-item">
+    <section class="detail-panel product-edit-workspace__revision-board">
+      <div class="product-edit-workspace__revision-strip product-edit-workspace__context-strip">
+        <article class="product-edit-workspace__revision-item">
           <span>产品 Key</span>
           <strong>{{ formatText(model.productKey) }}</strong>
-          <small>编辑状态下保持标识稳定，避免影响设备接入契约。</small>
         </article>
-        <article class="product-edit-workspace__brief-item">
+        <article class="product-edit-workspace__revision-item">
           <span>协议编码</span>
           <strong>{{ formatText(model.protocolCode) }}</strong>
-          <small>统一对齐协议解码与后续物模型治理基线。</small>
         </article>
-        <article class="product-edit-workspace__brief-item">
+        <article class="product-edit-workspace__revision-item">
           <span>节点与状态</span>
           <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
-          <small>调整节点类型或状态前先确认设备接入边界与影响范围。</small>
         </article>
       </div>
     </section>
@@ -40,10 +38,6 @@
       label-position="top"
       class="ops-drawer-form product-edit-workspace__form product-edit-workspace__form-stage"
     >
-      <div class="product-edit-workspace__form-intro">
-        按基础档案、接入基线和补充说明三段完成本次变更，保存后同步回写当前工作台头部和列表台账。
-      </div>
-
       <section class="ops-drawer-section">
         <div class="ops-drawer-section__header">
           <h3>基础档案</h3>
@@ -205,7 +199,7 @@ defineExpose({
 <style scoped>
 .product-edit-workspace,
 .product-edit-workspace__summary-copy,
-.product-edit-workspace__summary-metrics {
+.product-edit-workspace__revision-strip {
   display: grid;
   gap: 0.85rem;
 }
@@ -214,65 +208,78 @@ defineExpose({
   gap: 1.08rem;
 }
 
-.product-edit-workspace__brief-head,
-.product-edit-workspace__brief-band {
+.product-edit-workspace__revision-head,
+.product-edit-workspace__revision-board {
   display: grid;
-  gap: 0.82rem;
-  padding: 1rem 1.04rem;
+  gap: 0.88rem;
+  padding: 1.08rem 1.12rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
-  background: linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
-  box-shadow: 0 12px 24px rgba(28, 53, 87, 0.05);
+  background:
+    linear-gradient(180deg, rgba(250, 248, 244, 0.58), rgba(255, 255, 255, 0) 34%),
+    linear-gradient(180deg, rgba(252, 253, 255, 0.99), rgba(255, 255, 255, 0.99));
+  box-shadow: var(--shadow-surface-soft-sm);
 }
 
 .product-edit-workspace__summary-description,
-.product-edit-workspace__brief-item span,
-.product-edit-workspace__brief-item small {
+.product-edit-workspace__revision-item span {
   margin: 0;
   color: var(--text-caption);
   line-height: 1.6;
 }
 
-.product-edit-workspace__brief-head {
-  justify-items: center;
-  text-align: center;
+.product-edit-workspace__revision-head {
+  justify-items: start;
 }
 
-.product-edit-workspace__brief-title {
+.product-edit-workspace__revision-eyebrow {
+  display: inline-flex;
+  width: max-content;
+  padding-bottom: 0.34rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  color: color-mix(in srgb, var(--brand) 66%, var(--text-caption));
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.product-edit-workspace__revision-title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.24rem;
-  line-height: 1.28;
+  font-size: 1.32rem;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
 }
 
-.product-edit-workspace__brief-item strong {
-  margin: 0;
-  color: var(--text-heading);
-}
-
-.product-edit-workspace__summary-metrics {
+.product-edit-workspace__revision-strip {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
 }
 
-.product-edit-workspace__brief-item {
+.product-edit-workspace__revision-item {
   display: grid;
-  gap: 0.36rem;
-  padding: 0.72rem 0.94rem;
+  gap: 0.34rem;
+  align-content: center;
+  min-height: 5rem;
+  padding: 0.88rem 0.96rem;
   border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  text-align: center;
+  text-align: left;
 }
 
-.product-edit-workspace__brief-item:last-child {
+.product-edit-workspace__revision-item:last-child {
   border-right: none;
 }
 
-.product-edit-workspace__brief-item strong {
+.product-edit-workspace__revision-item strong {
+  margin: 0;
+  color: var(--text-heading);
   font-size: 1.08rem;
+  line-height: 1.36;
 }
 
 .product-edit-workspace__section-note {
-  max-width: 46rem;
+  max-width: 42rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.72;
@@ -285,13 +292,7 @@ defineExpose({
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(255, 255, 255, 0.98));
-  box-shadow: 0 12px 28px rgba(28, 53, 87, 0.05);
-}
-
-.product-edit-workspace__form-intro {
-  color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.72;
+  box-shadow: var(--shadow-form-surface);
 }
 
 .product-edit-workspace__footer {
@@ -301,16 +302,16 @@ defineExpose({
 }
 
 @media (max-width: 960px) {
-  .product-edit-workspace__summary-metrics {
+  .product-edit-workspace__revision-strip {
     grid-template-columns: 1fr;
   }
 
-  .product-edit-workspace__brief-item {
+  .product-edit-workspace__revision-item {
     border-right: none;
     border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   }
 
-  .product-edit-workspace__brief-item:first-child {
+  .product-edit-workspace__revision-item:first-child {
     border-top: none;
   }
 }

@@ -160,7 +160,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getRoleRowActions()"
               @command="(command) => handleRoleRowAction(command, row)"
             />
@@ -514,7 +513,6 @@ const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: "edit", label: "编辑/授权" },
     { command: "delete", label: "删除" },
   ],
-  gap: "compact",
 });
 
 const menuTreeLoading = ref(false);

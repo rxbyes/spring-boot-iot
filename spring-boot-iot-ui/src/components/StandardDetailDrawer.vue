@@ -8,12 +8,35 @@
     @close="emit('update:modelValue', false)"
   >
     <template #header>
-      <div class="detail-drawer__header">
+      <div
+        :class="[
+          'detail-drawer__header',
+          { 'detail-drawer__header--title-inline': tagLayout === 'title-inline' }
+        ]"
+      >
         <div class="detail-drawer__heading">
-          <h2>{{ title }}</h2>
+          <div
+            :class="[
+              'detail-drawer__title-row',
+              { 'detail-drawer__title-row--inline': tagLayout === 'title-inline' }
+            ]"
+          >
+            <h2>{{ title }}</h2>
+            <div v-if="tagLayout === 'title-inline' && tags.length" class="detail-drawer__tags detail-drawer__tags--inline">
+              <el-tag
+                v-for="tag in tags"
+                :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
+                :type="tag.type || 'info'"
+                :effect="tag.effect || 'light'"
+                round
+              >
+                {{ tag.label }}
+              </el-tag>
+            </div>
+          </div>
           <p v-if="subtitle" class="detail-drawer__subtitle">{{ subtitle }}</p>
         </div>
-        <div v-if="tags.length" class="detail-drawer__tags">
+        <div v-if="tagLayout !== 'title-inline' && tags.length" class="detail-drawer__tags">
           <el-tag
             v-for="tag in tags"
             :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
@@ -62,6 +85,7 @@ withDefaults(
       type?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
       effect?: 'dark' | 'light' | 'plain';
     }>;
+    tagLayout?: 'aside' | 'title-inline';
   }>(),
   {
     subtitle: '',
@@ -72,7 +96,8 @@ withDefaults(
     errorMessage: '',
     empty: false,
     emptyText: '暂无详情数据',
-    tags: () => []
+    tags: () => [],
+    tagLayout: 'aside'
   }
 );
 
@@ -119,7 +144,24 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   gap: 1.25rem;
 }
 
+.detail-drawer__header--title-inline {
+  display: block;
+}
+
 .detail-drawer__heading {
+  min-width: 0;
+}
+
+.detail-drawer__title-row {
+  display: block;
+}
+
+.detail-drawer__title-row--inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.9rem;
   min-width: 0;
 }
 
@@ -145,6 +187,23 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
+}
+
+.detail-drawer__tags--inline {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  min-width: 0;
+  margin-left: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.14rem;
+  scrollbar-width: none;
+}
+
+.detail-drawer__tags--inline::-webkit-scrollbar {
+  display: none;
 }
 
 .detail-drawer__tags :deep(.el-tag) {
@@ -447,6 +506,14 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
 
   .detail-drawer__header {
     flex-direction: column;
+  }
+
+  .detail-drawer__header--title-inline {
+    flex-direction: initial;
+  }
+
+  .detail-drawer__title-row--inline {
+    align-items: flex-start;
   }
 
   .detail-drawer__tags {

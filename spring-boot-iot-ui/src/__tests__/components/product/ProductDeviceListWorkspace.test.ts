@@ -33,7 +33,7 @@ const ElTableColumnStub = defineComponent({
 })
 
 describe('ProductDeviceListWorkspace', () => {
-  it('keeps the device ledger as the primary stage and uses one formal brief band instead of stacked metric cards', () => {
+  it('keeps the device ledger as the primary stage and renders an exhibition marquee instead of the current brief band', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
       props: {
         product: {
@@ -75,19 +75,20 @@ describe('ProductDeviceListWorkspace', () => {
     expect(wrapper.text()).toContain('离线设备')
     expect(wrapper.text()).toContain('在线比例')
     expect(wrapper.find('.device-workspace__summary-strip').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__brief-band').exists()).toBe(true)
-    expect(wrapper.findAll('.device-workspace__brief-item')).toHaveLength(4)
+    expect(wrapper.find('.device-workspace__brief-band').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ledger-marquee').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__marquee-metrics').exists()).toBe(true)
+    expect(wrapper.findAll('.device-workspace__marquee-item')).toHaveLength(4)
     expect(wrapper.find('.device-workspace__ledger-stage').exists()).toBe(true)
     expect(wrapper.find('.device-drawer__summary').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__ledger-heading').text()).toContain('关联设备台账')
+    expect(wrapper.find('.device-workspace__ledger-heading').text()).toContain('设备清册')
     expect((wrapper.text().match(/关联设备台账/g) || []).length).toBe(1)
-    expect(wrapper.find('.device-workspace__ledger-intro').exists()).toBe(true)
-    expect(wrapper.find('.device-workspace__ledger-intro').text()).toContain('核对设备身份、在线状态和最近上报')
-    expect(wrapper.find('.device-workspace__brief-item small').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__brief-item[data-tone="brand"]').exists()).toBe(true)
-    expect(wrapper.find('.device-workspace__brief-item[data-tone="success"]').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__brief-item[data-tone="danger"]').exists()).toBe(false)
-    expect(wrapper.find('.device-workspace__brief-item[data-tone="accent"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__ledger-intro').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__marquee-item small').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__marquee-item[data-tone="brand"]').exists()).toBe(true)
+    expect(wrapper.find('.device-workspace__marquee-item[data-tone="success"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__marquee-item[data-tone="danger"]').exists()).toBe(false)
+    expect(wrapper.find('.device-workspace__marquee-item[data-tone="accent"]').exists()).toBe(false)
     expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toHaveLength(1)
 
     const actionColumn = wrapper

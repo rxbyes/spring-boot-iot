@@ -59,7 +59,7 @@ const props = withDefaults(
   defineProps<{
     variant?: 'table' | 'card' | 'editor'
     gap?: 'compact' | 'comfortable' | 'wide'
-    distribution?: 'start' | 'between'
+    distribution?: 'start' | 'between' | 'center'
     directItems?: WorkbenchDirectActionItem[]
     menuItems?: WorkbenchMenuActionItem[]
     menuLabel?: string
@@ -96,7 +96,7 @@ const resolvedActions = computed(() =>
 const resolvedDirectItems = computed(() => resolvedActions.value.directItems)
 const resolvedMenuItems = computed(() => resolvedActions.value.menuItems)
 const hasMenuItems = computed(() => resolvedMenuItems.value.length > 0)
-const resolvedDistribution = computed<'start' | 'between'>(() => {
+const resolvedDistribution = computed<'start' | 'between' | 'center'>(() => {
   if (props.distribution) {
     return props.distribution
   }

@@ -107,7 +107,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="getRiskPointRowActions()"
                 @command="(command) => handleRiskPointRowAction(command, row)"
               />
@@ -293,7 +292,6 @@ const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'bind-device', label: '绑定设备' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 });
 
 const filters = reactive({

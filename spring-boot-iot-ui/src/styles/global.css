@@ -181,6 +181,12 @@ textarea {
 
 .standard-row-actions--variant-table {
   display: inline-flex;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.standard-row-actions--variant-table.standard-row-actions--distribution-center {
+  justify-content: center;
 }
 
 .standard-row-actions--variant-table.standard-row-actions--distribution-between {
@@ -269,7 +275,7 @@ textarea {
 .standard-row-actions-column .cell {
   overflow: hidden;
   text-overflow: clip;
-  text-align: right;
+  text-align: left;
 }
 
 @media (max-width: 900px) {

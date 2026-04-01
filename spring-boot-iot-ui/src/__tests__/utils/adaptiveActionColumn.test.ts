@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveAdaptiveActionColumnWidth,
   resolveWorkbenchActionColumnWidth,
+  resolveWorkbenchActionColumnWidthByRows,
   splitWorkbenchRowActions
 } from '@/utils/adaptiveActionColumn'
 
@@ -126,6 +127,49 @@ describe('resolveAdaptiveActionColumnWidth', () => {
           { command: 'observe', label: '观测' }
         ],
         gap: 'compact'
+      })
+    ).toBe(160)
+  })
+
+  it('shrinks a current page of event-style two-action rows to the dual-action desktop width', () => {
+    expect(
+      resolveWorkbenchActionColumnWidthByRows({
+        rows: [
+          {
+            directItems: [
+              { command: 'detail', label: '详情' },
+              { command: 'close', label: '关闭' }
+            ]
+          },
+          {
+            directItems: [
+              { command: 'detail', label: '详情' },
+              { command: 'close', label: '关闭' }
+            ]
+          }
+        ]
+      })
+    ).toBe(112)
+  })
+
+  it('keeps the three-action desktop width when at least one current row still overflows into more', () => {
+    expect(
+      resolveWorkbenchActionColumnWidthByRows({
+        rows: [
+          {
+            directItems: [
+              { command: 'detail', label: '详情' },
+              { command: 'dispatch', label: '派发' },
+              { command: 'close', label: '关闭' }
+            ]
+          },
+          {
+            directItems: [
+              { command: 'detail', label: '详情' },
+              { command: 'close', label: '关闭' }
+            ]
+          }
+        ]
       })
     ).toBe(160)
   })

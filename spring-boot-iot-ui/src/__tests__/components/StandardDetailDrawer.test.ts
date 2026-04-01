@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 
@@ -72,5 +74,42 @@ describe('StandardDetailDrawer', () => {
     })
 
     expect(wrapper.find('.detail-drawer__footer').exists()).toBe(false)
+  })
+
+  it('supports an inline title-row tag layout without wrapping status pills onto a second line', () => {
+    const wrapper = mount(StandardDetailDrawer, {
+      props: {
+        modelValue: true,
+        title: '设备资产',
+        subtitle: '统一查看资产详情',
+        tagLayout: 'title-inline',
+        tags: [
+          { label: '已登记', type: 'success' },
+          { label: '在线', type: 'success' },
+          { label: '已激活', type: 'success' },
+          { label: '启用', type: 'success' }
+        ]
+      },
+      global: {
+        stubs: {
+          'el-drawer': DrawerStub,
+          'el-tag': {
+            props: ['type', 'effect'],
+            template: '<span class="el-tag-stub"><slot /></span>'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.find('.detail-drawer__title-row').exists()).toBe(true)
+    expect(wrapper.find('.detail-drawer__title-row .detail-drawer__tags').exists()).toBe(true)
+    expect(wrapper.findAll('.detail-drawer__title-row .el-tag-stub')).toHaveLength(4)
+
+    const source = readFileSync(resolve(import.meta.dirname, '../../components/StandardDetailDrawer.vue'), 'utf8')
+
+    expect(source).toContain("tagLayout === 'title-inline'")
+    expect(source).toContain('.detail-drawer__title-row')
+    expect(source).toContain('flex-wrap: nowrap;')
+    expect(source).toContain('overflow-x: auto;')
   })
 })

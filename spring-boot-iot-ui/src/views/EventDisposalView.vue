@@ -226,7 +226,7 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
+import { resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -283,13 +283,20 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
-const eventActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: [
-    { command: 'detail', label: '详情' },
-    { command: 'dispatch', label: '派发' },
-    { command: 'close', label: '关闭' }
-  ]
-});
+const eventActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidthByRows({
+    rows: pagedEventList.value.map((row) => ({
+      directItems: getEventRowActions(row)
+    })),
+    fallback: {
+      directItems: [
+        { command: 'detail', label: '详情' },
+        { command: 'dispatch', label: '派发' },
+        { command: 'close', label: '关闭' }
+      ]
+    }
+  })
+);
 const eventToolbarActions = computed(() => [
   {
     key: 'export-config',

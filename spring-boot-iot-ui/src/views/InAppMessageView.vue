@@ -234,7 +234,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getMessageRowActions(row)"
               @command="(command) => handleMessageRowAction(command, row)"
             />
@@ -513,7 +512,6 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="bridgeRowActions"
               @command="(command) => handleBridgeRowAction(command, row)"
             />
@@ -1026,7 +1024,7 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { isHandledRequestError } from '@/api/request'
 import type { ApiEnvelope, IdType } from '@/types/api'
-import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { resolveWorkbenchActionColumnWidth, resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
 import { formatDateTime, truncateText } from '@/utils/format'
@@ -1086,18 +1084,23 @@ const detailRecord = ref<InAppMessageRecord | null>(null)
 const tableData = ref<InAppMessageRecord[]>([])
 const selectedRows = ref<InAppMessageRecord[]>([])
 const permissionStore = usePermissionStore()
-const messageActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: [
-    { command: 'view', label: '详情' },
-    { command: 'edit', label: '编辑' },
-    { command: 'deactivate', label: '停用' },
-    { command: 'delete', label: '删除' }
-  ],
-  gap: 'compact'
-})
+const messageActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidthByRows({
+    rows: tableData.value.map((row) => ({
+      directItems: getMessageRowActions(row)
+    })),
+    fallback: {
+      directItems: [
+        { command: 'view', label: '详情' },
+        { command: 'edit', label: '编辑' },
+        { command: 'deactivate', label: '停用' },
+        { command: 'delete', label: '删除' }
+      ]
+    }
+  })
+)
 const bridgeActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: [{ command: 'bridge-detail', label: '桥接详情' }],
-  gap: 'compact'
+  directItems: [{ command: 'bridge-detail', label: '桥接详情' }]
 })
 const bridgeRowActions = [{ command: 'bridge-detail' as const, label: '桥接详情' }]
 const roleOptions = ref<Role[]>([])

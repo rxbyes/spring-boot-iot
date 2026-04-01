@@ -103,7 +103,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="getLinkageRowActions()"
                 @command="(command) => handleLinkageRowAction(command, row)"
               />
@@ -222,7 +221,6 @@ const linkageActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'edit', label: '编辑' },
     { command: 'delete', label: '删除' }
   ],
-  gap: 'compact'
 });
 
 const filters = reactive({

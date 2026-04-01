@@ -89,7 +89,6 @@
           <StandardWorkbenchRowActions
             v-if="row.source === 'manual'"
             variant="table"
-            gap="compact"
             :direct-items="manualPageRowActions"
             @command="() => $emit('remove-manual-page', row.id)"
           />
@@ -147,8 +146,7 @@ defineEmits<{
 const tableRef = ref<InventoryTableElement | null>(null);
 const manualPageRowActions = [{ command: 'delete' as const, label: '删除' }];
 const discoveryActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: manualPageRowActions,
-  gap: 'compact'
+  directItems: manualPageRowActions
 });
 
 function clearSelection() {

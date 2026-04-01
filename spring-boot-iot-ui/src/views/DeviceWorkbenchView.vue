@@ -342,22 +342,13 @@
       v-model="detailVisible"
       :title="detailTitle"
       :subtitle="detailSubtitle"
+      tag-layout="title-inline"
       :tags="detailTags"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
       :empty="!detailData"
     >
       <div v-if="detailData" class="device-detail-stack">
-        <div
-          v-if="detailRefreshing || detailRefreshErrorMessage"
-          :class="[
-            'device-detail-inline-state',
-            { 'device-detail-inline-state--error': Boolean(detailRefreshErrorMessage) }
-          ]"
-        >
-          {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
-        </div>
-
         <DeviceDetailWorkbench :device="detailData" />
       </div>
 
@@ -389,18 +380,6 @@
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
           <span>设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。</span>
-        </div>
-        <div
-          v-if="formRefreshing || formRefreshMessage"
-          :class="[
-            'device-form-inline-state',
-            {
-              'device-form-inline-state--warning': formRefreshState === 'warning',
-              'device-form-inline-state--error': formRefreshState === 'error'
-            }
-          ]"
-        >
-          {{ formRefreshMessage || '已先填入当前摘要，正在补全最新设备档案。' }}
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
@@ -3244,25 +3223,6 @@ onMounted(async () => {
   gap: 16px;
 }
 
-.device-detail-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.device-detail-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
-}
-
 .ops-drawer-stack {
   display: grid;
   gap: 16px;
@@ -3288,31 +3248,6 @@ onMounted(async () => {
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.device-form-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.device-form-inline-state--warning {
-  border-color: var(--warning);
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 4%, white);
-}
-
-.device-form-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .ops-drawer-section {

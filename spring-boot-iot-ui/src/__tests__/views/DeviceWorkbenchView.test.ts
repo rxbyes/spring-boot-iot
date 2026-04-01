@@ -183,12 +183,21 @@ const StandardActionMenuStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['eyebrow', 'title', 'subtitle'],
+  props: ['eyebrow', 'title', 'subtitle', 'tags', 'tagLayout'],
   template: `
     <section class="device-detail-drawer-stub">
       <p v-if="eyebrow">{{ eyebrow }}</p>
       <h3>{{ title }}</h3>
       <p>{{ subtitle }}</p>
+      <div class="device-detail-drawer-stub__tags">
+        <span
+          v-for="tag in tags || []"
+          :key="tag.label"
+          class="device-detail-drawer-stub__tag"
+        >
+          {{ tag.label }}
+        </span>
+      </div>
       <slot />
       <slot name="footer" />
     </section>
@@ -335,6 +344,33 @@ describe('DeviceWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
   })
 
+  it('locks the detail drawer title and status tags into the same inline header contract', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).detailData = {
+      id: 1,
+      deviceName: '北坡监测终端',
+      deviceCode: 'device-001',
+      registrationStatus: 1,
+      onlineStatus: 1,
+      activateStatus: 1,
+      deviceStatus: 1
+    }
+    await nextTick()
+
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+
+    expect(detailDrawer.props('tagLayout')).toBe('title-inline')
+    expect(((detailDrawer.props('tags') as Array<{ label: string }>) || []).map((tag) => tag.label)).toEqual([
+      '已登记',
+      '在线',
+      '已激活',
+      '启用'
+    ])
+  })
+
   it('keeps the device toolbar focused by collapsing secondary actions into a more-actions menu', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -437,11 +473,14 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
     expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
+    expect(source).toContain('tag-layout="title-inline"')
     expect(source).not.toContain('<h3>资产概览</h3>')
     expect(source).not.toContain('<h3>资产档案</h3>')
     expect(source).not.toContain('<h3>拓扑关系</h3>')
     expect(source).not.toContain('<h3>运维信息</h3>')
     expect(source).not.toContain('<h3>认证信息</h3>')
     expect(source).not.toContain('<h3>上报档案</h3>')
+    expect(source).not.toContain('已先展示列表摘要，正在补充完整详情。')
+    expect(source).not.toContain('已先填入当前摘要，正在补全最新设备档案。')
   })
 })

@@ -82,7 +82,7 @@ function scanRequiredUsage(filePath, content, errors) {
       message: '纳管页的“操作”列必须声明 class-name="standard-row-actions-column"。',
     },
     {
-      pattern: /resolve(?:Workbench|Adaptive)ActionColumnWidth\(/,
+      pattern: /resolve(?:Workbench|Adaptive)ActionColumnWidth(?:ByRows)?\(/,
       message: "纳管页的“操作”列必须使用共享自适应列宽解析器。",
     },
   ];
