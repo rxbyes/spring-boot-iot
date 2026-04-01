@@ -8,7 +8,6 @@ import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -18,14 +17,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,38 +36,24 @@ class TelemetryWriteCoordinatorTest {
     @Mock
     private DevicePropertyMetadataService devicePropertyMetadataService;
     @Mock
-    private TelemetryProjectionQueue projectionQueue;
-    @Mock
-    private TelemetryLatestProjector latestProjector;
-    @Mock
-    private TelemetryLegacyMirrorProjector legacyMirrorProjector;
+    private TelemetryWriteFanoutService telemetryWriteFanoutService;
 
     private TelemetryWriteCoordinator coordinator;
 
-    @BeforeEach
-    void setUp() {
-        Executor directExecutor = Runnable::run;
+    @Test
+    void shouldWriteV2RawBeforeDelegatingFanout() {
         coordinator = new TelemetryWriteCoordinator(
                 storageModeResolver,
                 tdengineTelemetryFacade,
                 rawBatchWriter,
                 devicePropertyMetadataService,
-                projectionQueue,
-                latestProjector,
-                legacyMirrorProjector,
-                directExecutor
+                telemetryWriteFanoutService
         );
-    }
-
-    @Test
-    void shouldWriteV2RawBeforePublishingLegacyMirrorTask() {
         DeviceProcessingTarget target = buildTarget();
         List<TelemetryV2Point> points = List.of(point());
         TelemetryPersistResult rawResult = TelemetryPersistResult.persisted("TDENGINE_V2_RAW", "tdengine-v2", 1, 0, 0, 0, 0);
         when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
         when(storageModeResolver.isV2PrimaryEnabled()).thenReturn(true);
-        when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(true);
-        when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(true);
         when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of());
         when(rawBatchWriter.toPoints(target, target.getMessage().getProperties(), Map.of())).thenReturn(points);
         when(rawBatchWriter.write(points)).thenReturn(rawResult);
@@ -80,30 +61,32 @@ class TelemetryWriteCoordinatorTest {
         TelemetryPersistResult result = coordinator.persist(target);
 
         assertEquals("TDENGINE_V2_RAW", result.getBranch());
-        InOrder inOrder = inOrder(rawBatchWriter, projectionQueue);
+        InOrder inOrder = inOrder(rawBatchWriter, telemetryWriteFanoutService);
         inOrder.verify(rawBatchWriter).write(points);
-        verify(projectionQueue, times(2)).publish(any());
-        verify(latestProjector).project(any());
-        verify(legacyMirrorProjector).project(any());
+        inOrder.verify(telemetryWriteFanoutService).fanout(target, points);
     }
 
     @Test
-    void shouldNotFailMainWriteWhenLegacyMirrorQueuePublishFails() {
+    void shouldNotDelegateFanoutWhenWriteSkipped() {
+        coordinator = new TelemetryWriteCoordinator(
+                storageModeResolver,
+                tdengineTelemetryFacade,
+                rawBatchWriter,
+                devicePropertyMetadataService,
+                telemetryWriteFanoutService
+        );
         DeviceProcessingTarget target = buildTarget();
-        List<TelemetryV2Point> points = List.of(point());
-        TelemetryPersistResult rawResult = TelemetryPersistResult.persisted("TDENGINE_V2_RAW", "tdengine-v2", 1, 0, 0, 0, 0);
+        TelemetryPersistResult rawResult = TelemetryPersistResult.skipped("EMPTY_PROPERTIES", "tdengine-v2", 0);
         when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
         when(storageModeResolver.isV2PrimaryEnabled()).thenReturn(true);
-        when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(false);
-        when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(true);
         when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of());
-        when(rawBatchWriter.toPoints(target, target.getMessage().getProperties(), Map.of())).thenReturn(points);
-        when(rawBatchWriter.write(points)).thenReturn(rawResult);
-        doThrow(new IllegalStateException("redis unavailable")).when(projectionQueue).publish(any());
+        when(rawBatchWriter.toPoints(target, target.getMessage().getProperties(), Map.of())).thenReturn(List.of());
+        when(rawBatchWriter.write(List.of())).thenReturn(rawResult);
 
-        TelemetryPersistResult result = assertDoesNotThrow(() -> coordinator.persist(target));
+        TelemetryPersistResult result = coordinator.persist(target);
 
-        assertEquals("TDENGINE_V2_RAW", result.getBranch());
+        assertEquals("EMPTY_PROPERTIES", result.getBranch());
+        verify(telemetryWriteFanoutService, never()).fanout(target, List.of());
     }
 
     private DeviceProcessingTarget buildTarget() {

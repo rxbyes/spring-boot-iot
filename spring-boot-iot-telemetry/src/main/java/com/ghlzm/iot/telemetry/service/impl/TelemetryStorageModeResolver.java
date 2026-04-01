@@ -38,6 +38,14 @@ public class TelemetryStorageModeResolver {
         return Boolean.TRUE.equals(iotProperties.getTelemetry().getLatest().getMysqlProjectionEnabled());
     }
 
+    public boolean isAggregateEnabled() {
+        return Boolean.TRUE.equals(iotProperties.getTelemetry().getAggregate().getEnabled());
+    }
+
+    public boolean isColdArchiveEnabled() {
+        return Boolean.TRUE.equals(iotProperties.getTelemetry().getColdArchive().getEnabled());
+    }
+
     public boolean isLegacyReadFallbackEnabled() {
         return Boolean.TRUE.equals(iotProperties.getTelemetry().getReadRouting().getLegacyReadFallbackEnabled());
     }

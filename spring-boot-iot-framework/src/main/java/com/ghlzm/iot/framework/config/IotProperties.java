@@ -190,6 +190,7 @@ public class IotProperties {
         private Raw raw = new Raw();
         private Latest latest = new Latest();
         private Aggregate aggregate = new Aggregate();
+        private ColdArchive coldArchive = new ColdArchive();
         private LegacyMirror legacyMirror = new LegacyMirror();
         private ReadRouting readRouting = new ReadRouting();
         private TenantRouting tenantRouting = new TenantRouting();
@@ -210,6 +211,11 @@ public class IotProperties {
             private Boolean enabled = Boolean.FALSE;
             private Boolean hourlyEnabled = Boolean.FALSE;
             private Boolean dailyEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class ColdArchive {
+            private Boolean enabled = Boolean.FALSE;
         }
 
         @Data

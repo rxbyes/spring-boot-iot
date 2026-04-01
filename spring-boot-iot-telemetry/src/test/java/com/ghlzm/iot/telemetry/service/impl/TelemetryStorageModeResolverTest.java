@@ -14,6 +14,8 @@ class TelemetryStorageModeResolverTest {
         properties.getTelemetry().setStorageType("tdengine");
         properties.getTelemetry().setPrimaryStorage("tdengine-v2");
         properties.getTelemetry().getLegacyMirror().setEnabled(true);
+        properties.getTelemetry().getAggregate().setEnabled(true);
+        properties.getTelemetry().getColdArchive().setEnabled(true);
         properties.getTelemetry().getReadRouting().setLatestSource("v2");
         properties.getTelemetry().getReadRouting().setLegacyReadFallbackEnabled(true);
 
@@ -22,6 +24,8 @@ class TelemetryStorageModeResolverTest {
         assertTrue(resolver.isTdengineEnabled());
         assertTrue(resolver.isV2PrimaryEnabled());
         assertTrue(resolver.isLegacyMirrorEnabled());
+        assertTrue(resolver.isAggregateEnabled());
+        assertTrue(resolver.isColdArchiveEnabled());
         assertTrue(resolver.isLegacyReadFallbackEnabled());
         assertEquals("v2", resolver.latestSource());
     }
