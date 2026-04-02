@@ -10,12 +10,18 @@ export interface ShellAccountSummary {
   code: string;
   type: string;
   roleName: string;
+  tenantName: string;
+  orgName: string;
+  nickname: string;
   realName: string;
   displayName: string;
   phone: string;
   email: string;
   authStatus: string;
   loginMethods: string;
+  dataScopeSummary: string;
+  lastLoginTime: string;
+  lastLoginIp: string;
   primaryContact: string;
 }
 
@@ -23,6 +29,14 @@ export interface ShellPasswordPayload {
   oldPassword: string;
   newPassword: string;
   confirmPassword: string;
+}
+
+export interface ShellProfilePayload {
+  nickname: string;
+  realName: string;
+  phone: string;
+  email: string;
+  avatar?: string;
 }
 
 export type ShellPopoverTone = 'brand' | 'accent' | 'success' | 'warning' | 'danger' | 'neutral';
@@ -111,10 +125,9 @@ export interface ShellBreadcrumbProps {
 export interface ShellAccountDrawersProps {
   summary: ShellAccountSummary;
   showAccountDialog: boolean;
-  showRealNameAuthDialog: boolean;
-  showLoginMethodsDialog: boolean;
   showChangePasswordDialog: boolean;
   passwordSubmitting: boolean;
+  profileSubmitting: boolean;
 }
 
 export interface ShellHeaderToolsProps {
@@ -218,18 +231,16 @@ export interface ShellViewportState {
 
 export interface ShellAccountCenterState {
   showAccountDialog: Ref<boolean>;
-  showRealNameAuthDialog: Ref<boolean>;
-  showLoginMethodsDialog: Ref<boolean>;
   showChangePasswordDialog: Ref<boolean>;
   passwordSubmitting: Ref<boolean>;
+  profileSubmitting: Ref<boolean>;
   headerIdentity: ComputedRef<string>;
   accountSummary: ComputedRef<ShellAccountSummary>;
   openAccountCenter: () => void;
-  openRealNameAuth: () => void;
-  openLoginMethods: () => void;
   openChangePasswordDialog: () => void;
   closeAccountOverlays: () => void;
   closeChangePasswordDialog: () => void;
+  submitProfileUpdate: (payload: ShellProfilePayload) => Promise<void>;
   submitChangePassword: (payload: ShellPasswordPayload) => Promise<void>;
   handleLogout: () => void;
 }

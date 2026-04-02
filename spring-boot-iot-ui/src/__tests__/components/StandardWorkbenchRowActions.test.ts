@@ -189,18 +189,19 @@ describe('StandardWorkbenchRowActions', () => {
     expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(false)
   })
 
-  it('keeps at most two direct actions and folds overflow actions into the more menu', async () => {
+  it('keeps three direct actions visible and folds only overflow actions into the more menu', async () => {
     const wrapper = mountComponent({
       variant: 'table',
       directItems: [
         { key: 'detail', command: 'detail', label: '详情' },
         { key: 'edit', command: 'edit', label: '编辑' },
+        { key: 'reset-password', command: 'reset-password', label: '重置密码' },
         { key: 'delete', command: 'delete', label: '删除' }
       ],
       menuItems: []
     })
 
-    expect(wrapper.findAll('.standard-action-link-stub').map((button) => button.text())).toEqual(['详情', '编辑'])
+    expect(wrapper.findAll('.standard-action-link-stub').map((button) => button.text())).toEqual(['详情', '编辑', '重置密码'])
     expect(wrapper.find('.standard-action-menu-stub').exists()).toBe(true)
 
     await wrapper.get('.standard-action-menu-stub').trigger('click')

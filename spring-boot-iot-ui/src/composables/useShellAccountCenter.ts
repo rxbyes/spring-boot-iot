@@ -1,19 +1,23 @@
-﻿import { computed, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 
-import { changePassword } from '../api/user';
+import { changePassword, updateCurrentUserProfile } from '../api/user';
 import { usePermissionStore } from '../stores/permission';
-import type { ShellAccountCenterState, ShellAccountSummary, ShellPasswordPayload } from '../types/shell';
+import type {
+  ShellAccountCenterState,
+  ShellAccountSummary,
+  ShellPasswordPayload,
+  ShellProfilePayload
+} from '../types/shell';
 
 export function useShellAccountCenter(): ShellAccountCenterState {
   const router = useRouter();
   const permissionStore = usePermissionStore();
   const showAccountDialog = ref(false);
-  const showRealNameAuthDialog = ref(false);
-  const showLoginMethodsDialog = ref(false);
   const showChangePasswordDialog = ref(false);
   const passwordSubmitting = ref(false);
+  const profileSubmitting = ref(false);
 
   const headerIdentity = computed(() => {
     if (!permissionStore.isLoggedIn) {
@@ -27,7 +31,7 @@ export function useShellAccountCenter(): ShellAccountCenterState {
     if (!permissionStore.isLoggedIn) {
       return '访客账号';
     }
-    return permissionStore.displayName || permissionStore.userInfo?.username || '系统管理员';
+    return permissionStore.displayName || permissionStore.userInfo?.nickname || permissionStore.userInfo?.username || '系统管理员';
   });
 
   const headerAccountCode = computed(() => permissionStore.userInfo?.username || 'guest');
@@ -59,6 +63,10 @@ export function useShellAccountCenter(): ShellAccountCenterState {
   const maskedEmail = computed(() => maskEmail(permissionStore.userInfo?.email));
 
   const headerPrimaryContact = computed(() => {
+    const orgName = permissionStore.userInfo?.orgName?.trim();
+    if (orgName) {
+      return `机构：${orgName}`;
+    }
     if (maskedPhone.value !== '未绑定手机号') {
       return `手机号：${maskedPhone.value}`;
     }
@@ -79,48 +87,41 @@ export function useShellAccountCenter(): ShellAccountCenterState {
     code: headerAccountCode.value,
     type: headerAccountType.value,
     roleName: headerRoleName.value,
-    realName: permissionStore.authContext?.realName || '未填写',
+    tenantName: permissionStore.userInfo?.tenantName || '默认租户',
+    orgName: permissionStore.userInfo?.orgName || '未关联机构',
+    nickname: permissionStore.userInfo?.nickname || '',
+    realName: permissionStore.authContext?.realName || '',
     displayName: permissionStore.displayName || headerAccountCode.value,
-    phone: maskedPhone.value,
-    email: maskedEmail.value,
+    phone: permissionStore.userInfo?.phone || '',
+    email: permissionStore.userInfo?.email || '',
     authStatus: headerAuthStatus.value,
     loginMethods: headerLoginMethods.value,
+    dataScopeSummary: permissionStore.userInfo?.dataScopeSummary || '未配置',
+    lastLoginTime: permissionStore.userInfo?.lastLoginTime || '暂无记录',
+    lastLoginIp: permissionStore.userInfo?.lastLoginIp || '暂无记录',
     primaryContact: headerPrimaryContact.value
   }));
 
   function closeAccountOverlays() {
     showAccountDialog.value = false;
-    showRealNameAuthDialog.value = false;
-    showLoginMethodsDialog.value = false;
     showChangePasswordDialog.value = false;
   }
 
   function openAccountCenter() {
-    showRealNameAuthDialog.value = false;
-    showLoginMethodsDialog.value = false;
+    if (!permissionStore.isLoggedIn) {
+      void router.push('/login');
+      return;
+    }
     showAccountDialog.value = true;
-  }
-
-  function openRealNameAuth() {
-    showAccountDialog.value = false;
-    showLoginMethodsDialog.value = false;
-    showRealNameAuthDialog.value = true;
-  }
-
-  function openLoginMethods() {
-    showAccountDialog.value = false;
-    showRealNameAuthDialog.value = false;
-    showLoginMethodsDialog.value = true;
+    showChangePasswordDialog.value = false;
   }
 
   function openChangePasswordDialog() {
     if (!permissionStore.isLoggedIn) {
-      router.push('/login');
+      void router.push('/login');
       return;
     }
     showAccountDialog.value = false;
-    showRealNameAuthDialog.value = false;
-    showLoginMethodsDialog.value = false;
     showChangePasswordDialog.value = true;
     passwordSubmitting.value = false;
   }
@@ -128,6 +129,30 @@ export function useShellAccountCenter(): ShellAccountCenterState {
   function closeChangePasswordDialog() {
     showChangePasswordDialog.value = false;
     passwordSubmitting.value = false;
+  }
+
+  async function submitProfileUpdate(payload: ShellProfilePayload): Promise<void> {
+    if (!permissionStore.userInfo?.id) {
+      ElMessage.error('当前登录信息缺失，请重新登录后再试');
+      return;
+    }
+
+    profileSubmitting.value = true;
+    try {
+      await updateCurrentUserProfile({
+        nickname: payload.nickname?.trim() || '',
+        realName: payload.realName?.trim() || '',
+        phone: payload.phone?.trim() || '',
+        email: payload.email?.trim() || '',
+        avatar: payload.avatar?.trim() || ''
+      });
+      await permissionStore.fetchCurrentUser();
+      ElMessage.success('账号资料已更新');
+    } catch {
+      profileSubmitting.value = false;
+      return;
+    }
+    profileSubmitting.value = false;
   }
 
   async function submitChangePassword(payload: ShellPasswordPayload): Promise<void> {
@@ -168,24 +193,22 @@ export function useShellAccountCenter(): ShellAccountCenterState {
   function handleLogout() {
     closeAccountOverlays();
     permissionStore.logout();
-    router.push('/login');
+    void router.push('/login');
     ElMessage.success('已退出登录');
   }
 
   return {
     showAccountDialog,
-    showRealNameAuthDialog,
-    showLoginMethodsDialog,
     showChangePasswordDialog,
     passwordSubmitting,
+    profileSubmitting,
     headerIdentity,
     accountSummary,
     openAccountCenter,
-    openRealNameAuth,
-    openLoginMethods,
     openChangePasswordDialog,
     closeAccountOverlays,
     closeChangePasswordDialog,
+    submitProfileUpdate,
     submitChangePassword,
     handleLogout
   };

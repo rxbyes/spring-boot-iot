@@ -4,11 +4,16 @@ import type { ApiEnvelope, IdType, PageResult } from '../types/api'
 export interface User {
   id?: IdType
   tenantId?: IdType
+  orgId?: IdType
+  orgName?: string
   username: string
+  nickname?: string
   realName: string
   phone?: string
   email?: string
   avatar?: string
+  isAdmin?: number
+  remark?: string
   password?: string
   status: number
   lastLoginTime?: string
@@ -61,6 +66,10 @@ export const addUser = (data: Partial<User>): Promise<ApiEnvelope<User>> => {
 
 export const updateUser = (data: Partial<User>): Promise<ApiEnvelope<User>> => {
   return request<User>('/api/user/update', { method: 'PUT', body: data })
+}
+
+export const updateCurrentUserProfile = (data: Pick<User, 'nickname' | 'realName' | 'phone' | 'email' | 'avatar'>): Promise<ApiEnvelope<void>> => {
+  return request<void>('/api/user/profile', { method: 'PUT', body: data })
 }
 
 export const deleteUser = (id: IdType): Promise<ApiEnvelope<void>> => {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="header-status">
     <div class="header-tools" aria-label="系统工具">
       <button type="button" class="tool-text tool-text--notice" :class="{ 'tool-text--active': showNoticePanel }" aria-label="打开消息通知" title="消息通知" :aria-expanded="showNoticePanel" :aria-controls="noticePanelId" @click="$emit('toggle-notice')">
@@ -28,21 +28,14 @@
 
             <div class="account-panel__tags">
               <span class="account-panel__tag">{{ headerAccountType }}</span>
-              <span class="account-panel__tag account-panel__tag--accent">{{ headerAuthStatus }}</span>
             </div>
 
             <p class="account-panel__hint">{{ headerRoleName }}</p>
             <p class="account-panel__hint" v-if="headerPrimaryContact">{{ headerPrimaryContact }}</p>
-            <p class="account-panel__hint">登录方式：{{ headerLoginMethods }}</p>
           </div>
 
           <div class="account-panel__group">
-            <button type="button" class="account-panel__action" data-action="account-center" @click="emitAction('open-account-center')"><span>账号中心</span><small>查看当前账号信息与角色摘要</small></button>
-            <button type="button" class="account-panel__action" data-action="real-name-auth" @click="emitAction('open-real-name-auth')"><span>实名认证</span><small>查看认证状态与后续接入说明</small></button>
-            <button type="button" class="account-panel__action" data-action="login-methods" @click="emitAction('open-login-methods')"><span>登录方式</span><small>查看账号登录与手机号登录说明</small></button>
-          </div>
-
-          <div class="account-panel__group">
+            <button type="button" class="account-panel__action" data-action="account-center" @click="emitAction('open-account-center')"><span>账号中心</span><small>查看并维护当前账号信息</small></button>
             <button type="button" class="account-panel__action" data-action="change-password" @click="emitAction('open-change-password')"><span>修改密码</span><small>修改当前登录账号密码</small></button>
             <button type="button" class="account-panel__action account-panel__action--danger" data-action="logout" @click="emitAction('logout')"><span>退出登录</span><small>退出当前会话并返回登录页</small></button>
           </div>
@@ -64,8 +57,6 @@ const emit = defineEmits<{
   (e: 'toggle-help'): void;
   (e: 'open-account-menu'): void;
   (e: 'open-account-center'): void;
-  (e: 'open-real-name-auth'): void;
-  (e: 'open-login-methods'): void;
   (e: 'open-change-password'): void;
   (e: 'logout'): void;
 }>();
@@ -81,7 +72,7 @@ function openAccountMenu() {
 
 function closeAccountMenu() { accountMenuOpen.value = false; }
 function toggleAccountMenu() { accountMenuOpen.value ? closeAccountMenu() : openAccountMenu(); }
-function emitAction(action: 'open-account-center' | 'open-real-name-auth' | 'open-login-methods' | 'open-change-password' | 'logout') {
+function emitAction(action: 'open-account-center' | 'open-change-password' | 'logout') {
   closeAccountMenu();
   emit(action);
 }
@@ -138,7 +129,6 @@ onBeforeUnmount(() => {
 .account-panel__meta p { margin: 0.18rem 0 0; color: var(--text-caption-2); font-size: 0.75rem; }
 .account-panel__tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
 .account-panel__tag { display: inline-flex; align-items: center; min-height: 1.4rem; padding: 0 0.5rem; border-radius: var(--radius-pill); background: #eef3fb; color: #3a557f; font-size: 0.7rem; }
-.account-panel__tag--accent { background: color-mix(in srgb, var(--brand) 10%, white); color: var(--brand); }
 .account-panel__hint { margin: 0.72rem 0 0; color: #5e769e; font-size: 0.74rem; }
 .account-panel__group + .account-panel__group { border-top: 1px solid var(--line-soft); }
 .account-panel__action { width: 100%; padding: 0.82rem 1rem; display: grid; gap: 0.22rem; text-align: left; border: none; background: var(--bg-card); }

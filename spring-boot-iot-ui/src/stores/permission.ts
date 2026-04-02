@@ -135,14 +135,24 @@ export const usePermissionStore = defineStore('permission', () => {
     }
     return {
       id: authContext.value.userId,
+      tenantId: authContext.value.tenantId,
+      tenantName: authContext.value.tenantName,
+      orgId: authContext.value.orgId,
+      orgName: authContext.value.orgName,
       username: authContext.value.username,
+      nickname: authContext.value.nickname,
       realName: authContext.value.realName,
       displayName: displayName.value,
       phone: authContext.value.phone,
       email: authContext.value.email,
+      avatar: authContext.value.avatar,
       accountType: authContext.value.accountType,
       authStatus: authContext.value.authStatus,
       loginMethods: authContext.value.loginMethods || [],
+      lastLoginTime: authContext.value.lastLoginTime,
+      lastLoginIp: authContext.value.lastLoginIp,
+      dataScopeType: authContext.value.dataScopeType,
+      dataScopeSummary: authContext.value.dataScopeSummary,
       roleNames: roleNames.value,
       roleCodes: roleCodes.value
     };

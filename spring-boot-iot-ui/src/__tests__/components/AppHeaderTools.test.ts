@@ -54,15 +54,21 @@ describe('AppHeaderTools', () => {
 
     await wrapper.find('.account-entry').trigger('mouseenter');
     expect(wrapper.text()).toContain('账号中心');
-    expect(wrapper.text()).toContain('登录方式');
+    expect(wrapper.text()).toContain('修改密码');
+    expect(wrapper.text()).toContain('退出登录');
     expect(wrapper.text()).toContain('主账号');
     expect(wrapper.text()).toContain('手机号：138****1234');
+    expect(wrapper.text()).not.toContain('实名认证');
+    expect(wrapper.text()).not.toContain('登录方式');
 
+    await wrapper.find('[data-action="account-center"]').trigger('click');
+    await wrapper.find('.account-entry').trigger('mouseenter');
     await wrapper.find('[data-action="change-password"]').trigger('click');
     await wrapper.find('.account-entry').trigger('mouseenter');
     await wrapper.find('[data-action="logout"]').trigger('click');
 
-    expect(wrapper.emitted('open-account-menu')).toHaveLength(2);
+    expect(wrapper.emitted('open-account-menu')).toHaveLength(3);
+    expect(wrapper.emitted('open-account-center')).toHaveLength(1);
     expect(wrapper.emitted('open-change-password')).toHaveLength(1);
     expect(wrapper.emitted('logout')).toHaveLength(1);
   });

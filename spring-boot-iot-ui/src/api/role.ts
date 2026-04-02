@@ -7,6 +7,8 @@ export interface Role {
   roleName: string
   roleCode: string
   description?: string
+  dataScopeType?: string
+  dataScopeSummary?: string
   status: number
   createTime?: string
   updateTime?: string

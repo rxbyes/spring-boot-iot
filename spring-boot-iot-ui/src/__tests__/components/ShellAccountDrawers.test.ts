@@ -20,7 +20,7 @@ const StandardFormDrawerStub = defineComponent({
 })
 
 describe('ShellAccountDrawers', () => {
-  it('keeps all shell account drawers in Chinese without the legacy English eyebrow tier', () => {
+  it('uses one unified account center drawer plus password drawer in Chinese', () => {
     const wrapper = mount(ShellAccountDrawers, {
       props: {
         summary: {
@@ -35,13 +35,18 @@ describe('ShellAccountDrawers', () => {
           email: 'admin@example.com',
           authStatus: '已认证',
           loginMethods: '账号密码',
-          primaryContact: '13800000000'
+          primaryContact: '13800000000',
+          tenantName: '默认租户',
+          orgName: '平台治理中心',
+          nickname: '平台总控官',
+          dataScopeSummary: '全局',
+          lastLoginTime: '2026-04-02 10:30:00',
+          lastLoginIp: '10.10.10.8'
         },
         showAccountDialog: true,
-        showRealNameAuthDialog: true,
-        showLoginMethodsDialog: true,
         showChangePasswordDialog: true,
-        passwordSubmitting: false
+        passwordSubmitting: false,
+        profileSubmitting: false
       },
       global: {
         stubs: {
@@ -56,15 +61,15 @@ describe('ShellAccountDrawers', () => {
 
     const drawers = wrapper.findAllComponents(StandardFormDrawerStub)
 
-    expect(drawers).toHaveLength(4)
+    expect(drawers).toHaveLength(2)
     expect(drawers.every((item) => item.props('eyebrow') === undefined)).toBe(true)
     expect(wrapper.text()).toContain('账号中心')
-    expect(wrapper.text()).toContain('实名认证')
-    expect(wrapper.text()).toContain('登录方式')
     expect(wrapper.text()).toContain('修改密码')
+    expect(wrapper.text()).toContain('基础资料')
+    expect(wrapper.text()).toContain('机构与角色')
+    expect(wrapper.text()).toContain('安全信息')
+    expect(wrapper.text()).toContain('实名资料')
     expect(wrapper.text()).not.toContain('Account Center')
-    expect(wrapper.text()).not.toContain('Account Verification')
-    expect(wrapper.text()).not.toContain('Login Methods')
     expect(wrapper.text()).not.toContain('Account Security')
   })
 })
