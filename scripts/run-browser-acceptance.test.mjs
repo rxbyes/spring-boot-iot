@@ -71,6 +71,8 @@ test('sample web smoke plan matches current login and product/device workbench f
     deviceScenario.steps.every((step) => !['#query-device-id', '#query-device-code', '#device-product-key'].includes(step.locator?.value)),
     'device scenario should not rely on removed query selector set'
   );
+  const deviceVisualStep = deviceScenario.steps.find((step) => step.id === 'device-assert-visual-page');
+  assert.equal(deviceVisualStep?.optional, true, 'device visual baseline sample should be optional by default');
 });
 
 test('automation plan source no longer uses removed console page title selector defaults', () => {

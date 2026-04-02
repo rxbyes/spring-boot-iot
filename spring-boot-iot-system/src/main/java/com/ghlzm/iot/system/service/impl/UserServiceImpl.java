@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.dto.UserProfileUpdateDTO;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.service.PermissionService;

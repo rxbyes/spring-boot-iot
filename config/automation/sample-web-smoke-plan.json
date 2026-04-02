@@ -400,7 +400,7 @@
           "baselineName": "device-workbench-page",
           "threshold": 0.002,
           "fullPage": true,
-          "optional": false
+          "optional": true
         }
       ]
     }

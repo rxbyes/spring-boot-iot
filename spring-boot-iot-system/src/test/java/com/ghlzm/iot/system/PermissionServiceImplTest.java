@@ -2,11 +2,15 @@ package com.ghlzm.iot.system;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.entity.Role;
+import com.ghlzm.iot.system.entity.Tenant;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.mapper.MenuMapper;
+import com.ghlzm.iot.system.mapper.OrganizationMapper;
 import com.ghlzm.iot.system.mapper.RoleMapper;
 import com.ghlzm.iot.system.mapper.RoleMenuMapper;
+import com.ghlzm.iot.system.mapper.TenantMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.impl.PermissionServiceImpl;
@@ -42,6 +46,10 @@ class PermissionServiceImplTest {
     private UserRoleMapper userRoleMapper;
     @Mock
     private RoleMenuMapper roleMenuMapper;
+    @Mock
+    private TenantMapper tenantMapper;
+    @Mock
+    private OrganizationMapper organizationMapper;
 
     private PermissionServiceImpl permissionService;
 
@@ -54,6 +62,8 @@ class PermissionServiceImplTest {
                 menuMapper,
                 userRoleMapper,
                 roleMenuMapper,
+                tenantMapper,
+                organizationMapper,
                 objectMapper
         );
     }
@@ -193,17 +203,31 @@ class PermissionServiceImplTest {
         role.setRoleName("管理人员");
         role.setDataScopeType("ORG_AND_CHILDREN");
 
+        Tenant tenant = new Tenant();
+        tenant.setId(1L);
+        tenant.setTenantName("默认租户");
+
+        Organization organization = new Organization();
+        organization.setId(5001L);
+        organization.setOrgName("平台治理中心");
+
         when(userMapper.selectById(userId)).thenReturn(user);
         when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
         when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
         when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        when(tenantMapper.selectById(1L)).thenReturn(tenant);
+        when(organizationMapper.selectById(5001L)).thenReturn(organization);
 
         UserAuthContextVO context = permissionService.getUserAuthContext(userId);
 
         assertEquals(1L, context.getTenantId());
+        assertEquals("默认租户", context.getTenantName());
         assertEquals(5001L, context.getOrgId());
+        assertEquals("平台治理中心", context.getOrgName());
         assertEquals("运营管理负责人", context.getNickname());
+        assertEquals(List.of("账号登录", "手机号登录"), context.getLoginMethods());
         assertEquals("ORG_AND_CHILDREN", context.getDataScopeType());
-        assertTrue(context.getDataScopeSummary().contains("机构"));
+        assertEquals("本机构及下级", context.getDataScopeSummary());
+        assertTrue(context.getDisplayName().contains("运营管理负责人"));
     }
 }
