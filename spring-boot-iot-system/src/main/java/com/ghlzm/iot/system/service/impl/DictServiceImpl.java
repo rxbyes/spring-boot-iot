@@ -74,14 +74,65 @@ public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements Di
             if (dict == null) {
                   return null;
             }
+            dict.setItems(listEnabledDictItems(dict.getId()));
+            return dict;
+      }
+
+      @Override
+      public List<DictItem> listDictItems(Long dictId) {
             LambdaQueryWrapper<DictItem> itemWrapper = new LambdaQueryWrapper<>();
-            itemWrapper.eq(DictItem::getDictId, dict.getId())
+            itemWrapper.eq(DictItem::getDictId, dictId)
                     .eq(DictItem::getDeleted, 0)
-                    .eq(DictItem::getStatus, 1)
                     .orderByAsc(DictItem::getSortNo)
                     .orderByAsc(DictItem::getId);
-            dict.setItems(dictItemMapper.selectList(itemWrapper));
-            return dict;
+            return dictItemMapper.selectList(itemWrapper);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public DictItem addDictItem(DictItem dictItem) {
+            Dict dict = requireDict(dictItem.getDictId());
+            Long tenantId = dict.getTenantId();
+            ensureUniqueItemValue(tenantId, dictItem.getDictId(), dictItem.getItemValue(), null);
+            if (dictItem.getSortNo() == null) {
+                  dictItem.setSortNo(0);
+            }
+            if (dictItem.getStatus() == null) {
+                  dictItem.setStatus(1);
+            }
+            if (dictItem.getDeleted() == null) {
+                  dictItem.setDeleted(0);
+            }
+            dictItem.setTenantId(tenantId);
+            dictItemMapper.insert(dictItem);
+            return dictItem;
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public DictItem updateDictItem(DictItem dictItem) {
+            DictItem existing = dictItemMapper.selectById(dictItem.getId());
+            if (existing == null || Integer.valueOf(1).equals(existing.getDeleted())) {
+                  throw new BizException("字典项不存在");
+            }
+            Dict dict = requireDict(dictItem.getDictId());
+            ensureUniqueItemValue(existing.getTenantId(), dict.getId(), dictItem.getItemValue(), existing.getId());
+            existing.setDictId(dict.getId());
+            existing.setTenantId(dict.getTenantId());
+            existing.setItemName(dictItem.getItemName());
+            existing.setItemValue(dictItem.getItemValue());
+            existing.setItemType(dictItem.getItemType());
+            existing.setStatus(dictItem.getStatus());
+            existing.setSortNo(dictItem.getSortNo());
+            existing.setRemark(dictItem.getRemark());
+            dictItemMapper.updateById(existing);
+            return existing;
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void deleteDictItem(Long id) {
+            dictItemMapper.deleteById(id);
       }
 
       @Override
@@ -119,5 +170,37 @@ public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements Di
             }
             queryWrapper.orderByAsc(Dict::getSortNo).orderByAsc(Dict::getId);
             return queryWrapper;
+      }
+
+      private List<DictItem> listEnabledDictItems(Long dictId) {
+            LambdaQueryWrapper<DictItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.eq(DictItem::getDictId, dictId)
+                    .eq(DictItem::getDeleted, 0)
+                    .eq(DictItem::getStatus, 1)
+                    .orderByAsc(DictItem::getSortNo)
+                    .orderByAsc(DictItem::getId);
+            return dictItemMapper.selectList(itemWrapper);
+      }
+
+      private Dict requireDict(Long dictId) {
+            Dict dict = this.getById(dictId);
+            if (dict == null || Integer.valueOf(1).equals(dict.getDeleted())) {
+                  throw new BizException("字典不存在");
+            }
+            return dict;
+      }
+
+      private void ensureUniqueItemValue(Long tenantId, Long dictId, String itemValue, Long excludeId) {
+            LambdaQueryWrapper<DictItem> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(DictItem::getTenantId, tenantId)
+                    .eq(DictItem::getDictId, dictId)
+                    .eq(DictItem::getItemValue, itemValue)
+                    .eq(DictItem::getDeleted, 0);
+            if (excludeId != null) {
+                  queryWrapper.ne(DictItem::getId, excludeId);
+            }
+            if (dictItemMapper.selectCount(queryWrapper) > 0) {
+                  throw new BizException("字典项值已存在");
+            }
       }
 }

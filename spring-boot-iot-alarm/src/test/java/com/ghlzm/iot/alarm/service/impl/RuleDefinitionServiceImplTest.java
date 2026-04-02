@@ -1,12 +1,17 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.common.exception.BizException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -59,5 +64,46 @@ class RuleDefinitionServiceImplTest {
 
         assertEquals(0, rule.getDeleted());
         verify(service).save(rule);
+    }
+
+    @Test
+    void pageRuleListShouldApplyRuleNameLikeFilter() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        Page<RuleDefinition> page = new Page<>(1L, 10L);
+        page.setRecords(java.util.List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRuleList("边坡", null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        LambdaQueryWrapper<RuleDefinition> wrapper = wrapperCaptor.getValue();
+        String sqlSegment = wrapper.getSqlSegment();
+        assertTrue(sqlSegment.contains("rule_name"));
+        assertTrue(sqlSegment.toUpperCase().contains("LIKE"));
+        assertTrue(wrapper.getParamNameValuePairs().values().stream().anyMatch(value -> String.valueOf(value).contains("边坡")));
+    }
+
+    @Test
+    void pageRuleListShouldTreatWarningFilterAsCompatibleWithOrangeSeverity() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        Page<RuleDefinition> page = new Page<>(1L, 10L);
+        page.setRecords(java.util.List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRuleList(null, null, "warning", null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        LambdaQueryWrapper<RuleDefinition> wrapper = wrapperCaptor.getValue();
+        String sqlSegment = wrapper.getSqlSegment();
+        assertTrue(sqlSegment.contains("alarm_level"));
+        assertTrue(sqlSegment.toUpperCase().contains("IN"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("warning"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("orange"));
     }
 }

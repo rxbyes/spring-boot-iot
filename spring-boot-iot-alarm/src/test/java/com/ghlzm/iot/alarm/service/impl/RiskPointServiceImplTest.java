@@ -1,5 +1,9 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
@@ -9,10 +13,15 @@ import com.ghlzm.iot.system.entity.DictItem;
 import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.entity.Region;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.DictService;
 import com.ghlzm.iot.system.service.OrganizationService;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.RegionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 
@@ -21,6 +30,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -28,8 +38,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RiskPointServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, RiskPoint.class);
+    }
 
     @Test
     void addRiskPointShouldGenerateCodeFromNormalizedRiskLevelAndFillAuditFields() {
@@ -395,6 +412,77 @@ class RiskPointServiceImplTest {
 
         verify(deviceMapper).delete(any());
         verify(deviceMapper, never()).updateById(any(RiskPointDevice.class));
+    }
+
+    @Test
+    void pageRiskPointsShouldFilterToAccessibleOrganizationsForOrgChildrenScope() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService
+        ));
+
+        when(permissionService.getDataPermissionContext(1L))
+                .thenReturn(new DataPermissionContext(1L, 1L, 7101L, DataScopeType.ORG_AND_CHILDREN, false));
+        when(permissionService.listAccessibleOrganizationIds(1L)).thenReturn(java.util.Set.of(7101L, 7102L));
+
+        Page<RiskPoint> page = new Page<>(1L, 10L);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRiskPoints(1L, null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<RiskPoint>> wrapperCaptor = org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
+    void pageRiskPointsShouldFilterToCurrentResponsibleOrCreatorForSelfScope() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService
+        ));
+
+        when(permissionService.getDataPermissionContext(88L))
+                .thenReturn(new DataPermissionContext(88L, 1L, 7101L, DataScopeType.SELF, false));
+
+        Page<RiskPoint> page = new Page<>(1L, 10L);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRiskPoints(88L, null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<RiskPoint>> wrapperCaptor = org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("responsible_user") || sqlSegment.contains("create_by"));
     }
 
     private RiskPoint existingRiskPoint(String code) {

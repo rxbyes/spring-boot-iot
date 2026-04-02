@@ -8,8 +8,10 @@ import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
 import com.ghlzm.iot.alarm.service.EmergencyPlanService;
 import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 应急预案Service实现类
@@ -51,8 +53,8 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
             if (planName != null && !planName.isEmpty()) {
                   wrapper.eq(EmergencyPlan::getPlanName, planName);
             }
-            if (riskLevel != null && !riskLevel.isEmpty()) {
-                  wrapper.eq(EmergencyPlan::getRiskLevel, riskLevel);
+            if (StringUtils.hasText(riskLevel)) {
+                  wrapper.in(EmergencyPlan::getRiskLevel, buildRiskLevelQueryValues(riskLevel));
             }
             if (status != null) {
                   wrapper.eq(EmergencyPlan::getStatus, status);
@@ -60,5 +62,30 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
             wrapper.eq(EmergencyPlan::getDeleted, 0);
             wrapper.orderByDesc(EmergencyPlan::getCreateTime);
             return wrapper;
+      }
+
+      private List<String> buildRiskLevelQueryValues(String riskLevel) {
+            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
+            if (!StringUtils.hasText(normalizedRiskLevel)) {
+                  return List.of();
+            }
+            return switch (normalizedRiskLevel) {
+                  case "red" -> List.of("red", "critical");
+                  case "orange" -> List.of("orange", "warning");
+                  case "blue" -> List.of("blue", "info");
+                  default -> List.of(normalizedRiskLevel);
+            };
+      }
+
+      private String normalizeRiskLevel(String riskLevel) {
+            if (!StringUtils.hasText(riskLevel)) {
+                  return "";
+            }
+            return switch (riskLevel.trim().toLowerCase(Locale.ROOT)) {
+                  case "critical" -> "red";
+                  case "warning" -> "orange";
+                  case "info" -> "blue";
+                  default -> riskLevel.trim().toLowerCase(Locale.ROOT);
+            };
       }
 }

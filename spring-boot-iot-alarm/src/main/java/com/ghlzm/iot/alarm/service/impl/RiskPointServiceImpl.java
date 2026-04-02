@@ -10,6 +10,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.entity.Dict;
 import com.ghlzm.iot.system.entity.DictItem;
 import com.ghlzm.iot.system.entity.Organization;
@@ -17,8 +18,11 @@ import com.ghlzm.iot.system.entity.Region;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.service.DictService;
 import com.ghlzm.iot.system.service.OrganizationService;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.RegionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,23 +47,36 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private final RegionService regionService;
       private final UserService userService;
       private final DictService dictService;
+      private final PermissionService permissionService;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService) {
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null);
+      }
+
+      @Autowired
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
             this.organizationService = organizationService;
             this.regionService = regionService;
             this.userService = userService;
             this.dictService = dictService;
+            this.permissionService = permissionService;
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public RiskPoint addRiskPoint(RiskPoint riskPoint, Long currentUserId) {
             validateRiskPointForWrite(riskPoint);
+            ensureWritableRiskPointOrg(currentUserId, riskPoint.getOrgId());
             Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
             Region region = resolveRequiredRegion(riskPoint.getRegionId());
             validateResponsibleUser(riskPoint.getResponsibleUser());
@@ -84,7 +101,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("风险点不存在");
             }
             validateRiskPointForWrite(riskPoint);
-            RiskPoint existing = getById(riskPoint.getId());
+            RiskPoint existing = hasDataPermissionSupport() && currentUserId != null
+                    ? getById(riskPoint.getId(), currentUserId)
+                    : getById(riskPoint.getId());
+            ensureWritableRiskPointOrg(currentUserId, riskPoint.getOrgId());
             Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
             Region region = resolveRequiredRegion(riskPoint.getRegionId());
             validateResponsibleUser(riskPoint.getResponsibleUser());
@@ -105,7 +125,17 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void deleteRiskPoint(Long id) {
-            getById(id);
+            deleteRiskPoint(id, null);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void deleteRiskPoint(Long id, Long currentUserId) {
+            if (hasDataPermissionSupport() && currentUserId != null) {
+                  getById(id, currentUserId);
+            } else {
+                  getById(id);
+            }
             if (!removeById(id)) {
                   throw new BizException("风险点删除失败");
             }
@@ -113,28 +143,50 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
       @Override
       public RiskPoint getById(Long id) {
+            return getById(id, null);
+      }
+
+      @Override
+      public RiskPoint getById(Long id, Long currentUserId) {
             RiskPoint riskPoint = super.getById(id);
             if (riskPoint == null || riskPoint.getDeleted() == 1) {
                   throw new BizException("风险点不存在");
             }
+            ensureRiskPointAccessible(currentUserId, riskPoint);
             return normalizeRiskPointForRead(riskPoint);
       }
 
       @Override
       public List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status) {
-            return normalizeRiskPoints(list(buildRiskPointWrapper(riskPointCode, riskLevel, status)));
+            return listRiskPoints(null, riskPointCode, riskLevel, status);
+      }
+
+      @Override
+      public List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status) {
+            return normalizeRiskPoints(list(buildRiskPointWrapper(currentUserId, riskPointCode, riskLevel, status)));
       }
 
       @Override
       public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
+            return pageRiskPoints(null, riskPointCode, riskLevel, status, pageNum, pageSize);
+      }
+
+      @Override
+      public PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
             Page<RiskPoint> page = new Page<>(pageNum, pageSize);
-            Page<RiskPoint> result = page(page, buildRiskPointWrapper(riskPointCode, riskLevel, status));
+            Page<RiskPoint> result = page(page, buildRiskPointWrapper(currentUserId, riskPointCode, riskLevel, status));
             return PageResult.of(result.getTotal(), pageNum, pageSize, normalizeRiskPoints(result.getRecords()));
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void bindDevice(RiskPointDevice riskPointDevice) {
+            bindDevice(riskPointDevice, null);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void bindDevice(RiskPointDevice riskPointDevice, Long currentUserId) {
             if (riskPointDevice == null || riskPointDevice.getRiskPointId() == null) {
                   throw new BizException("风险点不存在");
             }
@@ -144,7 +196,11 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
                   throw new BizException("请选择测点");
             }
-            getById(riskPointDevice.getRiskPointId());
+            if (hasDataPermissionSupport() && currentUserId != null) {
+                  getById(riskPointDevice.getRiskPointId(), currentUserId);
+            } else {
+                  getById(riskPointDevice.getRiskPointId());
+            }
 
             // 检查是否已绑定
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
@@ -166,6 +222,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void unbindDevice(Long riskPointId, Long deviceId) {
+            unbindDevice(riskPointId, deviceId, null);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void unbindDevice(Long riskPointId, Long deviceId, Long currentUserId) {
+            if (hasDataPermissionSupport() && currentUserId != null) {
+                  getById(riskPointId, currentUserId);
+            }
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointId);
             queryWrapper.eq(RiskPointDevice::getDeviceId, deviceId);
@@ -183,14 +248,25 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
       @Override
       public List<RiskPointDevice> listBoundDevices(Long riskPointId) {
+            return listBoundDevices(riskPointId, null);
+      }
+
+      @Override
+      public List<RiskPointDevice> listBoundDevices(Long riskPointId, Long currentUserId) {
+            if (hasDataPermissionSupport() && currentUserId != null) {
+                  getById(riskPointId, currentUserId);
+            } else {
+                  getById(riskPointId);
+            }
             LambdaQueryWrapper<RiskPointDevice> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(RiskPointDevice::getRiskPointId, riskPointId);
             wrapper.eq(RiskPointDevice::getDeleted, 0);
             return riskPointDeviceMapper.selectList(wrapper);
       }
 
-      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(String riskPointCode, String riskLevel, Integer status) {
+      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String riskPointCode, String riskLevel, Integer status) {
             LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
+            applyRiskPointScope(wrapper, currentUserId);
             if (riskPointCode != null && !riskPointCode.isEmpty()) {
                   wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
             }
@@ -203,6 +279,29 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             wrapper.eq(RiskPoint::getDeleted, 0);
             wrapper.orderByDesc(RiskPoint::getCreateTime);
             return wrapper;
+      }
+
+      private void applyRiskPointScope(LambdaQueryWrapper<RiskPoint> wrapper, Long currentUserId) {
+            if (!hasDataPermissionSupport() || currentUserId == null) {
+                  return;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            wrapper.eq(context.tenantId() != null, RiskPoint::getTenantId, context.tenantId());
+            if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+                  return;
+            }
+            if (context.dataScopeType() == DataScopeType.SELF) {
+                  wrapper.and(scope -> scope.eq(RiskPoint::getResponsibleUser, currentUserId)
+                          .or()
+                          .eq(RiskPoint::getCreateBy, currentUserId));
+                  return;
+            }
+            Set<Long> accessibleOrgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+            if (accessibleOrgIds.isEmpty()) {
+                  wrapper.eq(RiskPoint::getId, -1L);
+                  return;
+            }
+            wrapper.in(RiskPoint::getOrgId, accessibleOrgIds);
       }
 
       private void validateRiskPointForWrite(RiskPoint riskPoint) {
@@ -311,6 +410,44 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   case "info" -> "blue";
                   default -> riskLevel.trim().toLowerCase(Locale.ROOT);
             };
+      }
+
+      private void ensureWritableRiskPointOrg(Long currentUserId, Long orgId) {
+            if (!hasDataPermissionSupport() || currentUserId == null || orgId == null || orgId <= 0) {
+                  return;
+            }
+            if (!permissionService.listAccessibleOrganizationIds(currentUserId).contains(orgId)) {
+                  throw new BizException("所属组织不在当前账号的数据范围内");
+            }
+      }
+
+      private void ensureRiskPointAccessible(Long currentUserId, RiskPoint riskPoint) {
+            if (!hasDataPermissionSupport() || currentUserId == null || riskPoint == null) {
+                  return;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            if (context.superAdmin()) {
+                  return;
+            }
+            if (context.tenantId() != null && !context.tenantId().equals(riskPoint.getTenantId())) {
+                  throw new BizException("风险点不存在或无权访问");
+            }
+            if (context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+                  return;
+            }
+            if (context.dataScopeType() == DataScopeType.SELF) {
+                  if (currentUserId.equals(riskPoint.getResponsibleUser()) || currentUserId.equals(riskPoint.getCreateBy())) {
+                        return;
+                  }
+                  throw new BizException("风险点不存在或无权访问");
+            }
+            if (riskPoint.getOrgId() == null || !permissionService.listAccessibleOrganizationIds(currentUserId).contains(riskPoint.getOrgId())) {
+                  throw new BizException("风险点不存在或无权访问");
+            }
+      }
+
+      private boolean hasDataPermissionSupport() {
+            return permissionService != null;
       }
 
       private Long normalizeResponsibleUser(Long responsibleUserId) {

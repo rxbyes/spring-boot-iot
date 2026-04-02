@@ -24,10 +24,11 @@ public class RuleDefinitionController {
        */
       @GetMapping("/list")
       public R<List<RuleDefinition>> getRuleList(
+                  @RequestParam(required = false) String ruleName,
                   @RequestParam(required = false) String metricIdentifier,
                   @RequestParam(required = false) String alarmLevel,
                   @RequestParam(required = false) Integer status) {
-            List<RuleDefinition> list = ruleDefinitionService.getRuleList(metricIdentifier, alarmLevel, status);
+            List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status);
             return R.ok(list);
       }
 
@@ -36,12 +37,13 @@ public class RuleDefinitionController {
        */
       @GetMapping("/page")
       public R<PageResult<RuleDefinition>> pageRuleList(
+                  @RequestParam(required = false) String ruleName,
                   @RequestParam(required = false) String metricIdentifier,
                   @RequestParam(required = false) String alarmLevel,
                   @RequestParam(required = false) Integer status,
                   @RequestParam(defaultValue = "1") Long pageNum,
                   @RequestParam(defaultValue = "10") Long pageSize) {
-            PageResult<RuleDefinition> page = ruleDefinitionService.pageRuleList(metricIdentifier, alarmLevel, status, pageNum, pageSize);
+            PageResult<RuleDefinition> page = ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, pageNum, pageSize);
             return R.ok(page);
       }
 

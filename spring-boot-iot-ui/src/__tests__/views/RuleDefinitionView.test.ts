@@ -77,8 +77,10 @@ const StandardListFilterHeaderStub = defineComponent({
 
 const StandardTableToolbarStub = defineComponent({
   name: 'StandardTableToolbar',
+  props: ['metaItems'],
   template: `
     <section class="rule-definition-table-toolbar-stub">
+      <div class="rule-definition-table-toolbar-stub__meta">{{ (metaItems || []).join(' | ') }}</div>
       <slot />
       <slot name="right" />
     </section>
@@ -252,5 +254,31 @@ describe('RuleDefinitionView', () => {
     const pagination = wrapper.findComponent(StandardPaginationStub);
     expect(pagination.props('pageSizes')).toEqual([10, 20, 50, 100]);
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper');
+  });
+
+  it('counts mixed legacy alarm levels in the toolbar summary after loading rules', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          createRuleRow(),
+          {
+            ...createRuleRow(),
+            id: 2,
+            ruleName: '桥梁红色新口径',
+            alarmLevel: 'red'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('严重 2 项');
   });
 });

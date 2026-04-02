@@ -31,8 +31,8 @@ public class UserController {
       }
 
       @PostMapping("/add")
-      public R<Void> addUser(@RequestBody User user) {
-            userService.addUser(user);
+      public R<Void> addUser(@RequestBody User user, Authentication authentication) {
+            userService.addUser(requireCurrentUserId(authentication), user);
             return R.ok();
       }
 
@@ -40,8 +40,9 @@ public class UserController {
       public R<List<User>> listUsers(@RequestParam(required = false) String username,
                                      @RequestParam(required = false) String phone,
                                      @RequestParam(required = false) String email,
-                                     @RequestParam(required = false) Integer status) {
-            return R.ok(userService.listUsers(username, phone, email, status));
+                                     @RequestParam(required = false) Integer status,
+                                     Authentication authentication) {
+            return R.ok(userService.listUsers(requireCurrentUserId(authentication), username, phone, email, status));
       }
 
       @GetMapping("/page")
@@ -50,24 +51,25 @@ public class UserController {
                                            @RequestParam(required = false) String email,
                                            @RequestParam(required = false) Integer status,
                                            @RequestParam(defaultValue = "1") Long pageNum,
-                                           @RequestParam(defaultValue = "10") Long pageSize) {
-            return R.ok(userService.pageUsers(username, phone, email, status, pageNum, pageSize));
+                                           @RequestParam(defaultValue = "10") Long pageSize,
+                                           Authentication authentication) {
+            return R.ok(userService.pageUsers(requireCurrentUserId(authentication), username, phone, email, status, pageNum, pageSize));
       }
 
       @GetMapping("/{id}")
-      public R<User> getById(@PathVariable Long id) {
-            return R.ok(userService.getById(id));
+      public R<User> getById(@PathVariable Long id, Authentication authentication) {
+            return R.ok(userService.getById(requireCurrentUserId(authentication), id));
       }
 
       @PutMapping("/update")
-      public R<Void> updateUser(@RequestBody User user) {
-            userService.updateUser(user);
+      public R<Void> updateUser(@RequestBody User user, Authentication authentication) {
+            userService.updateUser(requireCurrentUserId(authentication), user);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
-      public R<Void> deleteUser(@PathVariable Long id) {
-            userService.deleteUser(id);
+      public R<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+            userService.deleteUser(requireCurrentUserId(authentication), id);
             return R.ok();
       }
 
@@ -83,8 +85,8 @@ public class UserController {
       }
 
       @PostMapping("/reset-password/{userId}")
-      public R<Void> resetPassword(@PathVariable Long userId) {
-            userService.resetPassword(userId);
+      public R<Void> resetPassword(@PathVariable Long userId, Authentication authentication) {
+            userService.resetPassword(requireCurrentUserId(authentication), userId);
             return R.ok();
       }
 
@@ -94,5 +96,12 @@ public class UserController {
             JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
             userService.updateCurrentUserProfile(principal.userId(), dto);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }
