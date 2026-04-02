@@ -47,8 +47,8 @@ public class RiskPointController {
        * 删除风险点
        */
       @PostMapping("/delete/{id}")
-      public R<Void> deleteRiskPoint(@PathVariable Long id) {
-            riskPointService.deleteRiskPoint(id);
+      public R<Void> deleteRiskPoint(@PathVariable Long id, Authentication authentication) {
+            riskPointService.deleteRiskPoint(id, requireCurrentUserId(authentication));
             return R.ok();
       }
 
@@ -56,8 +56,8 @@ public class RiskPointController {
        * 根据ID查询风险点
        */
       @GetMapping("/get/{id}")
-      public R<RiskPoint> getById(@PathVariable Long id) {
-            RiskPoint riskPoint = riskPointService.getById(id);
+      public R<RiskPoint> getById(@PathVariable Long id, Authentication authentication) {
+            RiskPoint riskPoint = riskPointService.getById(id, requireCurrentUserId(authentication));
             return R.ok(riskPoint);
       }
 
@@ -68,8 +68,9 @@ public class RiskPointController {
       public R<List<RiskPoint>> listRiskPoints(
                   @RequestParam(required = false) String riskPointCode,
                   @RequestParam(required = false) String riskLevel,
-                  @RequestParam(required = false) Integer status) {
-            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(riskPointCode, riskLevel, status);
+                  @RequestParam(required = false) Integer status,
+                  Authentication authentication) {
+            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(requireCurrentUserId(authentication), riskPointCode, riskLevel, status);
             return R.ok(riskPoints);
       }
 
@@ -82,8 +83,9 @@ public class RiskPointController {
                   @RequestParam(required = false) String riskLevel,
                   @RequestParam(required = false) Integer status,
                   @RequestParam(defaultValue = "1") Long pageNum,
-                  @RequestParam(defaultValue = "10") Long pageSize) {
-            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(riskPointCode, riskLevel, status, pageNum, pageSize);
+                  @RequestParam(defaultValue = "10") Long pageSize,
+                  Authentication authentication) {
+            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(requireCurrentUserId(authentication), riskPointCode, riskLevel, status, pageNum, pageSize);
             return R.ok(page);
       }
 
@@ -91,8 +93,8 @@ public class RiskPointController {
        * 绑定风险点与设备
        */
       @PostMapping("/bind-device")
-      public R<Void> bindDevice(@RequestBody RiskPointDevice riskPointDevice) {
-            riskPointService.bindDevice(riskPointDevice);
+      public R<Void> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
+            riskPointService.bindDevice(riskPointDevice, requireCurrentUserId(authentication));
             return R.ok();
       }
 
@@ -100,8 +102,8 @@ public class RiskPointController {
        * 解绑风险点与设备
        */
       @PostMapping("/unbind-device")
-      public R<Void> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId) {
-            riskPointService.unbindDevice(riskPointId, deviceId);
+      public R<Void> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
+            riskPointService.unbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication));
             return R.ok();
       }
 
@@ -109,8 +111,8 @@ public class RiskPointController {
        * 查询风险点绑定的设备列表
        */
       @GetMapping("/bound-devices/{riskPointId}")
-      public R<List<RiskPointDevice>> listBoundDevices(@PathVariable Long riskPointId) {
-            List<RiskPointDevice> devices = riskPointService.listBoundDevices(riskPointId);
+      public R<List<RiskPointDevice>> listBoundDevices(@PathVariable Long riskPointId, Authentication authentication) {
+            List<RiskPointDevice> devices = riskPointService.listBoundDevices(riskPointId, requireCurrentUserId(authentication));
             return R.ok(devices);
       }
 

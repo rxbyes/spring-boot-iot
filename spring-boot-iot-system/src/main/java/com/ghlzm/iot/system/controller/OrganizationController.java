@@ -2,8 +2,10 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.service.OrganizationService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,8 +35,9 @@ public class OrganizationController {
       }
 
       @GetMapping("/list")
-      public R<List<Organization>> listOrganizations(@RequestParam(required = false) Long parentId) {
-            return R.ok(organizationService.listOrganizations(parentId));
+      public R<List<Organization>> listOrganizations(@RequestParam(required = false) Long parentId,
+                                                     Authentication authentication) {
+            return R.ok(organizationService.listOrganizations(requireCurrentUserId(authentication), parentId));
       }
 
       @GetMapping("/page")
@@ -42,18 +45,19 @@ public class OrganizationController {
                                                            @RequestParam(required = false) String orgCode,
                                                            @RequestParam(required = false) Integer status,
                                                            @RequestParam(defaultValue = "1") Long pageNum,
-                                                           @RequestParam(defaultValue = "10") Long pageSize) {
-            return R.ok(organizationService.pageOrganizations(orgName, orgCode, status, pageNum, pageSize));
+                                                           @RequestParam(defaultValue = "10") Long pageSize,
+                                                           Authentication authentication) {
+            return R.ok(organizationService.pageOrganizations(requireCurrentUserId(authentication), orgName, orgCode, status, pageNum, pageSize));
       }
 
       @GetMapping("/tree")
-      public R<List<Organization>> listOrganizationTree() {
-            return R.ok(organizationService.listOrganizationTree());
+      public R<List<Organization>> listOrganizationTree(Authentication authentication) {
+            return R.ok(organizationService.listOrganizationTree(requireCurrentUserId(authentication)));
       }
 
       @GetMapping("/{id}")
-      public R<Organization> getById(@PathVariable Long id) {
-            return R.ok(organizationService.getById(id));
+      public R<Organization> getById(@PathVariable Long id, Authentication authentication) {
+            return R.ok(organizationService.getById(requireCurrentUserId(authentication), id));
       }
 
       @PutMapping
@@ -66,5 +70,12 @@ public class OrganizationController {
       public R<Void> deleteOrganization(@PathVariable Long id) {
             organizationService.deleteOrganization(id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

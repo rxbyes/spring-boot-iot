@@ -255,7 +255,7 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
-import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
+import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, normalizeRiskLevel, type RiskLevelOption } from '@/utils/riskLevel';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
@@ -310,8 +310,8 @@ const planAdvice = '优先检查严重风险预案和启用中的执行方案';
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => planList.value.filter((item) => item.status === 0).length);
-const redCount = computed(() => planList.value.filter((item) => item.riskLevel === 'red').length);
-const orangeCount = computed(() => planList.value.filter((item) => item.riskLevel === 'orange').length);
+const redCount = computed(() => planList.value.filter((item) => normalizeRiskLevel(item.riskLevel) === 'red').length);
+const orangeCount = computed(() => planList.value.filter((item) => normalizeRiskLevel(item.riskLevel) === 'orange').length);
 const hasRecords = computed(() => planList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的应急预案' : '还没有应急预案'));
@@ -479,7 +479,7 @@ const handleAdd = () => {
 const handleEdit = (row: EmergencyPlan) => {
   form.id = row.id;
   form.planName = row.planName;
-  form.riskLevel = row.riskLevel;
+  form.riskLevel = normalizeRiskLevel(row.riskLevel);
   form.description = row.description || '';
   form.responseSteps = row.responseSteps || '';
   form.contactList = row.contactList || '';

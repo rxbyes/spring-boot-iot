@@ -27,33 +27,47 @@ public interface RiskPointService extends IService<RiskPoint> {
        */
       void deleteRiskPoint(Long id);
 
+      void deleteRiskPoint(Long id, Long currentUserId);
+
       /**
        * 根据ID查询风险点
        */
       RiskPoint getById(Long id);
+
+      RiskPoint getById(Long id, Long currentUserId);
 
       /**
        * 查询风险点列表
        */
       List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status);
 
+      List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status);
+
       /**
        * 分页查询风险点列表
        */
       PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize);
+
+      PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize);
 
       /**
        * 绑定风险点与设备
        */
       void bindDevice(RiskPointDevice riskPointDevice);
 
+      void bindDevice(RiskPointDevice riskPointDevice, Long currentUserId);
+
       /**
        * 解绑风险点与设备
        */
       void unbindDevice(Long riskPointId, Long deviceId);
 
+      void unbindDevice(Long riskPointId, Long deviceId, Long currentUserId);
+
       /**
        * 查询风险点绑定的设备列表
        */
       List<RiskPointDevice> listBoundDevices(Long riskPointId);
+
+      List<RiskPointDevice> listBoundDevices(Long riskPointId, Long currentUserId);
 }

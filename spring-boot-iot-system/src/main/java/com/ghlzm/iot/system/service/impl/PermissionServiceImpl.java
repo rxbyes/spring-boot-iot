@@ -20,6 +20,7 @@ import com.ghlzm.iot.system.mapper.TenantMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.MenuMetaVO;
 import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
 import com.ghlzm.iot.system.vo.RoleSummaryVO;
@@ -92,12 +93,8 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     public UserAuthContextVO getUserAuthContext(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
-            throw new BizException(401, "用户不存在或已失效");
-        }
-
-        List<Role> roles = loadActiveRolesByIds(userRoleMapper.selectRoleIdsByUserId(userId));
+        User user = requireActiveUser(userId);
+        List<Role> roles = loadUserRoles(userId);
         boolean superAdmin = roles.stream().anyMatch(role -> SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode()));
 
         List<Menu> activeMenus = listActiveMenus();
@@ -140,7 +137,7 @@ public class PermissionServiceImpl implements PermissionService {
         context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
         context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息" : "未填写实名信息");
         context.setLoginMethods(buildLoginMethods(user));
-        DataScopeType scopeType = resolveHighestScope(roles);
+        DataScopeType scopeType = superAdmin ? DataScopeType.ALL : resolveHighestScope(roles);
         context.setDataScopeType(scopeType.name());
         context.setDataScopeSummary(scopeType.getLabel());
         context.setSuperAdmin(superAdmin);
@@ -155,6 +152,28 @@ public class PermissionServiceImpl implements PermissionService {
                 .toList());
         context.setMenus(navigationMenus);
         return context;
+    }
+
+    @Override
+    public DataPermissionContext getDataPermissionContext(Long userId) {
+        User user = requireActiveUser(userId);
+        List<Role> roles = loadUserRoles(userId);
+        boolean superAdmin = roles.stream().anyMatch(role -> SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode()));
+        DataScopeType scopeType = superAdmin ? DataScopeType.ALL : resolveHighestScope(roles);
+        return new DataPermissionContext(user.getId(), user.getTenantId(), user.getOrgId(), scopeType, superAdmin);
+    }
+
+    @Override
+    public Set<Long> listAccessibleOrganizationIds(Long userId) {
+        DataPermissionContext context = getDataPermissionContext(userId);
+        if (context.orgId() == null || context.orgId() <= 0) {
+            return Set.of();
+        }
+        return switch (context.dataScopeType()) {
+            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
+            case ORG_AND_CHILDREN -> resolveOrganizationSubtreeIds(context.tenantId(), context.orgId());
+            case ORG, SELF -> Set.of(context.orgId());
+        };
     }
 
     @Override
@@ -263,6 +282,18 @@ public class PermissionServiceImpl implements PermissionService {
         return roleMapper.selectList(wrapper);
     }
 
+    private User requireActiveUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
+            throw new BizException(401, "用户不存在或已失效");
+        }
+        return user;
+    }
+
+    private List<Role> loadUserRoles(Long userId) {
+        return loadActiveRolesByIds(userRoleMapper.selectRoleIdsByUserId(userId));
+    }
+
     private List<Menu> listActiveMenus() {
         LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Menu::getStatus, 1)
@@ -319,6 +350,47 @@ public class PermissionServiceImpl implements PermissionService {
             scopeType = DataScopeType.pickHigher(scopeType, DataScopeType.fromCode(role.getDataScopeType()));
         }
         return scopeType;
+    }
+
+    private Set<Long> listTenantOrganizationIds(Long tenantId) {
+        return organizationMapper.selectList(new LambdaQueryWrapper<Organization>()
+                        .select(Organization::getId, Organization::getParentId)
+                        .eq(tenantId != null, Organization::getTenantId, tenantId)
+                        .eq(Organization::getDeleted, 0))
+                .stream()
+                .map(Organization::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> resolveOrganizationSubtreeIds(Long tenantId, Long rootOrgId) {
+        List<Organization> organizations = organizationMapper.selectList(new LambdaQueryWrapper<Organization>()
+                .select(Organization::getId, Organization::getParentId)
+                .eq(tenantId != null, Organization::getTenantId, tenantId)
+                .eq(Organization::getDeleted, 0)
+                .orderByAsc(Organization::getId));
+        if (CollectionUtils.isEmpty(organizations)) {
+            return Set.of(rootOrgId);
+        }
+        Map<Long, List<Long>> childrenMap = organizations.stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.groupingBy(
+                        item -> item.getParentId() == null ? 0L : item.getParentId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(Organization::getId, Collectors.toList())
+                ));
+        LinkedHashSet<Long> scopedIds = new LinkedHashSet<>();
+        collectOrganizationChildren(rootOrgId, childrenMap, scopedIds);
+        return scopedIds.isEmpty() ? Set.of(rootOrgId) : scopedIds;
+    }
+
+    private void collectOrganizationChildren(Long currentOrgId, Map<Long, List<Long>> childrenMap, Set<Long> scopedIds) {
+        if (currentOrgId == null || !scopedIds.add(currentOrgId)) {
+            return;
+        }
+        for (Long childId : childrenMap.getOrDefault(currentOrgId, List.of())) {
+            collectOrganizationChildren(childId, childrenMap, scopedIds);
+        }
     }
 
     private Set<Long> expandWithAncestors(Collection<Long> menuIds, Map<Long, Menu> menuMap) {

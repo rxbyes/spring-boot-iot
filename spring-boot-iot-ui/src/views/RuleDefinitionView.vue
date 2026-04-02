@@ -308,6 +308,7 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
+import { getAlarmLevelTagType, getAlarmLevelText, normalizeAlarmLevel } from '@/utils/alarmLevel';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { listMissingPolicies, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
@@ -372,7 +373,7 @@ let latestListRequestId = 0;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
 const convertToEventCount = computed(() => ruleList.value.filter((item) => item.convertToEvent === 1).length);
-const criticalRuleCount = computed(() => ruleList.value.filter((item) => item.alarmLevel === 'critical').length);
+const criticalRuleCount = computed(() => ruleList.value.filter((item) => normalizeAlarmLevel(item.alarmLevel) === 'critical').length);
 const hasRecords = computed(() => ruleList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的阈值策略' : '还没有阈值策略'));
@@ -382,31 +383,7 @@ const emptyStateDescription = computed(() =>
     : '当前还没有阈值策略，先新增规则，再继续告警触发和事件转化治理。'
 );
 
-const getAlarmLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
-
-const getAlarmLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
-  }
-};
+const getAlarmLevelType = (level: string) => getAlarmLevelTagType(level);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -592,7 +569,7 @@ const handleEdit = (row: RuleDefinition) => {
   form.metricName = row.metricName;
   form.expression = row.expression;
   form.duration = row.duration;
-  form.alarmLevel = row.alarmLevel;
+  form.alarmLevel = normalizeAlarmLevel(row.alarmLevel) || 'info';
   form.notificationMethods = row.notificationMethods ? row.notificationMethods.split(',') : [];
   form.convertToEvent = row.convertToEvent;
   form.status = row.status;

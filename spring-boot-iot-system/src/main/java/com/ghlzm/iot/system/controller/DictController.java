@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.controller;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.system.entity.Dict;
+import com.ghlzm.iot.system.entity.DictItem;
 import com.ghlzm.iot.system.service.DictService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,6 +56,29 @@ public class DictController {
       @GetMapping("/code/{dictCode}")
       public R<Dict> getByCode(@PathVariable String dictCode) {
             return R.ok(dictService.getByCode(dictCode));
+      }
+
+      @GetMapping("/{dictId}/items")
+      public R<List<DictItem>> listDictItems(@PathVariable Long dictId) {
+            return R.ok(dictService.listDictItems(dictId));
+      }
+
+      @PostMapping("/{dictId}/items")
+      public R<DictItem> addDictItem(@PathVariable Long dictId, @RequestBody DictItem dictItem) {
+            dictItem.setDictId(dictId);
+            return R.ok(dictService.addDictItem(dictItem));
+      }
+
+      @PutMapping("/{dictId}/items")
+      public R<DictItem> updateDictItem(@PathVariable Long dictId, @RequestBody DictItem dictItem) {
+            dictItem.setDictId(dictId);
+            return R.ok(dictService.updateDictItem(dictItem));
+      }
+
+      @DeleteMapping("/items/{id}")
+      public R<Void> deleteDictItem(@PathVariable Long id) {
+            dictService.deleteDictItem(id);
+            return R.ok();
       }
 
       @PostMapping

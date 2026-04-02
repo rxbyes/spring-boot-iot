@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 阈值规则配置Service实现类
@@ -22,15 +23,15 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             implements RuleDefinitionService {
 
       @Override
-      public PageResult<RuleDefinition> pageRuleList(String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
+      public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
             Page<RuleDefinition> page = new Page<>(pageNum, pageSize);
-            Page<RuleDefinition> result = page(page, buildWrapper(metricIdentifier, alarmLevel, status));
+            Page<RuleDefinition> result = page(page, buildWrapper(ruleName, metricIdentifier, alarmLevel, status));
             return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
-      public List<RuleDefinition> getRuleList(String metricIdentifier, String alarmLevel, Integer status) {
-            return list(buildWrapper(metricIdentifier, alarmLevel, status));
+      public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status) {
+            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status));
       }
 
       @Override
@@ -51,13 +52,16 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             removeById(id);
       }
 
-      private LambdaQueryWrapper<RuleDefinition> buildWrapper(String metricIdentifier, String alarmLevel, Integer status) {
+      private LambdaQueryWrapper<RuleDefinition> buildWrapper(String ruleName, String metricIdentifier, String alarmLevel, Integer status) {
             LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
+            if (StringUtils.hasText(ruleName)) {
+                  wrapper.like(RuleDefinition::getRuleName, ruleName.trim());
+            }
             if (metricIdentifier != null && !metricIdentifier.isEmpty()) {
                   wrapper.eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
             }
-            if (alarmLevel != null && !alarmLevel.isEmpty()) {
-                  wrapper.eq(RuleDefinition::getAlarmLevel, alarmLevel);
+            if (StringUtils.hasText(alarmLevel)) {
+                  wrapper.in(RuleDefinition::getAlarmLevel, buildAlarmLevelQueryValues(alarmLevel));
             }
             if (status != null) {
                   wrapper.eq(RuleDefinition::getStatus, status);
@@ -65,6 +69,31 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             wrapper.eq(RuleDefinition::getDeleted, 0);
             wrapper.orderByDesc(RuleDefinition::getCreateTime);
             return wrapper;
+      }
+
+      private List<String> buildAlarmLevelQueryValues(String alarmLevel) {
+            String normalizedAlarmLevel = normalizeAlarmLevel(alarmLevel);
+            if (!StringUtils.hasText(normalizedAlarmLevel)) {
+                  return List.of();
+            }
+            return switch (normalizedAlarmLevel) {
+                  case "critical" -> List.of("critical", "red");
+                  case "warning" -> List.of("warning", "warn", "medium", "yellow", "high", "orange");
+                  case "info" -> List.of("info", "low", "blue");
+                  default -> List.of(normalizedAlarmLevel);
+            };
+      }
+
+      private String normalizeAlarmLevel(String alarmLevel) {
+            if (!StringUtils.hasText(alarmLevel)) {
+                  return "";
+            }
+            return switch (alarmLevel.trim().toLowerCase(Locale.ROOT)) {
+                  case "critical", "red" -> "critical";
+                  case "warning", "warn", "medium", "yellow", "high", "orange" -> "warning";
+                  case "info", "low", "blue" -> "info";
+                  default -> alarmLevel.trim().toLowerCase(Locale.ROOT);
+            };
       }
 
       private void validateExecutableRule(RuleDefinition rule) {
