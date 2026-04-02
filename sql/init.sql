@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS iot_alarm_record;
 DROP TABLE IF EXISTS emergency_plan;
 DROP TABLE IF EXISTS linkage_rule;
 DROP TABLE IF EXISTS rule_definition;
+DROP TABLE IF EXISTS risk_point_highway_detail;
 DROP TABLE IF EXISTS risk_point_device;
 DROP TABLE IF EXISTS risk_point;
 
@@ -816,7 +817,11 @@ CREATE TABLE risk_point (
     responsible_user BIGINT DEFAULT NULL COMMENT '负责人',
     responsible_phone VARCHAR(32) DEFAULT NULL COMMENT '负责人电话',
     risk_level VARCHAR(20) DEFAULT NULL COMMENT '风险等级',
-    description VARCHAR(512) DEFAULT NULL COMMENT '描述',
+    risk_type VARCHAR(32) NOT NULL DEFAULT 'GENERAL' COMMENT '风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL',
+    location_text VARCHAR(255) DEFAULT NULL COMMENT '位置描述/桩号/区间',
+    longitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点经度',
+    latitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点纬度',
+    description VARCHAR(1000) DEFAULT NULL COMMENT '描述',
     status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-启用 1-停用',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
     create_by BIGINT DEFAULT NULL,
@@ -827,8 +832,36 @@ CREATE TABLE risk_point (
     PRIMARY KEY (id),
     UNIQUE KEY uk_risk_point_code_tenant (tenant_id, risk_point_code),
     KEY idx_region (region_id),
-    KEY idx_status (status)
+    KEY idx_status (status),
+    KEY idx_risk_type_status (risk_type, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点表';
+
+CREATE TABLE risk_point_highway_detail (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
+    project_name VARCHAR(255) NOT NULL COMMENT '项目名称',
+    project_type VARCHAR(32) NOT NULL COMMENT '项目类型',
+    project_summary TEXT DEFAULT NULL COMMENT '项目简介',
+    route_code VARCHAR(64) NOT NULL COMMENT '路线编号',
+    route_name VARCHAR(128) DEFAULT NULL COMMENT '路线名称',
+    road_level VARCHAR(64) DEFAULT NULL COMMENT '公路等级',
+    project_risk_level VARCHAR(32) DEFAULT NULL COMMENT '项目风险等级原始值',
+    admin_region_code VARCHAR(32) DEFAULT NULL COMMENT '行政区域末级编码',
+    admin_region_path_json VARCHAR(255) DEFAULT NULL COMMENT '行政区域路径JSON',
+    maintenance_org_name VARCHAR(128) DEFAULT NULL COMMENT '管养单位名称',
+    source_row_no INT DEFAULT NULL COMMENT 'Excel来源行号',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_point_highway (risk_point_id),
+    KEY idx_route_code (route_code),
+    KEY idx_admin_region_code (admin_region_code),
+    KEY idx_project_type (project_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='高速公路风险点扩展表';
 
 CREATE TABLE risk_point_device (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',

@@ -85,6 +85,39 @@ class RiskPolicyResolverTest {
         assertFalse(decision.shouldCreateEvent());
     }
 
+    @Test
+    void resolveShouldPreferHighestSeverityWhenMultipleRulesMatchSameMetric() {
+        RuleDefinition orangeRule = new RuleDefinition();
+        orangeRule.setId(8217L);
+        orangeRule.setRuleName("深部位移橙色策略");
+        orangeRule.setMetricIdentifier("dispsY");
+        orangeRule.setExpression(">= 10");
+        orangeRule.setAlarmLevel("orange");
+        orangeRule.setConvertToEvent(1);
+        orangeRule.setStatus(0);
+        orangeRule.setDeleted(0);
+
+        RuleDefinition redRule = new RuleDefinition();
+        redRule.setId(8218L);
+        redRule.setRuleName("深部位移红色策略");
+        redRule.setMetricIdentifier("dispsY");
+        redRule.setExpression(">= 20");
+        redRule.setAlarmLevel("critical");
+        redRule.setConvertToEvent(1);
+        redRule.setStatus(0);
+        redRule.setDeleted(0);
+
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(orangeRule, redRule));
+
+        RiskPolicyDecision decision = resolver.resolve(1L, binding("dispsY"), new BigDecimal("21.6"));
+
+        assertEquals("RULE_DEFINITION", decision.getSource());
+        assertEquals("critical", decision.getAlarmLevel());
+        assertEquals("red", decision.getRiskPointLevel());
+        assertEquals(8218L, decision.getRuleId());
+        assertTrue(decision.shouldCreateEvent());
+    }
+
     private RiskPointDevice binding(String metricIdentifier) {
         RiskPointDevice binding = new RiskPointDevice();
         binding.setMetricIdentifier(metricIdentifier);

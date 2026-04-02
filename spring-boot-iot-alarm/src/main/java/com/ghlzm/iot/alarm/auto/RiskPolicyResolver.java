@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -38,16 +39,24 @@ public class RiskPolicyResolver {
 
     public RiskPolicyDecision resolve(Long tenantId, RiskPointDevice binding, BigDecimal absoluteValue) {
         if (binding != null && StringUtils.hasText(binding.getMetricIdentifier())) {
-            for (RuleDefinition rule : listEnabledRules(tenantId, binding.getMetricIdentifier())) {
-                if (matches(rule == null ? null : rule.getExpression(), absoluteValue)) {
-                    return RiskPolicyDecision.fromRule(rule);
-                }
+            RuleDefinition matchedRule = listEnabledRules(tenantId, binding.getMetricIdentifier()).stream()
+                    .filter(rule -> matches(rule == null ? null : rule.getExpression(), absoluteValue))
+                    .max(rulePriorityComparator())
+                    .orElse(null);
+            if (matchedRule != null) {
+                return RiskPolicyDecision.fromRule(matchedRule);
             }
         }
         IotProperties.Alarm.AutoClosure config = iotProperties == null || iotProperties.getAlarm() == null
                 ? null
                 : iotProperties.getAlarm().getAutoClosure();
         return RiskPolicyDecision.fromAutoClosure(absoluteValue, config);
+    }
+
+    private Comparator<RuleDefinition> rulePriorityComparator() {
+        return Comparator
+                .comparingInt((RuleDefinition rule) -> RiskPolicyDecision.fromRule(rule).getPriority())
+                .thenComparing(RuleDefinition::getId, Comparator.nullsLast(Long::compareTo));
     }
 
     public static boolean isExecutableExpression(String expression) {

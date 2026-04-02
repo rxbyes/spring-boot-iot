@@ -52,14 +52,14 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
     route: '/products',
     title: '产品定义中心',
     caption: '产品台账、协议基线与库存归属管理。',
-    readySelector: '#query-product-key',
+    readySelector: '#quick-search',
     matcher: '/api/device/product/'
   },
   {
     route: '/devices',
     title: '设备资产中心',
     caption: '设备建档、在线状态核查与资产运维。',
-    readySelector: '#device-product-key',
+    readySelector: '#quick-search',
     matcher: '/api/device/'
   },
   {
@@ -352,10 +352,10 @@ function createLoginScenario(): AutomationScenarioConfig {
       }),
       createStep({
         id: 'login-assert-title',
-        label: '断言首页标题出现',
+        label: '断言进入治理入口',
         type: 'assertText',
-        locator: createCssLocator('[data-testid="console-page-title"]'),
-        value: '平台首页'
+        locator: createCssLocator('body'),
+        value: '平台治理'
       })
     ]
   };
@@ -367,10 +367,10 @@ function createProductScenario(): AutomationScenarioConfig {
     name: '产品定义与库存校验',
     route: '/products',
     scope: 'delivery',
-    readySelector: '#query-product-key',
+    readySelector: '#quick-search',
     description: '示例场景：在产品台账页打开抽屉创建产品，并通过列表筛选验证产品已成功入库。',
     businessFlow: '产品定义、接口回写与台账筛选校验',
-    featurePoints: ['产品创建', '返回主键捕获', '按产品 Key 筛选产品台账'],
+    featurePoints: ['产品创建', '返回主键捕获', '按当前快速搜索筛选产品台账'],
     initialApis: [],
     steps: [
       createStep({
@@ -419,12 +419,7 @@ function createProductScenario(): AutomationScenarioConfig {
         matcher: '/api/device/product/add',
         action: {
           type: 'click',
-          locator: {
-            type: 'role',
-            role: 'button',
-            name: '提交产品定义',
-            exact: true
-          }
+          locator: createCssLocator('#product-submit-button')
         },
         captures: [
           {
@@ -434,17 +429,17 @@ function createProductScenario(): AutomationScenarioConfig {
         ]
       }),
       createStep({
-        id: 'product-fill-query-key',
-        label: '填写产品 Key 筛选',
+        id: 'product-fill-quick-search',
+        label: '填写产品快速搜索',
         type: 'fill',
-        locator: createCssLocator('#query-product-key'),
-        value: 'autotest-product-${runToken}'
+        locator: createCssLocator('#quick-search'),
+        value: '自动化产品 ${runToken}'
       }),
       createStep({
         id: 'product-query',
-        label: '按产品 Key 查询台账',
+        label: '按产品名称查询台账',
         type: 'triggerApi',
-        matcher: '/api/device/product/page?productKey=autotest-product-${runToken}',
+        matcher: '/api/device/product/page',
         action: {
           type: 'click',
           locator: {
@@ -456,11 +451,11 @@ function createProductScenario(): AutomationScenarioConfig {
         }
       }),
       createStep({
-        id: 'product-assert-title',
-        label: '断言当前位于产品页',
+        id: 'product-assert-key',
+        label: '断言列表出现产品编码',
         type: 'assertText',
-        locator: createCssLocator('[data-testid="console-page-title"]'),
-        value: '产品定义中心'
+        locator: createCssLocator('body'),
+        value: 'autotest-product-${runToken}'
       })
     ]
   };
@@ -472,7 +467,7 @@ function createDeviceScenario(): AutomationScenarioConfig {
     name: '设备资产建档与库存校验',
     route: '/devices',
     scope: 'baseline',
-    readySelector: '#device-product-key',
+    readySelector: '#quick-search',
     description: '示例场景：在设备资产列表打开抽屉建档，并通过列表筛选验证设备已成功入库。',
     businessFlow: '设备建档、列表筛选与库存校验',
     featurePoints: ['设备创建', '列表筛选', '库存校验'],
@@ -560,46 +555,17 @@ function createDeviceScenario(): AutomationScenarioConfig {
         ]
       }),
       createStep({
-        id: 'device-fill-query-id',
-        label: '填写设备主键筛选',
+        id: 'device-fill-quick-search',
+        label: '填写设备快速搜索',
         type: 'fill',
-        locator: createCssLocator('#query-device-id'),
-        value: '${variables.deviceId}'
-      }),
-      createStep({
-        id: 'device-query-by-id',
-        label: '按 ID 查询设备',
-        type: 'triggerApi',
-        matcher: '/api/device/page?deviceId=${variables.deviceId}',
-        action: {
-          type: 'click',
-          locator: {
-            type: 'role',
-            role: 'button',
-            name: '查询',
-            exact: true
-          }
-        }
-      }),
-      createStep({
-        id: 'device-clear-query-id',
-        label: '清空设备主键筛选',
-        type: 'fill',
-        locator: createCssLocator('#query-device-id'),
-        value: ''
-      }),
-      createStep({
-        id: 'device-fill-query-code',
-        label: '填写设备编码筛选',
-        type: 'fill',
-        locator: createCssLocator('#query-device-code'),
+        locator: createCssLocator('#quick-search'),
         value: 'autotest-device-${runToken}'
       }),
       createStep({
-        id: 'device-query-by-code',
-        label: '按编码查询设备',
+        id: 'device-query',
+        label: '按设备编码查询台账',
         type: 'triggerApi',
-        matcher: '/api/device/page?deviceCode=autotest-device-${runToken}',
+        matcher: '/api/device/page',
         action: {
           type: 'click',
           locator: {
@@ -616,13 +582,6 @@ function createDeviceScenario(): AutomationScenarioConfig {
         type: 'assertText',
         locator: createCssLocator('body'),
         value: 'autotest-device-${runToken}'
-      }),
-      createStep({
-        id: 'device-assert-title',
-        label: '断言当前位于设备页',
-        type: 'assertText',
-        locator: createCssLocator('[data-testid="console-page-title"]'),
-        value: '设备资产中心'
       })
     ]
   };
@@ -993,18 +952,18 @@ function inferReadySelector(route: string, title: string): string {
     return '#login-submit';
   }
   if (normalizedRoute === '/products') {
-    return '#product-key';
+    return '#quick-search';
   }
   if (normalizedRoute === '/devices') {
-    return '#device-product-key';
+    return '#quick-search';
   }
   if (normalizedRoute === '/reporting') {
     return '#report-device-code';
   }
   if (matchKeywords(buildFingerprint(route, title), ['列表', '管理'])) {
-    return '.el-table, [data-testid="console-page-title"]';
+    return '.el-table, body';
   }
-  return '[data-testid="console-page-title"]';
+  return 'body';
 }
 
 function inferApiMatcher(route: string): string {
@@ -1354,7 +1313,7 @@ export function createManualInventoryItem(
       recommendedTemplate: input.recommendedTemplate || 'pageSmoke',
       scope: input.scope || 'baseline',
       requiresLogin: input.requiresLogin ?? true,
-      readySelector: input.readySelector || '[data-testid="console-page-title"]',
+      readySelector: input.readySelector || 'body',
       matcher: input.matcher,
       menuCode: input.menuCode,
       keywords: input.keywords || []

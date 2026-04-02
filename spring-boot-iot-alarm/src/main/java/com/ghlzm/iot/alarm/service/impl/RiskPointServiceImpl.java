@@ -273,19 +273,20 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             return normalizedRiskLevel;
       }
 
-      private Set<String> loadEnabledRiskLevels() {
-            Dict dict = dictService.getByCode(RISK_LEVEL_DICT_CODE);
-            if (dict == null || dict.getItems() == null) {
-                  return Set.of();
-            }
-            return dict.getItems().stream()
-                    .filter(item -> item != null && !Integer.valueOf(1).equals(item.getDeleted()))
-                    .filter(item -> Integer.valueOf(1).equals(item.getStatus()))
-                    .map(DictItem::getItemValue)
-                    .filter(StringUtils::hasText)
-                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-      }
+        private Set<String> loadEnabledRiskLevels() {
+              Dict dict = dictService.getByCode(RISK_LEVEL_DICT_CODE);
+              if (dict == null || dict.getItems() == null) {
+                    return Set.of();
+              }
+              return dict.getItems().stream()
+                      .filter(item -> item != null && !Integer.valueOf(1).equals(item.getDeleted()))
+                      .filter(item -> Integer.valueOf(1).equals(item.getStatus()))
+                      .map(DictItem::getItemValue)
+                      .filter(StringUtils::hasText)
+                      .map(this::normalizeRiskLevel)
+                      .filter(StringUtils::hasText)
+                      .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
 
       private List<String> buildRiskLevelQueryValues(String riskLevel) {
             String normalizedRiskLevel = normalizeRiskLevel(riskLevel);

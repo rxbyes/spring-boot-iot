@@ -1,0 +1,119 @@
+<h2>账号中心结构方向</h2>
+<p class="subtitle">推荐 A：把当前静态说明抽屉改成一个真实可操作的账号工作台；B 仅保留现有菜单式入口再逐项补功能。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 统一账号工作台</div>
+        <div class="mockup-body">
+          <div style="display:grid; gap:12px;">
+            <div style="padding:14px; border:1px solid #d9e3f1; border-radius:14px; background:linear-gradient(180deg,#f7fbff 0%,#ffffff 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:44px; height:44px; border-radius:50%; background:#2f6fec; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">超</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; color:#1f2d3d;">超级管理员</div>
+                  <div style="font-size:12px; color:#6b7a90;">admin · 主账号 · 最近登录 2026-04-02 13:42</div>
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
+                <span style="padding:4px 10px; border-radius:999px; background:#eef4ff; color:#31558a; font-size:12px;">默认租户</span>
+                <span style="padding:4px 10px; border-radius:999px; background:#eef4ff; color:#31558a; font-size:12px;">平台治理中心</span>
+                <span style="padding:4px 10px; border-radius:999px; background:#fff0e4; color:#e76b00; font-size:12px;">已填写实名信息</span>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">
+                <div class="label">账号资料</div>
+                <div style="font-weight:600; margin-top:6px;">姓名、手机号、邮箱</div>
+                <div style="font-size:12px; color:#6b7a90; margin-top:6px;">支持直接编辑并保存</div>
+              </div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">
+                <div class="label">机构与角色</div>
+                <div style="font-weight:600; margin-top:6px;">主机构、角色摘要、可见范围</div>
+                <div style="font-size:12px; color:#6b7a90; margin-top:6px;">来自真实登录上下文</div>
+              </div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">
+                <div class="label">安全信息</div>
+                <div style="font-weight:600; margin-top:6px;">登录方式、最近登录、密码修改</div>
+                <div style="font-size:12px; color:#6b7a90; margin-top:6px;">不再展示静态说明</div>
+              </div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">
+                <div class="label">实名资料</div>
+                <div style="font-weight:600; margin-top:6px;">实名信息与状态</div>
+                <div style="font-size:12px; color:#6b7a90; margin-top:6px;">无审核流时也保留真实字段</div>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; gap:10px;">
+              <div style="padding:10px 12px; border-radius:10px; background:#f7f8fb; color:#475467; font-size:12px;">主操作：保存资料 / 修改密码</div>
+              <div style="padding:10px 12px; border-radius:10px; background:#fff5f4; color:#c2410c; font-size:12px;">次操作：退出登录</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>推荐方案</h3>
+      <p>把账号信息、机构角色、安全与实名收敛到同一个抽屉工作台，用户不用在多个“说明页”之间来回跳。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>阅读路径短，状态和编辑动作在同一处闭环</li>
+            <li>天然承接真实登录上下文、机构归属和后续数据范围</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>需要同步改 auth context、用户页和壳层交互</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 保留功能菜单式入口</div>
+        <div class="mockup-body">
+          <div style="display:grid; gap:10px;">
+            <div style="padding:14px; border:1px solid #d9e3f1; border-radius:14px; background:linear-gradient(180deg,#f7fbff 0%,#ffffff 100%);">
+              <div style="font-weight:700; color:#1f2d3d;">超级管理员</div>
+              <div style="font-size:12px; color:#6b7a90; margin-top:4px;">admin · 主账号 · 已填写实名信息</div>
+            </div>
+            <div style="display:grid; gap:8px;">
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">账号中心</div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">实名认证</div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">登录方式</div>
+              <div style="padding:12px; border:1px solid #e3e9f3; border-radius:12px;">修改密码</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>延续当前结构</h3>
+      <p>保留现在的菜单式入口，只把每个功能点逐个接上真实接口。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>对现有交互冲击小</li>
+            <li>实现拆分更细</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>用户仍需多次跳转，体验接近现状</li>
+            <li>机构、角色、安全信息更容易继续分散</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

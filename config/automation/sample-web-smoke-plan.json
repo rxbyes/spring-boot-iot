@@ -86,13 +86,13 @@
         },
         {
           "id": "login-assert-title",
-          "label": "断言首页标题出现",
+          "label": "断言进入治理入口",
           "type": "assertText",
           "locator": {
             "type": "css",
-            "value": "[data-testid=\"console-page-title\"]"
+            "value": "body"
           },
-          "value": "平台首页",
+          "value": "平台治理",
           "optional": false
         }
       ]
@@ -102,16 +102,28 @@
       "name": "产品创建与查询",
       "route": "/products",
       "scope": "delivery",
-      "readySelector": "#product-key",
+      "readySelector": "#quick-search",
       "description": "示例场景：创建产品并基于返回主键查询详情。",
       "businessFlow": "产品模板建模、接口回写与主键查询",
       "featurePoints": [
         "产品创建",
         "返回主键捕获",
-        "按 ID 查询产品详情"
+        "按当前快速搜索筛选产品台账"
       ],
       "initialApis": [],
       "steps": [
+        {
+          "id": "product-open-create-drawer",
+          "label": "打开新增产品抽屉",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "新增产品",
+            "exact": true
+          },
+          "optional": false
+        },
         {
           "id": "product-fill-key",
           "label": "填写产品编码",
@@ -162,12 +174,11 @@
           "type": "triggerApi",
           "matcher": "/api/device/product/add",
           "action": {
-            "type": "press",
+            "type": "click",
             "locator": {
               "type": "css",
-              "value": "#data-format"
-            },
-            "value": "Enter"
+              "value": "#product-submit-button"
+            }
           },
           "captures": [
             {
@@ -178,40 +189,41 @@
           "optional": false
         },
         {
-          "id": "product-fill-query-id",
-          "label": "填写产品查询主键",
+          "id": "product-fill-quick-search",
+          "label": "填写产品快速搜索",
           "type": "fill",
           "locator": {
             "type": "css",
-            "value": "#query-product-id"
+            "value": "#quick-search"
           },
-          "value": "${variables.productId}",
+          "value": "自动化产品 ${runToken}",
           "optional": false
         },
         {
           "id": "product-query",
-          "label": "按主键查询产品",
+          "label": "按产品名称查询台账",
           "type": "triggerApi",
-          "matcher": "/api/device/product/${variables.productId}",
+          "matcher": "/api/device/product/page",
           "action": {
-            "type": "press",
+            "type": "click",
             "locator": {
-              "type": "css",
-              "value": "#query-product-id"
-            },
-            "value": "Enter"
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
           },
           "optional": false
         },
         {
-          "id": "product-assert-title",
-          "label": "断言当前位于产品页",
+          "id": "product-assert-key",
+          "label": "断言列表出现产品编码",
           "type": "assertText",
           "locator": {
             "type": "css",
-            "value": "[data-testid=\"console-page-title\"]"
+            "value": "body"
           },
-          "value": "产品模板中心",
+          "value": "autotest-product-${runToken}",
           "optional": false
         }
       ]
@@ -221,7 +233,7 @@
       "name": "设备资产建档与库存校验",
       "route": "/devices",
       "scope": "baseline",
-      "readySelector": "#device-product-key",
+      "readySelector": "#quick-search",
       "description": "示例场景：在设备资产列表打开抽屉建档，并通过列表筛选验证设备已成功入库。",
       "businessFlow": "设备建档、列表筛选与库存校验",
       "featurePoints": [
@@ -343,59 +355,21 @@
           "optional": false
         },
         {
-          "id": "device-fill-query-id",
-          "label": "填写设备主键筛选",
+          "id": "device-fill-quick-search",
+          "label": "填写设备快速搜索",
           "type": "fill",
           "locator": {
             "type": "css",
-            "value": "#query-device-id"
-          },
-          "value": "${variables.deviceId}",
-          "optional": false
-        },
-        {
-          "id": "device-query-by-id",
-          "label": "按 ID 查询设备",
-          "type": "triggerApi",
-          "matcher": "/api/device/page?deviceId=${variables.deviceId}",
-          "action": {
-            "type": "click",
-            "locator": {
-              "type": "role",
-              "role": "button",
-              "name": "查询",
-              "exact": true
-            }
-          },
-          "optional": false
-        },
-        {
-          "id": "device-clear-query-id",
-          "label": "清空设备主键筛选",
-          "type": "fill",
-          "locator": {
-            "type": "css",
-            "value": "#query-device-id"
-          },
-          "value": "",
-          "optional": false
-        },
-        {
-          "id": "device-fill-query-code",
-          "label": "填写设备编码筛选",
-          "type": "fill",
-          "locator": {
-            "type": "css",
-            "value": "#query-device-code"
+            "value": "#quick-search"
           },
           "value": "autotest-device-${runToken}",
           "optional": false
         },
         {
-          "id": "device-query-by-code",
-          "label": "按编码查询设备",
+          "id": "device-query",
+          "label": "按设备编码查询台账",
           "type": "triggerApi",
-          "matcher": "/api/device/page?deviceCode=autotest-device-${runToken}",
+          "matcher": "/api/device/page",
           "action": {
             "type": "click",
             "locator": {
@@ -417,16 +391,6 @@
           },
           "value": "autotest-device-${runToken}",
           "optional": false
-        },
-        {
-          "id": "device-assert-title",
-          "label": "断言当前位于设备页",
-          "type": "assertText",
-          "locator": {
-            "type": "css",
-            "value": "[data-testid=\"console-page-title\"]"
-          },
-          "value": "设备资产中心",
           "optional": false
         },
         {
