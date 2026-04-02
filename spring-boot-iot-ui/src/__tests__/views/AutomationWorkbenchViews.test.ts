@@ -28,11 +28,33 @@ describe('automation workbench route splits', () => {
     expect(source).not.toContain('<AutomationResultImportPanel')
   })
 
+  it('keeps the execution page focused on run configuration and registry visibility', () => {
+    const source = readView('AutomationExecutionView.vue')
+
+    expect(source).toContain('<AutomationExecutionConfigPanel')
+    expect(source).toContain('<AutomationRegistryPanel')
+    expect(source).not.toContain('<AutomationScenarioEditor')
+    expect(source).not.toContain('<AutomationResultImportPanel')
+  })
+
+  it('keeps the results page focused on imported run summaries and quality guidance', () => {
+    const source = readView('AutomationResultsView.vue')
+
+    expect(source).toContain('<AutomationResultImportPanel')
+    expect(source).toContain('<AutomationSuggestionPanel')
+    expect(source).not.toContain('<AutomationScenarioEditor')
+    expect(source).not.toContain('<AutomationExecutionConfigPanel')
+  })
+
   it('registers the new asset route while keeping the legacy automation-test path', () => {
     const source = readRouter()
 
     expect(source).toContain("path: '/automation-assets'")
     expect(source).toContain("name: 'automation-assets'")
+    expect(source).toContain("path: '/automation-execution'")
+    expect(source).toContain("name: 'automation-execution'")
+    expect(source).toContain("path: '/automation-results'")
+    expect(source).toContain("name: 'automation-results'")
     expect(source).toContain("path: '/automation-test'")
     expect(source).toContain("name: 'automation-test'")
   })
