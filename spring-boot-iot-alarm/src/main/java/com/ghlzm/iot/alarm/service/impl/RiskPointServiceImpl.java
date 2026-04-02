@@ -41,7 +41,8 @@ import java.util.stream.Collectors;
 @Service
 public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint> implements RiskPointService {
 
-      private static final String RISK_LEVEL_DICT_CODE = "risk_level";
+      private static final String RISK_POINT_LEVEL_DICT_CODE = "risk_point_level";
+      private static final String DEFAULT_CURRENT_RISK_LEVEL = "blue";
       private final RiskPointDeviceMapper riskPointDeviceMapper;
       private final OrganizationService organizationService;
       private final RegionService regionService;
@@ -83,7 +84,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             riskPoint.setOrgName(organization.getOrgName());
             riskPoint.setRegionName(region.getRegionName());
             riskPoint.setResponsibleUser(normalizeResponsibleUser(riskPoint.getResponsibleUser()));
-            riskPoint.setRiskLevel(normalizeAndValidateRiskLevel(riskPoint.getRiskLevel()));
+            riskPoint.setRiskPointLevel(normalizeAndValidateRiskPointLevel(riskPoint.getRiskPointLevel()));
+            riskPoint.setCurrentRiskLevel(DEFAULT_CURRENT_RISK_LEVEL);
+            riskPoint.setRiskLevel(riskPoint.getCurrentRiskLevel());
             riskPoint.setCreateBy(currentUserId);
             riskPoint.setUpdateBy(currentUserId);
 
@@ -111,7 +114,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             riskPoint.setOrgName(organization.getOrgName());
             riskPoint.setRegionName(region.getRegionName());
             riskPoint.setRiskPointCode(existing.getRiskPointCode());
-            riskPoint.setRiskLevel(normalizeAndValidateRiskLevel(riskPoint.getRiskLevel()));
+            riskPoint.setRiskPointLevel(normalizeAndValidateRiskPointLevel(riskPoint.getRiskPointLevel()));
+            riskPoint.setCurrentRiskLevel(resolveCurrentRiskLevel(existing));
+            riskPoint.setRiskLevel(riskPoint.getCurrentRiskLevel());
             riskPoint.setResponsibleUser(normalizeResponsibleUser(riskPoint.getResponsibleUser()));
             riskPoint.setCreateBy(existing.getCreateBy());
             riskPoint.setCreateTime(existing.getCreateTime());
@@ -157,24 +162,24 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       }
 
       @Override
-      public List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status) {
-            return listRiskPoints(null, riskPointCode, riskLevel, status);
+      public List<RiskPoint> listRiskPoints(String riskPointCode, String riskPointLevel, Integer status) {
+            return listRiskPoints(null, riskPointCode, riskPointLevel, status);
       }
 
       @Override
-      public List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status) {
-            return normalizeRiskPoints(list(buildRiskPointWrapper(currentUserId, riskPointCode, riskLevel, status)));
+      public List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status) {
+            return normalizeRiskPoints(list(buildRiskPointWrapper(currentUserId, riskPointCode, riskPointLevel, status)));
       }
 
       @Override
-      public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
-            return pageRiskPoints(null, riskPointCode, riskLevel, status, pageNum, pageSize);
+      public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
+            return pageRiskPoints(null, riskPointCode, riskPointLevel, status, pageNum, pageSize);
       }
 
       @Override
-      public PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
+      public PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
             Page<RiskPoint> page = new Page<>(pageNum, pageSize);
-            Page<RiskPoint> result = page(page, buildRiskPointWrapper(currentUserId, riskPointCode, riskLevel, status));
+            Page<RiskPoint> result = page(page, buildRiskPointWrapper(currentUserId, riskPointCode, riskPointLevel, status));
             return PageResult.of(result.getTotal(), pageNum, pageSize, normalizeRiskPoints(result.getRecords()));
       }
 
@@ -264,14 +269,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             return riskPointDeviceMapper.selectList(wrapper);
       }
 
-      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String riskPointCode, String riskLevel, Integer status) {
+      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status) {
             LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
             applyRiskPointScope(wrapper, currentUserId);
             if (riskPointCode != null && !riskPointCode.isEmpty()) {
                   wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
             }
-            if (riskLevel != null && !riskLevel.isEmpty()) {
-                  wrapper.in(RiskPoint::getRiskLevel, buildRiskLevelQueryValues(riskLevel));
+            if (riskPointLevel != null && !riskPointLevel.isEmpty()) {
+                  wrapper.in(RiskPoint::getRiskPointLevel, buildRiskPointLevelQueryValues(riskPointLevel));
             }
             if (status != null) {
                   wrapper.eq(RiskPoint::getStatus, status);
@@ -317,8 +322,11 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPoint.getRegionId() == null || riskPoint.getRegionId() <= 0) {
                   throw new BizException("请选择所属区域");
             }
-            if (!StringUtils.hasText(riskPoint.getRiskLevel())) {
-                  throw new BizException("请选择风险等级");
+            if (!StringUtils.hasText(riskPoint.getRiskPointLevel())) {
+                  if (StringUtils.hasText(riskPoint.getRiskLevel())) {
+                        throw new BizException("风险点档案等级已改为 riskPointLevel，请补录一级/二级/三级");
+                  }
+                  throw new BizException("请选择风险点档案等级");
             }
       }
 
@@ -357,23 +365,23 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             }
       }
 
-      private String normalizeAndValidateRiskLevel(String riskLevel) {
-            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
-            if (!StringUtils.hasText(normalizedRiskLevel)) {
-                  throw new BizException("请选择风险等级");
+      private String normalizeAndValidateRiskPointLevel(String riskPointLevel) {
+            String normalizedRiskPointLevel = normalizeRiskPointLevel(riskPointLevel);
+            if (!StringUtils.hasText(normalizedRiskPointLevel)) {
+                  throw new BizException("请选择风险点档案等级");
             }
-            Set<String> enabledRiskLevels = loadEnabledRiskLevels();
-            if (enabledRiskLevels.isEmpty()) {
-                  throw new BizException("风险等级字典未配置");
+            Set<String> enabledRiskPointLevels = loadEnabledRiskPointLevels();
+            if (enabledRiskPointLevels.isEmpty()) {
+                  throw new BizException("风险点等级字典未配置");
             }
-            if (!enabledRiskLevels.contains(normalizedRiskLevel)) {
-                  throw new BizException("风险等级不在允许范围内");
+            if (!enabledRiskPointLevels.contains(normalizedRiskPointLevel)) {
+                  throw new BizException("风险点档案等级不在允许范围内");
             }
-            return normalizedRiskLevel;
+            return normalizedRiskPointLevel;
       }
 
-        private Set<String> loadEnabledRiskLevels() {
-              Dict dict = dictService.getByCode(RISK_LEVEL_DICT_CODE);
+        private Set<String> loadEnabledRiskPointLevels() {
+              Dict dict = dictService.getByCode(RISK_POINT_LEVEL_DICT_CODE);
               if (dict == null || dict.getItems() == null) {
                     return Set.of();
               }
@@ -382,25 +390,27 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                       .filter(item -> Integer.valueOf(1).equals(item.getStatus()))
                       .map(DictItem::getItemValue)
                       .filter(StringUtils::hasText)
-                      .map(this::normalizeRiskLevel)
+                      .map(this::normalizeRiskPointLevel)
                       .filter(StringUtils::hasText)
                       .collect(Collectors.toCollection(LinkedHashSet::new));
         }
 
-      private List<String> buildRiskLevelQueryValues(String riskLevel) {
-            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
-            if (!StringUtils.hasText(normalizedRiskLevel)) {
+      private List<String> buildRiskPointLevelQueryValues(String riskPointLevel) {
+            String normalizedRiskPointLevel = normalizeRiskPointLevel(riskPointLevel);
+            if (!StringUtils.hasText(normalizedRiskPointLevel)) {
                   return List.of();
             }
-            return switch (normalizedRiskLevel) {
-                  case "red" -> List.of("red", "critical");
-                  case "orange" -> List.of("orange", "warning");
-                  case "blue" -> List.of("blue", "info");
-                  default -> List.of(normalizedRiskLevel);
-            };
+            return List.of(normalizedRiskPointLevel);
       }
 
-      private String normalizeRiskLevel(String riskLevel) {
+      private String normalizeRiskPointLevel(String riskPointLevel) {
+            if (!StringUtils.hasText(riskPointLevel)) {
+                  return "";
+            }
+            return riskPointLevel.trim().toLowerCase(Locale.ROOT);
+      }
+
+      private String normalizeCurrentRiskLevel(String riskLevel) {
             if (!StringUtils.hasText(riskLevel)) {
                   return "";
             }
@@ -466,12 +476,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPoint == null) {
                   return null;
             }
-            riskPoint.setRiskLevel(normalizeRiskLevel(riskPoint.getRiskLevel()));
+            riskPoint.setRiskPointLevel(normalizeRiskPointLevel(riskPoint.getRiskPointLevel()));
+            String currentRiskLevel = resolveCurrentRiskLevel(riskPoint);
+            riskPoint.setCurrentRiskLevel(currentRiskLevel);
+            riskPoint.setRiskLevel(currentRiskLevel);
             return riskPoint;
       }
 
       private void saveRiskPointWithGeneratedCode(RiskPoint riskPoint, String orgName) {
-            String base = buildRiskPointCodeBase(riskPoint.getRiskPointName(), orgName, riskPoint.getRiskLevel());
+            String base = buildRiskPointCodeBase(riskPoint.getRiskPointName(), orgName, riskPoint.getRiskPointLevel());
             int suffix = 1;
             while (true) {
                   String code = appendCodeSuffix(base, suffix);
@@ -494,8 +507,20 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     "RP-%s-%s-%s",
                     buildCodeSegment(orgName, 6),
                     buildCodeSegment(riskPointName, 6),
-                    buildCodeSegment(riskLevel, 4)
+                    buildCodeSegment(riskLevel, 6)
             );
+      }
+
+      private String resolveCurrentRiskLevel(RiskPoint riskPoint) {
+            if (riskPoint == null) {
+                  return DEFAULT_CURRENT_RISK_LEVEL;
+            }
+            String currentRiskLevel = normalizeCurrentRiskLevel(riskPoint.getCurrentRiskLevel());
+            if (StringUtils.hasText(currentRiskLevel)) {
+                  return currentRiskLevel;
+            }
+            String legacyRiskLevel = normalizeCurrentRiskLevel(riskPoint.getRiskLevel());
+            return StringUtils.hasText(legacyRiskLevel) ? legacyRiskLevel : DEFAULT_CURRENT_RISK_LEVEL;
       }
 
       private boolean existsCode(String code) {

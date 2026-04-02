@@ -8,6 +8,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import org.springframework.security.core.Authentication;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -67,10 +68,12 @@ public class RiskPointController {
       @GetMapping("/list")
       public R<List<RiskPoint>> listRiskPoints(
                   @RequestParam(required = false) String riskPointCode,
-                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) String riskPointLevel,
+                  @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
                   @RequestParam(required = false) Integer status,
                   Authentication authentication) {
-            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(requireCurrentUserId(authentication), riskPointCode, riskLevel, status);
+            String normalizedRiskPointLevel = StringUtils.hasText(riskPointLevel) ? riskPointLevel : legacyRiskLevel;
+            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(requireCurrentUserId(authentication), riskPointCode, normalizedRiskPointLevel, status);
             return R.ok(riskPoints);
       }
 
@@ -80,12 +83,14 @@ public class RiskPointController {
       @GetMapping("/page")
       public R<PageResult<RiskPoint>> pageRiskPoints(
                   @RequestParam(required = false) String riskPointCode,
-                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) String riskPointLevel,
+                  @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
                   @RequestParam(required = false) Integer status,
                   @RequestParam(defaultValue = "1") Long pageNum,
                   @RequestParam(defaultValue = "10") Long pageSize,
                   Authentication authentication) {
-            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(requireCurrentUserId(authentication), riskPointCode, riskLevel, status, pageNum, pageSize);
+            String normalizedRiskPointLevel = StringUtils.hasText(riskPointLevel) ? riskPointLevel : legacyRiskLevel;
+            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(requireCurrentUserId(authentication), riskPointCode, normalizedRiskPointLevel, status, pageNum, pageSize);
             return R.ok(page);
       }
 

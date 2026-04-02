@@ -190,12 +190,12 @@ class RiskPointServiceImplTest {
         input.setOrgId(7101L);
         input.setRegionId(9101L);
         input.setResponsibleUser(88L);
-        input.setRiskLevel("critical");
+        input.setRiskPointLevel("level_1");
 
         doReturn(organization).when(organizationService).getById(7101L);
         doReturn(region).when(regionService).getById(9101L);
         doReturn(user).when(userService).getById(88L);
-        doReturn(riskLevelDict("red", "orange", "yellow", "blue")).when(dictService).getByCode("risk_level");
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
         doReturn(existingRiskPoint("RP-OPSCEN-NORTHS-RED-001")).doReturn(null).when(service).getOne(any());
         doAnswer(invocation -> {
             RiskPoint saved = invocation.getArgument(0);
@@ -207,8 +207,10 @@ class RiskPointServiceImplTest {
 
         assertEquals("ops-center", saved.getOrgName());
         assertEquals("east-yard", saved.getRegionName());
-        assertEquals("red", saved.getRiskLevel());
-        assertEquals("RP-OPSCEN-NORTHS-RED-002", saved.getRiskPointCode());
+        assertEquals("level_1", saved.getRiskPointLevel());
+        assertEquals("blue", saved.getCurrentRiskLevel());
+        assertEquals("blue", saved.getRiskLevel());
+        assertEquals("RP-OPSCEN-NORTHS-LEVEL1-002", saved.getRiskPointCode());
         assertEquals(1001L, saved.getCreateBy());
         assertEquals(1001L, saved.getUpdateBy());
         assertEquals(0, saved.getDeleted());
@@ -245,20 +247,22 @@ class RiskPointServiceImplTest {
         update.setRiskPointName("north-slope");
         update.setOrgId(7102L);
         update.setRegionId(9102L);
-        update.setRiskLevel("warning");
+        update.setRiskPointLevel("level_2");
 
         doReturn(existing).when(service).getById(12L);
         doReturn(null).when(service).getOne(any());
         doReturn(organization).when(organizationService).getById(7102L);
         doReturn(region).when(regionService).getById(9102L);
-        doReturn(riskLevelDict("red", "orange", "yellow", "blue")).when(dictService).getByCode("risk_level");
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
         doReturn(true).when(service).updateById(any(RiskPoint.class));
 
         assertDoesNotThrow(() -> service.updateRiskPoint(update, 1002L));
         assertEquals("RP-OLD-001", update.getRiskPointCode());
         assertEquals("alarm-team", update.getOrgName());
         assertEquals("west-yard", update.getRegionName());
-        assertEquals("orange", update.getRiskLevel());
+        assertEquals("level_2", update.getRiskPointLevel());
+        assertEquals("blue", update.getCurrentRiskLevel());
+        assertEquals("blue", update.getRiskLevel());
         assertEquals(1000L, update.getCreateBy());
         assertEquals(1002L, update.getUpdateBy());
     }
@@ -285,7 +289,7 @@ class RiskPointServiceImplTest {
         input.setRiskPointName("north-slope");
         input.setOrgId(7101L);
         input.setRegionId(9101L);
-        input.setRiskLevel("critical");
+        input.setRiskPointLevel("level_1");
 
         doReturn(organization).when(organizationService).getById(7101L);
 
@@ -318,19 +322,19 @@ class RiskPointServiceImplTest {
         input.setOrgId(7101L);
         input.setRegionId(9101L);
         input.setResponsibleUser(88L);
-        input.setRiskLevel("red");
+        input.setRiskPointLevel("level_1");
 
         doReturn(organization).when(organizationService).getById(7101L);
         doReturn(region).when(regionService).getById(9101L);
         doReturn(responsibleUser).when(userService).getById(88L);
-        doReturn(riskLevelDict("red", "orange", "yellow", "blue")).when(dictService).getByCode("risk_level");
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
 
         BizException error = assertThrows(BizException.class, () -> service.addRiskPoint(input, 1001L));
         assertEquals("负责人已停用", error.getMessage());
     }
 
     @Test
-    void addRiskPointShouldRejectRiskLevelOutsideEnabledDictionary() {
+    void addRiskPointShouldRejectRiskPointLevelOutsideEnabledDictionary() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
         RegionService regionService = mock(RegionService.class);
@@ -351,18 +355,18 @@ class RiskPointServiceImplTest {
         input.setRiskPointName("north-slope");
         input.setOrgId(7101L);
         input.setRegionId(9101L);
-        input.setRiskLevel("yellow");
+        input.setRiskPointLevel("level_4");
 
         doReturn(organization).when(organizationService).getById(7101L);
         doReturn(region).when(regionService).getById(9101L);
-        doReturn(riskLevelDict("red", "orange", "blue")).when(dictService).getByCode("risk_level");
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
 
         BizException error = assertThrows(BizException.class, () -> service.addRiskPoint(input, 1001L));
-        assertEquals("风险等级不在允许范围内", error.getMessage());
+        assertEquals("风险点档案等级不在允许范围内", error.getMessage());
     }
 
     @Test
-    void addRiskPointShouldAcceptLegacyInfoLevelWhenDictionaryStillUsesLegacyValues() {
+    void addRiskPointShouldRejectLegacyRiskLevelPayloadWhenArchiveLevelMissing() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
         RegionService regionService = mock(RegionService.class);
@@ -387,18 +391,9 @@ class RiskPointServiceImplTest {
 
         doReturn(organization).when(organizationService).getById(7101L);
         doReturn(region).when(regionService).getById(9101L);
-        doReturn(riskLevelDict("critical", "warning", "info")).when(dictService).getByCode("risk_level");
-        doReturn(null).when(service).getOne(any());
-        doAnswer(invocation -> {
-            RiskPoint saved = invocation.getArgument(0);
-            saved.setId(9003L);
-            return true;
-        }).when(service).save(any(RiskPoint.class));
 
-        RiskPoint saved = assertDoesNotThrow(() -> service.addRiskPoint(input, 1001L));
-
-        assertEquals("blue", saved.getRiskLevel());
-        assertEquals("RP-OPSCEN-NORTHS-BLUE-001", saved.getRiskPointCode());
+        BizException error = assertThrows(BizException.class, () -> service.addRiskPoint(input, 1001L));
+        assertEquals("风险点档案等级已改为 riskPointLevel，请补录一级/二级/三级", error.getMessage());
     }
 
     @Test
@@ -423,13 +418,13 @@ class RiskPointServiceImplTest {
         input.setRiskPointName("north-slope");
         input.setOrgId(7101L);
         input.setRegionId(9101L);
-        input.setRiskLevel("critical");
+        input.setRiskPointLevel("level_1");
 
         int[] saveAttempts = {0};
 
         doReturn(organization).when(organizationService).getById(7101L);
         doReturn(region).when(regionService).getById(9101L);
-        doReturn(riskLevelDict("red", "orange", "yellow", "blue")).when(dictService).getByCode("risk_level");
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
         doReturn(null).when(service).getOne(any());
         doAnswer(invocation -> {
             RiskPoint saved = invocation.getArgument(0);
@@ -443,7 +438,7 @@ class RiskPointServiceImplTest {
 
         RiskPoint saved = service.addRiskPoint(input, 1001L);
 
-        assertEquals("RP-OPSCEN-NORTHS-RED-002", saved.getRiskPointCode());
+        assertEquals("RP-OPSCEN-NORTHS-LEVEL1-002", saved.getRiskPointCode());
         assertEquals(2, saveAttempts[0]);
     }
 

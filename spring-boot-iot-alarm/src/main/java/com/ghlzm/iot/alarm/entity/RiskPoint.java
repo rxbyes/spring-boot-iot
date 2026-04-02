@@ -63,7 +63,17 @@ public class RiskPoint implements Serializable {
       private String responsiblePhone;
 
       /**
-       * 风险等级：red-红色, orange-橙色, yellow-黄色, blue-蓝色
+       * 风险点档案等级：level_1/level_2/level_3
+       */
+      private String riskPointLevel;
+
+      /**
+       * 当前风险态势等级：red-红色, orange-橙色, yellow-黄色, blue-蓝色
+       */
+      private String currentRiskLevel;
+
+      /**
+       * 历史风险等级兼容字段，过渡期保持与 currentRiskLevel 同步
        */
       private String riskLevel;
 
