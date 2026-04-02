@@ -22,9 +22,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in riskLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -50,19 +53,37 @@
       </template>
 
       <template #notices>
-        <el-alert
-          :title="riskPointAdvice"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
+        <div class="risk-point-notice-stack">
+          <el-alert
+            :title="riskPointAdvice"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-if="missingBindingTotal > 0"
+            :title="`待纳入风险对象 ${missingBindingTotal} 台，已有上报设备尚未形成风险监测绑定。`"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <ul class="risk-point-governance-list">
+              <li v-for="item in missingBindingItems" :key="`${item.deviceId || item.deviceCode}`">
+                <strong>{{ item.deviceCode || '--' }}</strong>
+                <span>{{ item.deviceName || '未命名设备' }}</span>
+                <span>最近上报 {{ formatDateTime(item.lastReportTime) }}</span>
+              </li>
+            </ul>
+          </el-alert>
+        </div>
       </template>
 
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`, `停用 ${disabledCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `红色 ${redCount} 项`, `待纳管 ${missingBindingTotal} 台`, `停用 ${disabledCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -110,11 +131,21 @@
                 <span>{{ row.orgName || '未配置组织' }}</span>
               </template>
             </el-table-column>
+            <StandardTableTextColumn prop="regionName" label="所属区域" :min-width="140">
+              <template #default="{ row }">
+                <span>{{ row.regionName || '未配置区域' }}</span>
+              </template>
+            </StandardTableTextColumn>
             <el-table-column prop="riskLevel" label="风险等级" width="100">
               <template #default="{ row }">
                 <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
               </template>
             </el-table-column>
+            <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
+              <template #default="{ row }">
+                <span>{{ getResponsibleUserText(row) }}</span>
+              </template>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="responsiblePhone" label="负责人电话" :width="140" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
@@ -175,19 +206,19 @@
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>配置提示</strong>
-          <span>风险点编号在保存后自动生成；请先确认所属组织和风险等级，再继续补齐责任电话与治理说明。</span>
+          <span>{{ form.id ? '历史编号仅用于留档追踪；请同步核对组织、区域、负责人和等级信息。' : '保存后将自动生成系统编号；请先确认组织、区域和风险等级，再补齐负责人信息。' }}</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
                 <h3>基础信息</h3>
-                <p>维护风险点主档、所属组织与风险等级，为后续监测、处置与组织范围治理提供统一标识。</p>
+                <p>维护风险点主档、所属组织、所属区域与风险等级，为后续监测、处置与空间治理提供统一标识。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
-              <el-form-item label="风险点编号">
-                <el-input :model-value="form.riskPointCode || '保存后自动生成'" readonly />
+              <el-form-item v-if="form.id" label="风险点编号">
+                <el-input :model-value="form.riskPointCode || '--'" readonly />
               </el-form-item>
               <el-form-item label="风险点名称" prop="riskPointName">
                 <el-input v-model="form.riskPointName" placeholder="请输入风险点名称" />
@@ -198,17 +229,30 @@
                   :data="organizationOptions"
                   node-key="id"
                   check-strictly
-                  default-expand-all
                   clearable
                   :props="{ label: 'orgName', children: 'children', value: 'id' }"
                   placeholder="请选择所属组织"
                 />
               </el-form-item>
+              <el-form-item label="所属区域" prop="regionId">
+                <el-tree-select
+                  v-model="form.regionId"
+                  :data="regionOptions"
+                  node-key="id"
+                  check-strictly
+                  clearable
+                  :props="{ label: 'regionName', children: 'children', value: 'id' }"
+                  placeholder="请选择所属区域"
+                />
+              </el-form-item>
               <el-form-item label="风险等级" prop="riskLevel">
                 <el-select v-model="form.riskLevel" placeholder="请选择风险等级">
-                  <el-option label="严重" value="critical" />
-                  <el-option label="警告" value="warning" />
-                  <el-option label="提醒" value="info" />
+                  <el-option
+                    v-for="option in riskLevelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </el-select>
               </el-form-item>
             </div>
@@ -218,10 +262,26 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>治理信息</h3>
-                <p>补齐责任电话、启停状态和风险说明，便于值班与治理人员快速确认风险点责任归属。</p>
+                <p>补齐负责人、责任电话、启停状态和风险说明，便于值班与治理人员快速确认风险点责任归属。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
+              <el-form-item label="负责人" prop="responsibleUser">
+                <el-select
+                  v-model="form.responsibleUser"
+                  :placeholder="responsibleUserPlaceholder"
+                  :loading="userOptionsLoading"
+                  :disabled="!form.orgId || userOptionsLoading || userOptions.length === 0"
+                  clearable
+                >
+                  <el-option
+                    v-for="user in userOptions"
+                    :key="user.id"
+                    :label="user.realName || user.username"
+                    :value="user.id"
+                  />
+                </el-select>
+              </el-form-item>
               <el-form-item label="负责人电话" prop="responsiblePhone">
                 <el-input v-model="form.responsiblePhone" placeholder="请输入负责人电话" />
               </el-form-item>
@@ -233,6 +293,12 @@
               </el-form-item>
               <el-form-item label="描述" prop="description" class="ops-drawer-grid__full">
                 <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入风险点描述、场景说明或治理备注" />
+              </el-form-item>
+              <el-form-item v-if="form.id" label="创建人编号">
+                <el-input :model-value="form.createBy || '--'" readonly />
+              </el-form-item>
+              <el-form-item v-if="form.id" label="更新人编号">
+                <el-input :model-value="form.updateBy || '--'" readonly />
               </el-form-item>
             </div>
           </section>
@@ -316,14 +382,22 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { getDictByCode } from '@/api/dict';
+import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { listOrganizationTree } from '@/api/organization';
 import type { Organization } from '@/api/organization';
+import { listRegionTree } from '@/api/region';
+import type { Region } from '@/api/region';
+import { getUser } from '@/api/user';
+import type { User } from '@/api/user';
 import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { buildRiskLevelOptions, getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
+import { formatDateTime } from '@/utils/format';
 
 type RiskPointRowActionCommand = 'edit' | 'bind-device' | 'delete';
 
@@ -332,8 +406,13 @@ const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
 const organizationOptions = ref<Organization[]>([]);
+const regionOptions = ref<Region[]>([]);
+const userOptions = ref<User[]>([]);
+const userOptionsLoading = ref(false);
+const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
+const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
 const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -365,18 +444,21 @@ const form = reactive({
   riskPointName: '',
   orgId: '' as '' | number,
   orgName: '',
-  regionId: 0,
+  regionId: '' as '' | number,
   regionName: '',
-  responsibleUser: 0,
+  responsibleUser: '' as '' | number,
   responsiblePhone: '',
-  riskLevel: 'info',
+  riskLevel: '',
   description: '',
-  status: 0
+  status: 0,
+  createBy: undefined as number | undefined,
+  updateBy: undefined as number | undefined
 });
 
 const rules = {
   riskPointName: [{ required: true, message: '请输入风险点名称', trigger: 'blur' }],
   orgId: [{ required: true, message: '请选择所属组织', trigger: 'change' }],
+  regionId: [{ required: true, message: '请选择所属区域', trigger: 'change' }],
   riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }]
 };
 
@@ -391,10 +473,12 @@ const bindForm = reactive({
 });
 const submitLoading = ref(false);
 const riskPointAdvice = '优先核查高风险且已启用的风险点';
+const missingBindingTotal = ref(0);
+const knownUsers = reactive<Record<number, User>>({});
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
-const criticalCount = computed(() => riskPointList.value.filter((item) => item.riskLevel === 'critical').length);
+const redCount = computed(() => riskPointList.value.filter((item) => item.riskLevel === 'red').length);
 const disabledCount = computed(() => riskPointList.value.filter((item) => item.status === 1).length);
 const hasRecords = computed(() => riskPointList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
@@ -404,6 +488,21 @@ const emptyStateDescription = computed(() =>
     ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
     : '当前还没有风险对象记录，先新增风险点，再继续设备绑定和策略治理。'
 );
+const selectedOrganization = computed(() =>
+  form.orgId === '' ? null : findOrganizationById(organizationOptions.value, Number(form.orgId))
+);
+const responsibleUserPlaceholder = computed(() => {
+  if (!form.orgId) {
+    return '请先选择所属组织';
+  }
+  if (userOptionsLoading.value) {
+    return '正在加载机构负责人';
+  }
+  if (userOptions.value.length === 0) {
+    return '当前机构未配置管理员';
+  }
+  return '请选择负责人';
+});
 
 const loadOrganizationOptions = async () => {
   try {
@@ -430,6 +529,158 @@ const findOrganizationById = (nodes: Organization[], targetId: number): Organiza
   return null;
 };
 
+const findRegionById = (nodes: Region[], targetId: number): Region | null => {
+  for (const node of nodes) {
+    if (Number(node.id) === targetId) {
+      return node;
+    }
+    const childMatch = node.children?.length ? findRegionById(node.children, targetId) : null;
+    if (childMatch) {
+      return childMatch;
+    }
+  }
+  return null;
+};
+
+const loadRegionOptions = async () => {
+  try {
+    const res = await listRegionTree();
+    if (res.code === 200) {
+      regionOptions.value = (res.data || []).filter((item) => item.status === 1);
+    }
+  } catch (error) {
+    console.error('加载区域树失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载区域树失败');
+  }
+};
+
+const upsertKnownUser = (user?: User | null) => {
+  if (!user?.id) {
+    return;
+  }
+  knownUsers[Number(user.id)] = user;
+};
+
+const setResponsibleUserOptions = (users: Array<User | null | undefined>) => {
+  const seenIds = new Set<number>();
+  userOptions.value = users.filter((user): user is User => {
+    if (!user?.id) {
+      return false;
+    }
+    const userId = Number(user.id);
+    if (seenIds.has(userId)) {
+      return false;
+    }
+    seenIds.add(userId);
+    upsertKnownUser(user);
+    return true;
+  });
+};
+
+const buildOrganizationLeaderFallback = (organization: Organization): User | null => {
+  if (!organization.leaderUserId) {
+    return null;
+  }
+  const fallbackUser: User = {
+    id: organization.leaderUserId,
+    username: organization.leaderName || String(organization.leaderUserId),
+    realName: organization.leaderName || String(organization.leaderUserId),
+    phone: organization.phone || '',
+    status: 1
+  };
+  upsertKnownUser(fallbackUser);
+  return fallbackUser;
+};
+
+const fetchUserById = async (userId?: number) => {
+  if (!userId) {
+    return null;
+  }
+  const cachedUser = knownUsers[userId];
+  if (cachedUser) {
+    return cachedUser;
+  }
+  try {
+    const res = await getUser(userId);
+    if (res.code === 200 && res.data) {
+      upsertKnownUser(res.data);
+      return res.data;
+    }
+  } catch (error) {
+    console.error('加载用户详情失败', error);
+  }
+  return null;
+};
+
+const loadResponsibleOptionsByOrganization = async (preserveSelection = false) => {
+  const organization = selectedOrganization.value;
+  form.orgName = organization?.orgName || '';
+  if (!organization) {
+    userOptions.value = [];
+    if (!preserveSelection) {
+      form.responsibleUser = '';
+      form.responsiblePhone = '';
+    }
+    return;
+  }
+
+  userOptionsLoading.value = true;
+  try {
+    const nextUsers: User[] = [];
+    const leaderUserId = organization.leaderUserId ? Number(organization.leaderUserId) : undefined;
+    let leaderUser = await fetchUserById(leaderUserId);
+    if (!leaderUser) {
+      leaderUser = buildOrganizationLeaderFallback(organization);
+    }
+    if (leaderUser) {
+      nextUsers.push(leaderUser);
+    }
+    if (preserveSelection && form.responsibleUser) {
+      const currentUserId = Number(form.responsibleUser);
+      if (!leaderUser || Number(leaderUser.id) !== currentUserId) {
+        const currentUser = await fetchUserById(currentUserId);
+        if (currentUser) {
+          nextUsers.push(currentUser);
+        }
+      }
+    }
+    setResponsibleUserOptions(nextUsers);
+
+    if (preserveSelection && form.responsibleUser) {
+      const selectedUserId = Number(form.responsibleUser);
+      if (userOptions.value.some((user) => Number(user.id) === selectedUserId)) {
+        return;
+      }
+    }
+
+    if (leaderUser?.id) {
+      form.responsibleUser = Number(leaderUser.id);
+      form.responsiblePhone = leaderUser.phone || organization.phone || '';
+      return;
+    }
+
+    form.responsibleUser = '';
+    form.responsiblePhone = organization.phone || '';
+  } finally {
+    userOptionsLoading.value = false;
+  }
+};
+
+const loadRiskLevelOptions = async () => {
+  try {
+    const res = await getDictByCode('risk_level');
+    if (res.code === 200) {
+      riskLevelOptions.value = buildRiskLevelOptions(res.data?.items || []);
+      if (!form.id && !form.riskLevel) {
+        form.riskLevel = riskLevelOptions.value[0]?.value || '';
+      }
+    }
+  } catch (error) {
+    console.error('加载风险等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+  }
+};
+
 const loadDeviceOptions = async () => {
   try {
     const res = await listDeviceOptions();
@@ -454,30 +705,19 @@ const loadMetricOptions = async (deviceId: string | number) => {
   }
 };
 
-const getRiskLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
+const getRiskLevelType = (level: string) => getRiskLevelTagType(level);
 
-const getRiskLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
+const getRiskLevelText = (level: string) => resolveRiskLevelText(level, riskLevelOptions.value);
+
+const getResponsibleUserText = (row: Partial<RiskPoint>) => {
+  if (!row.responsibleUser) {
+    return '未指定负责人';
   }
+  if (row.responsibleUserName) {
+    return row.responsibleUserName;
+  }
+  const matchedUser = knownUsers[Number(row.responsibleUser)];
+  return matchedUser?.realName || matchedUser?.username || String(row.responsibleUser);
 };
 
 const getStatusType = (status: number) => {
@@ -526,18 +766,47 @@ const loadRiskPointList = async () => {
   const requestId = ++latestListRequestId;
   loading.value = true;
   try {
-    const res = await pageRiskPointList({
-      riskPointCode: appliedFilters.riskPointCode || undefined,
-      riskLevel: appliedFilters.riskLevel || undefined,
-      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    });
+    const [listResult, backlogResult] = await Promise.allSettled([
+      pageRiskPointList({
+        riskPointCode: appliedFilters.riskPointCode || undefined,
+        riskLevel: appliedFilters.riskLevel || undefined,
+        status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
+        pageNum: pagination.pageNum,
+        pageSize: pagination.pageSize
+      }),
+      listMissingBindings({
+        pageNum: 1,
+        pageSize: 3
+      })
+    ]);
     if (requestId !== latestListRequestId) {
       return;
     }
-    if (res.code === 200) {
-      riskPointList.value = applyPageResult(res.data);
+
+    if (listResult.status === 'fulfilled' && listResult.value.code === 200) {
+      riskPointList.value = applyPageResult(listResult.value.data);
+      riskPointList.value.forEach((item) => {
+        if (!item.responsibleUser) {
+          return;
+        }
+        upsertKnownUser({
+          id: item.responsibleUser,
+          username: item.responsibleUserName || String(item.responsibleUser),
+          realName: item.responsibleUserName || String(item.responsibleUser),
+          phone: item.responsiblePhone || '',
+          status: 1
+        });
+      });
+    } else {
+      riskPointList.value = [];
+    }
+
+    if (backlogResult.status === 'fulfilled' && backlogResult.value.code === 200) {
+      missingBindingItems.value = backlogResult.value.data.records ?? [];
+      missingBindingTotal.value = backlogResult.value.data.total ?? 0;
+    } else {
+      missingBindingItems.value = [];
+      missingBindingTotal.value = 0;
     }
   } catch (error) {
     if (requestId !== latestListRequestId) {
@@ -628,13 +897,16 @@ const resetRiskPointForm = () => {
   form.riskPointName = '';
   form.orgId = '';
   form.orgName = '';
-  form.regionId = 0;
+  form.regionId = '';
   form.regionName = '';
-  form.responsibleUser = 0;
+  form.responsibleUser = '';
   form.responsiblePhone = '';
-  form.riskLevel = 'info';
+  form.riskLevel = riskLevelOptions.value[0]?.value || '';
   form.description = '';
   form.status = 0;
+  form.createBy = undefined;
+  form.updateBy = undefined;
+  userOptions.value = [];
 };
 
 const resetBindForm = () => {
@@ -653,20 +925,32 @@ const handleAdd = () => {
   formVisible.value = true;
 };
 
-const handleEdit = (row: RiskPoint) => {
+const handleEdit = async (row: RiskPoint) => {
   form.id = row.id;
   form.riskPointCode = row.riskPointCode;
   form.riskPointName = row.riskPointName;
   form.orgId = row.orgId ? Number(row.orgId) : '';
   form.orgName = row.orgName || '';
-  form.regionId = row.regionId;
-  form.regionName = row.regionName;
-  form.responsibleUser = row.responsibleUser;
+  form.regionId = row.regionId ? Number(row.regionId) : '';
+  form.regionName = row.regionName || '';
+  form.responsibleUser = row.responsibleUser ? Number(row.responsibleUser) : '';
   form.responsiblePhone = row.responsiblePhone;
   form.riskLevel = row.riskLevel;
   form.description = row.description || '';
   form.status = row.status;
+  form.createBy = row.createBy;
+  form.updateBy = row.updateBy;
+  if (row.responsibleUser) {
+    upsertKnownUser({
+      id: row.responsibleUser,
+      username: row.responsibleUserName || String(row.responsibleUser),
+      realName: row.responsibleUserName || String(row.responsibleUser),
+      phone: row.responsiblePhone || '',
+      status: 1
+    });
+  }
   formVisible.value = true;
+  await loadResponsibleOptionsByOrganization(true);
 };
 
 const handleDelete = async (row: RiskPoint) => {
@@ -692,8 +976,16 @@ const handleSubmit = async () => {
     await formRef.value.validate();
     submitLoading.value = true;
     const selectedOrganization = findOrganizationById(organizationOptions.value, Number(form.orgId));
+    const selectedRegion = findRegionById(regionOptions.value, Number(form.regionId));
     form.orgName = selectedOrganization?.orgName || '';
-    const res = form.id ? await updateRiskPoint(form) : await addRiskPoint(form);
+    form.regionName = selectedRegion?.regionName || '';
+    const payload = {
+      ...form,
+      orgId: form.orgId === '' ? undefined : Number(form.orgId),
+      regionId: form.regionId === '' ? undefined : Number(form.regionId),
+      responsibleUser: form.responsibleUser === '' ? undefined : Number(form.responsibleUser)
+    };
+    const res = form.id ? await updateRiskPoint(payload) : await addRiskPoint(payload);
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
@@ -759,6 +1051,34 @@ const handleBindDrawerClose = () => {
 };
 
 watch(
+  () => form.orgId,
+  async () => {
+    if (!formVisible.value) {
+      return;
+    }
+    await loadResponsibleOptionsByOrganization();
+  }
+);
+
+watch(
+  () => form.responsibleUser,
+  async (responsibleUser) => {
+    if (!formVisible.value || !responsibleUser) {
+      return;
+    }
+    const userId = Number(responsibleUser);
+    const matchedUser = userOptions.value.find((item) => Number(item.id) === userId)
+      || knownUsers[userId]
+      || await fetchUserById(userId);
+    if (!matchedUser) {
+      return;
+    }
+    upsertKnownUser(matchedUser);
+    form.responsiblePhone = matchedUser.phone || selectedOrganization.value?.phone || '';
+  }
+);
+
+watch(
   () => bindForm.deviceId,
   async (deviceId) => {
     bindForm.deviceCode = '';
@@ -789,6 +1109,8 @@ watch(
 onMounted(() => {
   syncAppliedFilters();
   void loadOrganizationOptions();
+  void loadRegionOptions();
+  void loadRiskLevelOptions();
   void loadRiskPointList();
 });
 </script>
@@ -796,5 +1118,26 @@ onMounted(() => {
 <style scoped>
 .risk-point-view {
   min-width: 0;
+}
+
+.risk-point-notice-stack,
+.risk-point-governance-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.risk-point-governance-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.risk-point-governance-list li {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--text-secondary);
+}
+
+.risk-point-governance-list strong {
+  color: var(--text-primary);
 }
 </style>

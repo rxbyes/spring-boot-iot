@@ -1,131 +1,192 @@
 <template>
   <div class="device-detail-workbench">
+    <section class="device-detail-workbench__hero" data-testid="device-detail-hero">
+      <div class="device-detail-workbench__hero-body">
+        <p class="device-detail-workbench__hero-eyebrow">{{ heroEyebrow }}</p>
+        <h3 class="device-detail-workbench__hero-title">{{ heroTitle }}</h3>
+        <p class="device-detail-workbench__hero-message">{{ heroMessage }}</p>
+      </div>
+
+      <div class="device-detail-workbench__hero-tags">
+        <span
+          v-for="tag in heroTags"
+          :key="tag.key"
+          :class="[
+            'device-detail-workbench__hero-tag',
+            `device-detail-workbench__hero-tag--${tag.tone}`
+          ]"
+        >
+          {{ tag.label }}
+        </span>
+      </div>
+    </section>
+
+    <section class="device-detail-workbench__stage" data-testid="device-detail-summary-stage">
+      <div class="device-detail-workbench__stage-header">
+        <div>
+          <h3>资产状态与接入概况</h3>
+          <p>{{ summaryMessage }}</p>
+        </div>
+      </div>
+
+      <div class="device-detail-workbench__summary-grid">
+        <article
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="device-detail-workbench__summary-card"
+        >
+          <span class="device-detail-workbench__summary-label">{{ card.label }}</span>
+          <span class="device-detail-workbench__summary-value">{{ card.value }}</span>
+          <span class="device-detail-workbench__summary-hint">{{ card.hint }}</span>
+        </article>
+      </div>
+    </section>
+
     <template v-if="isRegistered">
       <section
-        v-if="showArchiveSection"
-        class="device-detail-workbench__section"
-        data-testid="device-detail-section-archive"
+        v-if="showOverviewStage"
+        class="device-detail-workbench__stage device-detail-workbench__stage--subtle"
+        data-testid="device-detail-overview-stage"
       >
-        <div class="device-detail-workbench__section-header">
+        <div class="device-detail-workbench__overview-pair">
+          <article class="device-detail-workbench__overview-panel">
+            <div class="device-detail-workbench__stage-header">
+              <div>
+                <h3>资产概览</h3>
+                <p>先确认资产身份、产品归属与部署位置。</p>
+              </div>
+            </div>
+
+            <div class="device-detail-workbench__ledger-grid">
+              <article
+                v-for="item in assetOverviewItems"
+                :key="item.key"
+                :class="[
+                  'device-detail-workbench__ledger-item',
+                  { 'device-detail-workbench__ledger-item--wide': item.wide }
+                ]"
+              >
+                <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+                <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
+              </article>
+            </div>
+          </article>
+
+          <article class="device-detail-workbench__overview-panel">
+            <div class="device-detail-workbench__stage-header">
+              <div>
+                <h3>运行概览</h3>
+                <p>先确认最近在线、离线、上报和更新时间。</p>
+              </div>
+            </div>
+
+            <div class="device-detail-workbench__ledger-grid">
+              <article
+                v-for="item in runtimeOverviewItems"
+                :key="item.key"
+                :class="[
+                  'device-detail-workbench__ledger-item',
+                  { 'device-detail-workbench__ledger-item--wide': item.wide }
+                ]"
+              >
+                <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+                <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
+              </article>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section
+        v-if="showIdentityStage"
+        class="device-detail-workbench__stage"
+        data-testid="device-detail-identity-stage"
+      >
+        <div class="device-detail-workbench__stage-header">
           <div>
-            <h3>基础档案</h3>
-            <p>统一查看设备身份、产品归属与接入基线，保持与编辑页相同的主档阅读顺序。</p>
+            <h3>身份与部署台账</h3>
+            <p>长字段跨列展示，避免设备主档继续挤成等宽小卡墙。</p>
           </div>
         </div>
 
-        <div class="device-detail-workbench__grid">
+        <div class="device-detail-workbench__ledger-grid">
           <article
-            v-for="field in archiveFields"
-            :key="field.key"
+            v-for="item in identityItems"
+            :key="item.key"
             :class="[
-              'device-detail-workbench__field',
-              { 'device-detail-workbench__field--full': field.fullWidth }
+              'device-detail-workbench__ledger-item',
+              { 'device-detail-workbench__ledger-item--wide': item.wide }
             ]"
           >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
+            <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
           </article>
         </div>
       </section>
 
       <section
-        v-if="showTopologySection"
-        class="device-detail-workbench__section"
-        data-testid="device-detail-section-topology"
+        v-if="showRuntimeStage"
+        class="device-detail-workbench__stage"
+        data-testid="device-detail-runtime-stage"
       >
-        <div class="device-detail-workbench__section-header">
+        <div class="device-detail-workbench__stage-header">
           <div>
-            <h3>父子拓扑</h3>
-            <p>把父设备、网关关系与关键主键收在同一板块，避免在详情里来回跳段核对。</p>
+            <h3>运行与认证台账</h3>
+            <p>先看时间节奏，再核对接入凭据，保持同一层台账阅读顺序。</p>
           </div>
         </div>
 
-        <div
-          v-if="showRelationSummary"
-          class="device-detail-workbench__relation-summary"
-        >
-          <article class="device-detail-workbench__relation-card">
-            <span>当前父设备</span>
-            <span class="device-detail-workbench__relation-value">{{ relationSummary.parentDevice }}</span>
-          </article>
-          <article class="device-detail-workbench__relation-card">
-            <span>网关设备</span>
-            <span class="device-detail-workbench__relation-value">{{ relationSummary.gatewayDevice }}</span>
-          </article>
-        </div>
-
-        <div class="device-detail-workbench__grid">
+        <div class="device-detail-workbench__ledger-grid">
           <article
-            v-for="field in topologyFields"
-            :key="field.key"
-            class="device-detail-workbench__field"
-          >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
-          </article>
-        </div>
-      </section>
-
-      <section
-        v-if="showStatusSection"
-        class="device-detail-workbench__section"
-        data-testid="device-detail-section-status"
-      >
-        <div class="device-detail-workbench__section-header">
-          <div>
-            <h3>状态与维护属性</h3>
-            <p>围绕维护现场最常核对的时间、固件、地址和状态信息展开，不再拆成并列台账。</p>
-          </div>
-        </div>
-
-        <div class="device-detail-workbench__grid">
-          <article
-            v-for="field in statusFields"
-            :key="field.key"
+            v-for="item in runtimeItems"
+            :key="item.key"
             :class="[
-              'device-detail-workbench__field',
-              { 'device-detail-workbench__field--full': field.fullWidth }
+              'device-detail-workbench__ledger-item',
+              { 'device-detail-workbench__ledger-item--wide': item.wide }
             ]"
           >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
+            <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
           </article>
         </div>
       </section>
 
       <section
-        v-if="showAuthSection"
-        class="device-detail-workbench__section"
-        data-testid="device-detail-section-auth"
+        v-if="showSupportStage"
+        class="device-detail-workbench__stage device-detail-workbench__stage--subtle"
+        data-testid="device-detail-support-stage"
       >
-        <div class="device-detail-workbench__section-header">
+        <div class="device-detail-workbench__stage-header">
           <div>
-            <h3>认证字段</h3>
-            <p>保留接入校验所需的核心认证字段，查看逻辑与编辑页保持同一板块顺序。</p>
+            <h3>关系与建档补充</h3>
+            <p>后置关系字段和补建主档线索，但继续复用同一套台账语法。</p>
           </div>
         </div>
 
-        <div class="device-detail-workbench__grid">
+        <div class="device-detail-workbench__ledger-grid">
           <article
-            v-for="field in authFields"
-            :key="field.key"
-            class="device-detail-workbench__field"
+            v-for="item in supportItems"
+            :key="item.key"
+            :class="[
+              'device-detail-workbench__ledger-item',
+              { 'device-detail-workbench__ledger-item--wide': item.wide }
+            ]"
           >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
+            <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
           </article>
         </div>
       </section>
 
       <section
-        v-if="showMetadataSection"
-        class="device-detail-workbench__section"
-        data-testid="device-detail-section-metadata"
+        v-if="showMetadataStage"
+        class="device-detail-workbench__stage device-detail-workbench__stage--subtle"
+        data-testid="device-detail-metadata-stage"
       >
-        <div class="device-detail-workbench__section-header">
+        <div class="device-detail-workbench__stage-header">
           <div>
-            <h3>扩展信息</h3>
-            <p>用于查看站点、责任人、批次等补充 metadata，不再与关系区并列压缩展示。</p>
+            <h3>扩展元数据快照</h3>
+            <p>保留结构化补充信息，作为安静的后置快照区。</p>
           </div>
         </div>
 
@@ -134,54 +195,42 @@
     </template>
 
     <template v-else>
-      <section class="device-detail-workbench__section" data-testid="device-detail-section-source">
-        <div class="device-detail-workbench__section-header">
+      <section
+        v-if="showSourceStage"
+        class="device-detail-workbench__stage"
+        data-testid="device-detail-source-stage"
+      >
+        <div class="device-detail-workbench__stage-header">
           <div>
-            <h3>来源档案</h3>
-            <p>先确认未登记设备的来源、协议和主键归档信息，再决定是否进入补建设备主档。</p>
+            <h3>来源档案与失败摘要</h3>
+            <p>把来源主键、协议上下文和失败摘要放在同一层，方便补档与排障。</p>
           </div>
         </div>
 
-        <div class="device-detail-workbench__grid">
+        <div class="device-detail-workbench__ledger-grid">
           <article
-            v-for="field in sourceFields"
-            :key="field.key"
-            class="device-detail-workbench__field"
-          >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
-          </article>
-        </div>
-      </section>
-
-      <section class="device-detail-workbench__section" data-testid="device-detail-section-failure">
-        <div class="device-detail-workbench__section-header">
-          <div>
-            <h3>失败摘要</h3>
-            <p>集中查看失败阶段、Trace 和 Topic，便于快速判断当前是补档问题还是协议问题。</p>
-          </div>
-        </div>
-
-        <div class="device-detail-workbench__grid">
-          <article
-            v-for="field in failureFields"
-            :key="field.key"
+            v-for="item in sourceItems"
+            :key="item.key"
             :class="[
-              'device-detail-workbench__field',
-              { 'device-detail-workbench__field--full': field.fullWidth }
+              'device-detail-workbench__ledger-item',
+              { 'device-detail-workbench__ledger-item--wide': item.wide }
             ]"
           >
-            <span class="device-detail-workbench__field-label">{{ field.label }}</span>
-            <span class="device-detail-workbench__field-value">{{ field.value }}</span>
+            <span class="device-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span class="device-detail-workbench__ledger-value">{{ item.value }}</span>
           </article>
         </div>
       </section>
 
-      <section class="device-detail-workbench__section" data-testid="device-detail-section-payload">
-        <div class="device-detail-workbench__section-header">
+      <section
+        v-if="showPayloadStage"
+        class="device-detail-workbench__stage device-detail-workbench__stage--subtle"
+        data-testid="device-detail-payload-stage"
+      >
+        <div class="device-detail-workbench__stage-header">
           <div>
             <h3>最近载荷</h3>
-            <p>保留最近一次未登记上报的原始载荷，方便补建主档或回查协议映射。</p>
+            <p>保留最近一次原始报文，便于回查协议映射和补建设备主档。</p>
           </div>
         </div>
 
@@ -197,11 +246,24 @@ import { computed } from 'vue'
 import type { Device } from '@/types/api'
 import { formatDateTime, prettyJson } from '@/utils/format'
 
-type DetailField = {
+type SummaryCard = {
   key: string
   label: string
   value: string
-  fullWidth?: boolean
+  hint: string
+}
+
+type LedgerItem = {
+  key: string
+  label: string
+  value: string
+  wide?: boolean
+}
+
+type HeroTag = {
+  key: string
+  label: string
+  tone: 'success' | 'warning' | 'muted'
 }
 
 const emptyDetailValue = '--'
@@ -220,8 +282,33 @@ function toDisplayText(value?: string | number | null) {
   return String(value)
 }
 
+function hasRenderableText(value: string) {
+  return value.trim() !== '' && value !== emptyDetailValue
+}
+
+function hasRenderableField(field: LedgerItem) {
+  return hasRenderableText(field.value)
+}
+
+function hasRenderableJsonPreview(value: string) {
+  const normalized = value.trim()
+  return normalized !== '' && normalized !== '{}' && normalized !== '[]' && normalized !== 'null'
+}
+
 function getRegistrationStatusText(value?: number | null) {
   return value === 0 ? '未登记' : '已登记'
+}
+
+function getOnlineStatusText(value?: number | null) {
+  return value === 1 ? '在线' : '离线'
+}
+
+function getActivateStatusText(value?: number | null) {
+  return value === 1 ? '已激活' : '未激活'
+}
+
+function getDeviceStatusText(value?: number | null) {
+  return value === 1 ? '启用' : '禁用'
 }
 
 function getSourceTypeText(value?: string | null) {
@@ -267,86 +354,191 @@ function maskSecret(value?: string | null) {
   return `${value.slice(0, 2)}****${value.slice(-2)}`
 }
 
-function hasRenderableText(value: string) {
-  return value.trim() !== '' && value !== emptyDetailValue
-}
+const heroEyebrow = computed(() => (isRegistered.value ? '设备资产详情' : '未登记设备详情'))
+const heroTitle = computed(() => device.value.deviceName || device.value.deviceCode || '设备详情')
+const heroMessage = computed(() =>
+  isRegistered.value
+    ? '资产信息完整，可继续核对部署、运行与认证台账。'
+    : '当前仍是未登记上报，优先确认失败阶段与来源记录。'
+)
 
-function hasRenderableField(field: DetailField) {
-  return hasRenderableText(field.value)
-}
+const heroTags = computed<HeroTag[]>(() =>
+  isRegistered.value
+    ? [
+        {
+          key: 'registration',
+          label: getRegistrationStatusText(device.value.registrationStatus),
+          tone: 'success'
+        },
+        {
+          key: 'online',
+          label: getOnlineStatusText(device.value.onlineStatus),
+          tone: device.value.onlineStatus === 1 ? 'success' : 'muted'
+        },
+        {
+          key: 'activate',
+          label: getActivateStatusText(device.value.activateStatus),
+          tone: device.value.activateStatus === 1 ? 'success' : 'warning'
+        },
+        {
+          key: 'deviceStatus',
+          label: getDeviceStatusText(device.value.deviceStatus),
+          tone: device.value.deviceStatus === 1 ? 'success' : 'warning'
+        }
+      ]
+    : [
+        {
+          key: 'registration',
+          label: getRegistrationStatusText(device.value.registrationStatus),
+          tone: 'warning'
+        },
+        {
+          key: 'source',
+          label: getSourceTypeText(device.value.assetSourceType),
+          tone: 'muted'
+        }
+      ]
+)
 
-function hasRenderableJsonPreview(value: string) {
-  const normalized = value.trim()
-  return normalized !== '' && normalized !== '{}' && normalized !== '[]' && normalized !== 'null'
-}
+const summaryMessage = computed(() =>
+  isRegistered.value
+    ? '先完成当前状态判断，再进入完整台账核对。'
+    : '先确认失败判断和最近上报，再决定是否补建设备主档。'
+)
 
-const archiveFields = computed<DetailField[]>(() => [
+const summaryCards = computed<SummaryCard[]>(() =>
+  isRegistered.value
+    ? [
+        {
+          key: 'productName',
+          label: '产品归属',
+          value: toDisplayText(device.value.productName),
+          hint: '确认产品归属'
+        },
+        {
+          key: 'onlineStatus',
+          label: '在线状态',
+          value: getOnlineStatusText(device.value.onlineStatus),
+          hint: '查看当前连接判断'
+        },
+        {
+          key: 'activateStatus',
+          label: '激活状态',
+          value: getActivateStatusText(device.value.activateStatus),
+          hint: '确认是否已激活'
+        },
+        {
+          key: 'deviceStatus',
+          label: '设备状态',
+          value: getDeviceStatusText(device.value.deviceStatus),
+          hint: '确认是否允许接入'
+        }
+      ]
+    : [
+        {
+          key: 'registrationStatus',
+          label: '登记状态',
+          value: getRegistrationStatusText(device.value.registrationStatus),
+          hint: '先判断是否已建档'
+        },
+        {
+          key: 'lastReportTime',
+          label: '最近上报',
+          value: formatDateTime(device.value.lastReportTime),
+          hint: '定位最近一次上报'
+        },
+        {
+          key: 'lastFailureStage',
+          label: '失败阶段',
+          value: toDisplayText(device.value.lastFailureStage),
+          hint: '确认当前失败节点'
+        },
+        {
+          key: 'lastErrorMessage',
+          label: '失败摘要',
+          value: toDisplayText(device.value.lastErrorMessage),
+          hint: '提炼当前失败判断'
+        }
+      ]
+)
+
+const assetOverviewItems = computed<LedgerItem[]>(() => [
+  { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
+  { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
+  { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
+  { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true }
+])
+
+const runtimeOverviewItems = computed<LedgerItem[]>(() => [
+  { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime), wide: true },
+  { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime), wide: true },
+  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime), wide: true },
+  { key: 'updateTime', label: '更新时间', value: formatDateTime(device.value.updateTime), wide: true }
+])
+
+const identityItems = computed<LedgerItem[]>(() => [
+  { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
+  { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
+  { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
+  { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true },
   { key: 'id', label: '设备 ID', value: toDisplayText(device.value.id) },
-  { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode) },
-  { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName) },
-  { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName) },
-  { key: 'productKey', label: '产品 Key', value: toDisplayText(device.value.productKey) },
   { key: 'nodeType', label: '节点类型', value: getNodeTypeText(device.value.nodeType) },
-  { key: 'protocolCode', label: '接入协议', value: toDisplayText(device.value.protocolCode) }
-])
-
-const relationSummary = computed(() => ({
-  parentDevice: formatDeviceRelationValue(device.value.parentDeviceName, device.value.parentDeviceCode),
-  gatewayDevice: formatDeviceRelationValue(device.value.gatewayDeviceName, device.value.gatewayDeviceCode)
-}))
-
-const topologyFields = computed<DetailField[]>(() => [
-  { key: 'parentDeviceId', label: '父设备主键', value: toDisplayText(device.value.parentDeviceId) },
-  { key: 'gatewayId', label: '网关主键', value: toDisplayText(device.value.gatewayId) }
-])
-
-const statusFields = computed<DetailField[]>(() => [
+  { key: 'protocolCode', label: '接入协议', value: toDisplayText(device.value.protocolCode) },
   { key: 'firmwareVersion', label: '固件版本', value: toDisplayText(device.value.firmwareVersion) },
-  { key: 'ipAddress', label: 'IP 地址', value: toDisplayText(device.value.ipAddress) },
-  { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime) },
-  { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime) },
-  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime) },
+  { key: 'ipAddress', label: 'IP 地址', value: toDisplayText(device.value.ipAddress) }
+])
+
+const runtimeItems = computed<LedgerItem[]>(() => [
+  { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime), wide: true },
+  { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime), wide: true },
+  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime), wide: true },
   { key: 'createTime', label: '创建时间', value: formatDateTime(device.value.createTime) },
   { key: 'updateTime', label: '更新时间', value: formatDateTime(device.value.updateTime) },
-  { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), fullWidth: true }
-])
-
-const authFields = computed<DetailField[]>(() => [
   { key: 'clientId', label: 'Client ID', value: toDisplayText(device.value.clientId) },
   { key: 'username', label: '用户名', value: toDisplayText(device.value.username) },
   { key: 'password', label: '密码', value: maskSecret(device.value.password) },
   { key: 'deviceSecret', label: '设备密钥', value: maskSecret(device.value.deviceSecret) }
 ])
 
-const sourceFields = computed<DetailField[]>(() => [
-  { key: 'registrationStatus', label: '登记状态', value: getRegistrationStatusText(device.value.registrationStatus) },
-  { key: 'assetSourceType', label: '来源类型', value: getSourceTypeText(device.value.assetSourceType) },
+const supportItems = computed<LedgerItem[]>(() => [
+  {
+    key: 'parentDevice',
+    label: '父设备',
+    value: formatDeviceRelationValue(device.value.parentDeviceName, device.value.parentDeviceCode),
+    wide: true
+  },
+  {
+    key: 'gatewayDevice',
+    label: '网关设备',
+    value: formatDeviceRelationValue(device.value.gatewayDeviceName, device.value.gatewayDeviceCode),
+    wide: true
+  },
+  { key: 'parentDeviceId', label: '父设备主键', value: toDisplayText(device.value.parentDeviceId) },
+  { key: 'gatewayId', label: '网关主键', value: toDisplayText(device.value.gatewayId) }
+])
+
+const sourceItems = computed<LedgerItem[]>(() => [
   { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode) },
   { key: 'productKey', label: '产品标识', value: toDisplayText(device.value.productKey) },
   { key: 'protocolCode', label: '协议编码', value: toDisplayText(device.value.protocolCode) },
-  { key: 'sourceRecordId', label: '来源记录', value: toDisplayText(device.value.sourceRecordId) }
+  { key: 'sourceRecordId', label: '来源记录', value: toDisplayText(device.value.sourceRecordId) },
+  { key: 'lastReportTopic', label: 'Topic', value: toDisplayText(device.value.lastReportTopic), wide: true },
+  { key: 'lastErrorMessage', label: '失败摘要', value: toDisplayText(device.value.lastErrorMessage), wide: true }
 ])
 
-const failureFields = computed<DetailField[]>(() => [
-  { key: 'lastFailureStage', label: '失败阶段', value: toDisplayText(device.value.lastFailureStage) },
-  { key: 'lastTraceId', label: 'Trace ID', value: toDisplayText(device.value.lastTraceId) },
-  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime) },
-  { key: 'lastReportTopic', label: 'Topic', value: toDisplayText(device.value.lastReportTopic), fullWidth: true },
-  { key: 'lastErrorMessage', label: '失败摘要', value: toDisplayText(device.value.lastErrorMessage), fullWidth: true }
-])
+const showOverviewStage = computed(() =>
+  assetOverviewItems.value.some(hasRenderableField) || runtimeOverviewItems.value.some(hasRenderableField)
+)
+const showIdentityStage = computed(() => identityItems.value.some(hasRenderableField))
+const showRuntimeStage = computed(() => runtimeItems.value.some(hasRenderableField))
+const showSupportStage = computed(() => supportItems.value.some(hasRenderableField))
 
-const showArchiveSection = computed(() => archiveFields.value.some(hasRenderableField))
-const showRelationSummary = computed(
-  () => hasRenderableText(relationSummary.value.parentDevice) || hasRenderableText(relationSummary.value.gatewayDevice)
-)
-const showTopologySection = computed(
-  () => showRelationSummary.value || topologyFields.value.some(hasRenderableField)
-)
-const showStatusSection = computed(() => statusFields.value.some(hasRenderableField))
-const showAuthSection = computed(() => authFields.value.some(hasRenderableField))
 const metadataPreview = computed(() => prettyJson(device.value.metadataJson ?? ''))
-const showMetadataSection = computed(() => hasRenderableJsonPreview(metadataPreview.value))
-const payloadPreview = computed(() => prettyJson(device.value.lastPayload || emptyDetailValue))
+const showMetadataStage = computed(() => hasRenderableJsonPreview(metadataPreview.value))
+
+const showSourceStage = computed(() => sourceItems.value.some(hasRenderableField))
+const payloadPreview = computed(() => prettyJson(device.value.lastPayload ?? ''))
+const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.value))
 </script>
 
 <style scoped>
@@ -355,70 +547,158 @@ const payloadPreview = computed(() => prettyJson(device.value.lastPayload || emp
   gap: 1rem;
 }
 
-.device-detail-workbench__section {
+.device-detail-workbench__hero,
+.device-detail-workbench__stage,
+.device-detail-workbench__overview-panel {
   display: grid;
-  gap: 0.92rem;
+  gap: 0.9rem;
   padding: 1rem;
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 4px);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow-inset-highlight-78);
 }
 
-.device-detail-workbench__section-header h3 {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 16px;
+.device-detail-workbench__hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  background:
+    linear-gradient(135deg, rgba(247, 250, 255, 0.98), rgba(255, 255, 255, 0.94)),
+    rgba(255, 255, 255, 0.94);
 }
 
-.device-detail-workbench__section-header p {
-  margin: 0.38rem 0 0;
+.device-detail-workbench__stage--subtle,
+.device-detail-workbench__overview-panel {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.device-detail-workbench__hero-body {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.device-detail-workbench__hero-eyebrow {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.device-detail-workbench__hero-title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.device-detail-workbench__hero-message {
+  margin: 0;
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.65;
 }
 
-.device-detail-workbench__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem 1rem;
+.device-detail-workbench__hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
-.device-detail-workbench__field {
-  display: grid;
-  gap: 0.34rem;
-  min-width: 0;
-  padding: 0.92rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  border-radius: calc(var(--radius-md) + 2px);
-  background: rgba(248, 251, 255, 0.92);
-}
-
-.device-detail-workbench__field--full {
-  grid-column: 1 / -1;
-}
-
-.device-detail-workbench__field-label {
-  color: var(--text-caption);
+.device-detail-workbench__hero-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.device-detail-workbench__hero-tag--success {
+  border-color: rgba(35, 140, 81, 0.16);
+  background: rgba(35, 140, 81, 0.1);
+  color: #2f6e46;
+}
+
+.device-detail-workbench__hero-tag--warning {
+  border-color: rgba(177, 92, 29, 0.16);
+  background: rgba(177, 92, 29, 0.1);
+  color: #8b4c1c;
+}
+
+.device-detail-workbench__hero-tag--muted {
+  border-color: rgba(78, 94, 117, 0.14);
+  background: rgba(78, 94, 117, 0.08);
+  color: #536074;
+}
+
+.device-detail-workbench__stage-header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 16px;
   line-height: 1.4;
 }
 
-.device-detail-workbench__field-value {
+.device-detail-workbench__stage-header p {
+  margin: 0.35rem 0 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.device-detail-workbench__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.device-detail-workbench__summary-card {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(248, 251, 255, 0.96);
+}
+
+.device-detail-workbench__summary-label,
+.device-detail-workbench__ledger-label {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.device-detail-workbench__summary-value {
   color: var(--text-heading);
-  font-size: 14px;
-  font-weight: 400;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-.device-detail-workbench__relation-summary {
+.device-detail-workbench__summary-hint {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.device-detail-workbench__overview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.device-detail-workbench__ledger-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem 1rem;
 }
 
-.device-detail-workbench__relation-card {
+.device-detail-workbench__ledger-item {
   display: grid;
   gap: 0.34rem;
   min-width: 0;
@@ -428,17 +708,15 @@ const payloadPreview = computed(() => prettyJson(device.value.lastPayload || emp
   background: rgba(248, 251, 255, 0.92);
 }
 
-.device-detail-workbench__relation-card span {
-  color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.4;
+.device-detail-workbench__ledger-item--wide {
+  grid-column: 1 / -1;
 }
 
-.device-detail-workbench__relation-value {
+.device-detail-workbench__ledger-value {
   color: var(--text-heading);
   font-size: 14px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
@@ -456,9 +734,34 @@ const payloadPreview = computed(() => prettyJson(device.value.lastPayload || emp
   word-break: break-word;
 }
 
-@media (max-width: 900px) {
-  .device-detail-workbench__grid,
-  .device-detail-workbench__relation-summary {
+@media (max-width: 960px) {
+  .device-detail-workbench__hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-detail-workbench__hero-tags {
+    justify-content: flex-start;
+  }
+
+  .device-detail-workbench__summary-grid,
+  .device-detail-workbench__overview-pair,
+  .device-detail-workbench__ledger-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-detail-workbench__ledger-item--wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .device-detail-workbench__summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .device-detail-workbench__summary-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

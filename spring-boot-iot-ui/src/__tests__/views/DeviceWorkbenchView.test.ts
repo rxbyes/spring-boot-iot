@@ -371,6 +371,31 @@ describe('DeviceWorkbenchView', () => {
     ])
   })
 
+  it('keeps the drawer shell thin and uses the new workbench subtitle copy', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).detailData = {
+      id: 1,
+      deviceName: '北坡监测终端',
+      deviceCode: 'device-001',
+      registrationStatus: 1
+    }
+    await nextTick()
+
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    expect(detailDrawer.props('subtitle')).toBe('统一查看资产判断、部署台账、运行台账与建档补充。')
+
+    ;(wrapper.vm as any).detailData = {
+      deviceCode: 'temp-device-001',
+      registrationStatus: 0
+    }
+    await nextTick()
+
+    expect(detailDrawer.props('subtitle')).toBe('当前设备仍未登记，详情按失败来源和最近载荷组织。')
+  })
+
   it('keeps the device toolbar focused by collapsing secondary actions into a more-actions menu', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -442,8 +467,8 @@ describe('DeviceWorkbenchView', () => {
 
     expect(cardRowActions?.exists()).toBe(true)
     expect(tableRowActions?.exists()).toBe(true)
-    expect(cardRowActions?.props('gap')).toBe('compact')
-    expect(tableRowActions?.props('gap')).toBe('compact')
+    expect(cardRowActions?.props('gap')).toBeUndefined()
+    expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('distribution')).toBeUndefined()
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
         '详情',
@@ -463,7 +488,8 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain('standard-list-surface')
     expect(source).toContain('standard-mobile-record-grid')
-    expect(source).toContain('compact')
+    expect(source).not.toContain('gap="compact"')
+    expect(source).not.toContain("gap: 'compact'")
     expect(source).toContain('已登记 ${registeredCount} 台')
     expect(source).not.toContain('`未登记 ${unregisteredCount} 台`')
   })

@@ -27,9 +27,15 @@
             <strong>{{ row.identifier }}</strong>
             <span>{{ statusLabel(row.compareStatus) }}</span>
           </div>
-          <div class="product-model-governance-compare-table__action-copy">
-            <span>建议动作</span>
-            <strong>{{ row.suggestedAction || '继续观察' }}</strong>
+          <div class="product-model-governance-compare-table__row-side">
+            <div class="product-model-governance-compare-table__action-copy">
+              <span>建议动作</span>
+              <strong>{{ row.suggestedAction || '继续观察' }}</strong>
+            </div>
+            <div class="product-model-governance-compare-table__action-copy">
+              <span>当前决策</span>
+              <strong>{{ currentDecisionLabel(row) }}</strong>
+            </div>
           </div>
         </header>
 
@@ -94,15 +100,17 @@ import type {
   ProductModelType
 } from '@/types/api'
 
+type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
+
 const props = withDefaults(defineProps<{
   rows: ProductModelGovernanceCompareRow[]
-  decisionState?: Record<string, ProductModelGovernanceDecision>
+  decisionState?: Record<string, GovernanceDecisionUi>
 }>(), {
   decisionState: () => ({})
 })
 
 const emit = defineEmits<{
-  (event: 'change-decision', payload: { key: string; decision: ProductModelGovernanceDecision }): void
+  (event: 'change-decision', payload: { key: string; decision: GovernanceDecisionUi }): void
 }>()
 
 const typeOptions: Array<{ label: string; value: ProductModelType }> = [
@@ -168,21 +176,65 @@ function formatServiceSummary(evidence: ProductModelGovernanceEvidence) {
 }
 
 function availableDecisions(row: ProductModelGovernanceCompareRow) {
-  const decisions: Array<{ label: string; value: ProductModelGovernanceDecision }> = []
-  if (row.formalModel?.modelId) {
-    decisions.push({ label: '纳入修订', value: 'update' })
-  } else {
-    decisions.push({ label: '纳入新增', value: 'create' })
+  switch (row.compareStatus) {
+    case 'double_aligned':
+      return [
+        { label: '纳入新增', value: 'create' },
+        { label: '继续观察', value: 'observe' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+    case 'manual_only':
+    case 'runtime_only':
+      return [
+        { label: '纳入新增', value: 'create' },
+        { label: '继续观察', value: 'observe' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+    case 'formal_exists':
+      return [
+        { label: '纳入修订', value: 'update' },
+        { label: '继续观察', value: 'observe' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+    case 'suspected_conflict':
+      return [
+        { label: '人工裁决', value: 'review' },
+        { label: row.formalModel?.modelId ? '纳入修订' : '纳入新增', value: row.formalModel?.modelId ? 'update' : 'create' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+    case 'evidence_insufficient':
+      return [
+        { label: '继续观察', value: 'observe' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+    default:
+      return [
+        { label: row.formalModel?.modelId ? '纳入修订' : '纳入新增', value: row.formalModel?.modelId ? 'update' : 'create' },
+        { label: '继续观察', value: 'observe' },
+        { label: '忽略', value: 'ignore' }
+      ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
   }
-  decisions.push({ label: '跳过', value: 'skip' })
-  return decisions
 }
 
 function currentDecision(row: ProductModelGovernanceCompareRow) {
   return props.decisionState[rowKey(row)]
 }
 
-function emitDecision(row: ProductModelGovernanceCompareRow, decision: ProductModelGovernanceDecision) {
+function currentDecisionLabel(row: ProductModelGovernanceCompareRow) {
+  const decision = currentDecision(row)
+  if (!decision) {
+    return '未选择'
+  }
+  return {
+    create: '纳入新增',
+    update: '纳入修订',
+    observe: '继续观察',
+    review: '人工裁决',
+    ignore: '忽略'
+  }[decision] ?? decision
+}
+
+function emitDecision(row: ProductModelGovernanceCompareRow, decision: GovernanceDecisionUi) {
   emit('change-decision', { key: rowKey(row), decision })
 }
 </script>
@@ -260,11 +312,16 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: ProductMo
   justify-content: space-between;
 }
 
+.product-model-governance-compare-table__row-side,
 .product-model-governance-compare-table__row-heading,
 .product-model-governance-compare-table__action-copy,
 .product-model-governance-compare-table__evidence-card {
   display: grid;
   gap: 0.22rem;
+}
+
+.product-model-governance-compare-table__row-side {
+  justify-items: end;
 }
 
 .product-model-governance-compare-table__row-heading span,
@@ -324,6 +381,10 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: ProductMo
   .product-model-governance-compare-table__tabs,
   .product-model-governance-compare-table__evidence-grid {
     grid-template-columns: 1fr;
+  }
+
+  .product-model-governance-compare-table__row-side {
+    justify-items: start;
   }
 }
 </style>

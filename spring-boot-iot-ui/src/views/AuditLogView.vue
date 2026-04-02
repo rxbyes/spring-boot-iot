@@ -261,7 +261,6 @@
 
               <StandardWorkbenchRowActions
                 variant="card"
-                gap="compact"
                 :direct-items="getAuditDirectActions(row)"
                 :menu-items="auditMenuItems"
                 menu-label="更多"
@@ -318,7 +317,6 @@
             <template #default="{ row }">
               <StandardWorkbenchRowActions
                 variant="table"
-                gap="compact"
                 :direct-items="getAuditDirectActions(row)"
                 :menu-items="auditMenuItems"
                 menu-label="更多"
@@ -425,7 +423,6 @@ const auditActionColumnWidth = computed(() =>
           { command: 'detail', label: '详情' },
           { command: 'delete', label: '删除' }
         ],
-    gap: 'compact'
   })
 )
 const pageTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))

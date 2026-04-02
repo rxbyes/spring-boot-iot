@@ -211,7 +211,6 @@
 
                 <StandardWorkbenchRowActions
                   variant="card"
-                  gap="compact"
                   class="product-mobile-card__actions"
                   :direct-items="getProductDirectActions('card')"
                   :menu-items="productRowActions"
@@ -262,7 +261,6 @@
               <template #default="{ row }">
                 <StandardWorkbenchRowActions
                   variant="table"
-                  gap="compact"
                   :direct-items="getProductDirectActions('table')"
                   :menu-items="productRowActions"
                   @command="(command) => handleRowAction(command, row)"
@@ -688,8 +686,7 @@ const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value)
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidth({
-    directItems: getProductDirectActions('table'),
-    gap: 'compact'
+    directItems: getProductDirectActions('table')
   })
 )
 const productToolbarActions = computed<ProductToolbarAction[]>(() => {

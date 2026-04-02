@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import RealTimeMonitoringView from '@/views/RealTimeMonitoringView.vue'
 
-const { mockGetRiskMonitoringList, mockGetRiskPointList } = vi.hoisted(() => ({
+const { mockGetRiskMonitoringList, mockGetRiskPointList, mockGetDictByCode } = vi.hoisted(() => ({
   mockGetRiskMonitoringList: vi.fn(),
-  mockGetRiskPointList: vi.fn()
+  mockGetRiskPointList: vi.fn(),
+  mockGetDictByCode: vi.fn()
 }))
 
 vi.mock('@/api/riskMonitoring', () => ({
@@ -15,6 +16,10 @@ vi.mock('@/api/riskMonitoring', () => ({
 
 vi.mock('@/api/riskPoint', () => ({
   getRiskPointList: mockGetRiskPointList
+}))
+
+vi.mock('@/api/dict', () => ({
+  getDictByCode: mockGetDictByCode
 }))
 
 vi.mock('@/utils/message', () => ({
@@ -166,10 +171,23 @@ describe('RealTimeMonitoringView', () => {
   beforeEach(() => {
     mockGetRiskMonitoringList.mockReset()
     mockGetRiskPointList.mockReset()
+    mockGetDictByCode.mockReset()
     mockGetRiskPointList.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
+    })
+    mockGetDictByCode.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        items: [
+          { itemName: '红色', itemValue: 'red', status: 1, sortNo: 1 },
+          { itemName: '橙色', itemValue: 'orange', status: 1, sortNo: 2 },
+          { itemName: '黄色', itemValue: 'yellow', status: 1, sortNo: 3 },
+          { itemName: '蓝色', itemValue: 'blue', status: 1, sortNo: 4 }
+        ]
+      }
     })
   })
 

@@ -571,5 +571,7 @@ describe('AuditLogView', () => {
     expect(source).toContain('<StandardWorkbenchRowActions');
     expect(source).toContain('standard-list-surface');
     expect(source).toContain('standard-mobile-record-grid');
+    expect(source).not.toContain('gap="compact"');
+    expect(source).not.toContain("gap: 'compact'");
   });
 });

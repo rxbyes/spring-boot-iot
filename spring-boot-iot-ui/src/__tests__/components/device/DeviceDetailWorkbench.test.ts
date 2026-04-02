@@ -69,45 +69,47 @@ const sparseRegisteredDevice: Device = {
 }
 
 describe('DeviceDetailWorkbench', () => {
-  it('renders the registered device as the same sectioned detail language used by the edit drawer', () => {
+  it('renders the registered device as a flat workbench with summary strip, overview pair, and mixed ledgers', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
         device: registeredDevice
       }
     })
 
-    expect(wrapper.find('[data-testid="device-detail-summary-stage"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-identity-stage"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-runtime-stage"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-support-pair"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="device-detail-section-archive"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('产品归属')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('在线状态')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('激活状态')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('设备状态')
 
-    expect(wrapper.get('[data-testid="device-detail-section-archive"]').text()).toContain('基础档案')
-    expect(wrapper.get('[data-testid="device-detail-section-archive"]').text()).toContain('设备 ID')
-    expect(wrapper.get('[data-testid="device-detail-section-archive"]').text()).toContain('产品归属')
-    expect(wrapper.get('[data-testid="device-detail-section-archive"]').text()).toContain('接入协议')
+    expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('资产概览')
+    expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('运行概览')
+    expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('设备编码')
+    expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('最近在线')
 
-    expect(wrapper.get('[data-testid="device-detail-section-topology"]').text()).toContain('父子拓扑')
-    expect(wrapper.get('[data-testid="device-detail-section-topology"]').text()).toContain('父设备')
-    expect(wrapper.get('[data-testid="device-detail-section-topology"]').text()).toContain('网关设备')
+    expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('身份与部署台账')
+    expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('设备 ID')
+    expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('接入协议')
+    expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('部署位置')
 
-    expect(wrapper.get('[data-testid="device-detail-section-status"]').text()).toContain('状态与维护属性')
-    expect(wrapper.get('[data-testid="device-detail-section-status"]').text()).toContain('最近在线')
-    expect(wrapper.get('[data-testid="device-detail-section-status"]').text()).toContain('固件版本')
-    expect(wrapper.get('[data-testid="device-detail-section-status"]').text()).toContain('部署位置')
+    expect(wrapper.get('[data-testid="device-detail-runtime-stage"]').text()).toContain('运行与认证台账')
+    expect(wrapper.get('[data-testid="device-detail-runtime-stage"]').text()).toContain('最近离线')
+    expect(wrapper.get('[data-testid="device-detail-runtime-stage"]').text()).toContain('Client ID')
+    expect(wrapper.get('[data-testid="device-detail-runtime-stage"]').text()).toContain('设备密钥')
 
-    expect(wrapper.get('[data-testid="device-detail-section-auth"]').text()).toContain('认证字段')
-    expect(wrapper.get('[data-testid="device-detail-section-auth"]').text()).toContain('Client ID')
-    expect(wrapper.get('[data-testid="device-detail-section-auth"]').text()).toContain('用户名')
-    expect(wrapper.get('[data-testid="device-detail-section-auth"]').text()).toContain('设备密钥')
+    expect(wrapper.get('[data-testid="device-detail-support-stage"]').text()).toContain('关系与建档补充')
+    expect(wrapper.get('[data-testid="device-detail-support-stage"]').text()).toContain('父设备')
+    expect(wrapper.get('[data-testid="device-detail-support-stage"]').text()).toContain('网关设备')
 
-    expect(wrapper.get('[data-testid="device-detail-section-metadata"]').text()).toContain('扩展信息')
+    expect(wrapper.get('[data-testid="device-detail-metadata-stage"]').text()).toContain('扩展元数据快照')
+    expect(wrapper.findAll('.device-detail-workbench__ledger-item--wide').length).toBeGreaterThan(0)
 
     expect(wrapper.text()).toContain('北斗监测终端')
     expect(wrapper.text()).toContain('一号厂房东侧监测带')
     expect(wrapper.text()).toContain('client-00182')
   })
 
-  it('keeps the unregistered detail in the same sectioned syntax with source, failure, and payload blocks', () => {
+  it('keeps the unregistered detail in the same workbench syntax with summary strip and combined source ledger', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
         device: unregisteredDevice
@@ -115,28 +117,32 @@ describe('DeviceDetailWorkbench', () => {
     })
 
     expect(wrapper.find('[data-testid="device-detail-section-archive"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="device-detail-section-source"]').text()).toContain('来源档案')
-    expect(wrapper.get('[data-testid="device-detail-section-source"]').text()).toContain('设备编码')
-    expect(wrapper.get('[data-testid="device-detail-section-source"]').text()).toContain('来源记录')
-    expect(wrapper.get('[data-testid="device-detail-section-failure"]').text()).toContain('失败摘要')
-    expect(wrapper.get('[data-testid="device-detail-section-failure"]').text()).toContain('失败阶段')
-    expect(wrapper.get('[data-testid="device-detail-section-failure"]').text()).toContain('Topic')
-    expect(wrapper.get('[data-testid="device-detail-section-payload"]').text()).toContain('最近载荷')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('登记状态')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('最近上报')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('失败阶段')
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('失败摘要')
+    expect(wrapper.get('[data-testid="device-detail-source-stage"]').text()).toContain('来源档案与失败摘要')
+    expect(wrapper.get('[data-testid="device-detail-source-stage"]').text()).toContain('设备编码')
+    expect(wrapper.get('[data-testid="device-detail-source-stage"]').text()).toContain('来源记录')
+    expect(wrapper.get('[data-testid="device-detail-source-stage"]').text()).toContain('Topic')
+    expect(wrapper.get('[data-testid="device-detail-payload-stage"]').text()).toContain('最近载荷')
     expect(wrapper.text()).toContain('DEVICE_CONTRACT')
     expect(wrapper.text()).toContain('设备未登记，无法完成设备契约匹配。')
     expect(wrapper.text()).toContain('"battery": 92')
   })
 
-  it('uses section cards instead of the old ledger-pair layout', () => {
+  it('uses the flat workbench stages instead of the old archive topology status sections', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../../components/device/DeviceDetailWorkbench.vue'), 'utf8')
 
-    expect(source).toContain('device-detail-section-archive')
-    expect(source).toContain('device-detail-section-topology')
-    expect(source).toContain('device-detail-section-status')
-    expect(source).toContain('device-detail-section-auth')
-    expect(source).toContain('device-detail-section-metadata')
-    expect(source).not.toContain('device-detail-identity-stage')
-    expect(source).not.toContain('device-detail-runtime-stage')
+    expect(source).toContain('device-detail-summary-stage')
+    expect(source).toContain('device-detail-overview-stage')
+    expect(source).toContain('device-detail-identity-stage')
+    expect(source).toContain('device-detail-runtime-stage')
+    expect(source).toContain('device-detail-support-stage')
+    expect(source).toContain('device-detail-metadata-stage')
+    expect(source).not.toContain('device-detail-section-archive')
+    expect(source).not.toContain('device-detail-section-topology')
+    expect(source).not.toContain('device-detail-section-status')
   })
 
   it('hides registered sections whose fields are all empty', () => {
@@ -146,26 +152,25 @@ describe('DeviceDetailWorkbench', () => {
       }
     })
 
-    expect(wrapper.get('[data-testid="device-detail-section-archive"]').text()).toContain('基础档案')
-    expect(wrapper.find('[data-testid="device-detail-section-topology"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-section-status"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-section-auth"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="device-detail-section-metadata"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('产品归属')
+    expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('身份与部署台账')
+    expect(wrapper.find('[data-testid="device-detail-runtime-stage"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="device-detail-support-stage"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="device-detail-metadata-stage"]').exists()).toBe(false)
   })
 
-  it('keeps detail values in the same non-bold text rhythm as the edit drawer', () => {
+  it('keeps ledger values in the same non-bold text rhythm even after introducing summary cards', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
         device: registeredDevice
       }
     })
 
-    expect(wrapper.findAll('strong.device-detail-workbench__field-value')).toHaveLength(0)
-    expect(wrapper.findAll('.device-detail-workbench__field-value').length).toBeGreaterThan(0)
-    expect(wrapper.findAll('.device-detail-workbench__relation-card strong')).toHaveLength(0)
+    expect(wrapper.findAll('strong.device-detail-workbench__ledger-value')).toHaveLength(0)
+    expect(wrapper.findAll('.device-detail-workbench__ledger-value').length).toBeGreaterThan(0)
 
     const source = readFileSync(resolve(import.meta.dirname, '../../../components/device/DeviceDetailWorkbench.vue'), 'utf8')
-    expect(source).toContain('.device-detail-workbench__field-value')
+    expect(source).toContain('.device-detail-workbench__ledger-value')
     expect(source).toContain('font-size: 14px;')
     expect(source).toContain('font-weight: 400;')
   })

@@ -6,10 +6,12 @@ import com.ghlzm.iot.alarm.entity.EventRecord;
 import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
 import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
+import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.AlarmRecordService;
 import com.ghlzm.iot.alarm.service.EventRecordService;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -51,6 +53,8 @@ class DeepDisplacementAutoClosureServiceTest {
     @Mock
     private EmergencyPlanMapper emergencyPlanMapper;
     @Mock
+    private RuleDefinitionMapper ruleDefinitionMapper;
+    @Mock
     private DevicePropertyMapper devicePropertyMapper;
 
     private DeepDisplacementAutoClosureService service;
@@ -62,6 +66,9 @@ class DeepDisplacementAutoClosureServiceTest {
         IotProperties.Alarm.AutoClosure autoClosure = new IotProperties.Alarm.AutoClosure();
         autoClosure.setEnabled(true);
         autoClosure.setCooldownMinutes(30);
+        autoClosure.setYellow(BigDecimal.valueOf(5));
+        autoClosure.setOrange(BigDecimal.valueOf(10));
+        autoClosure.setRed(BigDecimal.valueOf(20));
         alarm.setAutoClosure(autoClosure);
         properties.setAlarm(alarm);
         service = new DeepDisplacementAutoClosureService(
@@ -73,8 +80,53 @@ class DeepDisplacementAutoClosureServiceTest {
                 emergencyPlanMapper,
                 devicePropertyMapper,
                 properties,
+                new RiskPolicyResolver(ruleDefinitionMapper, properties),
                 null
         );
+    }
+
+    @Test
+    void processShouldUseResolvedRulePolicyInsteadOfStaticYamlThreshold() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(9101L);
+        rule.setRuleName("深部位移红色策略");
+        rule.setMetricIdentifier("dispsX");
+        rule.setExpression("value >= 12");
+        rule.setAlarmLevel("critical");
+        rule.setConvertToEvent(1);
+        rule.setStatus(0);
+        rule.setDeleted(0);
+
+        mockCommonLookups(riskPoint, binding, buildProperty(binding, "12.8"));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+        when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
+            AlarmRecord alarmRecord = invocation.getArgument(0);
+            alarmRecord.setId(8503L);
+            return alarmRecord;
+        });
+        when(eventRecordService.addEvent(any())).thenAnswer(invocation -> {
+            EventRecord eventRecord = invocation.getArgument(0);
+            eventRecord.setId(8601L);
+            return eventRecord;
+        });
+
+        service.process(buildEvent("84330701", Map.of("dispsX", 12.8)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertEquals("critical", alarmCaptor.getValue().getAlarmLevel());
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"policySource\":\"RULE_DEFINITION\""));
+        assertEquals("value >= 12", alarmCaptor.getValue().getThresholdValue());
+
+        ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+        verify(eventRecordService).addEvent(eventCaptor.capture());
+        assertEquals("red", eventCaptor.getValue().getRiskLevel());
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"policySource\":\"RULE_DEFINITION\""));
     }
 
     @Test
@@ -117,7 +169,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
         verify(eventRecordService).addEvent(eventCaptor.capture());
-        assertEquals("critical", eventCaptor.getValue().getRiskLevel());
+        assertEquals("red", eventCaptor.getValue().getRiskLevel());
         assertEquals(88L, eventCaptor.getValue().getResponsibleUser());
         assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"name\":\"边坡深部位移红色应急预案\""));
 
@@ -125,7 +177,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
-        assertEquals("critical", riskPointCaptor.getValue().getRiskLevel());
+        assertEquals("red", riskPointCaptor.getValue().getRiskLevel());
     }
 
     @Test
@@ -273,7 +325,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
-        assertEquals("warning", riskPointCaptor.getValue().getRiskLevel());
+        assertEquals("yellow", riskPointCaptor.getValue().getRiskLevel());
     }
 
     @Test
@@ -294,7 +346,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
-        assertEquals("critical", riskPointCaptor.getValue().getRiskLevel());
+        assertEquals("red", riskPointCaptor.getValue().getRiskLevel());
     }
 
     private void mockCommonLookups(RiskPoint riskPoint, RiskPointDevice binding, DeviceProperty property) {

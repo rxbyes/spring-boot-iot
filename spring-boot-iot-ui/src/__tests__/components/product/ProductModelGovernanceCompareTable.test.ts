@@ -67,8 +67,8 @@ function mountTable() {
         }
       ],
       decisionState: {
-        'property:S1_ZT_1.signal_4g': 'skip',
-        'event:alarmRaised': 'update',
+        'property:S1_ZT_1.signal_4g': 'observe',
+        'event:alarmRaised': 'review',
         'service:reboot': 'create'
       }
     }
@@ -82,27 +82,32 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).toContain('S1_ZT_1.signal_4g')
     expect(wrapper.text()).toContain('自动证据独有')
     expect(wrapper.text()).toContain('继续观察')
+    expect(wrapper.get('[data-testid="governance-decision-property:S1_ZT_1.signal_4g-observe"]').text()).toBe('继续观察')
+    expect(wrapper.get('[data-testid="governance-decision-property:S1_ZT_1.signal_4g-ignore"]').text()).toBe('忽略')
     expect(wrapper.text()).not.toContain('alarmRaised')
 
     await wrapper.get('[data-testid="governance-type-event"]').trigger('click')
     expect(wrapper.text()).toContain('alarmRaised')
     expect(wrapper.text()).toContain('疑似冲突')
     expect(wrapper.text()).toContain('人工裁决')
+    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-review"]').text()).toBe('人工裁决')
+    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-ignore"]').text()).toBe('忽略')
 
     await wrapper.get('[data-testid="governance-type-service"]').trigger('click')
     expect(wrapper.text()).toContain('reboot')
     expect(wrapper.text()).toContain('双证据一致')
     expect(wrapper.text()).toContain('纳入新增')
+    expect(wrapper.get('[data-testid="governance-decision-service:reboot-observe"]').text()).toBe('继续观察')
   })
 
-  it('emits decision changes for compare rows', async () => {
+  it('emits explicit governance decisions for compare rows', async () => {
     const wrapper = mountTable()
 
     await wrapper.get('[data-testid="governance-type-event"]').trigger('click')
-    await wrapper.get('[data-testid="governance-decision-event:alarmRaised-update"]').trigger('click')
+    await wrapper.get('[data-testid="governance-decision-event:alarmRaised-review"]').trigger('click')
 
     expect(wrapper.emitted('change-decision')).toEqual([
-      [{ key: 'event:alarmRaised', decision: 'update' }]
+      [{ key: 'event:alarmRaised', decision: 'review' }]
     ])
   })
 })

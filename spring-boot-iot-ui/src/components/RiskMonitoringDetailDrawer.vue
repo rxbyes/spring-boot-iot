@@ -142,6 +142,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
+import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
 
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import {
@@ -192,6 +193,8 @@ const drawerTags = computed(() => {
     { label: onlineStatusText(detail.value.onlineStatus), type: detail.value.onlineStatus === 1 ? 'success' : 'info' as const }
   ];
 });
+const riskLevelText = getRiskLevelText;
+const riskLevelTagType = getRiskLevelTagType;
 
 watch(
   () => [props.modelValue, props.bindingId] as const,
@@ -214,36 +217,6 @@ async function loadDetail(bindingId: number) {
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
-  }
-}
-
-function riskLevelText(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return '严重';
-    case 'WARNING':
-    case 'MEDIUM':
-      return '警告';
-    case 'INFO':
-    case 'LOW':
-      return '提醒';
-    default:
-      return value || '未标注';
-  }
-}
-
-function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'success' | 'info' {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return 'danger';
-    case 'WARNING':
-    case 'MEDIUM':
-      return 'warning';
-    case 'INFO':
-    case 'LOW':
-      return 'success';
-    default:
-      return 'info';
   }
 }
 

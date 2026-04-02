@@ -16,8 +16,9 @@ export interface RiskPoint {
       regionId: IdType;
       regionName: string;
       responsibleUser: number;
+      responsibleUserName?: string;
       responsiblePhone: string;
-      riskLevel: string; // critical-严重, warning-警告, info-提醒
+      riskLevel: string; // red-红色, orange-橙色, yellow-黄色, blue-蓝色
       description: string;
       status: number; // 0-启用，1-停用
       tenantId: IdType;

@@ -249,7 +249,6 @@
 
                 <StandardWorkbenchRowActions
                   variant="card"
-                  gap="compact"
                   class="device-mobile-card__actions"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
@@ -304,7 +303,6 @@
               <template #default="{ row }">
                 <StandardWorkbenchRowActions
                   variant="table"
-                  gap="compact"
                   :direct-items="getDeviceDirectActions(row)"
                   :menu-items="getDeviceRowActions(row)"
                   @command="(command) => handleRowAction(command, row)"
@@ -822,8 +820,8 @@ const detailTitle = computed(() => {
 const detailIsRegistered = computed(() => isRegisteredDeviceRow(detailData.value))
 const detailSubtitle = computed(() =>
   detailIsRegistered.value
-    ? '统一查看设备资产概况、身份部署、运行状态、接入凭据与建档补充。'
-    : '当前设备尚未登记，详情来自最近一次失败归档，用于补档和排障。'
+    ? '统一查看资产判断、部署台账、运行台账与建档补充。'
+    : '当前设备仍未登记，详情按失败来源和最近载荷组织。'
 )
 const onlineCount = computed(() => tableData.value.filter((item) => item.onlineStatus === 1).length)
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
@@ -1242,8 +1240,7 @@ const deviceActionColumnWidth = computed(() => {
   const visibleRowWidths = tableData.value.map((row) =>
     resolveWorkbenchActionColumnWidth({
       directItems: getDeviceDirectActions(row),
-      menuItems: getDeviceRowActions(row),
-      gap: 'compact'
+      menuItems: getDeviceRowActions(row)
     })
   )
   const resolvedWidth =
@@ -1254,8 +1251,7 @@ const deviceActionColumnWidth = computed(() => {
             { command: 'detail', label: '详情' },
             ...(permissionStore.hasPermission('iot:devices:update') ? [{ command: 'edit', label: '编辑' }] : [])
           ],
-          menuItems: [{ command: 'more', label: '更多' }],
-          gap: 'compact'
+          menuItems: [{ command: 'more', label: '更多' }]
         })
 
   return resolvedWidth

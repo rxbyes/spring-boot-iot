@@ -15,12 +15,12 @@ public interface RiskPointService extends IService<RiskPoint> {
       /**
        * 新增风险点
        */
-      RiskPoint addRiskPoint(RiskPoint riskPoint);
+      RiskPoint addRiskPoint(RiskPoint riskPoint, Long currentUserId);
 
       /**
        * 更新风险点
        */
-      RiskPoint updateRiskPoint(RiskPoint riskPoint);
+      RiskPoint updateRiskPoint(RiskPoint riskPoint, Long currentUserId);
 
       /**
        * 删除风险点

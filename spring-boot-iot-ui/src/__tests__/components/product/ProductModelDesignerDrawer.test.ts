@@ -176,7 +176,7 @@ function compareResult() {
       runtimeOnlyCount: 0,
       formalExistsCount: 0,
       suspectedConflictCount: 0,
-      evidenceInsufficientCount: 0,
+      evidenceInsufficientCount: 1,
       lastComparedAt: '2026-03-31T12:00:00'
     },
     manualSummary: {
@@ -316,6 +316,9 @@ describe('ProductModelDesignerDrawer', () => {
     expect(wrapper.text()).toContain('双证据一致')
     expect(wrapper.text()).toContain('L1_QJ_1.X')
     expect(wrapper.text()).toContain('纳入新增')
+    expect(wrapper.get('[data-testid="governance-summary-evidence-insufficient"]').text()).toContain('1')
+    expect(wrapper.get('[data-testid="governance-apply-stage"]').text()).toContain('正式模型确认区')
+    expect(wrapper.get('[data-testid="governance-apply-item-property:L1_QJ_1.X"]').text()).toContain('纳入新增')
 
     await wrapper.get('[data-testid="governance-apply-submit"]').trigger('click')
     await flushPromises()

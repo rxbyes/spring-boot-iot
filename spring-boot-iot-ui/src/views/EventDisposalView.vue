@@ -17,9 +17,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in riskLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -269,6 +272,7 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns';
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm';
+import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
 
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
 import type { EventRecord } from '../api/alarm';
@@ -283,6 +287,7 @@ const dispatchVisible = ref(false);
 const closeVisible = ref(false);
 const eventList = ref<EventRecord[]>([]);
 const detail = ref<EventRecord | null>(null);
+const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const dispatchTarget = ref<EventRecord | null>(null);
 const closeTarget = ref<EventRecord | null>(null);
 const tableRef = ref();
@@ -397,31 +402,7 @@ const closeForm = reactive({
   closeReason: ''
 });
 
-const getRiskLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
-
-const getRiskLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
-  }
-};
+const getRiskLevelType = (level: string) => getRiskLevelTagType(level);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -702,8 +683,18 @@ const handleCloseConfirm = async () => {
 
 onMounted(() => {
   syncAppliedFilters();
+  void loadRiskLevelOptions();
   void loadEventList();
 });
+
+async function loadRiskLevelOptions() {
+  try {
+    riskLevelOptions.value = await fetchRiskLevelOptions();
+  } catch (error) {
+    console.error('加载风险等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+  }
+}
 
 function closeDispatchDialog() {
   dispatchVisible.value = false;

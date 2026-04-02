@@ -527,8 +527,8 @@ describe('ProductWorkbenchView', () => {
 
     expect(cardRowActions?.exists()).toBe(true)
     expect(tableRowActions?.exists()).toBe(true)
-    expect(cardRowActions?.props('gap')).toBe('compact')
-    expect(tableRowActions?.props('gap')).toBe('compact')
+    expect(cardRowActions?.props('gap')).toBeUndefined()
+    expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
       '进入工作台',
       '删除'
@@ -689,5 +689,7 @@ describe('ProductWorkbenchView', () => {
     expect(source).toContain('standard-list-surface')
     expect(source).toContain('standard-mobile-record-grid')
     expect(source).toContain('standard-mobile-record-card')
+    expect(source).not.toContain('gap="compact"')
+    expect(source).not.toContain("gap: 'compact'")
   })
 })

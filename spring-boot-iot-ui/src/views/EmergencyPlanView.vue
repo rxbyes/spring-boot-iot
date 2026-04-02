@@ -22,9 +22,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in riskLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -62,7 +65,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`, `警告 ${warningCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `红色 ${redCount} 项`, `橙色 ${orangeCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -190,9 +193,13 @@
               </el-form-item>
               <el-form-item label="风险等级" prop="riskLevel" class="ops-drawer-grid__full">
                 <el-radio-group v-model="form.riskLevel">
-                  <el-radio value="critical">严重</el-radio>
-                  <el-radio value="warning">警告</el-radio>
-                  <el-radio value="info">提醒</el-radio>
+                  <el-radio
+                    v-for="option in riskLevelOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </el-radio>
                 </el-radio-group>
               </el-form-item>
               <el-form-item label="描述" prop="description" class="ops-drawer-grid__full">
@@ -248,6 +255,7 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
@@ -256,6 +264,7 @@ type EmergencyPlanRowActionCommand = 'edit' | 'delete';
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
+const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const tableRef = ref();
 const selectedRows = ref<EmergencyPlan[]>([]);
 const planActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -283,7 +292,7 @@ const formTitle = computed(() => (form.id ? '编辑预案' : '新增预案'));
 const form = reactive({
   id: undefined as number | undefined,
   planName: '',
-  riskLevel: 'warning',
+  riskLevel: '',
   description: '',
   responseSteps: '',
   contactList: '',
@@ -301,8 +310,8 @@ const planAdvice = '优先检查严重风险预案和启用中的执行方案';
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => planList.value.filter((item) => item.status === 0).length);
-const criticalCount = computed(() => planList.value.filter((item) => item.riskLevel === 'critical').length);
-const warningCount = computed(() => planList.value.filter((item) => item.riskLevel === 'warning').length);
+const redCount = computed(() => planList.value.filter((item) => item.riskLevel === 'red').length);
+const orangeCount = computed(() => planList.value.filter((item) => item.riskLevel === 'orange').length);
 const hasRecords = computed(() => planList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的应急预案' : '还没有应急预案'));
@@ -312,31 +321,7 @@ const emptyStateDescription = computed(() =>
     : '当前还没有应急预案，先新增预案，再继续配置风险等级和响应步骤。'
 );
 
-const getRiskLevelType = (riskLevel: string) => {
-  switch (riskLevel) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
-
-const getRiskLevelText = (riskLevel: string) => {
-  switch (riskLevel) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return riskLevel;
-  }
-};
+const getRiskLevelType = (riskLevel: string) => getRiskLevelTagType(riskLevel);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -479,7 +464,7 @@ const handleClearAppliedFilters = () => {
 const resetPlanForm = () => {
   form.id = undefined;
   form.planName = '';
-  form.riskLevel = 'warning';
+  form.riskLevel = riskLevelOptions.value[0]?.value || '';
   form.description = '';
   form.responseSteps = '';
   form.contactList = '';
@@ -543,8 +528,21 @@ const handleFormClose = () => {
 
 onMounted(() => {
   syncAppliedFilters();
+  void loadRiskLevelOptions();
   void loadPlanList();
 });
+
+async function loadRiskLevelOptions() {
+  try {
+    riskLevelOptions.value = await fetchRiskLevelOptions();
+    if (!form.riskLevel) {
+      form.riskLevel = riskLevelOptions.value[0]?.value || '';
+    }
+  } catch (error) {
+    console.error('加载风险等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+  }
+}
 </script>
 
 <style scoped>

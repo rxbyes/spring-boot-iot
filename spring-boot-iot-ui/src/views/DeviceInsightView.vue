@@ -60,6 +60,29 @@
 
         <div v-if="errorMessage" class="empty-state" aria-live="polite">{{ errorMessage }}</div>
 
+        <section v-if="governanceGapCards.length" class="governance-gap-board">
+          <header class="governance-gap-board__header">
+            <div>
+              <strong>治理缺口</strong>
+              <p>当前设备已有上报，但还没有完全进入风险纳管和判级闭环。</p>
+            </div>
+          </header>
+          <article
+            v-for="item in governanceGapCards"
+            :key="item.key"
+            class="governance-gap-card"
+          >
+            <div class="governance-gap-card__content">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+            </div>
+            <StandardButton action="refresh" link @click="jumpToGovernance(item.path)">
+              {{ item.actionLabel }}
+            </StandardButton>
+          </article>
+        </section>
+
         <section class="two-column-grid">
           <PanelCard
             title="基础档案"
@@ -165,6 +188,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
+import { listMissingBindings, listMissingPolicies, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '../api/iot';
 import MetricCard from '../components/MetricCard.vue';
 import PanelCard from '../components/PanelCard.vue';
@@ -199,11 +223,21 @@ function parseBindingId(value: unknown) {
   return null;
 }
 
+function resolveRouteDeviceCode(deviceCodeQuery: unknown, bindingIdQuery: unknown) {
+  if (typeof deviceCodeQuery === 'string' && deviceCodeQuery.trim()) {
+    return deviceCodeQuery.trim();
+  }
+
+  if (parseBindingId(bindingIdQuery)) {
+    return '';
+  }
+
+  return 'demo-device-01';
+}
+
 const route = useRoute();
 const router = useRouter();
-const initialDeviceCode = ref(typeof route.query.deviceCode === 'string' && route.query.deviceCode.trim()
-  ? route.query.deviceCode.trim()
-  : 'demo-device-01');
+const initialDeviceCode = ref(resolveRouteDeviceCode(route.query.deviceCode, route.query.bindingId));
 const initialBindingId = ref(parseBindingId(route.query.bindingId));
 const deviceCode = ref(initialDeviceCode.value);
 const selectedBindingId = ref<number | null>(initialBindingId.value);
@@ -216,6 +250,8 @@ const properties = ref<DeviceProperty[]>([]);
 const logs = ref<DeviceMessageLog[]>([]);
 const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const bindingOptions = ref<RiskMonitoringListItem[]>([]);
+const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
+const missingPolicyItems = ref<RiskGovernanceGapItem[]>([]);
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 let syncingRoute = false;
 
@@ -226,10 +262,8 @@ watch(
       return;
     }
 
-    const nextDeviceCode = typeof deviceCodeQuery === 'string' && deviceCodeQuery.trim()
-      ? deviceCodeQuery.trim()
-      : 'demo-device-01';
     const nextBindingId = parseBindingId(bindingIdQuery);
+    const nextDeviceCode = resolveRouteDeviceCode(deviceCodeQuery, bindingIdQuery);
 
     if (nextDeviceCode === deviceCode.value && nextBindingId === selectedBindingId.value) {
       return;
@@ -368,6 +402,43 @@ const keyMetrics = computed(() => {
   return metrics.slice(0, 6);
 });
 
+const governanceGapCards = computed(() => {
+  const cards: Array<{
+    key: string;
+    label: string;
+    title: string;
+    description: string;
+    actionLabel: string;
+    path: string;
+  }> = [];
+
+  if (missingBindingItems.value.length > 0) {
+    const item = missingBindingItems.value[0];
+    cards.push({
+      key: 'missing-binding',
+      label: item.issueLabel || '待纳入风险对象',
+      title: `${item.deviceCode || normalizedDeviceCode.value || '--'} 尚未绑定风险对象`,
+      description: `当前设备已有上报记录，但没有形成风险点与测点绑定，实时监测、告警和事件链路都无法完整接续。`,
+      actionLabel: '进入风险对象中心',
+      path: '/risk-point'
+    });
+  }
+
+  if (missingPolicyItems.value.length > 0) {
+    const item = missingPolicyItems.value[0];
+    cards.push({
+      key: 'missing-policy',
+      label: item.issueLabel || '待配置阈值策略',
+      title: `${item.metricName || item.metricIdentifier || '当前测点'} 还没有阈值策略`,
+      description: `${item.riskPointName || '当前风险点'} 已完成绑定，但该测点尚未配置启用阈值规则，运行时无法按统一策略判级。`,
+      actionLabel: '进入阈值策略',
+      path: '/rule-definition'
+    });
+  }
+
+  return cards;
+});
+
 function resolveRiskBadgeTone(value?: string | null) {
   switch ((value || '').toUpperCase()) {
     case 'CRITICAL':
@@ -394,6 +465,10 @@ function syncRoute() {
   }).finally(() => {
     syncingRoute = false;
   });
+}
+
+function jumpToGovernance(path: string) {
+  void router.push({ path });
 }
 
 function handleReset() {
@@ -429,7 +504,23 @@ async function refreshAll() {
     let resolvedDeviceCode = normalizedDeviceCode.value;
     let currentFallbackMessage = '';
 
-    if (normalizedDeviceCode.value) {
+    if (selectedBindingId.value) {
+      const detailResponse = await getRiskMonitoringDetail(selectedBindingId.value);
+      currentDetail = detailResponse.data;
+      resolvedDeviceCode = currentDetail.deviceCode || normalizedDeviceCode.value;
+
+      if (resolvedDeviceCode) {
+        deviceCode.value = resolvedDeviceCode;
+        const listResponse = await getRiskMonitoringList({
+          deviceCode: resolvedDeviceCode,
+          pageNum: 1,
+          pageSize: 50
+        });
+        bindingOptions.value = listResponse.data.records ?? [];
+      } else {
+        bindingOptions.value = [];
+      }
+    } else if (normalizedDeviceCode.value) {
       const listResponse = await getRiskMonitoringList({
         deviceCode: normalizedDeviceCode.value,
         pageNum: 1,
@@ -452,20 +543,6 @@ async function refreshAll() {
         currentDetail = detailResponse.data;
         resolvedDeviceCode = currentDetail.deviceCode || normalizedDeviceCode.value;
       }
-    } else if (selectedBindingId.value) {
-      const detailResponse = await getRiskMonitoringDetail(selectedBindingId.value);
-      currentDetail = detailResponse.data;
-      resolvedDeviceCode = currentDetail.deviceCode || normalizedDeviceCode.value;
-
-      if (resolvedDeviceCode) {
-        deviceCode.value = resolvedDeviceCode;
-        const listResponse = await getRiskMonitoringList({
-          deviceCode: resolvedDeviceCode,
-          pageNum: 1,
-          pageSize: 50
-        });
-        bindingOptions.value = listResponse.data.records ?? [];
-      }
     }
 
     if (!resolvedDeviceCode) {
@@ -473,17 +550,39 @@ async function refreshAll() {
       device.value = null;
       properties.value = [];
       logs.value = [];
+      missingBindingItems.value = [];
+      missingPolicyItems.value = [];
       errorMessage.value = '当前监测对象缺少可用的设备编码。';
       lastFetchTime.value = new Date().toISOString();
       syncRoute();
       return;
     }
 
-    const [deviceResponse, propertyResponse, logResponse] = await Promise.all([
+    const [deviceResponse, propertyResponse, logResponse, governanceResults] = await Promise.all([
       getDeviceByCode(resolvedDeviceCode),
       getDeviceProperties(resolvedDeviceCode),
-      getDeviceMessageLogs(resolvedDeviceCode)
+      getDeviceMessageLogs(resolvedDeviceCode),
+      Promise.allSettled([
+        listMissingBindings({
+          deviceCode: resolvedDeviceCode,
+          pageNum: 1,
+          pageSize: 5
+        }),
+        listMissingPolicies({
+          deviceCode: resolvedDeviceCode,
+          pageNum: 1,
+          pageSize: 5
+        })
+      ])
     ]);
+
+    const [missingBindingResult, missingPolicyResult] = governanceResults;
+    missingBindingItems.value = missingBindingResult.status === 'fulfilled'
+      ? (missingBindingResult.value.data.records ?? [])
+      : [];
+    missingPolicyItems.value = missingPolicyResult.status === 'fulfilled'
+      ? (missingPolicyResult.value.data.records ?? [])
+      : [];
 
     riskDetail.value = currentDetail;
     device.value = deviceResponse.data;
@@ -537,7 +636,8 @@ async function refreshAll() {
 <style scoped>
 .insight-binding-switcher,
 .reason-list,
-.highlight-grid {
+.highlight-grid,
+.governance-gap-board {
   display: grid;
   gap: 0.9rem;
 }
@@ -564,7 +664,8 @@ async function refreshAll() {
 
 .reason-list__item,
 .highlight-card,
-.report-draft {
+.report-draft,
+.governance-gap-card {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
@@ -617,10 +718,52 @@ async function refreshAll() {
   line-height: 1.8;
 }
 
+.governance-gap-board__header strong {
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.governance-gap-board__header p {
+  margin: 0.3rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.governance-gap-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.governance-gap-card__content {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.governance-gap-card__content span {
+  color: var(--text-tertiary);
+}
+
+.governance-gap-card__content strong {
+  color: var(--text-primary);
+}
+
+.governance-gap-card__content p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
 @media (max-width: 1024px) {
   .insight-binding-switcher,
-  .highlight-grid {
+  .highlight-grid,
+  .governance-gap-card {
     grid-template-columns: 1fr;
+  }
+
+  .governance-gap-card {
+    flex-direction: column;
   }
 }
 </style>

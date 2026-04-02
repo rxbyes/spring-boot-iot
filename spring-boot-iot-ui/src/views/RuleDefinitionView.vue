@@ -53,19 +53,37 @@
       </template>
 
       <template #notices>
-        <el-alert
-          title="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
+        <div class="rule-definition-notice-stack">
+          <el-alert
+            title="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-if="missingPolicyTotal > 0"
+            :title="`待配置阈值策略 ${missingPolicyTotal} 项，已绑定测点还没有进入统一判级。`"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <ul class="rule-definition-governance-list">
+              <li v-for="item in missingPolicyItems" :key="`${item.riskPointId || 'rp'}-${item.metricIdentifier || item.deviceCode}`">
+                <strong>{{ item.metricName || item.metricIdentifier || '--' }}</strong>
+                <span>{{ item.riskPointName || '未命名风险点' }}</span>
+                <span>{{ item.deviceCode || '--' }} · {{ item.deviceName || '未命名设备' }}</span>
+              </li>
+            </ul>
+          </el-alert>
+        </div>
       </template>
 
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`, `严重 ${criticalRuleCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`, `待配 ${missingPolicyTotal} 项`, `严重 ${criticalRuleCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -291,6 +309,7 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { listMissingPolicies, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
 import type { RuleDefinition } from '../api/ruleDefinition';
 
@@ -299,6 +318,7 @@ type RuleRowActionCommand = 'edit' | 'delete';
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
+const missingPolicyItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
 const ruleActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -347,6 +367,7 @@ const rules = {
 };
 
 const submitLoading = ref(false);
+const missingPolicyTotal = ref(0);
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
@@ -435,19 +456,35 @@ const loadRuleList = async () => {
   const requestId = ++latestListRequestId;
   loading.value = true;
   try {
-    const res = await pageRuleList({
-      ruleName: appliedFilters.ruleName || undefined,
-      metricIdentifier: appliedFilters.metricIdentifier || undefined,
-      alarmLevel: appliedFilters.alarmLevel || undefined,
-      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    });
+    const [listResult, governanceResult] = await Promise.allSettled([
+      pageRuleList({
+        ruleName: appliedFilters.ruleName || undefined,
+        metricIdentifier: appliedFilters.metricIdentifier || undefined,
+        alarmLevel: appliedFilters.alarmLevel || undefined,
+        status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
+        pageNum: pagination.pageNum,
+        pageSize: pagination.pageSize
+      }),
+      listMissingPolicies({
+        pageNum: 1,
+        pageSize: 3
+      })
+    ]);
     if (requestId !== latestListRequestId) {
       return;
     }
-    if (res.code === 200) {
-      ruleList.value = applyPageResult(res.data);
+    if (listResult.status === 'fulfilled' && listResult.value.code === 200) {
+      ruleList.value = applyPageResult(listResult.value.data);
+    } else {
+      ruleList.value = [];
+    }
+
+    if (governanceResult.status === 'fulfilled' && governanceResult.value.code === 200) {
+      missingPolicyItems.value = governanceResult.value.data.records ?? [];
+      missingPolicyTotal.value = governanceResult.value.data.total ?? 0;
+    } else {
+      missingPolicyItems.value = [];
+      missingPolicyTotal.value = 0;
     }
   } catch (error) {
     if (requestId !== latestListRequestId) {
@@ -615,5 +652,26 @@ onMounted(() => {
 <style scoped>
 .rule-definition-view {
   min-width: 0;
+}
+
+.rule-definition-notice-stack,
+.rule-definition-governance-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.rule-definition-governance-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.rule-definition-governance-list li {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--text-secondary);
+}
+
+.rule-definition-governance-list strong {
+  color: var(--text-primary);
 }
 </style>

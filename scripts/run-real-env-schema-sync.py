@@ -229,6 +229,8 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
         ("update_by", "BIGINT DEFAULT NULL COMMENT 'updater'"),
     ],
     "risk_point": [
+        ("org_id", "BIGINT DEFAULT NULL COMMENT 'organization id'"),
+        ("org_name", "VARCHAR(128) DEFAULT NULL COMMENT 'organization name'"),
         ("create_by", "BIGINT DEFAULT NULL COMMENT 'creator'"),
         ("update_by", "BIGINT DEFAULT NULL COMMENT 'updater'"),
     ],
@@ -335,6 +337,163 @@ def ensure_dict_defaults(cur: pymysql.cursors.Cursor) -> None:
     )
     cur.execute("UPDATE sys_dict SET dict_value='' WHERE dict_value IS NULL")
     cur.execute("UPDATE sys_dict SET dict_label='' WHERE dict_label IS NULL")
+
+
+def next_table_id(cur: pymysql.cursors.Cursor, table: str) -> int:
+    cur.execute(f"SELECT COALESCE(MAX(id), 0) + 1 FROM `{table}`")
+    return int(cur.fetchone()[0])
+
+
+def ensure_risk_level_dict(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "sys_dict") or not table_exists(cur, db, "sys_dict_item"):
+        return
+
+    cur.execute(
+        """
+        SELECT id
+        FROM sys_dict
+        WHERE tenant_id = 1 AND dict_code = 'risk_level'
+        ORDER BY deleted ASC, id ASC
+        LIMIT 1
+        """
+    )
+    existing_dict = cur.fetchone()
+    dict_id = int(existing_dict[0]) if existing_dict else 7201
+    dict_remark = "风险等级四色内码字典"
+
+    if existing_dict:
+        cur.execute(
+            """
+            UPDATE sys_dict
+            SET dict_name=%s,
+                dict_type='text',
+                status=1,
+                sort_no=1,
+                remark=%s,
+                update_by=1,
+                update_time=NOW(),
+                deleted=0
+            WHERE id=%s
+            """,
+            ("风险等级", dict_remark, dict_id),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO sys_dict (
+                id, tenant_id, dict_name, dict_code, dict_type, status, sort_no, remark,
+                create_by, create_time, update_by, update_time, deleted
+            ) VALUES (%s, 1, %s, 'risk_level', 'text', 1, 1, %s, 1, NOW(), 1, NOW(), 0)
+            """,
+            (dict_id, "风险等级", dict_remark),
+        )
+
+    cur.execute(
+        """
+        SELECT id, item_value
+        FROM sys_dict_item
+        WHERE tenant_id = 1 AND dict_id = %s
+        ORDER BY deleted ASC, sort_no ASC, id ASC
+        """,
+        (dict_id,),
+    )
+    existing_items = cur.fetchall()
+    items_by_value: Dict[str, List[int]] = {}
+    for item_id, item_value in existing_items:
+        normalized_value = (item_value or "").strip().lower()
+        items_by_value.setdefault(normalized_value, []).append(int(item_id))
+
+    target_items = [
+        ("red", "红色", 1, "风险等级-红色", "critical"),
+        ("orange", "橙色", 2, "风险等级-橙色", "warning"),
+        ("yellow", "黄色", 3, "风险等级-黄色", None),
+        ("blue", "蓝色", 4, "风险等级-蓝色", "info"),
+    ]
+    retained_ids: List[int] = []
+
+    for value, label, sort_no, remark, legacy_value in target_items:
+        candidate_id = None
+        for candidate_value in (value, legacy_value):
+            if not candidate_value:
+                continue
+            candidate_ids = items_by_value.get(candidate_value, [])
+            while candidate_ids:
+                maybe_id = candidate_ids.pop(0)
+                if maybe_id not in retained_ids:
+                    candidate_id = maybe_id
+                    break
+            if candidate_id is not None:
+                break
+
+        if candidate_id is None:
+            candidate_id = next_table_id(cur, "sys_dict_item")
+            cur.execute(
+                """
+                INSERT INTO sys_dict_item (
+                    id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
+                    create_by, create_time, update_by, update_time, deleted
+                ) VALUES (%s, 1, %s, %s, %s, 'string', 1, %s, %s, 1, NOW(), 1, NOW(), 0)
+                """,
+                (candidate_id, dict_id, label, value, sort_no, remark),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE sys_dict_item
+                SET dict_id=%s,
+                    item_name=%s,
+                    item_value=%s,
+                    item_type='string',
+                    status=1,
+                    sort_no=%s,
+                    remark=%s,
+                    update_by=1,
+                    update_time=NOW(),
+                    deleted=0
+                WHERE id=%s
+                """,
+                (dict_id, label, value, sort_no, remark, candidate_id),
+            )
+        retained_ids.append(candidate_id)
+
+    retained_placeholders = ", ".join(["%s"] * len(retained_ids))
+    cur.execute(
+        f"""
+        UPDATE sys_dict_item
+        SET status=0,
+            deleted=1,
+            update_by=1,
+            update_time=NOW()
+        WHERE tenant_id = 1
+          AND dict_id = %s
+          AND id NOT IN ({retained_placeholders})
+        """,
+        (dict_id, *retained_ids),
+    )
+
+
+def migrate_risk_level_values(cur: pymysql.cursors.Cursor, db: str) -> None:
+    risk_level_tables = ("risk_point", "emergency_plan", "iot_event_record")
+    for table in risk_level_tables:
+        if not table_exists(cur, db, table) or not column_exists(cur, db, table, "risk_level"):
+            continue
+        cur.execute(
+            f"""
+            UPDATE `{table}`
+            SET risk_level = CASE LOWER(TRIM(risk_level))
+                WHEN 'critical' THEN 'red'
+                WHEN 'warning' THEN 'orange'
+                WHEN 'info' THEN 'blue'
+                WHEN 'red' THEN 'red'
+                WHEN 'orange' THEN 'orange'
+                WHEN 'yellow' THEN 'yellow'
+                WHEN 'blue' THEN 'blue'
+                ELSE risk_level
+            END
+            WHERE risk_level IS NOT NULL
+              AND TRIM(risk_level) <> ''
+            """
+        )
 
 
 def ensure_audit_defaults(cur: pymysql.cursors.Cursor) -> None:
@@ -448,6 +607,8 @@ def main() -> int:
                 ):
                     ensure_dict_defaults(cur)
                     print("[dict] sys_dict default constraints aligned")
+                ensure_risk_level_dict(cur, args.db)
+                print("[dict] risk_level four-color items aligned")
 
             if table_exists(cur, args.db, "sys_audit_log"):
                 ensure_audit_defaults(cur)
@@ -455,6 +616,9 @@ def main() -> int:
 
             ensure_legacy_phase4_defaults(cur, args.db)
             print("[phase4] legacy strict columns aligned")
+
+            migrate_risk_level_values(cur, args.db)
+            print("[phase4] risk level values migrated to four-color codes")
 
             ensure_menu_compat(cur, args.db)
             print("[menu] sys_menu legacy columns aligned")

@@ -169,7 +169,6 @@
 
                 <StandardWorkbenchRowActions
                   variant="card"
-                  gap="compact"
                   :direct-items="getTraceDirectActions(row)"
                   @command="(command) => handleTraceRowAction(command, row)"
                 />
@@ -213,7 +212,6 @@
               <template #default="{ row }">
                 <StandardWorkbenchRowActions
                   variant="table"
-                  gap="compact"
                   :direct-items="getTraceDirectActions(row)"
                   @command="(command) => handleTraceRowAction(command, row)"
                 />
@@ -406,8 +404,7 @@ const messageTraceActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
     { command: 'detail', label: '详情' },
     { command: 'observe', label: '观测' }
-  ],
-  gap: 'compact'
+  ]
 });
 const pageModeOptions = [
   { key: 'message-trace', label: '链路追踪' },

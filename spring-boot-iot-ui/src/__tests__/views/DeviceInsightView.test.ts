@@ -3,7 +3,8 @@ import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '@/api/iot';
-import { getRiskMonitoringList } from '@/api/riskMonitoring';
+import { listMissingBindings, listMissingPolicies } from '@/api/riskGovernance';
+import { getRiskMonitoringDetail, getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
@@ -131,6 +132,29 @@ vi.mock('@/api/riskMonitoring', () => ({
         { reportTime: '2026-04-01 08:00:00', value: '0', numericValue: 0 },
         { reportTime: '2026-04-01 09:00:00', value: '1', numericValue: 1 }
       ]
+    }
+  })
+}));
+
+vi.mock('@/api/riskGovernance', () => ({
+  listMissingBindings: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 0,
+      pageNum: 1,
+      pageSize: 5,
+      records: []
+    }
+  }),
+  listMissingPolicies: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 0,
+      pageNum: 1,
+      pageSize: 5,
+      records: []
     }
   })
 }));
@@ -307,6 +331,25 @@ describe('DeviceInsightView', () => {
         records: []
       }
     });
+    vi.mocked(listMissingBindings).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            issueType: 'MISSING_BINDING',
+            issueLabel: '待纳入风险对象',
+            deviceId: 1,
+            deviceCode: 'demo-device-01',
+            deviceName: '演示设备',
+            lastReportTime: '2026-04-01 09:00:00'
+          }
+        ]
+      }
+    });
 
     const wrapper = mountView();
 
@@ -318,5 +361,183 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('演示设备');
     expect(wrapper.text()).toContain('温度');
     expect(wrapper.text()).toContain('当前设备未纳入风险监测绑定');
+    expect(wrapper.text()).toContain('治理缺口');
+    expect(wrapper.text()).toContain('待纳入风险对象');
+    expect(listMissingBindings).toHaveBeenCalledWith({
+      deviceCode: 'demo-device-01',
+      pageNum: 1,
+      pageSize: 5
+    });
+  });
+
+  it('shows policy governance gaps when the current device is bound but still lacks threshold rules', async () => {
+    vi.mocked(listMissingPolicies).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            issueType: 'MISSING_POLICY',
+            issueLabel: '待配置阈值策略',
+            deviceId: 1,
+            deviceCode: 'demo-device-01',
+            deviceName: '演示设备',
+            riskPointId: 2,
+            riskPointName: '北坡预警点',
+            metricIdentifier: 'warningLightState',
+            metricName: '预警灯状态'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('待配置阈值策略');
+    expect(wrapper.text()).toContain('预警灯状态');
+    expect(listMissingPolicies).toHaveBeenCalledWith({
+      deviceCode: 'demo-device-01',
+      pageNum: 1,
+      pageSize: 5
+    });
+  });
+
+  it('loads binding-first insight without inventing demo-device-01 when only bindingId is provided', async () => {
+    mockRoute.query = {
+      bindingId: '22'
+    };
+
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 22,
+        riskPointId: 2,
+        riskPointCode: 'RP-022',
+        riskPointName: '二号风险点',
+        riskLevel: 'WARNING',
+        deviceId: 88,
+        deviceCode: 'binding-device-22',
+        deviceName: '绑定设备 22',
+        productName: '绑定产品',
+        metricIdentifier: 'warningLightState',
+        metricName: '预警灯状态',
+        currentValue: '1',
+        unit: '',
+        valueType: 'int',
+        monitorStatus: 'ALARM',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-01 09:00:00'
+      }
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 50,
+        records: [
+          {
+            bindingId: 22,
+            deviceCode: 'binding-device-22',
+            deviceName: '绑定设备 22',
+            riskPointName: '二号风险点',
+            riskLevel: 'WARNING',
+            metricIdentifier: 'warningLightState',
+            metricName: '预警灯状态',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-01 09:00:00'
+          }
+        ]
+      }
+    });
+
+    mountView();
+    await flushPromises();
+
+    expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
+    expect(vi.mocked(getRiskMonitoringList).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        deviceCode: 'binding-device-22',
+        pageNum: 1,
+        pageSize: 50
+      })
+    );
+    expect(getDeviceByCode).toHaveBeenCalledWith('binding-device-22');
+    expect(getDeviceProperties).toHaveBeenCalledWith('binding-device-22');
+    expect(getDeviceMessageLogs).toHaveBeenCalledWith('binding-device-22');
+  });
+
+  it('keeps bindingId as the primary key even when the route also carries a stale deviceCode', async () => {
+    mockRoute.query = {
+      bindingId: '22',
+      deviceCode: 'stale-device-01'
+    };
+
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 22,
+        riskPointId: 2,
+        riskPointCode: 'RP-022',
+        riskPointName: '二号风险点',
+        riskLevel: 'WARNING',
+        deviceId: 99,
+        deviceCode: 'binding-device-22',
+        deviceName: '绑定设备 22',
+        productName: '绑定产品',
+        metricIdentifier: 'warningLightState',
+        metricName: '预警灯状态',
+        currentValue: '1',
+        unit: '',
+        valueType: 'int',
+        monitorStatus: 'ALARM',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-01 09:00:00'
+      }
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 50,
+        records: [
+          {
+            bindingId: 22,
+            deviceCode: 'binding-device-22',
+            deviceName: '绑定设备 22',
+            riskPointName: '二号风险点',
+            riskLevel: 'WARNING',
+            metricIdentifier: 'warningLightState',
+            metricName: '预警灯状态',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-01 09:00:00'
+          }
+        ]
+      }
+    });
+
+    mountView();
+    await flushPromises();
+
+    expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
+    expect(vi.mocked(getRiskMonitoringList).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        deviceCode: 'binding-device-22'
+      })
+    );
+    expect(getDeviceByCode).toHaveBeenCalledWith('binding-device-22');
+    expect(getDeviceProperties).toHaveBeenCalledWith('binding-device-22');
+    expect(getDeviceMessageLogs).toHaveBeenCalledWith('binding-device-22');
+    expect(getDeviceByCode).not.toHaveBeenCalledWith('stale-device-01');
   });
 });

@@ -3,8 +3,11 @@ package com.ghlzm.iot.alarm.controller;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,8 +29,8 @@ public class RiskPointController {
        * 新增风险点
        */
       @PostMapping("/add")
-      public R<RiskPoint> addRiskPoint(@RequestBody RiskPoint riskPoint) {
-            RiskPoint result = riskPointService.addRiskPoint(riskPoint);
+      public R<RiskPoint> addRiskPoint(@RequestBody RiskPoint riskPoint, Authentication authentication) {
+            RiskPoint result = riskPointService.addRiskPoint(riskPoint, requireCurrentUserId(authentication));
             return R.ok(result);
       }
 
@@ -35,8 +38,8 @@ public class RiskPointController {
        * 更新风险点
        */
       @PostMapping("/update")
-      public R<RiskPoint> updateRiskPoint(@RequestBody RiskPoint riskPoint) {
-            RiskPoint result = riskPointService.updateRiskPoint(riskPoint);
+      public R<RiskPoint> updateRiskPoint(@RequestBody RiskPoint riskPoint, Authentication authentication) {
+            RiskPoint result = riskPointService.updateRiskPoint(riskPoint, requireCurrentUserId(authentication));
             return R.ok(result);
       }
 
@@ -109,5 +112,12 @@ public class RiskPointController {
       public R<List<RiskPointDevice>> listBoundDevices(@PathVariable Long riskPointId) {
             List<RiskPointDevice> devices = riskPointService.listBoundDevices(riskPointId);
             return R.ok(devices);
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

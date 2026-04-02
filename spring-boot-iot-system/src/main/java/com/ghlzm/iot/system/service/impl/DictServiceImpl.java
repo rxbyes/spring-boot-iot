@@ -7,6 +7,8 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.Dict;
+import com.ghlzm.iot.system.entity.DictItem;
+import com.ghlzm.iot.system.mapper.DictItemMapper;
 import com.ghlzm.iot.system.mapper.DictMapper;
 import com.ghlzm.iot.system.service.DictService;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,12 @@ import java.util.List;
 
 @Service
 public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements DictService {
+
+      private final DictItemMapper dictItemMapper;
+
+      public DictServiceImpl(DictItemMapper dictItemMapper) {
+            this.dictItemMapper = dictItemMapper;
+      }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
@@ -62,7 +70,18 @@ public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements Di
             LambdaQueryWrapper<Dict> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Dict::getDictCode, dictCode)
                     .eq(Dict::getDeleted, 0);
-            return this.getOne(queryWrapper);
+            Dict dict = this.getOne(queryWrapper);
+            if (dict == null) {
+                  return null;
+            }
+            LambdaQueryWrapper<DictItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.eq(DictItem::getDictId, dict.getId())
+                    .eq(DictItem::getDeleted, 0)
+                    .eq(DictItem::getStatus, 1)
+                    .orderByAsc(DictItem::getSortNo)
+                    .orderByAsc(DictItem::getId);
+            dict.setItems(dictItemMapper.selectList(itemWrapper));
+            return dict;
       }
 
       @Override

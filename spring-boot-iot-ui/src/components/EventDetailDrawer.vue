@@ -183,6 +183,7 @@ import { computed } from 'vue';
 
 import type { EventRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
+import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{
@@ -254,29 +255,7 @@ const drawerTags = computed(() => {
   ];
 });
 
-function getRiskLevelText(level?: string | null) {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level || '--';
-  }
-}
-
-function getRiskLevelType(level?: string | null): 'danger' | 'warning' | 'info' {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'info';
-  }
-}
+const getRiskLevelType = (level?: string | null) => getRiskLevelTagType(level)
 
 function getStatusText(status?: number | null) {
   switch (status) {

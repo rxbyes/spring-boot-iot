@@ -227,6 +227,7 @@ import { getRiskMonitoringGisPoints, getRiskMonitoringList, type RiskMonitoringG
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
 import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
+import { getRiskLevelTagType, getRiskLevelText } from '../utils/riskLevel';
 
 interface SelectOption {
   value: number;
@@ -257,6 +258,8 @@ const locatedPoints = computed(() =>
 const unlocatedPoints = computed(() =>
   points.value.filter((point) => point.longitude === null || point.longitude === undefined || point.latitude === null || point.latitude === undefined)
 );
+const riskLevelText = getRiskLevelText;
+const riskLevelTagType = getRiskLevelTagType;
 
 const activeAlarmTotal = computed(() =>
   points.value.reduce((sum, point) => sum + Number(point.activeAlarmCount ?? 0), 0)
@@ -390,36 +393,6 @@ async function openDetailByRiskPoint(riskPointId: IdType) {
     detailVisible.value = true;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '监测详情入口解析失败');
-  }
-}
-
-function riskLevelText(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return '严重';
-    case 'WARNING':
-    case 'MEDIUM':
-      return '警告';
-    case 'INFO':
-    case 'LOW':
-      return '提醒';
-    default:
-      return value || '未标注';
-  }
-}
-
-function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'success' | 'info' {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return 'danger';
-    case 'WARNING':
-    case 'MEDIUM':
-      return 'warning';
-    case 'INFO':
-    case 'LOW':
-      return 'success';
-    default:
-      return 'info';
   }
 }
 

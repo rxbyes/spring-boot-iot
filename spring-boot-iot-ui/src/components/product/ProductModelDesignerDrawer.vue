@@ -179,25 +179,29 @@
           <span class="detail-summary-card__label">样本设备</span>
           <strong class="detail-summary-card__value">{{ compareResult?.manualSummary?.sampleDeviceCode || '--' }}</strong>
         </article>
-        <article class="detail-summary-card">
+        <article class="detail-summary-card" data-testid="governance-summary-manual">
           <span class="detail-summary-card__label">手动命中</span>
           <strong class="detail-summary-card__value">{{ compareSummary.manualCount ?? 0 }}</strong>
         </article>
-        <article class="detail-summary-card">
+        <article class="detail-summary-card" data-testid="governance-summary-runtime">
           <span class="detail-summary-card__label">自动命中</span>
           <strong class="detail-summary-card__value">{{ compareSummary.runtimeCount ?? 0 }}</strong>
         </article>
-        <article class="detail-summary-card">
+        <article class="detail-summary-card" data-testid="governance-summary-double-aligned">
           <span class="detail-summary-card__label">双证据一致</span>
           <strong class="detail-summary-card__value">{{ compareSummary.doubleAlignedCount ?? 0 }}</strong>
         </article>
-        <article class="detail-summary-card">
+        <article class="detail-summary-card" data-testid="governance-summary-formal-exists">
           <span class="detail-summary-card__label">正式已存在</span>
           <strong class="detail-summary-card__value">{{ compareSummary.formalExistsCount ?? 0 }}</strong>
         </article>
-        <article class="detail-summary-card">
+        <article class="detail-summary-card" data-testid="governance-summary-conflict">
           <span class="detail-summary-card__label">冲突待裁决</span>
           <strong class="detail-summary-card__value">{{ compareSummary.suspectedConflictCount ?? 0 }}</strong>
+        </article>
+        <article class="detail-summary-card" data-testid="governance-summary-evidence-insufficient">
+          <span class="detail-summary-card__label">证据不足</span>
+          <strong class="detail-summary-card__value">{{ compareSummary.evidenceInsufficientCount ?? 0 }}</strong>
         </article>
       </div>
     </section>
@@ -219,6 +223,48 @@
 
       <div v-else class="detail-empty">
         当前还没有对比结果，请先生成一次双证据 compare。
+      </div>
+    </section>
+
+    <section
+      v-if="product"
+      class="detail-panel product-model-designer-drawer__confirm-stage"
+      data-testid="governance-apply-stage"
+    >
+      <div class="detail-section-header">
+        <div>
+          <h3>正式模型确认区</h3>
+          <p>这里只承接已明确选择“纳入新增 / 纳入修订”的项；继续观察、人工裁决和忽略不会写入正式模型。</p>
+        </div>
+      </div>
+
+      <div
+        v-if="selectedApplyEntries.length"
+        class="product-model-designer-drawer__apply-list"
+      >
+        <article
+          v-for="entry in selectedApplyEntries"
+          :key="entry.key"
+          class="detail-card"
+          :data-testid="`governance-apply-item-${entry.key}`"
+        >
+          <div class="detail-card__header">
+            <strong>{{ entry.item.modelName }}</strong>
+            <span class="product-model-designer-drawer__candidate-identifier">{{ applyDecisionLabel(entry.decision) }}</span>
+          </div>
+          <div class="detail-card__meta">
+            <span>{{ entry.item.modelType }}</span>
+            <span>{{ entry.item.identifier }}</span>
+            <span>{{ compareStatusLabel(entry.row.compareStatus) }}</span>
+          </div>
+          <p class="product-model-designer-drawer__candidate-description">
+            {{ applyEvidenceSummary(entry.row) }}
+          </p>
+        </article>
+      </div>
+
+      <div v-else class="detail-empty">
+        当前还没有待正式应用项；继续观察、人工裁决和忽略会停留在 compare 阶段。
       </div>
     </section>
 
@@ -307,6 +353,8 @@ interface ManualDraftForm extends ProductModelGovernanceManualDraftItem {
   description: string
 }
 
+type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
+
 const sampleTypeOptions: Array<{ label: string; value: ProductModelManualSampleType }> = [
   { label: '业务数据', value: 'business' },
   { label: '状态数据', value: 'status' },
@@ -329,17 +377,25 @@ const includeRuntimeCandidates = ref(true)
 const models = ref<ProductModel[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const manualDrafts = ref<ManualDraftForm[]>([])
-const decisionState = ref<Record<string, ProductModelGovernanceDecision>>({})
+const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
 let manualDraftSeed = 0
 
 const compareSummary = computed(() => compareResult.value?.summary ?? null)
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
-const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() =>
+const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
-    .filter((item) => item.decision && item.decision !== 'skip')
-    .map(({ row, decision }) => buildApplyItem(row, decision))
+    .filter((item): item is { row: ProductModelGovernanceCompareRow; decision: ProductModelGovernanceDecision } =>
+      item.decision === 'create' || item.decision === 'update'
+    )
+    .map(({ row, decision }) => ({
+      key: rowKey(row),
+      row,
+      decision,
+      item: buildApplyItem(row, decision)
+    }))
 )
+const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => selectedApplyEntries.value.map((entry) => entry.item))
 const hasLoadedContent = computed(() => Boolean(models.value.length || compareResult.value))
 
 watch(
@@ -362,6 +418,46 @@ watch(
 
 function rowKey(row: ProductModelGovernanceCompareRow) {
   return `${row.modelType}:${row.identifier}`
+}
+
+function compareStatusLabel(status: ProductModelGovernanceCompareRow['compareStatus']) {
+  return {
+    double_aligned: '双证据一致',
+    manual_only: '仅手动命中',
+    runtime_only: '自动证据独有',
+    formal_exists: '正式模型已存在',
+    suspected_conflict: '疑似冲突',
+    evidence_insufficient: '证据不足'
+  }[status] ?? status
+}
+
+function applyDecisionLabel(decision: ProductModelGovernanceDecision) {
+  return decision === 'update' ? '纳入修订' : '纳入新增'
+}
+
+function applyEvidenceSummary(row: ProductModelGovernanceCompareRow) {
+  const source = row.manualCandidate ?? row.runtimeCandidate ?? row.formalModel
+  if (!source) {
+    return '当前没有可用于正式应用的证据摘要。'
+  }
+  const dataHint = source.dataType || source.eventType || formatServiceHint(source.serviceInputJson, source.serviceOutputJson)
+  const sourceTables = source.sourceTables?.length ? source.sourceTables.join(' / ') : '未标注来源'
+  return [dataHint, sourceTables, source.description?.trim() || '当前没有补充说明。']
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function formatServiceHint(inputJson?: string | null, outputJson?: string | null) {
+  if (inputJson?.trim() && outputJson?.trim()) {
+    return '输入/输出已定义'
+  }
+  if (inputJson?.trim()) {
+    return '仅定义输入'
+  }
+  if (outputJson?.trim()) {
+    return '仅定义输出'
+  }
+  return ''
 }
 
 async function loadModels(productId: string | number) {
@@ -431,7 +527,7 @@ async function handleCompare() {
   }
 }
 
-function handleDecisionChange(payload: { key: string; decision: ProductModelGovernanceDecision }) {
+function handleDecisionChange(payload: { key: string; decision: GovernanceDecisionUi }) {
   decisionState.value = {
     ...decisionState.value,
     [payload.key]: payload.decision
@@ -458,8 +554,20 @@ async function handleApply() {
   }
 }
 
-function defaultDecisionForRow(row: ProductModelGovernanceCompareRow): ProductModelGovernanceDecision {
-  return row.compareStatus === 'double_aligned' ? 'create' : 'skip'
+function defaultDecisionForRow(row: ProductModelGovernanceCompareRow): GovernanceDecisionUi {
+  switch (row.compareStatus) {
+    case 'double_aligned':
+      return 'create'
+    case 'formal_exists':
+      return 'ignore'
+    case 'suspected_conflict':
+      return 'review'
+    case 'manual_only':
+    case 'runtime_only':
+    case 'evidence_insufficient':
+    default:
+      return 'observe'
+  }
 }
 
 function normalizedManualDraftItems(): ProductModelGovernanceManualDraftItem[] {
@@ -513,6 +621,7 @@ function resetGovernanceSession() {
 .product-model-designer-drawer__evidence-stage,
 .product-model-designer-drawer__summary-stage,
 .product-model-designer-drawer__compare-stage,
+.product-model-designer-drawer__confirm-stage,
 .product-model-designer-drawer__formal-stage,
 .product-model-designer-drawer__draft-stage {
   display: grid;
@@ -657,6 +766,7 @@ function resetGovernanceSession() {
 }
 
 .product-model-designer-drawer__result-grid,
+.product-model-designer-drawer__apply-list,
 .product-model-designer-drawer__formal-list {
   display: grid;
   gap: 0.86rem;

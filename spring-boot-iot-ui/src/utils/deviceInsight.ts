@@ -1,5 +1,6 @@
 import type { RiskMonitoringDetail, RiskMonitoringListItem } from '@/api/riskMonitoring';
 import type { Device, DeviceMessageLog, DeviceProperty } from '@/types/api';
+import { getRiskLevelText, getRiskLevelWeight } from '@/utils/riskLevel';
 
 export type InsightObjectType = 'detect' | 'warning' | 'collect' | 'generic';
 
@@ -7,21 +8,6 @@ interface InsightReason {
   title: string;
   tag: string;
   description: string;
-}
-
-function riskLevelWeight(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return 4;
-    case 'WARNING':
-    case 'MEDIUM':
-      return 3;
-    case 'INFO':
-    case 'LOW':
-      return 2;
-    default:
-      return 1;
-  }
 }
 
 function resolveTimestamp(value?: string | null) {
@@ -98,18 +84,7 @@ export function getInsightObjectTypeLabel(type: InsightObjectType) {
 }
 
 export function getRiskLevelLabel(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return '严重风险';
-    case 'WARNING':
-    case 'MEDIUM':
-      return '警告风险';
-    case 'INFO':
-    case 'LOW':
-      return '提醒风险';
-    default:
-      return value || '未标注';
-  }
+  return `${getRiskLevelText(value)}风险`;
 }
 
 export function buildInsightReasons(

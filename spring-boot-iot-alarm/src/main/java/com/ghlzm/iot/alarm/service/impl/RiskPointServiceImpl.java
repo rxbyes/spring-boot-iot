@@ -10,14 +10,26 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.entity.Dict;
+import com.ghlzm.iot.system.entity.DictItem;
 import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.entity.Region;
+import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.service.DictService;
 import com.ghlzm.iot.system.service.OrganizationService;
+import com.ghlzm.iot.system.service.RegionService;
+import com.ghlzm.iot.system.service.UserService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 风险点Service实现类
@@ -25,63 +37,78 @@ import java.util.List;
 @Service
 public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint> implements RiskPointService {
 
+      private static final String RISK_LEVEL_DICT_CODE = "risk_level";
       private final RiskPointDeviceMapper riskPointDeviceMapper;
       private final OrganizationService organizationService;
+      private final RegionService regionService;
+      private final UserService userService;
+      private final DictService dictService;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
-                                  OrganizationService organizationService) {
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
             this.organizationService = organizationService;
+            this.regionService = regionService;
+            this.userService = userService;
+            this.dictService = dictService;
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
-      public RiskPoint addRiskPoint(RiskPoint riskPoint) {
+      public RiskPoint addRiskPoint(RiskPoint riskPoint, Long currentUserId) {
             validateRiskPointForWrite(riskPoint);
             Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
+            Region region = resolveRequiredRegion(riskPoint.getRegionId());
+            validateResponsibleUser(riskPoint.getResponsibleUser());
             riskPoint.setOrgName(organization.getOrgName());
-            riskPoint.setRiskPointCode(generateRiskPointCode(
-                    riskPoint.getRiskPointName(),
-                    organization.getOrgName(),
-                    riskPoint.getRiskLevel()
-            ));
+            riskPoint.setRegionName(region.getRegionName());
+            riskPoint.setResponsibleUser(normalizeResponsibleUser(riskPoint.getResponsibleUser()));
+            riskPoint.setRiskLevel(normalizeAndValidateRiskLevel(riskPoint.getRiskLevel()));
+            riskPoint.setCreateBy(currentUserId);
+            riskPoint.setUpdateBy(currentUserId);
 
             riskPoint.setCreateTime(new Date());
             riskPoint.setUpdateTime(new Date());
             riskPoint.setDeleted(0);
-            save(riskPoint);
-            return riskPoint;
+            saveRiskPointWithGeneratedCode(riskPoint, organization.getOrgName());
+            return normalizeRiskPointForRead(riskPoint);
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
-      public RiskPoint updateRiskPoint(RiskPoint riskPoint) {
+      public RiskPoint updateRiskPoint(RiskPoint riskPoint, Long currentUserId) {
             if (riskPoint.getId() == null) {
                   throw new BizException("风险点不存在");
             }
             validateRiskPointForWrite(riskPoint);
             RiskPoint existing = getById(riskPoint.getId());
             Organization organization = resolveRequiredOrganization(riskPoint.getOrgId());
+            Region region = resolveRequiredRegion(riskPoint.getRegionId());
+            validateResponsibleUser(riskPoint.getResponsibleUser());
             riskPoint.setOrgName(organization.getOrgName());
+            riskPoint.setRegionName(region.getRegionName());
             riskPoint.setRiskPointCode(existing.getRiskPointCode());
+            riskPoint.setRiskLevel(normalizeAndValidateRiskLevel(riskPoint.getRiskLevel()));
+            riskPoint.setResponsibleUser(normalizeResponsibleUser(riskPoint.getResponsibleUser()));
+            riskPoint.setCreateBy(existing.getCreateBy());
+            riskPoint.setCreateTime(existing.getCreateTime());
+            riskPoint.setUpdateBy(currentUserId);
 
             riskPoint.setUpdateTime(new Date());
             updateById(riskPoint);
-            return riskPoint;
+            return normalizeRiskPointForRead(riskPoint);
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void deleteRiskPoint(Long id) {
-            RiskPoint existing = getById(id);
-            if (existing == null) {
-                  throw new BizException("风险点不存在");
+            getById(id);
+            if (!removeById(id)) {
+                  throw new BizException("风险点删除失败");
             }
-
-            // 逻辑删除
-            existing.setDeleted(1);
-            existing.setUpdateTime(new Date());
-            updateById(existing);
       }
 
       @Override
@@ -90,19 +117,19 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPoint == null || riskPoint.getDeleted() == 1) {
                   throw new BizException("风险点不存在");
             }
-            return riskPoint;
+            return normalizeRiskPointForRead(riskPoint);
       }
 
       @Override
       public List<RiskPoint> listRiskPoints(String riskPointCode, String riskLevel, Integer status) {
-            return list(buildRiskPointWrapper(riskPointCode, riskLevel, status));
+            return normalizeRiskPoints(list(buildRiskPointWrapper(riskPointCode, riskLevel, status)));
       }
 
       @Override
       public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskLevel, Integer status, Long pageNum, Long pageSize) {
             Page<RiskPoint> page = new Page<>(pageNum, pageSize);
             Page<RiskPoint> result = page(page, buildRiskPointWrapper(riskPointCode, riskLevel, status));
-            return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
+            return PageResult.of(result.getTotal(), pageNum, pageSize, normalizeRiskPoints(result.getRecords()));
       }
 
       @Override
@@ -143,14 +170,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointId);
             queryWrapper.eq(RiskPointDevice::getDeviceId, deviceId);
             queryWrapper.eq(RiskPointDevice::getDeleted, 0);
-            RiskPointDevice existing = riskPointDeviceMapper.selectOne(queryWrapper);
-            if (existing == null) {
+            Long activeBindingCount = riskPointDeviceMapper.selectCount(queryWrapper);
+            if (activeBindingCount == null || activeBindingCount <= 0) {
                   throw new BizException("设备未绑定到该风险点");
             }
 
-            existing.setDeleted(1);
-            existing.setUpdateTime(new Date());
-            riskPointDeviceMapper.updateById(existing);
+            int deletedRows = riskPointDeviceMapper.delete(queryWrapper);
+            if (deletedRows <= 0) {
+                  throw new BizException("设备解绑失败");
+            }
       }
 
       @Override
@@ -167,7 +195,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
             }
             if (riskLevel != null && !riskLevel.isEmpty()) {
-                  wrapper.eq(RiskPoint::getRiskLevel, riskLevel);
+                  wrapper.in(RiskPoint::getRiskLevel, buildRiskLevelQueryValues(riskLevel));
             }
             if (status != null) {
                   wrapper.eq(RiskPoint::getStatus, status);
@@ -187,6 +215,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPoint.getOrgId() == null || riskPoint.getOrgId() <= 0) {
                   throw new BizException("请选择所属组织");
             }
+            if (riskPoint.getRegionId() == null || riskPoint.getRegionId() <= 0) {
+                  throw new BizException("请选择所属区域");
+            }
             if (!StringUtils.hasText(riskPoint.getRiskLevel())) {
                   throw new BizException("请选择风险等级");
             }
@@ -203,26 +234,135 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             return organization;
       }
 
-      private String generateRiskPointCode(String riskPointName, String orgName, String riskLevel) {
-            String base = String.format(
+      private Region resolveRequiredRegion(Long regionId) {
+            Region region = regionService.getById(regionId);
+            if (region == null || Integer.valueOf(1).equals(region.getDeleted())) {
+                  throw new BizException("所属区域不存在");
+            }
+            if (!Integer.valueOf(1).equals(region.getStatus())) {
+                  throw new BizException("所属区域已停用");
+            }
+            return region;
+      }
+
+      private void validateResponsibleUser(Long responsibleUserId) {
+            if (responsibleUserId == null || responsibleUserId <= 0) {
+                  return;
+            }
+            User responsibleUser = userService.getById(responsibleUserId);
+            if (responsibleUser == null || Integer.valueOf(1).equals(responsibleUser.getDeleted())) {
+                  throw new BizException("负责人不存在");
+            }
+            if (!Integer.valueOf(1).equals(responsibleUser.getStatus())) {
+                  throw new BizException("负责人已停用");
+            }
+      }
+
+      private String normalizeAndValidateRiskLevel(String riskLevel) {
+            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
+            if (!StringUtils.hasText(normalizedRiskLevel)) {
+                  throw new BizException("请选择风险等级");
+            }
+            Set<String> enabledRiskLevels = loadEnabledRiskLevels();
+            if (enabledRiskLevels.isEmpty()) {
+                  throw new BizException("风险等级字典未配置");
+            }
+            if (!enabledRiskLevels.contains(normalizedRiskLevel)) {
+                  throw new BizException("风险等级不在允许范围内");
+            }
+            return normalizedRiskLevel;
+      }
+
+      private Set<String> loadEnabledRiskLevels() {
+            Dict dict = dictService.getByCode(RISK_LEVEL_DICT_CODE);
+            if (dict == null || dict.getItems() == null) {
+                  return Set.of();
+            }
+            return dict.getItems().stream()
+                    .filter(item -> item != null && !Integer.valueOf(1).equals(item.getDeleted()))
+                    .filter(item -> Integer.valueOf(1).equals(item.getStatus()))
+                    .map(DictItem::getItemValue)
+                    .filter(StringUtils::hasText)
+                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+      }
+
+      private List<String> buildRiskLevelQueryValues(String riskLevel) {
+            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
+            if (!StringUtils.hasText(normalizedRiskLevel)) {
+                  return List.of();
+            }
+            return switch (normalizedRiskLevel) {
+                  case "red" -> List.of("red", "critical");
+                  case "orange" -> List.of("orange", "warning");
+                  case "blue" -> List.of("blue", "info");
+                  default -> List.of(normalizedRiskLevel);
+            };
+      }
+
+      private String normalizeRiskLevel(String riskLevel) {
+            if (!StringUtils.hasText(riskLevel)) {
+                  return "";
+            }
+            return switch (riskLevel.trim().toLowerCase(Locale.ROOT)) {
+                  case "critical" -> "red";
+                  case "warning" -> "orange";
+                  case "info" -> "blue";
+                  default -> riskLevel.trim().toLowerCase(Locale.ROOT);
+            };
+      }
+
+      private Long normalizeResponsibleUser(Long responsibleUserId) {
+            return responsibleUserId == null || responsibleUserId <= 0 ? null : responsibleUserId;
+      }
+
+      private List<RiskPoint> normalizeRiskPoints(List<RiskPoint> riskPoints) {
+            if (riskPoints == null) {
+                  return List.of();
+            }
+            riskPoints.forEach(this::normalizeRiskPointForRead);
+            return riskPoints;
+      }
+
+      private RiskPoint normalizeRiskPointForRead(RiskPoint riskPoint) {
+            if (riskPoint == null) {
+                  return null;
+            }
+            riskPoint.setRiskLevel(normalizeRiskLevel(riskPoint.getRiskLevel()));
+            return riskPoint;
+      }
+
+      private void saveRiskPointWithGeneratedCode(RiskPoint riskPoint, String orgName) {
+            String base = buildRiskPointCodeBase(riskPoint.getRiskPointName(), orgName, riskPoint.getRiskLevel());
+            int suffix = 1;
+            while (true) {
+                  String code = appendCodeSuffix(base, suffix);
+                  if (existsCode(code)) {
+                        suffix++;
+                        continue;
+                  }
+                  riskPoint.setRiskPointCode(code);
+                  try {
+                        save(riskPoint);
+                        return;
+                  } catch (DuplicateKeyException ex) {
+                        suffix++;
+                  }
+            }
+      }
+
+      private String buildRiskPointCodeBase(String riskPointName, String orgName, String riskLevel) {
+            return String.format(
                     "RP-%s-%s-%s",
                     buildCodeSegment(orgName, 6),
                     buildCodeSegment(riskPointName, 6),
                     buildCodeSegment(riskLevel, 4)
             );
-            int suffix = 1;
-            String code = appendCodeSuffix(base, suffix);
-            while (existsActiveCode(code)) {
-                  suffix++;
-                  code = appendCodeSuffix(base, suffix);
-            }
-            return code;
       }
 
-      private boolean existsActiveCode(String code) {
+      private boolean existsCode(String code) {
             LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(RiskPoint::getRiskPointCode, code);
-            wrapper.eq(RiskPoint::getDeleted, 0);
             return getOne(wrapper) != null;
       }
 

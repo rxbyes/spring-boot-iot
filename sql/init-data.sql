@@ -507,7 +507,7 @@ INSERT INTO sys_dict (
     id, tenant_id, dict_name, dict_code, dict_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7201, 1, '风险等级', 'risk_level', 'text', 1, 1, '风险等级字典', 1, NOW(), 1, NOW(), 0),
+    (7201, 1, '风险等级', 'risk_level', 'text', 1, 1, '风险等级四色内码字典', 1, NOW(), 1, NOW(), 0),
     (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级字典', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_name = VALUES(dict_name),
@@ -523,14 +523,17 @@ INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7301, 1, 7201, '严重', 'critical', 'string', 1, 1, '风险等级-严重', 1, NOW(), 1, NOW(), 0),
-    (7302, 1, 7201, '警告', 'warning', 'string', 1, 2, '风险等级-警告', 1, NOW(), 1, NOW(), 0),
-    (7303, 1, 7201, '提醒', 'info', 'string', 1, 3, '风险等级-提醒', 1, NOW(), 1, NOW(), 0),
+    (7301, 1, 7201, '红色', 'red', 'string', 1, 1, '风险等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7302, 1, 7201, '橙色', 'orange', 'string', 1, 2, '风险等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7303, 1, 7201, '黄色', 'yellow', 'string', 1, 3, '风险等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7307, 1, 7201, '蓝色', 'blue', 'string', 1, 4, '风险等级-蓝色', 1, NOW(), 1, NOW(), 0),
     (7304, 1, 7202, '严重', 'critical', 'string', 1, 1, '告警等级-严重', 1, NOW(), 1, NOW(), 0),
     (7305, 1, 7202, '警告', 'warning', 'string', 1, 2, '告警等级-警告', 1, NOW(), 1, NOW(), 0),
     (7306, 1, 7202, '提醒', 'info', 'string', 1, 3, '告警等级-提醒', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    dict_id = VALUES(dict_id),
     item_name = VALUES(item_name),
+    item_value = VALUES(item_value),
     item_type = VALUES(item_type),
     status = VALUES(status),
     sort_no = VALUES(sort_no),
@@ -675,8 +678,8 @@ INSERT INTO risk_point (
     id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
     risk_level, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'critical', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'warning', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'red', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'orange', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
     org_id = VALUES(org_id),
@@ -751,7 +754,7 @@ INSERT INTO emergency_plan (
     id, plan_name, risk_level, description, response_steps, contact_list, status, tenant_id,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8401, '锅炉超温应急预案', 'critical', '锅炉区域出现超温告警时执行',
+    (8401, '锅炉超温应急预案', 'red', '锅炉区域出现超温告警时执行',
      JSON_ARRAY('确认现场状态', '远程降载', '派发现场工单', '复盘关闭事件'),
      JSON_ARRAY(JSON_OBJECT('name', '值班长', 'phone', '13800000000'), JSON_OBJECT('name', '安全员', 'phone', '13800000001')),
      0, 1, 1, NOW(), 1, NOW(), 0)
@@ -820,13 +823,13 @@ INSERT INTO iot_event_record (
     trigger_time, dispatch_time, dispatch_user, start_time, complete_time, close_time, close_user, close_reason, review_notes,
     tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'critical', 'critical',
+    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'critical', 'red',
      7002, '黄浦厂区', 8001, '锅炉温压监测点',
      2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4',
      2, 1, 'high', 15, 120,
      DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL, NULL, NULL, NULL, '处理中',
      1, '进行中事件', 1, NOW(), 1, NOW(), 0),
-    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'warning', 'warning',
+    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'warning', 'orange',
      7002, '黄浦厂区', 8002, '振动监测点',
      2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1',
      4, 1, 'medium', 30, 240,

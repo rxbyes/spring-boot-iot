@@ -26,9 +26,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskLevel" clearable placeholder="全部等级">
-                <el-option label="严重" value="CRITICAL" />
-                <el-option label="警告" value="WARNING" />
-                <el-option label="提醒" value="INFO" />
+                <el-option
+                  v-for="option in riskLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -191,6 +194,7 @@ import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
 import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 import { formatDateTime } from '../utils/format';
+import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, getRiskLevelWeight, type RiskLevelOption } from '../utils/riskLevel';
 
 interface SelectOption {
   value: IdType;
@@ -200,6 +204,7 @@ interface SelectOption {
 const loading = ref(false);
 const rows = ref<RiskMonitoringListItem[]>([]);
 const riskPoints = ref<RiskPoint[]>([]);
+const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const detailVisible = ref(false);
 const activeBindingId = ref<number | null>(null);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
@@ -230,7 +235,7 @@ const displayedCount = computed(() => rows.value.length);
 const onlineCount = computed(() => rows.value.filter((row) => Number(row.onlineStatus) === 1).length);
 const alarmCount = computed(() => rows.value.filter((row) => Boolean(row.alarmFlag)).length);
 const noDataCount = computed(() => rows.value.filter((row) => (row.monitorStatus || '').toUpperCase() === 'NO_DATA').length);
-const criticalCount = computed(() => rows.value.filter((row) => (row.riskLevel || '').toUpperCase() === 'CRITICAL').length);
+const redCount = computed(() => rows.value.filter((row) => getRiskLevelWeight(row.riskLevel) === 4).length);
 const monitoringAdvice = '优先关注告警中、无数据和高风险监测项，详情统一从右侧抽屉展开。';
 const hasAppliedFilters = computed(() =>
   Boolean(filters.regionId || filters.riskPointId || filters.deviceCode || filters.riskLevel || filters.onlineStatus !== undefined)
@@ -248,8 +253,10 @@ const monitoringMetaItems = computed(() => [
   `在线 ${onlineCount.value} 项`,
   `告警 ${alarmCount.value} 项`,
   `无数据 ${noDataCount.value} 项`,
-  `高风险 ${criticalCount.value} 项`
+  `红色 ${redCount.value} 项`
 ]);
+const riskLevelText = getRiskLevelText;
+const riskLevelTagType = getRiskLevelTagType;
 
 onMounted(async () => {
   await Promise.all([loadFilterOptions(), loadList()]);
@@ -257,6 +264,7 @@ onMounted(async () => {
 
 async function loadFilterOptions() {
   try {
+    riskLevelOptions.value = await fetchRiskLevelOptions();
     const response = await getRiskPointList();
     riskPoints.value = response.data || [];
 
@@ -345,36 +353,6 @@ function openDetail(bindingId: IdType) {
   }
   activeBindingId.value = normalizedBindingId;
   detailVisible.value = true;
-}
-
-function riskLevelText(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return '严重';
-    case 'WARNING':
-    case 'MEDIUM':
-      return '警告';
-    case 'INFO':
-    case 'LOW':
-      return '提醒';
-    default:
-      return value || '未标注';
-  }
-}
-
-function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'success' | 'info' {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return 'danger';
-    case 'WARNING':
-    case 'MEDIUM':
-      return 'warning';
-    case 'INFO':
-    case 'LOW':
-      return 'success';
-    default:
-      return 'info';
-  }
 }
 
 function monitorStatusText(value?: string | null) {

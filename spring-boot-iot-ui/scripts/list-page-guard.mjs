@@ -129,18 +129,14 @@ function scanForbiddenPatterns(filePath, content, errors) {
 }
 
 function scanRiskOperationsForbiddenPatterns(filePath, content, errors) {
-  if (!riskOperationsViews.has(path.basename(filePath))) {
-    return;
-  }
-
   const forbiddenPatterns = [
     {
       pattern: /<StandardWorkbenchRowActions\b[\s\S]{0,240}\bvariant\s*=\s*["']table["'][\s\S]{0,240}\bgap\s*=/g,
-      message: "风险运营纳管页的 table 操作列禁止显式传 gap，必须直接使用共享桌面间距基线。",
+      message: "纳管页的 table 操作列禁止显式传 gap，必须直接使用共享桌面间距基线。",
     },
     {
       pattern: /resolveWorkbenchActionColumnWidth\(\{[\s\S]{0,240}\bgap\s*:/g,
-      message: "风险运营纳管页的操作列宽解析禁止再传 gap，必须直接使用共享桌面宽度基线。",
+      message: "纳管页的操作列宽解析禁止再传 gap，必须直接使用共享桌面宽度基线。",
     },
   ];
 

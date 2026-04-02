@@ -10,14 +10,24 @@ const {
   mockUpdateRiskPoint,
   mockDeleteRiskPoint,
   mockBindDevice,
-  mockListOrganizationTree
+  mockListOrganizationTree,
+  mockListRegionTree,
+  mockListUsers,
+  mockGetUser,
+  mockGetDictByCode,
+  mockListMissingBindings
 } = vi.hoisted(() => ({
   mockPageRiskPointList: vi.fn(),
   mockAddRiskPoint: vi.fn(),
   mockUpdateRiskPoint: vi.fn(),
   mockDeleteRiskPoint: vi.fn(),
   mockBindDevice: vi.fn(),
-  mockListOrganizationTree: vi.fn()
+  mockListOrganizationTree: vi.fn(),
+  mockListRegionTree: vi.fn(),
+  mockListUsers: vi.fn(),
+  mockGetUser: vi.fn(),
+  mockGetDictByCode: vi.fn(),
+  mockListMissingBindings: vi.fn()
 }))
 
 vi.mock('@/api/riskPoint', () => ({
@@ -35,6 +45,23 @@ vi.mock('@/api/iot', () => ({
 
 vi.mock('@/api/organization', () => ({
   listOrganizationTree: mockListOrganizationTree
+}))
+
+vi.mock('@/api/region', () => ({
+  listRegionTree: mockListRegionTree
+}))
+
+vi.mock('@/api/user', () => ({
+  listUsers: mockListUsers,
+  getUser: mockGetUser
+}))
+
+vi.mock('@/api/dict', () => ({
+  getDictByCode: mockGetDictByCode
+}))
+
+vi.mock('@/api/riskGovernance', () => ({
+  listMissingBindings: mockListMissingBindings
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -107,6 +134,20 @@ const StandardPaginationStub = defineComponent({
   `
 })
 
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['modelValue', 'title', 'subtitle'],
+  template: `
+    <section class="standard-form-drawer-stub" :data-model-value="modelValue">
+      <header class="standard-form-drawer-stub__header">
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+      </header>
+      <slot />
+    </section>
+  `
+})
+
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
   props: ['variant', 'directItems', 'menuItems', 'maxDirectItems'],
@@ -136,13 +177,67 @@ const ElTableStub = defineComponent({
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
   props: ['label', 'width', 'type'],
-  template: '<section class="el-table-column-stub"><slot name="default" :row="{}" /></section>'
+  template: `
+    <section class="el-table-column-stub">
+      <header v-if="label" class="el-table-column-stub__label">{{ label }}</header>
+      <slot name="default" :row="{}" />
+    </section>
+  `
 })
 
 const EmptyStateStub = defineComponent({
   name: 'EmptyState',
   props: ['title', 'description'],
   template: '<section class="empty-state-stub">{{ title }}{{ description }}</section>'
+})
+
+const ElAlertStub = defineComponent({
+  name: 'ElAlert',
+  props: ['title', 'type'],
+  template: `
+    <section class="el-alert-stub" :data-type="type">
+      <strong>{{ title }}</strong>
+      <slot />
+    </section>
+  `
+})
+
+const ElFormStub = defineComponent({
+  name: 'ElForm',
+  template: '<form class="el-form-stub"><slot /></form>'
+})
+
+const ElFormItemStub = defineComponent({
+  name: 'ElFormItem',
+  props: ['label', 'prop'],
+  template: `
+    <label class="el-form-item-stub" :data-prop="prop">
+      <span v-if="label" class="el-form-item-stub__label">{{ label }}</span>
+      <slot />
+    </label>
+  `
+})
+
+const ElInputStub = defineComponent({
+  name: 'ElInput',
+  props: ['modelValue', 'placeholder', 'readonly'],
+  template: `
+    <div class="el-input-stub" :data-readonly="readonly">
+      <span class="el-input-stub__value">{{ modelValue }}</span>
+      <span v-if="placeholder" class="el-input-stub__placeholder">{{ placeholder }}</span>
+    </div>
+  `
+})
+
+const ElSelectStub = defineComponent({
+  name: 'ElSelect',
+  template: '<div class="el-select-stub"><slot /></div>'
+})
+
+const ElOptionStub = defineComponent({
+  name: 'ElOption',
+  props: ['label', 'value'],
+  template: '<div class="el-option-stub" :data-value="value">{{ label }}</div>'
 })
 
 function flushPromises() {
@@ -171,8 +266,9 @@ function createRiskPointRow() {
     regionId: 1,
     regionName: '东区',
     responsibleUser: 1,
+    responsibleUserName: '张三',
     responsiblePhone: '13800000000',
-    riskLevel: 'critical',
+    riskLevel: 'red',
     description: 'desc',
     status: 0,
     tenantId: 1,
@@ -200,17 +296,17 @@ function mountView() {
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
-        StandardFormDrawer: true,
+        StandardFormDrawer: StandardFormDrawerStub,
         StandardTableTextColumn: true,
         StandardButton: true,
         StandardInlineState: true,
         EmptyState: EmptyStateStub,
-        ElAlert: true,
-        ElForm: true,
-        ElFormItem: true,
-        ElInput: true,
-        ElSelect: true,
-        ElOption: true,
+        ElAlert: ElAlertStub,
+        ElForm: ElFormStub,
+        ElFormItem: ElFormItemStub,
+        ElInput: ElInputStub,
+        ElSelect: ElSelectStub,
+        ElOption: ElOptionStub,
         ElCheckbox: true,
         ElTag: true,
         ElRadioGroup: true,
@@ -231,10 +327,80 @@ describe('RiskPointView', () => {
     mockDeleteRiskPoint.mockReset()
     mockBindDevice.mockReset()
     mockListOrganizationTree.mockReset()
+    mockListRegionTree.mockReset()
+    mockListUsers.mockReset()
+    mockGetUser.mockReset()
+    mockGetDictByCode.mockReset()
+    mockListMissingBindings.mockReset()
     mockListOrganizationTree.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
+    })
+    mockListRegionTree.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListUsers.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockGetUser.mockImplementation(async (id: number | string) => ({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: Number(id),
+        username: `user-${id}`,
+        realName: `用户${id}`,
+        phone: `1380000${String(id).slice(-4).padStart(4, '0')}`,
+        status: 1
+      }
+    }))
+    mockGetDictByCode.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1,
+        tenantId: 1,
+        dictName: '风险等级',
+        dictCode: 'risk_level',
+        dictType: 'text',
+        status: 1,
+        sortNo: 1,
+        remark: '',
+        createBy: 1,
+        createTime: '2026-04-01 08:00:00',
+        updateBy: 1,
+        updateTime: '2026-04-01 08:00:00',
+        deleted: 0,
+        items: [
+          { id: 11, tenantId: 1, dictId: 1, itemName: '红色', itemValue: 'red', itemType: 'string', status: 1, sortNo: 1, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
+          { id: 12, tenantId: 1, dictId: 1, itemName: '橙色', itemValue: 'orange', itemType: 'string', status: 1, sortNo: 2, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
+          { id: 13, tenantId: 1, dictId: 1, itemName: '黄色', itemValue: 'yellow', itemType: 'string', status: 1, sortNo: 3, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
+          { id: 14, tenantId: 1, dictId: 1, itemName: '蓝色', itemValue: 'blue', itemType: 'string', status: 1, sortNo: 4, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 }
+        ]
+      }
+    })
+    mockListMissingBindings.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 3,
+        records: [
+          {
+            issueType: 'MISSING_BINDING',
+            issueLabel: '待纳入风险对象',
+            deviceId: 81,
+            deviceCode: 'DEVICE-081',
+            deviceName: '81 号设备',
+            lastReportTime: '2026-04-01 09:10:00'
+          }
+        ]
+      }
     })
   })
 
@@ -268,7 +434,29 @@ describe('RiskPointView', () => {
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper')
   })
 
-  it('loads organization options on mount for risk-point ownership selection', async () => {
+  it('renders archive columns and four-color labels from dictionary data', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 24,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('所属组织')
+    expect(wrapper.text()).toContain('所属区域')
+    expect(wrapper.text()).toContain('负责人')
+    expect(wrapper.text()).toContain('红色')
+    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_level')
+  })
+
+  it('loads organization, region and risk-level options on mount without preloading all users', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -284,6 +472,154 @@ describe('RiskPointView', () => {
     await flushPromises()
 
     expect(mockListOrganizationTree).toHaveBeenCalledTimes(1)
+    expect(mockListRegionTree).toHaveBeenCalledTimes(1)
+    expect(mockListUsers).not.toHaveBeenCalled()
+    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_level')
+  })
+
+  it('defaults the responsible user and phone from the selected organization leader in create mode', async () => {
+    mockListOrganizationTree.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 7101,
+          tenantId: 1,
+          parentId: 0,
+          orgName: '平台运维中心',
+          orgCode: 'OPS-CENTER',
+          orgType: 'dept',
+          leaderUserId: 101,
+          leaderName: '机构管理员',
+          phone: '021-66889900',
+          email: 'ops@example.com',
+          status: 1,
+          sortNo: 1,
+          remark: '',
+          createBy: 1,
+          createTime: '2026-04-01 08:00:00',
+          updateBy: 1,
+          updateTime: '2026-04-01 08:00:00',
+          deleted: 0,
+          children: []
+        }
+      ]
+    })
+    mockGetUser.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 101,
+        username: 'ops_admin',
+        realName: '机构管理员',
+        phone: '13812345678',
+        status: 1
+      }
+    })
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      handleAdd: () => void
+      form: { orgId: number | ''; responsibleUser: number | ''; responsiblePhone: string }
+    }
+    vm.handleAdd()
+    await nextTick()
+    vm.form.orgId = 7101
+    await flushPromises()
+
+    expect(mockGetUser).toHaveBeenCalledWith(101)
+    expect(vm.form.responsibleUser).toBe(101)
+    expect(vm.form.responsiblePhone).toBe('13812345678')
+
+    vm.form.responsiblePhone = '13900001111'
+    await nextTick()
+    expect(vm.form.responsiblePhone).toBe('13900001111')
+  })
+
+  it('resolves responsible text from row data without relying on a preloaded global user list', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 24,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      getResponsibleUserText: (row: ReturnType<typeof createRiskPointRow>) => string
+    }
+    expect(vm.getResponsibleUserText(createRiskPointRow())).toBe('张三')
+  })
+
+  it('shows missing-binding backlog in the notice area after loading the page', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 24,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('待纳入风险对象')
+    expect(wrapper.text()).toContain('DEVICE-081')
+    expect(mockListMissingBindings).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 3
+    })
+  })
+
+  it('hides the code field in create mode and shows audit fields in edit mode', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    ;(wrapper.vm as unknown as { handleAdd: () => void }).handleAdd()
+    await nextTick()
+
+    const drawerBeforeEdit = wrapper.findAllComponents(StandardFormDrawerStub)[0]
+    expect(drawerBeforeEdit.text()).not.toContain('风险点编号')
+
+    ;(wrapper.vm as unknown as { handleEdit: (row: ReturnType<typeof createRiskPointRow>) => void }).handleEdit(createRiskPointRow())
+    await nextTick()
+
+    const drawerAfterEdit = wrapper.findAllComponents(StandardFormDrawerStub)[0]
+    expect(drawerAfterEdit.text()).toContain('风险点编号')
+    expect(drawerAfterEdit.text()).toContain('创建人编号')
+    expect(drawerAfterEdit.text()).toContain('更新人编号')
   })
 
 })
