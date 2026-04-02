@@ -146,9 +146,9 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         if (InAppMessageSupport.isAutomaticSourceType(existing.getSourceType())) {
             throw new BizException("系统自动消息只允许查看或停用");
         }
-        existing.setDeleted(1);
-        existing.setUpdateBy(defaultOperator(operatorId));
-        inAppMessageMapper.updateById(existing);
+        if (!removeById(id)) {
+            throw new BizException("站内消息删除失败");
+        }
     }
 
     @Override

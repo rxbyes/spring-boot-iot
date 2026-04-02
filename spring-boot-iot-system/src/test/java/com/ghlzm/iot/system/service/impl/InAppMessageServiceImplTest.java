@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,14 +53,17 @@ class InAppMessageServiceImplTest {
     private InAppMessageServiceImpl inAppMessageService;
 
     @BeforeEach
-    void setUp() {
-        inAppMessageService = new InAppMessageServiceImpl(
+    void setUp() throws Exception {
+        inAppMessageService = spy(new InAppMessageServiceImpl(
                 inAppMessageMapper,
                 inAppMessageReadMapper,
                 permissionService,
                 userService,
                 systemContentSchemaSupport
-        );
+        ));
+        Field field = findField(inAppMessageService.getClass(), "baseMapper");
+        field.setAccessible(true);
+        field.set(inAppMessageService, inAppMessageMapper);
     }
 
     @Test
@@ -167,6 +173,32 @@ class InAppMessageServiceImplTest {
     }
 
     @Test
+    void shouldDeleteManualMessageViaLogicDeleteOperation() {
+        InAppMessage message = message(511L, "business", "medium", "all", null, null);
+        message.setSourceType("manual");
+        when(inAppMessageMapper.selectById(511L)).thenReturn(message);
+        when(inAppMessageMapper.deleteById(511L)).thenReturn(1);
+
+        inAppMessageService.deleteMessage(511L, 1L);
+
+        verify(inAppMessageService).removeById(511L);
+        verify(inAppMessageMapper, never()).updateById(any(InAppMessage.class));
+    }
+
+    @Test
+    void shouldThrowWhenManualMessageLogicDeleteFails() {
+        InAppMessage message = message(512L, "business", "medium", "all", null, null);
+        message.setSourceType("manual");
+        when(inAppMessageMapper.selectById(512L)).thenReturn(message);
+        when(inAppMessageMapper.deleteById(512L)).thenReturn(0);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> inAppMessageService.deleteMessage(512L, 1L));
+
+        assertEquals("站内消息删除失败", exception.getMessage());
+    }
+
+    @Test
     void shouldRejectEditingAutomaticMessageContent() {
         InAppMessage existing = message(601L, "error", "high", "role", "OPS_STAFF", null);
         existing.setSourceType("system_error");
@@ -244,5 +276,17 @@ class InAppMessageServiceImplTest {
         readRecord.setUserId(userId);
         readRecord.setReadTime(new Date());
         return readRecord;
+    }
+
+    private Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
     }
 }

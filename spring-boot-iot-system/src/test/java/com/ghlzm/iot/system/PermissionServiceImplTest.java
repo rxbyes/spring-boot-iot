@@ -353,4 +353,40 @@ class PermissionServiceImplTest {
         assertEquals(DataScopeType.ALL.name(), context.getDataScopeType());
         assertEquals(DataScopeType.ALL.getLabel(), context.getDataScopeSummary());
     }
+
+    @Test
+    void shouldListTenantOrganizationsForSuperAdminWithoutBoundOrg() {
+        Long userId = 1008L;
+        User user = new User();
+        user.setId(userId);
+        user.setTenantId(1L);
+        user.setOrgId(null);
+        user.setUsername("admin-no-org");
+        user.setDeleted(0);
+
+        Role role = new Role();
+        role.setId(3008L);
+        role.setRoleCode("SUPER_ADMIN");
+        role.setRoleName("超级管理员");
+        role.setDataScopeType("TENANT");
+
+        Organization root = new Organization();
+        root.setId(5001L);
+        root.setParentId(0L);
+        root.setDeleted(0);
+
+        Organization child = new Organization();
+        child.setId(5002L);
+        child.setParentId(5001L);
+        child.setDeleted(0);
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
+        when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
+        when(organizationMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(root, child));
+
+        Set<Long> orgIds = permissionService.listAccessibleOrganizationIds(userId);
+
+        assertEquals(Set.of(5001L, 5002L), orgIds);
+    }
 }

@@ -105,10 +105,10 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     @Transactional(rollbackFor = Exception.class)
     public void deleteDocument(Long id, Long operatorId) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
-        HelpDocument existing = requireDocument(id);
-        existing.setDeleted(1);
-        existing.setUpdateBy(defaultOperator(operatorId));
-        helpDocumentMapper.updateById(existing);
+        requireDocument(id);
+        if (!removeById(id)) {
+            throw new BizException("帮助文档删除失败");
+        }
     }
 
     @Override

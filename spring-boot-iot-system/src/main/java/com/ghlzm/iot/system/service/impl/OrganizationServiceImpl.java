@@ -101,24 +101,26 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
                     .orderByAsc(Organization::getSortNo)
                     .orderByAsc(Organization::getId);
             applyOrganizationScope(queryWrapper, currentUserId, true);
-            List<Organization> allOrganizations = this.list(queryWrapper);
-            Set<Long> scopedIds = allOrganizations.stream()
-                    .map(Organization::getId)
-                    .filter(id -> id != null && id > 0)
-                    .collect(Collectors.toSet());
+            return buildOrganizationTree(this.list(queryWrapper));
+      }
 
-            List<Organization> tree = new ArrayList<>();
-            for (Organization org : allOrganizations) {
-                  if (org.getParentId() == null
-                          || org.getParentId() == 0
-                          || !scopedIds.contains(org.getParentId())) {
-                        List<Organization> children = findChildren(org, allOrganizations);
-                        org.setChildren(children);
-                        org.setHasChildren(!children.isEmpty());
-                        tree.add(org);
-                  }
+      @Override
+      public List<Organization> listWritableOrganizationTree(Long currentUserId) {
+            if (currentUserId == null) {
+                  return listOrganizationTree();
             }
-            return tree;
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            Set<Long> writableOrgIds = permissionService.listWritableOrganizationIds(currentUserId);
+            if (CollectionUtils.isEmpty(writableOrgIds)) {
+                  return List.of();
+            }
+            LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
+                    .eq(Organization::getDeleted, 0)
+                    .eq(context.tenantId() != null, Organization::getTenantId, context.tenantId())
+                    .in(Organization::getId, writableOrgIds)
+                    .orderByAsc(Organization::getSortNo)
+                    .orderByAsc(Organization::getId);
+            return buildOrganizationTree(this.list(queryWrapper));
       }
 
       @Override
@@ -229,6 +231,26 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
                   return;
             }
             queryWrapper.in(Organization::getId, accessibleOrgIds);
+      }
+
+      private List<Organization> buildOrganizationTree(List<Organization> allOrganizations) {
+            Set<Long> scopedIds = allOrganizations.stream()
+                    .map(Organization::getId)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
+
+            List<Organization> tree = new ArrayList<>();
+            for (Organization org : allOrganizations) {
+                  if (org.getParentId() == null
+                          || org.getParentId() == 0
+                          || !scopedIds.contains(org.getParentId())) {
+                        List<Organization> children = findChildren(org, allOrganizations);
+                        org.setChildren(children);
+                        org.setHasChildren(!children.isEmpty());
+                        tree.add(org);
+                  }
+            }
+            return tree;
       }
 
       private Long resolveScopedRootOrgId(Long currentUserId) {

@@ -111,8 +111,9 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
                   throw new BizException("角色不存在");
             }
 
-            role.setDeleted(1);
-            updateById(role);
+            if (!removeById(id)) {
+                  throw new BizException("角色删除失败");
+            }
             permissionService.deleteRoleRelations(id);
       }
 

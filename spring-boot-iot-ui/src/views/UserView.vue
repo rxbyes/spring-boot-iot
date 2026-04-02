@@ -268,7 +268,7 @@
               v-for="item in roleOptions"
               :key="item.id"
               :label="item.roleName"
-              :value="Number(item.id)"
+              :value="item.id"
             />
           </el-select>
         </el-form-item>
@@ -349,7 +349,7 @@ import { useServerPagination } from "@/composables/useServerPagination";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
 import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 import { usePermissionStore } from "@/stores/permission";
-import { listOrganizationTree, type Organization } from "@/api/organization";
+import { listWritableOrganizationTree, type Organization } from "@/api/organization";
 import { listRoles, type Role } from "@/api/role";
 import {
   loadCsvColumnSelection,
@@ -383,7 +383,7 @@ const dialogTitle = ref("新增用户");
 const tableData = ref<User[]>([]);
 const selectedRows = ref<User[]>([]);
 const permissionStore = usePermissionStore();
-const organizationOptions = ref<Array<{ label: string; value: number }>>([]);
+const organizationOptions = ref<Array<{ label: string; value: string }>>([]);
 const roleOptions = ref<Role[]>([]);
 const userActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
@@ -632,18 +632,29 @@ const handleExportCurrent = () => {
   );
 };
 
+const normalizeOptionId = (value?: string | number | null) => {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+  return String(value);
+};
+
+const normalizeOptionIds = (values?: Array<string | number | null>) =>
+  (values || []).map((item) => normalizeOptionId(item)).filter(Boolean);
+
 const resetFormData = (parent?: Partial<User>) => {
+  const normalizedOrgId = normalizeOptionId(parent?.orgId);
   formData.value = {
     id: parent?.id,
     username: parent?.username || "",
     nickname: parent?.nickname || "",
     realName: parent?.realName || "",
-    orgId: parent?.orgId,
+    orgId: normalizedOrgId || undefined,
     phone: parent?.phone || "",
     email: parent?.email || "",
     password: "",
     status: parent?.status ?? 1,
-    roleIds: parent?.roleIds || [],
+    roleIds: normalizeOptionIds(parent?.roleIds),
   };
 };
 
@@ -735,15 +746,16 @@ const handlePageChange = (page: number) => {
 const decorateUsers = (rows: User[]) =>
   rows.map((row) => ({
     ...row,
-    orgName: row.orgName || resolveOrganizationName(Number(row.orgId)),
+    orgName: row.orgName || resolveOrganizationName(row.orgId),
   }));
 
-const resolveOrganizationName = (orgId?: number) => {
-  if (!orgId) {
+const resolveOrganizationName = (orgId?: string | number) => {
+  const normalizedOrgId = normalizeOptionId(orgId);
+  if (!normalizedOrgId) {
     return "未关联机构";
   }
   return (
-    organizationOptions.value.find((item) => item.value === Number(orgId))?.label ||
+    organizationOptions.value.find((item) => item.value === normalizedOrgId)?.label ||
     "未关联机构"
   );
 };
@@ -751,10 +763,10 @@ const resolveOrganizationName = (orgId?: number) => {
 const flattenOrganizations = (
   nodes: Organization[],
   level = 0,
-): Array<{ label: string; value: number }> => {
+): Array<{ label: string; value: string }> => {
   return nodes.flatMap((item) => {
     const prefix = level > 0 ? `${"　".repeat(level)}└ ` : "";
-    const current = [{ label: `${prefix}${item.orgName}`, value: Number(item.id) }];
+    const current = [{ label: `${prefix}${item.orgName}`, value: String(item.id) }];
     const children = item.children?.length
       ? flattenOrganizations(item.children, level + 1)
       : [];
@@ -764,7 +776,7 @@ const flattenOrganizations = (
 
 const loadOrganizationOptions = async () => {
   try {
-    const res = await listOrganizationTree();
+    const res = await listWritableOrganizationTree();
     if (res.code === 200) {
       organizationOptions.value = flattenOrganizations(res.data || []);
       tableData.value = decorateUsers(tableData.value);
@@ -778,7 +790,10 @@ const loadRoleOptions = async () => {
   try {
     const res = await listRoles();
     if (res.code === 200) {
-      roleOptions.value = res.data || [];
+      roleOptions.value = (res.data || []).map((item) => ({
+        ...item,
+        id: normalizeOptionId(item.id),
+      }));
     }
   } catch (error) {
     console.error("获取角色列表失败", error);

@@ -169,9 +169,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             ensureUserAccessible(currentUserId, user);
 
-            user.setDeleted(1);
-            user.setUpdateTime(new Date());
-            userMapper.updateById(user);
+            if (!removeById(id)) {
+                  throw new BizException("用户删除失败");
+            }
             permissionService.deleteUserRoles(id);
       }
 
@@ -247,6 +247,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
       private LambdaQueryWrapper<User> buildUserQueryWrapper(Long currentUserId, String username, String phone, String email, Integer status) {
             LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(User::getDeleted, 0);
             applyUserScope(wrapper, currentUserId);
             if (StringUtils.hasText(username)) {
                   wrapper.like(User::getUsername, username.trim());
@@ -310,7 +311,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (currentUserId == null || orgId == null || orgId <= 0) {
                   return;
             }
-            if (!permissionService.listAccessibleOrganizationIds(currentUserId).contains(orgId)) {
+            if (!permissionService.listWritableOrganizationIds(currentUserId).contains(orgId)) {
                   throw new BizException("目标机构不在当前账号的数据范围内");
             }
       }

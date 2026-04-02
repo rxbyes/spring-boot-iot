@@ -183,13 +183,13 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
     relatedPaths: ['/role', '/menu']
   },
   {
-    id: 'help-automation-center',
+    id: 'help-quality-workbench',
     category: 'technical',
-    title: '自动化工场使用说明',
-    description: '编排回归计划、视觉基线和浏览器巡检流程，沉淀持续回归资产。',
-    path: '/automation-test',
+    title: '质量工场使用说明',
+    description: '先从质量工场总览进入自动化资产、执行中心或结果与基线中心，避免在同一页混用编排、执行和复盘动作。',
+    path: '/quality-workbench',
     audienceKeys: ['developer', 'super-admin'],
-    relatedPaths: ['/automation-test']
+    relatedPaths: ['/quality-workbench', '/automation-assets', '/automation-execution', '/automation-results']
   },
   {
     id: 'faq-home',

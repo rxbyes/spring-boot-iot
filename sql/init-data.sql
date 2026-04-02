@@ -127,7 +127,7 @@ INSERT INTO sys_menu (
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化资产、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖自动化资产、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -159,7 +159,10 @@ INSERT INTO sys_menu (
     (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 51, 1, 1, '/automation-test', 'system:automation-test', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003012, 1, 93000005, '自动化资产中心', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"页面盘点、场景模板与计划导入导出"}', 51, 1, 1, '/automation-assets', 'system:automation-assets', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"执行配置、命令预览与验收注册表"}', 52, 1, 1, '/automation-execution', 'system:automation-execution', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 53, 1, 1, '/automation-results', 'system:automation-results', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，当前默认落到自动化资产中心"}', 54, 1, 1, '/automation-test', 'system:automation-test', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -317,6 +320,9 @@ VALUES
     (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
     (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010121, 1, @role_developer_id, 93003012, 1, NOW(), 1, NOW(), 0),
+    (96010122, 1, @role_developer_id, 93003013, 1, NOW(), 1, NOW(), 0),
+    (96010123, 1, @role_developer_id, 93003014, 1, NOW(), 1, NOW(), 0),
     (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0),
     (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
     (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
@@ -589,8 +595,9 @@ INSERT INTO sys_dict (
     id, tenant_id, dict_name, dict_code, dict_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7201, 1, '风险等级', 'risk_level', 'text', 1, 1, '风险等级四色内码字典', 1, NOW(), 1, NOW(), 0),
-    (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级字典', 1, NOW(), 1, NOW(), 0)
+    (7201, 1, '风险点等级', 'risk_point_level', 'text', 1, 1, '风险点档案等级字典', 1, NOW(), 1, NOW(), 0),
+    (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级四色字典', 1, NOW(), 1, NOW(), 0),
+    (7203, 1, '风险态势等级', 'risk_level', 'text', 1, 3, '运行态风险颜色字典', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_name = VALUES(dict_name),
     dict_type = VALUES(dict_type),
@@ -605,13 +612,17 @@ INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7301, 1, 7201, '红色', 'red', 'string', 1, 1, '风险等级-红色', 1, NOW(), 1, NOW(), 0),
-    (7302, 1, 7201, '橙色', 'orange', 'string', 1, 2, '风险等级-橙色', 1, NOW(), 1, NOW(), 0),
-    (7303, 1, 7201, '黄色', 'yellow', 'string', 1, 3, '风险等级-黄色', 1, NOW(), 1, NOW(), 0),
-    (7307, 1, 7201, '蓝色', 'blue', 'string', 1, 4, '风险等级-蓝色', 1, NOW(), 1, NOW(), 0),
-    (7304, 1, 7202, '严重', 'critical', 'string', 1, 1, '告警等级-严重', 1, NOW(), 1, NOW(), 0),
-    (7305, 1, 7202, '警告', 'warning', 'string', 1, 2, '告警等级-警告', 1, NOW(), 1, NOW(), 0),
-    (7306, 1, 7202, '提醒', 'info', 'string', 1, 3, '告警等级-提醒', 1, NOW(), 1, NOW(), 0)
+    (7301, 1, 7201, '一级风险点', 'level_1', 'string', 1, 1, '风险点等级-一级风险点', 1, NOW(), 1, NOW(), 0),
+    (7302, 1, 7201, '二级风险点', 'level_2', 'string', 1, 2, '风险点等级-二级风险点', 1, NOW(), 1, NOW(), 0),
+    (7303, 1, 7201, '三级风险点', 'level_3', 'string', 1, 3, '风险点等级-三级风险点', 1, NOW(), 1, NOW(), 0),
+    (7304, 1, 7202, '红色', 'red', 'string', 1, 1, '告警等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7305, 1, 7202, '橙色', 'orange', 'string', 1, 2, '告警等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7306, 1, 7202, '黄色', 'yellow', 'string', 1, 3, '告警等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7307, 1, 7202, '蓝色', 'blue', 'string', 1, 4, '告警等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7308, 1, 7203, '红色', 'red', 'string', 1, 1, '风险态势等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7309, 1, 7203, '橙色', 'orange', 'string', 1, 2, '风险态势等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7310, 1, 7203, '黄色', 'yellow', 'string', 1, 3, '风险态势等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7311, 1, 7203, '蓝色', 'blue', 'string', 1, 4, '风险态势等级-蓝色', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_id = VALUES(dict_id),
     item_name = VALUES(item_name),
@@ -976,8 +987,8 @@ INSERT INTO rule_definition (
     id, rule_name, metric_identifier, metric_name, expression, duration, alarm_level,
     notification_methods, convert_to_event, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8201, '锅炉温度超限', 'temperature', '温度', 'value > 80', 60, 'critical', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8202, '设备振动超限', 'vibration', '振动', 'value > 10', 120, 'warning', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8201, '锅炉温度超限', 'temperature', '温度', 'value > 80', 60, 'red', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8202, '设备振动超限', 'vibration', '振动', 'value > 10', 120, 'orange', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     rule_name = VALUES(rule_name),
     metric_name = VALUES(metric_name),
@@ -1010,15 +1021,16 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 INSERT INTO emergency_plan (
-    id, plan_name, risk_level, description, response_steps, contact_list, status, tenant_id,
+    id, plan_name, alarm_level, risk_level, description, response_steps, contact_list, status, tenant_id,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8401, '锅炉超温应急预案', 'red', '锅炉区域出现超温告警时执行',
+    (8401, '锅炉超温应急预案', 'red', 'red', '锅炉区域出现超温告警时执行',
      JSON_ARRAY('确认现场状态', '远程降载', '派发现场工单', '复盘关闭事件'),
      JSON_ARRAY(JSON_OBJECT('name', '值班长', 'phone', '13800000000'), JSON_OBJECT('name', '安全员', 'phone', '13800000001')),
      0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     plan_name = VALUES(plan_name),
+    alarm_level = VALUES(alarm_level),
     risk_level = VALUES(risk_level),
     description = VALUES(description),
     response_steps = VALUES(response_steps),
@@ -1035,12 +1047,12 @@ INSERT INTO iot_alarm_record (
     status, trigger_time, confirm_time, confirm_user, suppress_time, suppress_user, close_time, close_user,
     rule_id, rule_name, tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8501, 'ALARM-20260317001', '锅炉温度超限', 'threshold', 'critical',
+    (8501, 'ALARM-20260317001', '锅炉温度超限', 'threshold', 'red',
      7002, '黄浦厂区', 8001, '锅炉温压监测点',
      2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4', '80',
      0, DATE_SUB(NOW(), INTERVAL 30 MINUTE), NULL, NULL, NULL, NULL, NULL, NULL,
      8201, '锅炉温度超限', 1, '待确认告警', 1, NOW(), 1, NOW(), 0),
-    (8502, 'ALARM-20260317002', '设备振动异常', 'threshold', 'warning',
+    (8502, 'ALARM-20260317002', '设备振动异常', 'threshold', 'orange',
      7002, '黄浦厂区', 8002, '振动监测点',
      2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1', '10',
      3, DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 45 MINUTE), 1, NULL, NULL, DATE_SUB(NOW(), INTERVAL 20 MINUTE), 1,
@@ -1082,13 +1094,13 @@ INSERT INTO iot_event_record (
     trigger_time, dispatch_time, dispatch_user, start_time, complete_time, close_time, close_user, close_reason, review_notes,
     tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'critical', 'red',
+    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'red', 'red',
      7002, '黄浦厂区', 8001, '锅炉温压监测点',
      2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4',
      2, 1, 'high', 15, 120,
      DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL, NULL, NULL, NULL, '处理中',
      1, '进行中事件', 1, NOW(), 1, NOW(), 0),
-    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'warning', 'orange',
+    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'orange', 'orange',
      7002, '黄浦厂区', 8002, '振动监测点',
      2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1',
      4, 1, 'medium', 30, 240,

@@ -120,7 +120,33 @@ describe('sectionHomes config', () => {
     });
     expect(getRouteMetaPreset('/automation-test')).toMatchObject({
       title: '自动化工场',
-      description: '维护巡检模板、执行计划和导出结果。'
+      description: '兼容旧入口，第一轮直接落到自动化资产中心。'
+    });
+  });
+
+  it('exposes the quality workbench as overview plus three specialty pages', () => {
+    const config = getSectionHomeConfigByPath('/quality-workbench');
+
+    expect(config?.cards.map((item) => item.path)).toEqual([
+      '/automation-assets',
+      '/automation-execution',
+      '/automation-results'
+    ]);
+    expect(getRouteMetaPreset('/automation-assets')).toMatchObject({
+      title: '自动化资产中心',
+      description: '沉淀页面盘点、场景模板、执行计划与导入导出资产。'
+    });
+    expect(getRouteMetaPreset('/automation-execution')).toMatchObject({
+      title: '执行中心',
+      description: '统一查看执行配置、命令预览和验收注册表依赖关系。'
+    });
+    expect(getRouteMetaPreset('/automation-results')).toMatchObject({
+      title: '结果与基线中心',
+      description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。'
+    });
+    expect(getRouteMetaPreset('/automation-test')).toMatchObject({
+      title: '自动化工场',
+      description: '兼容旧入口，第一轮直接落到自动化资产中心。'
     });
   });
 

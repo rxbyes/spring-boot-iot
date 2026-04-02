@@ -22,6 +22,8 @@ public interface OrganizationService extends IService<Organization> {
 
       List<Organization> listOrganizationTree(Long currentUserId);
 
+      List<Organization> listWritableOrganizationTree(Long currentUserId);
+
       Organization getById(Long id);
 
       Organization getById(Long currentUserId, Long id);

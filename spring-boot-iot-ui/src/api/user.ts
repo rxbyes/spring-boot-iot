@@ -20,7 +20,7 @@ export interface User {
   lastLoginIp?: string
   createTime?: string
   updateTime?: string
-  roleIds?: number[]
+  roleIds?: IdType[]
   roleNames?: string[]
 }
 

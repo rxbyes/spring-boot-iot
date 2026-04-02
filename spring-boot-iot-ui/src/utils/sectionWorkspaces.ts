@@ -182,19 +182,21 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     key: 'quality-workbench',
     path: '/quality-workbench',
     navLabel: '工场总览',
-    navCaption: '查看质量工场能力与自动化入口',
+    navCaption: '查看质量工场能力与专项入口',
     navShort: '概',
     title: '质量工场',
-    description: '围绕自动化编排、回归计划和质量基线组织工程质量能力。',
-    intro: '建议先在自动化工场沉淀巡检模板，再导出执行计划与质量报告，形成持续回归基线。',
+    description: '围绕自动化资产、执行组织与结果基线组织工程质量能力。',
+    intro: '建议先在总览判断本轮要沉淀资产、组织执行，还是复盘运行结果，再进入对应专项页。',
     menuTitle: '质量工场',
-    menuHint: '覆盖自动化编排、回归计划与质量巡检资产。',
+    menuHint: '覆盖自动化资产、执行组织与结果基线治理。',
     matchKeys: ['quality-workbench', 'quality-core'],
     matchLabels: ['质量工场', '测试工具'],
     cards: [
-      { path: '/automation-test', label: '自动化工场', description: '维护巡检模板、执行计划和导出结果。', short: '测', keywords: ['自动化工场', '自动化测试', '巡检模板'] }
+      { path: '/automation-assets', label: '自动化资产中心', description: '沉淀页面盘点、场景模板、执行计划与导入导出资产。', short: '资', keywords: ['自动化资产中心', '页面盘点', '场景模板'] },
+      { path: '/automation-execution', label: '执行中心', description: '统一查看执行配置、命令预览和验收注册表依赖关系。', short: '执', keywords: ['执行中心', '执行配置', '验收注册表'] },
+      { path: '/automation-results', label: '结果与基线中心', description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。', short: '果', keywords: ['结果与基线中心', '运行结果', '视觉基线'] }
     ],
-    steps: ['先整理巡检模板与场景资产。', '再导出执行计划并组织回归。', '最后沉淀质量报告和视觉基线。']
+    steps: ['先沉淀自动化资产。', '再按执行中心组织回归。', '最后在结果与基线中心沉淀证据与改进建议。']
   }
 ];
 
@@ -213,6 +215,11 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
   '/future-lab': {
     title: '演进蓝图',
     description: '预研能力展示与未来扩展方向说明。',
+    requiresAuth: true
+  },
+  '/automation-test': {
+    title: '自动化工场',
+    description: '兼容旧入口，第一轮直接落到自动化资产中心。',
     requiresAuth: true
   }
 };
@@ -299,7 +306,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['开发', '研发'],
     defaultPath: '/device-access',
     preferredWorkspaceKeys: ['iot-access', 'risk-config', 'quality-workbench'],
-    featuredPaths: ['/reporting', '/system-log', '/message-trace', '/automation-test'],
+    featuredPaths: ['/reporting', '/system-log', '/message-trace', '/quality-workbench'],
     cockpitRole: 'rd',
     focusLabel: '链路与质量',
     focusDescription: '优先联调接入链路、异常观测、消息追踪和自动化回归。'
