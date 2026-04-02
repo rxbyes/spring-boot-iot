@@ -49,6 +49,124 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void addRiskPointShouldPersistArchiveRiskPointLevel() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Organization organization = activeOrganization(7101L, "ops-center");
+        Region region = activeRegion(9101L, "east-yard");
+
+        RiskPoint input = new RiskPoint();
+        input.setRiskPointName("north-slope");
+        input.setOrgId(7101L);
+        input.setRegionId(9101L);
+        input.setRiskPointLevel("LEVEL_2");
+        input.setCurrentRiskLevel("red");
+
+        doReturn(organization).when(organizationService).getById(7101L);
+        doReturn(region).when(regionService).getById(9101L);
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
+        doReturn(null).when(service).getOne(any());
+        doAnswer(invocation -> {
+            RiskPoint saved = invocation.getArgument(0);
+            saved.setId(9001L);
+            return true;
+        }).when(service).save(any(RiskPoint.class));
+
+        RiskPoint saved = service.addRiskPoint(input, 1001L);
+
+        assertEquals("level_2", saved.getRiskPointLevel());
+        assertEquals("blue", saved.getCurrentRiskLevel());
+        assertTrue(saved.getRiskPointCode().contains("LEVEL2"));
+        verify(dictService).getByCode("risk_point_level");
+    }
+
+    @Test
+    void addRiskPointShouldRejectUnknownArchiveLevel() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Organization organization = activeOrganization(7101L, "ops-center");
+        Region region = activeRegion(9101L, "east-yard");
+
+        RiskPoint input = new RiskPoint();
+        input.setRiskPointName("north-slope");
+        input.setOrgId(7101L);
+        input.setRegionId(9101L);
+        input.setRiskPointLevel("level_9");
+
+        doReturn(organization).when(organizationService).getById(7101L);
+        doReturn(region).when(regionService).getById(9101L);
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
+
+        BizException error = assertThrows(BizException.class, () -> service.addRiskPoint(input, 1001L));
+        assertEquals("风险点档案等级不在允许范围内", error.getMessage());
+    }
+
+    @Test
+    void legacyCurrentRiskLevelShouldNotOverwriteArchiveLevel() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Organization organization = activeOrganization(7101L, "ops-center");
+        Region region = activeRegion(9101L, "east-yard");
+
+        RiskPoint input = new RiskPoint();
+        input.setRiskPointName("north-slope");
+        input.setOrgId(7101L);
+        input.setRegionId(9101L);
+        input.setRiskPointLevel("level_1");
+        input.setCurrentRiskLevel("red");
+
+        doReturn(organization).when(organizationService).getById(7101L);
+        doReturn(region).when(regionService).getById(9101L);
+        doReturn(riskPointLevelDict("level_1", "level_2", "level_3")).when(dictService).getByCode("risk_point_level");
+        doReturn(null).when(service).getOne(any());
+        doAnswer(invocation -> {
+            RiskPoint saved = invocation.getArgument(0);
+            saved.setId(9002L);
+            return true;
+        }).when(service).save(any(RiskPoint.class));
+
+        RiskPoint saved = service.addRiskPoint(input, 1001L);
+
+        assertEquals("level_1", saved.getRiskPointLevel());
+        assertEquals("blue", saved.getCurrentRiskLevel());
+        assertTrue(saved.getRiskPointCode().contains("LEVEL1"));
+        assertTrue(!saved.getRiskPointCode().contains("RED"));
+    }
+
+    @Test
     void addRiskPointShouldGenerateCodeFromNormalizedRiskLevelAndFillAuditFields() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
@@ -522,6 +640,14 @@ class RiskPointServiceImplTest {
         Dict dict = new Dict();
         dict.setId(1L);
         dict.setDictCode("risk_level");
+        dict.setItems(List.of(values).stream().map(this::riskLevelItem).toList());
+        return dict;
+    }
+
+    private Dict riskPointLevelDict(String... values) {
+        Dict dict = new Dict();
+        dict.setId(1L);
+        dict.setDictCode("risk_point_level");
         dict.setItems(List.of(values).stream().map(this::riskLevelItem).toList());
         return dict;
     }

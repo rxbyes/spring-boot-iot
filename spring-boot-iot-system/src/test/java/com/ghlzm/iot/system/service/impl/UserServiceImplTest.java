@@ -24,8 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -127,5 +129,26 @@ class UserServiceImplTest {
         String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
         assertTrue(sqlSegment.contains("tenant_id"));
         assertTrue(sqlSegment.contains("id"));
+    }
+
+    @Test
+    void shouldDeleteUserViaLogicDeleteOperation() {
+        User existing = new User();
+        existing.setId(1L);
+        existing.setTenantId(1L);
+        existing.setOrgId(7101L);
+        existing.setDeleted(0);
+
+        when(userMapper.selectById(1L)).thenReturn(existing);
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.ALL, true));
+        doReturn(true).when(userService).removeById(1L);
+        doNothing().when(permissionService).deleteUserRoles(1L);
+
+        userService.deleteUser(99L, 1L);
+
+        verify(userService).removeById(1L);
+        verify(permissionService).deleteUserRoles(1L);
+        verify(userMapper, never()).updateById(any(User.class));
     }
 }

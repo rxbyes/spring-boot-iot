@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class HelpDocumentServiceImplTest {
@@ -37,8 +41,11 @@ class HelpDocumentServiceImplTest {
     private HelpDocumentServiceImpl helpDocumentService;
 
     @BeforeEach
-    void setUp() {
-        helpDocumentService = new HelpDocumentServiceImpl(helpDocumentMapper, permissionService, systemContentSchemaSupport);
+    void setUp() throws Exception {
+        helpDocumentService = spy(new HelpDocumentServiceImpl(helpDocumentMapper, permissionService, systemContentSchemaSupport));
+        Field field = findField(helpDocumentService.getClass(), "baseMapper");
+        field.setAccessible(true);
+        field.set(helpDocumentService, helpDocumentMapper);
     }
 
     @Test
@@ -120,6 +127,30 @@ class HelpDocumentServiceImplTest {
         assertTrue(result.getRecords().get(0).isCurrentPathMatched());
     }
 
+    @Test
+    void shouldDeleteHelpDocumentViaLogicDeleteOperation() {
+        HelpDocument existing = document(701L, "business", "帮助文档删除", null, null);
+        when(helpDocumentMapper.selectById(701L)).thenReturn(existing);
+        when(helpDocumentMapper.deleteById(701L)).thenReturn(1);
+
+        helpDocumentService.deleteDocument(701L, 1L);
+
+        verify(helpDocumentService).removeById(701L);
+        verify(helpDocumentMapper, never()).updateById(any(HelpDocument.class));
+    }
+
+    @Test
+    void shouldThrowWhenHelpDocumentLogicDeleteFails() {
+        HelpDocument existing = document(702L, "business", "帮助文档删除失败", null, null);
+        when(helpDocumentMapper.selectById(702L)).thenReturn(existing);
+        when(helpDocumentMapper.deleteById(702L)).thenReturn(0);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> helpDocumentService.deleteDocument(702L, 1L));
+
+        assertEquals("帮助文档删除失败", exception.getMessage());
+    }
+
     private UserAuthContextVO authContext(List<String> roleCodes, List<MenuTreeNodeVO> menus) {
         UserAuthContextVO authContext = new UserAuthContextVO();
         authContext.setUserId(2L);
@@ -161,5 +192,17 @@ class HelpDocumentServiceImplTest {
         document.setStatus(1);
         document.setSortNo(0);
         return document;
+    }
+
+    private Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
     }
 }

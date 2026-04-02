@@ -55,6 +55,11 @@ public class OrganizationController {
             return R.ok(organizationService.listOrganizationTree(requireCurrentUserId(authentication)));
       }
 
+      @GetMapping("/writable-tree")
+      public R<List<Organization>> listWritableOrganizationTree(Authentication authentication) {
+            return R.ok(organizationService.listWritableOrganizationTree(requireCurrentUserId(authentication)));
+      }
+
       @GetMapping("/{id}")
       public R<Organization> getById(@PathVariable Long id, Authentication authentication) {
             return R.ok(organizationService.getById(requireCurrentUserId(authentication), id));

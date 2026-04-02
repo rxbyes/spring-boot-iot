@@ -166,13 +166,32 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     public Set<Long> listAccessibleOrganizationIds(Long userId) {
         DataPermissionContext context = getDataPermissionContext(userId);
+        if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+            return listTenantOrganizationIds(context.tenantId());
+        }
         if (context.orgId() == null || context.orgId() <= 0) {
             return Set.of();
         }
         return switch (context.dataScopeType()) {
-            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
             case ORG_AND_CHILDREN -> resolveOrganizationSubtreeIds(context.tenantId(), context.orgId());
             case ORG, SELF -> Set.of(context.orgId());
+            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
+        };
+    }
+
+    @Override
+    public Set<Long> listWritableOrganizationIds(Long userId) {
+        DataPermissionContext context = getDataPermissionContext(userId);
+        if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+            return listTenantOrganizationIds(context.tenantId());
+        }
+        if (context.orgId() == null || context.orgId() <= 0) {
+            return Set.of();
+        }
+        return switch (context.dataScopeType()) {
+            case ORG_AND_CHILDREN, ORG -> resolveOrganizationSubtreeIds(context.tenantId(), context.orgId());
+            case SELF -> Set.of(context.orgId());
+            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
         };
     }
 

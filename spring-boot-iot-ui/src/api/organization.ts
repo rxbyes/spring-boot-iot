@@ -59,6 +59,10 @@ export const listOrganizationTree = (): Promise<ApiEnvelope<Organization[]>> => 
   return request<Organization[]>('/api/organization/tree', { method: 'GET' })
 }
 
+export const listWritableOrganizationTree = (): Promise<ApiEnvelope<Organization[]>> => {
+  return request<Organization[]>('/api/organization/writable-tree', { method: 'GET' })
+}
+
 export const getOrganization = (id: IdType): Promise<ApiEnvelope<Organization>> => {
   return request<Organization>(`/api/organization/${id}`, { method: 'GET' })
 }

@@ -18,6 +18,8 @@ public interface PermissionService {
 
     Set<Long> listAccessibleOrganizationIds(Long userId);
 
+    Set<Long> listWritableOrganizationIds(Long userId);
+
     List<MenuTreeNodeVO> listMenuTree();
 
     List<Long> listRoleMenuIds(Long roleId);

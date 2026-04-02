@@ -26,4 +26,14 @@ describe('UserView governance contract', () => {
     expect(source).toContain('v-model="formData.orgId"')
     expect(source).toContain('v-model="formData.roleIds"')
   })
+
+  it('uses writable organization tree and keeps ids as strings instead of Number coercion', () => {
+    const source = readSource()
+
+    expect(source).toContain('listWritableOrganizationTree')
+    expect(source).not.toContain(':value="Number(item.id)"')
+    expect(source).not.toContain('resolveOrganizationName(Number(row.orgId))')
+    expect(source).not.toContain('item.value === Number(orgId)')
+    expect(source).not.toContain('value: Number(item.id)')
+  })
 })
