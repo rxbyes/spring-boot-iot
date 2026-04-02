@@ -138,10 +138,8 @@ public class PermissionServiceImpl implements PermissionService {
         context.setLastLoginTime(user.getLastLoginTime());
         context.setLastLoginIp(user.getLastLoginIp());
         context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
-        context.setAccountType(superAdmin ? "主账号" : "子账号");
-        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
+        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息" : "未填写实名信息");
         context.setLoginMethods(buildLoginMethods(user));
-        context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
         DataScopeType scopeType = resolveHighestScope(roles);
         context.setDataScopeType(scopeType.name());
         context.setDataScopeSummary(scopeType.getLabel());

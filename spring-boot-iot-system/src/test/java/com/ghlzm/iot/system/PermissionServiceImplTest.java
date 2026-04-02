@@ -225,6 +225,7 @@ class PermissionServiceImplTest {
         assertEquals(5001L, context.getOrgId());
         assertEquals("平台治理中心", context.getOrgName());
         assertEquals("运营管理负责人", context.getNickname());
+        assertEquals("已填写实名信息", context.getAuthStatus());
         assertEquals(List.of("账号登录", "手机号登录"), context.getLoginMethods());
         assertEquals("ORG_AND_CHILDREN", context.getDataScopeType());
         assertEquals("本机构及下级", context.getDataScopeSummary());
