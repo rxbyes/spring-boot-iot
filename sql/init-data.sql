@@ -482,12 +482,92 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+INSERT INTO sys_region (
+    id, tenant_id, region_name, region_code, parent_id, region_type, longitude, latitude,
+    status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (62, 1, '甘肃省', '62', 0, 'province', NULL, NULL, 1, 1, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6201, 1, '兰州市', '6201', 62, 'city', NULL, NULL, 1, 11, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6202, 1, '嘉峪关市', '6202', 62, 'city', NULL, NULL, 1, 12, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6205, 1, '天水市', '6205', 62, 'city', NULL, NULL, 1, 13, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6206, 1, '武威市', '6206', 62, 'city', NULL, NULL, 1, 14, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6208, 1, '平凉市', '6208', 62, 'city', NULL, NULL, 1, 15, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6210, 1, '庆阳市', '6210', 62, 'city', NULL, NULL, 1, 16, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6211, 1, '定西市', '6211', 62, 'city', NULL, NULL, 1, 17, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6212, 1, '陇南市', '6212', 62, 'city', NULL, NULL, 1, 18, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6229, 1, '临夏回族自治州', '6229', 62, 'city', NULL, NULL, 1, 19, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620102, 1, '城关区', '620102', 6201, 'district', NULL, NULL, 1, 101, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620103, 1, '七里河区', '620103', 6201, 'district', NULL, NULL, 1, 102, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620104, 1, '西固区', '620104', 6201, 'district', NULL, NULL, 1, 103, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620111, 1, '红古区', '620111', 6201, 'district', NULL, NULL, 1, 104, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620121, 1, '永登县', '620121', 6201, 'district', NULL, NULL, 1, 105, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620122, 1, '皋兰县', '620122', 6201, 'district', NULL, NULL, 1, 106, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620123, 1, '榆中县', '620123', 6201, 'district', NULL, NULL, 1, 107, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620201101, 1, '峪泉镇', '620201101', 6202, 'street', NULL, NULL, 1, 108, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620503, 1, '麦积区', '620503', 6205, 'district', NULL, NULL, 1, 109, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620522, 1, '秦安县', '620522', 6205, 'district', NULL, NULL, 1, 110, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620602, 1, '凉州区', '620602', 6206, 'district', NULL, NULL, 1, 111, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620622, 1, '古浪县', '620622', 6206, 'district', NULL, NULL, 1, 112, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620881, 1, '华亭市', '620881', 6208, 'district', NULL, NULL, 1, 113, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621021, 1, '庆城县', '621021', 6210, 'district', NULL, NULL, 1, 114, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621026, 1, '宁县', '621026', 6210, 'district', NULL, NULL, 1, 115, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621102, 1, '安定区', '621102', 6211, 'district', NULL, NULL, 1, 116, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621123, 1, '渭源县', '621123', 6211, 'district', NULL, NULL, 1, 117, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621202, 1, '武都区', '621202', 6212, 'district', NULL, NULL, 1, 118, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621221, 1, '成县', '621221', 6212, 'district', NULL, NULL, 1, 119, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621222, 1, '文县', '621222', 6212, 'district', NULL, NULL, 1, 120, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621225, 1, '西和县', '621225', 6212, 'district', NULL, NULL, 1, 121, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622901, 1, '临夏市', '622901', 6229, 'district', NULL, NULL, 1, 122, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622923, 1, '永靖县', '622923', 6229, 'district', NULL, NULL, 1, 123, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622925, 1, '和政县', '622925', 6229, 'district', NULL, NULL, 1, 124, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    region_name = VALUES(region_name),
+    parent_id = VALUES(parent_id),
+    region_type = VALUES(region_type),
+    longitude = VALUES(longitude),
+    latitude = VALUES(latitude),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
+    remark = VALUES(remark),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
 INSERT INTO sys_organization (
     id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
     phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
     (7101, 1, 0, '平台运维中心', 'OPS-CENTER', 'dept', 1, '系统管理员', '13800000000', 'ops@ghlzm.com', 1, 1, '运维中心', 1, NOW(), 1, NOW(), 0),
     (7102, 1, 7101, '告警处置组', 'ALARM-TEAM', 'team', 1, '系统管理员', '13800000000', 'alarm@ghlzm.com', 1, 2, '告警事件处置团队', 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    org_name = VALUES(org_name),
+    parent_id = VALUES(parent_id),
+    org_type = VALUES(org_type),
+    leader_user_id = VALUES(leader_user_id),
+    leader_name = VALUES(leader_name),
+    phone = VALUES(phone),
+    email = VALUES(email),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
+    remark = VALUES(remark),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
+INSERT INTO sys_organization (
+    id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
+    phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (7111, 1, 0, '成县所', 'HW-ORG-CXS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 101, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7112, 1, 0, '成武所', 'HW-ORG-CWS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 102, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7113, 1, 0, '武都所', 'HW-ORG-WDS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 103, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7114, 1, 0, '甘肃公航旅高速公路运营管理兰州分公司', 'HW-ORG-LZFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 104, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7115, 1, 0, '甘肃公航旅高速公路运营管理临夏分公司', 'HW-ORG-LXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 105, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7116, 1, 0, '甘肃公航旅高速公路运营管理平凉分公司', 'HW-ORG-PLFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 106, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7117, 1, 0, '甘肃公航旅高速公路运营管理武威分公司', 'HW-ORG-WWFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 107, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7118, 1, 0, '甘肃公航旅高速公路运营管理天水分公司', 'HW-ORG-TSFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 108, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7119, 1, 0, '甘肃公航旅高速公路运营管理定西分公司', 'HW-ORG-DXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 109, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7120, 1, 0, '甘肃公航旅高速公路运营管理敦煌分公司', 'HW-ORG-DHFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 110, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_name = VALUES(org_name),
     parent_id = VALUES(parent_id),
@@ -676,10 +756,10 @@ ON DUPLICATE KEY UPDATE
 -- =========================
 INSERT INTO risk_point (
     id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
-    risk_level, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
+    risk_level, risk_type, location_text, longitude, latitude, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'red', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'orange', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'red', 'GENERAL', NULL, NULL, NULL, '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'orange', 'GENERAL', NULL, NULL, NULL, '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
     org_id = VALUES(org_id),
@@ -689,6 +769,10 @@ ON DUPLICATE KEY UPDATE
     responsible_user = VALUES(responsible_user),
     responsible_phone = VALUES(responsible_phone),
     risk_level = VALUES(risk_level),
+    risk_type = VALUES(risk_type),
+    location_text = VALUES(location_text),
+    longitude = VALUES(longitude),
+    latitude = VALUES(latitude),
     description = VALUES(description),
     status = VALUES(status),
     update_by = 1,

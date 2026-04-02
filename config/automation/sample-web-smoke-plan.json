@@ -391,7 +391,6 @@
           },
           "value": "autotest-device-${runToken}",
           "optional": false
-          "optional": false
         },
         {
           "id": "device-assert-visual-page",
