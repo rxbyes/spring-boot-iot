@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -149,6 +150,27 @@ class TelemetryAggregateProjectorTest {
         assertDoesNotThrow(() -> projector.project(task));
 
         verifyNoInteractions(jdbcTemplate);
+    }
+
+    @Test
+    void shouldSwallowBatchWriteFailuresWithoutBreakingMainFlow() {
+        stubExistingRows(sql -> null);
+        TelemetryProjectionTask task = new TelemetryProjectionTask();
+        task.setProjectionType(TelemetryProjectionTask.ProjectionType.AGGREGATE);
+        task.setPoints(List.of(
+                measurePoint("temperature", "娓╁害", 26.5D, null,
+                        LocalDateTime.of(2026, 4, 1, 10, 5), "trace-1")
+        ));
+        doThrow(new IllegalStateException("write failed"))
+                .when(jdbcTemplate)
+                .batchUpdate(eq("INSERT INTO tb_ah_1_2001 (ts, metric_id, metric_code, metric_name, value_type, first_reported_at, last_reported_at,"
+                        + " min_value_double, max_value_double, sum_value_double, last_value_double, sample_count,"
+                        + " trace_id, source_message_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"), any(List.class));
+
+        assertDoesNotThrow(() -> projector.project(task));
+
+        verify(schemaSupport, times(1)).ensureChildTable(any());
+        verify(jdbcTemplate, times(1)).batchUpdate(anyString(), any(List.class));
     }
 
     private void stubExistingRows(Function<String, ExistingAggregateRow> rowResolver) {

@@ -120,6 +120,21 @@ class TelemetryWriteFanoutServiceTest {
     }
 
     @Test
+    void shouldIgnoreAggregateDispatchFailureAndContinueOtherDownstreams() {
+        when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(true);
+        when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(false);
+        when(storageModeResolver.isAggregateHourlyEnabled()).thenReturn(true);
+        when(storageModeResolver.isColdArchiveEnabled()).thenReturn(false);
+        doThrow(new IllegalStateException("aggregate failed")).when(telemetryAggregateProjector).project(any());
+
+        assertDoesNotThrow(() -> telemetryWriteFanoutService.fanout(buildTarget(), List.of(point())));
+
+        verify(projectionQueue, times(2)).publish(any());
+        verify(telemetryLatestProjector).project(any());
+        verify(telemetryAggregateProjector).project(any());
+    }
+
+    @Test
     void shouldSkipAllDownstreamWhenDisabled() {
         when(storageModeResolver.isLatestMysqlProjectionEnabled()).thenReturn(false);
         when(storageModeResolver.isLegacyMirrorEnabled()).thenReturn(false);
