@@ -70,6 +70,7 @@ CREATE TABLE sys_tenant (
 CREATE TABLE sys_user (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    org_id BIGINT DEFAULT NULL COMMENT '主机构ID',
     username VARCHAR(64) NOT NULL COMMENT '用户名',
     password VARCHAR(255) NOT NULL COMMENT '密码',
     nickname VARCHAR(64) DEFAULT NULL COMMENT '昵称',
@@ -89,6 +90,7 @@ CREATE TABLE sys_user (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_username_tenant (tenant_id, username),
+    KEY idx_user_org_id (org_id),
     KEY idx_phone (phone),
     KEY idx_email (email),
     KEY idx_user_deleted_status_create_time (deleted, status, create_time, id)
@@ -100,6 +102,7 @@ CREATE TABLE sys_role (
     role_name VARCHAR(100) NOT NULL COMMENT '角色名称',
     role_code VARCHAR(100) NOT NULL COMMENT '角色编码',
     description VARCHAR(500) DEFAULT NULL COMMENT '角色描述',
+    data_scope_type VARCHAR(32) NOT NULL DEFAULT 'TENANT' COMMENT '数据范围类型',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',
     create_by BIGINT DEFAULT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

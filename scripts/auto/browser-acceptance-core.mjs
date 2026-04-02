@@ -593,7 +593,8 @@ export async function runBrowserAcceptance({
         waitUntil: 'domcontentloaded'
       });
       await waitForPageReady(page, {
-        expectedPath: '/products'
+        expectedPath: '/products',
+        readySelector: '#quick-search'
       });
       const deviceMenuLink = page.locator('.side-menu__item[href="/devices"]').first();
       if ((await deviceMenuLink.count()) > 0) {

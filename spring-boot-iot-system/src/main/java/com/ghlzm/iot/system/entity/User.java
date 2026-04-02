@@ -22,9 +22,13 @@ public class User implements Serializable {
 
       private Long tenantId;
 
+      private Long orgId;
+
       private String username;
 
       private String password;
+
+      private String nickname;
 
       private String realName;
 
@@ -32,14 +36,17 @@ public class User implements Serializable {
 
       private String email;
 
-      @TableField(exist = false)
       private String avatar;
 
       private Integer status;
 
+      private Integer isAdmin;
+
       private Date lastLoginTime;
 
       private String lastLoginIp;
+
+      private String remark;
 
       private Long createBy;
 
@@ -51,6 +58,9 @@ public class User implements Serializable {
 
       @TableLogic
       private Integer deleted;
+
+      @TableField(exist = false)
+      private String orgName;
 
       @TableField(exist = false)
       private List<Long> roleIds;

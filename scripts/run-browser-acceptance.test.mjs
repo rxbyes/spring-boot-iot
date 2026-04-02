@@ -84,3 +84,24 @@ test('automation plan source no longer uses removed console page title selector 
   assert.doesNotMatch(automationPlanSource, /#device-product-key/);
   assert.match(automationPlanSource, /readySelector:\s*'#quick-search'/);
 });
+
+test('device route preload in browser core uses current product ready selector', () => {
+  const browserCoreSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-acceptance-core.mjs'),
+    'utf8'
+  );
+
+  assert.match(
+    browserCoreSource,
+    /waitForPageReady\(page,\s*\{\s*expectedPath:\s*'\/products',\s*readySelector:\s*'#quick-search'/s
+  );
+});
+
+test('selectOption handler supports Element Plus select triggers', () => {
+  const configDrivenSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-config-driven.mjs'),
+    'utf8'
+  );
+
+  assert.match(configDrivenSource, /locator\.locator\('\.el-select__wrapper, \.el-select__selection, \.el-input__wrapper'/);
+});

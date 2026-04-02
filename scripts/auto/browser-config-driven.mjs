@@ -472,9 +472,32 @@ function registerBuiltinPlanStepHandlers() {
 
   registerPlanStepHandler('selectOption', async ({ step, page, utils }) => {
     const locator = utils.resolveLocator(page, step.locator);
-    await locator.click();
     const optionText = utils.interpolateTemplate(step.optionText || '');
-    await page.locator('.el-select-dropdown__item', { hasText: optionText }).first().click();
+    const timeout = step.timeout || 30000;
+    const selectContainer = locator.locator('xpath=ancestor::*[contains(@class, "el-select")][1]').first();
+    const selectTrigger = (await selectContainer.count()) > 0
+      ? selectContainer.locator('.el-select__wrapper, .el-select__selection, .el-input__wrapper').first()
+      : locator.locator('.el-select__wrapper, .el-select__selection, .el-input__wrapper').first();
+
+    if ((await selectTrigger.count()) > 0) {
+      await selectTrigger.click({ timeout });
+    } else {
+      try {
+        await locator.click({ timeout });
+      } catch {
+        await locator.focus();
+        await locator.press('ArrowDown');
+      }
+    }
+
+    const dropdownOption = page.locator('.el-select-dropdown__item', { hasText: optionText }).first();
+    const roleOption = page.getByRole('option', { name: optionText, exact: true }).first();
+    const targetOption = (await dropdownOption.count()) > 0 ? dropdownOption : roleOption;
+    await targetOption.waitFor({
+      state: 'visible',
+      timeout
+    });
+    await targetOption.click({ timeout });
     return {
       optionText
     };

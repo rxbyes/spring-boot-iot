@@ -171,4 +171,39 @@ class PermissionServiceImplTest {
 
         assertEquals("/alarm-center", context.getHomePath());
     }
+
+    @Test
+    void shouldExposeTenantOrganizationAndScopeSummary() {
+        Long userId = 1004L;
+        User user = new User();
+        user.setId(userId);
+        user.setTenantId(1L);
+        user.setOrgId(5001L);
+        user.setUsername("manager-demo");
+        user.setNickname("运营管理负责人");
+        user.setRealName("管理演示账号");
+        user.setPhone("13800000002");
+        user.setEmail("manager_demo@ghlzm.com");
+        user.setLastLoginIp("10.10.10.8");
+        user.setDeleted(0);
+
+        Role role = new Role();
+        role.setId(3003L);
+        role.setRoleCode("MANAGEMENT_STAFF");
+        role.setRoleName("管理人员");
+        role.setDataScopeType("ORG_AND_CHILDREN");
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
+        when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        UserAuthContextVO context = permissionService.getUserAuthContext(userId);
+
+        assertEquals(1L, context.getTenantId());
+        assertEquals(5001L, context.getOrgId());
+        assertEquals("运营管理负责人", context.getNickname());
+        assertEquals("ORG_AND_CHILDREN", context.getDataScopeType());
+        assertTrue(context.getDataScopeSummary().contains("机构"));
+    }
 }
