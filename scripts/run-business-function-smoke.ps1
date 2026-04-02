@@ -1,5 +1,7 @@
 ﻿param(
-    [string]$BaseUrl = 'http://localhost:9999'
+    [string]$BaseUrl = 'http://localhost:9999',
+    [string[]]$PointFilter = @(),
+    [string[]]$ModuleFilter = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +13,14 @@ $repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 $outDir = Join-Path $repoRoot 'logs\acceptance'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 $script:authHeaders = @{}
+$script:selectedPoints = @($PointFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
+$script:selectedModules = @($ModuleFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim().ToLowerInvariant() })
+$script:modulePointMap = @{
+    'env'    = @('ENV')
+    'device' = @('IOT-PRODUCT', 'IOT-DEVICE', 'INGEST-HTTP', 'MQTT-DOWN')
+    'alarm'  = @('ALARM', 'EVENT', 'RISK-POINT', 'RULE-DEFINITION', 'LINKAGE-RULE', 'EMERGENCY-PLAN', 'REPORT')
+    'system' = @('SYS-ORG', 'SYS-USER', 'SYS-ROLE', 'SYS-REGION', 'SYS-DICT', 'SYS-CHANNEL', 'SYS-AUDIT')
+}
 
 $results = New-Object System.Collections.Generic.List[object]
 
@@ -44,6 +54,31 @@ function Trim-Text {
     return $s
 }
 
+function Should-RunPoint {
+    param([string]$Point)
+
+    if ([string]::IsNullOrWhiteSpace($Point)) {
+        return $true
+    }
+
+    if ($script:selectedPoints.Count -gt 0 -and ($script:selectedPoints -notcontains $Point)) {
+        return $false
+    }
+
+    if ($script:selectedModules.Count -eq 0) {
+        return $true
+    }
+
+    foreach ($module in $script:selectedModules) {
+        $points = @($script:modulePointMap[$module])
+        if ($points -contains $Point) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 function Invoke-Step {
     param(
         [string]$Point,
@@ -54,6 +89,9 @@ function Invoke-Step {
         [bool]$Critical = $true,
         [int]$TimeoutSec = 30
     )
+    if (-not (Should-RunPoint -Point $Point)) {
+        return $null
+    }
     $url = "$baseUrl$Path"
     try {
         $headers = @{}
@@ -116,6 +154,9 @@ function Skip-Step {
         [string]$Reason,
         [bool]$Critical = $true
     )
+    if (-not (Should-RunPoint -Point $Point)) {
+        return
+    }
     Add-Result -Point $Point -Case $Case -Method $Method -Path $Path -Critical $Critical -Status 'FAIL' -Detail ("SKIP: $Reason")
 }
 
