@@ -2,9 +2,12 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.ChangePasswordDTO;
+import com.ghlzm.iot.system.dto.UserProfileUpdateDTO;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.service.UserService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -82,6 +85,14 @@ public class UserController {
       @PostMapping("/reset-password/{userId}")
       public R<Void> resetPassword(@PathVariable Long userId) {
             userService.resetPassword(userId);
+            return R.ok();
+      }
+
+      @PutMapping("/profile")
+      public R<Void> updateCurrentUserProfile(@RequestBody UserProfileUpdateDTO dto,
+                                             Authentication authentication) {
+            JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+            userService.updateCurrentUserProfile(principal.userId(), dto);
             return R.ok();
       }
 }

@@ -712,3 +712,30 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 17. 浏览器自动化巡检记录（2026-04-02）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-02 15:49:56（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260402154956.json`
+- `logs/acceptance/config-browser-results-20260402154956.json`
+- `logs/acceptance/config-browser-report-20260402154956.md`
+- `logs/acceptance/config-browser-screenshots-20260402154956/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

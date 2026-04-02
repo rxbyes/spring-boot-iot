@@ -164,3 +164,66 @@ export interface AutomationPageCoverageSummary {
   uncoveredPages: number;
   uncoveredRoutes: string[];
 }
+
+export type AcceptanceRegistryRunnerType =
+  | 'browserPlan'
+  | 'apiSmoke'
+  | 'messageFlow'
+  | 'riskDrill'
+  | string;
+
+export type AcceptanceRegistryBlockingLevel = 'blocker' | 'warning' | 'info' | string;
+
+export interface AcceptanceRegistryScenario {
+  id: string;
+  title: string;
+  module?: string;
+  docRef?: string;
+  runnerType: AcceptanceRegistryRunnerType;
+  scope: string;
+  blocking: AcceptanceRegistryBlockingLevel;
+  dependsOn: string[];
+  inputs?: Record<string, unknown>;
+  evidence?: string[];
+  timeouts?: Record<string, unknown>;
+  runner?: Record<string, unknown>;
+}
+
+export interface AcceptanceRegistryDocument {
+  version: string;
+  generatedAt?: string;
+  defaultTarget?: Record<string, unknown>;
+  scenarios: AcceptanceRegistryScenario[];
+}
+
+export interface AcceptanceRegistrySummary {
+  total: number;
+  blockerCount: number;
+  byRunner: Record<string, number>;
+}
+
+export interface AcceptanceRegistryRunResult {
+  scenarioId: string;
+  runnerType?: AcceptanceRegistryRunnerType;
+  status: string;
+  blocking: AcceptanceRegistryBlockingLevel;
+  summary?: string;
+  evidenceFiles?: string[];
+  details?: Record<string, unknown>;
+}
+
+export interface AcceptanceRegistryRunSummary {
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  results: AcceptanceRegistryRunResult[];
+  reportPath?: string;
+  exitCode?: number;
+}
+
+export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRunSummary {
+  failedScenarioIds: string[];
+  failedResults: AcceptanceRegistryRunResult[];
+}

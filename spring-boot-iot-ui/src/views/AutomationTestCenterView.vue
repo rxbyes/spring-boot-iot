@@ -58,6 +58,18 @@
       <AutomationSuggestionPanel :suggestions="suggestions" />
     </section>
 
+    <section class="two-column-grid">
+      <AutomationRegistryPanel
+        :scenarios="registryScenarios"
+        :summary="registrySummary"
+      />
+      <AutomationResultImportPanel
+        :imported-run="importedRun"
+        @import-json="importRegistryRunSummary"
+        @clear="clearImportedRun"
+      />
+    </section>
+
     <section>
       <AutomationPageDiscoveryPanel
         ref="inventoryTableRef"
@@ -173,6 +185,8 @@ import AutomationExecutionConfigPanel from '../components/AutomationExecutionCon
 import AutomationManualPageDrawer from '../components/AutomationManualPageDrawer.vue';
 import AutomationPlanImportDrawer from '../components/AutomationPlanImportDrawer.vue';
 import AutomationPageDiscoveryPanel from '../components/AutomationPageDiscoveryPanel.vue';
+import AutomationRegistryPanel from '../components/AutomationRegistryPanel.vue';
+import AutomationResultImportPanel from '../components/AutomationResultImportPanel.vue';
 import AutomationScenarioEditor from '../components/AutomationScenarioEditor.vue';
 import AutomationSuggestionPanel from '../components/AutomationSuggestionPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
@@ -184,6 +198,7 @@ import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { useAutomationPlanBuilder } from '../composables/useAutomationPlanBuilder';
+import { useAutomationRegistryWorkbench } from '../composables/useAutomationRegistryWorkbench';
 
 const {
   scopeOptions,
@@ -227,6 +242,14 @@ const {
   resetPlan,
   applyImport
 } = useAutomationPlanBuilder();
+
+const {
+  registryScenarios,
+  registrySummary,
+  importedRun,
+  importRegistryRunSummary,
+  clearImportedRun
+} = useAutomationRegistryWorkbench();
 </script>
 
 <style scoped>

@@ -7,13 +7,13 @@ import com.ghlzm.iot.system.service.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Objects;
-
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,17 +55,18 @@ class UserServiceImplTest {
                 "/avatars/admin.png"
         ));
 
-        verify(userMapper).updateById(argThat(user ->
-                Objects.equals(user.getId(), 1L)
-                        && Objects.equals(user.getNickname(), "新昵称")
-                        && Objects.equals(user.getRealName(), "超级管理员")
-                        && Objects.equals(user.getPhone(), "13800000000")
-                        && Objects.equals(user.getEmail(), "admin@ghlzm.com")
-                        && Objects.equals(user.getAvatar(), "/avatars/admin.png")
-                        && user.getUsername() == null
-                        && user.getStatus() == null
-                        && user.getOrgId() == null
-        ));
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userMapper).updateById(userCaptor.capture());
+        User updated = userCaptor.getValue();
+        assertEquals(1L, updated.getId());
+        assertEquals("新昵称", updated.getNickname());
+        assertEquals("超级管理员", updated.getRealName());
+        assertEquals("13800000000", updated.getPhone());
+        assertEquals("admin@ghlzm.com", updated.getEmail());
+        assertEquals("/avatars/admin.png", updated.getAvatar());
+        assertNull(updated.getUsername());
+        assertNull(updated.getStatus());
+        assertNull(updated.getOrgId());
         verifyNoInteractions(permissionService);
     }
 }

@@ -178,6 +178,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             userMapper.updateById(user);
       }
 
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void updateCurrentUserProfile(Long userId, UserProfileUpdateDTO dto) {
+            User existingUser = userMapper.selectById(userId);
+            if (existingUser == null || Integer.valueOf(1).equals(existingUser.getDeleted())) {
+                  throw new BizException("用户不存在或已失效");
+            }
+
+            User updateUser = new User();
+            updateUser.setId(userId);
+            updateUser.setNickname(normalizeNullable(dto.nickname()));
+            updateUser.setRealName(normalizeNullable(dto.realName()));
+            updateUser.setPhone(normalizeNullable(dto.phone()));
+            updateUser.setEmail(normalizeNullable(dto.email()));
+            updateUser.setAvatar(normalizeNullable(dto.avatar()));
+            updateUser.setUpdateTime(new Date());
+            userMapper.updateById(updateUser);
+      }
+
       private LambdaQueryWrapper<User> buildUserQueryWrapper(String username, String phone, String email, Integer status) {
             LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
             if (StringUtils.hasText(username)) {
@@ -208,5 +227,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   List<RoleSummaryVO> roles = roleMap.getOrDefault(user.getId(), List.of());
                   user.setRoleNames(roles.stream().map(RoleSummaryVO::getRoleName).collect(Collectors.toList()));
             }
+      }
+
+      private String normalizeNullable(String value) {
+            if (!StringUtils.hasText(value)) {
+                  return null;
+            }
+            return value.trim();
       }
 }

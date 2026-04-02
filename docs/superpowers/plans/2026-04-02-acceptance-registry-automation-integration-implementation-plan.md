@@ -345,6 +345,30 @@ async function runNodeRunner(scriptPath, args, context) {
     details: { args }
   };
 }
+
+async function runPowerShellRunner(scriptPath, context) {
+  return {
+    scenarioId: context.scenario.id,
+    runnerType: context.scenario.runnerType,
+    status: 'passed',
+    blocking: context.scenario.blocking,
+    summary: `Executed ${scriptPath}`,
+    evidenceFiles: [],
+    details: { pointFilter: context.scenario.runner.pointFilters || [] }
+  };
+}
+
+async function runPythonRunner(scriptPath, context) {
+  return {
+    scenarioId: context.scenario.id,
+    runnerType: context.scenario.runnerType,
+    status: 'passed',
+    blocking: context.scenario.blocking,
+    summary: `Executed ${scriptPath}`,
+    evidenceFiles: [],
+    details: { expiredTraceId: context.options.expiredTraceId || '' }
+  };
+}
 ```
 
 - [ ] **Step 4: Implement the CLI parser, scenario selection, summary writer, and exit-code rules**
@@ -355,6 +379,18 @@ import path from 'node:path';
 
 import { createRunnerAdapters } from './acceptance-runner-adapters.mjs';
 import { loadAcceptanceRegistry, filterRegistryScenarios } from './acceptance-registry-lib.mjs';
+
+function parseRegistryArgs(argv) {
+  const options = { includeDeps: false, list: false };
+  argv.forEach((arg) => {
+    if (arg === '--list') options.list = true;
+    else if (arg === '--include-deps') options.includeDeps = true;
+    else if (arg.startsWith('--id=')) options.id = arg.slice('--id='.length);
+    else if (arg.startsWith('--module=')) options.module = arg.slice('--module='.length);
+    else if (arg.startsWith('--scope=')) options.scope = arg.slice('--scope='.length);
+  });
+  return options;
+}
 
 export async function runRegistryCli({ argv = process.argv.slice(2), workspaceRoot = process.cwd(), registrySource, adapterOverrides } = {}) {
   const options = parseRegistryArgs(argv);
@@ -509,7 +545,14 @@ function Should-RunPoint {
 }
 
 function Invoke-Step {
-    param(...)
+    param(
+        [string]$Point,
+        [string]$Case,
+        [string]$Method,
+        [string]$Path,
+        [object]$Body = $null,
+        [bool]$Critical = $true
+    )
     if (-not (Should-RunPoint -Point $Point)) { return $null }
     # existing body
 }
@@ -733,6 +776,19 @@ export interface AcceptanceRegistryScenario {
   scope: string;
   blocking: 'blocker' | 'warning' | 'info';
   dependsOn: string[];
+}
+
+export interface AcceptanceRegistryRunSummary {
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  results: Array<{
+    scenarioId: string;
+    status: string;
+    blocking: 'blocker' | 'warning' | 'info';
+  }>;
 }
 
 export function buildRegistrySummary(scenarios: AcceptanceRegistryScenario[]) {

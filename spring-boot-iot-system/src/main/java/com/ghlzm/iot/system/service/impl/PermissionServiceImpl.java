@@ -7,11 +7,16 @@ import com.ghlzm.iot.system.dto.RoleMenuBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleViewDTO;
 import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.entity.Role;
+import com.ghlzm.iot.system.entity.Tenant;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.mapper.MenuMapper;
+import com.ghlzm.iot.system.mapper.OrganizationMapper;
 import com.ghlzm.iot.system.mapper.RoleMapper;
 import com.ghlzm.iot.system.mapper.RoleMenuMapper;
+import com.ghlzm.iot.system.mapper.TenantMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.PermissionService;
@@ -63,6 +68,8 @@ public class PermissionServiceImpl implements PermissionService {
     private final MenuMapper menuMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final TenantMapper tenantMapper;
+    private final OrganizationMapper organizationMapper;
     private final ObjectMapper objectMapper;
 
     public PermissionServiceImpl(UserMapper userMapper,
@@ -70,12 +77,16 @@ public class PermissionServiceImpl implements PermissionService {
                                  MenuMapper menuMapper,
                                  UserRoleMapper userRoleMapper,
                                  RoleMenuMapper roleMenuMapper,
+                                 TenantMapper tenantMapper,
+                                 OrganizationMapper organizationMapper,
                                  ObjectMapper objectMapper) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
         this.userRoleMapper = userRoleMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.tenantMapper = tenantMapper;
+        this.organizationMapper = organizationMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -113,14 +124,27 @@ public class PermissionServiceImpl implements PermissionService {
 
         UserAuthContextVO context = new UserAuthContextVO();
         context.setUserId(user.getId());
+        context.setTenantId(user.getTenantId());
+        context.setTenantName(resolveTenantName(user.getTenantId()));
+        context.setOrgId(user.getOrgId());
+        context.setOrgName(resolveOrganizationName(user.getOrgId()));
         context.setUsername(user.getUsername());
+        context.setNickname(user.getNickname());
         context.setRealName(user.getRealName());
-        context.setDisplayName(StringUtils.hasText(user.getRealName()) ? user.getRealName() : user.getUsername());
+        context.setDisplayName(resolveDisplayName(user));
         context.setPhone(user.getPhone());
         context.setEmail(user.getEmail());
+        context.setAvatar(user.getAvatar());
+        context.setLastLoginTime(user.getLastLoginTime());
+        context.setLastLoginIp(user.getLastLoginIp());
+        context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
         context.setAccountType(superAdmin ? "主账号" : "子账号");
         context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
         context.setLoginMethods(buildLoginMethods(user));
+        context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
+        DataScopeType scopeType = resolveHighestScope(roles);
+        context.setDataScopeType(scopeType.name());
+        context.setDataScopeSummary(scopeType.getLabel());
         context.setSuperAdmin(superAdmin);
         context.setHomePath(resolveHomePath(roles, navigationMenus));
         context.setRoles(roles.stream().map(this::toRoleSummary).toList());
@@ -260,6 +284,43 @@ public class PermissionServiceImpl implements PermissionService {
             methods.add("手机号登录");
         }
         return methods;
+    }
+
+    private String resolveTenantName(Long tenantId) {
+        if (tenantId == null) {
+            return null;
+        }
+        Tenant tenant = tenantMapper.selectById(tenantId);
+        return tenant == null ? null : tenant.getTenantName();
+    }
+
+    private String resolveOrganizationName(Long orgId) {
+        if (orgId == null) {
+            return null;
+        }
+        Organization organization = organizationMapper.selectById(orgId);
+        return organization == null ? null : organization.getOrgName();
+    }
+
+    private String resolveDisplayName(User user) {
+        if (StringUtils.hasText(user.getNickname())) {
+            return user.getNickname();
+        }
+        if (StringUtils.hasText(user.getRealName())) {
+            return user.getRealName();
+        }
+        return user.getUsername();
+    }
+
+    private DataScopeType resolveHighestScope(List<Role> roles) {
+        if (CollectionUtils.isEmpty(roles)) {
+            return DataScopeType.SELF;
+        }
+        DataScopeType scopeType = DataScopeType.SELF;
+        for (Role role : roles) {
+            scopeType = DataScopeType.pickHigher(scopeType, DataScopeType.fromCode(role.getDataScopeType()));
+        }
+        return scopeType;
     }
 
     private Set<Long> expandWithAncestors(Collection<Long> menuIds, Map<Long, Menu> menuMap) {
