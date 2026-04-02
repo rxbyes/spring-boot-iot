@@ -212,6 +212,12 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/quality-workbench')
   },
   {
+    path: '/automation-assets',
+    name: 'automation-assets',
+    component: () => import('../views/AutomationAssetsView.vue'),
+    meta: routeMeta('/automation-assets')
+  },
+  {
     path: '/automation-test',
     name: 'automation-test',
     component: () => import('../views/AutomationTestCenterView.vue'),
