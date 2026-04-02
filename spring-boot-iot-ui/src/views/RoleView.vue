@@ -156,6 +156,11 @@
               label="角色描述"
               :min-width="220"
             />
+            <StandardTableTextColumn prop="dataScopeType" label="数据范围" :width="150">
+              <template #default="{ row }">
+                {{ resolveDataScopeLabel(row.dataScopeType) }}
+              </template>
+            </StandardTableTextColumn>
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -250,6 +255,19 @@
               :rows="4"
               placeholder="请输入角色描述"
             />
+          </el-form-item>
+          <el-form-item label="数据范围" prop="dataScopeType">
+            <el-select
+              v-model="formData.dataScopeType"
+              placeholder="请选择数据范围"
+            >
+              <el-option
+                v-for="item in dataScopeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
@@ -476,6 +494,7 @@ interface RoleFormData {
   roleName: string;
   roleCode: string;
   description: string;
+  dataScopeType: string;
   status: number;
   menuIds: number[];
 }
@@ -517,6 +536,11 @@ const exportColumns: CsvColumn<Role>[] = [
   { key: "roleCode", label: "角色编码" },
   { key: "description", label: "角色描述" },
   {
+    key: "dataScopeType",
+    label: "数据范围",
+    formatter: (value) => resolveDataScopeLabel(String(value || "")),
+  },
+  {
     key: "status",
     label: "状态",
     formatter: (value) => (Number(value) === 1 ? "启用" : "禁用"),
@@ -531,10 +555,10 @@ const exportPresets = [
     label: "默认模板",
     keys: exportColumns.map((column) => String(column.key)),
   },
-  { label: "运维模板", keys: ["roleName", "roleCode", "status", "updateTime"] },
+  { label: "运维模板", keys: ["roleName", "roleCode", "dataScopeType", "status", "updateTime"] },
   {
     label: "管理模板",
-    keys: ["roleName", "roleCode", "description", "status", "createTime"],
+    keys: ["roleName", "roleCode", "description", "dataScopeType", "status", "createTime"],
   },
 ];
 const selectedExportColumnKeys = ref<string[]>(
@@ -556,6 +580,13 @@ const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
 const menuTreeData = ref<RoleMenuTreeNode[]>([]);
 const menuKeyword = ref("");
+const dataScopeOptions = [
+  { label: "全局", value: "ALL" },
+  { label: "租户内全部", value: "TENANT" },
+  { label: "本机构及下级", value: "ORG_AND_CHILDREN" },
+  { label: "仅本机构", value: "ORG" },
+  { label: "仅本人", value: "SELF" },
+];
 
 const formData = ref<RoleFormData>(createEmptyRoleForm());
 const menuTreeProps = {
@@ -612,6 +643,7 @@ const emptyStateDescription = computed(() =>
 const formRules = {
   roleName: [{ required: true, message: "请输入角色名称", trigger: "blur" }],
   roleCode: [{ required: true, message: "请输入角色编码", trigger: "blur" }],
+  dataScopeType: [{ required: true, message: "请选择数据范围", trigger: "change" }],
 };
 
 watch(menuKeyword, (keyword) => {
@@ -624,6 +656,7 @@ function createEmptyRoleForm(): RoleFormData {
     roleName: "",
     roleCode: "",
     description: "",
+    dataScopeType: "TENANT",
     status: 1,
     menuIds: [],
   };
@@ -837,6 +870,7 @@ async function handleEdit(row: Role) {
         roleName: res.data.roleName,
         roleCode: res.data.roleCode,
         description: res.data.description || "",
+        dataScopeType: res.data.dataScopeType || "TENANT",
         status: Number(res.data.status ?? 1),
         menuIds: Array.isArray(res.data.menuIds) ? res.data.menuIds : [],
       });
@@ -931,6 +965,13 @@ function menuTypeTagType(type?: number) {
   return "info";
 }
 
+function resolveDataScopeLabel(dataScopeType?: string) {
+  return (
+    dataScopeOptions.find((item) => item.value === dataScopeType)?.label ||
+    "租户内全部"
+  );
+}
+
 async function handleSubmit() {
   if (!formRef.value) {
     return;
@@ -946,7 +987,12 @@ async function handleSubmit() {
   submitLoading.value = true;
   try {
     const payload = {
-      ...formData.value,
+      id: formData.value.id,
+      roleName: formData.value.roleName,
+      roleCode: formData.value.roleCode,
+      description: formData.value.description,
+      dataScopeType: formData.value.dataScopeType,
+      status: formData.value.status,
       menuIds: [...formData.value.menuIds],
     };
     const res = payload.id ? await updateRole(payload) : await addRole(payload);

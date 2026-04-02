@@ -72,7 +72,7 @@ const props = withDefaults(
     directItems: () => [],
     menuItems: () => [],
     menuLabel: '更多',
-    maxDirectItems: 2
+    maxDirectItems: 3
   }
 )
 

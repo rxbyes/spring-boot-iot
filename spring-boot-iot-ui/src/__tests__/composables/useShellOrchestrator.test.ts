@@ -62,17 +62,22 @@ describe('useShellOrchestrator', () => {
     };
     const accountCenterState: ShellAccountCenterState = {
       showAccountDialog: ref(false),
-      showRealNameAuthDialog: ref(false),
-      showLoginMethodsDialog: ref(false),
       showChangePasswordDialog: ref(false),
       passwordSubmitting: ref(false),
+      profileSubmitting: ref(false),
       headerIdentity: computed(() => '当前角色：运维人员'),
       accountSummary: computed(() => ({
         name: '测试账号',
         roleName: '运维人员',
         code: 'ops_demo',
         type: 'sub-account',
+        tenantName: '默认租户',
+        orgName: '平台治理中心',
+        nickname: '测试昵称',
         authStatus: 'verified',
+        dataScopeSummary: '租户内全部',
+        lastLoginTime: '2026-04-02 09:00:00',
+        lastLoginIp: '10.10.10.8',
         primaryContact: '13800000000',
         loginMethods: 'account',
         initial: '测',
@@ -82,11 +87,10 @@ describe('useShellOrchestrator', () => {
         email: 'ops@example.com'
       })),
       openAccountCenter: vi.fn(),
-      openRealNameAuth: vi.fn(),
-      openLoginMethods: vi.fn(),
       openChangePasswordDialog: vi.fn(),
       closeAccountOverlays,
       closeChangePasswordDialog: vi.fn(),
+      submitProfileUpdate: vi.fn(async () => undefined),
       submitChangePassword: vi.fn(async () => undefined),
       handleLogout: vi.fn()
     };

@@ -54,19 +54,21 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     ).toBe(152)
   })
 
-  it('splits row actions into two direct entries plus a more-menu payload', () => {
+  it('keeps three direct actions visible and folds only the fourth action into more', () => {
     expect(
       splitWorkbenchRowActions({
         directItems: [
           { command: 'detail', label: '详情' },
           { command: 'edit', label: '编辑' },
+          { command: 'reset-password', label: '重置密码' },
           { command: 'delete', label: '删除' }
         ]
       })
     ).toEqual({
       directItems: [
         { command: 'detail', label: '详情' },
-        { command: 'edit', label: '编辑' }
+        { command: 'edit', label: '编辑' },
+        { command: 'reset-password', label: '重置密码' }
       ],
       menuItems: [{ command: 'delete', label: '删除', disabled: undefined, key: undefined }]
     })
@@ -152,7 +154,7 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     ).toBe(112)
   })
 
-  it('keeps the three-action desktop width when at least one current row still overflows into more', () => {
+  it('keeps the three-action desktop width when rows now render three direct actions without overflow', () => {
     expect(
       resolveWorkbenchActionColumnWidthByRows({
         rows: [

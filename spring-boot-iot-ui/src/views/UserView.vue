@@ -140,11 +140,18 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="username" label="用户名" :width="150" />
+            <StandardTableTextColumn prop="nickname" label="昵称" :width="140" />
             <StandardTableTextColumn
               prop="realName"
               label="真实姓名"
               :width="120"
             />
+            <StandardTableTextColumn prop="orgName" label="主机构" :width="180" />
+            <StandardTableTextColumn label="角色绑定" :min-width="180">
+              <template #default="{ row }">
+                {{ (row.roleNames || []).join(" / ") || "未绑定角色" }}
+              </template>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="phone" label="手机号" :width="150" />
             <StandardTableTextColumn prop="email" label="邮箱" :width="200" />
             <el-table-column prop="status" label="状态" width="100">
@@ -228,8 +235,42 @@
         <el-form-item label="用户名" prop="username">
           <el-input v-model="formData.username" placeholder="请输入用户名" />
         </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="formData.nickname" placeholder="请输入昵称" />
+        </el-form-item>
         <el-form-item label="真实姓名" prop="realName">
           <el-input v-model="formData.realName" placeholder="请输入真实姓名" />
+        </el-form-item>
+        <el-form-item label="主机构" prop="orgId">
+          <el-select
+            v-model="formData.orgId"
+            placeholder="请选择主机构"
+            filterable
+            clearable
+          >
+            <el-option
+              v-for="item in organizationOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="角色绑定" prop="roleIds">
+          <el-select
+            v-model="formData.roleIds"
+            placeholder="请选择角色"
+            filterable
+            multiple
+            clearable
+          >
+            <el-option
+              v-for="item in roleOptions"
+              :key="item.id"
+              :label="item.roleName"
+              :value="Number(item.id)"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="formData.phone" placeholder="请输入手机号" />
@@ -308,6 +349,8 @@ import { useServerPagination } from "@/composables/useServerPagination";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
 import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 import { usePermissionStore } from "@/stores/permission";
+import { listOrganizationTree, type Organization } from "@/api/organization";
+import { listRoles, type Role } from "@/api/role";
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -340,6 +383,8 @@ const dialogTitle = ref("新增用户");
 const tableData = ref<User[]>([]);
 const selectedRows = ref<User[]>([]);
 const permissionStore = usePermissionStore();
+const organizationOptions = ref<Array<{ label: string; value: number }>>([]);
+const roleOptions = ref<Role[]>([]);
 const userActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
     { command: "edit", label: "编辑" },
@@ -365,16 +410,21 @@ const appliedFilters = reactive({
 const formData = ref<Partial<User>>({
   id: undefined,
   username: "",
+  nickname: "",
   realName: "",
+  orgId: undefined,
   phone: "",
   email: "",
   password: "",
   status: 1,
+  roleIds: [],
 });
 
 const formRules = {
   username: [{ required: true, message: "请输入用户名", trigger: "blur" }],
   realName: [{ required: true, message: "请输入真实姓名", trigger: "blur" }],
+  orgId: [{ required: true, message: "请选择主机构", trigger: "change" }],
+  roleIds: [{ required: true, message: "请至少绑定一个角色", trigger: "change" }],
   phone: [{ required: true, message: "请输入手机号", trigger: "blur" }],
   email: [{ required: true, message: "请输入邮箱", trigger: "blur" }],
   password: [{ required: true, message: "请输入密码", trigger: "blur" }],
@@ -463,7 +513,7 @@ const loadUserPage = async () => {
       return;
     }
     if (res.code === 200 && res.data) {
-      tableData.value = applyPageResult(res.data);
+      tableData.value = decorateUsers(applyPageResult(res.data));
       return;
     }
     tableData.value = [];
@@ -483,7 +533,7 @@ const loadUserPage = async () => {
 };
 
 onMounted(() => {
-  loadUserPage();
+  void Promise.all([loadUserPage(), loadOrganizationOptions(), loadRoleOptions()]);
 });
 
 const handleSearch = () => {
@@ -586,12 +636,14 @@ const resetFormData = (parent?: Partial<User>) => {
   formData.value = {
     id: parent?.id,
     username: parent?.username || "",
+    nickname: parent?.nickname || "",
     realName: parent?.realName || "",
+    orgId: parent?.orgId,
     phone: parent?.phone || "",
     email: parent?.email || "",
     password: "",
     status: parent?.status ?? 1,
-    roleIds: parent?.roleIds,
+    roleIds: parent?.roleIds || [],
   };
 };
 
@@ -678,5 +730,58 @@ const handleSizeChange = (size: number) => {
 const handlePageChange = (page: number) => {
   setPageNum(page);
   loadUserPage();
+};
+
+const decorateUsers = (rows: User[]) =>
+  rows.map((row) => ({
+    ...row,
+    orgName: row.orgName || resolveOrganizationName(Number(row.orgId)),
+  }));
+
+const resolveOrganizationName = (orgId?: number) => {
+  if (!orgId) {
+    return "未关联机构";
+  }
+  return (
+    organizationOptions.value.find((item) => item.value === Number(orgId))?.label ||
+    "未关联机构"
+  );
+};
+
+const flattenOrganizations = (
+  nodes: Organization[],
+  level = 0,
+): Array<{ label: string; value: number }> => {
+  return nodes.flatMap((item) => {
+    const prefix = level > 0 ? `${"　".repeat(level)}└ ` : "";
+    const current = [{ label: `${prefix}${item.orgName}`, value: Number(item.id) }];
+    const children = item.children?.length
+      ? flattenOrganizations(item.children, level + 1)
+      : [];
+    return [...current, ...children];
+  });
+};
+
+const loadOrganizationOptions = async () => {
+  try {
+    const res = await listOrganizationTree();
+    if (res.code === 200) {
+      organizationOptions.value = flattenOrganizations(res.data || []);
+      tableData.value = decorateUsers(tableData.value);
+    }
+  } catch (error) {
+    console.error("获取机构树失败", error);
+  }
+};
+
+const loadRoleOptions = async () => {
+  try {
+    const res = await listRoles();
+    if (res.code === 200) {
+      roleOptions.value = res.data || [];
+    }
+  } catch (error) {
+    console.error("获取角色列表失败", error);
+  }
 };
 </script>

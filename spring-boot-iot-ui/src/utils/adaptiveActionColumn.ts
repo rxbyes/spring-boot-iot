@@ -59,7 +59,7 @@ const WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT: Record<number, number> = {
   3: 160
 }
 const ACTION_WIDTH_STEP_PX = 8
-const DEFAULT_MAX_DIRECT_ITEMS = 2
+const DEFAULT_MAX_DIRECT_ITEMS = 3
 
 function estimateActionLabelWidth(label: string) {
   const textWidth = Array.from(label).reduce((sum, character) => {

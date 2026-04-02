@@ -230,7 +230,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       }
 
       private String normalizeNullable(String value) {
-            if (!StringUtils.hasText(value)) {
+            if (value == null) {
                   return null;
             }
             return value.trim();
