@@ -62,6 +62,40 @@ describe('shellPanelContent', () => {
     expect(itemPaths).toContain('/products');
   });
 
+  it('routes quality help entries through the overview instead of the legacy automation page', () => {
+    const content = buildShellHelpPopoverContent({
+      roleProfile: createRoleProfile({
+        key: 'developer',
+        label: '开发人员',
+        roleCodes: ['DEVELOPER_STAFF'],
+        roleNameKeywords: ['开发'],
+        defaultPath: '/device-access',
+        preferredWorkspaceKeys: ['iot-access', 'risk-config', 'quality-workbench'],
+        featuredPaths: ['/reporting', '/system-log', '/message-trace', '/quality-workbench'],
+        cockpitRole: 'rd',
+        focusLabel: '链路与质量',
+        focusDescription: '优先联调接入链路、异常观测、消息追踪和自动化回归。'
+      }),
+      homePath: '/quality-workbench',
+      currentPath: '/quality-workbench',
+      activeGroup: createActiveGroup({
+        key: 'quality-workbench',
+        label: '质量工场',
+        items: [
+          { to: '/automation-assets', label: '自动化资产中心', caption: 'caption', short: '资' },
+          { to: '/automation-execution', label: '执行中心', caption: 'caption', short: '执' }
+        ]
+      }),
+      allowedPaths: ['/quality-workbench', '/automation-assets', '/automation-execution', '/automation-results'],
+      activities: []
+    });
+
+    const itemPaths = content.sections.flatMap((section) => section.items.map((item) => item.path).filter(Boolean));
+
+    expect(itemPaths).toContain('/quality-workbench');
+    expect(itemPaths).not.toContain('/automation-test');
+  });
+
   it('places failed activities into the error notice section and keeps all notice sections', () => {
     const activities: ActivityEntry[] = [
       {
