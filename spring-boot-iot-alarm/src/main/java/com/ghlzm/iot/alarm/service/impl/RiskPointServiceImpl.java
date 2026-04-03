@@ -192,6 +192,12 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void bindDevice(RiskPointDevice riskPointDevice, Long currentUserId) {
+            bindDeviceAndReturn(riskPointDevice, currentUserId);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public RiskPointDevice bindDeviceAndReturn(RiskPointDevice riskPointDevice, Long currentUserId) {
             if (riskPointDevice == null || riskPointDevice.getRiskPointId() == null) {
                   throw new BizException("风险点不存在");
             }
@@ -222,6 +228,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             riskPointDevice.setUpdateTime(new Date());
             riskPointDevice.setDeleted(0);
             riskPointDeviceMapper.insert(riskPointDevice);
+            return riskPointDevice;
       }
 
       @Override

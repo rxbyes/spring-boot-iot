@@ -107,7 +107,7 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="planName" label="预案名称" :min-width="180" />
-            <StandardTableTextColumn prop="alarmLevel" label="适用告警等级" width="120">
+            <StandardTableTextColumn prop="alarmLevel" label="适用告警等级" :width="120">
               <template #default="{ row }">
                 <el-tag :type="getAlarmLevelType(row.alarmLevel || row.riskLevel)" round>
                   {{ getAlarmLevelText(row.alarmLevel || row.riskLevel) }}

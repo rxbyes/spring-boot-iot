@@ -29,9 +29,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -473,6 +475,54 @@ class RiskPointServiceImplTest {
 
         BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));
         assertEquals("设备已绑定到该风险点", error.getMessage());
+    }
+
+    @Test
+    void bindDeviceAndReturnShouldPersistAndReturnBinding() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setDeviceCode("DEVICE-2001");
+        request.setDeviceName("一号设备");
+        request.setMetricIdentifier("temperature");
+        request.setMetricName("温度");
+
+        doReturn(existingRiskPoint("RP-OLD-001")).when(service).getById(12L);
+        doReturn(existingRiskPoint("RP-OLD-001")).when(service).getById(12L, 1001L);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doAnswer(invocation -> {
+            RiskPointDevice saved = invocation.getArgument(0);
+            saved.setId(9003L);
+            return 1;
+        }).when(deviceMapper).insert(any(RiskPointDevice.class));
+
+        RiskPointDevice saved = service.bindDeviceAndReturn(request, 1001L);
+
+        assertNotNull(saved.getCreateTime());
+        assertNotNull(saved.getUpdateTime());
+        assertEquals(9003L, saved.getId());
+        assertEquals(0, saved.getDeleted());
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Long.valueOf(12L).equals(binding.getRiskPointId())
+                        && Long.valueOf(2001L).equals(binding.getDeviceId())
+                        && "temperature".equals(binding.getMetricIdentifier())
+                        && Integer.valueOf(0).equals(binding.getDeleted())
+                        && binding.getCreateTime() != null
+                        && binding.getUpdateTime() != null
+        ));
     }
 
     @Test

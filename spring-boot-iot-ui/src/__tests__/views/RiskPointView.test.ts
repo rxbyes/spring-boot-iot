@@ -10,6 +10,10 @@ const {
   mockUpdateRiskPoint,
   mockDeleteRiskPoint,
   mockBindDevice,
+  mockListPendingBindings,
+  mockGetPendingCandidates,
+  mockPromotePendingBinding,
+  mockIgnorePendingBinding,
   mockListOrganizationTree,
   mockListRegions,
   mockListRegionTree,
@@ -24,6 +28,10 @@ const {
   mockUpdateRiskPoint: vi.fn(),
   mockDeleteRiskPoint: vi.fn(),
   mockBindDevice: vi.fn(),
+  mockListPendingBindings: vi.fn(),
+  mockGetPendingCandidates: vi.fn(),
+  mockPromotePendingBinding: vi.fn(),
+  mockIgnorePendingBinding: vi.fn(),
   mockListOrganizationTree: vi.fn(),
   mockListRegions: vi.fn(),
   mockListRegionTree: vi.fn(),
@@ -39,7 +47,11 @@ vi.mock('@/api/riskPoint', () => ({
   addRiskPoint: mockAddRiskPoint,
   updateRiskPoint: mockUpdateRiskPoint,
   deleteRiskPoint: mockDeleteRiskPoint,
-  bindDevice: mockBindDevice
+  bindDevice: mockBindDevice,
+  listPendingBindings: mockListPendingBindings,
+  getPendingBindingCandidates: mockGetPendingCandidates,
+  promotePendingBinding: mockPromotePendingBinding,
+  ignorePendingBinding: mockIgnorePendingBinding
 }))
 
 vi.mock('@/api/iot', () => ({
@@ -345,6 +357,10 @@ describe('RiskPointView', () => {
     mockUpdateRiskPoint.mockReset()
     mockDeleteRiskPoint.mockReset()
     mockBindDevice.mockReset()
+    mockListPendingBindings.mockReset()
+    mockGetPendingCandidates.mockReset()
+    mockPromotePendingBinding.mockReset()
+    mockIgnorePendingBinding.mockReset()
     mockListOrganizationTree.mockReset()
     mockListRegions.mockReset()
     mockListRegionTree.mockReset()
@@ -659,6 +675,106 @@ describe('RiskPointView', () => {
     expect(drawerAfterEdit.text()).toContain('风险点编号')
     expect(drawerAfterEdit.text()).toContain('创建人编号')
     expect(drawerAfterEdit.text()).toContain('更新人编号')
+  })
+
+  it('loads pending bindings for the selected risk point and renders candidate evidence', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            metricIdentifier: 'dispsX',
+            metricName: 'X向位移',
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL', 'LATEST_PROPERTY', 'MESSAGE_LOG']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await (wrapper.vm as any).handleOpenPendingPromotion(createRiskPointRow())
+    await flushPromises()
+
+    expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
+    expect(wrapper.text()).toContain('待治理转正')
+    expect(wrapper.text()).toContain('X向位移')
+    expect(wrapper.text()).toContain('PRODUCT_MODEL')
+  })
+
+  it('submits the selected pending metrics through the promote API', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockPromotePendingBinding.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        pendingStatus: 'PROMOTED',
+        items: [{ metricIdentifier: 'dispsX', promotionStatus: 'SUCCESS', bindingId: 9001 }]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    ;(wrapper.vm as any).pendingPromotionForm.pendingId = 77
+    ;(wrapper.vm as any).pendingPromotionForm.riskPointId = 1
+    ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }]
+    ;(wrapper.vm as any).pendingPromotionForm.completePending = true
+
+    await (wrapper.vm as any).handlePendingPromotionSubmit()
+
+    expect(mockPromotePendingBinding).toHaveBeenCalledWith(77, {
+      metrics: [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }],
+      completePending: true,
+      promotionNote: ''
+    })
   })
 
 })

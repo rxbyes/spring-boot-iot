@@ -9,6 +9,16 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveQualityGateRunner } from './run-quality-gates.mjs';
 
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
+function getPythonUnittestArgsForBasename(basename) {
+  const lowered = basename.toLowerCase();
+  if (lowered === 'py' || lowered === 'py.exe') {
+    return ['-3', '-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v'];
+  }
+  return ['-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v'];
+}
+
 test('prefers pwsh on Windows when available', () => {
   const runner = resolveQualityGateRunner({
     platform: 'win32',
@@ -51,11 +61,46 @@ test('falls back to sh on Linux when bash is unavailable', () => {
   assert.match(runner.scriptPath, /run-quality-gates\.sh$/);
 });
 
+test('python launcher args add -3 only for py launcher basenames', () => {
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('py'),
+    ['-3', '-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('py.exe'),
+    ['-3', '-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('python'),
+    ['-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('python.exe'),
+    ['-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('python3'),
+    ['-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+  assert.deepEqual(
+    getPythonUnittestArgsForBasename('python3.exe'),
+    ['-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v']
+  );
+});
+
+test('powershell quality gate uses exact py/py.exe detection', () => {
+  const psScript = fs.readFileSync(path.join(scriptDir, 'run-quality-gates.ps1'), 'utf8');
+
+  assert.match(psScript, /function Get-PythonUnittestArgs/);
+  assert.match(psScript, /\$pythonBasename -eq 'py'/);
+  assert.match(psScript, /\$pythonBasename -eq 'py\.exe'/);
+  assert.doesNotMatch(psScript, /StartsWith\('py'\)/);
+});
+
 test('shell runner exits non-zero and stops before docs check when style guard fails', { skip: process.platform === 'win32' }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-gates-'));
   const fakeBin = path.join(tempRoot, 'bin');
   const docsMarker = path.join(tempRoot, 'docs-check.marker');
-  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const shellScript = path.join(scriptDir, 'run-quality-gates.sh');
 
   fs.mkdirSync(fakeBin, { recursive: true });

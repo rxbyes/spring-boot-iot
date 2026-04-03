@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope, IdType } from '../types/api';
+import type { ApiEnvelope, IdType, PageResult } from '../types/api';
 
 /**
  * 风险点管理 API
@@ -57,6 +57,93 @@ export interface RiskPointDevice {
       updateBy: number;
       updateTime: string;
       deleted: number;
+}
+
+export interface RiskPointPendingBindingItem {
+      id: IdType;
+      riskPointId: IdType;
+      riskPointCode?: string | null;
+      riskPointName?: string | null;
+      deviceId?: IdType | null;
+      deviceCode: string;
+      deviceName?: string | null;
+      resolutionStatus: string;
+      resolutionNote?: string | null;
+      batchNo?: string | null;
+      sourceRowNo?: number | null;
+      promotedBindingId?: IdType | null;
+      promotedTime?: string | null;
+}
+
+export interface RiskPointPendingMetricCandidate {
+      metricIdentifier: string;
+      metricName: string;
+      dataType?: string | null;
+      evidenceSources: string[];
+      lastSeenTime?: string | null;
+      sampleValue?: string | null;
+      seenCount?: number | null;
+      recommendationScore?: number | null;
+      recommendationLevel?: string | null;
+      reasonSummary?: string | null;
+}
+
+export interface RiskPointPendingPromotionHistory {
+      id?: IdType;
+      pendingBindingId?: IdType;
+      riskPointDeviceId?: IdType | null;
+      metricIdentifier?: string | null;
+      metricName?: string | null;
+      promotionStatus?: string | null;
+      recommendationLevel?: string | null;
+      recommendationScore?: number | null;
+      promotionNote?: string | null;
+      operatorId?: IdType | null;
+      operatorName?: string | null;
+      createTime?: string | null;
+}
+
+export interface RiskPointPendingCandidateBundle {
+      pendingId: IdType;
+      batchNo?: string | null;
+      riskPointId: IdType;
+      riskPointCode?: string | null;
+      riskPointName?: string | null;
+      deviceId?: IdType | null;
+      deviceCode?: string | null;
+      deviceName?: string | null;
+      resolutionStatus?: string | null;
+      resolutionNote?: string | null;
+      metricIdentifier?: string | null;
+      metricName?: string | null;
+      createTime?: string | null;
+      candidates: RiskPointPendingMetricCandidate[];
+      promotionHistory?: RiskPointPendingPromotionHistory[];
+      history?: RiskPointPendingPromotionHistory[];
+}
+
+export interface RiskPointPendingPromotionMetric {
+      metricIdentifier: string;
+      metricName: string;
+}
+
+export interface RiskPointPendingPromotionRequest {
+      metrics: RiskPointPendingPromotionMetric[];
+      completePending?: boolean;
+      promotionNote?: string;
+}
+
+export interface RiskPointPendingPromotionItem {
+      metricIdentifier: string;
+      metricName?: string | null;
+      promotionStatus: string;
+      bindingId?: IdType | null;
+}
+
+export interface RiskPointPendingPromotionResult {
+      pendingId: IdType;
+      pendingStatus: string;
+      items: RiskPointPendingPromotionItem[];
 }
 
 // 获取风险点列表
@@ -118,6 +205,30 @@ export const unbindDevice = (riskPointId: IdType, deviceId: IdType): Promise<Api
 // 获取风险点绑定的设备列表
 export const getBoundDevices = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointDevice[]>> => {
       return request<RiskPointDevice[]>(`/api/risk-point/bound-devices/${riskPointId}`, { method: 'GET' });
+};
+
+export const listPendingBindings = (params: {
+      riskPointId: IdType;
+      deviceCode?: string;
+      resolutionStatus?: string;
+      batchNo?: string;
+      pageNum?: number;
+      pageSize?: number;
+}): Promise<ApiEnvelope<PageResult<RiskPointPendingBindingItem>>> => {
+      const queryString = buildQueryString(params);
+      return request<PageResult<RiskPointPendingBindingItem>>(`/api/risk-point/pending-bindings?${queryString}`, { method: 'GET' });
+};
+
+export const getPendingBindingCandidates = (pendingId: IdType): Promise<ApiEnvelope<RiskPointPendingCandidateBundle>> => {
+      return request<RiskPointPendingCandidateBundle>(`/api/risk-point/pending-bindings/${pendingId}/candidates`, { method: 'GET' });
+};
+
+export const promotePendingBinding = (pendingId: IdType, body: RiskPointPendingPromotionRequest): Promise<ApiEnvelope<RiskPointPendingPromotionResult>> => {
+      return request<RiskPointPendingPromotionResult>(`/api/risk-point/pending-bindings/${pendingId}/promote`, { method: 'POST', body });
+};
+
+export const ignorePendingBinding = (pendingId: IdType, body: { ignoreNote?: string }): Promise<ApiEnvelope<void>> => {
+      return request<void>(`/api/risk-point/pending-bindings/${pendingId}/ignore`, { method: 'POST', body });
 };
 
 function normalizeRiskPointQuery(params?: {

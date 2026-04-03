@@ -63,6 +63,7 @@ run_step() {
 mvn_cmd=$(resolve_executable "Maven" mvn)
 npm_cmd=$(resolve_executable "npm" npm)
 node_cmd=$(resolve_executable "Node" node)
+python_cmd=$(resolve_executable "Python" python3 python)
 
 export npm_config_cache="$ui_root/.npm-cache"
 
@@ -79,5 +80,6 @@ run_step "frontend build" "$ui_root" "$npm_cmd" run build
 run_step "frontend component guard" "$ui_root" "$npm_cmd" run component:guard
 run_step "frontend list guard" "$ui_root" "$npm_cmd" run list:guard
 run_step "frontend style guard" "$ui_root" "$npm_cmd" run style:guard
+run_step "schema baseline guard" "$repo_root" "$python_cmd" -m unittest scripts/test_risk_point_pending_promotion_schema.py -v
 run_step "docs topology check" "$repo_root" "$node_cmd" scripts/docs/check-topology.mjs
 write_log "All local minimum quality gates passed"

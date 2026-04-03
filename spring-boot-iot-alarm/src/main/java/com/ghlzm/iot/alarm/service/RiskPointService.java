@@ -57,6 +57,8 @@ public interface RiskPointService extends IService<RiskPoint> {
 
       void bindDevice(RiskPointDevice riskPointDevice, Long currentUserId);
 
+      RiskPointDevice bindDeviceAndReturn(RiskPointDevice riskPointDevice, Long currentUserId);
+
       /**
        * 解绑风险点与设备
        */

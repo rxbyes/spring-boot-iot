@@ -136,12 +136,12 @@
                 <span>{{ row.regionName || '未配置区域' }}</span>
               </template>
             </StandardTableTextColumn>
-            <StandardTableTextColumn prop="riskPointLevel" label="风险点等级" width="120">
+            <StandardTableTextColumn prop="riskPointLevel" label="风险点等级" :width="120">
               <template #default="{ row }">
                 <el-tag type="info" round>{{ getRiskPointLevelText(row.riskPointLevel) }}</el-tag>
               </template>
             </StandardTableTextColumn>
-            <StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" width="120">
+            <StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" :width="120">
               <template #default="{ row }">
                 <el-tag :type="getCurrentRiskLevelType(row.currentRiskLevel || row.riskLevel)" round>
                   {{ getCurrentRiskLevelText(row.currentRiskLevel || row.riskLevel) }}
@@ -373,6 +373,127 @@
         />
       </template>
     </StandardFormDrawer>
+
+    <StandardFormDrawer
+      v-model="pendingPromotionVisible"
+      title="待治理转正"
+      subtitle="查看系统推荐候选并提交一个或多个测点转正式绑定。"
+      size="48rem"
+      @close="handlePendingDrawerClose"
+    >
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>治理提示</strong>
+          <span>系统会基于产品物模型、最近上报属性和历史消息日志生成推荐候选，最终仍需人工确认后提交转正。</span>
+        </div>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>待治理记录</h3>
+              <p>按当前风险点加载待治理设备记录，选择一条后查看候选测点与历史留痕。</p>
+            </div>
+          </div>
+          <div v-if="pendingBindings.length === 0" class="standard-list-empty-state">
+            <EmptyState title="暂无待治理记录" description="当前风险点下还没有需要人工转正的设备绑定。" />
+          </div>
+          <div v-else class="risk-point-pending-list">
+            <button
+              v-for="item in pendingBindings"
+              :key="String(item.id)"
+              type="button"
+              class="risk-point-pending-list__item"
+              :class="{ 'is-active': Number(item.id) === pendingPromotionForm.pendingId }"
+              @click="handleSelectPendingRow(item)"
+            >
+              <strong>{{ item.deviceCode || '--' }}</strong>
+              <span>{{ item.deviceName || '未命名设备' }}</span>
+              <span>{{ item.resolutionStatus }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>推荐候选</h3>
+              <p>点击候选卡片可加入或移出本轮转正清单，支持一次提交多个测点。</p>
+            </div>
+          </div>
+          <div v-if="pendingCandidates.length === 0" class="standard-list-empty-state">
+            <EmptyState title="暂无候选测点" description="当前待治理记录还没有可用于转正式绑定的测点候选。" />
+          </div>
+          <div v-else class="risk-point-pending-candidate-list">
+            <button
+              v-for="candidate in pendingCandidates"
+              :key="candidate.metricIdentifier"
+              type="button"
+              class="risk-point-pending-candidate-list__item"
+              :class="{ 'is-selected': isPendingMetricSelected(candidate.metricIdentifier) }"
+              @click="togglePendingMetric(candidate)"
+            >
+              <div class="risk-point-pending-candidate-list__header">
+                <strong>{{ candidate.metricName || candidate.metricIdentifier }}</strong>
+                <span>{{ candidate.recommendationLevel || '--' }}</span>
+              </div>
+              <div class="risk-point-pending-candidate-list__meta">
+                <span>{{ candidate.metricIdentifier }}</span>
+                <span>{{ (candidate.evidenceSources || []).join(' / ') }}</span>
+              </div>
+              <p v-if="candidate.reasonSummary" class="risk-point-pending-candidate-list__summary">{{ candidate.reasonSummary }}</p>
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>提交设置</h3>
+              <p>可补充本轮治理说明，并选择是否在本次操作后直接收口该 pending 记录。</p>
+            </div>
+          </div>
+          <div class="ops-drawer-grid">
+            <el-form-item label="治理备注" class="ops-drawer-grid__full">
+              <el-input
+                v-model="pendingPromotionForm.promotionNote"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入治理说明，可留空"
+              />
+            </el-form-item>
+            <el-form-item label="收口方式">
+              <el-radio-group v-model="pendingPromotionForm.completePending">
+                <el-radio :value="true">本次收口</el-radio>
+                <el-radio :value="false">继续保留待治理</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </div>
+        </section>
+
+        <section v-if="pendingHistory.length > 0" class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>历史留痕</h3>
+              <p>查看同一 pending 既往转正结果，辅助本轮人工判断。</p>
+            </div>
+          </div>
+          <ul class="risk-point-pending-history">
+            <li v-for="item in pendingHistory" :key="`${item.id || item.metricIdentifier}-${item.createTime || ''}`">
+              <strong>{{ item.metricName || item.metricIdentifier || '--' }}</strong>
+              <span>{{ item.promotionStatus || '--' }}</span>
+              <span>{{ item.recommendationLevel || '--' }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading || pendingLoading"
+          @cancel="pendingPromotionVisible = false"
+          @confirm="handlePendingPromotionSubmit"
+        />
+      </template>
+    </StandardFormDrawer>
   </StandardPageShell>
 </template>
 
@@ -409,11 +530,24 @@ import {
   getRiskPointLevelText as resolveRiskPointLevelText,
   type RiskPointLevelOption
 } from '@/utils/riskPointLevel';
-import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
-import type { RiskPoint } from '../api/riskPoint';
+import {
+  pageRiskPointList,
+  addRiskPoint,
+  updateRiskPoint,
+  deleteRiskPoint,
+  bindDevice,
+  listPendingBindings,
+  getPendingBindingCandidates,
+  promotePendingBinding
+} from '../api/riskPoint';
+import type {
+  RiskPoint,
+  RiskPointPendingBindingItem,
+  RiskPointPendingMetricCandidate,
+  RiskPointPendingPromotionHistory
+} from '../api/riskPoint';
 import { formatDateTime } from '@/utils/format';
 
-type RiskPointRowActionCommand = 'edit' | 'bind-device' | 'delete';
 type RegionTreeOption = Partial<Region> & {
   id: Region['id'];
   regionName: string;
@@ -425,10 +559,12 @@ type LazyRegionTreeNode = {
   data?: RegionTreeOption;
 };
 type TreeResolveFn = (data: RegionTreeOption[]) => void;
+type RiskPointRowActionCommand = 'edit' | 'bind-device' | 'pending-promotion' | 'delete';
 
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
+const pendingPromotionVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
 const organizationOptions = ref<Organization[]>([]);
 const regionOptions = ref<RegionTreeOption[]>([]);
@@ -438,6 +574,10 @@ const userOptionsLoading = ref(false);
 const riskPointLevelOptions = ref<RiskPointLevelOption[]>([]);
 const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
+const pendingBindings = ref<RiskPointPendingBindingItem[]>([]);
+const pendingCandidates = ref<RiskPointPendingMetricCandidate[]>([]);
+const pendingHistory = ref<RiskPointPendingPromotionHistory[]>([]);
+const pendingLoading = ref(false);
 const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
@@ -445,6 +585,7 @@ const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
     { command: 'edit', label: '编辑' },
     { command: 'bind-device', label: '绑定设备' },
+    { command: 'pending-promotion', label: '待治理转正' },
     { command: 'delete', label: '删除' }
   ],
 });
@@ -496,6 +637,13 @@ const bindForm = reactive({
   deviceName: '',
   metricIdentifier: '',
   metricName: ''
+});
+const pendingPromotionForm = reactive({
+  riskPointId: undefined as number | undefined,
+  pendingId: undefined as number | undefined,
+  selectedMetrics: [] as Array<{ metricIdentifier: string; metricName: string }>,
+  completePending: true,
+  promotionNote: ''
 });
 const submitLoading = ref(false);
 const riskPointAdvice = '优先核查一级风险点和红色态势对象';
@@ -958,6 +1106,7 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
 const getRiskPointRowActions = () => [
   { command: 'edit' as const, label: '编辑' },
   { command: 'bind-device' as const, label: '绑定设备' },
+  { command: 'pending-promotion' as const, label: '待治理转正' },
   { command: 'delete' as const, label: '删除' }
 ];
 
@@ -968,6 +1117,10 @@ const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskP
   }
   if (command === 'bind-device') {
     handleBindDevice(row);
+    return;
+  }
+  if (command === 'pending-promotion') {
+    void handleOpenPendingPromotion(row);
     return;
   }
   handleDelete(row);
@@ -1021,6 +1174,18 @@ const resetBindForm = () => {
   bindForm.metricIdentifier = '';
   bindForm.metricName = '';
   metricList.value = [];
+};
+
+const resetPendingPromotionState = () => {
+  pendingBindings.value = [];
+  pendingCandidates.value = [];
+  pendingHistory.value = [];
+  pendingLoading.value = false;
+  pendingPromotionForm.riskPointId = undefined;
+  pendingPromotionForm.pendingId = undefined;
+  pendingPromotionForm.selectedMetrics = [];
+  pendingPromotionForm.completePending = true;
+  pendingPromotionForm.promotionNote = '';
 };
 
 const handleAdd = () => {
@@ -1118,6 +1283,112 @@ const handleBindDevice = async (row: RiskPoint) => {
   bindDeviceVisible.value = true;
 };
 
+const handleOpenPendingPromotion = async (row: RiskPoint) => {
+  resetPendingPromotionState();
+  pendingPromotionForm.riskPointId = Number(row.id);
+  pendingPromotionVisible.value = true;
+  await loadPendingBindings();
+};
+
+const loadPendingBindings = async () => {
+  if (!pendingPromotionForm.riskPointId) {
+    pendingBindings.value = [];
+    pendingCandidates.value = [];
+    pendingHistory.value = [];
+    return;
+  }
+  try {
+    pendingLoading.value = true;
+    const res = await listPendingBindings({
+      riskPointId: pendingPromotionForm.riskPointId,
+      pageNum: 1,
+      pageSize: 10
+    });
+    if (res.code !== 200) {
+      pendingBindings.value = [];
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    pendingBindings.value = res.data.records || [];
+    const selectedPending = pendingBindings.value.find((item) => Number(item.id) === pendingPromotionForm.pendingId)
+      || pendingBindings.value[0];
+    if (!selectedPending) {
+      pendingPromotionForm.pendingId = undefined;
+      pendingPromotionForm.selectedMetrics = [];
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    await handleSelectPendingRow(selectedPending);
+  } catch (error) {
+    console.error('加载待治理记录失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载待治理记录失败');
+  } finally {
+    pendingLoading.value = false;
+  }
+};
+
+const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
+  pendingPromotionForm.pendingId = Number(pending.id);
+  pendingPromotionForm.selectedMetrics = [];
+  try {
+    const res = await getPendingBindingCandidates(pending.id);
+    if (res.code !== 200) {
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    pendingCandidates.value = res.data.candidates || [];
+    pendingHistory.value = res.data.promotionHistory || res.data.history || [];
+  } catch (error) {
+    console.error('加载待治理候选失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载待治理候选失败');
+  }
+};
+
+const isPendingMetricSelected = (metricIdentifier: string) =>
+  pendingPromotionForm.selectedMetrics.some((item) => item.metricIdentifier === metricIdentifier);
+
+const togglePendingMetric = (candidate: RiskPointPendingMetricCandidate) => {
+  const nextMetric = {
+    metricIdentifier: candidate.metricIdentifier,
+    metricName: candidate.metricName || candidate.metricIdentifier
+  };
+  if (isPendingMetricSelected(nextMetric.metricIdentifier)) {
+    pendingPromotionForm.selectedMetrics = pendingPromotionForm.selectedMetrics.filter(
+      (item) => item.metricIdentifier !== nextMetric.metricIdentifier
+    );
+    return;
+  }
+  pendingPromotionForm.selectedMetrics = [...pendingPromotionForm.selectedMetrics, nextMetric];
+};
+
+const handlePendingPromotionSubmit = async () => {
+  if (!pendingPromotionForm.pendingId || pendingPromotionForm.selectedMetrics.length === 0) {
+    ElMessage.warning('请至少选择一个测点');
+    return;
+  }
+  try {
+    submitLoading.value = true;
+    const res = await promotePendingBinding(pendingPromotionForm.pendingId, {
+      metrics: pendingPromotionForm.selectedMetrics,
+      completePending: pendingPromotionForm.completePending,
+      promotionNote: pendingPromotionForm.promotionNote
+    });
+    if (res.code === 200) {
+      ElMessage.success('待治理转正成功');
+      await loadPendingBindings();
+      void loadRiskPointList();
+    }
+  } catch (error) {
+    console.error('提交待治理转正失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '提交待治理转正失败');
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
 const handleBindSubmit = async () => {
   if (!bindForm.deviceId || !bindForm.metricIdentifier) {
     ElMessage.warning('请选择设备和测点');
@@ -1159,6 +1430,10 @@ const handleFormClose = () => {
 
 const handleBindDrawerClose = () => {
   resetBindForm();
+};
+
+const handlePendingDrawerClose = () => {
+  resetPendingPromotionState();
 };
 
 watch(
@@ -1249,5 +1524,59 @@ onMounted(() => {
 
 .risk-point-governance-list strong {
   color: var(--text-primary);
+}
+
+.risk-point-pending-list,
+.risk-point-pending-candidate-list,
+.risk-point-pending-history {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.risk-point-pending-list__item,
+.risk-point-pending-candidate-list__item {
+  width: 100%;
+  border: 1px solid var(--el-border-color);
+  border-radius: 1rem;
+  background: #fff;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.risk-point-pending-list__item.is-active,
+.risk-point-pending-candidate-list__item.is-selected {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 35%, white);
+}
+
+.risk-point-pending-list__item strong,
+.risk-point-pending-candidate-list__item strong {
+  color: var(--text-primary);
+}
+
+.risk-point-pending-candidate-list__header,
+.risk-point-pending-candidate-list__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.risk-point-pending-candidate-list__summary {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.risk-point-pending-history {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.risk-point-pending-history li {
+  display: grid;
+  gap: 0.2rem;
 }
 </style>
