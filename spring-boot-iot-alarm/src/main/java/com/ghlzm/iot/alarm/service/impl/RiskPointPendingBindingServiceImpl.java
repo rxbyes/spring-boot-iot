@@ -40,15 +40,18 @@ public class RiskPointPendingBindingServiceImpl implements RiskPointPendingBindi
             throw new BizException("请选择风险点");
         }
         riskPointService.getById(query.getRiskPointId(), currentUserId);
+        String deviceCode = normalizeOptionalFilter(query.getDeviceCode());
+        String resolutionStatus = normalizeOptionalFilter(query.getResolutionStatus());
+        String batchNo = normalizeOptionalFilter(query.getBatchNo());
         long pageNum = normalizePageNum(query.getPageNum());
         long pageSize = normalizePageSize(query.getPageSize());
         Page<RiskPointDevicePendingBinding> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<RiskPointDevicePendingBinding> wrapper = new LambdaQueryWrapper<RiskPointDevicePendingBinding>()
                 .eq(RiskPointDevicePendingBinding::getDeleted, 0)
                 .eq(RiskPointDevicePendingBinding::getRiskPointId, query.getRiskPointId())
-                .like(StringUtils.hasText(query.getDeviceCode()), RiskPointDevicePendingBinding::getDeviceCode, query.getDeviceCode().trim())
-                .eq(StringUtils.hasText(query.getResolutionStatus()), RiskPointDevicePendingBinding::getResolutionStatus, query.getResolutionStatus().trim())
-                .eq(StringUtils.hasText(query.getBatchNo()), RiskPointDevicePendingBinding::getBatchNo, query.getBatchNo().trim())
+                .like(StringUtils.hasText(deviceCode), RiskPointDevicePendingBinding::getDeviceCode, deviceCode)
+                .eq(StringUtils.hasText(resolutionStatus), RiskPointDevicePendingBinding::getResolutionStatus, resolutionStatus)
+                .eq(StringUtils.hasText(batchNo), RiskPointDevicePendingBinding::getBatchNo, batchNo)
                 .orderByDesc(RiskPointDevicePendingBinding::getCreateTime)
                 .orderByAsc(RiskPointDevicePendingBinding::getSourceRowNo);
         Page<RiskPointDevicePendingBinding> result = pendingBindingMapper.selectPage(page, wrapper);
@@ -99,6 +102,13 @@ public class RiskPointPendingBindingServiceImpl implements RiskPointPendingBindi
 
     private long normalizePageNum(Long pageNum) {
         return pageNum == null || pageNum < 1 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private String normalizeOptionalFilter(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private long normalizePageSize(Long pageSize) {

@@ -38,6 +38,9 @@ class RiskPointPendingControllerTest {
         when(bindingService.pagePendingBindings(argThat(candidate ->
                 candidate != null
                         && Long.valueOf(8001L).equals(candidate.getRiskPointId())
+                        && candidate.getDeviceCode() == null
+                        && candidate.getResolutionStatus() == null
+                        && candidate.getBatchNo() == null
                         && Long.valueOf(1L).equals(candidate.getPageNum())
                         && Long.valueOf(10L).equals(candidate.getPageSize())
         ), eq(1001L))).thenReturn(page);
@@ -57,6 +60,9 @@ class RiskPointPendingControllerTest {
         verify(bindingService).pagePendingBindings(argThat(candidate ->
                 candidate != null
                         && Long.valueOf(8001L).equals(candidate.getRiskPointId())
+                        && candidate.getDeviceCode() == null
+                        && candidate.getResolutionStatus() == null
+                        && candidate.getBatchNo() == null
                         && Long.valueOf(1L).equals(candidate.getPageNum())
                         && Long.valueOf(10L).equals(candidate.getPageSize())
         ), eq(1001L));
