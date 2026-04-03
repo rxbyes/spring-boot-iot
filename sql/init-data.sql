@@ -127,7 +127,7 @@ INSERT INTO sys_menu (
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化资产、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖自动化资产、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -159,10 +159,15 @@ INSERT INTO sys_menu (
     (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003012, 1, 93000005, '自动化资产中心', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"页面盘点、场景模板与计划导入导出"}', 51, 1, 1, '/automation-assets', 'system:automation-assets', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"执行配置、命令预览与验收注册表"}', 52, 1, 1, '/automation-execution', 'system:automation-execution', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 53, 1, 1, '/automation-results', 'system:automation-results', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，当前默认落到自动化资产中心"}', 54, 1, 1, '/automation-test', 'system:automation-test', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 51, 1, 1, '/rd-workbench', 'system:rd-workbench', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003016, 1, 93000005, '页面盘点台', 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"页面清单、覆盖缺口与人工补录"}', 52, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003017, 1, 93000005, '场景模板台', 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"沉淀页面冒烟、表单提交与列表详情模板"}', 53, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003018, 1, 93000005, '计划编排台', 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"维护场景顺序、步骤、断言与导入导出"}', 54, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003019, 1, 93000005, '交付打包台', 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"整理执行建议、基线说明与验收备注"}', 55, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"目标环境、命令预览与统一验收注册表"}', 56, 1, 1, '/automation-execution', 'system:automation-execution', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 57, 1, 1, '/automation-results', 'system:automation-results', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003012, 1, 93000005, '自动化资产中心（兼容入口）', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 58, 1, 1, '/automation-assets', 'system:automation-assets', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003009, 1, 93000005, '自动化工场（兼容入口）', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 59, 1, 1, '/automation-test', 'system:automation-test', 59, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -320,6 +325,11 @@ VALUES
     (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
     (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010136, 1, @role_developer_id, 93003015, 1, NOW(), 1, NOW(), 0),
+    (96010137, 1, @role_developer_id, 93003016, 1, NOW(), 1, NOW(), 0),
+    (96010138, 1, @role_developer_id, 93003017, 1, NOW(), 1, NOW(), 0),
+    (96010139, 1, @role_developer_id, 93003018, 1, NOW(), 1, NOW(), 0),
+    (96010140, 1, @role_developer_id, 93003019, 1, NOW(), 1, NOW(), 0),
     (96010121, 1, @role_developer_id, 93003012, 1, NOW(), 1, NOW(), 0),
     (96010122, 1, @role_developer_id, 93003013, 1, NOW(), 1, NOW(), 0),
     (96010123, 1, @role_developer_id, 93003014, 1, NOW(), 1, NOW(), 0),
@@ -608,6 +618,15 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+UPDATE sys_dict
+SET status = 0,
+    deleted = 1,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND dict_code IN ('risk_point_level', 'alarm_level', 'risk_level')
+  AND id NOT IN (7201, 7202, 7203);
+
 INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
@@ -634,6 +653,18 @@ ON DUPLICATE KEY UPDATE
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
+
+UPDATE sys_dict_item
+SET status = 0,
+    deleted = 1,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND (
+      (dict_id = 7201 AND item_value NOT IN ('level_1', 'level_2', 'level_3'))
+      OR (dict_id = 7202 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
+      OR (dict_id = 7203 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
+  );
 
 INSERT INTO sys_notification_channel (
     id, tenant_id, channel_name, channel_code, channel_type, config, status, sort_no, remark,

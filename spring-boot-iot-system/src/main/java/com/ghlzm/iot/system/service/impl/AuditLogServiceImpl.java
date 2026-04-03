@@ -2,10 +2,12 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.mapper.AuditLogMapper;
 import com.ghlzm.iot.system.service.AuditLogService;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.vo.AuditLogStatsBucketVO;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,10 +38,14 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditLogSchemaSupport auditLogSchemaSupport;
+    private final PermissionService permissionService;
 
-    public AuditLogServiceImpl(JdbcTemplate jdbcTemplate, AuditLogSchemaSupport auditLogSchemaSupport) {
+    public AuditLogServiceImpl(JdbcTemplate jdbcTemplate,
+                               AuditLogSchemaSupport auditLogSchemaSupport,
+                               PermissionService permissionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditLogSchemaSupport = auditLogSchemaSupport;
+        this.permissionService = permissionService;
     }
 
     @Override
@@ -81,15 +87,30 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
 
     @Override
     public List<AuditLog> listLogs(AuditLog log, Boolean excludeSystemError) {
-        return queryLogs(log, excludeSystemError, null, null);
+        return listLogs(null, log, excludeSystemError);
+    }
+
+    @Override
+    public List<AuditLog> listLogs(Long currentUserId, AuditLog log, Boolean excludeSystemError) {
+        return queryLogs(scopedLog(currentUserId, log), excludeSystemError, null, null);
     }
 
     @Override
     public PageResult<AuditLog> pageLogs(AuditLog log, Boolean excludeSystemError, Integer pageNum, Integer pageSize) {
+        return pageLogs(null, log, excludeSystemError, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<AuditLog> pageLogs(Long currentUserId,
+                                         AuditLog log,
+                                         Boolean excludeSystemError,
+                                         Integer pageNum,
+                                         Integer pageSize) {
         long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
         long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize.longValue(), 200L);
         Set<String> columns = auditLogSchemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(log, excludeSystemError, columns);
+        AuditLog scopedLog = scopedLog(currentUserId, log);
+        QuerySpec querySpec = buildQuerySpec(scopedLog, excludeSystemError, columns);
         if (querySpec.emptyResult()) {
             return PageResult.empty(safePageNum, safePageSize);
         }
@@ -104,14 +125,19 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         }
 
         long offset = (safePageNum - 1) * safePageSize;
-        List<AuditLog> records = queryLogs(log, excludeSystemError, safePageSize, offset);
+        List<AuditLog> records = queryLogs(scopedLog, excludeSystemError, safePageSize, offset);
         return PageResult.of(total, safePageNum, safePageSize, records);
     }
 
     @Override
     public SystemErrorStatsVO getSystemErrorStats(AuditLog log) {
+        return getSystemErrorStats(null, log);
+    }
+
+    @Override
+    public SystemErrorStatsVO getSystemErrorStats(Long currentUserId, AuditLog log) {
         Set<String> columns = auditLogSchemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(log), false, columns);
+        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(scopedLog(currentUserId, log)), false, columns);
         if (querySpec.emptyResult()) {
             return new SystemErrorStatsVO();
         }
@@ -148,8 +174,13 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
 
     @Override
     public Map<String, Object> getBusinessAuditStats(AuditLog log) {
+        return getBusinessAuditStats(null, log);
+    }
+
+    @Override
+    public Map<String, Object> getBusinessAuditStats(Long currentUserId, AuditLog log) {
         Set<String> columns = auditLogSchemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(log, true, columns);
+        QuerySpec querySpec = buildQuerySpec(scopedLog(currentUserId, log), true, columns);
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("total", 0L);
         stats.put("todayCount", 0L);
@@ -176,11 +207,16 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
 
     @Override
     public AuditLog getById(Long id) {
+        return getById(null, id);
+    }
+
+    @Override
+    public AuditLog getById(Long currentUserId, Long id) {
         if (id == null) {
             return null;
         }
         Set<String> columns = auditLogSchemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(null, false, columns);
+        QuerySpec querySpec = buildQuerySpec(scopedLog(currentUserId, null), false, columns);
         String sql = "SELECT " + buildSelectClause(columns)
                 + " FROM " + TABLE_NAME
                 + querySpec.whereClause()
@@ -196,8 +232,17 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteLog(Long id) {
+        deleteLog(null, id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteLog(Long currentUserId, Long id) {
         if (id == null) {
             return;
+        }
+        if (currentUserId != null && getById(currentUserId, id) == null) {
+            throw new BizException("审计日志不存在或无权访问");
         }
         Set<String> columns = auditLogSchemaSupport.getColumns();
         if (columns.contains("deleted")) {
@@ -227,6 +272,30 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
             params.add(offset == null ? 0L : offset);
         }
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapRow(rs, columns), params.toArray());
+    }
+
+    private AuditLog scopedLog(Long currentUserId, AuditLog log) {
+        AuditLog target = new AuditLog();
+        if (log != null) {
+            target.setTenantId(log.getTenantId());
+            target.setUserId(log.getUserId());
+            target.setUserName(log.getUserName());
+            target.setTraceId(log.getTraceId());
+            target.setDeviceCode(log.getDeviceCode());
+            target.setProductKey(log.getProductKey());
+            target.setOperationType(log.getOperationType());
+            target.setOperationModule(log.getOperationModule());
+            target.setRequestMethod(log.getRequestMethod());
+            target.setRequestUrl(log.getRequestUrl());
+            target.setResultMessage(log.getResultMessage());
+            target.setErrorCode(log.getErrorCode());
+            target.setExceptionClass(log.getExceptionClass());
+            target.setOperationResult(log.getOperationResult());
+        }
+        if (currentUserId != null) {
+            target.setTenantId(permissionService.getDataPermissionContext(currentUserId).tenantId());
+        }
+        return target;
     }
 
     private AuditLog normalizeSystemErrorFilter(AuditLog log) {

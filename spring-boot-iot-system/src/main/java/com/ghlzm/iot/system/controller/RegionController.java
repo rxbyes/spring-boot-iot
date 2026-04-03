@@ -2,8 +2,10 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Region;
 import com.ghlzm.iot.system.service.RegionService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,8 +29,9 @@ public class RegionController {
       }
 
       @GetMapping("/list")
-      public R<List<Region>> listRegions(@RequestParam(required = false) Long parentId) {
-            return R.ok(regionService.listRegions(parentId));
+      public R<List<Region>> listRegions(@RequestParam(required = false) Long parentId,
+                                         Authentication authentication) {
+            return R.ok(regionService.listRegions(requireCurrentUserId(authentication), parentId));
       }
 
       @GetMapping("/page")
@@ -36,35 +39,43 @@ public class RegionController {
                                                @RequestParam(required = false) String regionCode,
                                                @RequestParam(required = false) String regionType,
                                                @RequestParam(defaultValue = "1") Long pageNum,
-                                               @RequestParam(defaultValue = "10") Long pageSize) {
-            return R.ok(regionService.pageRegions(regionName, regionCode, regionType, pageNum, pageSize));
+                                               @RequestParam(defaultValue = "10") Long pageSize,
+                                               Authentication authentication) {
+            return R.ok(regionService.pageRegions(requireCurrentUserId(authentication), regionName, regionCode, regionType, pageNum, pageSize));
       }
 
       @GetMapping("/tree")
-      public R<List<Region>> listRegionTree() {
-            return R.ok(regionService.listRegionTree());
+      public R<List<Region>> listRegionTree(Authentication authentication) {
+            return R.ok(regionService.listRegionTree(requireCurrentUserId(authentication)));
       }
 
       @GetMapping("/{id}")
-      public R<Region> getById(@PathVariable Long id) {
-            return R.ok(regionService.getById(id));
+      public R<Region> getById(@PathVariable Long id, Authentication authentication) {
+            return R.ok(regionService.getById(requireCurrentUserId(authentication), id));
       }
 
       @PostMapping
-      public R<Region> addRegion(@RequestBody Region region) {
-            regionService.addRegion(region);
+      public R<Region> addRegion(@RequestBody Region region, Authentication authentication) {
+            regionService.addRegion(requireCurrentUserId(authentication), region);
             return R.ok(region);
       }
 
       @PutMapping
-      public R<Region> updateRegion(@RequestBody Region region) {
-            regionService.updateRegion(region);
+      public R<Region> updateRegion(@RequestBody Region region, Authentication authentication) {
+            regionService.updateRegion(requireCurrentUserId(authentication), region);
             return R.ok(region);
       }
 
       @DeleteMapping("/{id}")
-      public R<Void> deleteRegion(@PathVariable Long id) {
-            regionService.deleteRegion(id);
+      public R<Void> deleteRegion(@PathVariable Long id, Authentication authentication) {
+            regionService.deleteRegion(requireCurrentUserId(authentication), id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

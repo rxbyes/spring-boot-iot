@@ -1,6 +1,12 @@
 package com.ghlzm.iot.system.service.impl;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.Timestamp;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -17,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,14 +35,16 @@ class AuditLogServiceImplTest {
 
     @Mock
     private AuditLogSchemaSupport auditLogSchemaSupport;
+    @Mock
+    private PermissionService permissionService;
 
     private AuditLogServiceImpl auditLogService;
 
     @BeforeEach
     void setUp() {
-        auditLogService = new AuditLogServiceImpl(jdbcTemplate, auditLogSchemaSupport);
+        auditLogService = new AuditLogServiceImpl(jdbcTemplate, auditLogSchemaSupport, permissionService);
         when(auditLogSchemaSupport.getColumns()).thenReturn(mockColumns());
-        when(jdbcTemplate.update(anyString(), any(Object[].class))).thenReturn(1);
+        lenient().when(jdbcTemplate.update(anyString(), any(Object[].class))).thenReturn(1);
     }
 
     @Test
@@ -80,6 +89,28 @@ class AuditLogServiceImplTest {
         assertTrue(containsValue(args, 0));
     }
 
+    @Test
+    void shouldFilterScopedAuditLogPageToCurrentTenant() throws Exception {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenReturn(0L);
+
+        AuditLog log = new AuditLog();
+        log.setTenantId(2L);
+        log.setUserName("other-tenant");
+
+        PageResult<AuditLog> result = invokeScopedPageLogs(99L, log, false, 1, 10);
+
+        assertEquals(0L, result.getTotal());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), org.mockito.ArgumentMatchers.eq(Long.class), argsCaptor.capture());
+        assertTrue(sqlCaptor.getValue().contains("tenant_id = ?"));
+        assertTrue(containsValue(argsCaptor.getValue(), 1L));
+        assertTrue(!containsValue(argsCaptor.getValue(), 2L));
+    }
+
     private Set<String> mockColumns() {
         Set<String> columns = new LinkedHashSet<>();
         columns.add("id");
@@ -121,5 +152,43 @@ class AuditLogServiceImplTest {
             }
         }
         return false;
+    }
+
+    private PageResult<AuditLog> invokeScopedPageLogs(Long currentUserId,
+                                                      AuditLog log,
+                                                      Boolean excludeSystemError,
+                                                      Integer pageNum,
+                                                      Integer pageSize) throws Exception {
+        try {
+            Method method = AuditLogServiceImpl.class.getMethod(
+                    "pageLogs",
+                    Long.class,
+                    AuditLog.class,
+                    Boolean.class,
+                    Integer.class,
+                    Integer.class
+            );
+            @SuppressWarnings("unchecked")
+            PageResult<AuditLog> result = (PageResult<AuditLog>) method.invoke(
+                    auditLogService,
+                    currentUserId,
+                    log,
+                    excludeSystemError,
+                    pageNum,
+                    pageSize
+            );
+            return result;
+        } catch (NoSuchMethodException exception) {
+            throw new AssertionError("scoped pageLogs overload is missing", exception);
+        } catch (InvocationTargetException exception) {
+            throw unwrap(exception);
+        }
+    }
+
+    private Exception unwrap(InvocationTargetException exception) throws Exception {
+        if (exception.getTargetException() instanceof Exception target) {
+            return target;
+        }
+        throw exception;
     }
 }

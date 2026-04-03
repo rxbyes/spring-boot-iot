@@ -41,7 +41,8 @@ describe('sectionHomes config', () => {
       'risk-ops',
       'risk-config',
       'system-governance',
-      'quality-workbench'
+      'quality-workbench',
+      'rd-workbench'
     ]);
     expect(groups[0]?.items[0]?.label).toBe('产品定义中心');
   });
@@ -120,21 +121,25 @@ describe('sectionHomes config', () => {
     });
     expect(getRouteMetaPreset('/automation-test')).toMatchObject({
       title: '自动化工场',
-      description: '兼容旧入口，第一轮直接落到自动化资产中心。'
+      description: '兼容旧入口，第一轮直接落到研发工场总览。'
     });
   });
 
-  it('exposes the quality workbench as overview plus three specialty pages', () => {
+  it('maps quality workbench to rd-workbench plus shared execution/results pages', () => {
     const config = getSectionHomeConfigByPath('/quality-workbench');
 
     expect(config?.cards.map((item) => item.path)).toEqual([
-      '/automation-assets',
+      '/rd-workbench',
       '/automation-execution',
       '/automation-results'
     ]);
+    expect(getRouteMetaPreset('/rd-workbench')).toMatchObject({
+      title: '研发工场',
+      description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。'
+    });
     expect(getRouteMetaPreset('/automation-assets')).toMatchObject({
       title: '自动化资产中心',
-      description: '沉淀页面盘点、场景模板、执行计划与导入导出资产。'
+      description: '兼容旧入口，第一轮直接落到研发工场总览。'
     });
     expect(getRouteMetaPreset('/automation-execution')).toMatchObject({
       title: '执行中心',
@@ -144,9 +149,32 @@ describe('sectionHomes config', () => {
       title: '结果与基线中心',
       description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。'
     });
-    expect(getRouteMetaPreset('/automation-test')).toMatchObject({
-      title: '自动化工场',
-      description: '兼容旧入口，第一轮直接落到自动化资产中心。'
+  });
+
+  it('maps rd workbench to inventory, templates, plans, and handoff pages', () => {
+    const config = getSectionHomeConfigByPath('/rd-workbench');
+
+    expect(config?.cards.map((item) => item.path)).toEqual([
+      '/rd-automation-inventory',
+      '/rd-automation-templates',
+      '/rd-automation-plans',
+      '/rd-automation-handoff'
+    ]);
+    expect(getRouteMetaPreset('/rd-automation-inventory')).toMatchObject({
+      title: '页面盘点台',
+      description: '维护页面清单、覆盖缺口与人工补录页面。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-templates')).toMatchObject({
+      title: '场景模板台',
+      description: '沉淀页面冒烟、表单提交与列表详情模板。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-plans')).toMatchObject({
+      title: '计划编排台',
+      description: '维护场景顺序、步骤、断言、导入与导出。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-handoff')).toMatchObject({
+      title: '交付打包台',
+      description: '整理计划摘要、执行建议、基线说明与验收备注。'
     });
   });
 

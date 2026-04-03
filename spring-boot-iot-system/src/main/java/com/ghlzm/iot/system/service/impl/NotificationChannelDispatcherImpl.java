@@ -64,7 +64,14 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
 
     @Override
     public DispatchChannel requireTestChannel(String channelCode) {
-        NotificationChannel channel = notificationChannelService.getByCode(channelCode);
+        return requireTestChannel(null, channelCode);
+    }
+
+    @Override
+    public DispatchChannel requireTestChannel(Long currentUserId, String channelCode) {
+        NotificationChannel channel = currentUserId == null
+                ? notificationChannelService.getByCode(channelCode)
+                : notificationChannelService.getByCode(currentUserId, channelCode);
         if (channel == null) {
             throw new BizException("通知渠道不存在: " + channelCode);
         }

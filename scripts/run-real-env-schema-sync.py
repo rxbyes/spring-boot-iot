@@ -356,6 +356,46 @@ def next_preferred_id(cur: pymysql.cursors.Cursor, table: str, preferred_id: int
     return next_table_id(cur, table)
 
 
+def cleanup_duplicate_level_dicts(
+    cur: pymysql.cursors.Cursor,
+    canonical_dict_id: int,
+    dict_code: str,
+) -> None:
+    cur.execute(
+        """
+        UPDATE sys_dict
+        SET status = 0,
+            deleted = 1,
+            update_by = 1,
+            update_time = NOW()
+        WHERE tenant_id = 1
+          AND dict_code = %s
+          AND id <> %s
+        """,
+        (dict_code, canonical_dict_id),
+    )
+    cur.execute(
+        """
+        UPDATE sys_dict_item
+        SET status = 0,
+            deleted = 1,
+            update_by = 1,
+            update_time = NOW()
+        WHERE tenant_id = 1
+          AND dict_id IN (
+              SELECT id FROM (
+                  SELECT id
+                  FROM sys_dict
+                  WHERE tenant_id = 1
+                    AND dict_code = %s
+                    AND id <> %s
+              ) duplicated
+          )
+        """,
+        (dict_code, canonical_dict_id),
+    )
+
+
 def ensure_level_dict(
     cur: pymysql.cursors.Cursor,
     db: str,
@@ -382,6 +422,7 @@ def ensure_level_dict(
     )
     existing_dict = cur.fetchone()
     dict_id = int(existing_dict[0]) if existing_dict else next_preferred_id(cur, "sys_dict", preferred_dict_id)
+    cleanup_duplicate_level_dicts(cur, dict_id, dict_code)
 
     if existing_dict:
         cur.execute(
@@ -489,51 +530,49 @@ def ensure_level_dict(
         )
 
 
+def level_dict_targets() -> Dict[str, Dict[str, object]]:
+    return {
+        "risk_point_level": {
+            "dict_name": "风险点等级",
+            "sort_no": 1,
+            "dict_remark": "风险点档案等级字典",
+            "preferred_dict_id": 7201,
+            "target_items": [
+                ("level_1", "一级风险点", 1, "风险点等级-一级风险点", [], 7301),
+                ("level_2", "二级风险点", 2, "风险点等级-二级风险点", [], 7302),
+                ("level_3", "三级风险点", 3, "风险点等级-三级风险点", [], 7303),
+            ],
+        },
+        "alarm_level": {
+            "dict_name": "告警等级",
+            "sort_no": 2,
+            "dict_remark": "告警等级四色字典",
+            "preferred_dict_id": 7202,
+            "target_items": [
+                ("red", "红色", 1, "告警等级-红色", ["critical"], 7304),
+                ("orange", "橙色", 2, "告警等级-橙色", ["warning", "high"], 7305),
+                ("yellow", "黄色", 3, "告警等级-黄色", ["medium"], 7306),
+                ("blue", "蓝色", 4, "告警等级-蓝色", ["info", "low"], 7307),
+            ],
+        },
+        "risk_level": {
+            "dict_name": "风险态势等级",
+            "sort_no": 3,
+            "dict_remark": "运行态风险颜色字典",
+            "preferred_dict_id": 7203,
+            "target_items": [
+                ("red", "红色", 1, "风险态势等级-红色", ["critical"], 7308),
+                ("orange", "橙色", 2, "风险态势等级-橙色", ["warning"], 7309),
+                ("yellow", "黄色", 3, "风险态势等级-黄色", [], 7310),
+                ("blue", "蓝色", 4, "风险态势等级-蓝色", ["info"], 7311),
+            ],
+        },
+    }
+
+
 def ensure_level_dicts(cur: pymysql.cursors.Cursor, db: str) -> None:
-    ensure_level_dict(
-        cur,
-        db,
-        dict_code="risk_point_level",
-        dict_name="风险点等级",
-        sort_no=1,
-        dict_remark="风险点档案等级字典",
-        preferred_dict_id=7201,
-        target_items=[
-            ("level_1", "一级风险点", 1, "风险点等级-一级风险点", [], 7301),
-            ("level_2", "二级风险点", 2, "风险点等级-二级风险点", [], 7302),
-            ("level_3", "三级风险点", 3, "风险点等级-三级风险点", [], 7303),
-        ],
-    )
-    ensure_level_dict(
-        cur,
-        db,
-        dict_code="alarm_level",
-        dict_name="告警等级",
-        sort_no=2,
-        dict_remark="告警等级四色字典",
-        preferred_dict_id=7202,
-        target_items=[
-            ("red", "红色", 1, "告警等级-红色", ["critical"], 7304),
-            ("orange", "橙色", 2, "告警等级-橙色", ["warning", "high"], 7305),
-            ("yellow", "黄色", 3, "告警等级-黄色", ["medium"], 7306),
-            ("blue", "蓝色", 4, "告警等级-蓝色", ["info", "low"], 7307),
-        ],
-    )
-    ensure_level_dict(
-        cur,
-        db,
-        dict_code="risk_level",
-        dict_name="风险态势等级",
-        sort_no=3,
-        dict_remark="运行态风险颜色字典",
-        preferred_dict_id=7203,
-        target_items=[
-            ("red", "红色", 1, "风险态势等级-红色", ["critical"], 7308),
-            ("orange", "橙色", 2, "风险态势等级-橙色", ["warning"], 7309),
-            ("yellow", "黄色", 3, "风险态势等级-黄色", [], 7310),
-            ("blue", "蓝色", 4, "风险态势等级-蓝色", ["info"], 7311),
-        ],
-    )
+    for dict_code, definition in level_dict_targets().items():
+        ensure_level_dict(cur, db, dict_code=dict_code, **definition)
 
 
 def normalize_color_case(column: str) -> str:
@@ -571,6 +610,14 @@ def migrate_level_values(cur: pymysql.cursors.Cursor, db: str) -> None:
                 SET current_risk_level = {normalize_color_case('risk_level')}
                 WHERE (current_risk_level IS NULL OR TRIM(current_risk_level) = '')
                   AND risk_level IS NOT NULL
+                  AND TRIM(risk_level) <> ''
+                """
+            )
+            cur.execute(
+                f"""
+                UPDATE `risk_point`
+                SET risk_level = {normalize_color_case('risk_level')}
+                WHERE risk_level IS NOT NULL
                   AND TRIM(risk_level) <> ''
                 """
             )
@@ -613,6 +660,14 @@ def migrate_level_values(cur: pymysql.cursors.Cursor, db: str) -> None:
                 SET alarm_level = {normalize_color_case('risk_level')}
                 WHERE (alarm_level IS NULL OR TRIM(alarm_level) = '')
                   AND risk_level IS NOT NULL
+                  AND TRIM(risk_level) <> ''
+                """
+            )
+            cur.execute(
+                f"""
+                UPDATE `emergency_plan`
+                SET risk_level = {normalize_color_case('risk_level')}
+                WHERE risk_level IS NOT NULL
                   AND TRIM(risk_level) <> ''
                 """
             )

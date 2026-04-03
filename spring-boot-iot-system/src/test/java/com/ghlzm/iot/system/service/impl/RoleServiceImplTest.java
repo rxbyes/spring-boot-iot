@@ -1,6 +1,8 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.Role;
@@ -9,6 +11,8 @@ import com.ghlzm.iot.system.mapper.RoleMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +44,12 @@ class RoleServiceImplTest {
     private UserMapper userMapper;
 
     private RoleServiceImpl roleService;
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Role.class);
+    }
 
     @BeforeEach
     void setUp() throws Exception {

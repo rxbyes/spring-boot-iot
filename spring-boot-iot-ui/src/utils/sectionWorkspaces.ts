@@ -185,18 +185,39 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看质量工场能力与专项入口',
     navShort: '概',
     title: '质量工场',
-    description: '围绕自动化资产、执行组织与结果基线组织工程质量能力。',
-    intro: '建议先在总览判断本轮要沉淀资产、组织执行，还是复盘运行结果，再进入对应专项页。',
+    description: '围绕研发工场、执行组织与结果基线组织工程质量能力。',
+    intro: '建议先判断当前要编排研发自动化资产、组织执行，还是复盘运行结果，再进入对应专项页。',
     menuTitle: '质量工场',
-    menuHint: '覆盖自动化资产、执行组织与结果基线治理。',
+    menuHint: '覆盖研发资产编排、执行组织与结果基线治理。',
     matchKeys: ['quality-workbench', 'quality-core'],
     matchLabels: ['质量工场', '测试工具'],
     cards: [
-      { path: '/automation-assets', label: '自动化资产中心', description: '沉淀页面盘点、场景模板、执行计划与导入导出资产。', short: '资', keywords: ['自动化资产中心', '页面盘点', '场景模板'] },
+      { path: '/rd-workbench', label: '研发工场', description: '面向研发的自动化资产编排主入口。', short: '研', keywords: ['研发工场', '研发自动化', '自动化资产编排'] },
       { path: '/automation-execution', label: '执行中心', description: '统一查看执行配置、命令预览和验收注册表依赖关系。', short: '执', keywords: ['执行中心', '执行配置', '验收注册表'] },
       { path: '/automation-results', label: '结果与基线中心', description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。', short: '果', keywords: ['结果与基线中心', '运行结果', '视觉基线'] }
     ],
-    steps: ['先沉淀自动化资产。', '再按执行中心组织回归。', '最后在结果与基线中心沉淀证据与改进建议。']
+    steps: ['先进入研发工场拆分盘点、模板、计划与交付任务。', '再按执行中心组织回归。', '最后在结果与基线中心沉淀证据与改进建议。']
+  },
+  {
+    key: 'rd-workbench',
+    path: '/rd-workbench',
+    navLabel: '研发总览',
+    navCaption: '查看研发自动化资产编排主链路',
+    navShort: '研',
+    title: '研发工场',
+    description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。',
+    intro: '建议先盘点页面和模板，再进入计划编排，最后整理交付包并转到执行中心。',
+    menuTitle: '研发工场',
+    menuHint: '覆盖研发自动化资产编排与交付准备。',
+    matchKeys: ['rd-workbench', 'automation-rd'],
+    matchLabels: ['研发工场', '研发自动化'],
+    cards: [
+      { path: '/rd-automation-inventory', label: '页面盘点台', description: '维护页面清单、覆盖缺口与人工补录页面。', short: '盘', keywords: ['页面盘点台', '页面清单', '覆盖缺口'] },
+      { path: '/rd-automation-templates', label: '场景模板台', description: '沉淀页面冒烟、表单提交与列表详情模板。', short: '模', keywords: ['场景模板台', '场景模板', '模板沉淀'] },
+      { path: '/rd-automation-plans', label: '计划编排台', description: '维护场景顺序、步骤、断言、导入与导出。', short: '编', keywords: ['计划编排台', '场景顺序', '计划导入导出'] },
+      { path: '/rd-automation-handoff', label: '交付打包台', description: '整理计划摘要、执行建议、基线说明与验收备注。', short: '交', keywords: ['交付打包台', '执行建议', '验收备注'] }
+    ],
+    steps: ['先盘点页面。', '再沉淀模板。', '然后编排正式计划。', '最后整理交付包并转执行中心。']
   }
 ];
 
@@ -217,9 +238,14 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
     description: '预研能力展示与未来扩展方向说明。',
     requiresAuth: true
   },
+  '/automation-assets': {
+    title: '自动化资产中心',
+    description: '兼容旧入口，第一轮直接落到研发工场总览。',
+    requiresAuth: true
+  },
   '/automation-test': {
     title: '自动化工场',
-    description: '兼容旧入口，第一轮直接落到自动化资产中心。',
+    description: '兼容旧入口，第一轮直接落到研发工场总览。',
     requiresAuth: true
   }
 };

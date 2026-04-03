@@ -10,6 +10,7 @@ import com.ghlzm.iot.system.entity.HelpDocument;
 import com.ghlzm.iot.system.mapper.HelpDocumentMapper;
 import com.ghlzm.iot.system.service.HelpDocumentService;
 import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.HelpDocumentAccessVO;
 import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
@@ -53,6 +54,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     public HelpDocument addDocument(HelpDocument document, Long operatorId) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
         normalizeAndValidateDocument(document, null);
+        document.setTenantId(resolveTenantId(operatorId, document.getTenantId()));
         if (document.getCreateBy() == null) {
             document.setCreateBy(defaultOperator(operatorId));
         }
@@ -69,10 +71,22 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
                                                   Integer status,
                                                   Long pageNum,
                                                   Long pageSize) {
+        return pageDocuments(null, title, docCategory, status, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<HelpDocument> pageDocuments(Long currentUserId,
+                                                  String title,
+                                                  String docCategory,
+                                                  Integer status,
+                                                  Long pageNum,
+                                                  Long pageSize) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
         Page<HelpDocument> page = PageQueryUtils.buildPage(pageNum, pageSize);
+        Long tenantId = resolveTenantId(currentUserId, null);
         LambdaQueryWrapper<HelpDocument> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(HelpDocument::getDeleted, 0);
+        queryWrapper.eq(tenantId != null, HelpDocument::getTenantId, tenantId)
+                .eq(HelpDocument::getDeleted, 0);
         if (StringUtils.hasText(title)) {
             queryWrapper.and(wrapper -> wrapper.like(HelpDocument::getTitle, title.trim())
                     .or()
@@ -91,10 +105,22 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     }
 
     @Override
+    public HelpDocument getById(Long currentUserId, Long id) {
+        systemContentSchemaSupport.ensureHelpDocumentReady();
+        HelpDocument document = super.getById(id);
+        if (document == null) {
+            return null;
+        }
+        ensureDocumentAccessible(currentUserId, document, "帮助文档不存在或无权访问");
+        return document;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDocument(HelpDocument document, Long operatorId) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
         HelpDocument existing = requireDocument(document == null ? null : document.getId());
+        ensureDocumentAccessible(operatorId, existing, "帮助文档不存在或无权访问");
         normalizeAndValidateDocument(document, existing);
         document.setTenantId(existing.getTenantId());
         document.setUpdateBy(defaultOperator(operatorId));
@@ -105,7 +131,8 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     @Transactional(rollbackFor = Exception.class)
     public void deleteDocument(Long id, Long operatorId) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
-        requireDocument(id);
+        HelpDocument existing = requireDocument(id);
+        ensureDocumentAccessible(operatorId, existing, "帮助文档不存在或无权访问");
         if (!removeById(id)) {
             throw new BizException("帮助文档删除失败");
         }
@@ -153,7 +180,10 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
         AccessScope scope = buildAccessScope(authContext, currentPath);
         String normalizedCategory = StringUtils.hasText(docCategory) ? docCategory.trim().toLowerCase(Locale.ROOT) : null;
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase(Locale.ROOT) : null;
-        return helpDocumentMapper.selectList(buildAccessQueryWrapper()).stream()
+        return helpDocumentMapper.selectList(buildAccessQueryWrapper(authContext.getTenantId())).stream()
+                .filter(document -> authContext.getTenantId() == null
+                        || document.getTenantId() == null
+                        || authContext.getTenantId().equals(document.getTenantId()))
                 .filter(document -> !StringUtils.hasText(normalizedCategory) || normalizedCategory.equals(document.getDocCategory()))
                 .filter(document -> matchesRoleScope(document, scope.roleCodes()))
                 .filter(document -> matchesPermissionScope(document, scope.authorizedPaths()))
@@ -171,6 +201,11 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
             throw new BizException("帮助文档不存在");
         }
         UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
+        if (authContext.getTenantId() != null
+                && document.getTenantId() != null
+                && !authContext.getTenantId().equals(document.getTenantId())) {
+            throw new BizException("帮助文档不存在");
+        }
         AccessScope scope = buildAccessScope(authContext, currentPath);
         if (!matchesRoleScope(document, scope.roleCodes()) || !matchesPermissionScope(document, scope.authorizedPaths())) {
             throw new BizException("帮助文档不存在");
@@ -198,9 +233,10 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
         }
     }
 
-    private LambdaQueryWrapper<HelpDocument> buildAccessQueryWrapper() {
+    private LambdaQueryWrapper<HelpDocument> buildAccessQueryWrapper(Long tenantId) {
         LambdaQueryWrapper<HelpDocument> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(HelpDocument::getDeleted, 0)
+        queryWrapper.eq(tenantId != null, HelpDocument::getTenantId, tenantId)
+                .eq(HelpDocument::getDeleted, 0)
                 .eq(HelpDocument::getStatus, 1)
                 .orderByAsc(HelpDocument::getSortNo)
                 .orderByDesc(HelpDocument::getUpdateTime)
@@ -330,6 +366,27 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
 
     private Long defaultOperator(Long operatorId) {
         return operatorId == null ? 1L : operatorId;
+    }
+
+    private Long resolveTenantId(Long userId, Long fallbackTenantId) {
+        if (userId == null) {
+            return defaultTenantId(fallbackTenantId);
+        }
+        Long tenantId = permissionService.getDataPermissionContext(userId).tenantId();
+        return tenantId == null ? defaultTenantId(fallbackTenantId) : tenantId;
+    }
+
+    private void ensureDocumentAccessible(Long userId, HelpDocument document, String message) {
+        if (userId == null || document == null) {
+            return;
+        }
+        DataPermissionContext context = permissionService.getDataPermissionContext(userId);
+        if (context.superAdmin()) {
+            return;
+        }
+        if (context.tenantId() != null && !context.tenantId().equals(document.getTenantId())) {
+            throw new BizException(message);
+        }
     }
 
     private record AccessScope(Set<String> roleCodes,

@@ -86,7 +86,12 @@ public class SystemErrorNotificationServiceImpl implements SystemErrorNotificati
 
     @Override
     public void sendTestNotification(String channelCode) {
-        NotificationChannelDispatcher.DispatchChannel channel = notificationChannelDispatcher.requireTestChannel(channelCode);
+        sendTestNotification(null, channelCode);
+    }
+
+    @Override
+    public void sendTestNotification(Long currentUserId, String channelCode) {
+        NotificationChannelDispatcher.DispatchChannel channel = notificationChannelDispatcher.requireTestChannel(currentUserId, channelCode);
         long startNs = System.nanoTime();
         NotificationChannelDispatcher.DispatchResult result =
                 notificationChannelDispatcher.send(channel, buildTestEnvelope(channel.channel().getChannelCode(), channel.channel().getChannelType()));

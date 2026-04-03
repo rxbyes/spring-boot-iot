@@ -208,8 +208,38 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/quality-workbench',
     name: 'quality-workbench',
-    component: () => import('../views/SectionLandingView.vue'),
+    component: () => import('../views/QualityWorkbenchLandingView.vue'),
     meta: routeMeta('/quality-workbench')
+  },
+  {
+    path: '/rd-workbench',
+    name: 'rd-workbench',
+    component: () => import('../views/RdWorkbenchLandingView.vue'),
+    meta: routeMeta('/rd-workbench')
+  },
+  {
+    path: '/rd-automation-inventory',
+    name: 'rd-automation-inventory',
+    component: () => import('../views/AutomationInventoryView.vue'),
+    meta: routeMeta('/rd-automation-inventory')
+  },
+  {
+    path: '/rd-automation-templates',
+    name: 'rd-automation-templates',
+    component: () => import('../views/AutomationTemplatesView.vue'),
+    meta: routeMeta('/rd-automation-templates')
+  },
+  {
+    path: '/rd-automation-plans',
+    name: 'rd-automation-plans',
+    component: () => import('../views/AutomationPlansView.vue'),
+    meta: routeMeta('/rd-automation-plans')
+  },
+  {
+    path: '/rd-automation-handoff',
+    name: 'rd-automation-handoff',
+    component: () => import('../views/AutomationHandoffView.vue'),
+    meta: routeMeta('/rd-automation-handoff')
   },
   {
     path: '/automation-assets',
