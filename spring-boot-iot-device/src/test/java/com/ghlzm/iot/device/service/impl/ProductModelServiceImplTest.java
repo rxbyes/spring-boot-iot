@@ -531,8 +531,15 @@ class ProductModelServiceImplTest {
         dto.setIncludeRuntimeCandidates(true);
 
         ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+        ProductModelGovernanceCompareRowVO inclinometerX = compareRow(result, "property", "L1_QJ_1.X");
 
-        assertEquals("double_aligned", compareRow(result, "property", "L1_QJ_1.X").getCompareStatus());
+        assertEquals("double_aligned", inclinometerX.getCompareStatus());
+        assertEquals("normative", inclinometerX.getManualCandidate().getEvidenceOrigin());
+        assertEquals("°", inclinometerX.getManualCandidate().getUnit());
+        assertEquals("表 B.1", inclinometerX.getManualCandidate().getNormativeSource());
+        assertIterableEquals(List.of("X", "angleX"), inclinometerX.getManualCandidate().getRawIdentifiers());
+        assertEquals("runtime", inclinometerX.getRuntimeCandidate().getEvidenceOrigin());
+        assertIterableEquals(List.of("X"), inclinometerX.getRuntimeCandidate().getRawIdentifiers());
         assertEquals("double_aligned", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
         assertEquals("formal_exists", compareRow(result, "property", "L1_QJ_1.AZI").getCompareStatus());
     }

@@ -358,6 +358,13 @@ public class ProductModelGovernanceComparator {
         evidence.setRequiredFlag(candidate.getRequiredFlag());
         evidence.setDescription(candidate.getDescription());
         evidence.setGroupKey(candidate.getGroupKey());
+        evidence.setEvidenceOrigin(candidate.getEvidenceOrigin());
+        evidence.setUnit(candidate.getUnit());
+        evidence.setNormativeSource(candidate.getNormativeSource());
+        evidence.setRawIdentifiers(candidate.getRawIdentifiers());
+        evidence.setMonitorContentCode(candidate.getMonitorContentCode());
+        evidence.setMonitorTypeCode(candidate.getMonitorTypeCode());
+        evidence.setSensorCode(candidate.getSensorCode());
         evidence.setConfidence(candidate.getConfidence());
         evidence.setNeedsReview(candidate.getNeedsReview());
         evidence.setCandidateStatus(candidate.getCandidateStatus());
@@ -383,6 +390,7 @@ public class ProductModelGovernanceComparator {
         evidence.setSortNo(model.getSortNo());
         evidence.setRequiredFlag(model.getRequiredFlag());
         evidence.setDescription(model.getDescription());
+        evidence.setEvidenceOrigin("formal");
         evidence.setSourceTables(List.of("iot_product_model"));
         return evidence;
     }

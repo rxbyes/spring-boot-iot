@@ -693,6 +693,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         merged.setRequiredFlag(firstNonNull(overlay.getRequiredFlag(), existing.getRequiredFlag()));
         merged.setDescription(firstNonNull(overlay.getDescription(), existing.getDescription()));
         merged.setGroupKey(firstNonNull(overlay.getGroupKey(), existing.getGroupKey()));
+        merged.setEvidenceOrigin(firstNonNull(overlay.getEvidenceOrigin(), existing.getEvidenceOrigin()));
+        merged.setUnit(firstNonNull(overlay.getUnit(), existing.getUnit()));
+        merged.setNormativeSource(firstNonNull(overlay.getNormativeSource(), existing.getNormativeSource()));
+        merged.setRawIdentifiers(mergeStringList(existing.getRawIdentifiers(), overlay.getRawIdentifiers()));
+        merged.setMonitorContentCode(firstNonNull(overlay.getMonitorContentCode(), existing.getMonitorContentCode()));
+        merged.setMonitorTypeCode(firstNonNull(overlay.getMonitorTypeCode(), existing.getMonitorTypeCode()));
+        merged.setSensorCode(firstNonNull(overlay.getSensorCode(), existing.getSensorCode()));
         merged.setConfidence(firstNonNull(overlay.getConfidence(), existing.getConfidence()));
         merged.setNeedsReview(Boolean.TRUE.equals(existing.getNeedsReview()) || Boolean.TRUE.equals(overlay.getNeedsReview()));
         merged.setCandidateStatus(Boolean.TRUE.equals(merged.getNeedsReview()) ? STATUS_NEEDS_REVIEW : STATUS_READY);
@@ -725,6 +732,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), 0));
         candidate.setDescription(firstNonNull(definition.getDescription(), "来源于规范字段预设，待与真实报文证据核对后再进入正式契约。"));
         candidate.setGroupKey(groupKey);
+        candidate.setEvidenceOrigin(ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE);
+        candidate.setUnit(definition.getUnit());
+        candidate.setNormativeSource(definition.getNormativeSource());
+        candidate.setRawIdentifiers(definition.getRawIdentifiers());
+        candidate.setMonitorContentCode(definition.getMonitorContentCode());
+        candidate.setMonitorTypeCode(definition.getMonitorTypeCode());
+        candidate.setSensorCode(definition.getSensorCode());
         candidate.setConfidence(0.99D);
         candidate.setNeedsReview(Boolean.FALSE);
         candidate.setCandidateStatus(STATUS_READY);
@@ -751,6 +765,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), runtimeCandidate.getRequiredFlag()));
         candidate.setDescription(firstNonNull(definition.getDescription(), runtimeCandidate.getDescription()));
         candidate.setGroupKey(groupKey);
+        candidate.setEvidenceOrigin("runtime");
+        candidate.setUnit(definition.getUnit());
+        candidate.setRawIdentifiers(runtimeCandidate.getIdentifier().equals(normativeIdentifier)
+                ? runtimeCandidate.getRawIdentifiers()
+                : List.of(runtimeCandidate.getIdentifier()));
+        candidate.setMonitorContentCode(definition.getMonitorContentCode());
+        candidate.setMonitorTypeCode(definition.getMonitorTypeCode());
+        candidate.setSensorCode(definition.getSensorCode());
         candidate.setConfidence(resolveConfidence(groupKey, false, firstNonNull(runtimeCandidate.getMessageEvidenceCount(), 0) > 0));
         candidate.setNeedsReview(Boolean.FALSE);
         candidate.setCandidateStatus(STATUS_READY);
@@ -788,6 +810,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(0);
         candidate.setDescription(resolveManualDraftDescription(modelType, identifier, item.getDescription()));
         candidate.setGroupKey(resolveManualDraftGroupKey(modelType, identifier));
+        candidate.setEvidenceOrigin("manual_draft");
         boolean needsReview = MODEL_TYPE_PROPERTY.equals(modelType)
                 && (isSuspiciousIdentifier(identifier) || "unknown".equals(candidate.getGroupKey()));
         candidate.setConfidence(resolveManualDraftConfidence(modelType, candidate.getGroupKey(), needsReview));
@@ -903,6 +926,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .filter(value -> value != null)
                 .mapToInt(Integer::intValue)
                 .sum();
+    }
+
+    private List<String> mergeStringList(List<String> first, List<String> second) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        if (first != null) {
+            merged.addAll(first);
+        }
+        if (second != null) {
+            merged.addAll(second);
+        }
+        return merged.isEmpty() ? null : new ArrayList<>(merged);
     }
 
     private LocalDateTime resolveLaterTime(LocalDateTime first, LocalDateTime second) {
@@ -1198,6 +1232,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(0);
         candidate.setDescription(description);
         candidate.setGroupKey(groupKey);
+        candidate.setEvidenceOrigin("runtime");
         candidate.setConfidence(resolveConfidence(groupKey, needsReview, accumulator.messageEvidenceCount > 0));
         candidate.setNeedsReview(needsReview);
         candidate.setCandidateStatus(needsReview ? STATUS_NEEDS_REVIEW : STATUS_READY);
@@ -1219,6 +1254,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(0);
         candidate.setDescription("来源于真实事件上报，建议在补齐事件级别与处理语义后再写入正式契约。");
         candidate.setGroupKey("event");
+        candidate.setEvidenceOrigin("runtime");
         candidate.setConfidence(0.55D);
         candidate.setNeedsReview(Boolean.TRUE);
         candidate.setCandidateStatus(STATUS_NEEDS_REVIEW);
@@ -1241,6 +1277,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(0);
         candidate.setDescription("来源于真实命令记录，但当前入参与回执字段尚不稳定，建议人工确认后再写入正式契约。");
         candidate.setGroupKey("service");
+        candidate.setEvidenceOrigin("runtime");
         candidate.setConfidence(0.45D);
         candidate.setNeedsReview(Boolean.TRUE);
         candidate.setCandidateStatus(STATUS_NEEDS_REVIEW);
