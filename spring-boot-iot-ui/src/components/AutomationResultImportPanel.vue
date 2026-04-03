@@ -1,7 +1,7 @@
 <template>
   <PanelCard
     title="运行结果导入"
-    description="把 `logs/acceptance/registry-run-*.json` 的内容粘贴到这里，工场会直接展示统一汇总。"
+    description="兼容导入外部 registry-run JSON，临时覆盖当前详情视图，但不会写入历史台账。"
   >
     <template #actions>
       <StandardActionGroup gap="sm">

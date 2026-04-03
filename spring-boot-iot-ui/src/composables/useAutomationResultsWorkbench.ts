@@ -6,20 +6,31 @@ export function useAutomationResultsWorkbench() {
   const { suggestions } = useAutomationPlanBuilder();
   const {
     registryScenarios,
+    pagination,
+    ledgerFilters,
+    ledgerRuns,
+    ledgerLoading,
+    ledgerErrorMessage,
+    lastLedgerReloadedAt,
+    selectedLedgerRunId,
     importedRun,
-    recentRuns,
-    recentRunsLoading,
-    recentRunsErrorMessage,
-    selectedRecentRunId,
-    evidenceItems,
-    evidenceLoading,
-    evidenceErrorMessage,
-    selectedEvidencePath,
-    evidencePreview,
-    evidencePreviewLoading,
-    evidencePreviewErrorMessage,
-    fetchRecentRuns,
-    selectRecentRun,
+    displaySource,
+    currentRun,
+    currentRunErrorMessage,
+    activeEvidenceRunId,
+    visibleEvidenceItems,
+    visibleSelectedEvidencePath,
+    visibleEvidencePreview,
+    visibleEvidenceLoading,
+    visibleEvidenceErrorMessage,
+    visibleEvidencePreviewLoading,
+    visibleEvidencePreviewErrorMessage,
+    fetchRunLedger,
+    applyLedgerFilters,
+    resetLedgerAndReload,
+    handleLedgerPageChange,
+    handleLedgerPageSizeChange,
+    selectLedgerRun,
     selectEvidence,
     importRegistryRunSummary,
     clearImportedRun
@@ -34,16 +45,19 @@ export function useAutomationResultsWorkbench() {
 
   const resultsMetrics = computed(() => [
     {
-      label: '已导入结果',
-      value: importedRun.value ? String(importedRun.value.summary.total) : '0',
-      badge: { label: 'Run', tone: 'brand' as const }
+      label: '当前结果',
+      value: currentRun.value ? String(currentRun.value.summary.total) : '0',
+      badge: { label: displaySource.value === 'imported' ? 'Import' : 'Run', tone: 'brand' as const }
     },
     {
       label: '失败场景',
-      value: importedRun.value ? String(importedRun.value.summary.failed) : '0',
+      value: currentRun.value ? String(currentRun.value.summary.failed) : '0',
       badge: {
         label: 'Fail',
-        tone: importedRun.value && importedRun.value.summary.failed > 0 ? ('danger' as const) : ('success' as const)
+        tone:
+          currentRun.value && currentRun.value.summary.failed > 0
+            ? ('danger' as const)
+            : ('success' as const)
       }
     },
     {
@@ -58,25 +72,39 @@ export function useAutomationResultsWorkbench() {
     }
   ]);
 
-  const resultTone = computed<'info' | 'error'>(() =>
-    importedRun.value && importedRun.value.summary.failed > 0 ? 'error' : 'info'
-  );
+  const resultTone = computed<'info' | 'error'>(() => {
+    if (currentRunErrorMessage.value) {
+      return 'error';
+    }
+    return currentRun.value && currentRun.value.summary.failed > 0 ? 'error' : 'info';
+  });
 
   const resultMessage = computed(() => {
-    if (!importedRun.value) {
-      return '尚未载入运行结果，建议先选择最近一次运行，或继续粘贴 registry-run JSON 做兼容导入。';
+    if (currentRunErrorMessage.value) {
+      return currentRunErrorMessage.value;
     }
 
-    if (importedRun.value.summary.failed > 0) {
-      return `本次导入共 ${importedRun.value.summary.total} 个场景，失败 ${importedRun.value.summary.failed} 个，请优先处理 blocker。`;
+    if (!currentRun.value) {
+      return '当前未选中运行，建议先从历史台账选择一次运行，或继续粘贴 registry-run JSON 做兼容导入。';
     }
 
-    return `本次导入共 ${importedRun.value.summary.total} 个场景，全部通过，可继续做基线回归与证据归档。`;
+    if (displaySource.value === 'imported') {
+      if (currentRun.value.summary.failed > 0) {
+        return `当前展示兼容导入结果，共 ${currentRun.value.summary.total} 个场景，失败 ${currentRun.value.summary.failed} 个，请优先处理 blocker。`;
+      }
+      return `当前展示兼容导入结果，共 ${currentRun.value.summary.total} 个场景，全部通过，可继续做基线回归与证据归档。`;
+    }
+
+    if (currentRun.value.summary.failed > 0) {
+      return `当前已选运行 ${selectedLedgerRunId.value || currentRun.value.runId || '--'} 共 ${currentRun.value.summary.total} 个场景，失败 ${currentRun.value.summary.failed} 个，请优先处理 blocker。`;
+    }
+
+    return `当前已选运行 ${selectedLedgerRunId.value || currentRun.value.runId || '--'} 共 ${currentRun.value.summary.total} 个场景，全部通过，可继续做基线回归与证据归档。`;
   });
 
   const failedScenarioDetails = computed(() =>
-    importedRun.value
-      ? importedRun.value.failedResults.map((result) => {
+    currentRun.value
+      ? currentRun.value.failedResults.map((result) => {
           const registryScenario = registryScenarios.value.find((item) => item.id === result.scenarioId);
 
           return {
@@ -91,36 +119,54 @@ export function useAutomationResultsWorkbench() {
       : []
   );
 
-  const summaryBody = computed(() =>
-    importedRun.value
-      ? importedRun.value
+  const summaryBody = computed(() => {
+    if (currentRunErrorMessage.value) {
+      return {
+        status: 'error',
+        message: currentRunErrorMessage.value
+      };
+    }
+
+    return currentRun.value
+      ? currentRun.value
       : {
           status: 'waiting',
-          message: '尚未导入统一运行汇总'
-        }
-  );
+          message: '尚未选中运行结果'
+        };
+  });
 
   return {
     suggestions,
+    pagination,
+    ledgerFilters,
+    ledgerRuns,
+    ledgerLoading,
+    ledgerErrorMessage,
+    lastLedgerReloadedAt,
+    selectedLedgerRunId,
     importedRun,
-    recentRuns,
-    recentRunsLoading,
-    recentRunsErrorMessage,
-    selectedRecentRunId,
-    evidenceItems,
-    evidenceLoading,
-    evidenceErrorMessage,
-    selectedEvidencePath,
-    evidencePreview,
-    evidencePreviewLoading,
-    evidencePreviewErrorMessage,
+    displaySource,
+    currentRun,
+    currentRunErrorMessage,
+    activeEvidenceRunId,
+    visibleEvidenceItems,
+    visibleSelectedEvidencePath,
+    visibleEvidencePreview,
+    visibleEvidenceLoading,
+    visibleEvidenceErrorMessage,
+    visibleEvidencePreviewLoading,
+    visibleEvidencePreviewErrorMessage,
     resultsMetrics,
     resultTone,
     resultMessage,
     failedScenarioDetails,
     summaryBody,
-    fetchRecentRuns,
-    selectRecentRun,
+    fetchRunLedger,
+    applyLedgerFilters,
+    resetLedgerAndReload,
+    handleLedgerPageChange,
+    handleLedgerPageSizeChange,
+    selectLedgerRun,
     selectEvidence,
     importRegistryRunSummary,
     clearImportedRun

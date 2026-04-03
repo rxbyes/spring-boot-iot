@@ -1,9 +1,9 @@
 <template>
-  <PanelCard title="证据清单与原文预览" description="最近运行结果可直接查看关联证据；手工导入时保留兼容提示，不强行构造后台证据。">
+  <PanelCard title="证据清单与原文预览" description="历史台账中的已选运行可直接查看关联证据；兼容导入时保留只读提示，不强行构造后台证据。">
     <StandardInlineState
       v-if="!runId"
       tone="info"
-      message="当前为手工导入结果，暂无可读取的后台证据；如需原文预览，请先载入最近运行结果。"
+      message="当前未绑定后台运行，兼容导入结果或空选择状态下暂无可读取的后台证据；如需原文预览，请先从历史台账载入某次运行。"
     />
     <StandardInlineState v-else-if="errorMessage" tone="error" :message="errorMessage" />
     <StandardInlineState v-else-if="loading && evidenceItems.length === 0" message="正在读取当前运行的证据清单..." />
@@ -126,7 +126,7 @@ const evidenceRows = computed(() =>
 
 const previewTitle = computed(() => {
   if (!props.runId) {
-    return '手工导入模式不提供后台证据预览';
+    return '当前未绑定后台运行，无法预览后台证据';
   }
   if (!props.preview) {
     return '选择证据后可查看原文片段';

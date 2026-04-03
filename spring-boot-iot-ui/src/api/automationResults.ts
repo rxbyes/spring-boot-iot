@@ -1,10 +1,40 @@
 import { request } from './request';
+import type { PageResult } from '../types/api';
 import type {
   AcceptanceRegistryRunSummary,
   AutomationResultEvidenceContent,
   AutomationResultEvidenceItem,
-  AutomationResultRecentRun
+  AutomationResultRecentRun,
+  AutomationResultRunPageQuery,
+  AutomationResultRunSummary
 } from '../types/automation';
+
+function appendQueryParam(params: URLSearchParams, key: string, value?: string | number | null) {
+  if (value === undefined || value === null) {
+    return;
+  }
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return;
+  }
+  params.append(key, normalized);
+}
+
+export function pageAutomationResults(params: AutomationResultRunPageQuery) {
+  const query = new URLSearchParams();
+  appendQueryParam(query, 'pageNum', params.pageNum);
+  appendQueryParam(query, 'pageSize', params.pageSize);
+  appendQueryParam(query, 'keyword', params.keyword);
+  appendQueryParam(query, 'status', params.status);
+  appendQueryParam(query, 'runnerType', params.runnerType);
+  appendQueryParam(query, 'dateFrom', params.dateFrom);
+  appendQueryParam(query, 'dateTo', params.dateTo);
+
+  return request<PageResult<AutomationResultRunSummary>>(
+    `/api/report/automation-results/page?${query.toString()}`,
+    { method: 'GET' }
+  );
+}
 
 export function listRecentAutomationResults(limit = 10) {
   const params = new URLSearchParams();

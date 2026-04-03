@@ -1,5 +1,6 @@
 package com.ghlzm.iot.report.controller;
 
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
@@ -25,6 +26,27 @@ public class AutomationResultController {
 
     public AutomationResultController(AutomationResultQueryService automationResultQueryService) {
         this.automationResultQueryService = automationResultQueryService;
+    }
+
+    @GetMapping("/page")
+    public R<PageResult<AutomationResultRunSummaryVO>> pageRuns(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String runnerType,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo
+    ) {
+        return R.ok(automationResultQueryService.pageRuns(
+                pageNum,
+                pageSize,
+                keyword,
+                status,
+                runnerType,
+                dateFrom,
+                dateTo
+        ));
     }
 
     @GetMapping("/recent")

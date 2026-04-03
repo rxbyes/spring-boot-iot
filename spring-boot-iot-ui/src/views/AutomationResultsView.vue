@@ -2,12 +2,12 @@
   <StandardPageShell class="automation-results-view">
     <StandardWorkbenchPanel
       title="结果与基线中心"
-      description="集中读取最近运行或兼容导入统一运行汇总，查看失败场景，并结合质量建议维护基线证据。"
+      description="集中读取历史运行台账或兼容导入统一运行汇总，查看失败场景，并结合质量建议维护基线证据。"
       show-notices
     >
       <template #notices>
         <div class="automation-chip-list">
-          <span>最近运行</span>
+          <span>历史台账</span>
           <span>统一汇总</span>
           <span>证据预览</span>
           <span>失败场景</span>
@@ -48,26 +48,33 @@
 
       <section>
         <AutomationRecentRunsPanel
-          :recent-runs="recentRuns"
-          :loading="recentRunsLoading"
-          :error-message="recentRunsErrorMessage"
-          :selected-run-id="selectedRecentRunId"
-          @refresh="fetchRecentRuns"
-          @import-run="selectRecentRun"
+          :ledger-runs="ledgerRuns"
+          :filters="ledgerFilters"
+          :pagination="pagination"
+          :loading="ledgerLoading"
+          :error-message="ledgerErrorMessage"
+          :selected-run-id="selectedLedgerRunId"
+          :last-reloaded-at="lastLedgerReloadedAt"
+          @refresh="fetchRunLedger"
+          @search="applyLedgerFilters"
+          @reset="resetLedgerAndReload"
+          @select-run="selectLedgerRun"
+          @page-change="handleLedgerPageChange"
+          @page-size-change="handleLedgerPageSizeChange"
         />
       </section>
 
       <section>
         <AutomationResultEvidencePanel
-          :run-id="selectedRecentRunId"
-          :evidence-items="evidenceItems"
-          :loading="evidenceLoading"
-          :error-message="evidenceErrorMessage"
-          :selected-path="selectedEvidencePath"
-          :preview="evidencePreview"
-          :preview-loading="evidencePreviewLoading"
-          :preview-error-message="evidencePreviewErrorMessage"
-          @select-evidence="selectEvidence(selectedRecentRunId, $event)"
+          :run-id="activeEvidenceRunId"
+          :evidence-items="visibleEvidenceItems"
+          :loading="visibleEvidenceLoading"
+          :error-message="visibleEvidenceErrorMessage"
+          :selected-path="visibleSelectedEvidencePath"
+          :preview="visibleEvidencePreview"
+          :preview-loading="visibleEvidencePreviewLoading"
+          :preview-error-message="visibleEvidencePreviewErrorMessage"
+          @select-evidence="selectEvidence(activeEvidenceRunId, $event)"
         />
       </section>
 
@@ -82,8 +89,9 @@
 
       <section>
         <PanelCard title="失败场景明细" description="将导入失败与注册表口径并列，便于优先定位 blocker。">
-          <div v-if="failedScenarioDetails.length === 0" class="empty-block">
-            当前没有失败场景；如果尚未导入结果，这里会在导入后展示失败明细。
+          <StandardInlineState v-if="currentRunErrorMessage" tone="error" :message="currentRunErrorMessage" />
+          <div v-else-if="failedScenarioDetails.length === 0" class="empty-block">
+            当前没有失败场景；如果尚未选择运行，这里会在选中后展示失败明细。
           </div>
           <el-table v-else :data="failedScenarioDetails" size="small" border>
             <StandardTableTextColumn prop="title" label="场景" :min-width="180" />
@@ -120,32 +128,41 @@ import { useAutomationResultsWorkbench } from '../composables/useAutomationResul
 
 const {
   suggestions,
+  pagination,
+  ledgerFilters,
+  ledgerRuns,
+  ledgerLoading,
+  ledgerErrorMessage,
+  lastLedgerReloadedAt,
+  selectedLedgerRunId,
   importedRun,
-  recentRuns,
-  recentRunsLoading,
-  recentRunsErrorMessage,
-  selectedRecentRunId,
-  evidenceItems,
-  evidenceLoading,
-  evidenceErrorMessage,
-  selectedEvidencePath,
-  evidencePreview,
-  evidencePreviewLoading,
-  evidencePreviewErrorMessage,
+  currentRunErrorMessage,
+  activeEvidenceRunId,
+  visibleEvidenceItems,
+  visibleSelectedEvidencePath,
+  visibleEvidencePreview,
+  visibleEvidenceLoading,
+  visibleEvidenceErrorMessage,
+  visibleEvidencePreviewLoading,
+  visibleEvidencePreviewErrorMessage,
   resultsMetrics,
   resultTone,
   resultMessage,
   failedScenarioDetails,
   summaryBody,
-  fetchRecentRuns,
-  selectRecentRun,
+  fetchRunLedger,
+  applyLedgerFilters,
+  resetLedgerAndReload,
+  handleLedgerPageChange,
+  handleLedgerPageSizeChange,
+  selectLedgerRun,
   selectEvidence,
   importRegistryRunSummary,
   clearImportedRun
 } = useAutomationResultsWorkbench();
 
 onMounted(() => {
-  void fetchRecentRuns();
+  void fetchRunLedger();
 });
 </script>
 
