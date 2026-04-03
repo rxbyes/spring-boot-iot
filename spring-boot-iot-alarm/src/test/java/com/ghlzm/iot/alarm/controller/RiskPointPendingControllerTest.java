@@ -1,10 +1,14 @@
 package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.dto.RiskPointPendingBindingQuery;
+import com.ghlzm.iot.alarm.dto.RiskPointPendingIgnoreRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionRequest;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
+import com.ghlzm.iot.alarm.service.RiskPointPendingPromotionService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingBindingItemVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
+import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
@@ -27,7 +31,8 @@ class RiskPointPendingControllerTest {
     void pagePendingBindingsShouldExtractCurrentUserAndDelegate() {
         RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
         RiskPointPendingRecommendationService recommendationService = mock(RiskPointPendingRecommendationService.class);
-        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService);
+        RiskPointPendingPromotionService promotionService = mock(RiskPointPendingPromotionService.class);
+        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService, promotionService);
         RiskPointPendingBindingQuery query = new RiskPointPendingBindingQuery();
         query.setRiskPointId(8001L);
         RiskPointPendingBindingItemVO item = new RiskPointPendingBindingItemVO();
@@ -72,7 +77,8 @@ class RiskPointPendingControllerTest {
     void getCandidatesShouldExtractCurrentUserAndDelegate() {
         RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
         RiskPointPendingRecommendationService recommendationService = mock(RiskPointPendingRecommendationService.class);
-        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService);
+        RiskPointPendingPromotionService promotionService = mock(RiskPointPendingPromotionService.class);
+        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService, promotionService);
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
         bundle.setPendingId(9001L);
         bundle.setResolutionStatus("PENDING_METRIC_GOVERNANCE");
@@ -83,6 +89,41 @@ class RiskPointPendingControllerTest {
 
         assertEquals(9001L, response.getData().getPendingId());
         verify(recommendationService).getCandidates(9001L, 1001L);
+    }
+
+    @Test
+    void promoteShouldExtractCurrentUserAndDelegate() {
+        RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
+        RiskPointPendingRecommendationService recommendationService = mock(RiskPointPendingRecommendationService.class);
+        RiskPointPendingPromotionService promotionService = mock(RiskPointPendingPromotionService.class);
+        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService, promotionService);
+        RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
+        RiskPointPendingPromotionResultVO result = new RiskPointPendingPromotionResultVO();
+        result.setPendingId(77L);
+        result.setPendingStatus("PROMOTED");
+        Authentication authentication = authentication(1001L);
+        when(promotionService.promote(77L, request, 1001L)).thenReturn(result);
+
+        R<RiskPointPendingPromotionResultVO> response = controller.promote(77L, request, authentication);
+
+        assertEquals("PROMOTED", response.getData().getPendingStatus());
+        verify(promotionService).promote(77L, request, 1001L);
+    }
+
+    @Test
+    void ignoreShouldExtractCurrentUserAndDelegate() {
+        RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
+        RiskPointPendingRecommendationService recommendationService = mock(RiskPointPendingRecommendationService.class);
+        RiskPointPendingPromotionService promotionService = mock(RiskPointPendingPromotionService.class);
+        RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService, promotionService);
+        RiskPointPendingIgnoreRequest request = new RiskPointPendingIgnoreRequest();
+        request.setIgnoreNote("人工确认无需转正");
+        Authentication authentication = authentication(1001L);
+
+        R<Void> response = controller.ignore(77L, request, authentication);
+
+        assertEquals(200, response.getCode());
+        verify(promotionService).ignore(77L, request, 1001L);
     }
 
     private Authentication authentication(Long userId) {
