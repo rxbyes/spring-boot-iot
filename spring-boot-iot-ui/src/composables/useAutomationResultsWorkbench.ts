@@ -11,8 +11,16 @@ export function useAutomationResultsWorkbench() {
     recentRunsLoading,
     recentRunsErrorMessage,
     selectedRecentRunId,
+    evidenceItems,
+    evidenceLoading,
+    evidenceErrorMessage,
+    selectedEvidencePath,
+    evidencePreview,
+    evidencePreviewLoading,
+    evidencePreviewErrorMessage,
     fetchRecentRuns,
     selectRecentRun,
+    selectEvidence,
     importRegistryRunSummary,
     clearImportedRun
   } = useAutomationRegistryWorkbench();
@@ -99,6 +107,13 @@ export function useAutomationResultsWorkbench() {
     recentRunsLoading,
     recentRunsErrorMessage,
     selectedRecentRunId,
+    evidenceItems,
+    evidenceLoading,
+    evidenceErrorMessage,
+    selectedEvidencePath,
+    evidencePreview,
+    evidencePreviewLoading,
+    evidencePreviewErrorMessage,
     resultsMetrics,
     resultTone,
     resultMessage,
@@ -106,6 +121,7 @@ export function useAutomationResultsWorkbench() {
     summaryBody,
     fetchRecentRuns,
     selectRecentRun,
+    selectEvidence,
     importRegistryRunSummary,
     clearImportedRun
   };

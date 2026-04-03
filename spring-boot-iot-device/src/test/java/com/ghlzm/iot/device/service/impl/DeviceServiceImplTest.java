@@ -285,6 +285,7 @@ class DeviceServiceImplTest {
                 null,
                 null,
                 null,
+                null,
                 1L,
                 10L
         );

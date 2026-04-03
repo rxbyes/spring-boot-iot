@@ -228,6 +228,31 @@ export interface AcceptanceRegistryRunSummary {
   exitCode?: number;
 }
 
+export type AutomationEvidenceCategory =
+  | 'run-summary'
+  | 'json'
+  | 'markdown'
+  | 'text'
+  | 'unknown'
+  | string;
+
+export type AutomationEvidenceSource = 'report' | 'related' | 'scenario' | string;
+
+export interface AutomationResultEvidenceItem {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  source: AutomationEvidenceSource;
+}
+
+export interface AutomationResultEvidenceContent {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  content: string;
+  truncated: boolean;
+}
+
 export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRunSummary {
   failedScenarioIds: string[];
   failedResults: AcceptanceRegistryRunResult[];

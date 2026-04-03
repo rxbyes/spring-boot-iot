@@ -2,6 +2,8 @@ package com.ghlzm.iot.report.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
@@ -14,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,11 +25,12 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -39,8 +43,10 @@ import java.util.stream.Stream;
 public class AutomationResultQueryServiceImpl implements AutomationResultQueryService {
 
     private static final Pattern REGISTRY_RUN_FILE_PATTERN = Pattern.compile("^registry-run-(.+)\\.json$");
+    private static final String ACCEPTANCE_PREFIX = "logs/acceptance/";
     private static final int DEFAULT_LIMIT = 10;
     private static final int MAX_LIMIT = 50;
+    private static final int MAX_PREVIEW_LENGTH = 20_000;
     private static final DateTimeFormatter UPDATED_AT_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final Path resultsDir;
@@ -80,16 +86,44 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
 
     @Override
     public AutomationResultRunDetailVO getRunDetail(String runId) {
-        if (!StringUtils.hasText(runId)) {
-            throw new BizException(400, "运行编号不能为空");
+        return readRunDetail(resolveRunFile(runId));
+    }
+
+    @Override
+    public List<AutomationResultEvidenceItemVO> listRunEvidence(String runId) {
+        AutomationResultRunDetailVO detail = getRunDetail(runId);
+        return resolveAllowedEvidence(detail).entrySet().stream()
+                .map(entry -> toEvidenceItem(entry.getKey(), entry.getValue(), detail.getReportPath()))
+                .toList();
+    }
+
+    @Override
+    public AutomationResultEvidenceContentVO getEvidenceContent(String runId, String path) {
+        AutomationResultRunDetailVO detail = getRunDetail(runId);
+        Map<String, String> allowedEvidence = resolveAllowedEvidence(detail);
+        String normalizedPath = normalizeEvidencePath(path);
+        if (!allowedEvidence.containsKey(normalizedPath)) {
+            throw new BizException(400, "证据文件不属于当前运行结果: " + normalizedPath);
         }
 
-        Path file = resultsDir.resolve("registry-run-" + runId.trim() + ".json").normalize();
+        Path file = resolveEvidenceFile(normalizedPath);
         if (!Files.isRegularFile(file)) {
-            throw new BizException(404, "未找到运行结果: " + runId);
+            throw new BizException(404, "未找到证据文件: " + normalizedPath);
         }
 
-        return readRunDetail(file);
+        try {
+            String rawContent = Files.readString(file, StandardCharsets.UTF_8);
+            boolean truncated = rawContent.length() > MAX_PREVIEW_LENGTH;
+            AutomationResultEvidenceContentVO content = new AutomationResultEvidenceContentVO();
+            content.setPath(normalizedPath);
+            content.setFileName(file.getFileName().toString());
+            content.setCategory(resolveEvidenceCategory(normalizedPath, detail.getReportPath()));
+            content.setContent(truncated ? rawContent.substring(0, MAX_PREVIEW_LENGTH) : rawContent);
+            content.setTruncated(truncated);
+            return content;
+        } catch (IOException e) {
+            throw new BizException(500, "读取证据文件失败: " + normalizedPath, e);
+        }
     }
 
     private boolean isRegistryRunFile(Path file) {
@@ -120,10 +154,22 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
         return summary;
     }
 
+    private Path resolveRunFile(String runId) {
+        if (!StringUtils.hasText(runId)) {
+            throw new BizException(400, "运行编号不能为空");
+        }
+
+        Path file = resultsDir.resolve("registry-run-" + runId.trim() + ".json").normalize();
+        if (!file.startsWith(resultsDir) || !Files.isRegularFile(file)) {
+            throw new BizException(404, "未找到运行结果: " + runId);
+        }
+        return file;
+    }
+
     private AutomationResultRunDetailVO readRunDetail(Path file) {
         try {
             AutomationResultRunDetailVO detail = objectMapper.readValue(
-                    Files.readString(file),
+                    Files.readString(file, StandardCharsets.UTF_8),
                     AutomationResultRunDetailVO.class
             );
             detail.setRunId(resolveRunId(detail, file));
@@ -204,7 +250,7 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
     }
 
     private List<String> resolveRelatedEvidenceFiles(List<AutomationResultRunResultVO> results) {
-        Set<String> evidenceFiles = new LinkedHashSet<>();
+        LinkedHashSet<String> evidenceFiles = new LinkedHashSet<>();
         normalizeResults(results).stream()
                 .map(AutomationResultRunResultVO::getEvidenceFiles)
                 .filter(Objects::nonNull)
@@ -213,6 +259,35 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
                 .filter(StringUtils::hasText)
                 .forEach(evidenceFiles::add);
         return List.copyOf(evidenceFiles);
+    }
+
+    private Map<String, String> resolveAllowedEvidence(AutomationResultRunDetailVO detail) {
+        LinkedHashMap<String, String> evidence = new LinkedHashMap<>();
+        addEvidencePath(evidence, detail.getReportPath(), "report");
+        detail.getRelatedEvidenceFiles().forEach(path -> addEvidencePath(evidence, path, "related"));
+        detail.getResults().forEach(result -> result.getEvidenceFiles().forEach(path -> addEvidencePath(evidence, path, "scenario")));
+        return evidence;
+    }
+
+    private void addEvidencePath(Map<String, String> evidence, String path, String source) {
+        String normalizedPath = normalizeEvidencePath(path);
+        if (!StringUtils.hasText(normalizedPath)) {
+            return;
+        }
+        Path file = resolveEvidenceFile(normalizedPath);
+        if (!Files.isRegularFile(file)) {
+            return;
+        }
+        evidence.putIfAbsent(normalizedPath, source);
+    }
+
+    private AutomationResultEvidenceItemVO toEvidenceItem(String path, String source, String reportPath) {
+        AutomationResultEvidenceItemVO item = new AutomationResultEvidenceItemVO();
+        item.setPath(path);
+        item.setFileName(Paths.get(path).getFileName().toString());
+        item.setCategory(resolveEvidenceCategory(path, reportPath));
+        item.setSource(source);
+        return item;
     }
 
     private String normalizeEvidencePath(String path) {
@@ -224,6 +299,46 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
             return toDisplayPath(candidate);
         }
         return path.replace('\\', '/');
+    }
+
+    private Path resolveEvidenceFile(String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new BizException(400, "证据文件路径不能为空");
+        }
+
+        String normalizedPath = normalizeEvidencePath(path);
+        Path candidate;
+        if (normalizedPath.startsWith(ACCEPTANCE_PREFIX)) {
+            candidate = resultsDir.resolve(normalizedPath.substring(ACCEPTANCE_PREFIX.length())).normalize();
+        } else {
+            Path rawCandidate = Paths.get(normalizedPath);
+            candidate = rawCandidate.isAbsolute()
+                    ? rawCandidate.toAbsolutePath().normalize()
+                    : resultsDir.resolve(normalizedPath).normalize();
+        }
+
+        if (!candidate.startsWith(resultsDir)) {
+            throw new BizException(400, "证据文件路径不合法: " + normalizedPath);
+        }
+        return candidate;
+    }
+
+    private String resolveEvidenceCategory(String path, String reportPath) {
+        if (Objects.equals(path, reportPath)) {
+            return "run-summary";
+        }
+        String fileName = Paths.get(path).getFileName().toString().toLowerCase();
+        if (fileName.endsWith(".json")) {
+            return "json";
+        }
+        if (fileName.endsWith(".md") || fileName.endsWith(".markdown")) {
+            return "markdown";
+        }
+        if (fileName.endsWith(".txt") || fileName.endsWith(".log") || fileName.endsWith(".yml")
+                || fileName.endsWith(".yaml") || fileName.endsWith(".csv")) {
+            return "text";
+        }
+        return "unknown";
     }
 
     private String toDisplayPath(Path file) {

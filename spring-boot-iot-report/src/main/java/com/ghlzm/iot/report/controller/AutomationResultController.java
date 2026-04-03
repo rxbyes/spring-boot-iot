@@ -2,6 +2,8 @@ package com.ghlzm.iot.report.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,5 +37,18 @@ public class AutomationResultController {
     @GetMapping("/{runId}")
     public R<AutomationResultRunDetailVO> getRunDetail(@PathVariable String runId) {
         return R.ok(automationResultQueryService.getRunDetail(runId));
+    }
+
+    @GetMapping("/{runId}/evidence")
+    public R<List<AutomationResultEvidenceItemVO>> listRunEvidence(@PathVariable String runId) {
+        return R.ok(automationResultQueryService.listRunEvidence(runId));
+    }
+
+    @GetMapping("/{runId}/evidence/content")
+    public R<AutomationResultEvidenceContentVO> getEvidenceContent(
+            @PathVariable String runId,
+            @RequestParam String path
+    ) {
+        return R.ok(automationResultQueryService.getEvidenceContent(runId, path));
     }
 }

@@ -9,6 +9,7 @@
         <div class="automation-chip-list">
           <span>最近运行</span>
           <span>统一汇总</span>
+          <span>证据预览</span>
           <span>失败场景</span>
           <span>质量建议</span>
           <span>基线证据</span>
@@ -56,6 +57,20 @@
         />
       </section>
 
+      <section>
+        <AutomationResultEvidencePanel
+          :run-id="selectedRecentRunId"
+          :evidence-items="evidenceItems"
+          :loading="evidenceLoading"
+          :error-message="evidenceErrorMessage"
+          :selected-path="selectedEvidencePath"
+          :preview="evidencePreview"
+          :preview-loading="evidencePreviewLoading"
+          :preview-error-message="evidencePreviewErrorMessage"
+          @select-evidence="selectEvidence(selectedRecentRunId, $event)"
+        />
+      </section>
+
       <section class="two-column-grid">
         <AutomationResultImportPanel
           :imported-run="importedRun"
@@ -91,6 +106,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import AutomationRecentRunsPanel from '../components/AutomationRecentRunsPanel.vue';
+import AutomationResultEvidencePanel from '../components/AutomationResultEvidencePanel.vue';
 import AutomationResultImportPanel from '../components/AutomationResultImportPanel.vue';
 import AutomationSuggestionPanel from '../components/AutomationSuggestionPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
@@ -109,6 +125,13 @@ const {
   recentRunsLoading,
   recentRunsErrorMessage,
   selectedRecentRunId,
+  evidenceItems,
+  evidenceLoading,
+  evidenceErrorMessage,
+  selectedEvidencePath,
+  evidencePreview,
+  evidencePreviewLoading,
+  evidencePreviewErrorMessage,
   resultsMetrics,
   resultTone,
   resultMessage,
@@ -116,6 +139,7 @@ const {
   summaryBody,
   fetchRecentRuns,
   selectRecentRun,
+  selectEvidence,
   importRegistryRunSummary,
   clearImportedRun
 } = useAutomationResultsWorkbench();
