@@ -1,6 +1,7 @@
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
 import HelpDocView from '@/views/HelpDocView.vue'
 
@@ -169,8 +170,11 @@ function flushPromises() {
 }
 
 function mountView() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
   return mount(HelpDocView, {
     global: {
+      plugins: [pinia],
       directives: {
         loading: () => undefined,
         permission: () => undefined
@@ -184,7 +188,7 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardAppliedFiltersBar: true,
         StandardTableTextColumn: StandardTableTextColumnStub,
-        StandardRowActions: true,
+        StandardWorkbenchRowActions: true,
         StandardActionLink: true,
         StandardPagination: true,
         StandardDetailDrawer: true,

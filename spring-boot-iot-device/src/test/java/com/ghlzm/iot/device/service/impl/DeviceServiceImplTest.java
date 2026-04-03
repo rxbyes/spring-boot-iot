@@ -1,6 +1,10 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
@@ -17,13 +21,19 @@ import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -54,9 +65,17 @@ class DeviceServiceImplTest {
     private UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     @Mock
     private DeviceInvalidReportStateService invalidReportStateService;
+    @Mock
+    private PermissionService permissionService;
 
     private DeviceServiceImpl deviceService;
     private IotProperties iotProperties;
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Device.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -70,7 +89,8 @@ class DeviceServiceImplTest {
                 productModelMapper,
                 unregisteredDeviceRosterService,
                 iotProperties,
-                invalidReportStateService
+                invalidReportStateService,
+                permissionService
         ));
     }
 
@@ -251,6 +271,94 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void pageDevicesShouldFilterRegisteredRowsByCurrentTenant() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(0L).when(deviceService).count(any(LambdaQueryWrapper.class));
+
+        deviceService.pageDevices(
+                99L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1L,
+                10L
+        );
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<Device>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceService).count(wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+    }
+
+    @Test
+    void getDetailByIdShouldRejectCrossTenantAccess() {
+        Device crossTenantDevice = new Device();
+        crossTenantDevice.setId(4001L);
+        crossTenantDevice.setTenantId(9L);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(crossTenantDevice).when(deviceService).getRequiredById(4001L);
+
+        BizException error = assertThrows(BizException.class, () -> deviceService.getDetailById(99L, 4001L));
+        assertEquals("设备不存在或无权访问", error.getMessage());
+    }
+
+    @Test
+    void deleteDeviceShouldRejectCrossTenantAccess() {
+        Device crossTenantDevice = new Device();
+        crossTenantDevice.setId(4002L);
+        crossTenantDevice.setTenantId(9L);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(crossTenantDevice).when(deviceService).getRequiredById(4002L);
+
+        BizException error = assertThrows(BizException.class, () -> deviceService.deleteDevice(99L, 4002L));
+        assertEquals("设备不存在或无权访问", error.getMessage());
+        verify(deviceService, never()).removeById(4002L);
+    }
+
+    @Test
+    void listDeviceOptionsShouldFilterByCurrentTenant() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(List.of()).when(deviceService).list(any(LambdaQueryWrapper.class));
+
+        deviceService.listDeviceOptions(99L, false);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<Device>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceService).list(wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("device_status"));
+    }
+
+    @Test
+    void listMetricOptionsShouldRejectCrossTenantDevice() {
+        Device crossTenantDevice = new Device();
+        crossTenantDevice.setId(4003L);
+        crossTenantDevice.setTenantId(9L);
+        crossTenantDevice.setProductId(1001L);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(crossTenantDevice).when(deviceService).getRequiredById(4003L);
+
+        BizException error = assertThrows(BizException.class, () -> deviceService.listMetricOptions(99L, 4003L));
+        assertEquals("设备不存在或无权访问", error.getMessage());
+        verify(productModelMapper, never()).selectList(any());
+        verify(devicePropertyMapper, never()).selectList(any());
+    }
+
+    @Test
     void addDeviceShouldResolveInvalidReportStateAfterArchiveCreate() {
         DeviceServiceImpl resolvingService = spy(new DeviceServiceImpl(
                 productService,
@@ -258,7 +366,8 @@ class DeviceServiceImplTest {
                 productModelMapper,
                 unregisteredDeviceRosterService,
                 iotProperties,
-                invalidReportStateService
+                invalidReportStateService,
+                permissionService
         ));
         doReturn(deviceMapper).when(resolvingService).getBaseMapper();
         when(deviceMapper.selectOne(any())).thenReturn(null);
@@ -292,6 +401,7 @@ class DeviceServiceImplTest {
         product.setStatus(ProductStatusEnum.ENABLED.getCode());
         product.setProtocolCode("mqtt-json");
         product.setNodeType(1);
+        product.setTenantId(1L);
         return product;
     }
 }

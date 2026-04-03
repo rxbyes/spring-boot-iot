@@ -11,7 +11,9 @@ const {
   mockDeleteRiskPoint,
   mockBindDevice,
   mockListOrganizationTree,
+  mockListRegions,
   mockListRegionTree,
+  mockGetRegion,
   mockListUsers,
   mockGetUser,
   mockGetDictByCode,
@@ -23,7 +25,9 @@ const {
   mockDeleteRiskPoint: vi.fn(),
   mockBindDevice: vi.fn(),
   mockListOrganizationTree: vi.fn(),
+  mockListRegions: vi.fn(),
   mockListRegionTree: vi.fn(),
+  mockGetRegion: vi.fn(),
   mockListUsers: vi.fn(),
   mockGetUser: vi.fn(),
   mockGetDictByCode: vi.fn(),
@@ -48,7 +52,9 @@ vi.mock('@/api/organization', () => ({
 }))
 
 vi.mock('@/api/region', () => ({
-  listRegionTree: mockListRegionTree
+  listRegions: mockListRegions,
+  listRegionTree: mockListRegionTree,
+  getRegion: mockGetRegion
 }))
 
 vi.mock('@/api/user', () => ({
@@ -131,6 +137,17 @@ const StandardPaginationStub = defineComponent({
       :data-layout="layout"
       :data-page-sizes="JSON.stringify(pageSizes || [])"
     />
+  `
+})
+
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label', 'prop', 'width', 'minWidth'],
+  template: `
+    <section class="standard-table-text-column-stub">
+      <header v-if="label" class="standard-table-text-column-stub__label">{{ label }}</header>
+      <slot name="default" :row="{}" />
+    </section>
   `
 })
 
@@ -299,7 +316,7 @@ function mountView() {
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
         StandardFormDrawer: StandardFormDrawerStub,
-        StandardTableTextColumn: true,
+        StandardTableTextColumn: StandardTableTextColumnStub,
         StandardButton: true,
         StandardInlineState: true,
         EmptyState: EmptyStateStub,
@@ -329,7 +346,9 @@ describe('RiskPointView', () => {
     mockDeleteRiskPoint.mockReset()
     mockBindDevice.mockReset()
     mockListOrganizationTree.mockReset()
+    mockListRegions.mockReset()
     mockListRegionTree.mockReset()
+    mockGetRegion.mockReset()
     mockListUsers.mockReset()
     mockGetUser.mockReset()
     mockGetDictByCode.mockReset()
@@ -339,10 +358,20 @@ describe('RiskPointView', () => {
       msg: 'success',
       data: []
     })
+    mockListRegions.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
     mockListRegionTree.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
+    })
+    mockGetRegion.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
     })
     mockListUsers.mockResolvedValue({
       code: 200,
@@ -459,7 +488,7 @@ describe('RiskPointView', () => {
     expect(mockGetDictByCode).toHaveBeenCalledWith('risk_point_level')
   })
 
-  it('loads organization, region and risk-point-level options on mount without preloading all users', async () => {
+  it('loads organization and risk-point-level options on mount while deferring region roots until the form opens', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -475,9 +504,16 @@ describe('RiskPointView', () => {
     await flushPromises()
 
     expect(mockListOrganizationTree).toHaveBeenCalledTimes(1)
-    expect(mockListRegionTree).toHaveBeenCalledTimes(1)
+    expect(mockListRegionTree).not.toHaveBeenCalled()
+    expect(mockListRegions).not.toHaveBeenCalled()
     expect(mockListUsers).not.toHaveBeenCalled()
     expect(mockGetDictByCode).toHaveBeenCalledWith('risk_point_level')
+
+    ;(wrapper.vm as unknown as { handleAdd: () => void }).handleAdd()
+    await flushPromises()
+
+    expect(mockListRegions).toHaveBeenCalledTimes(1)
+    expect(mockListRegions).toHaveBeenCalledWith()
   })
 
   it('defaults the responsible user and phone from the selected organization leader in create mode', async () => {

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AutomationResultQueryServiceImplTest {
 
@@ -141,5 +142,96 @@ class AutomationResultQueryServiceImplTest {
         assertThat(detail.getSummary().getFailed()).isEqualTo(1);
         assertThat(detail.getResults()).hasSize(1);
         assertThat(detail.getResults().get(0).getScenarioId()).isEqualTo("risk.full-drill.red-chain");
+    }
+
+    @Test
+    void shouldListEvidenceForRunIncludingRunSummaryAndScenarioArtifacts() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        Files.writeString(
+                logsDir.resolve("registry-run-20260402155432.json"),
+                """
+                        {
+                          "runId": "20260402155432",
+                          "summary": {
+                            "total": 1,
+                            "passed": 0,
+                            "failed": 1
+                          },
+                          "results": [
+                            {
+                              "scenarioId": "risk.full-drill.red-chain",
+                              "runnerType": "riskDrill",
+                              "status": "failed",
+                              "blocking": "blocker",
+                              "summary": "simulated failure",
+                              "evidenceFiles": [
+                                "logs/acceptance/risk-drill-1775116282733.md",
+                                "logs/acceptance/risk-drill-1775116282733.json"
+                              ]
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+        Files.writeString(logsDir.resolve("risk-drill-1775116282733.md"), "# Risk Drill", StandardCharsets.UTF_8);
+        Files.writeString(logsDir.resolve("risk-drill-1775116282733.json"), "{\"result\":true}", StandardCharsets.UTF_8);
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var evidenceItems = service.listRunEvidence("20260402155432");
+
+        assertThat(evidenceItems).hasSize(3);
+        assertThat(evidenceItems.get(0).getPath()).isEqualTo("logs/acceptance/registry-run-20260402155432.json");
+        assertThat(evidenceItems.get(0).getCategory()).isEqualTo("run-summary");
+        assertThat(evidenceItems.get(1).getPath()).isEqualTo("logs/acceptance/risk-drill-1775116282733.md");
+    }
+
+    @Test
+    void shouldPreviewAllowedEvidenceContentAndRejectUnrelatedFiles() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        Files.writeString(
+                logsDir.resolve("registry-run-20260402155432.json"),
+                """
+                        {
+                          "runId": "20260402155432",
+                          "summary": {
+                            "total": 1,
+                            "passed": 0,
+                            "failed": 1
+                          },
+                          "results": [
+                            {
+                              "scenarioId": "risk.full-drill.red-chain",
+                              "status": "failed",
+                              "blocking": "blocker",
+                              "evidenceFiles": [
+                                "logs/acceptance/risk-drill-1775116282733.md"
+                              ]
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+        Files.writeString(logsDir.resolve("risk-drill-1775116282733.md"), "# Risk Drill\n\n- status: failed", StandardCharsets.UTF_8);
+        Files.writeString(logsDir.resolve("other-note.txt"), "not linked", StandardCharsets.UTF_8);
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var preview = service.getEvidenceContent("20260402155432", "logs/acceptance/risk-drill-1775116282733.md");
+
+        assertThat(preview.getPath()).isEqualTo("logs/acceptance/risk-drill-1775116282733.md");
+        assertThat(preview.getCategory()).isEqualTo("markdown");
+        assertThat(preview.getContent()).contains("# Risk Drill");
+
+        assertThatThrownBy(() -> service.getEvidenceContent("20260402155432", "logs/acceptance/other-note.txt"))
+                .hasMessageContaining("证据文件不属于当前运行结果");
     }
 }

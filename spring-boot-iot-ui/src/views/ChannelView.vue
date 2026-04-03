@@ -24,7 +24,7 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.channelType" placeholder="渠道类型" clearable>
-                <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+                <el-option v-for="item in channelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </template>
@@ -162,7 +162,7 @@
           </el-form-item>
           <el-form-item label="渠道类型" prop="channelType">
             <el-select v-model="formData.channelType" placeholder="请选择渠道类型">
-              <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option v-for="item in channelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="配置 JSON" prop="config">
@@ -236,6 +236,7 @@ import {
   CHANNEL_TYPES,
   addChannel,
   deleteChannel,
+  fetchChannelTypeOptions,
   getChannelByCode,
   pageChannels,
   testChannel,
@@ -253,6 +254,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增通知编排')
 const tableData = ref<ChannelRecord[]>([])
 const selectedRows = ref<ChannelRecord[]>([])
+const channelTypeOptions = ref(CHANNEL_TYPES.map((item) => ({ ...item })))
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
 let latestListRequestId = 0
 
@@ -417,9 +419,13 @@ const loadChannelPage = async () => {
   }
 }
 
-onMounted(() => {
+const loadChannelTypeOptions = async () => {
+  channelTypeOptions.value = await fetchChannelTypeOptions()
+}
+
+onMounted(async () => {
   syncAppliedFilters()
-  loadChannelPage()
+  await Promise.all([loadChannelTypeOptions(), loadChannelPage()])
 })
 
 const handleSearch = () => {
@@ -590,8 +596,9 @@ const handleDialogClose = () => {
 }
 
 const getChannelTypeName = (type: string) => {
-  const matched = CHANNEL_TYPES.find((item) => item.value === type)
-  return matched?.label || type
+  const normalized = String(type || '').trim().toLowerCase()
+  const matched = channelTypeOptions.value.find((item) => item.value === normalized)
+  return matched?.label || normalized
 }
 
 const handleSizeChange = (size: number) => {

@@ -94,6 +94,7 @@ describe('automation rd workbench route splits', () => {
     const source = readView('AutomationResultsView.vue');
 
     expect(source).toContain('<AutomationRecentRunsPanel');
+    expect(source).toContain('<AutomationResultEvidencePanel');
     expect(source).toContain('<AutomationResultImportPanel');
     expect(source).toContain('<AutomationSuggestionPanel');
     expect(source).not.toContain('<AutomationScenarioEditor');

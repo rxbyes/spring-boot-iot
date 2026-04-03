@@ -2,6 +2,8 @@ package com.ghlzm.iot.report.controller;
 
 import com.ghlzm.iot.framework.advice.GlobalExceptionHandler;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
+import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,5 +55,29 @@ class AutomationResultControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
 
         verify(automationResultQueryService).getRunDetail("20260402155432");
+    }
+
+    @Test
+    void shouldExposeAutomationResultEvidenceRoute() throws Exception {
+        when(automationResultQueryService.listRunEvidence("20260402155432")).thenReturn(List.of(new AutomationResultEvidenceItemVO()));
+
+        mockMvc.perform(get("/api/report/automation-results/20260402155432/evidence"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(automationResultQueryService).listRunEvidence("20260402155432");
+    }
+
+    @Test
+    void shouldExposeAutomationResultEvidenceContentRoute() throws Exception {
+        when(automationResultQueryService.getEvidenceContent("20260402155432", "logs/acceptance/registry-run-20260402155432.json"))
+                .thenReturn(new AutomationResultEvidenceContentVO());
+
+        mockMvc.perform(get("/api/report/automation-results/20260402155432/evidence/content")
+                        .param("path", "logs/acceptance/registry-run-20260402155432.json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(automationResultQueryService).getEvidenceContent("20260402155432", "logs/acceptance/registry-run-20260402155432.json");
     }
 }
