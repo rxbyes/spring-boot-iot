@@ -197,6 +197,17 @@ const ElTableColumnStub = defineComponent({
   `
 })
 
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label', 'width', 'minWidth', 'prop'],
+  template: `
+    <section class="standard-table-text-column-stub">
+      <header v-if="label" class="standard-table-text-column-stub__label">{{ label }}</header>
+      <slot name="default" :row="{}" />
+    </section>
+  `
+})
+
 const EmptyStateStub = defineComponent({
   name: 'EmptyState',
   props: ['title', 'description'],
@@ -311,7 +322,7 @@ function mountView() {
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
         StandardFormDrawer: StandardFormDrawerStub,
-        StandardTableTextColumn: true,
+        StandardTableTextColumn: StandardTableTextColumnStub,
         StandardButton: true,
         StandardInlineState: true,
         EmptyState: EmptyStateStub,

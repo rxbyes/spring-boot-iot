@@ -136,18 +136,18 @@
                 <span>{{ row.regionName || '未配置区域' }}</span>
               </template>
             </StandardTableTextColumn>
-            <el-table-column prop="riskPointLevel" label="风险点等级" width="120">
+            <StandardTableTextColumn prop="riskPointLevel" label="风险点等级" :width="120">
               <template #default="{ row }">
                 <el-tag type="info" round>{{ getRiskPointLevelText(row.riskPointLevel) }}</el-tag>
               </template>
-            </el-table-column>
-            <el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" :width="120">
               <template #default="{ row }">
                 <el-tag :type="getCurrentRiskLevelType(row.currentRiskLevel || row.riskLevel)" round>
                   {{ getCurrentRiskLevelText(row.currentRiskLevel || row.riskLevel) }}
                 </el-tag>
               </template>
-            </el-table-column>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
               <template #default="{ row }">
                 <span>{{ getResponsibleUserText(row) }}</span>

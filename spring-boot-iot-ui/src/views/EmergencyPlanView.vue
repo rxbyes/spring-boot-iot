@@ -107,13 +107,13 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="planName" label="预案名称" :min-width="180" />
-            <el-table-column prop="alarmLevel" label="适用告警等级" width="120">
+            <StandardTableTextColumn prop="alarmLevel" label="适用告警等级" :width="120">
               <template #default="{ row }">
                 <el-tag :type="getAlarmLevelType(row.alarmLevel || row.riskLevel)" round>
                   {{ getAlarmLevelText(row.alarmLevel || row.riskLevel) }}
                 </el-tag>
               </template>
-            </el-table-column>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
