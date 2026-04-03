@@ -1,4 +1,5 @@
 import pathlib
+import re
 import unittest
 
 
@@ -12,11 +13,19 @@ class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
         for snippet in snippets:
             self.assertIn(snippet, content)
 
-    def assert_pending_binding_baseline(self, content: str) -> None:
+    def extract_create_table_block(self, content: str, table_name: str) -> str:
+        pattern = re.compile(
+            rf"(CREATE TABLE(?: IF NOT EXISTS)? {table_name} \([\s\S]*?\)\s*ENGINE=InnoDB[^\n]*)"
+        )
+        match = pattern.search(content)
+        self.assertIsNotNone(match, f"missing CREATE TABLE block for {table_name}")
+        return match.group(1)
+
+    def assert_pending_binding_baseline(self, block: str, create_snippet: str) -> None:
         self.assert_contains_all(
-            content,
+            block,
             [
-                "risk_point_device_pending_binding",
+                create_snippet,
                 "resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE'",
                 "metric_identifier VARCHAR(64) DEFAULT NULL",
                 "UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no)",
@@ -26,45 +35,61 @@ class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
             ],
         )
 
-    def assert_pending_promotion_baseline(self, content: str) -> None:
+    def assert_pending_promotion_baseline(self, block: str, create_snippet: str) -> None:
         self.assert_contains_all(
-            content,
+            block,
             [
-                "risk_point_device_pending_promotion",
-                "risk_point_device_id BIGINT",
-                "evidence_snapshot_json JSON",
-                "KEY idx_pending_promotion_binding_id",
-                "KEY idx_pending_promotion_status",
+                create_snippet,
+                "pending_binding_id BIGINT NOT NULL",
+                "risk_point_device_id BIGINT DEFAULT NULL",
+                "risk_point_id BIGINT NOT NULL",
+                "device_id BIGINT NOT NULL",
+                "metric_identifier VARCHAR(64) NOT NULL",
+                "promotion_status VARCHAR(32) NOT NULL",
+                "tenant_id BIGINT NOT NULL DEFAULT 1",
+                "deleted TINYINT NOT NULL DEFAULT 0",
+                "evidence_snapshot_json JSON DEFAULT NULL",
+                "KEY idx_pending_promotion_pending_id (pending_binding_id)",
+                "KEY idx_pending_promotion_binding_id (risk_point_device_id)",
+                "KEY idx_pending_promotion_status (tenant_id, promotion_status, deleted)",
             ],
         )
 
     def test_init_sql_contains_pending_promotion_table(self) -> None:
         content = INIT_SQL.read_text(encoding="utf-8")
-        self.assertIn("CREATE TABLE risk_point_device_pending_promotion", content)
-        self.assert_pending_promotion_baseline(content)
+        block = self.extract_create_table_block(
+            content, "risk_point_device_pending_promotion"
+        )
+        self.assert_pending_promotion_baseline(
+            block,
+            "CREATE TABLE risk_point_device_pending_promotion",
+        )
 
     def test_schema_sync_contains_pending_promotion_table(self) -> None:
         content = SCHEMA_SYNC.read_text(encoding="utf-8")
-        self.assertIn('"risk_point_device_pending_promotion": """', content)
-        self.assertIn(
-            "CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion",
-            content,
+        block = self.extract_create_table_block(
+            content, "risk_point_device_pending_promotion"
         )
-        self.assert_pending_promotion_baseline(content)
+        self.assert_pending_promotion_baseline(
+            block,
+            "CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion",
+        )
 
     def test_init_sql_contains_pending_binding_table(self) -> None:
         content = INIT_SQL.read_text(encoding="utf-8")
-        self.assertIn("CREATE TABLE risk_point_device_pending_binding", content)
-        self.assert_pending_binding_baseline(content)
+        block = self.extract_create_table_block(content, "risk_point_device_pending_binding")
+        self.assert_pending_binding_baseline(
+            block,
+            "CREATE TABLE risk_point_device_pending_binding",
+        )
 
     def test_schema_sync_contains_pending_binding_table(self) -> None:
         content = SCHEMA_SYNC.read_text(encoding="utf-8")
-        self.assertIn('"risk_point_device_pending_binding": """', content)
-        self.assertIn(
+        block = self.extract_create_table_block(content, "risk_point_device_pending_binding")
+        self.assert_pending_binding_baseline(
+            block,
             "CREATE TABLE IF NOT EXISTS risk_point_device_pending_binding",
-            content,
         )
-        self.assert_pending_binding_baseline(content)
 
 
 if __name__ == "__main__":

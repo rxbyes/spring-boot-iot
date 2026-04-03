@@ -62,6 +62,20 @@ function Invoke-LoggedCommand {
     Write-Log "PASS $Step"
 }
 
+function Get-PythonUnittestArgs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PythonExecutablePath
+    )
+
+    $pythonBasename = [System.IO.Path]::GetFileName($PythonExecutablePath).ToLowerInvariant()
+    if ($pythonBasename -eq 'py' -or $pythonBasename -eq 'py.exe') {
+        return @('-3', '-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v')
+    }
+
+    return @('-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v')
+}
+
 $mvnCmd = Resolve-Executable -Candidates @('mvn.cmd', 'mvn') -Description 'Maven'
 $npmCmd = Resolve-Executable -Candidates @('npm.cmd', 'npm') -Description 'npm'
 $nodeCmd = Resolve-Executable -Candidates @('node') -Description 'Node'
@@ -84,11 +98,7 @@ Invoke-LoggedCommand -Step 'frontend build' -WorkingDirectory $uiRoot -Executabl
 Invoke-LoggedCommand -Step 'frontend component guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'component:guard')
 Invoke-LoggedCommand -Step 'frontend list guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'list:guard')
 Invoke-LoggedCommand -Step 'frontend style guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'style:guard')
-$schemaArgs = if ([System.IO.Path]::GetFileName($pythonCmd).ToLower().StartsWith('py')) {
-    @('-3', '-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v')
-} else {
-    @('-m', 'unittest', 'scripts/test_risk_point_pending_promotion_schema.py', '-v')
-}
+$schemaArgs = Get-PythonUnittestArgs -PythonExecutablePath $pythonCmd
 Invoke-LoggedCommand -Step 'schema baseline guard' -WorkingDirectory $repoRoot -Executable $pythonCmd -Arguments $schemaArgs
 Invoke-LoggedCommand -Step 'docs topology check' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/docs/check-topology.mjs')
 Write-Log 'All local minimum quality gates passed'
