@@ -153,6 +153,37 @@ CREATE TABLE IF NOT EXISTS risk_point_device (
     KEY idx_risk_device (risk_point_id, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='risk point device'
 """,
+    "risk_point_device_pending_binding": """
+CREATE TABLE IF NOT EXISTS risk_point_device_pending_binding (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',
+    source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',
+    source_row_no INT NOT NULL COMMENT '来源行号',
+    risk_point_name VARCHAR(128) NOT NULL COMMENT '风险点名称',
+    risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',
+    risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '风险点编码',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    device_id BIGINT DEFAULT NULL COMMENT '设备ID',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    resolution_status VARCHAR(32) NOT NULL DEFAULT 'PENDING' COMMENT '治理状态',
+    resolution_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',
+    metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',
+    promoted_binding_id BIGINT DEFAULT NULL COMMENT '转正绑定ID',
+    promoted_time DATETIME DEFAULT NULL COMMENT '转正时间',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_pending_binding_batch_row (batch_no, source_row_no),
+    KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),
+    KEY idx_pending_binding_risk_device (risk_point_id, device_id, metric_identifier),
+    KEY idx_pending_binding_device_code (device_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理绑定表'
+""",
     "risk_point_device_pending_promotion": """
 CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
