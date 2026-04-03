@@ -395,18 +395,20 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 INSERT INTO iot_device (
-    id, tenant_id, product_id, device_name, device_code, device_secret, client_id, username, password,
+    id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id, username, password,
     protocol_code, node_type, online_status, activate_status, device_status, firmware_version,
     ip_address, last_online_time, last_report_time, longitude, latitude, address, metadata_json,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (2001, 1, 1001, '验收设备-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
+    (2001, 1, 7101, '平台运维中心', 1001, '验收设备-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
      'mqtt-json', 1, 1, 1, 1, '1.0.0', '10.10.1.11', DATE_SUB(NOW(), INTERVAL 10 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), 121.473700, 31.230400, '上海市黄浦区中山南路', JSON_OBJECT('line', 'A', 'workshop', 'W1'),
      'HTTP 链路验收设备', 1, NOW(), 1, NOW(), 0),
-    (2002, 1, 1002, '验收设备-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
+    (2002, 1, 7102, '告警处置组', 1002, '验收设备-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
      'mqtt-json', 1, 1, 1, 1, '1.2.3', '10.10.1.12', DATE_SUB(NOW(), INTERVAL 8 MINUTE), DATE_SUB(NOW(), INTERVAL 1 MINUTE), 121.478900, 31.226600, '上海市黄浦区人民路', JSON_OBJECT('line', 'B', 'workshop', 'W2'),
      'MQTT 链路验收设备', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    org_id = VALUES(org_id),
+    org_name = VALUES(org_name),
     product_id = VALUES(product_id),
     device_name = VALUES(device_name),
     protocol_code = VALUES(protocol_code),

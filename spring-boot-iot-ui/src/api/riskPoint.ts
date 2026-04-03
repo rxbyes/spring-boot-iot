@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope, IdType } from '../types/api';
+import type { ApiEnvelope, DeviceOption, IdType } from '../types/api';
 
 /**
  * 风险点管理 API
@@ -118,6 +118,11 @@ export const unbindDevice = (riskPointId: IdType, deviceId: IdType): Promise<Api
 // 获取风险点绑定的设备列表
 export const getBoundDevices = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointDevice[]>> => {
       return request<RiskPointDevice[]>(`/api/risk-point/bound-devices/${riskPointId}`, { method: 'GET' });
+};
+
+// 获取风险点可绑定设备列表
+export const listBindableDevices = (riskPointId: IdType): Promise<ApiEnvelope<DeviceOption[]>> => {
+      return request<DeviceOption[]>(`/api/risk-point/bindable-devices/${riskPointId}`, { method: 'GET' });
 };
 
 function normalizeRiskPointQuery(params?: {

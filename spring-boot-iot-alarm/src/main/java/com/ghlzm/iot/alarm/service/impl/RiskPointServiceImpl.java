@@ -10,6 +10,9 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.entity.Dict;
 import com.ghlzm.iot.system.entity.DictItem;
@@ -32,6 +35,7 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -49,13 +53,23 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private final UserService userService;
       private final DictService dictService;
       private final PermissionService permissionService;
+      private final DeviceService deviceService;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null);
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null, null);
+      }
+
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService) {
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, null);
       }
 
       @Autowired
@@ -64,13 +78,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService,
-                                  PermissionService permissionService) {
+                                  PermissionService permissionService,
+                                  DeviceService deviceService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
             this.organizationService = organizationService;
             this.regionService = regionService;
             this.userService = userService;
             this.dictService = dictService;
             this.permissionService = permissionService;
+            this.deviceService = deviceService;
       }
 
       @Override
@@ -201,13 +217,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
                   throw new BizException("请选择测点");
             }
-            if (hasDataPermissionSupport() && currentUserId != null) {
-                  getById(riskPointDevice.getRiskPointId(), currentUserId);
-            } else {
-                  getById(riskPointDevice.getRiskPointId());
-            }
+            RiskPoint riskPoint = hasDataPermissionSupport() && currentUserId != null
+                    ? getById(riskPointDevice.getRiskPointId(), currentUserId)
+                    : getById(riskPointDevice.getRiskPointId());
 
-            // 检查是否已绑定
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
             queryWrapper.eq(RiskPointDevice::getDeviceId, riskPointDevice.getDeviceId());
@@ -218,8 +231,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("设备已绑定到该风险点");
             }
 
+            Device device = resolveRequiredDevice(currentUserId, riskPointDevice.getDeviceId());
+            validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId());
+            riskPointDevice.setDeviceCode(device.getDeviceCode());
+            riskPointDevice.setDeviceName(device.getDeviceName());
+
             riskPointDevice.setCreateTime(new Date());
             riskPointDevice.setUpdateTime(new Date());
+            riskPointDevice.setCreateBy(currentUserId);
+            riskPointDevice.setUpdateBy(currentUserId);
             riskPointDevice.setDeleted(0);
             riskPointDeviceMapper.insert(riskPointDevice);
       }
@@ -267,6 +287,68 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             wrapper.eq(RiskPointDevice::getRiskPointId, riskPointId);
             wrapper.eq(RiskPointDevice::getDeleted, 0);
             return riskPointDeviceMapper.selectList(wrapper);
+      }
+
+      @Override
+      public List<DeviceOptionVO> listBindableDevices(Long riskPointId) {
+            return listBindableDevices(riskPointId, null);
+      }
+
+      @Override
+      public List<DeviceOptionVO> listBindableDevices(Long riskPointId, Long currentUserId) {
+            RiskPoint riskPoint = hasDataPermissionSupport() && currentUserId != null
+                    ? getById(riskPointId, currentUserId)
+                    : getById(riskPointId);
+            if (deviceService == null) {
+                  return List.of();
+            }
+            List<DeviceOptionVO> deviceOptions = currentUserId == null
+                    ? deviceService.listDeviceOptions(false)
+                    : deviceService.listDeviceOptions(currentUserId, false);
+            if (deviceOptions.isEmpty()) {
+                  return List.of();
+            }
+            List<RiskPointDevice> activeBindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                    .eq(RiskPointDevice::getDeleted, 0));
+            Set<Long> currentRiskPointDeviceIds = activeBindings.stream()
+                    .filter(binding -> Objects.equals(riskPointId, binding.getRiskPointId()))
+                    .map(RiskPointDevice::getDeviceId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Set<Long> occupiedDeviceIds = activeBindings.stream()
+                    .filter(binding -> !Objects.equals(riskPointId, binding.getRiskPointId()))
+                    .map(RiskPointDevice::getDeviceId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            return deviceOptions.stream()
+                    .filter(device -> Objects.equals(riskPoint.getOrgId(), device.getOrgId()))
+                    .filter(device -> currentRiskPointDeviceIds.contains(device.getId()) || !occupiedDeviceIds.contains(device.getId()))
+                    .toList();
+      }
+
+      private Device resolveRequiredDevice(Long currentUserId, Long deviceId) {
+            if (deviceService == null) {
+                  throw new BizException("设备不存在或无权访问");
+            }
+            return currentUserId == null
+                    ? deviceService.getRequiredById(deviceId)
+                    : deviceService.getRequiredById(currentUserId, deviceId);
+      }
+
+      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
+            if (device.getOrgId() == null || device.getOrgId() <= 0) {
+                  throw new BizException("设备未归属组织，禁止绑定风险点");
+            }
+            if (!Objects.equals(riskPoint.getOrgId(), device.getOrgId())) {
+                  throw new BizException("设备所属组织与风险点所属组织不一致");
+            }
+            LambdaQueryWrapper<RiskPointDevice> occupiedWrapper = new LambdaQueryWrapper<>();
+            occupiedWrapper.eq(RiskPointDevice::getDeviceId, device.getId());
+            occupiedWrapper.eq(RiskPointDevice::getDeleted, 0);
+            occupiedWrapper.ne(currentRiskPointId != null, RiskPointDevice::getRiskPointId, currentRiskPointId);
+            if (!riskPointDeviceMapper.selectList(occupiedWrapper).isEmpty()) {
+                  throw new BizException("设备已绑定其他风险点，不能重复绑定");
+            }
       }
 
       private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status) {

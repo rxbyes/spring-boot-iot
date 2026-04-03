@@ -29,6 +29,9 @@ import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.stereotype.Service;
@@ -70,6 +73,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final IotProperties iotProperties;
     private final DeviceInvalidReportStateService invalidReportStateService;
     private final PermissionService permissionService;
+    private final OrganizationService organizationService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
@@ -78,7 +82,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties,
                              DeviceInvalidReportStateService invalidReportStateService,
-                             PermissionService permissionService) {
+                             PermissionService permissionService,
+                             OrganizationService organizationService) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
@@ -86,6 +91,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.iotProperties = iotProperties;
         this.invalidReportStateService = invalidReportStateService;
         this.permissionService = permissionService;
+        this.organizationService = organizationService;
     }
 
     @Override
@@ -654,8 +660,16 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private void applyEditableFields(Long currentUserId, Device device, DeviceAddDTO dto, Product product, boolean initializeDefaults) {
         DeviceArchiveContract archiveContract = resolveDeviceArchiveContract(product);
         Device parentDevice = resolveParentDevice(currentUserId, dto, device.getId());
+        DeviceOrganizationAssignment organizationAssignment = resolveWritableOrganizationAssignment(
+                currentUserId,
+                resolveEffectiveTenantId(currentUserId, product.getTenantId())
+        );
         device.setProductId(archiveContract.productId());
         device.setTenantId(resolveEffectiveTenantId(currentUserId, product.getTenantId()));
+        if (organizationAssignment != null) {
+            device.setOrgId(organizationAssignment.orgId());
+            device.setOrgName(organizationAssignment.orgName());
+        }
         device.setGatewayId(resolveGatewayId(archiveContract.nodeType(), parentDevice));
         device.setParentDeviceId(parentDevice != null ? parentDevice.getId() : null);
         device.setDeviceName(normalizeRequiredText(dto.getDeviceName()));
@@ -768,10 +782,12 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         DeviceDetailVO detail = new DeviceDetailVO();
         detail.setId(device.getId());
         detail.setProductId(device.getProductId());
+        detail.setOrgId(device.getOrgId());
         detail.setGatewayId(device.getGatewayId());
         detail.setParentDeviceId(device.getParentDeviceId());
         detail.setProductKey(product != null ? product.getProductKey() : null);
         detail.setProductName(product != null ? product.getProductName() : null);
+        detail.setOrgName(device.getOrgName());
         detail.setDeviceName(device.getDeviceName());
         detail.setDeviceCode(device.getDeviceCode());
         detail.setDeviceSecret(device.getDeviceSecret());
@@ -802,10 +818,12 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         DevicePageVO row = new DevicePageVO();
         row.setId(device.getId());
         row.setProductId(device.getProductId());
+        row.setOrgId(device.getOrgId());
         row.setGatewayId(device.getGatewayId());
         row.setParentDeviceId(device.getParentDeviceId());
         row.setProductKey(product != null ? product.getProductKey() : null);
         row.setProductName(product != null ? product.getProductName() : null);
+        row.setOrgName(device.getOrgName());
         row.setDeviceName(device.getDeviceName());
         row.setDeviceCode(device.getDeviceCode());
         row.setProtocolCode(device.getProtocolCode());
@@ -866,6 +884,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                              Integer deviceStatus,
                                                              long pageNum,
                                                              long pageSize) {
+        if (hasOrganizationRestrictedScope(currentUserId)) {
+            return PageResult.empty(pageNum, pageSize);
+        }
         if (!canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)) {
             return PageResult.empty(pageNum, pageSize);
         }
@@ -915,7 +936,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 activateStatus,
                 deviceStatus);
         Long tenantId = resolveScopedTenantId(currentUserId);
-        long unregisteredTotal = canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
+        long unregisteredTotal = !hasOrganizationRestrictedScope(currentUserId)
+                && canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
                 ? (tenantId == null
                 ? unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode))
                 : unregisteredDeviceRosterService.countByFilters(tenantId, normalizeOptionalText(productKey), normalizeOptionalText(deviceCode)))
@@ -1150,11 +1172,72 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return normalized;
     }
 
-    private void applyDeviceScope(LambdaQueryWrapper<Device> wrapper, Long currentUserId) {
-        Long tenantId = resolveScopedTenantId(currentUserId);
-        if (tenantId != null) {
-            wrapper.eq(Device::getTenantId, tenantId);
+    private DeviceOrganizationAssignment resolveWritableOrganizationAssignment(Long currentUserId, Long tenantId) {
+        if (currentUserId == null) {
+            return null;
         }
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null) {
+            throw new BizException("无法解析当前登录人的机构上下文");
+        }
+        Long orgId = context.orgId();
+        if (orgId == null || orgId <= 0) {
+            throw new BizException("当前账号未绑定主机构，禁止维护设备归属");
+        }
+        if (organizationService == null) {
+            throw new BizException("无法解析当前登录人的机构上下文");
+        }
+        Organization organization = organizationService.getById(orgId);
+        if (organization == null
+                || Integer.valueOf(1).equals(organization.getDeleted())
+                || !Integer.valueOf(1).equals(organization.getStatus())
+                || !StringUtils.hasText(organization.getOrgName())) {
+            throw new BizException("当前账号主机构不存在或已不可用，禁止维护设备归属");
+        }
+        if (tenantId != null && organization.getTenantId() != null && !tenantId.equals(organization.getTenantId())) {
+            throw new BizException("当前账号主机构不存在或已不可用，禁止维护设备归属");
+        }
+        return new DeviceOrganizationAssignment(organization.getId(), organization.getOrgName());
+    }
+
+    private boolean hasOrganizationRestrictedScope(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return false;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        return dataScopeType == DataScopeType.ORG || dataScopeType == DataScopeType.ORG_AND_CHILDREN;
+    }
+
+    private void applyDeviceScope(LambdaQueryWrapper<Device> wrapper, Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null) {
+            return;
+        }
+        if (!context.superAdmin() && context.tenantId() != null) {
+            wrapper.eq(Device::getTenantId, context.tenantId());
+        }
+        if (context.superAdmin()) {
+            return;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                wrapper.eq(Device::getId, -1L);
+                return;
+            }
+            wrapper.eq(Device::getOrgId, context.orgId());
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(accessibleOrgIds)) {
+            wrapper.eq(Device::getId, -1L);
+            return;
+        }
+        wrapper.in(Device::getOrgId, accessibleOrgIds);
     }
 
     private Product resolveAccessibleProduct(Long currentUserId, String productKey) {
@@ -1189,8 +1272,25 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (currentUserId == null || device == null) {
             return;
         }
-        Long tenantId = resolveScopedTenantId(currentUserId);
-        if (tenantId != null && !tenantId.equals(device.getTenantId())) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        if (context.tenantId() != null && !context.tenantId().equals(device.getTenantId())) {
+            throw new BizException("设备不存在或无权访问");
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (!Objects.equals(context.orgId(), device.getOrgId())) {
+                throw new BizException("设备不存在或无权访问");
+            }
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(accessibleOrgIds) || device.getOrgId() == null || !accessibleOrgIds.contains(device.getOrgId())) {
             throw new BizException("设备不存在或无权访问");
         }
     }
@@ -1215,20 +1315,43 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return permissionService.getDataPermissionContext(currentUserId);
     }
 
+    private DataScopeType normalizeDeviceDataScope(DataScopeType dataScopeType) {
+        if (dataScopeType == null) {
+            return DataScopeType.TENANT;
+        }
+        return dataScopeType == DataScopeType.SELF ? DataScopeType.ORG : dataScopeType;
+    }
+
+    private Set<Long> listAccessibleOrganizationIds(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return Set.of();
+        }
+        Set<Long> orgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(orgIds)) {
+            return Set.of();
+        }
+        return orgIds;
+    }
+
     private DeviceOptionVO toDeviceOption(Device device, Product product) {
         DeviceOptionVO option = new DeviceOptionVO();
         option.setId(device.getId());
         option.setProductId(device.getProductId());
+        option.setOrgId(device.getOrgId());
         option.setGatewayId(device.getGatewayId());
         option.setParentDeviceId(device.getParentDeviceId());
         option.setProductKey(product != null ? product.getProductKey() : null);
         option.setProductName(product != null ? product.getProductName() : null);
+        option.setOrgName(device.getOrgName());
         option.setDeviceCode(device.getDeviceCode());
         option.setDeviceName(device.getDeviceName());
         option.setNodeType(device.getNodeType());
         option.setOnlineStatus(device.getOnlineStatus());
         option.setDeviceStatus(device.getDeviceStatus());
         return option;
+    }
+
+    private record DeviceOrganizationAssignment(Long orgId, String orgName) {
     }
 
     private record DeviceArchiveContract(Long productId, String protocolCode, Integer nodeType) {

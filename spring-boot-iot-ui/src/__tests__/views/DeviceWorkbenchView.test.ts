@@ -483,6 +483,40 @@ describe('DeviceWorkbenchView', () => {
     expect(String(actionColumn?.props('width'))).toBe('160')
   })
 
+  it('shows the organization ledger in both the list source and rendered device cards', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        orgId: 7101,
+        orgName: '平台运维中心',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    expect(wrapper.text()).toContain('所属机构')
+    expect(wrapper.text()).toContain('平台运维中心')
+
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+    expect(source).toContain('label="所属机构"')
+    expect(source).toContain('>所属机构</span>')
+  })
+
   it('keeps the device workbench on the shared list surface and trims toolbar density', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
 

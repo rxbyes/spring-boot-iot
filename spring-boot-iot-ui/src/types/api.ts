@@ -414,6 +414,8 @@ export interface Device {
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
   sourceRecordId?: IdType | null;
+  orgId?: IdType | null;
+  orgName?: string | null;
   productKey?: string | null;
   productName?: string | null;
   gatewayDeviceCode?: string | null;
@@ -454,6 +456,8 @@ export interface DeviceOption {
   productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
+  orgId?: IdType | null;
+  orgName?: string | null;
   productKey?: string | null;
   productName?: string | null;
   deviceCode: string;

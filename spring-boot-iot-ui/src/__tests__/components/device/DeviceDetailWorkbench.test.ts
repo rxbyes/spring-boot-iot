@@ -11,6 +11,8 @@ const registeredDevice: Device = {
   productId: 1001,
   gatewayId: 3001,
   parentDeviceId: 3002,
+  orgId: 7101,
+  orgName: '平台运维中心',
   productKey: 'north-monitor-gnss-v1',
   productName: '北斗监测终端',
   gatewayDeviceCode: 'GATEWAY-001',
@@ -85,6 +87,7 @@ describe('DeviceDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('资产概览')
     expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('运行概览')
     expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('设备编码')
+    expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('所属机构')
     expect(wrapper.get('[data-testid="device-detail-overview-stage"]').text()).toContain('最近在线')
 
     expect(wrapper.get('[data-testid="device-detail-identity-stage"]').text()).toContain('身份与部署台账')
@@ -105,6 +108,7 @@ describe('DeviceDetailWorkbench', () => {
     expect(wrapper.findAll('.device-detail-workbench__ledger-item--wide').length).toBeGreaterThan(0)
 
     expect(wrapper.text()).toContain('北斗监测终端')
+    expect(wrapper.text()).toContain('平台运维中心')
     expect(wrapper.text()).toContain('一号厂房东侧监测带')
     expect(wrapper.text()).toContain('client-00182')
   })

@@ -16,6 +16,7 @@ import pymysql
 
 CreateSqlMap = Dict[str, str]
 ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
+IndexSpecMap = Dict[str, List[Tuple[str, str]]]
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
@@ -197,6 +198,10 @@ FROM iot_device_message_log
 
 
 COLUMNS_TO_ADD: ColumnSpecMap = {
+    "iot_device": [
+        ("org_id", "BIGINT DEFAULT NULL COMMENT 'organization id' AFTER `tenant_id`"),
+        ("org_name", "VARCHAR(128) DEFAULT NULL COMMENT 'organization name' AFTER `org_id`"),
+    ],
     "iot_device_access_error_log": [
         ("contract_snapshot", "LONGTEXT DEFAULT NULL COMMENT 'contract snapshot'"),
     ],
@@ -294,6 +299,15 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
     ],
 }
 
+INDEXES_TO_ADD: IndexSpecMap = {
+    "iot_device": [
+        (
+            "idx_device_tenant_org_deleted",
+            "ALTER TABLE `iot_device` ADD INDEX `idx_device_tenant_org_deleted` (`tenant_id`, `org_id`, `deleted`, `last_report_time`, `id`)",
+        ),
+    ],
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run rm_iot schema sync for real environment.")
@@ -327,6 +341,19 @@ def column_exists(cur: pymysql.cursors.Cursor, db: str, table: str, column: str)
         LIMIT 1
         """,
         (db, table, column),
+    )
+    return cur.fetchone() is not None
+
+
+def index_exists(cur: pymysql.cursors.Cursor, db: str, table: str, index: str) -> bool:
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME=%s
+        LIMIT 1
+        """,
+        (db, table, index),
     )
     return cur.fetchone() is not None
 
@@ -780,6 +807,102 @@ def ensure_menu_compat(cur: pymysql.cursors.Cursor, db: str) -> None:
         cur.execute("UPDATE sys_menu SET type = menu_type WHERE type IS NULL")
 
 
+def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
+    for table, specs in INDEXES_TO_ADD.items():
+        if not table_exists(cur, db, table):
+            print(f"[skip] table missing for indexes: {table}")
+            continue
+        for index_name, ddl in specs:
+            if index_exists(cur, db, table, index_name):
+                continue
+            cur.execute(ddl)
+            print(f"[index] {table}.{index_name} added")
+
+
+def find_multi_risk_point_conflicts(cur: pymysql.cursors.Cursor, db: str) -> List[Tuple[int, str, str, str]]:
+    required_tables = ("iot_device", "risk_point_device", "risk_point")
+    if any(not table_exists(cur, db, table) for table in required_tables):
+        return []
+
+    cur.execute(
+        """
+        SELECT
+            d.id,
+            d.device_code,
+            GROUP_CONCAT(DISTINCT CAST(rp.id AS CHAR) ORDER BY rp.id SEPARATOR ',') AS risk_point_ids,
+            GROUP_CONCAT(DISTINCT COALESCE(rp.risk_point_name, CONCAT('risk-point-', rp.id)) ORDER BY rp.id SEPARATOR ' / ') AS risk_point_names
+        FROM iot_device d
+        INNER JOIN risk_point_device rpd
+            ON rpd.deleted = 0
+           AND (
+               (rpd.device_id IS NOT NULL AND rpd.device_id = d.id)
+               OR (rpd.device_id IS NULL AND rpd.device_code IS NOT NULL AND rpd.device_code = d.device_code)
+           )
+        INNER JOIN risk_point rp
+            ON rp.id = rpd.risk_point_id
+           AND rp.deleted = 0
+        WHERE d.deleted = 0
+        GROUP BY d.id, d.device_code
+        HAVING COUNT(DISTINCT rp.id) > 1
+        ORDER BY d.id
+        """
+    )
+    return [
+        (int(device_id), str(device_code), str(risk_point_ids), str(risk_point_names))
+        for device_id, device_code, risk_point_ids, risk_point_names in cur.fetchall()
+    ]
+
+
+def ensure_device_org_backfill(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "iot_device"):
+        print("[skip] table missing: iot_device")
+        return
+    if not column_exists(cur, db, "iot_device", "org_id") or not column_exists(cur, db, "iot_device", "org_name"):
+        print("[skip] iot_device org columns missing")
+        return
+
+    conflicts = find_multi_risk_point_conflicts(cur, db)
+    if conflicts:
+        print("[error] detected active multi-risk-point bindings. aborting device org backfill.")
+        for device_id, device_code, risk_point_ids, risk_point_names in conflicts:
+            print(
+                f"  - device_id={device_id}, device_code={device_code}, risk_point_ids={risk_point_ids}, risk_point_names={risk_point_names}"
+            )
+        raise RuntimeError("device org backfill blocked by multi-risk-point bindings")
+
+    cur.execute(
+        """
+        UPDATE iot_device d
+        INNER JOIN (
+            SELECT
+                d_ref.id AS device_id,
+                MAX(rp.org_id) AS org_id,
+                MAX(rp.org_name) AS org_name
+            FROM iot_device d_ref
+            INNER JOIN risk_point_device rpd
+                ON rpd.deleted = 0
+               AND (
+                   (rpd.device_id IS NOT NULL AND rpd.device_id = d_ref.id)
+                   OR (rpd.device_id IS NULL AND rpd.device_code IS NOT NULL AND rpd.device_code = d_ref.device_code)
+               )
+            INNER JOIN risk_point rp
+                ON rp.id = rpd.risk_point_id
+               AND rp.deleted = 0
+            WHERE d_ref.deleted = 0
+              AND rp.org_id IS NOT NULL
+              AND rp.org_name IS NOT NULL
+            GROUP BY d_ref.id
+        ) src
+            ON src.device_id = d.id
+        SET d.org_id = src.org_id,
+            d.org_name = src.org_name
+        WHERE d.deleted = 0
+          AND d.org_id IS NULL
+        """
+    )
+    print(f"[backfill] iot_device org fields updated from risk points: {cur.rowcount}")
+
+
 def main() -> int:
     args = parse_args()
 
@@ -796,53 +919,61 @@ def main() -> int:
     )
 
     try:
-        with conn.cursor() as cur:
-            cur.execute(f"USE `{args.db}`")
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"USE `{args.db}`")
 
-            for table, ddl in CREATE_TABLE_SQL.items():
-                cur.execute(ddl)
-                print(f"[table] ensured {table}")
+                for table, ddl in CREATE_TABLE_SQL.items():
+                    cur.execute(ddl)
+                    print(f"[table] ensured {table}")
 
-            for table, specs in COLUMNS_TO_ADD.items():
-                if not table_exists(cur, args.db, table):
-                    print(f"[skip] table missing: {table}")
-                    continue
-                for column, definition in specs:
-                    if column_exists(cur, args.db, table, column):
+                for table, specs in COLUMNS_TO_ADD.items():
+                    if not table_exists(cur, args.db, table):
+                        print(f"[skip] table missing: {table}")
                         continue
-                    cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
-                    print(f"[column] {table}.{column} added")
+                    for column, definition in specs:
+                        if column_exists(cur, args.db, table, column):
+                            continue
+                        cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
+                        print(f"[column] {table}.{column} added")
 
-            if table_exists(cur, args.db, "sys_dict"):
-                if column_exists(cur, args.db, "sys_dict", "dict_value") and column_exists(
-                    cur, args.db, "sys_dict", "dict_label"
-                ):
-                    ensure_dict_defaults(cur)
-                    print("[dict] sys_dict default constraints aligned")
-                ensure_level_dicts(cur, args.db)
-                print("[dict] risk_point_level / alarm_level / risk_level items aligned")
-                ensure_system_governance_dicts(cur, args.db)
-                print("[dict] help_doc_category / notification_channel_type items aligned")
+                ensure_indexes(cur, args.db)
 
-            if table_exists(cur, args.db, "sys_audit_log"):
-                ensure_audit_defaults(cur)
-                print("[audit] sys_audit_log legacy constraints aligned")
+                if table_exists(cur, args.db, "sys_dict"):
+                    if column_exists(cur, args.db, "sys_dict", "dict_value") and column_exists(
+                        cur, args.db, "sys_dict", "dict_label"
+                    ):
+                        ensure_dict_defaults(cur)
+                        print("[dict] sys_dict default constraints aligned")
+                    ensure_level_dicts(cur, args.db)
+                    print("[dict] risk_point_level / alarm_level / risk_level items aligned")
+                    ensure_system_governance_dicts(cur, args.db)
+                    print("[dict] help_doc_category / notification_channel_type items aligned")
 
-            ensure_legacy_phase4_defaults(cur, args.db)
-            print("[phase4] legacy strict columns aligned")
+                if table_exists(cur, args.db, "sys_audit_log"):
+                    ensure_audit_defaults(cur)
+                    print("[audit] sys_audit_log legacy constraints aligned")
 
-            migrate_level_values(cur, args.db)
-            print("[phase4] risk point and alarm semantics values migrated")
+                ensure_legacy_phase4_defaults(cur, args.db)
+                print("[phase4] legacy strict columns aligned")
 
-            ensure_menu_compat(cur, args.db)
-            print("[menu] sys_menu legacy columns aligned")
+                migrate_level_values(cur, args.db)
+                print("[phase4] risk point and alarm semantics values migrated")
 
-            for view_name, ddl in VIEW_SQL.items():
-                cur.execute(ddl)
-                print(f"[view] ensured {view_name}")
+                ensure_device_org_backfill(cur, args.db)
 
-        print("Schema sync completed.")
-        return 0
+                ensure_menu_compat(cur, args.db)
+                print("[menu] sys_menu legacy columns aligned")
+
+                for view_name, ddl in VIEW_SQL.items():
+                    cur.execute(ddl)
+                    print(f"[view] ensured {view_name}")
+
+            print("Schema sync completed.")
+            return 0
+        except Exception as exc:
+            print(f"[fatal] {exc}")
+            return 1
     finally:
         conn.close()
 

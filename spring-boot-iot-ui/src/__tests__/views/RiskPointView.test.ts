@@ -10,6 +10,7 @@ const {
   mockUpdateRiskPoint,
   mockDeleteRiskPoint,
   mockBindDevice,
+  mockListBindableDevices,
   mockListOrganizationTree,
   mockListRegions,
   mockListRegionTree,
@@ -24,6 +25,7 @@ const {
   mockUpdateRiskPoint: vi.fn(),
   mockDeleteRiskPoint: vi.fn(),
   mockBindDevice: vi.fn(),
+  mockListBindableDevices: vi.fn(),
   mockListOrganizationTree: vi.fn(),
   mockListRegions: vi.fn(),
   mockListRegionTree: vi.fn(),
@@ -39,11 +41,11 @@ vi.mock('@/api/riskPoint', () => ({
   addRiskPoint: mockAddRiskPoint,
   updateRiskPoint: mockUpdateRiskPoint,
   deleteRiskPoint: mockDeleteRiskPoint,
-  bindDevice: mockBindDevice
+  bindDevice: mockBindDevice,
+  listBindableDevices: mockListBindableDevices
 }))
 
 vi.mock('@/api/iot', () => ({
-  listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
   getDeviceMetricOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] })
 }))
 
@@ -345,6 +347,7 @@ describe('RiskPointView', () => {
     mockUpdateRiskPoint.mockReset()
     mockDeleteRiskPoint.mockReset()
     mockBindDevice.mockReset()
+    mockListBindableDevices.mockReset()
     mockListOrganizationTree.mockReset()
     mockListRegions.mockReset()
     mockListRegionTree.mockReset()
@@ -431,6 +434,11 @@ describe('RiskPointView', () => {
           }
         ]
       }
+    })
+    mockListBindableDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
     })
   })
 
@@ -659,6 +667,54 @@ describe('RiskPointView', () => {
     expect(drawerAfterEdit.text()).toContain('风险点编号')
     expect(drawerAfterEdit.text()).toContain('创建人编号')
     expect(drawerAfterEdit.text()).toContain('更新人编号')
+  })
+
+  it('loads bindable devices from the dedicated risk-point endpoint before opening the bind drawer', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindableDevices.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 2001,
+          productId: 1001,
+          deviceCode: 'DEV-2001',
+          deviceName: '北侧监测终端',
+          orgId: 7101,
+          orgName: '平台运维中心'
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      handleBindDevice: (row: ReturnType<typeof createRiskPointRow>) => Promise<void>
+      deviceList: Array<{ id: number; deviceName: string; orgName?: string }>
+      bindDeviceVisible: boolean
+    }
+    await vm.handleBindDevice(createRiskPointRow())
+    await flushPromises()
+
+    expect(mockListBindableDevices).toHaveBeenCalledWith(1)
+    expect(vm.deviceList).toEqual([
+      expect.objectContaining({
+        id: 2001,
+        deviceName: '北侧监测终端',
+        orgName: '平台运维中心'
+      })
+    ])
+    expect(vm.bindDeviceVisible).toBe(true)
   })
 
 })

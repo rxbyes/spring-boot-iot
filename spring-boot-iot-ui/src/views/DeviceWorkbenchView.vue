@@ -222,6 +222,10 @@
                     <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.productName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">所属机构</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.orgName) }}</strong>
+                  </div>
+                  <div class="device-mobile-card__field">
                     <span class="standard-mobile-record-card__field-label">父设备</span>
                     <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
                   </div>
@@ -269,6 +273,7 @@
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
+            <StandardTableTextColumn prop="orgName" label="所属机构" :min-width="160" />
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">

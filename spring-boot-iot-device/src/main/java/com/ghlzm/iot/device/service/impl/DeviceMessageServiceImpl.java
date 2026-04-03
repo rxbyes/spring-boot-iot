@@ -34,6 +34,7 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.context.ApplicationEventPublisher;
@@ -57,6 +58,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -157,7 +159,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         Page<DeviceMessageLog> page = new Page<>(safePageNum, safePageSize);
         Page<DeviceMessageLog> result = deviceMessageLogMapper.selectPage(
                 page,
-                buildMessageTraceQueryWrapper(query, resolveScopedTenantId(currentUserId))
+                buildMessageTraceQueryWrapper(query, currentUserId)
         );
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
     }
@@ -165,7 +167,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     @Override
     public DeviceMessageTraceStatsVO getMessageTraceStats(Long currentUserId, DeviceMessageTraceQuery query) {
         DeviceMessageTraceStatsVO stats = new DeviceMessageTraceStatsVO();
-        QuerySpec querySpec = buildMessageTraceQuerySpec(query, resolveScopedTenantId(currentUserId));
+        QuerySpec querySpec = buildMessageTraceQuerySpec(query, currentUserId);
 
         stats.setTotal(queryCount(querySpec, null));
         if (stats.getTotal() == null || stats.getTotal() < 1) {
@@ -443,11 +445,13 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
     }
 
-    private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query, Long tenantId) {
+    private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query, Long currentUserId) {
         LambdaQueryWrapper<DeviceMessageLog> queryWrapper = new LambdaQueryWrapper<>();
+        Long tenantId = resolveScopedTenantId(currentUserId);
         if (tenantId != null) {
             queryWrapper.eq(DeviceMessageLog::getTenantId, tenantId);
         }
+        applyMessageTraceDeviceScope(queryWrapper, currentUserId);
         if (query != null) {
             if (StringUtils.hasText(query.getDeviceCode())) {
                 queryWrapper.eq(DeviceMessageLog::getDeviceCode, query.getDeviceCode().trim());
@@ -470,13 +474,15 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         return queryWrapper;
     }
 
-    private QuerySpec buildMessageTraceQuerySpec(DeviceMessageTraceQuery query, Long tenantId) {
+    private QuerySpec buildMessageTraceQuerySpec(DeviceMessageTraceQuery query, Long currentUserId) {
         StringBuilder where = new StringBuilder(" WHERE 1=1");
         List<Object> params = new ArrayList<>();
+        Long tenantId = resolveScopedTenantId(currentUserId);
         if (tenantId != null) {
             where.append(" AND tenant_id = ?");
             params.add(tenantId);
         }
+        appendAccessibleDeviceScope(where, params, currentUserId);
         if (query == null) {
             return new QuerySpec(where.toString(), params);
         }
@@ -488,13 +494,106 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         return new QuerySpec(where.toString(), params);
     }
 
+    private void applyMessageTraceDeviceScope(LambdaQueryWrapper<DeviceMessageLog> queryWrapper, Long currentUserId) {
+        String deviceScopeSql = buildAccessibleDeviceIdInSql(currentUserId);
+        if (deviceScopeSql == null) {
+            return;
+        }
+        if ("SELECT -1".equals(deviceScopeSql)) {
+            queryWrapper.eq(DeviceMessageLog::getDeviceId, -1L);
+            return;
+        }
+        queryWrapper.inSql(DeviceMessageLog::getDeviceId, deviceScopeSql);
+    }
+
+    private void appendAccessibleDeviceScope(StringBuilder where, List<Object> params, Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        where.append(" AND device_id IN (SELECT id FROM iot_device WHERE deleted = 0");
+        if (context.tenantId() != null) {
+            where.append(" AND tenant_id = ?");
+            params.add(context.tenantId());
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                where.append(" AND 1 = 0)");
+                return;
+            }
+            where.append(" AND org_id = ?)");
+            params.add(context.orgId());
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (accessibleOrgIds.isEmpty()) {
+            where.append(" AND 1 = 0)");
+            return;
+        }
+        where.append(" AND org_id IN (");
+        appendSqlPlaceholders(where, accessibleOrgIds.size());
+        where.append("))");
+        params.addAll(accessibleOrgIds);
+    }
+
+    private String buildAccessibleDeviceIdInSql(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return null;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return null;
+        }
+        StringBuilder subquery = new StringBuilder("SELECT id FROM iot_device WHERE deleted = 0");
+        if (context.tenantId() != null) {
+            subquery.append(" AND tenant_id = ").append(context.tenantId());
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                return "SELECT -1";
+            }
+            subquery.append(" AND org_id = ").append(context.orgId());
+            return subquery.toString();
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (accessibleOrgIds.isEmpty()) {
+            return "SELECT -1";
+        }
+        subquery.append(" AND org_id IN (")
+                .append(accessibleOrgIds.stream().map(String::valueOf).collect(Collectors.joining(", ")))
+                .append(")");
+        return subquery.toString();
+    }
+
     private void ensureAccessibleDevice(Long currentUserId, Device device) {
         if (device == null) {
             return;
         }
-        Long tenantId = resolveScopedTenantId(currentUserId);
-        if (tenantId != null && !tenantId.equals(device.getTenantId())) {
-            throw new BizException("璁惧涓嶅瓨鍦ㄦ垨鏃犳潈璁块棶");
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        if (context.tenantId() != null && !context.tenantId().equals(device.getTenantId())) {
+            throw new BizException("设备不存在或无权访问");
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (!java.util.Objects.equals(context.orgId(), device.getOrgId())) {
+                throw new BizException("设备不存在或无权访问");
+            }
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (device.getOrgId() == null || !accessibleOrgIds.contains(device.getOrgId())) {
+            throw new BizException("设备不存在或无权访问");
         }
     }
 
@@ -511,6 +610,30 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             return null;
         }
         return permissionService.getDataPermissionContext(currentUserId);
+    }
+
+    private DataScopeType normalizeDeviceDataScope(DataScopeType dataScopeType) {
+        if (dataScopeType == null) {
+            return DataScopeType.TENANT;
+        }
+        return dataScopeType == DataScopeType.SELF ? DataScopeType.ORG : dataScopeType;
+    }
+
+    private Set<Long> listAccessibleOrganizationIds(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return Set.of();
+        }
+        Set<Long> accessibleOrgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+        return accessibleOrgIds == null ? Set.of() : accessibleOrgIds;
+    }
+
+    private void appendSqlPlaceholders(StringBuilder sql, int size) {
+        for (int index = 0; index < size; index++) {
+            if (index > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+        }
     }
 
     private void appendTextEquals(StringBuilder where, List<Object> params, String column, String value) {
