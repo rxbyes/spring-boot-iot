@@ -153,6 +153,37 @@ CREATE TABLE IF NOT EXISTS risk_point_device (
     KEY idx_risk_device (risk_point_id, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='risk point device'
 """,
+    "risk_point_device_pending_binding": """
+CREATE TABLE IF NOT EXISTS risk_point_device_pending_binding (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'pk',
+    batch_no VARCHAR(64) NOT NULL COMMENT 'import batch no',
+    source_file_name VARCHAR(255) DEFAULT NULL COMMENT 'source file name',
+    source_row_no INT NOT NULL COMMENT 'source row no',
+    risk_point_name VARCHAR(128) NOT NULL COMMENT 'source risk point name',
+    risk_point_id BIGINT DEFAULT NULL COMMENT 'resolved risk point id',
+    risk_point_code VARCHAR(64) DEFAULT NULL COMMENT 'resolved risk point code',
+    device_code VARCHAR(64) NOT NULL COMMENT 'source device code',
+    device_id BIGINT DEFAULT NULL COMMENT 'resolved device id',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT 'resolved device name',
+    resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE' COMMENT 'resolution status',
+    resolution_note VARCHAR(500) DEFAULT NULL COMMENT 'resolution note',
+    metric_identifier VARCHAR(64) DEFAULT NULL COMMENT 'future metric identifier',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT 'future metric name',
+    promoted_binding_id BIGINT DEFAULT NULL COMMENT 'promoted binding id',
+    promoted_time DATETIME DEFAULT NULL COMMENT 'promoted time',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no),
+    KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),
+    KEY idx_pending_binding_risk_device (risk_point_id, device_id, deleted),
+    KEY idx_pending_binding_device_code (tenant_id, device_code, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='risk point device pending binding'
+""",
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
     id BIGINT NOT NULL COMMENT 'pk',
