@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 
 import java.util.List;
 
@@ -72,4 +73,11 @@ public interface RiskPointService extends IService<RiskPoint> {
       List<RiskPointDevice> listBoundDevices(Long riskPointId);
 
       List<RiskPointDevice> listBoundDevices(Long riskPointId, Long currentUserId);
+
+      /**
+       * 查询风险点可绑定的设备候选列表。
+       */
+      List<DeviceOptionVO> listBindableDevices(Long riskPointId);
+
+      List<DeviceOptionVO> listBindableDevices(Long riskPointId, Long currentUserId);
 }

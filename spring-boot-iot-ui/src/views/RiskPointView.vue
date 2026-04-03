@@ -520,7 +520,7 @@ import { listRegions } from '@/api/region';
 import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
-import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
+import { getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
@@ -546,6 +546,8 @@ import type {
   RiskPointPendingMetricCandidate,
   RiskPointPendingPromotionHistory
 } from '../api/riskPoint';
+import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice, listBindableDevices } from '../api/riskPoint';
+import type { RiskPoint } from '../api/riskPoint';
 import { formatDateTime } from '@/utils/format';
 
 type RegionTreeOption = Partial<Region> & {
@@ -930,15 +932,15 @@ const loadRiskPointLevelOptions = async () => {
   }
 };
 
-const loadDeviceOptions = async () => {
+const loadBindableDeviceOptions = async (riskPointId: string | number) => {
   try {
-    const res = await listDeviceOptions();
+    const res = await listBindableDevices(riskPointId);
     if (res.code === 200) {
       deviceList.value = res.data || [];
     }
   } catch (error) {
-    console.error('加载设备选项失败', error);
-    ElMessage.error('加载设备列表失败');
+    console.error('加载可绑定设备失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载可绑定设备失败');
   }
 };
 
@@ -1279,7 +1281,7 @@ const handleBindDevice = async (row: RiskPoint) => {
   resetBindForm();
   bindForm.riskPointId = Number(row.id);
   bindForm.riskPointName = row.riskPointName;
-  await loadDeviceOptions();
+  await loadBindableDeviceOptions(bindForm.riskPointId);
   bindDeviceVisible.value = true;
 };
 

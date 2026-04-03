@@ -6,6 +6,7 @@ import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
@@ -118,6 +119,15 @@ public class RiskPointController {
       @GetMapping("/bound-devices/{riskPointId}")
       public R<List<RiskPointDevice>> listBoundDevices(@PathVariable Long riskPointId, Authentication authentication) {
             List<RiskPointDevice> devices = riskPointService.listBoundDevices(riskPointId, requireCurrentUserId(authentication));
+            return R.ok(devices);
+      }
+
+      /**
+       * 查询风险点可绑定的设备候选列表
+       */
+      @GetMapping("/bindable-devices/{riskPointId}")
+      public R<List<DeviceOptionVO>> listBindableDevices(@PathVariable Long riskPointId, Authentication authentication) {
+            List<DeviceOptionVO> devices = riskPointService.listBindableDevices(riskPointId, requireCurrentUserId(authentication));
             return R.ok(devices);
       }
 

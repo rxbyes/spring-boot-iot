@@ -465,6 +465,7 @@ const summaryCards = computed<SummaryCard[]>(() =>
 const assetOverviewItems = computed<LedgerItem[]>(() => [
   { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
   { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
+  { key: 'orgName', label: '所属机构', value: toDisplayText(device.value.orgName), wide: true },
   { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
   { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true }
 ])
@@ -479,6 +480,7 @@ const runtimeOverviewItems = computed<LedgerItem[]>(() => [
 const identityItems = computed<LedgerItem[]>(() => [
   { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
   { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
+  { key: 'orgName', label: '所属机构', value: toDisplayText(device.value.orgName), wide: true },
   { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
   { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true },
   { key: 'id', label: '设备 ID', value: toDisplayText(device.value.id) },

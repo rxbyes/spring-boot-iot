@@ -485,6 +485,8 @@ CREATE TABLE iot_product_model (
 CREATE TABLE iot_device (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    org_id BIGINT DEFAULT NULL COMMENT '所属机构ID',
+    org_name VARCHAR(128) DEFAULT NULL COMMENT '所属机构名称',
     product_id BIGINT NOT NULL COMMENT '产品ID',
     gateway_id BIGINT DEFAULT NULL COMMENT '所属网关ID',
     parent_device_id BIGINT DEFAULT NULL COMMENT '父设备ID',
@@ -516,6 +518,7 @@ CREATE TABLE iot_device (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_device_code_tenant (tenant_id, device_code),
+    KEY idx_device_tenant_org_deleted (tenant_id, org_id, deleted, last_report_time, id),
     KEY idx_device_deleted_product_stats (deleted, product_id, last_report_time, online_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
 

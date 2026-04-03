@@ -16,12 +16,16 @@ public class DeviceOptionVO {
     private Long productId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Long orgId;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long gatewayId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long parentDeviceId;
     private String productKey;
     private String productName;
+    private String orgName;
     private String deviceCode;
     private String deviceName;
     private Integer nodeType;

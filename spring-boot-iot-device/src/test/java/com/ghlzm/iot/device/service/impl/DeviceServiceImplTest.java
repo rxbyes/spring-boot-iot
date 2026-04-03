@@ -21,7 +21,9 @@ import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import java.lang.reflect.Method;
@@ -45,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -67,6 +70,8 @@ class DeviceServiceImplTest {
     private DeviceInvalidReportStateService invalidReportStateService;
     @Mock
     private PermissionService permissionService;
+    @Mock
+    private OrganizationService organizationService;
 
     private DeviceServiceImpl deviceService;
     private IotProperties iotProperties;
@@ -90,7 +95,8 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
-                permissionService
+                permissionService,
+                organizationService
         ));
     }
 
@@ -154,6 +160,49 @@ class DeviceServiceImplTest {
 
         BizException ex = assertThrows(BizException.class, () -> deviceService.addDevice(dto));
         assertEquals("产品未配置节点类型，禁止继续建档: node-missing-product", ex.getMessage());
+    }
+
+    @Test
+    void addDeviceShouldAssignCurrentUserPrimaryOrganization() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, null, 7101L, DataScopeType.ORG, false));
+        when(organizationService.getById(7101L)).thenReturn(activeOrganization(7101L, "ops-center"));
+        when(productService.getRequiredByProductKey("demo-product")).thenReturn(enabledProduct("demo-product"));
+        doReturn(deviceMapper).when(deviceService).getBaseMapper();
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        doAnswer(invocation -> {
+            Device saved = invocation.getArgument(0);
+            saved.setId(5001L);
+            return true;
+        }).when(deviceService).save(any(Device.class));
+
+        DeviceDetailVO detail = new DeviceDetailVO();
+        detail.setId(5001L);
+        detail.setOrgId(7101L);
+        detail.setOrgName("ops-center");
+        doReturn(detail).when(deviceService).getDetailById(101L, 5001L);
+
+        DeviceDetailVO result = deviceService.addDevice(101L, buildDeviceAddDTO("demo-product", "demo-device-05"));
+
+        ArgumentCaptor<Device> deviceCaptor = ArgumentCaptor.forClass(Device.class);
+        verify(deviceService).save(deviceCaptor.capture());
+        assertEquals(7101L, deviceCaptor.getValue().getOrgId());
+        assertEquals("ops-center", deviceCaptor.getValue().getOrgName());
+        assertEquals(7101L, result.getOrgId());
+        assertEquals("ops-center", result.getOrgName());
+    }
+
+    @Test
+    void addDeviceShouldRejectUserWithoutPrimaryOrganization() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, null, null, DataScopeType.ORG, false));
+        when(productService.getRequiredByProductKey("demo-product")).thenReturn(enabledProduct("demo-product"));
+        doReturn(deviceMapper).when(deviceService).getBaseMapper();
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+
+        BizException error = assertThrows(BizException.class,
+                () -> deviceService.addDevice(101L, buildDeviceAddDTO("demo-product", "demo-device-06")));
+        assertEquals("当前账号未绑定主机构，禁止维护设备归属", error.getMessage());
     }
 
     @Test
@@ -298,6 +347,34 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void pageDevicesShouldFilterRegisteredRowsByCurrentOrganization() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        doReturn(0L).when(deviceService).count(any(LambdaQueryWrapper.class));
+
+        deviceService.pageDevices(
+                99L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1L,
+                10L
+        );
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<Device>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceService).count(wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
     void getDetailByIdShouldRejectCrossTenantAccess() {
         Device crossTenantDevice = new Device();
         crossTenantDevice.setId(4001L);
@@ -308,6 +385,21 @@ class DeviceServiceImplTest {
         doReturn(crossTenantDevice).when(deviceService).getRequiredById(4001L);
 
         BizException error = assertThrows(BizException.class, () -> deviceService.getDetailById(99L, 4001L));
+        assertEquals("设备不存在或无权访问", error.getMessage());
+    }
+
+    @Test
+    void getDetailByIdShouldRejectCrossOrganizationAccess() {
+        Device crossOrgDevice = new Device();
+        crossOrgDevice.setId(4004L);
+        crossOrgDevice.setTenantId(8L);
+        crossOrgDevice.setOrgId(7102L);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        doReturn(crossOrgDevice).when(deviceService).getRequiredById(4004L);
+
+        BizException error = assertThrows(BizException.class, () -> deviceService.getDetailById(99L, 4004L));
         assertEquals("设备不存在或无权访问", error.getMessage());
     }
 
@@ -343,6 +435,23 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void listDeviceOptionsShouldFilterByAccessibleOrganizationsForOrgChildrenScope() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG_AND_CHILDREN, false));
+        when(permissionService.listAccessibleOrganizationIds(99L)).thenReturn(java.util.Set.of(7101L, 7102L));
+        doReturn(List.of()).when(deviceService).list(any(LambdaQueryWrapper.class));
+
+        deviceService.listDeviceOptions(99L, false);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<Device>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceService).list(wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
     void listMetricOptionsShouldRejectCrossTenantDevice() {
         Device crossTenantDevice = new Device();
         crossTenantDevice.setId(4003L);
@@ -368,7 +477,8 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
-                permissionService
+                permissionService,
+                organizationService
         ));
         doReturn(deviceMapper).when(resolvingService).getBaseMapper();
         when(deviceMapper.selectOne(any())).thenReturn(null);
@@ -404,5 +514,14 @@ class DeviceServiceImplTest {
         product.setNodeType(1);
         product.setTenantId(1L);
         return product;
+    }
+
+    private Organization activeOrganization(Long id, String orgName) {
+        Organization organization = new Organization();
+        organization.setId(id);
+        organization.setOrgName(orgName);
+        organization.setStatus(1);
+        organization.setDeleted(0);
+        return organization;
     }
 }

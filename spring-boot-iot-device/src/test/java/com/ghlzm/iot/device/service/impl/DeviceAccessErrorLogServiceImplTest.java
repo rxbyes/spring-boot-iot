@@ -108,6 +108,35 @@ class DeviceAccessErrorLogServiceImplTest {
     }
 
     @Test
+    void pageLogsShouldApplyOrganizationFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of("id", "tenant_id", "device_code", "create_time")));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return 1L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceAccessErrorLog>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of(new DeviceAccessErrorLog());
+                });
+
+        service.pageLogs(99L, new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery(), 1, 10);
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("org_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(7101L)));
+    }
+
+    @Test
     void getStatsShouldUseTenantScopedSqlInsteadOfGlobalCounters() {
         List<String> executedSql = new ArrayList<>();
         List<Object[]> executedArgs = new ArrayList<>();
@@ -148,6 +177,51 @@ class DeviceAccessErrorLogServiceImplTest {
         verifyNoInteractions(invalidReportCounterStore);
         assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
         assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+    }
+
+    @Test
+    void getStatsShouldApplyOrganizationFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of(
+                "tenant_id", "device_code", "create_time", "trace_id", "failure_stage", "error_code", "exception_class", "protocol_code", "topic"
+        )));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    executedSql.add(sql);
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 7L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 9L;
+                    }
+                    return 12L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        service.getStats(99L, new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery());
+
+        verifyNoInteractions(invalidReportCounterStore);
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("org_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(7101L)));
     }
 
     @Test

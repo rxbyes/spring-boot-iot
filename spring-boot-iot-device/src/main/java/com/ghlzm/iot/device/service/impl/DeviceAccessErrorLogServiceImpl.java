@@ -16,6 +16,7 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.invalidreport.InvalidReportCounterStore;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import lombok.extern.slf4j.Slf4j;
@@ -439,6 +440,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             where.append(" AND ").append(tenantColumn).append(" = ?");
             params.add(tenantId);
         }
+        appendAccessibleDeviceScope(where, params, currentUserId);
         if (query == null) {
             return new QuerySpec(where.toString(), params, false);
         }
@@ -479,7 +481,9 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     }
 
     private boolean shouldUseGlobalFailureStageSummary(Long currentUserId, DeviceAccessErrorQuery query) {
-        return resolveScopedTenantId(currentUserId) == null && isUnfilteredQuery(query);
+        return resolveScopedTenantId(currentUserId) == null
+                && !hasOrganizationRestrictedScope(currentUserId)
+                && isUnfilteredQuery(query);
     }
 
     private Long resolveScopedTenantId(Long currentUserId) {
@@ -495,6 +499,73 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             return null;
         }
         return permissionService.getDataPermissionContext(currentUserId);
+    }
+
+    private boolean hasOrganizationRestrictedScope(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return false;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        return dataScopeType == DataScopeType.ORG || dataScopeType == DataScopeType.ORG_AND_CHILDREN;
+    }
+
+    private void appendAccessibleDeviceScope(StringBuilder where, List<Object> params, Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        where.append(" AND device_code IN (SELECT device_code FROM iot_device WHERE deleted = 0");
+        if (context.tenantId() != null) {
+            where.append(" AND tenant_id = ?");
+            params.add(context.tenantId());
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                where.append(" AND 1 = 0)");
+                return;
+            }
+            where.append(" AND org_id = ?)");
+            params.add(context.orgId());
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (accessibleOrgIds.isEmpty()) {
+            where.append(" AND 1 = 0)");
+            return;
+        }
+        where.append(" AND org_id IN (");
+        appendSqlPlaceholders(where, accessibleOrgIds.size());
+        where.append("))");
+        params.addAll(accessibleOrgIds);
+    }
+
+    private DataScopeType normalizeDeviceDataScope(DataScopeType dataScopeType) {
+        if (dataScopeType == null) {
+            return DataScopeType.TENANT;
+        }
+        return dataScopeType == DataScopeType.SELF ? DataScopeType.ORG : dataScopeType;
+    }
+
+    private Set<Long> listAccessibleOrganizationIds(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return Set.of();
+        }
+        Set<Long> accessibleOrgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+        return accessibleOrgIds == null ? Set.of() : accessibleOrgIds;
+    }
+
+    private void appendSqlPlaceholders(StringBuilder sql, int size) {
+        for (int index = 0; index < size; index++) {
+            if (index > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+        }
     }
 
     private String buildSelectClause(Set<String> columns) {

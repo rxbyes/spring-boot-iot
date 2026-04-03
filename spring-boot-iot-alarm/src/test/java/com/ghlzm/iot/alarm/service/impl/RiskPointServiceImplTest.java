@@ -8,6 +8,9 @@ import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.system.entity.Dict;
 import com.ghlzm.iot.system.entity.DictItem;
 import com.ghlzm.iot.system.entity.Organization;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -478,6 +482,182 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void bindDeviceShouldRejectWhenDeviceAlreadyBoundToAnotherRiskPoint() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        RiskPointDevice otherBinding = new RiskPointDevice();
+        otherBinding.setRiskPointId(13L);
+        otherBinding.setDeviceId(2001L);
+        otherBinding.setMetricIdentifier("pressure");
+        otherBinding.setDeleted(0);
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        when(deviceService.getRequiredById(2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(otherBinding));
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));
+        assertEquals("设备已绑定其他风险点，不能重复绑定", error.getMessage());
+    }
+
+    @Test
+    void bindDeviceShouldRejectWhenDeviceOrganizationMissing() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, null, "ops-device-01");
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        when(deviceService.getRequiredById(2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));
+        assertEquals("设备未归属组织，禁止绑定风险点", error.getMessage());
+    }
+
+    @Test
+    void bindDeviceShouldRejectWhenDeviceOrganizationMismatch() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, 7102L, "ops-device-01");
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        when(deviceService.getRequiredById(2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));
+        assertEquals("设备所属组织与风险点所属组织不一致", error.getMessage());
+    }
+
+    @Test
+    void listBindableDevicesShouldExcludeOtherRiskPointBindingsAndKeepCurrentBindings() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setTenantId(1L);
+        riskPoint.setOrgId(7101L);
+
+        DeviceOptionVO currentRiskPointDevice = deviceOption(2001L, 7101L, "device-a");
+        DeviceOptionVO otherRiskPointDevice = deviceOption(2002L, 7101L, "device-b");
+        DeviceOptionVO sameOrgUnboundDevice = deviceOption(2003L, 7101L, "device-c");
+        DeviceOptionVO otherOrgDevice = deviceOption(2004L, 7102L, "device-d");
+
+        RiskPointDevice currentBinding = new RiskPointDevice();
+        currentBinding.setRiskPointId(12L);
+        currentBinding.setDeviceId(2001L);
+        currentBinding.setDeleted(0);
+
+        RiskPointDevice otherBinding = new RiskPointDevice();
+        otherBinding.setRiskPointId(13L);
+        otherBinding.setDeviceId(2002L);
+        otherBinding.setDeleted(0);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.ORG_AND_CHILDREN, false));
+        when(permissionService.listAccessibleOrganizationIds(99L)).thenReturn(Set.of(7101L, 7102L));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.listDeviceOptions(99L, false)).thenReturn(List.of(
+                currentRiskPointDevice,
+                otherRiskPointDevice,
+                sameOrgUnboundDevice,
+                otherOrgDevice
+        ));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(currentBinding, otherBinding));
+
+        List<DeviceOptionVO> result = service.listBindableDevices(12L, 99L);
+
+        assertEquals(List.of(2001L, 2003L), result.stream().map(DeviceOptionVO::getId).toList());
+    }
+
+    @Test
     void bindDeviceAndReturnShouldPersistAndReturnBinding() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
@@ -703,5 +883,26 @@ class RiskPointServiceImplTest {
         item.setStatus(1);
         item.setDeleted(0);
         return item;
+    }
+
+    private Device activeDevice(Long id, Long orgId, String deviceCode) {
+        Device device = new Device();
+        device.setId(id);
+        device.setTenantId(1L);
+        device.setOrgId(orgId);
+        device.setOrgName(orgId == null ? null : "org-" + orgId);
+        device.setDeviceCode(deviceCode);
+        device.setDeviceName(deviceCode);
+        return device;
+    }
+
+    private DeviceOptionVO deviceOption(Long id, Long orgId, String deviceCode) {
+        DeviceOptionVO option = new DeviceOptionVO();
+        option.setId(id);
+        option.setOrgId(orgId);
+        option.setOrgName(orgId == null ? null : "org-" + orgId);
+        option.setDeviceCode(deviceCode);
+        option.setDeviceName(deviceCode);
+        return option;
     }
 }
