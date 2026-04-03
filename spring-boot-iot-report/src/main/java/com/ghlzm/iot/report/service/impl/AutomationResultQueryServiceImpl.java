@@ -9,6 +9,7 @@ import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
 import com.ghlzm.iot.report.vo.AutomationResultSummaryVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -52,6 +53,7 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
     private final Path resultsDir;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public AutomationResultQueryServiceImpl(
             @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir
     ) {

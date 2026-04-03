@@ -1,5 +1,9 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.event.DeviceRiskEvaluationEvent;
@@ -27,7 +31,12 @@ import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.springframework.context.ApplicationEventPublisher;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,12 +51,14 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -58,6 +69,13 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DeviceMessageServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Device.class);
+        TableInfoHelper.initTableInfo(assistant, DeviceMessageLog.class);
+    }
 
     @Mock
     private DeviceMapper deviceMapper;
@@ -81,6 +99,8 @@ class DeviceMessageServiceImplTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private JdbcTemplate jdbcTemplate;
+    @Mock
+    private PermissionService permissionService;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -130,8 +150,81 @@ class DeviceMessageServiceImplTest {
                 deviceMessageLogStageHandler,
                 devicePayloadApplyStageHandler,
                 deviceStateStageHandler,
-                deviceRiskDispatchStageHandler
+                deviceRiskDispatchStageHandler,
+                permissionService
         );
+    }
+
+    @Test
+    void listMessageLogsShouldRejectCrossTenantDevice() {
+        Device crossTenantDevice = new Device();
+        crossTenantDevice.setId(3001L);
+        crossTenantDevice.setTenantId(9L);
+        crossTenantDevice.setDeviceCode("demo-device-tenant-9");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMapper.selectOne(any())).thenReturn(crossTenantDevice);
+
+        assertThrows(BizException.class, () -> deviceMessageService.listMessageLogs(99L, "demo-device-tenant-9"));
+        verify(deviceMessageLogMapper, never()).selectList(any());
+    }
+
+    @Test
+    void pageMessageTraceLogsShouldApplyTenantFilter() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, Page.class));
+
+        deviceMessageService.pageMessageTraceLogs(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery(), 1, 10);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<DeviceMessageLog>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceMessageLogMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+    }
+
+    @Test
+    void getMessageTraceStatsShouldApplyTenantFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    executedSql.add(sql);
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 11L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 5L;
+                    }
+                    if (sql.contains("message_type = ?")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 18L;
+                    }
+                    return 22L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        deviceMessageService.getMessageTraceStats(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery());
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
     }
 
     @Test
