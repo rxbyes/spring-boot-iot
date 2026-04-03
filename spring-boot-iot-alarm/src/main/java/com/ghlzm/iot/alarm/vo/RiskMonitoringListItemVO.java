@@ -15,6 +15,8 @@ public class RiskMonitoringListItemVO {
     private String regionName;
     private Long riskPointId;
     private String riskPointName;
+    private String riskPointLevel;
+    private String currentRiskLevel;
     private String riskLevel;
     private Long deviceId;
     private String deviceCode;

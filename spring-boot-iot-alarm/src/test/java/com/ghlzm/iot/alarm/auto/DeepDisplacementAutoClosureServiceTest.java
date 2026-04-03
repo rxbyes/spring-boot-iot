@@ -94,7 +94,7 @@ class DeepDisplacementAutoClosureServiceTest {
         rule.setRuleName("深部位移红色策略");
         rule.setMetricIdentifier("dispsX");
         rule.setExpression("value >= 12");
-        rule.setAlarmLevel("critical");
+        rule.setAlarmLevel("red");
         rule.setConvertToEvent(1);
         rule.setStatus(0);
         rule.setDeleted(0);
@@ -119,7 +119,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
         verify(alarmRecordService).addAlarm(alarmCaptor.capture());
-        assertEquals("critical", alarmCaptor.getValue().getAlarmLevel());
+        assertEquals("red", alarmCaptor.getValue().getAlarmLevel());
         assertTrue(alarmCaptor.getValue().getRemark().contains("\"policySource\":\"RULE_DEFINITION\""));
         assertEquals("value >= 12", alarmCaptor.getValue().getThresholdValue());
 
@@ -140,7 +140,7 @@ class DeepDisplacementAutoClosureServiceTest {
         EmergencyPlan emergencyPlan = new EmergencyPlan();
         emergencyPlan.setId(8401L);
         emergencyPlan.setPlanName("边坡深部位移红色应急预案");
-        emergencyPlan.setRiskLevel("critical");
+        emergencyPlan.setAlarmLevel("red");
         emergencyPlan.setDescription("边坡深部位移达到红色阈值时执行");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
@@ -162,7 +162,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
         verify(alarmRecordService).addAlarm(alarmCaptor.capture());
-        assertEquals("critical", alarmCaptor.getValue().getAlarmLevel());
+        assertEquals("red", alarmCaptor.getValue().getAlarmLevel());
         assertEquals(">= 20 mm", alarmCaptor.getValue().getThresholdValue());
         assertTrue(alarmCaptor.getValue().getRemark().contains("\"metricIdentifier\":\"dispsX\""));
         assertTrue(alarmCaptor.getValue().getRemark().contains("\"traceId\":\"trace-red-001\""));
@@ -177,7 +177,7 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
-        assertEquals("red", riskPointCaptor.getValue().getRiskLevel());
+        assertEquals("red", riskPointCaptor.getValue().getCurrentRiskLevel());
     }
 
     @Test
@@ -187,12 +187,12 @@ class DeepDisplacementAutoClosureServiceTest {
         EmergencyPlan genericPlan = new EmergencyPlan();
         genericPlan.setId(8401L);
         genericPlan.setPlanName("锅炉超温应急预案");
-        genericPlan.setRiskLevel("critical");
+        genericPlan.setAlarmLevel("red");
         genericPlan.setDescription("锅炉区域出现超温告警时执行");
         EmergencyPlan scopedPlan = new EmergencyPlan();
         scopedPlan.setId(8402L);
         scopedPlan.setPlanName("边坡深部位移红色应急预案");
-        scopedPlan.setRiskLevel("critical");
+        scopedPlan.setAlarmLevel("red");
         scopedPlan.setDescription("边坡深部位移达到红色阈值时执行");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
@@ -225,7 +225,7 @@ class DeepDisplacementAutoClosureServiceTest {
         EmergencyPlan genericPlan = new EmergencyPlan();
         genericPlan.setId(8401L);
         genericPlan.setPlanName("锅炉超温应急预案");
-        genericPlan.setRiskLevel("critical");
+        genericPlan.setAlarmLevel("red");
         genericPlan.setDescription("锅炉区域出现超温告警时执行");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
@@ -261,7 +261,7 @@ class DeepDisplacementAutoClosureServiceTest {
         EmergencyPlan contextOnlyPlan = new EmergencyPlan();
         contextOnlyPlan.setId(8410L);
         contextOnlyPlan.setPlanName("RP_SK00FB0D1310195_SW 现场处置预案");
-        contextOnlyPlan.setRiskLevel("critical");
+        contextOnlyPlan.setAlarmLevel("red");
         contextOnlyPlan.setDescription("适用于该监测点异常时执行");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "25.6"));
@@ -319,13 +319,13 @@ class DeepDisplacementAutoClosureServiceTest {
 
         ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
         verify(alarmRecordService).addAlarm(alarmCaptor.capture());
-        assertEquals("medium", alarmCaptor.getValue().getAlarmLevel());
+        assertEquals("yellow", alarmCaptor.getValue().getAlarmLevel());
         verify(eventRecordService, never()).addEvent(any());
         verify(eventRecordService, never()).dispatchEvent(any(), any(), any());
 
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
-        assertEquals("yellow", riskPointCaptor.getValue().getRiskLevel());
+        assertEquals("yellow", riskPointCaptor.getValue().getCurrentRiskLevel());
     }
 
     @Test

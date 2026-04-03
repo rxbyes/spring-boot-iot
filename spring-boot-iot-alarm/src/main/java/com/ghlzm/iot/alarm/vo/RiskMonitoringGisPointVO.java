@@ -13,6 +13,8 @@ public class RiskMonitoringGisPointVO {
     private Long riskPointId;
     private String riskPointCode;
     private String riskPointName;
+    private String riskPointLevel;
+    private String currentRiskLevel;
     private String riskLevel;
     private Double longitude;
     private Double latitude;

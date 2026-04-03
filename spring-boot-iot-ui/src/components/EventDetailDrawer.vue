@@ -20,9 +20,14 @@
       </div>
       <div class="detail-summary-grid">
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">风险等级</span>
-          <strong class="detail-summary-card__value">{{ getRiskLevelText(detail?.riskLevel) }}</strong>
+          <span class="detail-summary-card__label">当前风险态势</span>
+          <strong class="detail-summary-card__value">{{ getCurrentRiskLevelText(detail) }}</strong>
           <p class="detail-summary-card__hint">关联告警：{{ detail?.alarmCode || '--' }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">告警等级</span>
+          <strong class="detail-summary-card__value">{{ getAlarmLevelText(detail?.alarmLevel) }}</strong>
+          <p class="detail-summary-card__hint">处置进展：{{ getStatusText(detail?.status) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">当前状态</span>
@@ -64,8 +69,12 @@
           <strong class="detail-field__value">{{ detail?.eventTitle || '--' }}</strong>
         </div>
         <div class="detail-field">
-          <span class="detail-field__label">风险等级</span>
-          <strong class="detail-field__value">{{ getRiskLevelText(detail?.riskLevel) }}</strong>
+          <span class="detail-field__label">当前风险态势</span>
+          <strong class="detail-field__value">{{ getCurrentRiskLevelText(detail) }}</strong>
+        </div>
+        <div class="detail-field">
+          <span class="detail-field__label">告警等级</span>
+          <strong class="detail-field__value">{{ getAlarmLevelText(detail?.alarmLevel) }}</strong>
         </div>
         <div class="detail-field">
           <span class="detail-field__label">关联告警</span>
@@ -183,6 +192,7 @@ import { computed } from 'vue';
 
 import type { EventRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
+import { getAlarmLevelTagType, getAlarmLevelText } from '@/utils/alarmLevel';
 import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
@@ -249,13 +259,19 @@ const drawerTags = computed(() => {
     return [];
   }
   return [
-    { label: getRiskLevelText(props.detail.riskLevel), type: getRiskLevelType(props.detail.riskLevel) },
+    { label: getRiskLevelText(resolveCurrentRiskLevel(props.detail)), type: getRiskLevelType(resolveCurrentRiskLevel(props.detail)) },
+    { label: getAlarmLevelText(props.detail.alarmLevel), type: getAlarmLevelTagType(props.detail.alarmLevel) },
     { label: getStatusText(props.detail.status), type: getStatusType(props.detail.status) },
     { label: props.detail.urgencyLevel || '普通', type: 'info' as const }
   ];
 });
 
 const getRiskLevelType = (level?: string | null) => getRiskLevelTagType(level)
+const getCurrentRiskLevelText = (detail?: EventRecord | null) => getRiskLevelText(resolveCurrentRiskLevel(detail))
+
+function resolveCurrentRiskLevel(detail?: EventRecord | null) {
+  return detail?.currentRiskLevel || detail?.riskLevel;
+}
 
 function getStatusText(status?: number | null) {
   switch (status) {

@@ -50,7 +50,8 @@ export interface EventRecord {
       alarmId: string;
       alarmCode: string;
       alarmLevel: string;
-      riskLevel: string;
+      currentRiskLevel?: string;
+      riskLevel?: string;
       regionId: string;
       regionName: string;
       riskPointId: string;
@@ -142,9 +143,10 @@ export const closeAlarm = (id: string, closeUser: number): Promise<ApiEnvelope<v
 export const getEventList = (params?: {
       deviceCode?: string;
       status?: number;
+      currentRiskLevel?: string;
       riskLevel?: string;
 }): Promise<ApiEnvelope<EventRecord[]>> => {
-      const queryString = buildQueryString(params);
+      const queryString = buildQueryString(normalizeEventQuery(params));
       const path = queryString ? `/api/event/list?${queryString}` : '/api/event/list';
       return request<EventRecord[]>(path, { method: 'GET' });
 };
@@ -195,3 +197,19 @@ export const completeProcessing = (id: string, feedback: string, photos?: string
       const path = queryString ? `/api/event/work-orders/${id}/complete?${queryString}` : `/api/event/work-orders/${id}/complete`;
       return request<void>(path, { method: 'POST' });
 };
+
+function normalizeEventQuery(params?: {
+      deviceCode?: string;
+      status?: number;
+      currentRiskLevel?: string;
+      riskLevel?: string;
+}) {
+      if (!params) {
+            return params;
+      }
+      const { currentRiskLevel, riskLevel, ...rest } = params;
+      return {
+            ...rest,
+            riskLevel: currentRiskLevel || riskLevel || undefined
+      };
+}

@@ -41,13 +41,29 @@ describe('RiskMonitoringDetailDrawer', () => {
         bindingId: 1,
         riskPointName: '泵房液位',
         deviceCode: 'demo-device-01',
+        riskPointLevel: 'level_1',
+        currentRiskLevel: 'warning',
         riskLevel: 'warning',
         monitorStatus: 'NORMAL',
         onlineStatus: 1,
         currentValue: '26.5',
         unit: 'm',
-        recentAlarms: [],
-        recentEvents: []
+        recentAlarms: [
+          {
+            id: 10,
+            alarmTitle: '液位红色告警',
+            alarmLevel: 'red',
+            triggerTime: '2026-04-02 08:30:00'
+          }
+        ],
+        recentEvents: [
+          {
+            id: 11,
+            eventTitle: '泵房巡检事件',
+            riskLevel: 'orange',
+            triggerTime: '2026-04-02 08:35:00'
+          }
+        ]
       }
     })
   })
@@ -74,6 +90,10 @@ describe('RiskMonitoringDetailDrawer', () => {
     expect(drawer.props('eyebrow')).toBeUndefined()
     expect(drawer.props('title')).toBe('泵房液位')
     expect(wrapper.text()).toContain('监测概览')
+    expect(wrapper.text()).toContain('风险点等级')
+    expect(wrapper.text()).toContain('一级风险点')
+    expect(wrapper.text()).toContain('当前风险态势')
+    expect(wrapper.text()).toContain('告警等级')
     expect(wrapper.text()).not.toContain('Risk Monitoring Detail')
   })
 })

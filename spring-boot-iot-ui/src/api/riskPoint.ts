@@ -18,7 +18,9 @@ export interface RiskPoint {
       responsibleUser: number;
       responsibleUserName?: string;
       responsiblePhone: string;
-      riskLevel: string; // red-红色, orange-橙色, yellow-黄色, blue-蓝色
+      riskPointLevel?: string; // level_1-一级风险点, level_2-二级风险点, level_3-三级风险点
+      currentRiskLevel?: string; // red-红色, orange-橙色, yellow-黄色, blue-蓝色
+      riskLevel?: string; // 兼容字段，过渡期与 currentRiskLevel 保持一致
       description: string;
       status: number; // 0-启用，1-停用
       tenantId: IdType;
@@ -60,10 +62,11 @@ export interface RiskPointDevice {
 // 获取风险点列表
 export const getRiskPointList = (params?: {
       riskPointCode?: string;
+      riskPointLevel?: string;
       riskLevel?: string;
       status?: number;
 }): Promise<ApiEnvelope<RiskPoint[]>> => {
-      const queryString = buildQueryString(params);
+      const queryString = buildQueryString(normalizeRiskPointQuery(params));
       const path = queryString ? `/api/risk-point/list?${queryString}` : '/api/risk-point/list';
       return request<RiskPoint[]>(path, { method: 'GET' });
 };
@@ -71,12 +74,13 @@ export const getRiskPointList = (params?: {
 // 分页获取风险点列表
 export const pageRiskPointList = (params?: {
       riskPointCode?: string;
+      riskPointLevel?: string;
       riskLevel?: string;
       status?: number;
       pageNum?: number;
       pageSize?: number;
 }): Promise<ApiEnvelope<RiskPointPageResult>> => {
-      const queryString = buildQueryString(params);
+      const queryString = buildQueryString(normalizeRiskPointQuery(params));
       const path = queryString ? `/api/risk-point/page?${queryString}` : '/api/risk-point/page';
       return request<RiskPointPageResult>(path, { method: 'GET' });
 };
@@ -115,3 +119,21 @@ export const unbindDevice = (riskPointId: IdType, deviceId: IdType): Promise<Api
 export const getBoundDevices = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointDevice[]>> => {
       return request<RiskPointDevice[]>(`/api/risk-point/bound-devices/${riskPointId}`, { method: 'GET' });
 };
+
+function normalizeRiskPointQuery(params?: {
+      riskPointCode?: string;
+      riskPointLevel?: string;
+      riskLevel?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}) {
+      if (!params) {
+            return params;
+      }
+      const { riskPointLevel, riskLevel, ...rest } = params;
+      return {
+            ...rest,
+            riskPointLevel: riskPointLevel || riskLevel || undefined
+      };
+}

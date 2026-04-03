@@ -22,7 +22,12 @@ class AutoClosureSeverityTest {
     }
 
     @Test
-    void riskPointLevelsShouldUseFourColorCodes() {
+    void alarmAndRuntimeLevelsShouldUseFourColorCodes() {
+        assertEquals("blue", AutoClosureSeverity.BLUE.getAlarmLevel());
+        assertEquals("yellow", AutoClosureSeverity.YELLOW.getAlarmLevel());
+        assertEquals("orange", AutoClosureSeverity.ORANGE.getAlarmLevel());
+        assertEquals("red", AutoClosureSeverity.RED.getAlarmLevel());
+
         assertEquals("blue", AutoClosureSeverity.BLUE.getRiskPointLevel());
         assertEquals("yellow", AutoClosureSeverity.YELLOW.getRiskPointLevel());
         assertEquals("orange", AutoClosureSeverity.ORANGE.getRiskPointLevel());

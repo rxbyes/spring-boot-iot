@@ -8,10 +8,10 @@ import java.math.BigDecimal;
  * 深部位移自动闭环等级。
  */
 public enum AutoClosureSeverity {
-    BLUE("blue", "蓝", "low", "blue", false, false, 0),
-    YELLOW("yellow", "黄", "medium", "yellow", true, false, 1),
-    ORANGE("orange", "橙", "high", "orange", true, true, 2),
-    RED("red", "红", "critical", "red", true, true, 3);
+    BLUE("blue", "蓝", "blue", "blue", false, false, 0),
+    YELLOW("yellow", "黄", "yellow", "yellow", true, false, 1),
+    ORANGE("orange", "橙", "orange", "orange", true, true, 2),
+    RED("red", "红", "red", "red", true, true, 3);
 
     private final String colorCode;
     private final String colorLabel;

@@ -13,6 +13,12 @@ export interface RiskPointLevelOption {
   sortNo: number
 }
 
+export const DEFAULT_RISK_POINT_LEVEL_OPTIONS: RiskPointLevelOption[] = [
+  { label: '一级风险点', value: 'level_1', sortNo: 1 },
+  { label: '二级风险点', value: 'level_2', sortNo: 2 },
+  { label: '三级风险点', value: 'level_3', sortNo: 3 }
+]
+
 export function normalizeRiskPointLevel(value?: string | null) {
   return (value || '').trim().toLowerCase()
 }
@@ -36,7 +42,7 @@ export function buildRiskPointLevelOptions(items: RiskPointLevelOptionLike[] = [
       }
     })
 
-  return Array.from(uniqueOptions.values())
+  return uniqueOptions.size > 0 ? Array.from(uniqueOptions.values()) : cloneDefaultRiskPointLevelOptions()
 }
 
 export function getRiskPointLevelText(value?: string | null, options: RiskPointLevelOption[] = []) {
@@ -48,8 +54,12 @@ export function getRiskPointLevelText(value?: string | null, options: RiskPointL
 }
 
 export async function fetchRiskPointLevelOptions() {
-  const response = await getDictByCode('risk_point_level')
-  return response.code === 200 ? buildRiskPointLevelOptions(response.data?.items || []) : []
+  try {
+    const response = await getDictByCode('risk_point_level')
+    return response.code === 200 ? buildRiskPointLevelOptions(response.data?.items || []) : cloneDefaultRiskPointLevelOptions()
+  } catch {
+    return cloneDefaultRiskPointLevelOptions()
+  }
 }
 
 function getDefaultRiskPointLevelText(value?: string | null) {
@@ -63,4 +73,8 @@ function getDefaultRiskPointLevelText(value?: string | null) {
     default:
       return value || '未标注'
   }
+}
+
+function cloneDefaultRiskPointLevelOptions() {
+  return DEFAULT_RISK_POINT_LEVEL_OPTIONS.map((item) => ({ ...item }))
 }

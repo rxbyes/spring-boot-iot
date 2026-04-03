@@ -345,7 +345,7 @@ public class DeepDisplacementAutoClosureService {
         );
         Set<String> contextKeywords = buildEmergencyPlanContextKeywords(event, riskPoint, binding);
         Optional<EmergencyPlanMatch> exact = selectScopedEmergencyPlan(candidates.stream()
-                .filter(plan -> severity.getRiskPointLevel().equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
+                .filter(plan -> severity.getAlarmLevel().equalsIgnoreCase(resolveEmergencyPlanAlarmLevel(plan)))
                 .toList(), contextKeywords);
         if (exact.isPresent()) {
             logMatchedEmergencyPlan(event, riskPoint, binding, severity, exact.get());
@@ -353,7 +353,7 @@ public class DeepDisplacementAutoClosureService {
         }
         String fallbackLevel = fallbackPlanLevel(severity);
         EmergencyPlanMatch matchedPlan = selectScopedEmergencyPlan(candidates.stream()
-                .filter(plan -> fallbackLevel.equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
+                .filter(plan -> fallbackLevel.equalsIgnoreCase(resolveEmergencyPlanAlarmLevel(plan)))
                 .toList(), contextKeywords)
                 .orElse(null);
         if (matchedPlan == null) {
@@ -487,7 +487,7 @@ public class DeepDisplacementAutoClosureService {
                 .sorted((left, right) -> Integer.compare(right.score(), left.score()))
                 .map(match -> "id=" + match.plan().getId()
                         + ",name=" + match.plan().getPlanName()
-                        + ",level=" + match.plan().getRiskLevel()
+                        + ",level=" + resolveEmergencyPlanAlarmLevel(match.plan())
                         + ",eligible=" + match.eligible()
                         + ",score=" + match.score()
                         + ",scene=" + match.sceneKeywords()
@@ -585,11 +585,12 @@ public class DeepDisplacementAutoClosureService {
         if (highest == null) {
             return;
         }
-        if (highest.getRiskPointLevel().equalsIgnoreCase(normalizeLevel(riskPoint.getRiskLevel()))) {
+        if (highest.getRiskPointLevel().equalsIgnoreCase(resolveCurrentRiskLevel(riskPoint))) {
             return;
         }
         RiskPoint update = new RiskPoint();
         update.setId(riskPointId);
+        update.setCurrentRiskLevel(highest.getRiskPointLevel());
         update.setRiskLevel(highest.getRiskPointLevel());
         update.setUpdateTime(new java.util.Date());
         riskPointMapper.updateById(update);
@@ -728,7 +729,7 @@ public class DeepDisplacementAutoClosureService {
         notes.put("emergencyPlan", matchedPlan == null ? null : Map.of(
                 "id", matchedPlan.getId(),
                 "name", matchedPlan.getPlanName(),
-                "riskLevel", matchedPlan.getRiskLevel()
+                "alarmLevel", resolveEmergencyPlanAlarmLevel(matchedPlan)
         ));
         return writeJson(notes);
     }
@@ -778,10 +779,31 @@ public class DeepDisplacementAutoClosureService {
         }
         return switch (level.trim().toLowerCase(Locale.ROOT)) {
             case "critical" -> "red";
-            case "warning" -> "orange";
+            case "warning", "high" -> "orange";
+            case "medium" -> "yellow";
             case "info" -> "blue";
             default -> level.trim().toLowerCase(Locale.ROOT);
         };
+    }
+
+    private String resolveEmergencyPlanAlarmLevel(EmergencyPlan plan) {
+        if (plan == null) {
+            return "";
+        }
+        if (StringUtils.hasText(plan.getAlarmLevel())) {
+            return normalizeLevel(plan.getAlarmLevel());
+        }
+        return normalizeLevel(plan.getRiskLevel());
+    }
+
+    private String resolveCurrentRiskLevel(RiskPoint riskPoint) {
+        if (riskPoint == null) {
+            return "";
+        }
+        if (StringUtils.hasText(riskPoint.getCurrentRiskLevel())) {
+            return normalizeLevel(riskPoint.getCurrentRiskLevel());
+        }
+        return normalizeLevel(riskPoint.getRiskLevel());
     }
 
     private String defaultString(String value) {

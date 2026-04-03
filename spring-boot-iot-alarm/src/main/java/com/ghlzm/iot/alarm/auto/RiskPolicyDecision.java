@@ -73,8 +73,8 @@ public class RiskPolicyDecision {
         String normalized = rawLevel.trim().toLowerCase();
         return switch (normalized) {
             case "critical", "red" -> AutoClosureSeverity.RED;
-            case "high", "orange" -> AutoClosureSeverity.ORANGE;
-            case "medium", "warning", "warn", "yellow" -> AutoClosureSeverity.YELLOW;
+            case "high", "warning", "warn", "orange" -> AutoClosureSeverity.ORANGE;
+            case "medium", "yellow" -> AutoClosureSeverity.YELLOW;
             case "low", "info", "blue" -> AutoClosureSeverity.BLUE;
             default -> AutoClosureSeverity.YELLOW;
         };

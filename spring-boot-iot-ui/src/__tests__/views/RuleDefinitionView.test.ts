@@ -9,13 +9,15 @@ const {
   mockAddRule,
   mockUpdateRule,
   mockDeleteRule,
-  mockListMissingPolicies
+  mockListMissingPolicies,
+  mockFetchAlarmLevelOptions
 } = vi.hoisted(() => ({
   mockPageRuleList: vi.fn(),
   mockAddRule: vi.fn(),
   mockUpdateRule: vi.fn(),
   mockDeleteRule: vi.fn(),
-  mockListMissingPolicies: vi.fn()
+  mockListMissingPolicies: vi.fn(),
+  mockFetchAlarmLevelOptions: vi.fn()
 }));
 
 vi.mock('@/api/ruleDefinition', () => ({
@@ -28,6 +30,14 @@ vi.mock('@/api/ruleDefinition', () => ({
 vi.mock('@/api/riskGovernance', () => ({
   listMissingPolicies: mockListMissingPolicies
 }));
+
+vi.mock('@/utils/alarmLevel', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/alarmLevel')>('@/utils/alarmLevel');
+  return {
+    ...actual,
+    fetchAlarmLevelOptions: mockFetchAlarmLevelOptions
+  };
+});
 
 vi.mock('@/utils/confirm', () => ({
   confirmDelete: vi.fn(),
@@ -190,6 +200,13 @@ describe('RuleDefinitionView', () => {
     mockUpdateRule.mockReset();
     mockDeleteRule.mockReset();
     mockListMissingPolicies.mockReset();
+    mockFetchAlarmLevelOptions.mockReset();
+    mockFetchAlarmLevelOptions.mockResolvedValue([
+      { label: '红色', value: 'red', sortNo: 1 },
+      { label: '橙色', value: 'orange', sortNo: 2 },
+      { label: '黄色', value: 'yellow', sortNo: 3 },
+      { label: '蓝色', value: 'blue', sortNo: 4 }
+    ]);
     mockListMissingPolicies.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -256,7 +273,7 @@ describe('RuleDefinitionView', () => {
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper');
   });
 
-  it('counts mixed legacy alarm levels in the toolbar summary after loading rules', async () => {
+  it('counts mixed legacy and new values under the four-color alarm semantics', async () => {
     mockPageRuleList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -279,6 +296,6 @@ describe('RuleDefinitionView', () => {
     const wrapper = mountView();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('严重 2 项');
+    expect(wrapper.text()).toContain('红色 2 项');
   });
 });

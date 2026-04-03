@@ -2,7 +2,7 @@
   <StandardPageShell class="emergency-plan-view">
     <StandardWorkbenchPanel
       title="应急预案库"
-      :description="`当前 ${pagination.total} 条应急预案，支持按风险等级和状态治理。`"
+      :description="`当前 ${pagination.total} 条应急预案，支持按告警等级和状态治理。`"
       show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
@@ -21,9 +21,9 @@
               <el-input v-model="filters.planName" placeholder="预案名称" clearable @keyup.enter="handleSearch" />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
+              <el-select v-model="filters.alarmLevel" placeholder="适用告警等级" clearable>
                 <el-option
-                  v-for="option in riskLevelOptions"
+                  v-for="option in alarmLevelOptions"
                   :key="option.value"
                   :label="option.label"
                   :value="option.value"
@@ -107,9 +107,11 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="planName" label="预案名称" :min-width="180" />
-            <el-table-column prop="riskLevel" label="风险等级" width="100">
+            <el-table-column prop="alarmLevel" label="适用告警等级" width="120">
               <template #default="{ row }">
-                <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+                <el-tag :type="getAlarmLevelType(row.alarmLevel || row.riskLevel)" round>
+                  {{ getAlarmLevelText(row.alarmLevel || row.riskLevel) }}
+                </el-tag>
               </template>
             </el-table-column>
             <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
@@ -171,14 +173,14 @@
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
-          <span>建议先明确风险等级和执行状态，再补齐响应步骤与联系人列表，确保应急场景下能够直接复用预案。</span>
+          <span>建议先明确适用告警等级和执行状态，再补齐响应步骤与联系人列表，确保应急场景下能够直接复用预案。</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
                 <h3>预案基础信息</h3>
-                <p>统一维护预案名称、适用风险等级和启停状态，保证不同层级风险场景下快速选用对应预案。</p>
+                <p>统一维护预案名称、适用告警等级和启停状态，保证不同等级告警场景下快速选用对应预案。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -191,10 +193,10 @@
                   <el-radio :value="1">停用</el-radio>
                 </el-radio-group>
               </el-form-item>
-              <el-form-item label="风险等级" prop="riskLevel" class="ops-drawer-grid__full">
-                <el-radio-group v-model="form.riskLevel">
+              <el-form-item label="适用告警等级" prop="alarmLevel" class="ops-drawer-grid__full">
+                <el-radio-group v-model="form.alarmLevel">
                   <el-radio
-                    v-for="option in riskLevelOptions"
+                    v-for="option in alarmLevelOptions"
                     :key="option.value"
                     :value="option.value"
                   >
@@ -255,7 +257,13 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
-import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, normalizeRiskLevel, type RiskLevelOption } from '@/utils/riskLevel';
+import {
+  fetchAlarmLevelOptions,
+  getAlarmLevelTagType,
+  getAlarmLevelText,
+  normalizeAlarmLevel,
+  type AlarmLevelOption
+} from '@/utils/alarmLevel';
 import { pagePlanList, addPlan, updatePlan, deletePlan } from '../api/emergencyPlan';
 import type { EmergencyPlan } from '../api/emergencyPlan';
 
@@ -264,7 +272,7 @@ type EmergencyPlanRowActionCommand = 'edit' | 'delete';
 const loading = ref(false);
 const formVisible = ref(false);
 const planList = ref<EmergencyPlan[]>([]);
-const riskLevelOptions = ref<RiskLevelOption[]>([]);
+const alarmLevelOptions = ref<AlarmLevelOption[]>([]);
 const tableRef = ref();
 const selectedRows = ref<EmergencyPlan[]>([]);
 const planActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -276,12 +284,12 @@ const planActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 const filters = reactive({
   planName: '',
-  riskLevel: '',
+  alarmLevel: '',
   status: '' as '' | number
 });
 const appliedFilters = reactive({
   planName: '',
-  riskLevel: '',
+  alarmLevel: '',
   status: '' as '' | number
 });
 
@@ -292,7 +300,7 @@ const formTitle = computed(() => (form.id ? '编辑预案' : '新增预案'));
 const form = reactive({
   id: undefined as number | undefined,
   planName: '',
-  riskLevel: '',
+  alarmLevel: '',
   description: '',
   responseSteps: '',
   contactList: '',
@@ -301,27 +309,27 @@ const form = reactive({
 
 const rules = {
   planName: [{ required: true, message: '请输入预案名称', trigger: 'blur' }],
-  riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }],
+  alarmLevel: [{ required: true, message: '请选择适用告警等级', trigger: 'change' }],
   responseSteps: [{ required: true, message: '请输入响应步骤', trigger: 'blur' }]
 };
 
 const submitLoading = ref(false);
-const planAdvice = '优先检查严重风险预案和启用中的执行方案';
+const planAdvice = '优先检查红色告警预案和启用中的执行方案';
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => planList.value.filter((item) => item.status === 0).length);
-const redCount = computed(() => planList.value.filter((item) => normalizeRiskLevel(item.riskLevel) === 'red').length);
-const orangeCount = computed(() => planList.value.filter((item) => normalizeRiskLevel(item.riskLevel) === 'orange').length);
+const redCount = computed(() => planList.value.filter((item) => normalizeAlarmLevel(item.alarmLevel || item.riskLevel) === 'red').length);
+const orangeCount = computed(() => planList.value.filter((item) => normalizeAlarmLevel(item.alarmLevel || item.riskLevel) === 'orange').length);
 const hasRecords = computed(() => planList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的应急预案' : '还没有应急预案'));
 const emptyStateDescription = computed(() =>
   hasAppliedFilters.value
     ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
-    : '当前还没有应急预案，先新增预案，再继续配置风险等级和响应步骤。'
+    : '当前还没有应急预案，先新增预案，再继续配置告警等级和响应步骤。'
 );
 
-const getRiskLevelType = (riskLevel: string) => getRiskLevelTagType(riskLevel);
+const getAlarmLevelType = (alarmLevel: string) => getAlarmLevelTagType(alarmLevel);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -355,12 +363,12 @@ const {
   applied: appliedFilters,
   fields: [
     { key: 'planName', label: '预案名称' },
-    { key: 'riskLevel', label: (value) => `风险等级：${getRiskLevelText(String(value || ''))}` },
+    { key: 'alarmLevel', label: (value) => `适用告警等级：${getAlarmLevelText(String(value || ''))}` },
     { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
   ],
   defaults: {
     planName: '',
-    riskLevel: '',
+    alarmLevel: '',
     status: '' as '' | number
   }
 });
@@ -371,7 +379,7 @@ const loadPlanList = async () => {
   try {
     const res = await pagePlanList({
       planName: appliedFilters.planName || undefined,
-      riskLevel: appliedFilters.riskLevel || undefined,
+      alarmLevel: appliedFilters.alarmLevel || undefined,
       status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
@@ -403,7 +411,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   filters.planName = '';
-  filters.riskLevel = '';
+  filters.alarmLevel = '';
   filters.status = '';
   syncAppliedFilters();
   resetPage();
@@ -464,7 +472,7 @@ const handleClearAppliedFilters = () => {
 const resetPlanForm = () => {
   form.id = undefined;
   form.planName = '';
-  form.riskLevel = riskLevelOptions.value[0]?.value || '';
+  form.alarmLevel = alarmLevelOptions.value[0]?.value || '';
   form.description = '';
   form.responseSteps = '';
   form.contactList = '';
@@ -479,7 +487,7 @@ const handleAdd = () => {
 const handleEdit = (row: EmergencyPlan) => {
   form.id = row.id;
   form.planName = row.planName;
-  form.riskLevel = normalizeRiskLevel(row.riskLevel);
+  form.alarmLevel = normalizeAlarmLevel(row.alarmLevel || row.riskLevel);
   form.description = row.description || '';
   form.responseSteps = row.responseSteps || '';
   form.contactList = row.contactList || '';
@@ -528,19 +536,19 @@ const handleFormClose = () => {
 
 onMounted(() => {
   syncAppliedFilters();
-  void loadRiskLevelOptions();
+  void loadAlarmLevelOptions();
   void loadPlanList();
 });
 
-async function loadRiskLevelOptions() {
+async function loadAlarmLevelOptions() {
   try {
-    riskLevelOptions.value = await fetchRiskLevelOptions();
-    if (!form.riskLevel) {
-      form.riskLevel = riskLevelOptions.value[0]?.value || '';
+    alarmLevelOptions.value = await fetchAlarmLevelOptions();
+    if (!form.alarmLevel) {
+      form.alarmLevel = alarmLevelOptions.value[0]?.value || '';
     }
   } catch (error) {
-    console.error('加载风险等级字典失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+    console.error('加载告警等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载告警等级字典失败');
   }
 }
 </script>

@@ -26,7 +26,9 @@ describe('EventDetailDrawer', () => {
         detail: {
           eventTitle: '泵房异常事件',
           eventCode: 'EVENT-001',
-          riskLevel: 'warning',
+          alarmLevel: 'orange',
+          currentRiskLevel: 'yellow',
+          riskLevel: 'yellow',
           status: 1,
           triggerTime: '2026-03-29 11:00:00'
         }
@@ -43,6 +45,8 @@ describe('EventDetailDrawer', () => {
     expect(drawer.props('eyebrow')).toBeUndefined();
     expect(drawer.props('title')).toBe('泵房异常事件');
     expect(wrapper.text()).toContain('事件概览');
+    expect(wrapper.text()).toContain('当前风险态势');
+    expect(wrapper.text()).toContain('告警等级');
     expect(wrapper.text()).not.toContain('Event Detail');
   });
 
@@ -53,7 +57,9 @@ describe('EventDetailDrawer', () => {
         detail: {
           eventTitle: '泵房异常事件',
           eventCode: 'EVENT-001',
-          riskLevel: 'warning',
+          alarmLevel: 'orange',
+          currentRiskLevel: 'yellow',
+          riskLevel: 'yellow',
           status: 1,
           responsibleUser: '值班员A',
           triggerTime: '2026-03-29 11:00:00'
@@ -68,5 +74,6 @@ describe('EventDetailDrawer', () => {
 
     expect(wrapper.text().match(/责任人/g)?.length ?? 0).toBe(1);
     expect(wrapper.text().match(/当前状态/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text()).toContain('橙色');
   });
 });

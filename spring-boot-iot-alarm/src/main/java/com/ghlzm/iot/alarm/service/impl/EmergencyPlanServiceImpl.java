@@ -21,25 +21,31 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
             implements EmergencyPlanService {
 
       @Override
-      public PageResult<EmergencyPlan> pagePlanList(String planName, String riskLevel, Integer status, Long pageNum, Long pageSize) {
+      public PageResult<EmergencyPlan> pagePlanList(String planName, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
             Page<EmergencyPlan> page = new Page<>(pageNum, pageSize);
-            Page<EmergencyPlan> result = page(page, buildWrapper(planName, riskLevel, status));
+            Page<EmergencyPlan> result = page(page, buildWrapper(planName, alarmLevel, status));
             return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
-      public List<EmergencyPlan> getPlanList(String planName, String riskLevel, Integer status) {
-            return list(buildWrapper(planName, riskLevel, status));
+      public List<EmergencyPlan> getPlanList(String planName, String alarmLevel, Integer status) {
+            return list(buildWrapper(planName, alarmLevel, status));
       }
 
       @Override
       public void addPlan(EmergencyPlan plan) {
+            String normalizedAlarmLevel = resolveAlarmLevel(plan);
+            plan.setAlarmLevel(normalizedAlarmLevel);
+            plan.setRiskLevel(normalizedAlarmLevel);
             plan.setDeleted(0);
             save(plan);
       }
 
       @Override
       public void updatePlan(EmergencyPlan plan) {
+            String normalizedAlarmLevel = resolveAlarmLevel(plan);
+            plan.setAlarmLevel(normalizedAlarmLevel);
+            plan.setRiskLevel(normalizedAlarmLevel);
             updateById(plan);
       }
 
@@ -48,13 +54,13 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
             removeById(id);
       }
 
-      private LambdaQueryWrapper<EmergencyPlan> buildWrapper(String planName, String riskLevel, Integer status) {
+      private LambdaQueryWrapper<EmergencyPlan> buildWrapper(String planName, String alarmLevel, Integer status) {
             LambdaQueryWrapper<EmergencyPlan> wrapper = new LambdaQueryWrapper<>();
             if (planName != null && !planName.isEmpty()) {
                   wrapper.eq(EmergencyPlan::getPlanName, planName);
             }
-            if (StringUtils.hasText(riskLevel)) {
-                  wrapper.in(EmergencyPlan::getRiskLevel, buildRiskLevelQueryValues(riskLevel));
+            if (StringUtils.hasText(alarmLevel)) {
+                  wrapper.in(EmergencyPlan::getAlarmLevel, buildAlarmLevelQueryValues(alarmLevel));
             }
             if (status != null) {
                   wrapper.eq(EmergencyPlan::getStatus, status);
@@ -64,28 +70,40 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
             return wrapper;
       }
 
-      private List<String> buildRiskLevelQueryValues(String riskLevel) {
-            String normalizedRiskLevel = normalizeRiskLevel(riskLevel);
-            if (!StringUtils.hasText(normalizedRiskLevel)) {
+      private List<String> buildAlarmLevelQueryValues(String alarmLevel) {
+            String normalizedAlarmLevel = normalizeAlarmLevel(alarmLevel);
+            if (!StringUtils.hasText(normalizedAlarmLevel)) {
                   return List.of();
             }
-            return switch (normalizedRiskLevel) {
+            return switch (normalizedAlarmLevel) {
                   case "red" -> List.of("red", "critical");
-                  case "orange" -> List.of("orange", "warning");
-                  case "blue" -> List.of("blue", "info");
-                  default -> List.of(normalizedRiskLevel);
+                  case "orange" -> List.of("orange", "warning", "high");
+                  case "yellow" -> List.of("yellow", "medium");
+                  case "blue" -> List.of("blue", "info", "low");
+                  default -> List.of(normalizedAlarmLevel);
             };
       }
 
-      private String normalizeRiskLevel(String riskLevel) {
-            if (!StringUtils.hasText(riskLevel)) {
+      private String normalizeAlarmLevel(String alarmLevel) {
+            if (!StringUtils.hasText(alarmLevel)) {
                   return "";
             }
-            return switch (riskLevel.trim().toLowerCase(Locale.ROOT)) {
-                  case "critical" -> "red";
-                  case "warning" -> "orange";
-                  case "info" -> "blue";
-                  default -> riskLevel.trim().toLowerCase(Locale.ROOT);
+            return switch (alarmLevel.trim().toLowerCase(Locale.ROOT)) {
+                  case "critical", "red" -> "red";
+                  case "warning", "high", "orange" -> "orange";
+                  case "medium", "yellow" -> "yellow";
+                  case "info", "low", "blue" -> "blue";
+                  default -> alarmLevel.trim().toLowerCase(Locale.ROOT);
             };
+      }
+
+      private String resolveAlarmLevel(EmergencyPlan plan) {
+            if (plan == null) {
+                  return "";
+            }
+            if (StringUtils.hasText(plan.getAlarmLevel())) {
+                  return normalizeAlarmLevel(plan.getAlarmLevel());
+            }
+            return normalizeAlarmLevel(plan.getRiskLevel());
       }
 }

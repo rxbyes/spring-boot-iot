@@ -77,9 +77,11 @@
             <el-table :data="pagedLocatedPoints" border stripe>
               <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="160" />
               <StandardTableTextColumn prop="regionName" label="区域" :min-width="120" />
-              <el-table-column label="风险等级" width="100">
+              <el-table-column label="当前风险态势" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="riskLevelTagType(row.riskLevel)" round>{{ riskLevelText(row.riskLevel) }}</el-tag>
+                  <el-tag :type="riskLevelTagType(row.currentRiskLevel || row.riskLevel)" round>
+                    {{ riskLevelText(row.currentRiskLevel || row.riskLevel) }}
+                  </el-tag>
                 </template>
               </el-table-column>
               <StandardTableTextColumn label="经纬度" :min-width="220">
@@ -164,7 +166,9 @@
             <article v-for="point in pagedUnlocatedPoints" :key="point.riskPointId" class="ops-resource-card">
               <div class="ops-resource-card__header">
                 <strong>{{ point.riskPointName || `风险点 ${point.riskPointId}` }}</strong>
-                <el-tag :type="riskLevelTagType(point.riskLevel)" round>{{ riskLevelText(point.riskLevel) }}</el-tag>
+                <el-tag :type="riskLevelTagType(point.currentRiskLevel || point.riskLevel)" round>
+                  {{ riskLevelText(point.currentRiskLevel || point.riskLevel) }}
+                </el-tag>
               </div>
               <div class="ops-resource-card__meta">
                 <span>区域 {{ point.regionName || '--' }}</span>

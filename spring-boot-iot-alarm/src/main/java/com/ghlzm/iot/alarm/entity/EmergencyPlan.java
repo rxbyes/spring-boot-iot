@@ -28,7 +28,12 @@ public class EmergencyPlan implements Serializable {
       private String planName;
 
       /**
-       * 风险等级：critical-严重, warning-警告, info-提醒
+       * 适用告警等级：red/orange/yellow/blue
+       */
+      private String alarmLevel;
+
+      /**
+       * 历史风险等级兼容字段
        */
       private String riskLevel;
 

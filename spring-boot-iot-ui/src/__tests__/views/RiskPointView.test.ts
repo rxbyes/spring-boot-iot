@@ -268,6 +268,8 @@ function createRiskPointRow() {
     responsibleUser: 1,
     responsibleUserName: '张三',
     responsiblePhone: '13800000000',
+    riskPointLevel: 'level_1',
+    currentRiskLevel: 'red',
     riskLevel: 'red',
     description: 'desc',
     status: 0,
@@ -364,8 +366,8 @@ describe('RiskPointView', () => {
       data: {
         id: 1,
         tenantId: 1,
-        dictName: '风险等级',
-        dictCode: 'risk_level',
+        dictName: '风险点等级',
+        dictCode: 'risk_point_level',
         dictType: 'text',
         status: 1,
         sortNo: 1,
@@ -376,10 +378,9 @@ describe('RiskPointView', () => {
         updateTime: '2026-04-01 08:00:00',
         deleted: 0,
         items: [
-          { id: 11, tenantId: 1, dictId: 1, itemName: '红色', itemValue: 'red', itemType: 'string', status: 1, sortNo: 1, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
-          { id: 12, tenantId: 1, dictId: 1, itemName: '橙色', itemValue: 'orange', itemType: 'string', status: 1, sortNo: 2, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
-          { id: 13, tenantId: 1, dictId: 1, itemName: '黄色', itemValue: 'yellow', itemType: 'string', status: 1, sortNo: 3, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
-          { id: 14, tenantId: 1, dictId: 1, itemName: '蓝色', itemValue: 'blue', itemType: 'string', status: 1, sortNo: 4, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 }
+          { id: 11, tenantId: 1, dictId: 1, itemName: '一级风险点', itemValue: 'level_1', itemType: 'string', status: 1, sortNo: 1, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
+          { id: 12, tenantId: 1, dictId: 1, itemName: '二级风险点', itemValue: 'level_2', itemType: 'string', status: 1, sortNo: 2, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 },
+          { id: 13, tenantId: 1, dictId: 1, itemName: '三级风险点', itemValue: 'level_3', itemType: 'string', status: 1, sortNo: 3, remark: '', createBy: 1, createTime: '', updateBy: 1, updateTime: '', deleted: 0 }
         ]
       }
     })
@@ -434,7 +435,7 @@ describe('RiskPointView', () => {
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper')
   })
 
-  it('renders archive columns and four-color labels from dictionary data', async () => {
+  it('renders archive-grade and runtime-risk columns from the new risk point semantics', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -452,11 +453,13 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('所属组织')
     expect(wrapper.text()).toContain('所属区域')
     expect(wrapper.text()).toContain('负责人')
-    expect(wrapper.text()).toContain('红色')
-    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_level')
+    expect(wrapper.text()).toContain('风险点等级')
+    expect(wrapper.text()).toContain('当前风险态势')
+    expect(wrapper.text()).toContain('一级风险点')
+    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_point_level')
   })
 
-  it('loads organization, region and risk-level options on mount without preloading all users', async () => {
+  it('loads organization, region and risk-point-level options on mount without preloading all users', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -474,7 +477,7 @@ describe('RiskPointView', () => {
     expect(mockListOrganizationTree).toHaveBeenCalledTimes(1)
     expect(mockListRegionTree).toHaveBeenCalledTimes(1)
     expect(mockListUsers).not.toHaveBeenCalled()
-    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_level')
+    expect(mockGetDictByCode).toHaveBeenCalledWith('risk_point_level')
   })
 
   it('defaults the responsible user and phone from the selected organization leader in create mode', async () => {

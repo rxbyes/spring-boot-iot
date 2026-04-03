@@ -5,6 +5,7 @@ import com.ghlzm.iot.alarm.service.EmergencyPlanService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,9 +26,11 @@ public class EmergencyPlanController {
       @GetMapping("/list")
       public R<List<EmergencyPlan>> getPlanList(
                   @RequestParam(required = false) String planName,
-                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) String alarmLevel,
+                  @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
                   @RequestParam(required = false) Integer status) {
-            List<EmergencyPlan> list = emergencyPlanService.getPlanList(planName, riskLevel, status);
+            String normalizedAlarmLevel = StringUtils.hasText(alarmLevel) ? alarmLevel : legacyRiskLevel;
+            List<EmergencyPlan> list = emergencyPlanService.getPlanList(planName, normalizedAlarmLevel, status);
             return R.ok(list);
       }
 
@@ -37,11 +40,13 @@ public class EmergencyPlanController {
       @GetMapping("/page")
       public R<PageResult<EmergencyPlan>> pagePlanList(
                   @RequestParam(required = false) String planName,
-                  @RequestParam(required = false) String riskLevel,
+                  @RequestParam(required = false) String alarmLevel,
+                  @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
                   @RequestParam(required = false) Integer status,
                   @RequestParam(defaultValue = "1") Long pageNum,
                   @RequestParam(defaultValue = "10") Long pageSize) {
-            PageResult<EmergencyPlan> page = emergencyPlanService.pagePlanList(planName, riskLevel, status, pageNum, pageSize);
+            String normalizedAlarmLevel = StringUtils.hasText(alarmLevel) ? alarmLevel : legacyRiskLevel;
+            PageResult<EmergencyPlan> page = emergencyPlanService.pagePlanList(planName, normalizedAlarmLevel, status, pageNum, pageSize);
             return R.ok(page);
       }
 

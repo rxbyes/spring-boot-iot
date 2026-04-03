@@ -32,11 +32,12 @@ class EmergencyPlanServiceImplTest {
     @CsvSource({
             "red,red,critical",
             "orange,orange,warning",
+            "yellow,yellow,medium",
             "blue,blue,info"
     })
-    void pagePlanListShouldExpandRiskLevelFilterForLegacyValues(String riskLevel,
-                                                                String normalizedValue,
-                                                                String legacyValue) {
+    void pagePlanListShouldExpandAlarmLevelFilterForLegacyValues(String alarmLevel,
+                                                                 String normalizedValue,
+                                                                 String legacyValue) {
         initLambdaCache();
         EmergencyPlanServiceImpl service = spy(new EmergencyPlanServiceImpl());
         Page<EmergencyPlan> page = new Page<>(1L, 10L);
@@ -44,7 +45,7 @@ class EmergencyPlanServiceImplTest {
         page.setTotal(0L);
         doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
 
-        service.pagePlanList(null, riskLevel, null, 1L, 10L);
+        service.pagePlanList(null, alarmLevel, null, 1L, 10L);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<LambdaQueryWrapper<EmergencyPlan>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);

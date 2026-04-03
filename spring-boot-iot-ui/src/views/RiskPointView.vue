@@ -21,9 +21,9 @@
               <el-input v-model="filters.riskPointCode" placeholder="风险点编号" clearable @keyup.enter="handleSearch" />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
+              <el-select v-model="filters.riskPointLevel" placeholder="风险点等级" clearable>
                 <el-option
-                  v-for="option in riskLevelOptions"
+                  v-for="option in riskPointLevelOptions"
                   :key="option.value"
                   :label="option.label"
                   :value="option.value"
@@ -83,7 +83,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `红色 ${redCount} 项`, `待纳管 ${missingBindingTotal} 台`, `停用 ${disabledCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `红色态势 ${redCount} 项`, `待纳管 ${missingBindingTotal} 台`, `停用 ${disabledCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -136,9 +136,16 @@
                 <span>{{ row.regionName || '未配置区域' }}</span>
               </template>
             </StandardTableTextColumn>
-            <el-table-column prop="riskLevel" label="风险等级" width="100">
+            <el-table-column prop="riskPointLevel" label="风险点等级" width="120">
               <template #default="{ row }">
-                <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+                <el-tag type="info" round>{{ getRiskPointLevelText(row.riskPointLevel) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getCurrentRiskLevelType(row.currentRiskLevel || row.riskLevel)" round>
+                  {{ getCurrentRiskLevelText(row.currentRiskLevel || row.riskLevel) }}
+                </el-tag>
               </template>
             </el-table-column>
             <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
@@ -206,14 +213,14 @@
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>配置提示</strong>
-          <span>{{ form.id ? '历史编号仅用于留档追踪；请同步核对组织、区域、负责人和等级信息。' : '保存后将自动生成系统编号；请先确认组织、区域和风险等级，再补齐负责人信息。' }}</span>
+          <span>{{ form.id ? '历史编号仅用于留档追踪；请同步核对组织、区域、负责人和档案等级信息。' : '保存后将自动生成系统编号；请先确认组织、区域和风险点等级，再补齐负责人信息。' }}</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
                 <h3>基础信息</h3>
-                <p>维护风险点主档、所属组织、所属区域与风险等级，为后续监测、处置与空间治理提供统一标识。</p>
+                <p>维护风险点主档、所属组织、所属区域与档案等级，为后续监测、处置与空间治理提供统一标识。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -245,10 +252,10 @@
                   placeholder="请选择所属区域"
                 />
               </el-form-item>
-              <el-form-item label="风险等级" prop="riskLevel">
-                <el-select v-model="form.riskLevel" placeholder="请选择风险等级">
+              <el-form-item label="风险点等级" prop="riskPointLevel">
+                <el-select v-model="form.riskPointLevel" placeholder="请选择风险点等级">
                   <el-option
-                    v-for="option in riskLevelOptions"
+                    v-for="option in riskPointLevelOptions"
                     :key="option.value"
                     :label="option.label"
                     :value="option.value"
@@ -382,7 +389,6 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import { getDictByCode } from '@/api/dict';
 import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { listOrganizationTree } from '@/api/organization';
 import type { Organization } from '@/api/organization';
@@ -394,7 +400,12 @@ import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
-import { buildRiskLevelOptions, getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
+import { getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, normalizeRiskLevel } from '@/utils/riskLevel';
+import {
+  fetchRiskPointLevelOptions,
+  getRiskPointLevelText as resolveRiskPointLevelText,
+  type RiskPointLevelOption
+} from '@/utils/riskPointLevel';
 import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
 import type { RiskPoint } from '../api/riskPoint';
 import { formatDateTime } from '@/utils/format';
@@ -409,7 +420,7 @@ const organizationOptions = ref<Organization[]>([]);
 const regionOptions = ref<Region[]>([]);
 const userOptions = ref<User[]>([]);
 const userOptionsLoading = ref(false);
-const riskLevelOptions = ref<RiskLevelOption[]>([]);
+const riskPointLevelOptions = ref<RiskPointLevelOption[]>([]);
 const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
 const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
@@ -425,12 +436,12 @@ const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 const filters = reactive({
   riskPointCode: '',
-  riskLevel: '',
+  riskPointLevel: '',
   status: '' as '' | number
 });
 const appliedFilters = reactive({
   riskPointCode: '',
-  riskLevel: '',
+  riskPointLevel: '',
   status: '' as '' | number
 });
 
@@ -448,7 +459,7 @@ const form = reactive({
   regionName: '',
   responsibleUser: '' as '' | number,
   responsiblePhone: '',
-  riskLevel: '',
+  riskPointLevel: '',
   description: '',
   status: 0,
   createBy: undefined as number | undefined,
@@ -459,7 +470,7 @@ const rules = {
   riskPointName: [{ required: true, message: '请输入风险点名称', trigger: 'blur' }],
   orgId: [{ required: true, message: '请选择所属组织', trigger: 'change' }],
   regionId: [{ required: true, message: '请选择所属区域', trigger: 'change' }],
-  riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }]
+  riskPointLevel: [{ required: true, message: '请选择风险点等级', trigger: 'change' }]
 };
 
 const bindForm = reactive({
@@ -472,13 +483,15 @@ const bindForm = reactive({
   metricName: ''
 });
 const submitLoading = ref(false);
-const riskPointAdvice = '优先核查高风险且已启用的风险点';
+const riskPointAdvice = '优先核查一级风险点和红色态势对象';
 const missingBindingTotal = ref(0);
 const knownUsers = reactive<Record<number, User>>({});
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
-const redCount = computed(() => riskPointList.value.filter((item) => item.riskLevel === 'red').length);
+const redCount = computed(() =>
+  riskPointList.value.filter((item) => normalizeRiskLevel(item.currentRiskLevel || item.riskLevel) === 'red').length
+);
 const disabledCount = computed(() => riskPointList.value.filter((item) => item.status === 1).length);
 const hasRecords = computed(() => riskPointList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
@@ -666,18 +679,15 @@ const loadResponsibleOptionsByOrganization = async (preserveSelection = false) =
   }
 };
 
-const loadRiskLevelOptions = async () => {
+const loadRiskPointLevelOptions = async () => {
   try {
-    const res = await getDictByCode('risk_level');
-    if (res.code === 200) {
-      riskLevelOptions.value = buildRiskLevelOptions(res.data?.items || []);
-      if (!form.id && !form.riskLevel) {
-        form.riskLevel = riskLevelOptions.value[0]?.value || '';
-      }
+    riskPointLevelOptions.value = await fetchRiskPointLevelOptions();
+    if (!form.id && !form.riskPointLevel) {
+      form.riskPointLevel = riskPointLevelOptions.value[0]?.value || '';
     }
   } catch (error) {
-    console.error('加载风险等级字典失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+    console.error('加载风险点等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载风险点等级字典失败');
   }
 };
 
@@ -705,9 +715,11 @@ const loadMetricOptions = async (deviceId: string | number) => {
   }
 };
 
-const getRiskLevelType = (level: string) => getRiskLevelTagType(level);
+const getCurrentRiskLevelType = (level: string) => getRiskLevelTagType(level);
 
-const getRiskLevelText = (level: string) => resolveRiskLevelText(level, riskLevelOptions.value);
+const getCurrentRiskLevelText = (level: string) => resolveRiskLevelText(level);
+
+const getRiskPointLevelText = (level?: string) => resolveRiskPointLevelText(level, riskPointLevelOptions.value);
 
 const getResponsibleUserText = (row: Partial<RiskPoint>) => {
   if (!row.responsibleUser) {
@@ -752,12 +764,12 @@ const {
   applied: appliedFilters,
   fields: [
     { key: 'riskPointCode', label: '风险点编号' },
-    { key: 'riskLevel', label: (value) => `风险等级：${getRiskLevelText(String(value || ''))}` },
+    { key: 'riskPointLevel', label: (value) => `风险点等级：${getRiskPointLevelText(String(value || ''))}` },
     { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
   ],
   defaults: {
     riskPointCode: '',
-    riskLevel: '',
+    riskPointLevel: '',
     status: '' as '' | number
   }
 });
@@ -769,7 +781,7 @@ const loadRiskPointList = async () => {
     const [listResult, backlogResult] = await Promise.allSettled([
       pageRiskPointList({
         riskPointCode: appliedFilters.riskPointCode || undefined,
-        riskLevel: appliedFilters.riskLevel || undefined,
+        riskPointLevel: appliedFilters.riskPointLevel || undefined,
         status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
         pageNum: pagination.pageNum,
         pageSize: pagination.pageSize
@@ -830,7 +842,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   filters.riskPointCode = '';
-  filters.riskLevel = '';
+  filters.riskPointLevel = '';
   filters.status = '';
   syncAppliedFilters();
   resetPage();
@@ -901,7 +913,7 @@ const resetRiskPointForm = () => {
   form.regionName = '';
   form.responsibleUser = '';
   form.responsiblePhone = '';
-  form.riskLevel = riskLevelOptions.value[0]?.value || '';
+  form.riskPointLevel = riskPointLevelOptions.value[0]?.value || '';
   form.description = '';
   form.status = 0;
   form.createBy = undefined;
@@ -935,7 +947,7 @@ const handleEdit = async (row: RiskPoint) => {
   form.regionName = row.regionName || '';
   form.responsibleUser = row.responsibleUser ? Number(row.responsibleUser) : '';
   form.responsiblePhone = row.responsiblePhone;
-  form.riskLevel = row.riskLevel;
+  form.riskPointLevel = row.riskPointLevel || '';
   form.description = row.description || '';
   form.status = row.status;
   form.createBy = row.createBy;
@@ -1110,7 +1122,7 @@ onMounted(() => {
   syncAppliedFilters();
   void loadOrganizationOptions();
   void loadRegionOptions();
-  void loadRiskLevelOptions();
+  void loadRiskPointLevelOptions();
   void loadRiskPointList();
 });
 </script>

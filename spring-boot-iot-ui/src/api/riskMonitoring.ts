@@ -5,6 +5,7 @@ export interface RiskMonitoringListQuery {
   regionId?: IdType;
   riskPointId?: IdType;
   deviceCode?: string;
+  currentRiskLevel?: string;
   riskLevel?: string;
   onlineStatus?: number;
   pageNum?: number;
@@ -17,6 +18,8 @@ export interface RiskMonitoringListItem {
   regionName?: string | null;
   riskPointId?: IdType | null;
   riskPointName?: string | null;
+  riskPointLevel?: string | null;
+  currentRiskLevel?: string | null;
   riskLevel?: string | null;
   deviceId?: IdType | null;
   deviceCode?: string | null;
@@ -53,6 +56,7 @@ export interface RiskMonitoringEventSummary {
   id: IdType;
   eventCode?: string | null;
   eventTitle?: string | null;
+  currentRiskLevel?: string | null;
   riskLevel?: string | null;
   status?: number | null;
   currentValue?: string | null;
@@ -66,6 +70,8 @@ export interface RiskMonitoringDetail {
   riskPointId?: IdType | null;
   riskPointCode?: string | null;
   riskPointName?: string | null;
+  riskPointLevel?: string | null;
+  currentRiskLevel?: string | null;
   riskLevel?: string | null;
   deviceId?: IdType | null;
   deviceCode?: string | null;
@@ -95,6 +101,8 @@ export interface RiskMonitoringGisPoint {
   riskPointId: IdType;
   riskPointCode?: string | null;
   riskPointName?: string | null;
+  riskPointLevel?: string | null;
+  currentRiskLevel?: string | null;
   riskLevel?: string | null;
   longitude?: number | null;
   latitude?: number | null;
@@ -107,7 +115,8 @@ export function getRiskMonitoringList(
   params: RiskMonitoringListQuery = {}
 ): Promise<ApiEnvelope<PageResult<RiskMonitoringListItem>>> {
   const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
+  const normalizedParams = normalizeRiskMonitoringQuery(params);
+  Object.entries(normalizedParams).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       query.append(key, String(value));
     }
@@ -127,4 +136,13 @@ export function getRiskMonitoringGisPoints(regionId?: number): Promise<ApiEnvelo
     ? '/api/risk-monitoring/gis/points'
     : `/api/risk-monitoring/gis/points?regionId=${regionId}`;
   return request<RiskMonitoringGisPoint[]>(path, { method: 'GET' });
+}
+
+function normalizeRiskMonitoringQuery(params: RiskMonitoringListQuery) {
+  const currentRiskLevel = params.currentRiskLevel || params.riskLevel || undefined;
+  return {
+    ...params,
+    currentRiskLevel,
+    riskLevel: currentRiskLevel
+  };
 }

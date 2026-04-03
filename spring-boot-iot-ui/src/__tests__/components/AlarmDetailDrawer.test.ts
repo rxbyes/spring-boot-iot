@@ -26,7 +26,7 @@ describe('AlarmDetailDrawer', () => {
         detail: {
           alarmTitle: '温度越限告警',
           alarmCode: 'ALARM-001',
-          alarmLevel: 'critical',
+          alarmLevel: 'red',
           status: 0,
           triggerTime: '2026-03-29 10:00:00'
         }
@@ -43,6 +43,7 @@ describe('AlarmDetailDrawer', () => {
     expect(drawer.props('eyebrow')).toBeUndefined();
     expect(drawer.props('title')).toBe('温度越限告警');
     expect(wrapper.text()).toContain('告警概览');
+    expect(wrapper.text()).toContain('红色');
     expect(wrapper.text()).not.toContain('Alarm Detail');
   });
 
@@ -53,7 +54,7 @@ describe('AlarmDetailDrawer', () => {
         detail: {
           alarmTitle: '温度越限告警',
           alarmCode: 'ALARM-001',
-          alarmLevel: 'critical',
+          alarmLevel: 'red',
           status: 0,
           triggerTime: '2026-03-29 10:00:00'
         }

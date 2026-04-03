@@ -68,6 +68,7 @@ class RuleDefinitionServiceImplTest {
         RuleDefinition rule = new RuleDefinition();
         rule.setRuleName("红色策略");
         rule.setMetricIdentifier("dispsX");
+        rule.setAlarmLevel("critical");
         rule.setExpression("value >= 12");
         rule.setStatus(0);
 
@@ -75,6 +76,7 @@ class RuleDefinitionServiceImplTest {
 
         service.addRule(rule);
 
+        assertEquals("red", rule.getAlarmLevel());
         assertEquals(0, rule.getDeleted());
         verify(service).save(rule);
     }
@@ -99,7 +101,7 @@ class RuleDefinitionServiceImplTest {
     }
 
     @Test
-    void pageRuleListShouldTreatWarningFilterAsCompatibleWithOrangeSeverity() {
+    void pageRuleListShouldTreatOrangeFilterAsCompatibleWithLegacyWarningSeverity() {
         initLambdaCache();
         RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
         Page<RuleDefinition> page = new Page<>(1L, 10L);
@@ -107,14 +109,14 @@ class RuleDefinitionServiceImplTest {
         page.setTotal(0L);
         doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
 
-        service.pageRuleList(null, null, "warning", null, 1L, 10L);
+        service.pageRuleList(null, null, "orange", null, 1L, 10L);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
         verify(service).page(any(Page.class), wrapperCaptor.capture());
         LambdaQueryWrapper<RuleDefinition> wrapper = wrapperCaptor.getValue();
         wrapper.getSqlSegment();
-        assertTrue(wrapper.getParamNameValuePairs().values().contains("warning"));
         assertTrue(wrapper.getParamNameValuePairs().values().contains("orange"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("warning"));
     }
 }

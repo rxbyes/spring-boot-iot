@@ -19,7 +19,13 @@ public class RiskRuntimeLevelResolver {
         if (recentEvent != null && StringUtils.hasText(recentEvent.getRiskLevel())) {
             return normalizeRiskLevel(recentEvent.getRiskLevel());
         }
-        return riskPoint == null ? null : normalizeRiskLevel(riskPoint.getRiskLevel());
+        if (riskPoint == null) {
+            return null;
+        }
+        if (StringUtils.hasText(riskPoint.getCurrentRiskLevel())) {
+            return normalizeRiskLevel(riskPoint.getCurrentRiskLevel());
+        }
+        return normalizeRiskLevel(riskPoint.getRiskLevel());
     }
 
     public int priorityForAlarmLevel(String alarmLevel) {
@@ -43,8 +49,8 @@ public class RiskRuntimeLevelResolver {
         String normalized = alarmLevel.trim().toLowerCase();
         return switch (normalized) {
             case "critical", "red" -> "red";
-            case "high", "orange" -> "orange";
-            case "medium", "warning", "warn", "yellow" -> "yellow";
+            case "high", "warning", "warn", "orange" -> "orange";
+            case "medium", "yellow" -> "yellow";
             default -> "blue";
         };
     }
@@ -56,8 +62,8 @@ public class RiskRuntimeLevelResolver {
         String normalized = riskLevel.trim().toLowerCase();
         return switch (normalized) {
             case "critical" -> "red";
-            case "warning", "warn", "medium" -> "yellow";
-            case "high" -> "orange";
+            case "warning", "warn", "high" -> "orange";
+            case "medium" -> "yellow";
             case "low", "info" -> "blue";
             default -> normalized;
         };

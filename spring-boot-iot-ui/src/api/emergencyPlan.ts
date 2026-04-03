@@ -10,7 +10,8 @@ import type { ApiEnvelope, IdType } from '../types/api';
 export interface EmergencyPlan {
       id: IdType;
       planName: string;
-      riskLevel: string;
+      alarmLevel?: string;
+      riskLevel?: string;
       description: string;
       responseSteps: string;
       contactList: string;
@@ -33,10 +34,11 @@ export interface EmergencyPlanPageResult {
 // 获取预案列表
 export const getPlanList = (params?: {
       planName?: string;
+      alarmLevel?: string;
       riskLevel?: string;
       status?: number;
 }): Promise<ApiEnvelope<EmergencyPlan[]>> => {
-      const queryString = buildQueryString(params);
+      const queryString = buildQueryString(normalizeEmergencyPlanQuery(params));
       const path = queryString ? `/api/emergency-plan/list?${queryString}` : '/api/emergency-plan/list';
       return request<EmergencyPlan[]>(path, { method: 'GET' });
 };
@@ -44,12 +46,13 @@ export const getPlanList = (params?: {
 // 分页获取预案列表
 export const pagePlanList = (params?: {
       planName?: string;
+      alarmLevel?: string;
       riskLevel?: string;
       status?: number;
       pageNum?: number;
       pageSize?: number;
 }): Promise<ApiEnvelope<EmergencyPlanPageResult>> => {
-      const queryString = buildQueryString(params);
+      const queryString = buildQueryString(normalizeEmergencyPlanQuery(params));
       const path = queryString ? `/api/emergency-plan/page?${queryString}` : '/api/emergency-plan/page';
       return request<EmergencyPlanPageResult>(path, { method: 'GET' });
 };
@@ -73,3 +76,21 @@ export const updatePlan = (data: Partial<EmergencyPlan>): Promise<ApiEnvelope<Em
 export const deletePlan = (id: IdType): Promise<ApiEnvelope<void>> => {
       return request<void>(`/api/emergency-plan/delete/${id}`, { method: 'POST' });
 };
+
+function normalizeEmergencyPlanQuery(params?: {
+      planName?: string;
+      alarmLevel?: string;
+      riskLevel?: string;
+      status?: number;
+      pageNum?: number;
+      pageSize?: number;
+}) {
+      if (!params) {
+            return params;
+      }
+      const { alarmLevel, riskLevel, ...rest } = params;
+      return {
+            ...rest,
+            alarmLevel: alarmLevel || riskLevel || undefined
+      };
+}

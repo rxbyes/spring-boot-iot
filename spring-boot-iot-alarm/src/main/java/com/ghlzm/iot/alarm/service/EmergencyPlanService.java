@@ -13,12 +13,12 @@ public interface EmergencyPlanService extends IService<EmergencyPlan> {
       /**
        * 获取预案列表
        */
-      List<EmergencyPlan> getPlanList(String planName, String riskLevel, Integer status);
+      List<EmergencyPlan> getPlanList(String planName, String alarmLevel, Integer status);
 
       /**
        * 分页获取预案列表
        */
-      PageResult<EmergencyPlan> pagePlanList(String planName, String riskLevel, Integer status, Long pageNum, Long pageSize);
+      PageResult<EmergencyPlan> pagePlanList(String planName, String alarmLevel, Integer status, Long pageNum, Long pageSize);
 
       /**
        * 新增预案

@@ -25,9 +25,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in alarmLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -55,7 +58,7 @@
       <template #notices>
         <div class="rule-definition-notice-stack">
           <el-alert
-            title="优先核查严重告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
+            title="优先核查红色告警和已开启转事件的规则，确保风险触发策略与处置流程保持一致。"
             type="info"
             :closable="false"
             show-icon
@@ -83,7 +86,7 @@
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`, `待配 ${missingPolicyTotal} 项`, `严重 ${criticalRuleCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `转事件 ${convertToEventCount} 项`, `待配 ${missingPolicyTotal} 项`, `红色 ${redRuleCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -238,9 +241,12 @@
               </el-form-item>
               <el-form-item label="告警等级" prop="alarmLevel">
                 <el-select v-model="form.alarmLevel" placeholder="请选择告警等级">
-                  <el-option label="严重" value="critical" />
-                  <el-option label="警告" value="warning" />
-                  <el-option label="提醒" value="info" />
+                  <el-option
+                    v-for="option in alarmLevelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </el-select>
               </el-form-item>
               <el-form-item label="转事件">
@@ -308,7 +314,13 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
-import { getAlarmLevelTagType, getAlarmLevelText, normalizeAlarmLevel } from '@/utils/alarmLevel';
+import {
+  fetchAlarmLevelOptions,
+  getAlarmLevelTagType,
+  getAlarmLevelText,
+  normalizeAlarmLevel,
+  type AlarmLevelOption
+} from '@/utils/alarmLevel';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { listMissingPolicies, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
@@ -319,6 +331,7 @@ type RuleRowActionCommand = 'edit' | 'delete';
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
+const alarmLevelOptions = ref<AlarmLevelOption[]>([]);
 const missingPolicyItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
@@ -353,7 +366,7 @@ const form = reactive({
   metricName: '',
   expression: '',
   duration: 0,
-  alarmLevel: 'info',
+  alarmLevel: 'blue',
   notificationMethods: [] as string[],
   convertToEvent: 0,
   status: 0,
@@ -373,7 +386,7 @@ let latestListRequestId = 0;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
 const convertToEventCount = computed(() => ruleList.value.filter((item) => item.convertToEvent === 1).length);
-const criticalRuleCount = computed(() => ruleList.value.filter((item) => normalizeAlarmLevel(item.alarmLevel) === 'critical').length);
+const redRuleCount = computed(() => ruleList.value.filter((item) => normalizeAlarmLevel(item.alarmLevel) === 'red').length);
 const hasRecords = computed(() => ruleList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的阈值策略' : '还没有阈值策略'));
@@ -543,6 +556,18 @@ const handleClearAppliedFilters = () => {
   handleReset();
 };
 
+const loadAlarmLevelOptionList = async () => {
+  try {
+    alarmLevelOptions.value = await fetchAlarmLevelOptions();
+    if (!form.alarmLevel) {
+      form.alarmLevel = alarmLevelOptions.value[0]?.value || 'blue';
+    }
+  } catch (error) {
+    console.error('加载告警等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载告警等级字典失败');
+  }
+};
+
 const resetRuleForm = () => {
   form.id = undefined;
   form.ruleName = '';
@@ -550,7 +575,7 @@ const resetRuleForm = () => {
   form.metricName = '';
   form.expression = '';
   form.duration = 0;
-  form.alarmLevel = 'info';
+  form.alarmLevel = alarmLevelOptions.value[0]?.value || 'blue';
   form.notificationMethods = [];
   form.convertToEvent = 0;
   form.status = 0;
@@ -569,7 +594,7 @@ const handleEdit = (row: RuleDefinition) => {
   form.metricName = row.metricName;
   form.expression = row.expression;
   form.duration = row.duration;
-  form.alarmLevel = normalizeAlarmLevel(row.alarmLevel) || 'info';
+  form.alarmLevel = normalizeAlarmLevel(row.alarmLevel) || alarmLevelOptions.value[0]?.value || 'blue';
   form.notificationMethods = row.notificationMethods ? row.notificationMethods.split(',') : [];
   form.convertToEvent = row.convertToEvent;
   form.status = row.status;
@@ -622,6 +647,7 @@ const handleFormClose = () => {
 
 onMounted(() => {
   syncAppliedFilters();
+  void loadAlarmLevelOptionList();
   void loadRuleList();
 });
 </script>

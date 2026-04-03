@@ -154,6 +154,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         detail.setRiskPointId(listItem.getRiskPointId());
         detail.setRiskPointCode(riskPoint == null ? null : riskPoint.getRiskPointCode());
         detail.setRiskPointName(listItem.getRiskPointName());
+        detail.setRiskPointLevel(listItem.getRiskPointLevel());
+        detail.setCurrentRiskLevel(listItem.getCurrentRiskLevel());
         detail.setRiskLevel(listItem.getRiskLevel());
         detail.setDeviceId(listItem.getDeviceId());
         detail.setDeviceCode(listItem.getDeviceCode());
@@ -248,11 +250,14 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             point.setRiskPointId(riskPoint.getId());
             point.setRiskPointCode(riskPoint.getRiskPointCode());
             point.setRiskPointName(riskPoint.getRiskPointName());
-            point.setRiskLevel(riskRuntimeLevelResolver.resolve(
+            point.setRiskPointLevel(riskPoint.getRiskPointLevel());
+            String currentRiskLevel = riskRuntimeLevelResolver.resolve(
                     riskPoint,
                     highestPriorityActiveAlarmByRiskPoint.get(riskPoint.getId()),
                     latestEventByRiskPoint.get(riskPoint.getId())
-            ));
+            );
+            point.setCurrentRiskLevel(currentRiskLevel);
+            point.setRiskLevel(currentRiskLevel);
             point.setDeviceCount(riskBindings.size());
             point.setOnlineDeviceCount(onlineCounts.getOrDefault(riskPoint.getId(), 0L).intValue());
             point.setActiveAlarmCount(activeAlarmCounts.getOrDefault(riskPoint.getId(), 0L).intValue());
@@ -406,7 +411,10 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         item.setRegionName(riskPoint.getRegionName());
         item.setRiskPointId(riskPoint.getId());
         item.setRiskPointName(riskPoint.getRiskPointName());
-        item.setRiskLevel(riskRuntimeLevelResolver.resolve(riskPoint, latestActiveAlarm, latestEvent));
+        item.setRiskPointLevel(riskPoint.getRiskPointLevel());
+        String currentRiskLevel = riskRuntimeLevelResolver.resolve(riskPoint, latestActiveAlarm, latestEvent);
+        item.setCurrentRiskLevel(currentRiskLevel);
+        item.setRiskLevel(currentRiskLevel);
         item.setDeviceId(device.getId());
         item.setDeviceCode(device.getDeviceCode());
         item.setDeviceName(device.getDeviceName());
@@ -429,8 +437,12 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         if (query.getRiskPointId() != null && !Objects.equals(query.getRiskPointId(), item.getRiskPointId())) {
             return false;
         }
-        if (query.getRiskLevel() != null && !query.getRiskLevel().isBlank()
-                && !query.getRiskLevel().equalsIgnoreCase(item.getRiskLevel())) {
+        String targetRiskLevel = query.getCurrentRiskLevel();
+        if ((targetRiskLevel == null || targetRiskLevel.isBlank()) && query.getRiskLevel() != null) {
+            targetRiskLevel = query.getRiskLevel();
+        }
+        if (targetRiskLevel != null && !targetRiskLevel.isBlank()
+                && !targetRiskLevel.equalsIgnoreCase(item.getCurrentRiskLevel())) {
             return false;
         }
         if (query.getOnlineStatus() != null && !Objects.equals(query.getOnlineStatus(), item.getOnlineStatus())) {

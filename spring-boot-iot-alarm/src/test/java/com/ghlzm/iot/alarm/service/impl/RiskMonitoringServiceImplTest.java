@@ -10,6 +10,7 @@ import com.ghlzm.iot.alarm.mapper.EventRecordMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.vo.RiskMonitoringGisPointVO;
+import com.ghlzm.iot.alarm.vo.RiskMonitoringDetailVO;
 import com.ghlzm.iot.alarm.vo.RiskMonitoringListItemVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -94,6 +95,8 @@ class RiskMonitoringServiceImplTest {
     @Test
     void listRealtimeItemsShouldPreferActiveAlarmLevelOverArchivedRiskPointLevel() {
         RiskPoint riskPoint = riskPoint();
+        riskPoint.setRiskPointLevel("level_1");
+        riskPoint.setCurrentRiskLevel("blue");
         riskPoint.setRiskLevel("blue");
         RiskPointDevice binding = binding();
         AlarmRecord activeAlarm = activeAlarm("critical");
@@ -110,11 +113,15 @@ class RiskMonitoringServiceImplTest {
 
         assertEquals(1L, page.getTotal());
         assertEquals("red", page.getRecords().get(0).getRiskLevel());
+        assertEquals("red", page.getRecords().get(0).getCurrentRiskLevel());
+        assertEquals("level_1", page.getRecords().get(0).getRiskPointLevel());
     }
 
     @Test
     void listGisPointsShouldPreferRuntimeAlarmLevelOverArchivedRiskPointLevel() {
         RiskPoint riskPoint = riskPoint();
+        riskPoint.setRiskPointLevel("level_2");
+        riskPoint.setCurrentRiskLevel("blue");
         riskPoint.setRiskLevel("blue");
         RiskPointDevice binding = binding();
         AlarmRecord activeAlarm = activeAlarm("critical");
@@ -129,6 +136,33 @@ class RiskMonitoringServiceImplTest {
 
         assertEquals(1, points.size());
         assertEquals("red", points.get(0).getRiskLevel());
+        assertEquals("red", points.get(0).getCurrentRiskLevel());
+        assertEquals("level_2", points.get(0).getRiskPointLevel());
+    }
+
+    @Test
+    void getRealtimeDetailShouldExposeArchiveAndRuntimeLevelsSeparately() {
+        RiskPoint riskPoint = riskPoint();
+        riskPoint.setRiskPointLevel("level_3");
+        riskPoint.setCurrentRiskLevel("blue");
+        riskPoint.setRiskLevel("blue");
+        RiskPointDevice binding = binding();
+        AlarmRecord activeAlarm = activeAlarm("critical");
+
+        when(riskPointDeviceMapper.selectById(9901L)).thenReturn(binding);
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(deviceMapper.selectBatchIds(any())).thenReturn(List.of(device()));
+        when(productMapper.selectBatchIds(any())).thenReturn(List.of(product()));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(property()));
+        when(alarmRecordMapper.selectList(any())).thenReturn(List.of(activeAlarm), List.of(activeAlarm), List.of(activeAlarm));
+        when(eventRecordMapper.selectList(any())).thenReturn(List.of(), List.of());
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+
+        RiskMonitoringDetailVO detail = service.getRealtimeDetail(9901L);
+
+        assertEquals("level_3", detail.getRiskPointLevel());
+        assertEquals("red", detail.getCurrentRiskLevel());
+        assertEquals("red", detail.getRiskLevel());
     }
 
     private RiskPoint riskPoint() {

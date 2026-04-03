@@ -4,12 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import EmergencyPlanView from '@/views/EmergencyPlanView.vue';
 
-const { mockPagePlanList, mockAddPlan, mockUpdatePlan, mockDeletePlan, mockFetchRiskLevelOptions } = vi.hoisted(() => ({
+const {
+  mockPagePlanList,
+  mockAddPlan,
+  mockUpdatePlan,
+  mockDeletePlan,
+  mockFetchRiskLevelOptions,
+  mockFetchAlarmLevelOptions
+} = vi.hoisted(() => ({
   mockPagePlanList: vi.fn(),
   mockAddPlan: vi.fn(),
   mockUpdatePlan: vi.fn(),
   mockDeletePlan: vi.fn(),
-  mockFetchRiskLevelOptions: vi.fn()
+  mockFetchRiskLevelOptions: vi.fn(),
+  mockFetchAlarmLevelOptions: vi.fn()
 }));
 
 vi.mock('@/api/emergencyPlan', () => ({
@@ -24,6 +32,14 @@ vi.mock('@/utils/riskLevel', async () => {
   return {
     ...actual,
     fetchRiskLevelOptions: mockFetchRiskLevelOptions
+  };
+});
+
+vi.mock('@/utils/alarmLevel', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/alarmLevel')>('@/utils/alarmLevel');
+  return {
+    ...actual,
+    fetchAlarmLevelOptions: mockFetchAlarmLevelOptions
   };
 });
 
@@ -121,14 +137,20 @@ describe('EmergencyPlanView', () => {
     mockUpdatePlan.mockReset();
     mockDeletePlan.mockReset();
     mockFetchRiskLevelOptions.mockReset();
+    mockFetchAlarmLevelOptions.mockReset();
     mockFetchRiskLevelOptions.mockResolvedValue([
+      { label: '红色', value: 'red', sortNo: 1 },
+      { label: '橙色', value: 'orange', sortNo: 2 },
+      { label: '蓝色', value: 'blue', sortNo: 4 }
+    ]);
+    mockFetchAlarmLevelOptions.mockResolvedValue([
       { label: '红色', value: 'red', sortNo: 1 },
       { label: '橙色', value: 'orange', sortNo: 2 },
       { label: '蓝色', value: 'blue', sortNo: 4 }
     ]);
   });
 
-  it('counts legacy risk levels in the toolbar summary after loading plans', async () => {
+  it('counts emergency plans by alarm level instead of the old risk level field', async () => {
     mockPagePlanList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -137,9 +159,9 @@ describe('EmergencyPlanView', () => {
         pageNum: 1,
         pageSize: 10,
         records: [
-          { id: 1, planName: '红色旧预案', riskLevel: 'critical', status: 0 },
-          { id: 2, planName: '橙色旧预案', riskLevel: 'warning', status: 0 },
-          { id: 3, planName: '蓝色新预案', riskLevel: 'blue', status: 1 }
+          { id: 1, planName: '红色旧预案', alarmLevel: 'critical', status: 0 },
+          { id: 2, planName: '橙色旧预案', alarmLevel: 'warning', status: 0 },
+          { id: 3, planName: '蓝色新预案', alarmLevel: 'blue', status: 1 }
         ]
       }
     });

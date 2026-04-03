@@ -179,6 +179,10 @@ import { computed } from 'vue';
 
 import type { AlarmRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
+import {
+  getAlarmLevelTagType as resolveAlarmLevelTagType,
+  getAlarmLevelText as resolveAlarmLevelText
+} from '@/utils/alarmLevel';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{
@@ -247,28 +251,10 @@ const drawerTags = computed(() => {
 });
 
 function getAlarmLevelText(level?: string | null) {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level || '--';
-  }
+  return resolveAlarmLevelText(level) || '--';
 }
 
-function getAlarmLevelType(level?: string | null): 'danger' | 'warning' | 'info' {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'info';
-  }
-}
+const getAlarmLevelType = (level?: string | null) => resolveAlarmLevelTagType(level)
 
 function getStatusText(status?: number | null) {
   switch (status) {

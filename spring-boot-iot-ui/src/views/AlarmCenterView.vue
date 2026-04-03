@@ -17,9 +17,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in alarmLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -202,6 +205,11 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn';
+import {
+  DEFAULT_ALARM_LEVEL_OPTIONS,
+  getAlarmLevelTagType,
+  getAlarmLevelText
+} from '@/utils/alarmLevel';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
   loadCsvColumnSelection,
@@ -224,6 +232,7 @@ const alarmList = ref<AlarmRecord[]>([]);
 const detail = ref<AlarmRecord | null>(null);
 const tableRef = ref();
 const selectedRows = ref<AlarmRecord[]>([]);
+const alarmLevelOptions = DEFAULT_ALARM_LEVEL_OPTIONS;
 const exportColumns: CsvColumn<AlarmRecord>[] = [
   { key: 'alarmCode', label: '告警编号' },
   { key: 'alarmTitle', label: '告警标题' },
@@ -325,31 +334,7 @@ const emptyStateDescription = computed(() =>
     : '当前还没有告警记录，建议先刷新列表，或检查监测阈值、联动规则和设备上报链路。'
 );
 
-const getAlarmLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
-
-const getAlarmLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
-  }
-};
+const getAlarmLevelType = (level: string) => getAlarmLevelTagType(level);
 
 const getStatusType = (status: number) => {
   switch (status) {

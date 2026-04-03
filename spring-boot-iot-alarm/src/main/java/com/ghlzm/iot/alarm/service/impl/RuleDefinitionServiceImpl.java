@@ -37,6 +37,7 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       @Override
       public void addRule(RuleDefinition rule) {
             validateExecutableRule(rule);
+            rule.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
             rule.setDeleted(0);
             save(rule);
       }
@@ -44,6 +45,7 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       @Override
       public void updateRule(RuleDefinition rule) {
             validateExecutableRule(rule);
+            rule.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
             updateById(rule);
       }
 
@@ -77,9 +79,10 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
                   return List.of();
             }
             return switch (normalizedAlarmLevel) {
-                  case "critical" -> List.of("critical", "red");
-                  case "warning" -> List.of("warning", "warn", "medium", "yellow", "high", "orange");
-                  case "info" -> List.of("info", "low", "blue");
+                  case "red" -> List.of("red", "critical");
+                  case "orange" -> List.of("orange", "warning", "warn", "high");
+                  case "yellow" -> List.of("yellow", "medium");
+                  case "blue" -> List.of("blue", "info", "low");
                   default -> List.of(normalizedAlarmLevel);
             };
       }
@@ -89,9 +92,10 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
                   return "";
             }
             return switch (alarmLevel.trim().toLowerCase(Locale.ROOT)) {
-                  case "critical", "red" -> "critical";
-                  case "warning", "warn", "medium", "yellow", "high", "orange" -> "warning";
-                  case "info", "low", "blue" -> "info";
+                  case "critical", "red" -> "red";
+                  case "warning", "warn", "high", "orange" -> "orange";
+                  case "medium", "yellow" -> "yellow";
+                  case "info", "low", "blue" -> "blue";
                   default -> alarmLevel.trim().toLowerCase(Locale.ROOT);
             };
       }

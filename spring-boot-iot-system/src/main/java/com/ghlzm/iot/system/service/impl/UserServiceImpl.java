@@ -7,14 +7,17 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.dto.UserProfileUpdateDTO;
+import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.mapper.OrganizationMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.RoleSummaryVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ import org.springframework.util.StringUtils;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,13 +38,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       private final UserMapper userMapper;
       private final PasswordEncoder passwordEncoder;
       private final PermissionService permissionService;
+      private OrganizationMapper organizationMapper;
 
-      public UserServiceImpl(UserMapper userMapper,
-                             PasswordEncoder passwordEncoder,
-                             PermissionService permissionService) {
+      UserServiceImpl(UserMapper userMapper,
+                      PasswordEncoder passwordEncoder,
+                      PermissionService permissionService) {
             this.userMapper = userMapper;
             this.passwordEncoder = passwordEncoder;
             this.permissionService = permissionService;
+      }
+
+      @Autowired
+      public UserServiceImpl(UserMapper userMapper,
+                             PasswordEncoder passwordEncoder,
+                             PermissionService permissionService,
+                             OrganizationMapper organizationMapper) {
+            this(userMapper, passwordEncoder, permissionService);
+            this.organizationMapper = organizationMapper;
       }
 
       @Override
@@ -87,6 +101,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
       @Override
       public List<User> listUsers(Long currentUserId, String username, String phone, String email, Integer status) {
             List<User> users = userMapper.selectList(buildUserQueryWrapper(currentUserId, username, phone, email, status));
+            fillUserOrganizations(users);
             fillUserRoles(users);
             return users;
       }
@@ -101,6 +116,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             Page<User> page = PageQueryUtils.buildPage(pageNum, pageSize);
             Page<User> result = page(page, buildUserQueryWrapper(currentUserId, username, phone, email, status));
             List<User> records = result.getRecords();
+            fillUserOrganizations(records);
             fillUserRoles(records);
             return PageQueryUtils.toPageResult(result);
       }
@@ -117,6 +133,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                   return null;
             }
             ensureUserAccessible(currentUserId, user);
+            fillUserOrganizations(List.of(user));
             fillUserRoles(List.of(user));
             user.setRoleIds(permissionService.listUserRoleIds(id));
             return user;
@@ -297,6 +314,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             for (User user : users) {
                   List<RoleSummaryVO> roles = roleMap.getOrDefault(user.getId(), List.of());
                   user.setRoleNames(roles.stream().map(RoleSummaryVO::getRoleName).collect(Collectors.toList()));
+            }
+      }
+
+      private void fillUserOrganizations(List<User> users) {
+            if (organizationMapper == null || CollectionUtils.isEmpty(users)) {
+                  return;
+            }
+            Set<Long> orgIds = users.stream()
+                    .map(User::getOrgId)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
+            if (orgIds.isEmpty()) {
+                  return;
+            }
+
+            Map<Long, String> organizationNameMap = organizationMapper.selectBatchIds(orgIds).stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(
+                            Organization::getId,
+                            Organization::getOrgName,
+                            (left, right) -> left
+                    ));
+            for (User user : users) {
+                  user.setOrgName(organizationNameMap.get(user.getOrgId()));
             }
       }
 
