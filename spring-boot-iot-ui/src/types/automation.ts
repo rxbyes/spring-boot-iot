@@ -258,7 +258,9 @@ export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRu
   failedResults: AcceptanceRegistryRunResult[];
 }
 
-export interface AutomationResultRecentRun {
+export type AutomationResultRunStatus = 'passed' | 'failed' | string;
+
+export interface AutomationResultRunSummary {
   runId: string;
   updatedAt?: string;
   reportPath?: string;
@@ -269,4 +271,25 @@ export interface AutomationResultRecentRun {
   };
   failedScenarioIds: string[];
   relatedEvidenceFiles: string[];
+  status: AutomationResultRunStatus;
+  runnerTypes: AcceptanceRegistryRunnerType[];
+}
+
+export type AutomationResultRecentRun = AutomationResultRunSummary;
+
+export interface AutomationResultRunPageQuery {
+  pageNum: number;
+  pageSize: number;
+  keyword?: string;
+  status?: string;
+  runnerType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface AutomationResultLedgerFilters {
+  keyword: string;
+  status: string;
+  runnerType: string;
+  dateRange: string[];
 }

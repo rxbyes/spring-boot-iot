@@ -7,6 +7,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -232,6 +234,155 @@ class AutomationResultQueryServiceImplTest {
         assertThat(preview.getContent()).contains("# Risk Drill");
 
         assertThatThrownBy(() -> service.getEvidenceContent("20260402155432", "logs/acceptance/other-note.txt"))
-                .hasMessageContaining("证据文件不属于当前运行结果");
+                .hasMessageContaining("other-note.txt");
+    }
+
+    @Test
+    void shouldPageRegistryRunsWithKeywordStatusRunnerAndDateFilters() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        writeRegistryRun(
+                logsDir,
+                "20260401100000",
+                "2026-04-01T10:00:00Z",
+                "browserPlan",
+                "passed",
+                "auth.browser-smoke",
+                "browser smoke passed"
+        );
+        writeRegistryRun(
+                logsDir,
+                "20260402120000",
+                "2026-04-02T12:00:00Z",
+                "riskDrill",
+                "failed",
+                "risk.mid-drill.orange-chain",
+                "orange drill failed"
+        );
+        writeRegistryRun(
+                logsDir,
+                "20260403130000",
+                "2026-04-03T13:00:00Z",
+                "riskDrill",
+                "failed",
+                "risk.full-drill.red-chain",
+                "red drill failed"
+        );
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var page = service.pageRuns(1, 1, "red-chain", "failed", "riskDrill", "2026-04-02", "2026-04-03");
+
+        assertThat(page.getTotal()).isEqualTo(1L);
+        assertThat(page.getPageNum()).isEqualTo(1L);
+        assertThat(page.getPageSize()).isEqualTo(1L);
+        assertThat(page.getRecords()).hasSize(1);
+        assertThat(page.getRecords().get(0).getRunId()).isEqualTo("20260403130000");
+        assertThat(page.getRecords().get(0).getStatus()).isEqualTo("failed");
+        assertThat(page.getRecords().get(0).getRunnerTypes()).containsExactly("riskDrill");
+    }
+
+    @Test
+    void shouldSkipBrokenRegistryRunFilesWhenPaging() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        writeRegistryRun(
+                logsDir,
+                "20260402120000",
+                "2026-04-02T12:00:00Z",
+                "riskDrill",
+                "failed",
+                "risk.full-drill.red-chain",
+                "red drill failed"
+        );
+        Path brokenFile = logsDir.resolve("registry-run-20260403130000.json");
+        Files.writeString(brokenFile, "{ invalid json", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(brokenFile, FileTime.from(Instant.parse("2026-04-03T13:00:00Z")));
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var page = service.pageRuns(1, 10, null, null, null, null, null);
+
+        assertThat(page.getTotal()).isEqualTo(1L);
+        assertThat(page.getRecords()).hasSize(1);
+        assertThat(page.getRecords().get(0).getRunId()).isEqualTo("20260402120000");
+    }
+
+    @Test
+    void shouldReturnEmptyPageWhenResultsDirectoryDoesNotExist() {
+        Path logsDir = tempDir.resolve("missing").resolve("acceptance");
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var page = service.pageRuns(2, 20, null, null, null, null, null);
+
+        assertThat(page.getTotal()).isEqualTo(0L);
+        assertThat(page.getPageNum()).isEqualTo(2L);
+        assertThat(page.getPageSize()).isEqualTo(20L);
+        assertThat(page.getRecords()).isEmpty();
+    }
+
+    private void writeRegistryRun(
+            Path logsDir,
+            String runId,
+            String updatedAt,
+            String runnerType,
+            String status,
+            String scenarioId,
+            String summary
+    ) throws Exception {
+        Path file = logsDir.resolve("registry-run-" + runId + ".json");
+        Files.writeString(
+                file,
+                """
+                        {
+                          "runId": "%s",
+                          "summary": {
+                            "total": 1,
+                            "passed": %s,
+                            "failed": %s
+                          },
+                          "results": [
+                            {
+                              "scenarioId": "%s",
+                              "runnerType": "%s",
+                              "status": "%s",
+                              "blocking": "blocker",
+                              "summary": "%s",
+                              "evidenceFiles": [
+                                "logs/acceptance/%s.json"
+                              ]
+                            }
+                          ]
+                        }
+                        """.formatted(
+                        runId,
+                        "passed".equals(status) ? "1" : "0",
+                        "failed".equals(status) ? "1" : "0",
+                        scenarioId,
+                        runnerType,
+                        status,
+                        summary,
+                        runnerType + "-" + runId
+                ),
+                StandardCharsets.UTF_8
+        );
+        Files.writeString(
+                logsDir.resolve(runnerType + "-" + runId + ".json"),
+                """
+                        {
+                          "scenarioId": "%s"
+                        }
+                        """.formatted(scenarioId),
+                StandardCharsets.UTF_8
+        );
+        Files.setLastModifiedTime(file, FileTime.from(Instant.parse(updatedAt)));
     }
 }

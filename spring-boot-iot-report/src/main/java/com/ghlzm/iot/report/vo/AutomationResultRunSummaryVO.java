@@ -16,4 +16,6 @@ public class AutomationResultRunSummaryVO {
     private AutomationResultSummaryVO summary;
     private List<String> failedScenarioIds;
     private List<String> relatedEvidenceFiles;
+    private String status;
+    private List<String> runnerTypes;
 }
