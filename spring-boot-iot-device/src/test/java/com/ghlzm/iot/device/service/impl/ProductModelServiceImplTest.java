@@ -513,6 +513,53 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldBuildNormativeRowsForIntegratedPreset() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-survey-multi-detector-v1", "南方测绘多维检测仪"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "L1_QJ_1.AZI", 50)));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "signal_4g", "4G 信号强度", "int", LocalDateTime.of(2026, 4, 4, 9, 0)),
+                property(3001L, "X", "倾角 X", "double", LocalDateTime.of(2026, 4, 4, 9, 1))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setGovernanceMode("normative");
+        dto.setNormativePresetCode("landslide-integrated-tilt-accel-crack-v1");
+        dto.setSelectedNormativeIdentifiers(List.of("L1_QJ_1.X", "S1_ZT_1.signal_4g", "L1_QJ_1.AZI"));
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        assertEquals("double_aligned", compareRow(result, "property", "L1_QJ_1.X").getCompareStatus());
+        assertEquals("double_aligned", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
+        assertEquals("formal_exists", compareRow(result, "property", "L1_QJ_1.AZI").getCompareStatus());
+    }
+
+    @Test
+    void compareGovernanceShouldKeepUnmappedRuntimeFieldAsRuntimeOnly() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "mysteryField", "未知字段", "double", LocalDateTime.of(2026, 4, 4, 9, 2))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setGovernanceMode("normative");
+        dto.setNormativePresetCode("landslide-integrated-tilt-accel-crack-v1");
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        assertEquals("runtime_only", compareRow(result, "property", "mysteryField").getCompareStatus());
+        assertTrue(compareRow(result, "property", "mysteryField").getRiskFlags().contains("manual_missing"));
+    }
+
+    @Test
     void applyGovernanceShouldCreateUpdateAndSkipExplicitDecisions() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
         when(productModelMapper.selectById(2001L)).thenReturn(existingEventModel(2001L, "alarmRaised", 10, "info"));

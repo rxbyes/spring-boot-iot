@@ -26,6 +26,7 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceEvidenceVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.time.LocalDateTime;
@@ -165,6 +166,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final CommandRecordMapper commandRecordMapper;
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
+    private final ProductModelNormativePresetRegistry normativePresetRegistry = new ProductModelNormativePresetRegistry();
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
@@ -266,9 +268,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
-        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(productId, existingModels.size(), dto);
+        ProductModelCandidateResultVO manualResult = isNormativeMode(dto)
+                ? buildNormativeGovernanceCandidates(productId, existingModels.size(), dto)
+                : buildManualGovernanceCandidates(productId, existingModels.size(), dto);
         ProductModelCandidateResultVO runtimeResult = shouldLoadRuntimeCandidates(dto)
-                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size())
+                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size(), dto)
                 : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         return governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
     }
@@ -489,14 +493,47 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return result;
     }
 
+    private ProductModelCandidateResultVO buildNormativeGovernanceCandidates(Long productId,
+                                                                             int existingModelCount,
+                                                                             ProductModelGovernanceCompareDTO dto) {
+        List<ProductModelGovernanceEvidenceVO> definitions = normativePresetRegistry.buildPropertyPreset(
+                dto == null ? null : dto.getNormativePresetCode(),
+                dto == null ? null : dto.getSelectedNormativeIdentifiers()
+        );
+        List<ProductModelCandidateVO> propertyCandidates = definitions.stream()
+                .map(this::toNormativeCandidate)
+                .toList();
+        ProductModelCandidateResultVO result = buildCandidateResult(
+                productId,
+                existingModelCount,
+                new PropertyEvidenceBundle(propertyCandidates, propertyCandidates.size(), countNeedsReview(propertyCandidates)),
+                new EventEvidenceBundle(List.of(), 0, "规范模式首批不治理事件"),
+                new ServiceEvidenceBundle(List.of(), 0, "规范模式首批不治理服务"),
+                EXTRACTION_MODE_MANUAL,
+                ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE,
+                null,
+                0
+        );
+        mergeManualDraftItems(result, dto == null ? List.of() : dto.getManualDraftItems());
+        refreshCandidateSummary(result, existingModelCount);
+        return result;
+    }
+
     private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Long productId,
                                                                            Product product,
-                                                                           int existingModelCount) {
+                                                                           int existingModelCount,
+                                                                           ProductModelGovernanceCompareDTO dto) {
         List<Device> devices = listActiveDevices(productId);
         List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
         List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
 
-        PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(properties, logs, Set.of());
+        PropertyEvidenceBundle runtimePropertyBundle = collectPropertyCandidates(properties, logs, Set.of());
+        List<ProductModelCandidateVO> propertyCandidates = remapRuntimePropertiesByPreset(runtimePropertyBundle.candidates(), dto);
+        PropertyEvidenceBundle propertyBundle = new PropertyEvidenceBundle(
+                propertyCandidates,
+                runtimePropertyBundle.evidenceCount(),
+                countNeedsReview(propertyCandidates)
+        );
         EventEvidenceBundle eventBundle = collectEventCandidates(logs, Set.of());
         ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, Set.of());
         return buildCandidateResult(
@@ -545,6 +582,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         dto.setSampleType(input.getSampleType());
         dto.setSamplePayload(input.getSamplePayload());
         return dto;
+    }
+
+    private boolean isNormativeMode(ProductModelGovernanceCompareDTO dto) {
+        return dto != null
+                && ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE.equalsIgnoreCase(normalizeOptional(dto.getGovernanceMode()));
     }
 
     private boolean shouldLoadRuntimeCandidates(ProductModelGovernanceCompareDTO dto) {
@@ -606,6 +648,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return map;
     }
 
+    private List<ProductModelCandidateVO> remapRuntimePropertiesByPreset(List<ProductModelCandidateVO> runtimeCandidates,
+                                                                         ProductModelGovernanceCompareDTO dto) {
+        if (!isNormativeMode(dto)) {
+            return runtimeCandidates;
+        }
+        Map<String, ProductModelCandidateVO> remapped = new LinkedHashMap<>();
+        for (ProductModelCandidateVO candidate : runtimeCandidates) {
+            ProductModelCandidateVO normalizedCandidate = normativePresetRegistry
+                    .findNormativeIdentifier(dto.getNormativePresetCode(), candidate.getIdentifier())
+                    .map(identifier -> applyNormativeIdentifier(candidate, identifier, dto.getNormativePresetCode()))
+                    .orElse(candidate);
+            String key = governanceCandidateKey(normalizedCandidate.getModelType(), normalizedCandidate.getIdentifier());
+            ProductModelCandidateVO existing = remapped.get(key);
+            remapped.put(key, existing == null ? normalizedCandidate : mergeManualCandidate(existing, normalizedCandidate));
+        }
+        return sortGovernanceCandidates(remapped.values());
+    }
+
     private String governanceCandidateKey(String modelType, String identifier) {
         return normalizeModelType(modelType) + "::" + normalizeRequired(identifier, "物模型标识");
     }
@@ -650,6 +710,58 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
         merged.setSourceTables(new ArrayList<>(sources));
         return merged;
+    }
+
+    private ProductModelCandidateVO toNormativeCandidate(ProductModelGovernanceEvidenceVO definition) {
+        String identifier = normalizeRequired(definition.getIdentifier(), "物模型标识");
+        String groupKey = classifyPropertyGroup(identifier);
+        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
+        candidate.setModelType(firstNonNull(definition.getModelType(), MODEL_TYPE_PROPERTY));
+        candidate.setIdentifier(identifier);
+        candidate.setModelName(definition.getModelName());
+        candidate.setDataType(definition.getDataType());
+        candidate.setSpecsJson(definition.getSpecsJson());
+        candidate.setSortNo(firstNonNull(definition.getSortNo(), defaultSortNo(groupKey)));
+        candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), 0));
+        candidate.setDescription(firstNonNull(definition.getDescription(), "来源于规范字段预设，待与真实报文证据核对后再进入正式契约。"));
+        candidate.setGroupKey(groupKey);
+        candidate.setConfidence(0.99D);
+        candidate.setNeedsReview(Boolean.FALSE);
+        candidate.setCandidateStatus(STATUS_READY);
+        candidate.setReviewReason(null);
+        candidate.setEvidenceCount(1);
+        candidate.setMessageEvidenceCount(0);
+        candidate.setSourceTables(List.of("normative_preset"));
+        return candidate;
+    }
+
+    private ProductModelCandidateVO applyNormativeIdentifier(ProductModelCandidateVO runtimeCandidate,
+                                                             String normativeIdentifier,
+                                                             String presetCode) {
+        ProductModelGovernanceEvidenceVO definition = normativePresetRegistry.findPropertyDefinition(presetCode, normativeIdentifier)
+                .orElseThrow(() -> new BizException("规范字段不存在: " + normativeIdentifier));
+        String groupKey = classifyPropertyGroup(normativeIdentifier);
+        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
+        candidate.setModelType(runtimeCandidate.getModelType());
+        candidate.setIdentifier(normativeIdentifier);
+        candidate.setModelName(firstNonNull(definition.getModelName(), runtimeCandidate.getModelName()));
+        candidate.setDataType(firstNonNull(definition.getDataType(), runtimeCandidate.getDataType()));
+        candidate.setSpecsJson(firstNonNull(definition.getSpecsJson(), runtimeCandidate.getSpecsJson()));
+        candidate.setSortNo(firstNonNull(definition.getSortNo(), runtimeCandidate.getSortNo()));
+        candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), runtimeCandidate.getRequiredFlag()));
+        candidate.setDescription(firstNonNull(definition.getDescription(), runtimeCandidate.getDescription()));
+        candidate.setGroupKey(groupKey);
+        candidate.setConfidence(resolveConfidence(groupKey, false, firstNonNull(runtimeCandidate.getMessageEvidenceCount(), 0) > 0));
+        candidate.setNeedsReview(Boolean.FALSE);
+        candidate.setCandidateStatus(STATUS_READY);
+        candidate.setReviewReason(null);
+        candidate.setEvidenceCount(runtimeCandidate.getEvidenceCount());
+        candidate.setMessageEvidenceCount(runtimeCandidate.getMessageEvidenceCount());
+        candidate.setLastReportTime(runtimeCandidate.getLastReportTime());
+        candidate.setSourceTables(runtimeCandidate.getSourceTables() == null
+                ? List.of()
+                : new ArrayList<>(runtimeCandidate.getSourceTables()));
+        return candidate;
     }
 
     private ProductModelCandidateVO toManualDraftCandidate(ProductModelGovernanceCompareDTO.ManualDraftItem item) {

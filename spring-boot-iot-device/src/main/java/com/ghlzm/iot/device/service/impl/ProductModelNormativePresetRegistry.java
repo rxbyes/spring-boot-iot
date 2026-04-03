@@ -32,6 +32,19 @@ public class ProductModelNormativePresetRegistry {
                     "QJ",
                     "L1_QJ_1"),
             definition(
+                    50,
+                    "L1_QJ_1.AZI",
+                    "倾角测点方位角",
+                    "double",
+                    "°",
+                    1,
+                    "表 B.1",
+                    "X 轴在水平面的投影与磁北夹角。",
+                    List.of("L1_QJ_1.AZI", "AZI", "azi"),
+                    "L1",
+                    "QJ",
+                    "L1_QJ_1"),
+            definition(
                     150,
                     "S1_ZT_1.signal_4g",
                     "4G 信号强度",
@@ -47,6 +60,7 @@ public class ProductModelNormativePresetRegistry {
 
     private final Map<String, Set<String>> integratedAliasMap = Map.of(
             "L1_QJ_1.X", Set.of("L1_QJ_1.X", "X", "x", "angleX"),
+            "L1_QJ_1.AZI", Set.of("L1_QJ_1.AZI", "AZI", "azi"),
             "S1_ZT_1.signal_4g", Set.of("S1_ZT_1.signal_4g", "signal_4g", "status4gSignal"));
 
     public List<ProductModelGovernanceEvidenceVO> buildPropertyPreset(String presetCode,
@@ -71,6 +85,18 @@ public class ProductModelNormativePresetRegistry {
                 .filter(entry -> entry.getValue().contains(normalizedRawIdentifier))
                 .map(Map.Entry::getKey)
                 .findFirst();
+    }
+
+    public Optional<ProductModelGovernanceEvidenceVO> findPropertyDefinition(String presetCode, String identifier) {
+        validatePresetCode(presetCode);
+        if (identifier == null || identifier.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedIdentifier = identifier.trim();
+        return integratedDefinitions.stream()
+                .filter(item -> normalizedIdentifier.equals(item.getIdentifier()))
+                .findFirst()
+                .map(this::copyEvidence);
     }
 
     private void validatePresetCode(String presetCode) {
