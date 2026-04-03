@@ -153,6 +153,36 @@ CREATE TABLE IF NOT EXISTS risk_point_device (
     KEY idx_risk_device (risk_point_id, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='risk point device'
 """,
+    "risk_point_device_pending_promotion": """
+CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    pending_binding_id BIGINT NOT NULL COMMENT '来源待治理记录ID',
+    risk_point_device_id BIGINT DEFAULT NULL COMMENT '正式绑定ID',
+    risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',
+    promotion_status VARCHAR(32) NOT NULL COMMENT '转正结果',
+    recommendation_level VARCHAR(16) DEFAULT NULL COMMENT '推荐等级',
+    recommendation_score INT DEFAULT NULL COMMENT '推荐评分',
+    evidence_snapshot_json JSON DEFAULT NULL COMMENT '证据快照',
+    promotion_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',
+    operator_id BIGINT DEFAULT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(128) DEFAULT NULL COMMENT '操作人姓名',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_pending_promotion_pending_id (pending_binding_id),
+    KEY idx_pending_promotion_binding_id (risk_point_device_id),
+    KEY idx_pending_promotion_status (tenant_id, promotion_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理转正明细表'
+""",
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
     id BIGINT NOT NULL COMMENT 'pk',
