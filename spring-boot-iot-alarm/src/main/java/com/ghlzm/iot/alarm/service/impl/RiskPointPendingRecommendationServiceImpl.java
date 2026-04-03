@@ -43,7 +43,26 @@ import java.util.Set;
 public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendingRecommendationService {
 
     private static final Set<String> PROMOTABLE_STATUSES = Set.of("PENDING_METRIC_GOVERNANCE", "PARTIALLY_PROMOTED");
+    private static final Set<String> PROPERTY_LOG_TYPES = Set.of("property", "status");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of("properties", "property", "status", "telemetry", "data", "params", "payload");
+    private static final Set<String> IGNORED_ROOT_KEYS = Set.of(
+            "messageType",
+            "deviceCode",
+            "productKey",
+            "traceId",
+            "protocolCode",
+            "timestamp",
+            "time",
+            "reportTime",
+            "reported",
+            "sessionId",
+            "tenantId",
+            "deviceId",
+            "riskPointId",
+            "batchNo",
+            "operatorId",
+            "operatorName"
+    );
     private static final int MESSAGE_LOG_SCAN_LIMIT = 20;
 
     private final RiskPointPendingBindingService pendingBindingService;
@@ -145,52 +164,74 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
                 .orderByDesc(DeviceMessageLog::getReportTime)
                 .last("limit " + MESSAGE_LOG_SCAN_LIMIT));
         for (DeviceMessageLog log : logs) {
-            Map<String, JsonNode> fields = extractPayloadFields(log.getPayload());
-            for (Map.Entry<String, JsonNode> entry : fields.entrySet()) {
+            if (!isPropertyLog(log)) {
+                continue;
+            }
+            Map<String, String> fields = extractPropertyLeaves(log.getPayload());
+            for (Map.Entry<String, String> entry : fields.entrySet()) {
                 String identifier = entry.getKey();
-                JsonNode value = entry.getValue();
-                if (!StringUtils.hasText(identifier) || value == null || !value.isValueNode()) {
+                String value = entry.getValue();
+                if (!StringUtils.hasText(identifier) || !StringUtils.hasText(value)) {
                     continue;
                 }
                 CandidateAccumulator candidate = candidateMap.computeIfAbsent(identifier, CandidateAccumulator::new);
                 candidate.addEvidenceSource("MESSAGE_LOG");
                 candidate.incrementSeenCount();
                 candidate.updateLastSeenTime(log.getReportTime());
-                candidate.applySampleValue(resolveSampleValue(value), log.getReportTime());
-                candidate.applyDataType(resolveJsonDataType(value));
+                candidate.applySampleValue(value, log.getReportTime());
+                candidate.applyDataType(resolveValueDataType(value));
             }
         }
     }
 
-    private Map<String, JsonNode> extractPayloadFields(String payload) {
-        if (!StringUtils.hasText(payload)) {
+    private Map<String, String> extractPropertyLeaves(String payload) {
+        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(payload));
+        if (normalizedPayload == null) {
             return Map.of();
         }
         try {
-            JsonNode root = objectMapper.readTree(JsonPayloadUtils.normalizeJsonDocument(payload));
-            if (root == null || !root.isObject()) {
-                return Map.of();
-            }
-            JsonNode content = unwrapRootNode(root);
-            if (!(content instanceof ObjectNode objectNode)) {
-                return Map.of();
-            }
-            LinkedHashMap<String, JsonNode> fields = new LinkedHashMap<>();
-            objectNode.properties().forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
-            return fields;
+            JsonNode root = objectMapper.readTree(normalizedPayload);
+            Map<String, String> extracted = new LinkedHashMap<>();
+            collectLeafValues(root, "", extracted, true);
+            return extracted;
         } catch (Exception ex) {
             return Map.of();
         }
     }
 
-    private JsonNode unwrapRootNode(JsonNode root) {
-        for (String key : ROOT_WRAPPER_KEYS) {
-            JsonNode child = root.get(key);
-            if (child != null && child.isObject()) {
-                return child;
-            }
+    private void collectLeafValues(JsonNode node, String prefix, Map<String, String> extracted, boolean rootLevel) {
+        if (node == null || node.isNull()) {
+            return;
         }
-        return root;
+        if (node.isValueNode()) {
+            if (StringUtils.hasText(prefix)) {
+                extracted.put(prefix, node.asText());
+            }
+            return;
+        }
+        if (node.isArray()) {
+            return;
+        }
+        if (!(node instanceof ObjectNode objectNode)) {
+            return;
+        }
+        objectNode.properties().forEach(entry -> {
+            String fieldName = normalizeOptional(entry.getKey());
+            if (fieldName == null) {
+                return;
+            }
+            if (rootLevel && IGNORED_ROOT_KEYS.contains(fieldName)) {
+                return;
+            }
+            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(fieldName.toLowerCase(Locale.ROOT));
+            String nextPrefix = unwrapRoot ? "" : appendIdentifier(prefix, fieldName);
+            collectLeafValues(entry.getValue(), nextPrefix, extracted, false);
+        });
+    }
+
+    private boolean isPropertyLog(DeviceMessageLog log) {
+        String messageType = normalizeOptional(log == null ? null : log.getMessageType());
+        return messageType != null && PROPERTY_LOG_TYPES.contains(messageType.toLowerCase(Locale.ROOT));
     }
 
     private List<RiskPointPendingPromotionHistoryVO> loadPromotionHistory(Long pendingId) {
@@ -247,51 +288,42 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         item.setLastSeenTime(candidate.lastSeenTime);
         item.setSampleValue(candidate.sampleValue);
         item.setSeenCount(candidate.seenCount);
-        int score = calculateScore(candidate);
-        item.setRecommendationScore(score);
-        item.setRecommendationLevel(resolveRecommendationLevel(score));
-        item.setReasonSummary(buildReasonSummary(candidate, score));
+        RecommendationDecision decision = decideRecommendation(candidate);
+        item.setRecommendationScore(decision.score());
+        item.setRecommendationLevel(decision.level());
+        item.setReasonSummary(decision.reasonSummary());
         return item;
     }
 
-    private int calculateScore(CandidateAccumulator candidate) {
-        int score = 0;
-        if (candidate.hasEvidence("PRODUCT_MODEL")) {
-            score += 50;
-        }
-        if (candidate.hasEvidence("LATEST_PROPERTY")) {
-            score += 30;
-        }
-        if (candidate.hasEvidence("MESSAGE_LOG")) {
-            score += 15;
-        }
-        score += Math.min(Math.max(candidate.seenCount - 1, 0) * 5, 10);
-        return Math.min(score, 100);
-    }
+    private RecommendationDecision decideRecommendation(CandidateAccumulator candidate) {
+        boolean modelBacked = candidate.hasEvidence("PRODUCT_MODEL");
+        boolean latestBacked = candidate.hasEvidence("LATEST_PROPERTY");
+        boolean logBacked = candidate.hasEvidence("MESSAGE_LOG");
+        int runtimeEvidenceCount = candidate.runtimeEvidenceCount();
 
-    private String resolveRecommendationLevel(int score) {
-        if (score >= 80) {
-            return "HIGH";
+        if ((modelBacked && runtimeEvidenceCount > 0)
+                || (!modelBacked && candidate.hasStrongRepeatedRuntimeEvidence())) {
+            int score = modelBacked ? 92 : 84;
+            String reason = modelBacked
+                    ? "物模型与真实上报同时命中，且运行证据稳定"
+                    : "最近真实上报重复出现，字段标识稳定";
+            return new RecommendationDecision("HIGH", score, reason + "；运行证据 " + runtimeEvidenceCount + " 次");
         }
-        if (score >= 45) {
-            return "MEDIUM";
+        if ((latestBacked || modelBacked) || candidate.hasModerateRuntimeEvidence()) {
+            int score = modelBacked && runtimeEvidenceCount == 0 ? 56 : 68;
+            String reason;
+            if (latestBacked || candidate.hasModerateRuntimeEvidence()) {
+                reason = "已命中真实上报，但证据强度仍需人工确认";
+            } else {
+                reason = "当前仅命中物模型，运行证据较弱";
+            }
+            return new RecommendationDecision("MEDIUM", score, reason + "；运行证据 " + runtimeEvidenceCount + " 次");
         }
-        return "LOW";
-    }
-
-    private String buildReasonSummary(CandidateAccumulator candidate, int score) {
-        List<String> reasons = new ArrayList<>();
-        if (candidate.hasEvidence("PRODUCT_MODEL")) {
-            reasons.add("已存在物模型定义");
-        }
-        if (candidate.hasEvidence("LATEST_PROPERTY")) {
-            reasons.add("设备最新属性存在同名测点");
-        }
-        if (candidate.hasEvidence("MESSAGE_LOG")) {
-            reasons.add("最近报文出现 " + candidate.messageLogSeenCount + " 次");
-        }
-        reasons.add("推荐分 " + score);
-        return String.join("；", reasons);
+        int score = logBacked ? 24 : 20;
+        String reason = logBacked
+                ? "仅在历史日志中偶发出现，默认不建议优先选择"
+                : "证据较弱，建议继续观察后再确认";
+        return new RecommendationDecision("LOW", score, reason + "；日志证据 " + candidate.messageLogSeenCount + " 次");
     }
 
     private Comparator<RiskPointPendingMetricCandidateVO> candidateComparator() {
@@ -311,33 +343,32 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         return 1;
     }
 
-    private String resolveJsonDataType(JsonNode value) {
-        if (value == null) {
+    private String resolveValueDataType(String value) {
+        if (!StringUtils.hasText(value)) {
             return null;
         }
-        if (value.isIntegralNumber()) {
-            return "long";
-        }
-        if (value.isFloatingPointNumber()) {
-            return "double";
-        }
-        if (value.isBoolean()) {
+        String normalized = value.trim();
+        if ("true".equalsIgnoreCase(normalized) || "false".equalsIgnoreCase(normalized)) {
             return "boolean";
         }
-        if (value.isTextual()) {
-            return "string";
+        if (normalized.matches("^-?\\d+$")) {
+            return "long";
         }
-        return "json";
+        if (normalized.matches("^-?\\d+\\.\\d+$")) {
+            return "double";
+        }
+        return "string";
     }
 
-    private String resolveSampleValue(JsonNode value) {
-        if (value == null || value.isNull()) {
+    private String appendIdentifier(String prefix, String fieldName) {
+        return !StringUtils.hasText(prefix) ? fieldName : prefix + "." + fieldName;
+    }
+
+    private String normalizeOptional(String value) {
+        if (!StringUtils.hasText(value)) {
             return null;
         }
-        if (value.isTextual()) {
-            return value.asText();
-        }
-        return value.toString();
+        return value.trim();
     }
 
     private static final class CandidateAccumulator {
@@ -365,6 +396,26 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
 
         private boolean hasEvidence(String evidenceSource) {
             return evidenceSources.contains(evidenceSource);
+        }
+
+        private int runtimeEvidenceCount() {
+            int runtimeCount = 0;
+            if (hasEvidence("LATEST_PROPERTY")) {
+                runtimeCount++;
+            }
+            runtimeCount += messageLogSeenCount;
+            return runtimeCount;
+        }
+
+        private boolean hasStrongRepeatedRuntimeEvidence() {
+            return !hasEvidence("PRODUCT_MODEL")
+                    && runtimeEvidenceCount() >= 4
+                    && (hasEvidence("LATEST_PROPERTY") || messageLogSeenCount >= 3);
+        }
+
+        private boolean hasModerateRuntimeEvidence() {
+            return !hasStrongRepeatedRuntimeEvidence()
+                    && (hasEvidence("LATEST_PROPERTY") || messageLogSeenCount >= 2);
         }
 
         private void incrementSeenCount() {
@@ -418,5 +469,8 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
             }
             return metricIdentifier;
         }
+    }
+
+    private record RecommendationDecision(String level, int score, String reasonSummary) {
     }
 }
