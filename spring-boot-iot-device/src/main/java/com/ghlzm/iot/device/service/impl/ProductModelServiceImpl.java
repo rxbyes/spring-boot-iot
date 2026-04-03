@@ -78,18 +78,25 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             "telemetry",
             "data",
             "params",
-            "payload",
-            "reported"
+            "payload"
     );
     private static final Set<String> IGNORED_ROOT_KEYS = Set.of(
-            "messageType",
-            "deviceCode",
-            "productKey",
-            "traceId",
-            "protocolCode",
+            "messagetype",
+            "devicecode",
+            "productkey",
+            "traceid",
+            "protocolcode",
             "timestamp",
             "time",
-            "reportTime"
+            "reporttime",
+            "reported",
+            "header",
+            "headers",
+            "bodies",
+            "encoding",
+            "rawtext",
+            "jsoncandidate",
+            "payloadbase64"
     );
     private static final Map<String, String> SENSOR_TYPE_LABELS = Map.of(
             "QJ", "倾角",
@@ -1169,10 +1176,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             if (fieldName == null) {
                 return;
             }
-            if (rootLevel && IGNORED_ROOT_KEYS.contains(fieldName)) {
+            String normalizedFieldName = fieldName.toLowerCase(Locale.ROOT);
+            if (rootLevel && IGNORED_ROOT_KEYS.contains(normalizedFieldName)) {
                 return;
             }
-            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(fieldName.toLowerCase(Locale.ROOT));
+            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(normalizedFieldName);
             String nextPrefix = unwrapRoot ? "" : appendIdentifier(prefix, fieldName);
             collectLeafValues(entry.getValue(), nextPrefix, extracted, false);
         });

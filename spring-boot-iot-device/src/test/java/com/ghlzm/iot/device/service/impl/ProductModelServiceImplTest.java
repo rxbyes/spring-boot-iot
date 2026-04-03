@@ -334,6 +334,27 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void listModelCandidatesShouldIgnoreTransportWrapperFieldsFromMessageLogs() {
+        LocalDateTime now = LocalDateTime.of(2026, 4, 3, 12, 0, 0);
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("property", "{\"bodies\":{\"body\":\"cipher-text\"},\"header\":{\"appId\":\"62000001\"},\"properties\":{\"L1_QJ_1\":{\"angle\":1.25}}}", now)
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelCandidateResultVO result = productModelService.listModelCandidates(1001L);
+
+        assertEquals(1, result.getPropertyCandidates().size());
+        assertIterableEquals(
+                List.of("L1_QJ_1.angle"),
+                result.getPropertyCandidates().stream().map(ProductModelCandidateVO::getIdentifier).toList()
+        );
+    }
+
+    @Test
     void listModelCandidatesShouldReturnEmptyEventAndServiceCandidatesWhenEvidenceMissing() {
         LocalDateTime now = LocalDateTime.of(2026, 3, 27, 10, 0, 0);
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));

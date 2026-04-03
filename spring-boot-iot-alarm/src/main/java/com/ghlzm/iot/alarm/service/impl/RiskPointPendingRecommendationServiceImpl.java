@@ -46,22 +46,29 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private static final Set<String> PROPERTY_LOG_TYPES = Set.of("property", "status");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of("properties", "property", "status", "telemetry", "data", "params", "payload");
     private static final Set<String> IGNORED_ROOT_KEYS = Set.of(
-            "messageType",
-            "deviceCode",
-            "productKey",
-            "traceId",
-            "protocolCode",
+            "messagetype",
+            "devicecode",
+            "productkey",
+            "traceid",
+            "protocolcode",
             "timestamp",
             "time",
-            "reportTime",
+            "reporttime",
             "reported",
-            "sessionId",
-            "tenantId",
-            "deviceId",
-            "riskPointId",
-            "batchNo",
-            "operatorId",
-            "operatorName"
+            "sessionid",
+            "tenantid",
+            "deviceid",
+            "riskpointid",
+            "batchno",
+            "operatorid",
+            "operatorname",
+            "header",
+            "headers",
+            "bodies",
+            "encoding",
+            "rawtext",
+            "jsoncandidate",
+            "payloadbase64"
     );
     private static final int MESSAGE_LOG_SCAN_LIMIT = 20;
 
@@ -220,10 +227,11 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
             if (fieldName == null) {
                 return;
             }
-            if (rootLevel && IGNORED_ROOT_KEYS.contains(fieldName)) {
+            String normalizedFieldName = fieldName.toLowerCase(Locale.ROOT);
+            if (rootLevel && IGNORED_ROOT_KEYS.contains(normalizedFieldName)) {
                 return;
             }
-            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(fieldName.toLowerCase(Locale.ROOT));
+            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(normalizedFieldName);
             String nextPrefix = unwrapRoot ? "" : appendIdentifier(prefix, fieldName);
             collectLeafValues(entry.getValue(), nextPrefix, extracted, false);
         });

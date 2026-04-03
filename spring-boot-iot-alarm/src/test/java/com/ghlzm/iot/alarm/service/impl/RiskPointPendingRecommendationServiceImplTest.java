@@ -143,6 +143,30 @@ class RiskPointPendingRecommendationServiceImplTest {
         assertEquals(List.of("MESSAGE_LOG"), low.getEvidenceSources());
     }
 
+    @Test
+    void getCandidatesShouldIgnoreTransportWrapperFieldsFromRawMessageLogs() {
+        Fixture fixture = new Fixture();
+
+        DeviceMessageLog rawWrapperLog = fixture.messageLog(
+                "property",
+                "{\"bodies\":{\"body\":\"cipher-text\"},\"header\":{\"appId\":\"62000001\"},\"properties\":{\"displacement\":12.6}}",
+                LocalDateTime.of(2026, 4, 3, 12, 0, 0)
+        );
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of(rawWrapperLog));
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+
+        RiskPointPendingCandidateBundleVO result = fixture.service.getCandidates(9001L, 1001L);
+
+        assertEquals(1, result.getCandidates().size());
+        assertIterableEquals(
+                List.of("displacement"),
+                result.getCandidates().stream().map(RiskPointPendingMetricCandidateVO::getMetricIdentifier).toList()
+        );
+    }
+
     private static final class Fixture {
         private final RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
         private final DeviceService deviceService = mock(DeviceService.class);
