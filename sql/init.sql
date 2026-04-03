@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS emergency_plan;
 DROP TABLE IF EXISTS linkage_rule;
 DROP TABLE IF EXISTS rule_definition;
 DROP TABLE IF EXISTS risk_point_highway_detail;
+DROP TABLE IF EXISTS risk_point_device_pending_binding;
 DROP TABLE IF EXISTS risk_point_device;
 DROP TABLE IF EXISTS risk_point;
 
@@ -891,6 +892,36 @@ CREATE TABLE risk_point_device (
     UNIQUE KEY uk_risk_point_metric (risk_point_id, device_id, metric_identifier),
     KEY idx_risk_device (risk_point_id, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备绑定表';
+
+CREATE TABLE risk_point_device_pending_binding (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',
+    source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',
+    source_row_no INT NOT NULL COMMENT '来源行号',
+    risk_point_name VARCHAR(128) NOT NULL COMMENT '来源风险点名称',
+    risk_point_id BIGINT DEFAULT NULL COMMENT '匹配到的风险点ID',
+    risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '匹配到的风险点编号',
+    device_code VARCHAR(64) NOT NULL COMMENT '来源设备编码',
+    device_id BIGINT DEFAULT NULL COMMENT '匹配到的设备ID',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '匹配到的设备名称',
+    resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE' COMMENT '治理状态',
+    resolution_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',
+    metric_identifier VARCHAR(64) DEFAULT NULL COMMENT '后续补录测点标识',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '后续补录测点名称',
+    promoted_binding_id BIGINT DEFAULT NULL COMMENT '转正后的正式绑定ID',
+    promoted_time DATETIME DEFAULT NULL COMMENT '转正时间',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no),
+    KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),
+    KEY idx_pending_binding_risk_device (risk_point_id, device_id, deleted),
+    KEY idx_pending_binding_device_code (tenant_id, device_code, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理导入表';
 
 CREATE TABLE rule_definition (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
