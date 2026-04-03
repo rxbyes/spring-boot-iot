@@ -9,6 +9,12 @@ import lombok.Data;
 @Data
 public class ProductModelGovernanceCompareDTO {
 
+    private String governanceMode;
+
+    private String normativePresetCode;
+
+    private List<String> selectedNormativeIdentifiers;
+
     private ManualExtractInput manualExtract;
 
     private List<ManualDraftItem> manualDraftItems;

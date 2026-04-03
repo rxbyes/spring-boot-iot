@@ -38,6 +38,20 @@ public class ProductModelGovernanceEvidenceVO {
 
     private String groupKey;
 
+    private String evidenceOrigin;
+
+    private String unit;
+
+    private String normativeSource;
+
+    private List<String> rawIdentifiers;
+
+    private String monitorContentCode;
+
+    private String monitorTypeCode;
+
+    private String sensorCode;
+
     private Double confidence;
 
     private Boolean needsReview;
