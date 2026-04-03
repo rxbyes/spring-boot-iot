@@ -22,6 +22,7 @@ vi.mock('@/api/channel', async () => {
   const actual = await vi.importActual<typeof import('@/api/channel')>('@/api/channel')
   return {
     ...actual,
+    fetchChannelTypeOptions: vi.fn(),
     listChannels: vi.fn()
   }
 })
@@ -86,7 +87,7 @@ import {
   pageInAppMessages
 } from '@/api/inAppMessage'
 import { createRequestError } from '@/api/request'
-import { listChannels } from '@/api/channel'
+import { fetchChannelTypeOptions, listChannels } from '@/api/channel'
 import { listRoles } from '@/api/role'
 import { listUsers } from '@/api/user'
 
@@ -608,6 +609,10 @@ function buildAttemptRecords() {
 }
 
 function seedSuccessMocks() {
+  vi.mocked(fetchChannelTypeOptions).mockResolvedValue([
+    { value: 'wechat', label: '企业微信', sortNo: 4 },
+    { value: 'webhook', label: 'Webhook', sortNo: 3 }
+  ])
   vi.mocked(pageInAppMessages).mockResolvedValue({
     code: 200,
     msg: 'success',
@@ -731,6 +736,7 @@ describe('InAppMessageView bridge operations', () => {
     vi.mocked(pageInAppMessageBridgeLogs).mockReset()
     vi.mocked(getInAppMessage).mockReset()
     vi.mocked(listInAppMessageBridgeAttempts).mockReset()
+    vi.mocked(fetchChannelTypeOptions).mockReset()
     vi.mocked(listChannels).mockReset()
     vi.mocked(listRoles).mockReset()
     vi.mocked(listUsers).mockReset()
@@ -745,6 +751,14 @@ describe('InAppMessageView bridge operations', () => {
     expect(wrapper.text()).toContain('桥接记录数')
     expect(wrapper.text()).toContain('待重试')
     expect(wrapper.text()).toContain('微信告警')
+  })
+
+  it('loads dict-backed channel type labels for bridge insights', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(vi.mocked(fetchChannelTypeOptions)).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('微信告警 · 企业微信')
   })
 
   it('removes the legacy English eyebrow tier from the message governance workbench and drawers', async () => {

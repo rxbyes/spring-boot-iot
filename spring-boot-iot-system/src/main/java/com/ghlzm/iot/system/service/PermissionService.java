@@ -22,6 +22,8 @@ public interface PermissionService {
 
     List<MenuTreeNodeVO> listMenuTree();
 
+    List<MenuTreeNodeVO> listMenuTree(Long currentUserId);
+
     List<Long> listRoleMenuIds(Long roleId);
 
     void replaceRoleMenus(Long roleId, List<Long> menuIds, Long operatorId);

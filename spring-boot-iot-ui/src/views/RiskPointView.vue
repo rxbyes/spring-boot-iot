@@ -136,18 +136,18 @@
                 <span>{{ row.regionName || '未配置区域' }}</span>
               </template>
             </StandardTableTextColumn>
-            <el-table-column prop="riskPointLevel" label="风险点等级" width="120">
+            <StandardTableTextColumn prop="riskPointLevel" label="风险点等级" width="120">
               <template #default="{ row }">
                 <el-tag type="info" round>{{ getRiskPointLevelText(row.riskPointLevel) }}</el-tag>
               </template>
-            </el-table-column>
-            <el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" width="120">
               <template #default="{ row }">
                 <el-tag :type="getCurrentRiskLevelType(row.currentRiskLevel || row.riskLevel)" round>
                   {{ getCurrentRiskLevelText(row.currentRiskLevel || row.riskLevel) }}
                 </el-tag>
               </template>
-            </el-table-column>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
               <template #default="{ row }">
                 <span>{{ getResponsibleUserText(row) }}</span>
@@ -245,10 +245,13 @@
                 <el-tree-select
                   v-model="form.regionId"
                   :data="regionOptions"
+                  :cache-data="regionOptionCache"
+                  lazy
+                  :load="loadRegionNode"
                   node-key="id"
                   check-strictly
                   clearable
-                  :props="{ label: 'regionName', children: 'children', value: 'id' }"
+                  :props="regionTreeProps"
                   placeholder="请选择所属区域"
                 />
               </el-form-item>
@@ -392,7 +395,7 @@ import { useServerPagination } from '@/composables/useServerPagination';
 import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
 import { listOrganizationTree } from '@/api/organization';
 import type { Organization } from '@/api/organization';
-import { listRegionTree } from '@/api/region';
+import { listRegions } from '@/api/region';
 import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
@@ -411,13 +414,25 @@ import type { RiskPoint } from '../api/riskPoint';
 import { formatDateTime } from '@/utils/format';
 
 type RiskPointRowActionCommand = 'edit' | 'bind-device' | 'delete';
+type RegionTreeOption = Partial<Region> & {
+  id: Region['id'];
+  regionName: string;
+  children?: RegionTreeOption[];
+  leaf?: boolean;
+};
+type LazyRegionTreeNode = {
+  level: number;
+  data?: RegionTreeOption;
+};
+type TreeResolveFn = (data: RegionTreeOption[]) => void;
 
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
 const organizationOptions = ref<Organization[]>([]);
-const regionOptions = ref<Region[]>([]);
+const regionOptions = ref<RegionTreeOption[]>([]);
+const regionOptionCache = ref<RegionTreeOption[]>([]);
 const userOptions = ref<User[]>([]);
 const userOptionsLoading = ref(false);
 const riskPointLevelOptions = ref<RiskPointLevelOption[]>([]);
@@ -486,6 +501,8 @@ const submitLoading = ref(false);
 const riskPointAdvice = '优先核查一级风险点和红色态势对象';
 const missingBindingTotal = ref(0);
 const knownUsers = reactive<Record<number, User>>({});
+const regionRootsLoaded = ref(false);
+const regionRootsLoading = ref(false);
 let latestListRequestId = 0;
 
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
@@ -504,6 +521,12 @@ const emptyStateDescription = computed(() =>
 const selectedOrganization = computed(() =>
   form.orgId === '' ? null : findOrganizationById(organizationOptions.value, Number(form.orgId))
 );
+const regionTreeProps = {
+  label: 'regionName',
+  children: 'children',
+  value: 'id',
+  isLeaf: 'leaf'
+};
 const responsibleUserPlaceholder = computed(() => {
   if (!form.orgId) {
     return '请先选择所属组织';
@@ -542,7 +565,7 @@ const findOrganizationById = (nodes: Organization[], targetId: number): Organiza
   return null;
 };
 
-const findRegionById = (nodes: Region[], targetId: number): Region | null => {
+const findRegionById = <T extends { id?: Region['id']; children?: T[] }>(nodes: T[], targetId: number): T | null => {
   for (const node of nodes) {
     if (Number(node.id) === targetId) {
       return node;
@@ -555,15 +578,83 @@ const findRegionById = (nodes: Region[], targetId: number): Region | null => {
   return null;
 };
 
-const loadRegionOptions = async () => {
+const toRegionTreeOption = (region: Partial<Region> & { id: Region['id']; regionName: string }): RegionTreeOption => {
+  const children = Array.isArray(region.children)
+    ? region.children.map((item) => toRegionTreeOption(item as RegionTreeOption))
+    : undefined;
+  return {
+    ...region,
+    children,
+    leaf: !region.hasChildren
+  };
+};
+
+const upsertRegionCache = (region?: Partial<Region> | null) => {
+  if (!region?.id || !region.regionName) {
+    return;
+  }
+  const nextItem = toRegionTreeOption({
+    id: region.id,
+    regionName: region.regionName,
+    parentId: region.parentId,
+    hasChildren: region.hasChildren,
+    status: region.status
+  });
+  const existingIndex = regionOptionCache.value.findIndex((item) => Number(item.id) === Number(region.id));
+  if (existingIndex >= 0) {
+    regionOptionCache.value.splice(existingIndex, 1, {
+      ...regionOptionCache.value[existingIndex],
+      ...nextItem
+    });
+    return;
+  }
+  regionOptionCache.value.push(nextItem);
+};
+
+const ensureRegionRootsLoaded = async () => {
+  if (regionRootsLoaded.value || regionRootsLoading.value) {
+    return;
+  }
+  regionRootsLoading.value = true;
   try {
-    const res = await listRegionTree();
+    const res = await listRegions();
     if (res.code === 200) {
-      regionOptions.value = (res.data || []).filter((item) => item.status === 1);
+      regionOptions.value = (res.data || [])
+        .filter((item) => item.status === 1)
+        .map((item) => toRegionTreeOption(item));
+      regionRootsLoaded.value = true;
     }
   } catch (error) {
-    console.error('加载区域树失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载区域树失败');
+    console.error('加载区域根节点失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载区域根节点失败');
+  } finally {
+    regionRootsLoading.value = false;
+  }
+};
+
+const loadRegionNode = async (node: LazyRegionTreeNode, resolve: TreeResolveFn) => {
+  if (node.level === 0) {
+    await ensureRegionRootsLoaded();
+    resolve(regionOptions.value);
+    return;
+  }
+  const parentId = node.data?.id;
+  if (!parentId) {
+    resolve([]);
+    return;
+  }
+
+  try {
+    const res = await listRegions(parentId);
+    const children = (res.data || []).map((item) => toRegionTreeOption(item));
+    if (node.data) {
+      node.data.children = children;
+    }
+    resolve(children);
+  } catch (error) {
+    console.error('加载区域子节点失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载区域子节点失败');
+    resolve([]);
   }
 };
 
@@ -935,6 +1026,7 @@ const resetBindForm = () => {
 const handleAdd = () => {
   resetRiskPointForm();
   formVisible.value = true;
+  void ensureRegionRootsLoaded();
 };
 
 const handleEdit = async (row: RiskPoint) => {
@@ -952,6 +1044,11 @@ const handleEdit = async (row: RiskPoint) => {
   form.status = row.status;
   form.createBy = row.createBy;
   form.updateBy = row.updateBy;
+  upsertRegionCache({
+    id: row.regionId,
+    regionName: row.regionName,
+    status: 1
+  });
   if (row.responsibleUser) {
     upsertKnownUser({
       id: row.responsibleUser,
@@ -962,6 +1059,7 @@ const handleEdit = async (row: RiskPoint) => {
     });
   }
   formVisible.value = true;
+  void ensureRegionRootsLoaded();
   await loadResponsibleOptionsByOrganization(true);
 };
 
@@ -988,9 +1086,10 @@ const handleSubmit = async () => {
     await formRef.value.validate();
     submitLoading.value = true;
     const selectedOrganization = findOrganizationById(organizationOptions.value, Number(form.orgId));
-    const selectedRegion = findRegionById(regionOptions.value, Number(form.regionId));
+    const selectedRegion = findRegionById(regionOptions.value, Number(form.regionId))
+      || findRegionById(regionOptionCache.value, Number(form.regionId));
     form.orgName = selectedOrganization?.orgName || '';
-    form.regionName = selectedRegion?.regionName || '';
+    form.regionName = selectedRegion?.regionName || form.regionName || '';
     const payload = {
       ...form,
       orgId: form.orgId === '' ? undefined : Number(form.orgId),
@@ -1121,7 +1220,6 @@ watch(
 onMounted(() => {
   syncAppliedFilters();
   void loadOrganizationOptions();
-  void loadRegionOptions();
   void loadRiskPointLevelOptions();
   void loadRiskPointList();
 });

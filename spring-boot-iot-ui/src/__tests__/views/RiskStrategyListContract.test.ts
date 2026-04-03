@@ -36,7 +36,20 @@ describe('risk strategy list contract', () => {
     expect(source).toContain('listOrganizationTree')
     expect(source).toContain('label="所属组织"')
     expect(source).toContain('form.orgId')
-    expect(source).toContain('保存后自动生成')
+    expect(source).toContain('自动生成系统编号')
     expect(source).not.toContain('label="区域" prop="regionName"')
+  })
+
+  it('keeps governed risk strategy tag columns on StandardTableTextColumn', () => {
+    const emergencyPlanSource = readViewSource('EmergencyPlanView.vue')
+    const riskPointSource = readViewSource('RiskPointView.vue')
+
+    expect(emergencyPlanSource).toContain('<StandardTableTextColumn prop="alarmLevel" label="适用告警等级" width="120">')
+    expect(emergencyPlanSource).not.toContain('<el-table-column prop="alarmLevel" label="适用告警等级" width="120">')
+
+    expect(riskPointSource).toContain('<StandardTableTextColumn prop="riskPointLevel" label="风险点等级" width="120">')
+    expect(riskPointSource).toContain('<StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" width="120">')
+    expect(riskPointSource).not.toContain('<el-table-column prop="riskPointLevel" label="风险点等级" width="120">')
+    expect(riskPointSource).not.toContain('<el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">')
   })
 })

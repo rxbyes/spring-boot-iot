@@ -11,6 +11,8 @@ import com.ghlzm.iot.system.entity.Menu;
 import com.ghlzm.iot.system.mapper.MenuMapper;
 import com.ghlzm.iot.system.mapper.RoleMenuMapper;
 import com.ghlzm.iot.system.service.MenuService;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,39 +36,63 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
       private final RoleMenuMapper roleMenuMapper;
       private final JdbcTemplate jdbcTemplate;
       private final MenuSchemaSupport menuSchemaSupport;
+      private final PermissionService permissionService;
 
       public MenuServiceImpl(RoleMenuMapper roleMenuMapper,
                              JdbcTemplate jdbcTemplate,
-                             MenuSchemaSupport menuSchemaSupport) {
+                             MenuSchemaSupport menuSchemaSupport,
+                             PermissionService permissionService) {
             this.roleMenuMapper = roleMenuMapper;
             this.jdbcTemplate = jdbcTemplate;
             this.menuSchemaSupport = menuSchemaSupport;
+            this.permissionService = permissionService;
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public Menu addMenu(Menu menu) {
-            validateMenuCodeUnique(menu.getMenuCode(), null);
-            validateParent(menu.getParentId(), null);
+            return addMenu(null, menu);
+      }
 
-            normalizeForInsert(menu);
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public Menu addMenu(Long currentUserId, Menu menu) {
+            Long tenantId = resolveTenantId(currentUserId, menu.getTenantId());
+            menu.setTenantId(normalizeTenantId(tenantId));
+
+            validateMenuCodeUnique(menu.getTenantId(), menu.getMenuCode(), null);
+            validateParent(currentUserId, menu.getTenantId(), menu.getParentId(), null);
+
+            normalizeForInsert(currentUserId, menu);
             if (!insertMenuCompat(menu)) {
                   save(menu);
             }
-            return getById(menu.getId());
+            return getMenuById(currentUserId, menu.getId());
       }
 
       @Override
       public List<Menu> listMenus(String menuName, String menuCode, Integer type, Integer status) {
-            List<Menu> menus = list(buildMenuQueryWrapper(menuName, menuCode, type, status, true));
+            return listMenus(null, menuName, menuCode, type, status);
+      }
+
+      @Override
+      public List<Menu> listMenus(Long currentUserId, String menuName, String menuCode, Integer type, Integer status) {
+            List<Menu> menus = list(buildMenuQueryWrapper(currentUserId, menuName, menuCode, type, status, true));
             fillHasChildren(menus);
             return menus;
       }
 
       @Override
       public List<Menu> listMenusByParentId(Long parentId) {
+            return listMenusByParentId(null, parentId);
+      }
+
+      @Override
+      public List<Menu> listMenusByParentId(Long currentUserId, Long parentId) {
+            Long tenantId = resolveTenantId(currentUserId, null);
             LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(Menu::getParentId, parentId != null && parentId > 0 ? parentId : 0L)
+            wrapper.eq(tenantId != null, Menu::getTenantId, tenantId)
+                    .eq(Menu::getParentId, parentId != null && parentId > 0 ? parentId : 0L)
                     .orderByAsc(Menu::getSort)
                     .orderByAsc(Menu::getId);
             List<Menu> menus = list(wrapper);
@@ -76,8 +102,19 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
       @Override
       public PageResult<Menu> pageMenus(String menuName, String menuCode, Integer type, Integer status, Long pageNum, Long pageSize) {
+            return pageMenus(null, menuName, menuCode, type, status, pageNum, pageSize);
+      }
+
+      @Override
+      public PageResult<Menu> pageMenus(Long currentUserId,
+                                        String menuName,
+                                        String menuCode,
+                                        Integer type,
+                                        Integer status,
+                                        Long pageNum,
+                                        Long pageSize) {
             Page<Menu> page = PageQueryUtils.buildPage(pageNum, pageSize);
-            Page<Menu> result = page(page, buildMenuQueryWrapper(menuName, menuCode, type, status, false));
+            Page<Menu> result = page(page, buildMenuQueryWrapper(currentUserId, menuName, menuCode, type, status, false));
             List<Menu> records = result.getRecords();
             fillHasChildren(records);
             return PageQueryUtils.toPageResult(result);
@@ -85,24 +122,46 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
       @Override
       public Menu getMenuById(Long id) {
-            return getById(id);
+            return getMenuById(null, id);
+      }
+
+      @Override
+      public Menu getMenuById(Long currentUserId, Long id) {
+            Menu menu = super.getById(id);
+            if (menu == null) {
+                  return null;
+            }
+            ensureMenuAccessible(currentUserId, menu);
+            return menu;
       }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void updateMenu(Menu menu) {
+            updateMenu(null, menu);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void updateMenu(Long currentUserId, Menu menu) {
             if (menu.getId() == null) {
                   throw new BizException("菜单ID不能为空");
             }
-            Menu existing = getById(menu.getId());
+            Menu existing = super.getById(menu.getId());
             if (existing == null) {
                   throw new BizException("菜单不存在");
             }
+            ensureMenuAccessible(currentUserId, existing);
 
-            validateMenuCodeUnique(menu.getMenuCode(), menu.getId());
-            validateParent(menu.getParentId(), menu.getId());
+            validateMenuCodeUnique(existing.getTenantId(),
+                    StringUtils.hasText(menu.getMenuCode()) ? menu.getMenuCode() : existing.getMenuCode(),
+                    menu.getId());
+            validateParent(currentUserId,
+                    existing.getTenantId(),
+                    menu.getParentId() == null ? existing.getParentId() : menu.getParentId(),
+                    menu.getId());
 
-            normalizeForUpdate(menu, existing);
+            normalizeForUpdate(currentUserId, menu, existing);
             if (!updateMenuCompat(menu)) {
                   updateById(menu);
             }
@@ -111,13 +170,21 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
       @Override
       @Transactional(rollbackFor = Exception.class)
       public void deleteMenu(Long id) {
-            Menu existing = getById(id);
+            deleteMenu(null, id);
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
+      public void deleteMenu(Long currentUserId, Long id) {
+            Menu existing = super.getById(id);
             if (existing == null) {
                   throw new BizException("菜单不存在");
             }
+            ensureMenuAccessible(currentUserId, existing);
 
             LambdaQueryWrapper<Menu> childWrapper = new LambdaQueryWrapper<>();
-            childWrapper.eq(Menu::getParentId, id);
+            childWrapper.eq(Menu::getParentId, id)
+                    .eq(existing.getTenantId() != null, Menu::getTenantId, existing.getTenantId());
             if (count(childWrapper) > 0) {
                   throw new BizException("存在子菜单，无法删除");
             }
@@ -129,7 +196,8 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             removeById(id);
       }
 
-      private LambdaQueryWrapper<Menu> buildMenuQueryWrapper(String menuName,
+      private LambdaQueryWrapper<Menu> buildMenuQueryWrapper(Long currentUserId,
+                                                             String menuName,
                                                              String menuCode,
                                                              Integer type,
                                                              Integer status,
@@ -138,7 +206,9 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                     || StringUtils.hasText(menuCode)
                     || type != null
                     || status != null;
+            Long tenantId = resolveTenantId(currentUserId, null);
             LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(tenantId != null, Menu::getTenantId, tenantId);
             if (!listMode && !filterMode) {
                   wrapper.eq(Menu::getParentId, 0L);
             }
@@ -171,9 +241,14 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                   return;
             }
 
+            Set<Long> tenantIds = menus.stream()
+                    .map(Menu::getTenantId)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
             List<Menu> children = list(new LambdaQueryWrapper<Menu>()
                     .select(Menu::getParentId)
-                    .in(Menu::getParentId, ids));
+                    .in(Menu::getParentId, ids)
+                    .in(!tenantIds.isEmpty(), Menu::getTenantId, tenantIds));
             Set<Long> parentIds = children.stream()
                     .map(Menu::getParentId)
                     .filter(parentId -> parentId != null && parentId > 0)
@@ -181,12 +256,13 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             menus.forEach(item -> item.setHasChildren(parentIds.contains(item.getId())));
       }
 
-      private void validateMenuCodeUnique(String menuCode, Long currentId) {
+      private void validateMenuCodeUnique(Long tenantId, String menuCode, Long currentId) {
             if (!StringUtils.hasText(menuCode)) {
                   return;
             }
             LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(Menu::getMenuCode, menuCode.trim());
+            wrapper.eq(tenantId != null, Menu::getTenantId, tenantId)
+                    .eq(Menu::getMenuCode, menuCode.trim());
             if (currentId != null) {
                   wrapper.ne(Menu::getId, currentId);
             }
@@ -195,22 +271,29 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             }
       }
 
-      private void validateParent(Long parentId, Long currentId) {
+      private void validateParent(Long currentUserId, Long tenantId, Long parentId, Long currentId) {
             if (parentId == null || parentId <= 0) {
                   return;
             }
             if (currentId != null && parentId.equals(currentId)) {
                   throw new BizException("父级菜单不能是自身");
             }
-            Menu parent = getById(parentId);
+            Menu parent = super.getById(parentId);
             if (parent == null) {
                   throw new BizException("父级菜单不存在");
             }
+            if (tenantId != null && parent.getTenantId() != null && !tenantId.equals(parent.getTenantId())) {
+                  throw new BizException("父级菜单不存在或无权访问");
+            }
+            ensureMenuAccessible(currentUserId, parent);
       }
 
-      private void normalizeForInsert(Menu menu) {
+      private void normalizeForInsert(Long currentUserId, Menu menu) {
             if (menu.getId() == null) {
                   menu.setId(IdWorker.getId());
+            }
+            if (menu.getTenantId() == null) {
+                  menu.setTenantId(1L);
             }
             if (menu.getParentId() == null) {
                   menu.setParentId(0L);
@@ -225,10 +308,13 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                   menu.setStatus(1);
             }
             if (menu.getCreateBy() == null) {
-                  menu.setCreateBy(1L);
+                  menu.setCreateBy(currentUserId == null ? 1L : currentUserId);
             }
             if (menu.getCreateTime() == null) {
                   menu.setCreateTime(new Date());
+            }
+            if (menu.getUpdateBy() == null) {
+                  menu.setUpdateBy(menu.getCreateBy());
             }
             if (menu.getUpdateTime() == null) {
                   menu.setUpdateTime(menu.getCreateTime());
@@ -238,7 +324,8 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             }
       }
 
-      private void normalizeForUpdate(Menu menu, Menu existing) {
+      private void normalizeForUpdate(Long currentUserId, Menu menu, Menu existing) {
+            menu.setTenantId(existing.getTenantId());
             if (menu.getParentId() == null) {
                   menu.setParentId(existing.getParentId());
             }
@@ -270,7 +357,9 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                   menu.setStatus(existing.getStatus());
             }
             if (menu.getUpdateBy() == null) {
-                  menu.setUpdateBy(1L);
+                  menu.setUpdateBy(currentUserId == null
+                          ? (existing.getUpdateBy() == null ? existing.getCreateBy() : existing.getUpdateBy())
+                          : currentUserId);
             }
             if (menu.getUpdateTime() == null) {
                   menu.setUpdateTime(new Date());
@@ -285,7 +374,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
             Map<String, Object> values = new LinkedHashMap<>();
             putValue(values, columns, "id", menu.getId());
-            putValue(values, columns, "tenant_id", 1L);
+            putValue(values, columns, "tenant_id", menu.getTenantId());
             putValue(values, columns, "parent_id", menu.getParentId());
             putValue(values, columns, "menu_name", menu.getMenuName());
             putAliasedValue(values, columns, menu.getMenuCode(), "menu_code", "permission");
@@ -352,6 +441,10 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             }
             sql.append(" WHERE id = ?");
             params.add(menu.getId());
+            if (columns.contains("tenant_id") && menu.getTenantId() != null) {
+                  sql.append(" AND tenant_id = ?");
+                  params.add(menu.getTenantId());
+            }
             jdbcTemplate.update(sql.toString(), params.toArray());
             return true;
       }
@@ -378,5 +471,29 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                   return new Timestamp(date.getTime());
             }
             return value;
+      }
+
+      private Long resolveTenantId(Long currentUserId, Long fallbackTenantId) {
+            if (currentUserId == null) {
+                  return fallbackTenantId;
+            }
+            return permissionService.getDataPermissionContext(currentUserId).tenantId();
+      }
+
+      private Long normalizeTenantId(Long tenantId) {
+            return tenantId == null ? 1L : tenantId;
+      }
+
+      private void ensureMenuAccessible(Long currentUserId, Menu menu) {
+            if (currentUserId == null || menu == null) {
+                  return;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            if (context.superAdmin()) {
+                  return;
+            }
+            if (context.tenantId() != null && !context.tenantId().equals(menu.getTenantId())) {
+                  throw new BizException("菜单不存在或无权访问");
+            }
       }
 }

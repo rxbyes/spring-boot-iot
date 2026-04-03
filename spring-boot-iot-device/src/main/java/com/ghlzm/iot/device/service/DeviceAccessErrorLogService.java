@@ -26,12 +26,20 @@ public interface DeviceAccessErrorLogService {
     /**
      * 分页查询失败归档。
      */
-    PageResult<DeviceAccessErrorLog> pageLogs(DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize);
+    default PageResult<DeviceAccessErrorLog> pageLogs(DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
+        return pageLogs(null, query, pageNum, pageSize);
+    }
+
+    PageResult<DeviceAccessErrorLog> pageLogs(Long currentUserId, DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize);
 
     /**
      * 查询失败归档统计概览。
      */
-    DeviceAccessErrorStatsVO getStats(DeviceAccessErrorQuery query);
+    default DeviceAccessErrorStatsVO getStats(DeviceAccessErrorQuery query) {
+        return getStats(null, query);
+    }
+
+    DeviceAccessErrorStatsVO getStats(Long currentUserId, DeviceAccessErrorQuery query);
 
     /**
      * 统计指定时间之后各 failureStage 的失败数量。
@@ -41,7 +49,11 @@ public interface DeviceAccessErrorLogService {
     /**
      * 查询失败归档详情。
      */
-    DeviceAccessErrorLog getById(Long id);
+    default DeviceAccessErrorLog getById(Long id) {
+        return getById(null, id);
+    }
+
+    DeviceAccessErrorLog getById(Long currentUserId, Long id);
 
     record FailureStageCount(String failureStage, long failureCount) {
     }

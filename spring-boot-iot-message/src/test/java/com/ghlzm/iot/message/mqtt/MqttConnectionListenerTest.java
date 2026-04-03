@@ -141,12 +141,16 @@ class MqttConnectionListenerTest {
 
             @Override
             public PageResult<DeviceAccessErrorLog> pageLogs(
-                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
+                    Long currentUserId,
+                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query,
+                    Integer pageNum,
+                    Integer pageSize) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
             public com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO getStats(
+                    Long currentUserId,
                     com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query) {
                 throw new UnsupportedOperationException();
             }
@@ -158,7 +162,7 @@ class MqttConnectionListenerTest {
             }
 
             @Override
-            public DeviceAccessErrorLog getById(Long id) {
+            public DeviceAccessErrorLog getById(Long currentUserId, Long id) {
                 throw new UnsupportedOperationException();
             }
         });

@@ -12,6 +12,9 @@ import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.invalidreport.InvalidReportCounterStore;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +29,8 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +58,8 @@ class DeviceAccessErrorLogServiceImplTest {
     private ProductMapper productMapper;
     @Mock
     private InvalidReportCounterStore invalidReportCounterStore;
+    @Mock
+    private PermissionService permissionService;
 
     private DeviceAccessErrorLogServiceImpl service;
 
@@ -67,8 +75,79 @@ class DeviceAccessErrorLogServiceImplTest {
                 deviceMapper,
                 productMapper,
                 iotProperties,
-                invalidReportCounterStore
+                invalidReportCounterStore,
+                permissionService
         );
+    }
+
+    @Test
+    void pageLogsShouldApplyTenantFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of("id", "tenant_id", "create_time")));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return 1L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceAccessErrorLog>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of(new DeviceAccessErrorLog());
+                });
+
+        service.pageLogs(99L, new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery(), 1, 10);
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+    }
+
+    @Test
+    void getStatsShouldUseTenantScopedSqlInsteadOfGlobalCounters() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of(
+                "tenant_id", "create_time", "trace_id", "device_code", "failure_stage", "error_code", "exception_class", "protocol_code", "topic"
+        )));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    executedSql.add(sql);
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 7L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 9L;
+                    }
+                    return 12L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        service.getStats(99L, new com.ghlzm.iot.device.dto.DeviceAccessErrorQuery());
+
+        verifyNoInteractions(invalidReportCounterStore);
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
     }
 
     @Test

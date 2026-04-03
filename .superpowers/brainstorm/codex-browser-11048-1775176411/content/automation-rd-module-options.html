@@ -1,0 +1,125 @@
+<h2>研发工场拆分方案</h2>
+<p class="subtitle">目标前提：以研发为主角色，优先服务“自动化资产编排”，再把执行、结果和交付协作从属挂接出去。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A / 轻拆分</div>
+        <div class="mockup-body">
+          <div class="mock-nav">质量工场总览</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="placeholder">自动化资产中心</div>
+            <div class="placeholder">执行中心</div>
+            <div class="placeholder">结果与基线中心</div>
+            <div class="placeholder">研发快捷入口</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A / 轻量职责分层</h3>
+      <p>保留现有 3 个专项页，只新增一个“研发工场总览”，把研发常用入口和默认操作重新编排。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>改动最小，落地最快。</li>
+            <li>现有路由和菜单基本不动。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>风险</h4>
+          <ul>
+            <li>资产中心内部仍然偏大。</li>
+            <li>只是“重排入口”，不是彻底拆解。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B / 推荐</div>
+        <div class="mockup-body">
+          <div class="mock-nav">研发工场总览</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="placeholder">页面盘点台</div>
+            <div class="placeholder">场景模板台</div>
+            <div class="placeholder">计划编排台</div>
+            <div class="placeholder">交付打包台</div>
+          </div>
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="placeholder">转执行中心</div>
+            <div class="placeholder">转结果中心</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>推荐 / 研发工场独立分组</h3>
+      <p>新增“研发工场”作为主入口，把资产编排拆成 4 个研发子模块；执行中心和结果中心继续作为跨角色共享模块存在。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最贴合你当前“研发优先 + 资产编排优先”的方向。</li>
+            <li>拆分后每页语义单一，后续更容易继续扩展。</li>
+            <li>不会把执行和结果逻辑重复建设一套。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>风险</h4>
+          <ul>
+            <li>需要新增一组研发菜单和路由。</li>
+            <li>资产中心现有组件要重新切片。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C / 全角色矩阵</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="placeholder">研发工场</div>
+            <div class="placeholder">测试工场</div>
+            <div class="placeholder">验收工场</div>
+            <div class="placeholder">巡检工场</div>
+          </div>
+          <div style="margin-top:10px" class="placeholder">各自再挂资产 / 执行 / 结果视图</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C / 全角色工场矩阵</h3>
+      <p>按角色彻底拆成研发、测试、验收、巡检 4 套工场，每套都有自己的总览和专属流程。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>角色边界最清晰。</li>
+            <li>每类人看到的默认动作最强。</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>风险</h4>
+          <ul>
+            <li>路由、菜单、权限、文档都会成倍增加。</li>
+            <li>极易出现重复页面和双份规则口径。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我当前的建议</h3>
+  <p class="subtitle">先选 B。它能把研发资产编排从现在的大页里真正拆出来，同时继续复用现有执行中心和结果中心，不会马上把质量工场做成 4 套重复体系。</p>
+</div>

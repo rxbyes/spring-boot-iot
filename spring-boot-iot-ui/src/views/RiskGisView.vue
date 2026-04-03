@@ -77,13 +77,13 @@
             <el-table :data="pagedLocatedPoints" border stripe>
               <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="160" />
               <StandardTableTextColumn prop="regionName" label="区域" :min-width="120" />
-              <el-table-column label="当前风险态势" width="120">
+              <StandardTableTextColumn label="当前风险态势" width="120">
                 <template #default="{ row }">
                   <el-tag :type="riskLevelTagType(row.currentRiskLevel || row.riskLevel)" round>
                     {{ riskLevelText(row.currentRiskLevel || row.riskLevel) }}
                   </el-tag>
                 </template>
-              </el-table-column>
+              </StandardTableTextColumn>
               <StandardTableTextColumn label="经纬度" :min-width="220">
                 <template #default="{ row }">
                   {{ formatCoordinate(row.longitude, row.latitude) }}

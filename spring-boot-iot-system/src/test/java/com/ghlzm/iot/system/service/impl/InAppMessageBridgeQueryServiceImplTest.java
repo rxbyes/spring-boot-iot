@@ -2,8 +2,11 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeAttemptLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeLogMapper;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.InAppMessageBridgeQueryService;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeAttemptVO;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeLogVO;
@@ -35,6 +38,8 @@ class InAppMessageBridgeQueryServiceImplTest {
     @Mock
     private InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper;
     @Mock
+    private PermissionService permissionService;
+    @Mock
     private SystemContentSchemaSupport systemContentSchemaSupport;
 
     private InAppMessageBridgeQueryService service;
@@ -44,16 +49,18 @@ class InAppMessageBridgeQueryServiceImplTest {
         service = new InAppMessageBridgeQueryServiceImpl(
                 inAppMessageBridgeLogMapper,
                 inAppMessageBridgeAttemptLogMapper,
+                permissionService,
                 systemContentSchemaSupport
         );
     }
 
     @Test
     void shouldUseRecentSevenDaysWhenNoRangeProvided() {
-        when(inAppMessageBridgeLogMapper.listBridgeLogsForStats(any(), any(), any(), any(), any(), any(), any()))
+        when(permissionService.getDataPermissionContext(9L)).thenReturn(dataPermissionContext(9L, 7L, false));
+        when(inAppMessageBridgeLogMapper.listBridgeLogsForStats(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
 
-        InAppMessageBridgeStatsVO stats = service.getBridgeStats(null, null, null, null, null, null, null);
+        InAppMessageBridgeStatsVO stats = service.getBridgeStats(9L, null, null, null, null, null, null, null);
 
         ArgumentCaptor<Date> startCaptor = ArgumentCaptor.forClass(Date.class);
         ArgumentCaptor<Date> endCaptor = ArgumentCaptor.forClass(Date.class);
@@ -64,7 +71,8 @@ class InAppMessageBridgeQueryServiceImplTest {
                 eq(null),
                 eq(null),
                 eq(null),
-                eq(null)
+                eq(null),
+                eq(7L)
         );
         assertNotNull(startCaptor.getValue());
         assertNotNull(endCaptor.getValue());
@@ -79,21 +87,22 @@ class InAppMessageBridgeQueryServiceImplTest {
         Date endTime = new Date(1000L);
 
         BizException exception = assertThrows(BizException.class, () ->
-                service.getBridgeStats(startTime, endTime, null, null, null, null, null));
+                service.getBridgeStats(9L, startTime, endTime, null, null, null, null, null));
 
         assertEquals("开始时间不能晚于结束时间", exception.getMessage());
     }
 
     @Test
     void shouldAggregateStatsByChannelAndSourceType() {
-        when(inAppMessageBridgeLogMapper.listBridgeLogsForStats(any(), any(), any(), any(), any(), any(), any()))
+        when(permissionService.getDataPermissionContext(9L)).thenReturn(dataPermissionContext(9L, 7L, false));
+        when(inAppMessageBridgeLogMapper.listBridgeLogsForStats(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(
                         bridgeLog(1L, "system_error", "ops-webhook", "运维Webhook", "webhook", 1, 2, "2026-03-22 09:00:00"),
                         bridgeLog(2L, "work_order", "ops-webhook", "运维Webhook", "webhook", 0, 1, "2026-03-22 10:00:00"),
                         bridgeLog(3L, "work_order", "ops-wechat", null, "wechat", 1, 3, "2026-03-21 11:00:00")
                 ));
 
-        InAppMessageBridgeStatsVO stats = service.getBridgeStats(null, null, null, null, null, null, null);
+        InAppMessageBridgeStatsVO stats = service.getBridgeStats(9L, null, null, null, null, null, null, null);
 
         assertEquals(3L, stats.getTotalBridgeCount());
         assertEquals(2L, stats.getSuccessCount());
@@ -109,14 +118,16 @@ class InAppMessageBridgeQueryServiceImplTest {
 
     @Test
     void shouldPageLogsAndReturnAttempts() {
-        when(inAppMessageBridgeLogMapper.countBridgeLogs(any(), any(), any(), any(), any(), any(), any()))
+        when(permissionService.getDataPermissionContext(9L)).thenReturn(dataPermissionContext(9L, 7L, false));
+        when(inAppMessageBridgeLogMapper.countBridgeLogs(any(), any(), any(), any(), any(), any(), any(), eq(7L)))
                 .thenReturn(1L);
-        when(inAppMessageBridgeLogMapper.pageBridgeLogs(any(), any(), any(), any(), any(), any(), any(), eq(0L), eq(10L)))
+        when(inAppMessageBridgeLogMapper.pageBridgeLogs(any(), any(), any(), any(), any(), any(), any(), eq(7L), eq(0L), eq(10L)))
                 .thenReturn(List.of(bridgeLog(10L, "manual", "ops-webhook", "运维Webhook", "webhook", 0, 2, "2026-03-22 11:00:00")));
-        when(inAppMessageBridgeAttemptLogMapper.listAttemptsByBridgeLogId(10L))
+        when(inAppMessageBridgeAttemptLogMapper.listAttemptsByBridgeLogId(10L, 7L))
                 .thenReturn(List.of(attempt(2, 0), attempt(1, 1)));
 
         PageResult<InAppMessageBridgeLogVO> pageResult = service.pageBridgeLogs(
+                9L,
                 null,
                 null,
                 "system",
@@ -127,14 +138,18 @@ class InAppMessageBridgeQueryServiceImplTest {
                 1L,
                 10L
         );
-        List<InAppMessageBridgeAttemptVO> attempts = service.listBridgeAttempts(10L);
+        List<InAppMessageBridgeAttemptVO> attempts = service.listBridgeAttempts(9L, 10L);
 
         assertEquals(1L, pageResult.getTotal());
         assertEquals(1, pageResult.getRecords().size());
         assertEquals("ops-webhook", pageResult.getRecords().get(0).getChannelCode());
         assertEquals(2, attempts.size());
         assertEquals(2, attempts.get(0).getAttemptNo());
-        verify(inAppMessageBridgeAttemptLogMapper).listAttemptsByBridgeLogId(10L);
+        verify(inAppMessageBridgeAttemptLogMapper).listAttemptsByBridgeLogId(10L, 7L);
+    }
+
+    private DataPermissionContext dataPermissionContext(Long userId, Long tenantId, boolean superAdmin) {
+        return new DataPermissionContext(userId, tenantId, 1L, DataScopeType.TENANT, superAdmin);
     }
 
     private InAppMessageBridgeLogVO bridgeLog(Long id,

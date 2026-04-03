@@ -1,18 +1,26 @@
 package com.ghlzm.iot.system.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.InAppMessage;
 import com.ghlzm.iot.system.entity.InAppMessageRead;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.mapper.InAppMessageMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageReadMapper;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
+import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -52,6 +61,13 @@ class InAppMessageServiceImplTest {
 
     private InAppMessageServiceImpl inAppMessageService;
 
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, InAppMessage.class);
+        TableInfoHelper.initTableInfo(assistant, InAppMessageRead.class);
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         inAppMessageService = spy(new InAppMessageServiceImpl(
@@ -64,12 +80,14 @@ class InAppMessageServiceImplTest {
         Field field = findField(inAppMessageService.getClass(), "baseMapper");
         field.setAccessible(true);
         field.set(inAppMessageService, inAppMessageMapper);
+        lenient().when(permissionService.getDataPermissionContext(any(Long.class)))
+                .thenAnswer(invocation -> dataPermissionContext(invocation.getArgument(0), 1L, false));
     }
 
     @Test
     void shouldAggregateUnreadStatsByAccessibleMessageType() {
         Long userId = 2L;
-        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
         when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(101L, "system", "high", "all", null, null),
                 message(102L, "business", "medium", "role", "BUSINESS_STAFF", null),
@@ -89,7 +107,7 @@ class InAppMessageServiceImplTest {
     @Test
     void shouldQueryUnreadStatsWithoutSelectingMessageBodyColumns() {
         Long userId = 2L;
-        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
         when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(101L, "system", "high", "all", null, null)
         ));
@@ -112,7 +130,7 @@ class InAppMessageServiceImplTest {
     @Test
     void shouldReturnOnlyUnreadAccessibleMessagesForCurrentUser() {
         Long userId = 2L;
-        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
         when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(201L, "system", "critical", "all", null, null),
                 message(202L, "business", "medium", "role", "BUSINESS_STAFF", null),
@@ -134,7 +152,7 @@ class InAppMessageServiceImplTest {
         InAppMessage message = message(301L, "system", "high", "all", null, null);
 
         when(inAppMessageMapper.selectById(301L)).thenReturn(message);
-        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
         when(inAppMessageReadMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         inAppMessageService.markMessageRead(userId, 301L);
@@ -145,7 +163,7 @@ class InAppMessageServiceImplTest {
     @Test
     void shouldSortUnreadMessagesBeforeReadMessages() {
         Long userId = 2L;
-        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext("BUSINESS_STAFF"));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
         when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
                 message(401L, "system", "critical", "all", null, null),
                 message(402L, "business", "low", "all", null, null),
@@ -217,6 +235,102 @@ class InAppMessageServiceImplTest {
     }
 
     @Test
+    void shouldFilterAdminPageByCurrentTenant() {
+        Long currentUserId = 9L;
+        when(permissionService.getDataPermissionContext(currentUserId)).thenReturn(dataPermissionContext(currentUserId, 88L, false));
+        when(inAppMessageMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        inAppMessageService.pageMessages(currentUserId, null, null, null, null, null, null, 1L, 10L);
+
+        ArgumentCaptor<LambdaQueryWrapper<InAppMessage>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(inAppMessageMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().values().contains(88L));
+    }
+
+    @Test
+    void shouldRejectCrossTenantAdminDetailAccess() {
+        Long currentUserId = 9L;
+        InAppMessage message = message(701L, "system", "high", "all", null, null);
+        message.setTenantId(8L);
+        when(permissionService.getDataPermissionContext(currentUserId)).thenReturn(dataPermissionContext(currentUserId, 7L, false));
+        when(inAppMessageMapper.selectById(701L)).thenReturn(message);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> inAppMessageService.getById(currentUserId, 701L));
+
+        assertEquals("站内消息不存在或无权访问", exception.getMessage());
+    }
+
+    @Test
+    void shouldUseOperatorTenantWhenAddingMessage() {
+        Long operatorId = 9L;
+        InAppMessage message = message(801L, "business", "medium", "all", null, null);
+        message.setTenantId(99L);
+        when(permissionService.getDataPermissionContext(operatorId)).thenReturn(dataPermissionContext(operatorId, 7L, false));
+        when(inAppMessageMapper.selectById(801L)).thenReturn(message);
+
+        inAppMessageService.addMessage(message, operatorId);
+
+        ArgumentCaptor<InAppMessage> messageCaptor = ArgumentCaptor.forClass(InAppMessage.class);
+        verify(inAppMessageMapper).insert(messageCaptor.capture());
+        assertEquals(7L, messageCaptor.getValue().getTenantId());
+    }
+
+    @Test
+    void shouldFilterMyUnreadStatsByCurrentTenant() {
+        Long userId = 2L;
+        when(permissionService.getDataPermissionContext(userId)).thenReturn(dataPermissionContext(userId, 88L, false));
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 88L, "BUSINESS_STAFF"));
+        when(inAppMessageMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(
+                message(901L, "system", "high", "all", null, null)
+        ));
+        when(inAppMessageReadMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        inAppMessageService.getMyUnreadStats(userId);
+
+        ArgumentCaptor<QueryWrapper<InAppMessage>> messageWrapperCaptor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(inAppMessageMapper).selectList(messageWrapperCaptor.capture());
+        assertTrue(messageWrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+        assertTrue(messageWrapperCaptor.getValue().getParamNameValuePairs().values().contains(88L));
+
+        ArgumentCaptor<LambdaQueryWrapper<InAppMessageRead>> readWrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(inAppMessageReadMapper).selectList(readWrapperCaptor.capture());
+        assertTrue(readWrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+        assertTrue(readWrapperCaptor.getValue().getParamNameValuePairs().values().contains(88L));
+    }
+
+    @Test
+    void shouldRejectCrossTenantCurrentUserMessageDetail() {
+        Long userId = 2L;
+        InAppMessage message = message(902L, "system", "high", "all", null, null);
+        message.setTenantId(2L);
+        when(permissionService.getDataPermissionContext(userId)).thenReturn(dataPermissionContext(userId, 1L, false));
+        when(inAppMessageMapper.selectById(902L)).thenReturn(message);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> inAppMessageService.getMyMessageDetail(userId, 902L));
+
+        assertEquals("站内消息不存在", exception.getMessage());
+    }
+
+    @Test
+    void shouldFilterStatsByCurrentTenant() {
+        Long currentUserId = 9L;
+        when(permissionService.getDataPermissionContext(currentUserId)).thenReturn(dataPermissionContext(currentUserId, 88L, false));
+        when(inAppMessageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        InAppMessageStatsVO stats = inAppMessageService.getMessageStats(currentUserId, null, null, null, null);
+
+        ArgumentCaptor<LambdaQueryWrapper<InAppMessage>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(inAppMessageMapper).selectList(wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().values().contains(88L));
+        assertEquals(0L, stats.getTotalDeliveryCount());
+    }
+
+    @Test
     void shouldThrowSchemaHintWhenInAppMessageTableMissing() {
         doThrow(new BizException(SystemContentSchemaSupport.SCHEMA_HINT))
                 .when(systemContentSchemaSupport)
@@ -240,11 +354,16 @@ class InAppMessageServiceImplTest {
         assertEquals(SystemContentSchemaSupport.SCHEMA_HINT, exception.getMessage());
     }
 
-    private UserAuthContextVO authContext(String... roleCodes) {
+    private UserAuthContextVO authContext(Long userId, Long tenantId, String... roleCodes) {
         UserAuthContextVO authContext = new UserAuthContextVO();
-        authContext.setUserId(2L);
+        authContext.setUserId(userId);
+        authContext.setTenantId(tenantId);
         authContext.setRoleCodes(List.of(roleCodes));
         return authContext;
+    }
+
+    private DataPermissionContext dataPermissionContext(Long userId, Long tenantId, boolean superAdmin) {
+        return new DataPermissionContext(userId, tenantId, 1L, DataScopeType.TENANT, superAdmin);
     }
 
     private InAppMessage message(Long id,

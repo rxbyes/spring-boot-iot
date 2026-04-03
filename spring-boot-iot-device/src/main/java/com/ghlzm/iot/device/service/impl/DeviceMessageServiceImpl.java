@@ -34,6 +34,8 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
@@ -89,6 +91,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final DevicePayloadApplyStageHandler devicePayloadApplyStageHandler;
     private final DeviceStateStageHandler deviceStateStageHandler;
     private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
+    private final PermissionService permissionService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
@@ -106,7 +109,8 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     DeviceMessageLogStageHandler deviceMessageLogStageHandler,
                                     DevicePayloadApplyStageHandler devicePayloadApplyStageHandler,
                                     DeviceStateStageHandler deviceStateStageHandler,
-                                    DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler) {
+                                    DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler,
+                                    PermissionService permissionService) {
         this.deviceMapper = deviceMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -123,16 +127,20 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.devicePayloadApplyStageHandler = devicePayloadApplyStageHandler;
         this.deviceStateStageHandler = deviceStateStageHandler;
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
+        this.permissionService = permissionService;
     }
 
     @Override
-    public List<DeviceMessageLog> listMessageLogs(String deviceCode) {
+    public List<DeviceMessageLog> listMessageLogs(Long currentUserId, String deviceCode) {
         Device device = findDeviceByCode(deviceCode);
         if (device == null) {
             throw new BizException("设备不存在: " + deviceCode);
         }
+        ensureAccessibleDevice(currentUserId, device);
+        Long tenantId = resolveScopedTenantId(currentUserId);
         return deviceMessageLogMapper.selectList(
                 new LambdaQueryWrapper<DeviceMessageLog>()
+                        .eq(tenantId != null, DeviceMessageLog::getTenantId, tenantId)
                         .eq(DeviceMessageLog::getDeviceId, device.getId())
                         .orderByDesc(DeviceMessageLog::getReportTime)
                         .last("limit 20")
@@ -140,18 +148,24 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     }
 
     @Override
-    public PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize) {
+    public PageResult<DeviceMessageLog> pageMessageTraceLogs(Long currentUserId,
+                                                             DeviceMessageTraceQuery query,
+                                                             Integer pageNum,
+                                                             Integer pageSize) {
         long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
         long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize, MAX_PAGE_SIZE);
         Page<DeviceMessageLog> page = new Page<>(safePageNum, safePageSize);
-        Page<DeviceMessageLog> result = deviceMessageLogMapper.selectPage(page, buildMessageTraceQueryWrapper(query));
+        Page<DeviceMessageLog> result = deviceMessageLogMapper.selectPage(
+                page,
+                buildMessageTraceQueryWrapper(query, resolveScopedTenantId(currentUserId))
+        );
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), result.getRecords());
     }
 
     @Override
-    public DeviceMessageTraceStatsVO getMessageTraceStats(DeviceMessageTraceQuery query) {
+    public DeviceMessageTraceStatsVO getMessageTraceStats(Long currentUserId, DeviceMessageTraceQuery query) {
         DeviceMessageTraceStatsVO stats = new DeviceMessageTraceStatsVO();
-        QuerySpec querySpec = buildMessageTraceQuerySpec(query);
+        QuerySpec querySpec = buildMessageTraceQuerySpec(query, resolveScopedTenantId(currentUserId));
 
         stats.setTotal(queryCount(querySpec, null));
         if (stats.getTotal() == null || stats.getTotal() < 1) {
@@ -429,8 +443,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
     }
 
-    private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query) {
+    private LambdaQueryWrapper<DeviceMessageLog> buildMessageTraceQueryWrapper(DeviceMessageTraceQuery query, Long tenantId) {
         LambdaQueryWrapper<DeviceMessageLog> queryWrapper = new LambdaQueryWrapper<>();
+        if (tenantId != null) {
+            queryWrapper.eq(DeviceMessageLog::getTenantId, tenantId);
+        }
         if (query != null) {
             if (StringUtils.hasText(query.getDeviceCode())) {
                 queryWrapper.eq(DeviceMessageLog::getDeviceCode, query.getDeviceCode().trim());
@@ -453,9 +470,13 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         return queryWrapper;
     }
 
-    private QuerySpec buildMessageTraceQuerySpec(DeviceMessageTraceQuery query) {
+    private QuerySpec buildMessageTraceQuerySpec(DeviceMessageTraceQuery query, Long tenantId) {
         StringBuilder where = new StringBuilder(" WHERE 1=1");
         List<Object> params = new ArrayList<>();
+        if (tenantId != null) {
+            where.append(" AND tenant_id = ?");
+            params.add(tenantId);
+        }
         if (query == null) {
             return new QuerySpec(where.toString(), params);
         }
@@ -465,6 +486,31 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         appendTextEquals(where, params, "message_type", query.getMessageType());
         appendTextLike(where, params, "topic", query.getTopic());
         return new QuerySpec(where.toString(), params);
+    }
+
+    private void ensureAccessibleDevice(Long currentUserId, Device device) {
+        if (device == null) {
+            return;
+        }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        if (tenantId != null && !tenantId.equals(device.getTenantId())) {
+            throw new BizException("璁惧涓嶅瓨鍦ㄦ垨鏃犳潈璁块棶");
+        }
+    }
+
+    private Long resolveScopedTenantId(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return null;
+        }
+        return context.tenantId();
+    }
+
+    private DataPermissionContext resolveDataPermissionContext(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return null;
+        }
+        return permissionService.getDataPermissionContext(currentUserId);
     }
 
     private void appendTextEquals(StringBuilder where, List<Object> params, String column, String value) {

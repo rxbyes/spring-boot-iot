@@ -7,6 +7,20 @@ export function useAutomationResultsWorkbench() {
   const {
     registryScenarios,
     importedRun,
+    recentRuns,
+    recentRunsLoading,
+    recentRunsErrorMessage,
+    selectedRecentRunId,
+    evidenceItems,
+    evidenceLoading,
+    evidenceErrorMessage,
+    selectedEvidencePath,
+    evidencePreview,
+    evidencePreviewLoading,
+    evidencePreviewErrorMessage,
+    fetchRecentRuns,
+    selectRecentRun,
+    selectEvidence,
     importRegistryRunSummary,
     clearImportedRun
   } = useAutomationRegistryWorkbench();
@@ -50,7 +64,7 @@ export function useAutomationResultsWorkbench() {
 
   const resultMessage = computed(() => {
     if (!importedRun.value) {
-      return '尚未导入统一运行汇总，建议先粘贴 registry-run JSON，再结合测试建议处理基线缺口。';
+      return '尚未载入运行结果，建议先选择最近一次运行，或继续粘贴 registry-run JSON 做兼容导入。';
     }
 
     if (importedRun.value.summary.failed > 0) {
@@ -89,11 +103,25 @@ export function useAutomationResultsWorkbench() {
   return {
     suggestions,
     importedRun,
+    recentRuns,
+    recentRunsLoading,
+    recentRunsErrorMessage,
+    selectedRecentRunId,
+    evidenceItems,
+    evidenceLoading,
+    evidenceErrorMessage,
+    selectedEvidencePath,
+    evidencePreview,
+    evidencePreviewLoading,
+    evidencePreviewErrorMessage,
     resultsMetrics,
     resultTone,
     resultMessage,
     failedScenarioDetails,
     summaryBody,
+    fetchRecentRuns,
+    selectRecentRun,
+    selectEvidence,
     importRegistryRunSummary,
     clearImportedRun
   };

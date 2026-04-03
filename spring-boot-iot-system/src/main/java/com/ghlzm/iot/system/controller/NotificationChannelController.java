@@ -2,9 +2,11 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.service.NotificationChannelService;
 import com.ghlzm.iot.system.service.SystemErrorNotificationService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,8 +35,9 @@ public class NotificationChannelController {
       @GetMapping("/list")
       public R<List<NotificationChannel>> listChannels(@RequestParam(required = false) String channelName,
                                                        @RequestParam(required = false) String channelCode,
-                                                       @RequestParam(required = false) String channelType) {
-            return R.ok(notificationChannelService.listChannels(channelName, channelCode, channelType));
+                                                       @RequestParam(required = false) String channelType,
+                                                       Authentication authentication) {
+            return R.ok(notificationChannelService.listChannels(requireCurrentUserId(authentication), channelName, channelCode, channelType));
       }
 
       @GetMapping("/page")
@@ -42,35 +45,43 @@ public class NotificationChannelController {
                                                              @RequestParam(required = false) String channelCode,
                                                              @RequestParam(required = false) String channelType,
                                                              @RequestParam(defaultValue = "1") Long pageNum,
-                                                             @RequestParam(defaultValue = "10") Long pageSize) {
-            return R.ok(notificationChannelService.pageChannels(channelName, channelCode, channelType, pageNum, pageSize));
+                                                             @RequestParam(defaultValue = "10") Long pageSize,
+                                                             Authentication authentication) {
+            return R.ok(notificationChannelService.pageChannels(requireCurrentUserId(authentication), channelName, channelCode, channelType, pageNum, pageSize));
       }
 
       @GetMapping("/getByCode/{channelCode}")
-      public R<NotificationChannel> getByCode(@PathVariable String channelCode) {
-            return R.ok(notificationChannelService.getByCode(channelCode));
+      public R<NotificationChannel> getByCode(@PathVariable String channelCode, Authentication authentication) {
+            return R.ok(notificationChannelService.getByCode(requireCurrentUserId(authentication), channelCode));
       }
 
       @PostMapping("/add")
-      public R<NotificationChannel> addChannel(@RequestBody NotificationChannel channel) {
-            return R.ok(notificationChannelService.addChannel(channel));
+      public R<NotificationChannel> addChannel(@RequestBody NotificationChannel channel, Authentication authentication) {
+            return R.ok(notificationChannelService.addChannel(requireCurrentUserId(authentication), channel));
       }
 
       @PutMapping("/update")
-      public R<Void> updateChannel(@RequestBody NotificationChannel channel) {
-            notificationChannelService.updateChannel(channel);
+      public R<Void> updateChannel(@RequestBody NotificationChannel channel, Authentication authentication) {
+            notificationChannelService.updateChannel(requireCurrentUserId(authentication), channel);
             return R.ok();
       }
 
       @DeleteMapping("/delete/{id}")
-      public R<Void> deleteChannel(@PathVariable Long id) {
-            notificationChannelService.deleteChannel(id);
+      public R<Void> deleteChannel(@PathVariable Long id, Authentication authentication) {
+            notificationChannelService.deleteChannel(requireCurrentUserId(authentication), id);
             return R.ok();
       }
 
       @PostMapping("/test/{channelCode}")
-      public R<Void> testChannel(@PathVariable String channelCode) {
-            systemErrorNotificationService.sendTestNotification(channelCode);
+      public R<Void> testChannel(@PathVariable String channelCode, Authentication authentication) {
+            systemErrorNotificationService.sendTestNotification(requireCurrentUserId(authentication), channelCode);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

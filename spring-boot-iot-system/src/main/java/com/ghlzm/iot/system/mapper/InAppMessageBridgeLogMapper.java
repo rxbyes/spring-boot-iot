@@ -23,6 +23,9 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                 ON channel.channel_code = bridge_log.channel_code
                 AND (channel.deleted = 0 OR channel.deleted IS NULL)
             WHERE bridge_log.bridge_scene = 'in_app_unread_bridge'
+            <if test="tenantId != null">
+                AND bridge_log.tenant_id = #{tenantId}
+            </if>
             <if test="startTime != null">
                 AND bridge_log.last_attempt_time <![CDATA[>=]]> #{startTime}
             </if>
@@ -52,7 +55,8 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                          @Param("sourceType") String sourceType,
                          @Param("priority") String priority,
                          @Param("channelCode") String channelCode,
-                         @Param("bridgeStatus") Integer bridgeStatus);
+                         @Param("bridgeStatus") Integer bridgeStatus,
+                         @Param("tenantId") Long tenantId);
 
     @Select("""
             <script>
@@ -84,6 +88,9 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                 ON channel.channel_code = bridge_log.channel_code
                 AND (channel.deleted = 0 OR channel.deleted IS NULL)
             WHERE bridge_log.bridge_scene = 'in_app_unread_bridge'
+            <if test="tenantId != null">
+                AND bridge_log.tenant_id = #{tenantId}
+            </if>
             <if test="startTime != null">
                 AND bridge_log.last_attempt_time <![CDATA[>=]]> #{startTime}
             </if>
@@ -116,6 +123,7 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                                                  @Param("priority") String priority,
                                                  @Param("channelCode") String channelCode,
                                                  @Param("bridgeStatus") Integer bridgeStatus,
+                                                 @Param("tenantId") Long tenantId,
                                                  @Param("offset") long offset,
                                                  @Param("limit") long limit);
 
@@ -149,6 +157,9 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                 ON channel.channel_code = bridge_log.channel_code
                 AND (channel.deleted = 0 OR channel.deleted IS NULL)
             WHERE bridge_log.bridge_scene = 'in_app_unread_bridge'
+            <if test="tenantId != null">
+                AND bridge_log.tenant_id = #{tenantId}
+            </if>
             <if test="startTime != null">
                 AND bridge_log.last_attempt_time <![CDATA[>=]]> #{startTime}
             </if>
@@ -179,5 +190,6 @@ public interface InAppMessageBridgeLogMapper extends BaseMapper<InAppMessageBrid
                                                          @Param("sourceType") String sourceType,
                                                          @Param("priority") String priority,
                                                          @Param("channelCode") String channelCode,
-                                                         @Param("bridgeStatus") Integer bridgeStatus);
+                                                         @Param("bridgeStatus") Integer bridgeStatus,
+                                                         @Param("tenantId") Long tenantId);
 }

@@ -1,14 +1,26 @@
 package com.ghlzm.iot.system.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.Dict;
 import com.ghlzm.iot.system.entity.DictItem;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.mapper.DictMapper;
 import com.ghlzm.iot.system.mapper.DictItemMapper;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -17,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
@@ -30,13 +43,26 @@ import static org.mockito.Mockito.when;
 class DictServiceImplTest {
 
     @Mock
+    private PermissionService permissionService;
+    @Mock
+    private DictMapper dictMapper;
+    @Mock
     private DictItemMapper dictItemMapper;
 
     private DictServiceImpl dictService;
 
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Dict.class);
+    }
+
     @BeforeEach
-    void setUp() {
-        dictService = spy(new DictServiceImpl(dictItemMapper));
+    void setUp() throws Exception {
+        dictService = spy(new DictServiceImpl(dictItemMapper, permissionService));
+        Field field = findField(dictService.getClass(), "baseMapper");
+        field.setAccessible(true);
+        field.set(dictService, dictMapper);
     }
 
     @Test
@@ -171,6 +197,41 @@ class DictServiceImplTest {
         verify(dictItemMapper).deleteById(7001L);
     }
 
+    @Test
+    void shouldFilterScopedDictPageToCurrentTenant() throws Exception {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+
+        Page<Dict> page = new Page<>(1L, 10L);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        doReturn(page).when(dictService).page(org.mockito.ArgumentMatchers.any(Page.class),
+                org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class));
+
+        invokeScopedPageDicts(99L, null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<Dict>> wrapperCaptor =
+                org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(dictService).page(org.mockito.ArgumentMatchers.any(Page.class), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+    }
+
+    @Test
+    void shouldRejectCrossTenantScopedDictDetailAccess() throws Exception {
+        Dict dict = new Dict();
+        dict.setId(1L);
+        dict.setTenantId(2L);
+        dict.setDeleted(0);
+
+        when(dictMapper.selectById(1L)).thenReturn(dict);
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+
+        BizException exception = assertThrows(BizException.class, () -> invokeScopedGetById(99L, 1L));
+        assertEquals("字典不存在或无权访问", exception.getMessage());
+    }
+
     private DictItem dictItem(String value) {
         DictItem item = new DictItem();
         item.setItemValue(value);
@@ -182,5 +243,59 @@ class DictServiceImplTest {
     private DictItem invokeDictItemMutation(String methodName, DictItem dictItem) throws Exception {
         Method method = DictServiceImpl.class.getMethod(methodName, DictItem.class);
         return (DictItem) method.invoke(dictService, dictItem);
+    }
+
+    private Object invokeScopedPageDicts(Long currentUserId,
+                                         String dictName,
+                                         String dictCode,
+                                         String dictType,
+                                         Long pageNum,
+                                         Long pageSize) throws Exception {
+        try {
+            Method method = DictServiceImpl.class.getMethod(
+                    "pageDicts",
+                    Long.class,
+                    String.class,
+                    String.class,
+                    String.class,
+                    Long.class,
+                    Long.class
+            );
+            return method.invoke(dictService, currentUserId, dictName, dictCode, dictType, pageNum, pageSize);
+        } catch (NoSuchMethodException exception) {
+            throw new AssertionError("scoped pageDicts overload is missing", exception);
+        } catch (InvocationTargetException exception) {
+            throw unwrap(exception);
+        }
+    }
+
+    private Dict invokeScopedGetById(Long currentUserId, Long dictId) throws Exception {
+        try {
+            Method method = DictServiceImpl.class.getMethod("getById", Long.class, Long.class);
+            return (Dict) method.invoke(dictService, currentUserId, dictId);
+        } catch (NoSuchMethodException exception) {
+            throw new AssertionError("scoped getById overload is missing", exception);
+        } catch (InvocationTargetException exception) {
+            throw unwrap(exception);
+        }
+    }
+
+    private Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    private Exception unwrap(InvocationTargetException exception) throws Exception {
+        if (exception.getTargetException() instanceof Exception target) {
+            return target;
+        }
+        throw exception;
     }
 }

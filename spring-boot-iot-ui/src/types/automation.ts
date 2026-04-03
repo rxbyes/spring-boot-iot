@@ -213,17 +213,60 @@ export interface AcceptanceRegistryRunResult {
 }
 
 export interface AcceptanceRegistryRunSummary {
+  runId?: string;
   summary: {
     total: number;
     passed: number;
     failed: number;
   };
   results: AcceptanceRegistryRunResult[];
+  updatedAt?: string;
+  registryVersion?: string;
+  options?: Record<string, unknown>;
+  relatedEvidenceFiles?: string[];
   reportPath?: string;
   exitCode?: number;
+}
+
+export type AutomationEvidenceCategory =
+  | 'run-summary'
+  | 'json'
+  | 'markdown'
+  | 'text'
+  | 'unknown'
+  | string;
+
+export type AutomationEvidenceSource = 'report' | 'related' | 'scenario' | string;
+
+export interface AutomationResultEvidenceItem {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  source: AutomationEvidenceSource;
+}
+
+export interface AutomationResultEvidenceContent {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  content: string;
+  truncated: boolean;
 }
 
 export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRunSummary {
   failedScenarioIds: string[];
   failedResults: AcceptanceRegistryRunResult[];
+}
+
+export interface AutomationResultRecentRun {
+  runId: string;
+  updatedAt?: string;
+  reportPath?: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  failedScenarioIds: string[];
+  relatedEvidenceFiles: string[];
 }

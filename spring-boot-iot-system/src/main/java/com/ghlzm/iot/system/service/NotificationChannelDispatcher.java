@@ -10,6 +10,7 @@ public interface NotificationChannelDispatcher {
     List<DispatchChannel> listSceneChannels(String scene);
 
     DispatchChannel requireTestChannel(String channelCode);
+    DispatchChannel requireTestChannel(Long currentUserId, String channelCode);
 
     DispatchResult send(DispatchChannel dispatchChannel, NotificationEnvelope envelope);
 

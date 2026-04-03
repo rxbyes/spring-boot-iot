@@ -5,6 +5,7 @@ import { getCurrentUser } from '../api/auth';
 import type { RequestError } from '../api/request';
 import {
   canAccessSectionHome,
+  expandWorkspaceAllowedPaths,
   listSectionHomeConfigs,
   resolveRoleHomePath,
   resolveRoleWorkbenchProfile
@@ -109,7 +110,7 @@ export const usePermissionStore = defineStore('permission', () => {
     return authContext.value.displayName || authContext.value.realName || authContext.value.username;
   });
   const primaryRoleName = computed(() => roleNames.value[0] || '');
-  const allowedPaths = computed(() => collectMenuPaths(menus.value));
+  const allowedPaths = computed(() => expandWorkspaceAllowedPaths(collectMenuPaths(menus.value)));
   const staticFallbackPaths = computed(() => collectStaticFallbackPaths());
   const hasBoundRoles = computed(() => roleCodes.value.length > 0 || roleNames.value.length > 0);
   const roleProfile = computed(() => resolveRoleWorkbenchProfile(

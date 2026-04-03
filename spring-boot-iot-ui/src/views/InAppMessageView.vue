@@ -976,7 +976,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import type { ChannelRecord } from '@/api/channel'
-import { CHANNEL_TYPES, listChannels } from '@/api/channel'
+import { CHANNEL_TYPES, fetchChannelTypeOptions, listChannels } from '@/api/channel'
 import type { User } from '@/api/user'
 import type { Role } from '@/api/role'
 import {
@@ -1106,6 +1106,7 @@ const bridgeRowActions = [{ command: 'bridge-detail' as const, label: '桥接详
 const roleOptions = ref<Role[]>([])
 const userOptions = ref<User[]>([])
 const channelOptions = ref<ChannelRecord[]>([])
+const channelTypeOptions = ref(CHANNEL_TYPES.map((item) => ({ ...item })))
 const statsRecord = ref<InAppMessageStatsRecord | null>(null)
 const bridgeStatsLoading = ref(false)
 const bridgeTableLoading = ref(false)
@@ -1169,7 +1170,7 @@ const userLabelMap = computed(() => new Map(
     .filter((item) => item.id !== undefined)
     .map((item) => [String(item.id), buildUserLabel(item)])
 ))
-const channelTypeLabelMap = computed(() => new Map(CHANNEL_TYPES.map((item) => [item.value, item.label])))
+const channelTypeLabelMap = computed(() => new Map(channelTypeOptions.value.map((item) => [item.value, item.label])))
 const editableSourceTypeOptions = computed(() =>
   IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS.filter((item) => item.value === 'manual' || item.value === 'governance')
 )
@@ -2003,6 +2004,14 @@ function handleBridgeRowAction(command: InAppMessageBridgeRowActionCommand, row:
   }
 }
 
+async function loadChannelTypeOptions() {
+  try {
+    channelTypeOptions.value = await fetchChannelTypeOptions()
+  } catch (error) {
+    logPageError('加载渠道类型字典失败', error)
+  }
+}
+
 async function handleViewBridge(row: InAppMessageBridgeLogRecord) {
   bridgeDetailRecord.value = row
   bridgeDetailVisible.value = true
@@ -2135,6 +2144,7 @@ async function handleSubmit() {
 onMounted(() => {
   syncAppliedFilters()
   syncBridgeAppliedFilters()
+  loadChannelTypeOptions()
   loadMessagePage()
   loadStats()
   loadRoleOptions()

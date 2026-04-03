@@ -17,17 +17,29 @@ public interface DeviceMessageService {
     /**
      * 根据设备编码查询最近的消息日志。
      */
-    List<DeviceMessageLog> listMessageLogs(String deviceCode);
+    default List<DeviceMessageLog> listMessageLogs(String deviceCode) {
+        return listMessageLogs(null, deviceCode);
+    }
+
+    List<DeviceMessageLog> listMessageLogs(Long currentUserId, String deviceCode);
 
     /**
      * 按条件分页查询消息追踪日志。
      */
-    PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize);
+    default PageResult<DeviceMessageLog> pageMessageTraceLogs(DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize) {
+        return pageMessageTraceLogs(null, query, pageNum, pageSize);
+    }
+
+    PageResult<DeviceMessageLog> pageMessageTraceLogs(Long currentUserId, DeviceMessageTraceQuery query, Integer pageNum, Integer pageSize);
 
     /**
      * 查询消息追踪统计概览。
      */
-    DeviceMessageTraceStatsVO getMessageTraceStats(DeviceMessageTraceQuery query);
+    default DeviceMessageTraceStatsVO getMessageTraceStats(DeviceMessageTraceQuery query) {
+        return getMessageTraceStats(null, query);
+    }
+
+    DeviceMessageTraceStatsVO getMessageTraceStats(Long currentUserId, DeviceMessageTraceQuery query);
 
     /**
      * 处理设备上行消息。

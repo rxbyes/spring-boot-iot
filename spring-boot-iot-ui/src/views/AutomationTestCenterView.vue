@@ -1,7 +1,7 @@
 <template>
-  <AutomationAssetsView />
+  <RdWorkbenchLandingView />
 </template>
 
 <script setup lang="ts">
-import AutomationAssetsView from './AutomationAssetsView.vue';
+import RdWorkbenchLandingView from './RdWorkbenchLandingView.vue';
 </script>

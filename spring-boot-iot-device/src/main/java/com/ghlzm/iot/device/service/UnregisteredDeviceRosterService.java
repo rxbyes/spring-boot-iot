@@ -15,7 +15,17 @@ public interface UnregisteredDeviceRosterService {
     long countByFilters(String productKey, String deviceCode);
 
     /**
+     * 按租户统计满足筛选条件的未登记上报设备数量。
+     */
+    long countByFilters(Long tenantId, String productKey, String deviceCode);
+
+    /**
      * 分页查询未登记上报设备。
      */
     List<DevicePageVO> listByFilters(String productKey, String deviceCode, long offset, long limit);
+
+    /**
+     * 按租户分页查询未登记上报设备。
+     */
+    List<DevicePageVO> listByFilters(Long tenantId, String productKey, String deviceCode, long offset, long limit);
 }

@@ -29,7 +29,7 @@
             <el-form-item>
               <el-select v-model="searchForm.docCategory" clearable placeholder="文档分类">
                 <el-option
-                  v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                  v-for="item in categoryOptions"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
@@ -280,7 +280,7 @@
               <el-form-item label="文档分类" prop="docCategory">
                 <el-select v-model="formData.docCategory" placeholder="请选择分类">
                   <el-option
-                    v-for="item in HELP_DOC_CATEGORY_OPTIONS"
+                    v-for="item in categoryOptions"
                     :key="item.value"
                     :label="item.label"
                     :value="item.value"
@@ -368,6 +368,7 @@ import {
   HELP_DOC_CATEGORY_OPTIONS,
   addHelpDocument,
   deleteHelpDocument,
+  fetchHelpDocCategoryOptions,
   getHelpDocument,
   pageHelpDocuments,
   updateHelpDocument,
@@ -435,6 +436,7 @@ const detailRecord = ref<HelpDocumentRecord | null>(null)
 const tableData = ref<HelpDocumentRecord[]>([])
 const selectedRows = ref<HelpDocumentRecord[]>([])
 const roleOptions = ref<Role[]>([])
+const categoryOptions = ref(HELP_DOC_CATEGORY_OPTIONS.map((item) => ({ ...item })))
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, resetTotal } = useServerPagination()
 let latestListRequestId = 0
 
@@ -556,7 +558,7 @@ function formatValue(value?: string | null) {
 }
 
 function getCategoryLabel(value?: string | null) {
-  return HELP_DOC_CATEGORY_OPTIONS.find((item) => item.value === value)?.label || '--'
+  return categoryOptions.value.find((item) => item.value === value)?.label || '--'
 }
 
 function categoryTagType(value?: string | null): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
@@ -612,6 +614,10 @@ async function loadRoleOptions() {
   } catch (error) {
     console.error('加载角色列表失败', error)
   }
+}
+
+async function loadHelpDocCategoryOptions() {
+  categoryOptions.value = await fetchHelpDocCategoryOptions()
 }
 
 async function loadHelpDocPage() {
@@ -820,10 +826,9 @@ async function handleSubmit() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   syncAppliedFilters()
-  loadHelpDocPage()
-  loadRoleOptions()
+  await Promise.all([loadHelpDocCategoryOptions(), loadHelpDocPage(), loadRoleOptions()])
 })
 </script>
 
