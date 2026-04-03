@@ -198,7 +198,7 @@ describe('ProductModelDesignerWorkspace', () => {
     })
   })
 
-  it('loads manual extraction guidance in a director-journal governance sheet with summary rulers and step ledger', async () => {
+  it('loads normative-first governance guidance in the journal workspace', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
@@ -230,10 +230,10 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('.product-model-designer__curation-flow').exists()).toBe(false)
     expect(wrapper.findAll('.product-model-designer__curation-item')).toHaveLength(0)
     expect(wrapper.find('.product-model-designer__candidate-card').exists()).toBe(false)
-    expect(wrapper.text()).toContain('手动提炼')
-    expect(wrapper.text()).toContain('自动提炼')
-    expect(wrapper.text()).toContain('单次只解析一个设备样本')
-    expect(wrapper.text()).toContain('运行期证据')
+    expect(wrapper.text()).toContain('规范证据优先')
+    expect(wrapper.text()).toContain('报文验证')
+    expect(wrapper.text()).toContain('倾角 / 加速度 / 裂缝一体机')
+    expect(wrapper.text()).toContain('样本 JSON')
     expect(wrapper.text()).toContain('对比治理')
     expect(wrapper.text()).toContain('进入双证据治理')
   })

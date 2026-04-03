@@ -292,10 +292,13 @@ describe('ProductModelDesignerDrawer', () => {
     })
   })
 
-  it('builds compare rows from dual evidence and applies the default governance decision', async () => {
+  it('defaults the drawer to normative governance for the integrated preset and applies the selected decisions', async () => {
     const wrapper = mountDrawer()
     await flushPromises()
     await nextTick()
+
+    expect(wrapper.text()).toContain('规范证据优先')
+    expect(wrapper.text()).toContain('倾角 / 加速度 / 裂缝一体机')
 
     const sampleInput = wrapper.find('[data-testid="manual-sample-input"] textarea')
     await sampleInput.setValue('{"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":-0.0376,"AZI":-8.6772}}}}')
@@ -305,10 +308,10 @@ describe('ProductModelDesignerDrawer', () => {
 
     expect(mockListProductModels).toHaveBeenCalledWith(1001)
     expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
-      manualExtract: {
-        sampleType: 'business',
-        samplePayload: '{"SK11E80D1307426AZ":{"L1_QJ_1":{"2026-03-31T04:05:55.000Z":{"X":-0.0376,"AZI":-8.6772}}}}'
-      },
+      governanceMode: 'normative',
+      normativePresetCode: 'landslide-integrated-tilt-accel-crack-v1',
+      selectedNormativeIdentifiers: ['L1_QJ_1.X', 'L1_QJ_1.Y', 'L1_QJ_1.Z', 'L1_QJ_1.angle', 'L1_QJ_1.AZI'],
+      manualExtract: undefined,
       manualDraftItems: [],
       includeRuntimeCandidates: true
     })

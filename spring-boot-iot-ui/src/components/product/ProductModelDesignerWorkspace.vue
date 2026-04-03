@@ -57,8 +57,8 @@
       <section v-if="designerMode === 'manual'" class="product-model-designer__governance-sheet">
         <div class="product-model-designer__sheet-head">
           <div class="product-model-designer__sheet-copy">
-            <strong>手动提炼 + 自动提炼</strong>
-            <p>围绕当前产品的单设备样本与运行期证据完成对比治理，再进入正式模型确认。</p>
+            <strong>规范证据优先 + 报文验证</strong>
+            <p>首批按 {{ INTEGRATED_NORMATIVE_PRESET.title }} 规范字段骨架执行 compare，样本 JSON 继续保留为辅助核对工具。</p>
           </div>
           <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
             进入双证据治理
@@ -144,6 +144,7 @@ import { computed, ref, watch } from 'vue'
 
 import StandardButton from '@/components/StandardButton.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
+import { INTEGRATED_NORMATIVE_PRESET } from '@/components/product/productModelGovernanceNormativePresets'
 import { productApi } from '@/api/product'
 import type { Product, ProductModel, ProductModelType } from '@/types/api'
 
@@ -158,22 +159,22 @@ const typeOptions: Array<{ label: string; value: ProductModelType }> = [
 ]
 const manualLedgerItems = [
   {
-    key: 'sample',
-    title: '录入手动证据',
-    summary: '单次只解析一个设备样本',
-    description: '支持业务数据、状态数据和其他数据三类样本，并允许补录属性、事件、服务候选。时间戳层只作为证据层，不会进入正式 identifier。'
+    key: 'preset',
+    title: '规范证据优先',
+    summary: INTEGRATED_NORMATIVE_PRESET.title,
+    description: '首批以内置规范字段骨架发起 compare，正式模型统一采用规范化 identifier，不再围绕厂家原始字段名直接建正式契约。'
   },
   {
-    key: 'review',
-    title: '并列核对运行期证据',
-    summary: '手动提炼与自动提炼统一对比治理',
-    description: '运行期证据会补齐属性、事件和服务候选；数组不会自动进入正式物模型，对比区只围绕可核对的稳定叶子字段展开。'
+    key: 'runtime',
+    title: '报文验证',
+    summary: '样本 JSON 保留为辅助核对工具',
+    description: '运行期证据会并列拉取属性快照、消息日志与命令记录，样本 JSON 继续保留为人工核对辅助，不作为默认 compare 主入口。'
   },
   {
-    key: 'confirm',
-    title: '确认正式应用',
+    key: 'apply',
+    title: '显式 apply',
     summary: '继续落在 iot_product_model',
-    description: '对比后的候选会先进入正式确认区，再通过新增 / 修订 / 跳过的显式决策写库，不新增草稿表和并行路由。'
+    description: '对比后的候选只会通过新增 / 修订 / 跳过的显式决策写库，不新增草稿表和并行路由。'
   }
 ] as const
 
@@ -191,14 +192,14 @@ const activeType = ref<ProductModelType>('property')
 const fullDesignerVisible = ref(false)
 
 const designerStageTitle = computed(() =>
-  designerMode.value === 'manual' ? '基于手动 + 自动双证据治理产品契约' : '统一维护产品正式物模型'
+  designerMode.value === 'manual' ? '基于规范证据 + 报文证据治理产品契约' : '统一维护产品正式物模型'
 )
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
     return '正式模型维持当前契约总表，新增字段再回到手动提炼核对来源证据。'
   }
-  return '先围绕单设备样本 JSON 汇总手动证据，再并列拉取运行期证据进入对比治理，最后确认正式写库。'
+  return '先按规范字段骨架发起 compare，再用报文证据核对稳定上报，样本 JSON 继续保留为辅助核对工具。'
 })
 const summaryCards = computed(() => [
   {
@@ -208,8 +209,8 @@ const summaryCards = computed(() => [
   },
   {
     key: 'evidenceBoundary',
-    label: '运行期证据',
-    value: designerMode.value === 'manual' ? '手动 + 自动' : '正式契约'
+    label: '治理语义',
+    value: designerMode.value === 'manual' ? '规范优先 + 报文验证' : '正式契约'
   },
   {
     key: 'formalModels',

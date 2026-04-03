@@ -4,7 +4,7 @@
     class="product-model-designer-drawer"
     size="68rem"
     title="物模型双证据治理"
-    subtitle="围绕当前产品执行手动提炼、自动提炼对比与正式应用，不新增并行草稿入口。"
+    subtitle="围绕当前产品执行规范证据、报文证据 compare 与正式 apply，不新增并行草稿入口。"
     :loading="loading && !hasLoadedContent"
     loading-text="正在加载产品物模型..."
     :error-message="errorMessage"
@@ -43,9 +43,56 @@
       <div class="detail-section-header">
         <div>
           <h3>证据入口</h3>
-          <p>手动样本与人工补录用于表达业务理解，运行期证据用于补齐真实上报，最终统一进入 compare。</p>
+          <p>规范证据优先，报文证据负责验证稳定上报；样本 JSON 继续保留为辅助核对工具。</p>
         </div>
       </div>
+
+      <div class="product-model-designer-drawer__mode-switch" role="tablist" aria-label="治理模式">
+        <button
+          type="button"
+          class="product-model-designer-drawer__mode-button"
+          :class="{ 'product-model-designer-drawer__mode-button--active': governanceMode === 'normative' }"
+          @click="governanceMode = 'normative'"
+        >
+          规范证据优先
+        </button>
+        <button
+          type="button"
+          class="product-model-designer-drawer__mode-button"
+          :class="{ 'product-model-designer-drawer__mode-button--active': governanceMode === 'generic' }"
+          @click="governanceMode = 'generic'"
+        >
+          通用双证据
+        </button>
+      </div>
+
+      <article
+        v-if="governanceMode === 'normative'"
+        class="product-model-designer-drawer__preset-card"
+      >
+        <div class="product-model-designer-drawer__preset-copy">
+          <strong>{{ activeNormativePreset.title }}</strong>
+          <p>{{ activeNormativePreset.description }}</p>
+          <span>{{ activeNormativePreset.helperText }}</span>
+        </div>
+        <div class="product-model-designer-drawer__preset-identifiers">
+          <label
+            v-for="item in activeNormativePreset.availableIdentifiers"
+            :key="item.identifier"
+            class="product-model-designer-drawer__preset-item"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedNormativeIdentifiers.includes(item.identifier)"
+              @change="toggleNormativeIdentifier(item.identifier, ($event.target as HTMLInputElement).checked)"
+            />
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.identifier }}</span>
+            </div>
+          </label>
+        </div>
+      </article>
 
       <div class="product-model-designer-drawer__sample-type">
         <button
@@ -65,7 +112,9 @@
           v-model="manualSamplePayload"
           type="textarea"
           :rows="10"
-          placeholder="请输入当前产品下单设备样本 JSON，作为手动证据来源。"
+          :placeholder="governanceMode === 'normative'
+            ? '可粘贴单设备样本 JSON 作为辅助核对工具；规范模式下默认不会直接进入 compare 请求。'
+            : '请输入当前产品下单设备样本 JSON，作为手动证据来源。'"
         />
       </div>
 
@@ -318,6 +367,7 @@ import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import { INTEGRATED_NORMATIVE_PRESET } from '@/components/product/productModelGovernanceNormativePresets'
 import { productApi } from '@/api/product'
 import type {
   Product,
@@ -354,6 +404,7 @@ interface ManualDraftForm extends ProductModelGovernanceManualDraftItem {
 }
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
+type GovernanceMode = 'normative' | 'generic'
 
 const sampleTypeOptions: Array<{ label: string; value: ProductModelManualSampleType }> = [
   { label: '业务数据', value: 'business' },
@@ -371,6 +422,9 @@ const loading = ref(false)
 const compareLoading = ref(false)
 const applyLoading = ref(false)
 const errorMessage = ref('')
+const governanceMode = ref<GovernanceMode>('normative')
+const normativePresetCode = ref(INTEGRATED_NORMATIVE_PRESET.code)
+const selectedNormativeIdentifiers = ref<string[]>([...INTEGRATED_NORMATIVE_PRESET.defaultIdentifiers])
 const manualSampleType = ref<ProductModelManualSampleType>('business')
 const manualSamplePayload = ref('')
 const includeRuntimeCandidates = ref(true)
@@ -382,6 +436,7 @@ let manualDraftSeed = 0
 
 const compareSummary = computed(() => compareResult.value?.summary ?? null)
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
+const activeNormativePreset = computed(() => INTEGRATED_NORMATIVE_PRESET)
 const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
@@ -497,18 +552,32 @@ function removeManualDraft(key: string) {
   manualDrafts.value = manualDrafts.value.filter((draft) => draft.key !== key)
 }
 
+function toggleNormativeIdentifier(identifier: string, checked: boolean) {
+  if (checked) {
+    if (!selectedNormativeIdentifiers.value.includes(identifier)) {
+      selectedNormativeIdentifiers.value = [...selectedNormativeIdentifiers.value, identifier]
+    }
+    return
+  }
+  selectedNormativeIdentifiers.value = selectedNormativeIdentifiers.value.filter((item) => item !== identifier)
+}
+
 async function handleCompare() {
   if (!props.product?.id) {
     return
   }
   compareLoading.value = true
   errorMessage.value = ''
+  const trimmedSamplePayload = manualSamplePayload.value.trim()
   try {
     const response = await productApi.compareProductModelGovernance(props.product.id, {
-      manualExtract: manualSamplePayload.value.trim()
+      governanceMode: governanceMode.value,
+      normativePresetCode: governanceMode.value === 'normative' ? normativePresetCode.value : undefined,
+      selectedNormativeIdentifiers: governanceMode.value === 'normative' ? selectedNormativeIdentifiers.value : undefined,
+      manualExtract: governanceMode.value === 'generic' && trimmedSamplePayload
         ? {
             sampleType: manualSampleType.value,
-            samplePayload: manualSamplePayload.value.trim()
+            samplePayload: trimmedSamplePayload
           }
         : undefined,
       manualDraftItems: normalizedManualDraftItems(),
@@ -607,6 +676,9 @@ function buildApplyItem(row: ProductModelGovernanceCompareRow, decision: Product
 }
 
 function resetGovernanceSession() {
+  governanceMode.value = 'normative'
+  normativePresetCode.value = INTEGRATED_NORMATIVE_PRESET.code
+  selectedNormativeIdentifiers.value = [...INTEGRATED_NORMATIVE_PRESET.defaultIdentifiers]
   manualSampleType.value = 'business'
   manualSamplePayload.value = ''
   includeRuntimeCandidates.value = true
@@ -636,7 +708,9 @@ function resetGovernanceSession() {
 .product-model-designer-drawer__identity,
 .product-model-designer-drawer__summary,
 .product-model-designer-drawer__draft-list,
-.product-model-designer-drawer__draft-grid {
+.product-model-designer-drawer__draft-grid,
+.product-model-designer-drawer__preset-copy,
+.product-model-designer-drawer__preset-identifiers {
   display: grid;
   gap: 0.72rem;
 }
@@ -668,6 +742,7 @@ function resetGovernanceSession() {
 
 .product-model-designer-drawer__meta,
 .product-model-designer-drawer__actions,
+.product-model-designer-drawer__mode-switch,
 .product-model-designer-drawer__sample-type,
 .product-model-designer-drawer__draft-type-switch,
 .product-model-designer-drawer__runtime-toggle,
@@ -680,6 +755,7 @@ function resetGovernanceSession() {
 
 .product-model-designer-drawer__meta span,
 .product-model-designer-drawer__summary-item,
+.product-model-designer-drawer__mode-button,
 .product-model-designer-drawer__runtime-button,
 .product-model-designer-drawer__sample-type-button,
 .product-model-designer-drawer__draft-type-button,
@@ -714,6 +790,7 @@ function resetGovernanceSession() {
 }
 
 .product-model-designer-drawer__runtime-button,
+.product-model-designer-drawer__mode-button,
 .product-model-designer-drawer__sample-type-button,
 .product-model-designer-drawer__draft-type-button,
 .product-model-designer-drawer__draft-add,
@@ -724,11 +801,50 @@ function resetGovernanceSession() {
   cursor: pointer;
 }
 
+.product-model-designer-drawer__mode-button--active,
 .product-model-designer-drawer__runtime-button--active,
 .product-model-designer-drawer__sample-type-button--active,
 .product-model-designer-drawer__draft-type-button--active {
   border-color: color-mix(in srgb, var(--brand) 52%, #fff);
   color: var(--brand);
+}
+
+.product-model-designer-drawer__preset-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.98));
+}
+
+.product-model-designer-drawer__preset-copy span,
+.product-model-designer-drawer__preset-item span {
+  color: var(--text-caption);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.product-model-designer-drawer__preset-identifiers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.product-model-designer-drawer__preset-item {
+  display: flex;
+  gap: 0.72rem;
+  align-items: flex-start;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.product-model-designer-drawer__preset-item input {
+  margin-top: 0.2rem;
+}
+
+.product-model-designer-drawer__preset-item strong {
+  color: var(--text-heading);
 }
 
 .product-model-designer-drawer__draft-list {
@@ -779,6 +895,7 @@ function resetGovernanceSession() {
 @media (max-width: 960px) {
   .product-model-designer-drawer__header,
   .product-model-designer-drawer__summary,
+  .product-model-designer-drawer__preset-identifiers,
   .product-model-designer-drawer__draft-grid,
   .product-model-designer-drawer__result-grid {
     grid-template-columns: 1fr;
