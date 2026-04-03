@@ -270,11 +270,19 @@ export type ProductModelGovernanceCompareStatus =
 
 export type ProductModelGovernanceDecision = 'create' | 'update' | 'skip';
 
+export type ProductModelGovernanceEvidenceOrigin =
+  | 'normative'
+  | 'sample_json'
+  | 'manual_draft'
+  | 'runtime'
+  | 'formal';
+
 export interface ProductModelGovernanceEvidence {
   modelId?: IdType | null;
   modelType: ProductModelType;
   identifier: string;
   modelName: string;
+  evidenceOrigin?: ProductModelGovernanceEvidenceOrigin | null;
   dataType?: string | null;
   specsJson?: string | null;
   eventType?: string | null;
@@ -284,6 +292,12 @@ export interface ProductModelGovernanceEvidence {
   requiredFlag?: number | null;
   description?: string | null;
   groupKey?: string | null;
+  unit?: string | null;
+  normativeSource?: string | null;
+  rawIdentifiers?: string[] | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  sensorCode?: string | null;
   confidence?: number | null;
   needsReview?: boolean | null;
   candidateStatus?: string | null;
@@ -349,6 +363,9 @@ export interface ProductModelGovernanceManualDraftItem {
 }
 
 export interface ProductModelGovernanceComparePayload {
+  governanceMode?: 'normative' | 'manual' | null;
+  normativePresetCode?: string | null;
+  selectedNormativeIdentifiers?: string[] | null;
   manualExtract?: ProductModelGovernanceManualExtractPayload;
   manualDraftItems?: ProductModelGovernanceManualDraftItem[];
   includeRuntimeCandidates?: boolean;

@@ -110,4 +110,41 @@ describe('ProductModelGovernanceCompareTable', () => {
       [{ key: 'event:alarmRaised', decision: 'review' }]
     ])
   })
+
+  it('renders normative evidence labels and raw identifiers in the compare row', () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'L1_QJ_1.X',
+            compareStatus: 'double_aligned',
+            suggestedAction: '纳入新增',
+            riskFlags: [],
+            suspectedMatches: [],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'L1_QJ_1.X',
+              modelName: '倾角测点 X 轴倾角',
+              evidenceOrigin: 'normative',
+              unit: '°',
+              normativeSource: '表 B.1',
+              rawIdentifiers: ['X', 'angleX']
+            },
+            runtimeCandidate: {
+              modelType: 'property',
+              identifier: 'L1_QJ_1.X',
+              modelName: '倾角测点 X 轴倾角',
+              evidenceOrigin: 'runtime',
+              sourceTables: ['iot_device_property']
+            }
+          }
+        ]
+      }
+    })
+
+    expect(wrapper.text()).toContain('规范证据')
+    expect(wrapper.text()).toContain('表 B.1')
+    expect(wrapper.text()).toContain('X / angleX')
+  })
 })

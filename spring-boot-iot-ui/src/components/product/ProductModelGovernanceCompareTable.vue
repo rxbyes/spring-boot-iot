@@ -41,19 +41,43 @@
 
         <div class="product-model-governance-compare-table__evidence-grid">
           <section class="product-model-governance-compare-table__evidence-card">
-            <span>手动证据</span>
+            <span>规范证据</span>
             <strong>{{ evidenceTitle(row.manualCandidate) }}</strong>
             <p>{{ evidenceSummary(row.manualCandidate) }}</p>
+            <div v-if="evidenceNotes(row.manualCandidate).length" class="product-model-governance-compare-table__evidence-notes">
+              <small
+                v-for="note in evidenceNotes(row.manualCandidate)"
+                :key="note"
+              >
+                {{ note }}
+              </small>
+            </div>
           </section>
           <section class="product-model-governance-compare-table__evidence-card">
-            <span>自动证据</span>
+            <span>报文证据</span>
             <strong>{{ evidenceTitle(row.runtimeCandidate) }}</strong>
             <p>{{ evidenceSummary(row.runtimeCandidate) }}</p>
+            <div v-if="evidenceNotes(row.runtimeCandidate).length" class="product-model-governance-compare-table__evidence-notes">
+              <small
+                v-for="note in evidenceNotes(row.runtimeCandidate)"
+                :key="note"
+              >
+                {{ note }}
+              </small>
+            </div>
           </section>
           <section class="product-model-governance-compare-table__evidence-card">
             <span>正式模型</span>
             <strong>{{ evidenceTitle(row.formalModel) }}</strong>
             <p>{{ evidenceSummary(row.formalModel) }}</p>
+            <div v-if="evidenceNotes(row.formalModel).length" class="product-model-governance-compare-table__evidence-notes">
+              <small
+                v-for="note in evidenceNotes(row.formalModel)"
+                :key="note"
+              >
+                {{ note }}
+              </small>
+            </div>
           </section>
         </div>
 
@@ -162,8 +186,22 @@ function evidenceSummary(evidence?: ProductModelGovernanceEvidence | null) {
     return '当前侧暂无可用证据。'
   }
   const typePart = evidence.dataType || evidence.eventType || formatServiceSummary(evidence)
-  const sources = evidence.sourceTables?.length ? evidence.sourceTables.join(' / ') : '未标注来源'
-  return [typePart, sources].filter(Boolean).join(' · ')
+  const meta = [
+    evidence.unit,
+    evidence.monitorTypeCode,
+    evidence.sourceTables?.length ? evidence.sourceTables.join(' / ') : null
+  ].filter(Boolean)
+  return [typePart, ...meta].filter(Boolean).join(' · ') || '当前侧已识别到证据。'
+}
+
+function evidenceNotes(evidence?: ProductModelGovernanceEvidence | null) {
+  if (!evidence) {
+    return []
+  }
+  return [
+    evidence.normativeSource,
+    evidence.rawIdentifiers?.length ? evidence.rawIdentifiers.join(' / ') : null
+  ].filter((item): item is string => Boolean(item))
 }
 
 function formatServiceSummary(evidence: ProductModelGovernanceEvidence) {
@@ -349,6 +387,16 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.product-model-governance-compare-table__evidence-notes {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.product-model-governance-compare-table__evidence-notes small {
+  color: var(--text-caption);
+  line-height: 1.5;
 }
 
 .product-model-governance-compare-table__risk-flag {
