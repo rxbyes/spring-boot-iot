@@ -536,6 +536,7 @@ import {
   updateRiskPoint,
   deleteRiskPoint,
   bindDevice,
+  listBindableDevices,
   listPendingBindings,
   getPendingBindingCandidates,
   promotePendingBinding
@@ -546,8 +547,6 @@ import type {
   RiskPointPendingMetricCandidate,
   RiskPointPendingPromotionHistory
 } from '../api/riskPoint';
-import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice, listBindableDevices } from '../api/riskPoint';
-import type { RiskPoint } from '../api/riskPoint';
 import { formatDateTime } from '@/utils/format';
 
 type RegionTreeOption = Partial<Region> & {
