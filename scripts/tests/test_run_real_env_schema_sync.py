@@ -34,6 +34,17 @@ class DictTargetDefinitionTest(unittest.TestCase):
         flattened_legacy = [legacy for _, _, _, _, legacy_values, _ in targets for legacy in legacy_values]
         self.assertCountEqual(flattened_legacy, ["critical", "warning", "info"])
 
+    def test_system_governance_dict_targets_are_authoritative(self):
+        targets = schema_sync.system_governance_dict_targets()
+        self.assertEqual(
+            [item[0] for item in targets["help_doc_category"]["target_items"]],
+            ["business", "technical", "faq"],
+        )
+        self.assertEqual(
+            [item[0] for item in targets["notification_channel_type"]["target_items"]],
+            ["email", "sms", "webhook", "wechat", "feishu", "dingtalk"],
+        )
+
 
 class FakeCursor:
     def __init__(self):
@@ -47,6 +58,10 @@ class FakeCursor:
     def fetchone(self):
         if "FROM information_schema.TABLES" in self._last_sql:
             return (1,)
+        if "SELECT COUNT(1) FROM `sys_dict_item`" in self._last_sql:
+            return (0,)
+        if "SELECT COALESCE(MAX(id), 0) + 1 FROM `sys_dict_item`" in self._last_sql:
+            return (8000,)
         if "FROM sys_dict" in self._last_sql:
             return (7202,)
         raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
@@ -85,6 +100,19 @@ class DictDuplicateCleanupTest(unittest.TestCase):
         cleanup_sql, cleanup_params = duplicate_cleanup[0]
         self.assertIn("deleted = 1", cleanup_sql)
         self.assertEqual(cleanup_params, ("alarm_level", 7202))
+
+    def test_ensure_system_governance_dicts_syncs_two_dict_codes(self):
+        cursor = FakeCursor()
+
+        schema_sync.ensure_system_governance_dicts(cursor, "rm_iot")
+
+        dict_select_params = [
+            params
+            for sql, params in cursor.executed
+            if "SELECT id" in sql and "FROM sys_dict" in sql and params is not None
+        ]
+        self.assertIn(("help_doc_category",), dict_select_params)
+        self.assertIn(("notification_channel_type",), dict_select_params)
 
 
 class MigrateLevelValuesCursor:

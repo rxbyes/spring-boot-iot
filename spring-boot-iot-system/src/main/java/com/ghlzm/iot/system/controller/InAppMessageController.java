@@ -48,8 +48,19 @@ public class InAppMessageController {
                                                     @RequestParam(required = false) String targetType,
                                                     @RequestParam(required = false) Integer status,
                                                     @RequestParam(defaultValue = "1") Long pageNum,
-                                                    @RequestParam(defaultValue = "10") Long pageSize) {
-        return R.ok(inAppMessageService.pageMessages(title, messageType, priority, sourceType, targetType, status, pageNum, pageSize));
+                                                    @RequestParam(defaultValue = "10") Long pageSize,
+                                                    Authentication authentication) {
+        return R.ok(inAppMessageService.pageMessages(
+                requireCurrentUserId(authentication),
+                title,
+                messageType,
+                priority,
+                sourceType,
+                targetType,
+                status,
+                pageNum,
+                pageSize
+        ));
     }
 
     @GetMapping("/stats")
@@ -57,8 +68,15 @@ public class InAppMessageController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date startTime,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date endTime,
             @RequestParam(required = false) String messageType,
-            @RequestParam(required = false) String sourceType) {
-        return R.ok(inAppMessageService.getMessageStats(startTime, endTime, messageType, sourceType));
+            @RequestParam(required = false) String sourceType,
+            Authentication authentication) {
+        return R.ok(inAppMessageService.getMessageStats(
+                requireCurrentUserId(authentication),
+                startTime,
+                endTime,
+                messageType,
+                sourceType
+        ));
     }
 
     @GetMapping("/bridge/stats")
@@ -69,8 +87,10 @@ public class InAppMessageController {
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) String channelCode,
-            @RequestParam(required = false) Integer bridgeStatus) {
+            @RequestParam(required = false) Integer bridgeStatus,
+            Authentication authentication) {
         return R.ok(inAppMessageBridgeQueryService.getBridgeStats(
+                requireCurrentUserId(authentication),
                 startTime,
                 endTime,
                 messageType,
@@ -91,8 +111,10 @@ public class InAppMessageController {
             @RequestParam(required = false) String channelCode,
             @RequestParam(required = false) Integer bridgeStatus,
             @RequestParam(defaultValue = "1") Long pageNum,
-            @RequestParam(defaultValue = "10") Long pageSize) {
+            @RequestParam(defaultValue = "10") Long pageSize,
+            Authentication authentication) {
         return R.ok(inAppMessageBridgeQueryService.pageBridgeLogs(
+                requireCurrentUserId(authentication),
                 startTime,
                 endTime,
                 messageType,
@@ -106,13 +128,14 @@ public class InAppMessageController {
     }
 
     @GetMapping("/bridge/{id:[0-9]+}/attempts")
-    public R<java.util.List<InAppMessageBridgeAttemptVO>> listBridgeAttempts(@PathVariable Long id) {
-        return R.ok(inAppMessageBridgeQueryService.listBridgeAttempts(id));
+    public R<java.util.List<InAppMessageBridgeAttemptVO>> listBridgeAttempts(@PathVariable Long id,
+                                                                             Authentication authentication) {
+        return R.ok(inAppMessageBridgeQueryService.listBridgeAttempts(requireCurrentUserId(authentication), id));
     }
 
     @GetMapping("/{id:[0-9]+}")
-    public R<InAppMessage> getById(@PathVariable Long id) {
-        return R.ok(inAppMessageService.getById(id));
+    public R<InAppMessage> getById(@PathVariable Long id, Authentication authentication) {
+        return R.ok(inAppMessageService.getById(requireCurrentUserId(authentication), id));
     }
 
     @PostMapping("/add")

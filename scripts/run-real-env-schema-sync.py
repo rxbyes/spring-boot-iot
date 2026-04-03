@@ -575,6 +575,41 @@ def ensure_level_dicts(cur: pymysql.cursors.Cursor, db: str) -> None:
         ensure_level_dict(cur, db, dict_code=dict_code, **definition)
 
 
+def system_governance_dict_targets() -> Dict[str, Dict[str, object]]:
+    return {
+        "help_doc_category": {
+            "dict_name": "帮助文档分类",
+            "sort_no": 4,
+            "dict_remark": "帮助中心分类字典",
+            "preferred_dict_id": 7204,
+            "target_items": [
+                ("business", "业务类", 1, "帮助文档分类-业务类", [], 7312),
+                ("technical", "技术类", 2, "帮助文档分类-技术类", [], 7313),
+                ("faq", "常见问题", 3, "帮助文档分类-常见问题", [], 7314),
+            ],
+        },
+        "notification_channel_type": {
+            "dict_name": "通知渠道类型",
+            "sort_no": 5,
+            "dict_remark": "通知渠道类型字典",
+            "preferred_dict_id": 7205,
+            "target_items": [
+                ("email", "邮件", 1, "通知渠道类型-邮件", [], 7315),
+                ("sms", "短信", 2, "通知渠道类型-短信", [], 7316),
+                ("webhook", "Webhook", 3, "通知渠道类型-Webhook", [], 7317),
+                ("wechat", "微信", 4, "通知渠道类型-微信", [], 7318),
+                ("feishu", "飞书", 5, "通知渠道类型-飞书", [], 7319),
+                ("dingtalk", "钉钉", 6, "通知渠道类型-钉钉", [], 7320),
+            ],
+        },
+    }
+
+
+def ensure_system_governance_dicts(cur: pymysql.cursors.Cursor, db: str) -> None:
+    for dict_code, definition in system_governance_dict_targets().items():
+        ensure_level_dict(cur, db, dict_code=dict_code, **definition)
+
+
 def normalize_color_case(column: str) -> str:
     return f"""
     CASE LOWER(TRIM({column}))
@@ -786,6 +821,8 @@ def main() -> int:
                     print("[dict] sys_dict default constraints aligned")
                 ensure_level_dicts(cur, args.db)
                 print("[dict] risk_point_level / alarm_level / risk_level items aligned")
+                ensure_system_governance_dicts(cur, args.db)
+                print("[dict] help_doc_category / notification_channel_type items aligned")
 
             if table_exists(cur, args.db, "sys_audit_log"):
                 ensure_audit_defaults(cur)

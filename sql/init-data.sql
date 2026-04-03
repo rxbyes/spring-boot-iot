@@ -607,7 +607,9 @@ INSERT INTO sys_dict (
 ) VALUES
     (7201, 1, '风险点等级', 'risk_point_level', 'text', 1, 1, '风险点档案等级字典', 1, NOW(), 1, NOW(), 0),
     (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级四色字典', 1, NOW(), 1, NOW(), 0),
-    (7203, 1, '风险态势等级', 'risk_level', 'text', 1, 3, '运行态风险颜色字典', 1, NOW(), 1, NOW(), 0)
+    (7203, 1, '风险态势等级', 'risk_level', 'text', 1, 3, '运行态风险颜色字典', 1, NOW(), 1, NOW(), 0),
+    (7204, 1, '帮助文档分类', 'help_doc_category', 'text', 1, 4, '帮助中心分类字典', 1, NOW(), 1, NOW(), 0),
+    (7205, 1, '通知渠道类型', 'notification_channel_type', 'text', 1, 5, '通知渠道类型字典', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_name = VALUES(dict_name),
     dict_type = VALUES(dict_type),
@@ -624,8 +626,8 @@ SET status = 0,
     update_by = 1,
     update_time = NOW()
 WHERE tenant_id = 1
-  AND dict_code IN ('risk_point_level', 'alarm_level', 'risk_level')
-  AND id NOT IN (7201, 7202, 7203);
+  AND dict_code IN ('risk_point_level', 'alarm_level', 'risk_level', 'help_doc_category', 'notification_channel_type')
+  AND id NOT IN (7201, 7202, 7203, 7204, 7205);
 
 INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
@@ -641,7 +643,16 @@ INSERT INTO sys_dict_item (
     (7308, 1, 7203, '红色', 'red', 'string', 1, 1, '风险态势等级-红色', 1, NOW(), 1, NOW(), 0),
     (7309, 1, 7203, '橙色', 'orange', 'string', 1, 2, '风险态势等级-橙色', 1, NOW(), 1, NOW(), 0),
     (7310, 1, 7203, '黄色', 'yellow', 'string', 1, 3, '风险态势等级-黄色', 1, NOW(), 1, NOW(), 0),
-    (7311, 1, 7203, '蓝色', 'blue', 'string', 1, 4, '风险态势等级-蓝色', 1, NOW(), 1, NOW(), 0)
+    (7311, 1, 7203, '蓝色', 'blue', 'string', 1, 4, '风险态势等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7312, 1, 7204, '业务类', 'business', 'string', 1, 1, '帮助文档分类-业务类', 1, NOW(), 1, NOW(), 0),
+    (7313, 1, 7204, '技术类', 'technical', 'string', 1, 2, '帮助文档分类-技术类', 1, NOW(), 1, NOW(), 0),
+    (7314, 1, 7204, '常见问题', 'faq', 'string', 1, 3, '帮助文档分类-常见问题', 1, NOW(), 1, NOW(), 0),
+    (7315, 1, 7205, '邮件', 'email', 'string', 1, 1, '通知渠道类型-邮件', 1, NOW(), 1, NOW(), 0),
+    (7316, 1, 7205, '短信', 'sms', 'string', 1, 2, '通知渠道类型-短信', 1, NOW(), 1, NOW(), 0),
+    (7317, 1, 7205, 'Webhook', 'webhook', 'string', 1, 3, '通知渠道类型-Webhook', 1, NOW(), 1, NOW(), 0),
+    (7318, 1, 7205, '微信', 'wechat', 'string', 1, 4, '通知渠道类型-微信', 1, NOW(), 1, NOW(), 0),
+    (7319, 1, 7205, '飞书', 'feishu', 'string', 1, 5, '通知渠道类型-飞书', 1, NOW(), 1, NOW(), 0),
+    (7320, 1, 7205, '钉钉', 'dingtalk', 'string', 1, 6, '通知渠道类型-钉钉', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_id = VALUES(dict_id),
     item_name = VALUES(item_name),
@@ -664,6 +675,8 @@ WHERE tenant_id = 1
       (dict_id = 7201 AND item_value NOT IN ('level_1', 'level_2', 'level_3'))
       OR (dict_id = 7202 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
       OR (dict_id = 7203 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
+      OR (dict_id = 7204 AND item_value NOT IN ('business', 'technical', 'faq'))
+      OR (dict_id = 7205 AND item_value NOT IN ('email', 'sms', 'webhook', 'wechat', 'feishu', 'dingtalk'))
   );
 
 INSERT INTO sys_notification_channel (

@@ -29,18 +29,22 @@ import java.util.Set;
 public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, HelpDocument> implements HelpDocumentService {
 
     private static final Long DEFAULT_TENANT_ID = 1L;
-    private static final Set<String> ALLOWED_CATEGORIES = Set.of("business", "technical", "faq");
+    private static final String HELP_DOC_CATEGORY_DICT_CODE = "help_doc_category";
+    private static final Set<String> DEFAULT_HELP_DOC_CATEGORIES = Set.of("business", "technical", "faq");
 
     private final HelpDocumentMapper helpDocumentMapper;
     private final PermissionService permissionService;
     private final SystemContentSchemaSupport systemContentSchemaSupport;
+    private final SystemDictValueSupport systemDictValueSupport;
 
     public HelpDocumentServiceImpl(HelpDocumentMapper helpDocumentMapper,
                                    PermissionService permissionService,
-                                   SystemContentSchemaSupport systemContentSchemaSupport) {
+                                   SystemContentSchemaSupport systemContentSchemaSupport,
+                                   SystemDictValueSupport systemDictValueSupport) {
         this.helpDocumentMapper = helpDocumentMapper;
         this.permissionService = permissionService;
         this.systemContentSchemaSupport = systemContentSchemaSupport;
+        this.systemDictValueSupport = systemDictValueSupport;
     }
 
     @Override
@@ -53,7 +57,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
     @Transactional(rollbackFor = Exception.class)
     public HelpDocument addDocument(HelpDocument document, Long operatorId) {
         systemContentSchemaSupport.ensureHelpDocumentReady();
-        normalizeAndValidateDocument(document, null);
+        normalizeAndValidateDocument(document, null, operatorId);
         document.setTenantId(resolveTenantId(operatorId, document.getTenantId()));
         if (document.getCreateBy() == null) {
             document.setCreateBy(defaultOperator(operatorId));
@@ -121,7 +125,7 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
         systemContentSchemaSupport.ensureHelpDocumentReady();
         HelpDocument existing = requireDocument(document == null ? null : document.getId());
         ensureDocumentAccessible(operatorId, existing, "帮助文档不存在或无权访问");
-        normalizeAndValidateDocument(document, existing);
+        normalizeAndValidateDocument(document, existing, operatorId);
         document.setTenantId(existing.getTenantId());
         document.setUpdateBy(defaultOperator(operatorId));
         helpDocumentMapper.updateById(document);
@@ -213,12 +217,18 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
         return toAccessVO(document, scope.currentPath());
     }
 
-    private void normalizeAndValidateDocument(HelpDocument document, HelpDocument existing) {
+    private void normalizeAndValidateDocument(HelpDocument document, HelpDocument existing, Long operatorId) {
         if (document == null) {
             throw new BizException("帮助文档不能为空");
         }
         document.setTenantId(existing == null ? defaultTenantId(document.getTenantId()) : existing.getTenantId());
-        document.setDocCategory(normalizeCategory(document.getDocCategory()));
+        document.setDocCategory(systemDictValueSupport.normalizeRequiredLowerCase(
+                operatorId,
+                HELP_DOC_CATEGORY_DICT_CODE,
+                document.getDocCategory(),
+                "文档分类",
+                DEFAULT_HELP_DOC_CATEGORIES
+        ));
         document.setTitle(requireText(document.getTitle(), "文档标题"));
         document.setSummary(nullableText(document.getSummary()));
         document.setContent(requireText(document.getContent(), "文档正文"));
@@ -331,14 +341,6 @@ public class HelpDocumentServiceImpl extends ServiceImpl<HelpDocumentMapper, Hel
             throw new BizException("帮助文档不存在");
         }
         return document;
-    }
-
-    private String normalizeCategory(String rawCategory) {
-        String normalized = StringUtils.hasText(rawCategory) ? rawCategory.trim().toLowerCase(Locale.ROOT) : null;
-        if (!StringUtils.hasText(normalized) || !ALLOWED_CATEGORIES.contains(normalized)) {
-            throw new BizException("文档分类不合法");
-        }
-        return normalized;
     }
 
     private String requireText(String raw, String fieldName) {

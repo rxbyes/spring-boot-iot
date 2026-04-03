@@ -22,14 +22,17 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationChannelServiceImplTest {
@@ -38,6 +41,8 @@ class NotificationChannelServiceImplTest {
     private PermissionService permissionService;
     @Mock
     private NotificationChannelMapper notificationChannelMapper;
+    @Mock
+    private SystemDictValueSupport systemDictValueSupport;
 
     private NotificationChannelServiceImpl notificationChannelService;
 
@@ -49,7 +54,7 @@ class NotificationChannelServiceImplTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        notificationChannelService = spy(new NotificationChannelServiceImpl(permissionService));
+        notificationChannelService = spy(new NotificationChannelServiceImpl(permissionService, systemDictValueSupport));
         Field field = findField(notificationChannelService.getClass(), "baseMapper");
         field.setAccessible(true);
         field.set(notificationChannelService, notificationChannelMapper);
@@ -88,6 +93,30 @@ class NotificationChannelServiceImplTest {
 
         BizException exception = assertThrows(BizException.class, () -> invokeScopedDeleteChannel(99L, 1L));
         assertEquals("通知渠道不存在或无权访问", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectUnknownChannelTypeWhenAddingChannel() {
+        NotificationChannel channel = new NotificationChannel();
+        channel.setTenantId(1L);
+        channel.setChannelCode("bad-type");
+        channel.setChannelName("坏渠道");
+        channel.setChannelType("slack");
+        channel.setConfig("{\"url\":\"https://example.com\"}");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(notificationChannelMapper.selectCount(org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(systemDictValueSupport.normalizeRequiredLowerCase(
+                eq(99L),
+                eq("notification_channel_type"),
+                eq("slack"),
+                eq("渠道类型"),
+                eq(Set.of("email", "sms", "webhook", "wechat", "feishu", "dingtalk"))
+        )).thenThrow(new BizException("渠道类型不合法"));
+
+        BizException exception = assertThrows(BizException.class, () -> notificationChannelService.addChannel(99L, channel));
+        assertEquals("渠道类型不合法", exception.getMessage());
     }
 
     private Object invokeScopedPageChannels(Long currentUserId,

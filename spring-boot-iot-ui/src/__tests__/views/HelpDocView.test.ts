@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import HelpDocView from '@/views/HelpDocView.vue'
 
-const { mockPageHelpDocuments, mockListRoles } = vi.hoisted(() => ({
+const { mockPageHelpDocuments, mockListRoles, mockFetchHelpDocCategoryOptions } = vi.hoisted(() => ({
   mockPageHelpDocuments: vi.fn(),
-  mockListRoles: vi.fn()
+  mockListRoles: vi.fn(),
+  mockFetchHelpDocCategoryOptions: vi.fn()
 }))
 
 vi.mock('@/api/helpDoc', () => ({
@@ -15,6 +16,7 @@ vi.mock('@/api/helpDoc', () => ({
     { label: '技术类', value: 'technical' },
     { label: '常见问题', value: 'faq' }
   ],
+  fetchHelpDocCategoryOptions: mockFetchHelpDocCategoryOptions,
   pageHelpDocuments: mockPageHelpDocuments,
   getHelpDocument: vi.fn(),
   addHelpDocument: vi.fn(),
@@ -211,6 +213,7 @@ describe('HelpDocView', () => {
   beforeEach(() => {
     mockPageHelpDocuments.mockReset()
     mockListRoles.mockReset()
+    mockFetchHelpDocCategoryOptions.mockReset()
     mockPageHelpDocuments.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -236,6 +239,19 @@ describe('HelpDocView', () => {
       msg: 'success',
       data: []
     })
+    mockFetchHelpDocCategoryOptions.mockResolvedValue([
+      { label: '业务类', value: 'business', sortNo: 1 },
+      { label: '技术类', value: 'technical', sortNo: 2 },
+      { label: '常见问题', value: 'faq', sortNo: 3 }
+    ])
+  })
+
+  it('loads dict-backed help doc category options on mount', async () => {
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockFetchHelpDocCategoryOptions).toHaveBeenCalledTimes(1)
   })
 
   it('keeps refresh as the direct toolbar action and moves clear-selection into more actions', async () => {

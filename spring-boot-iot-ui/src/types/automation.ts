@@ -213,12 +213,17 @@ export interface AcceptanceRegistryRunResult {
 }
 
 export interface AcceptanceRegistryRunSummary {
+  runId?: string;
   summary: {
     total: number;
     passed: number;
     failed: number;
   };
   results: AcceptanceRegistryRunResult[];
+  updatedAt?: string;
+  registryVersion?: string;
+  options?: Record<string, unknown>;
+  relatedEvidenceFiles?: string[];
   reportPath?: string;
   exitCode?: number;
 }
@@ -226,4 +231,17 @@ export interface AcceptanceRegistryRunSummary {
 export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRunSummary {
   failedScenarioIds: string[];
   failedResults: AcceptanceRegistryRunResult[];
+}
+
+export interface AutomationResultRecentRun {
+  runId: string;
+  updatedAt?: string;
+  reportPath?: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  failedScenarioIds: string[];
+  relatedEvidenceFiles: string[];
 }

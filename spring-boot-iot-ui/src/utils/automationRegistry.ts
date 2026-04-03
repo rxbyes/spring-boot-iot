@@ -69,12 +69,19 @@ export function parseRegistryRunSummary(
   const failedResults = results.filter((item) => item.status !== 'passed');
 
   return {
+    runId: payload.runId,
     summary: {
       total: Number(payload.summary?.total || results.length),
       passed: Number(payload.summary?.passed || 0),
       failed: Number(payload.summary?.failed || failedResults.length)
     },
     results,
+    updatedAt: payload.updatedAt,
+    registryVersion: payload.registryVersion,
+    options: payload.options || {},
+    relatedEvidenceFiles: Array.isArray(payload.relatedEvidenceFiles)
+      ? payload.relatedEvidenceFiles.map((item) => String(item))
+      : [],
     reportPath: payload.reportPath,
     exitCode: payload.exitCode,
     failedScenarioIds: failedResults.map((item) => item.scenarioId),

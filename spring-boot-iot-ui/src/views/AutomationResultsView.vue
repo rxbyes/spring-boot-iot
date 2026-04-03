@@ -2,11 +2,12 @@
   <StandardPageShell class="automation-results-view">
     <StandardWorkbenchPanel
       title="结果与基线中心"
-      description="集中导入统一运行汇总，查看失败场景，并结合质量建议维护基线证据。"
+      description="集中读取最近运行或兼容导入统一运行汇总，查看失败场景，并结合质量建议维护基线证据。"
       show-notices
     >
       <template #notices>
         <div class="automation-chip-list">
+          <span>最近运行</span>
           <span>统一汇总</span>
           <span>失败场景</span>
           <span>质量建议</span>
@@ -44,6 +45,17 @@
         />
       </section>
 
+      <section>
+        <AutomationRecentRunsPanel
+          :recent-runs="recentRuns"
+          :loading="recentRunsLoading"
+          :error-message="recentRunsErrorMessage"
+          :selected-run-id="selectedRecentRunId"
+          @refresh="fetchRecentRuns"
+          @import-run="selectRecentRun"
+        />
+      </section>
+
       <section class="two-column-grid">
         <AutomationResultImportPanel
           :imported-run="importedRun"
@@ -77,6 +89,8 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import AutomationRecentRunsPanel from '../components/AutomationRecentRunsPanel.vue';
 import AutomationResultImportPanel from '../components/AutomationResultImportPanel.vue';
 import AutomationSuggestionPanel from '../components/AutomationSuggestionPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
@@ -91,14 +105,24 @@ import { useAutomationResultsWorkbench } from '../composables/useAutomationResul
 const {
   suggestions,
   importedRun,
+  recentRuns,
+  recentRunsLoading,
+  recentRunsErrorMessage,
+  selectedRecentRunId,
   resultsMetrics,
   resultTone,
   resultMessage,
   failedScenarioDetails,
   summaryBody,
+  fetchRecentRuns,
+  selectRecentRun,
   importRegistryRunSummary,
   clearImportedRun
 } = useAutomationResultsWorkbench();
+
+onMounted(() => {
+  void fetchRecentRuns();
+});
 </script>
 
 <style scoped>

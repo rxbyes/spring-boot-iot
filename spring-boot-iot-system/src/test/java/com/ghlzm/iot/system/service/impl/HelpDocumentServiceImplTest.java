@@ -26,16 +26,18 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class HelpDocumentServiceImplTest {
@@ -46,6 +48,8 @@ class HelpDocumentServiceImplTest {
     private PermissionService permissionService;
     @Mock
     private SystemContentSchemaSupport systemContentSchemaSupport;
+    @Mock
+    private SystemDictValueSupport systemDictValueSupport;
 
     private HelpDocumentServiceImpl helpDocumentService;
 
@@ -57,7 +61,12 @@ class HelpDocumentServiceImplTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        helpDocumentService = spy(new HelpDocumentServiceImpl(helpDocumentMapper, permissionService, systemContentSchemaSupport));
+        helpDocumentService = spy(new HelpDocumentServiceImpl(
+                helpDocumentMapper,
+                permissionService,
+                systemContentSchemaSupport,
+                systemDictValueSupport
+        ));
         Field field = findField(helpDocumentService.getClass(), "baseMapper");
         field.setAccessible(true);
         field.set(helpDocumentService, helpDocumentMapper);
@@ -199,6 +208,25 @@ class HelpDocumentServiceImplTest {
                 () -> helpDocumentService.deleteDocument(702L, 1L));
 
         assertEquals("帮助文档删除失败", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectUnknownHelpDocumentCategory() {
+        HelpDocument document = new HelpDocument();
+        document.setTitle("帮助文档");
+        document.setContent("正文");
+        document.setDocCategory("whitepaper");
+
+        when(systemDictValueSupport.normalizeRequiredLowerCase(
+                eq(null),
+                eq("help_doc_category"),
+                eq("whitepaper"),
+                eq("文档分类"),
+                eq(Set.of("business", "technical", "faq"))
+        )).thenThrow(new BizException("文档分类不合法"));
+
+        BizException exception = assertThrows(BizException.class, () -> helpDocumentService.addDocument(document, null));
+        assertEquals("文档分类不合法", exception.getMessage());
     }
 
     private UserAuthContextVO authContext(Long tenantId, List<String> roleCodes, List<MenuTreeNodeVO> menus) {

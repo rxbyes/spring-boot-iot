@@ -15,16 +15,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Locale;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class NotificationChannelServiceImpl extends ServiceImpl<NotificationChannelMapper, NotificationChannel>
         implements NotificationChannelService {
 
-      private final PermissionService permissionService;
+      private static final String CHANNEL_TYPE_DICT_CODE = "notification_channel_type";
+      private static final Set<String> DEFAULT_CHANNEL_TYPES =
+              Set.of("email", "sms", "webhook", "wechat", "feishu", "dingtalk");
 
-      public NotificationChannelServiceImpl(PermissionService permissionService) {
+      private final PermissionService permissionService;
+      private final SystemDictValueSupport systemDictValueSupport;
+
+      public NotificationChannelServiceImpl(PermissionService permissionService,
+                                            SystemDictValueSupport systemDictValueSupport) {
             this.permissionService = permissionService;
+            this.systemDictValueSupport = systemDictValueSupport;
       }
 
       @Override
@@ -45,6 +54,13 @@ public class NotificationChannelServiceImpl extends ServiceImpl<NotificationChan
                   throw new BizException("渠道编码已存在");
             }
 
+            channel.setChannelType(systemDictValueSupport.normalizeRequiredLowerCase(
+                    currentUserId,
+                    CHANNEL_TYPE_DICT_CODE,
+                    channel.getChannelType(),
+                    "渠道类型",
+                    DEFAULT_CHANNEL_TYPES
+            ));
             if (channel.getSortNo() == null) {
                   channel.setSortNo(0);
             }
@@ -130,6 +146,16 @@ public class NotificationChannelServiceImpl extends ServiceImpl<NotificationChan
                   throw new BizException("渠道编码已存在");
             }
 
+            String normalizedChannelType = StringUtils.hasText(channel.getChannelType())
+                    ? channel.getChannelType()
+                    : existing.getChannelType();
+            channel.setChannelType(systemDictValueSupport.normalizeRequiredLowerCase(
+                    currentUserId,
+                    CHANNEL_TYPE_DICT_CODE,
+                    normalizedChannelType,
+                    "渠道类型",
+                    DEFAULT_CHANNEL_TYPES
+            ));
             channel.setTenantId(existing.getTenantId());
             if (channel.getUpdateBy() == null && currentUserId != null) {
                   channel.setUpdateBy(currentUserId);
@@ -169,7 +195,7 @@ public class NotificationChannelServiceImpl extends ServiceImpl<NotificationChan
                   queryWrapper.like(NotificationChannel::getChannelCode, channelCode.trim());
             }
             if (StringUtils.hasText(channelType)) {
-                  queryWrapper.eq(NotificationChannel::getChannelType, channelType.trim());
+                  queryWrapper.eq(NotificationChannel::getChannelType, channelType.trim().toLowerCase(Locale.ROOT));
             }
             queryWrapper.orderByAsc(NotificationChannel::getSortNo).orderByAsc(NotificationChannel::getId);
             return queryWrapper;
