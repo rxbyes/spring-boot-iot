@@ -22,6 +22,9 @@ public class Menu implements Serializable {
       @TableId(value = "id", type = IdType.ASSIGN_ID)
       private Long id;
 
+      @TableField("tenant_id")
+      private Long tenantId;
+
       private Long parentId;
 
       private String menuName;

@@ -32,4 +32,11 @@ describe('risk operations list contract', () => {
     expect(source).toContain('page-sizes="[10, 20, 50, 100]"')
     expect(source).toContain('layout="total, sizes, prev, pager, next, jumper"')
   })
+
+  it('keeps GIS risk-state tags on StandardTableTextColumn instead of raw table columns', () => {
+    const source = readViewSource('RiskGisView.vue')
+
+    expect(source).toContain('<StandardTableTextColumn label="当前风险态势" width="120">')
+    expect(source).not.toContain('<el-table-column label="当前风险态势" width="120">')
+  })
 })

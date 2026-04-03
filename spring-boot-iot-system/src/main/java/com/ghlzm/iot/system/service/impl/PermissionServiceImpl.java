@@ -97,7 +97,7 @@ public class PermissionServiceImpl implements PermissionService {
         List<Role> roles = loadUserRoles(userId);
         boolean superAdmin = roles.stream().anyMatch(role -> SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode()));
 
-        List<Menu> activeMenus = listActiveMenus();
+        List<Menu> activeMenus = listActiveMenus(user.getTenantId());
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
         Set<Long> grantedMenuIds;
         if (superAdmin) {
@@ -197,12 +197,27 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     public List<MenuTreeNodeVO> listMenuTree() {
-        return buildMenuTree(listActiveMenus());
+        return listMenuTree(null);
+    }
+
+    @Override
+    public List<MenuTreeNodeVO> listMenuTree(Long currentUserId) {
+        return buildMenuTree(listActiveMenus(resolveTenantId(currentUserId)));
     }
 
     @Override
     public List<Long> listRoleMenuIds(Long roleId) {
-        return roleMenuMapper.selectMenuIdsByRoleId(roleId);
+        Role role = roleMapper.selectById(roleId);
+        if (role == null || Integer.valueOf(1).equals(role.getDeleted())) {
+            return List.of();
+        }
+        Set<Long> activeMenuIds = listActiveMenus(role.getTenantId()).stream()
+                .map(Menu::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return roleMenuMapper.selectMenuIdsByRoleId(roleId).stream()
+                .filter(activeMenuIds::contains)
+                .toList();
     }
 
     @Override
@@ -213,7 +228,7 @@ public class PermissionServiceImpl implements PermissionService {
             throw new BizException("角色不存在");
         }
 
-        List<Menu> activeMenus = listActiveMenus();
+        List<Menu> activeMenus = listActiveMenus(role.getTenantId());
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
         if (menuIds != null && menuIds.stream().filter(Objects::nonNull).anyMatch(id -> !menuMap.containsKey(id))) {
             throw new BizException("部分菜单不存在或已禁用");
@@ -313,12 +328,20 @@ public class PermissionServiceImpl implements PermissionService {
         return loadActiveRolesByIds(userRoleMapper.selectRoleIdsByUserId(userId));
     }
 
-    private List<Menu> listActiveMenus() {
+    private List<Menu> listActiveMenus(Long tenantId) {
         LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Menu::getStatus, 1)
+                .eq(tenantId != null, Menu::getTenantId, tenantId)
                 .orderByAsc(Menu::getSort)
                 .orderByAsc(Menu::getId);
         return menuMapper.selectList(wrapper);
+    }
+
+    private Long resolveTenantId(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return getDataPermissionContext(currentUserId).tenantId();
     }
 
     private List<Long> extractRoleIds(List<Role> roles) {

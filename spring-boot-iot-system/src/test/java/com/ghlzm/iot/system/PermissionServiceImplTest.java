@@ -19,6 +19,7 @@ import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.impl.PermissionServiceImpl;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,10 +61,14 @@ class PermissionServiceImplTest {
 
     private PermissionServiceImpl permissionService;
 
-    @BeforeEach
-    void initTableInfo() {
+    @BeforeAll
+    static void initTableInfo() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Menu.class);
         TableInfoHelper.initTableInfo(assistant, Organization.class);
+        TableInfoHelper.initTableInfo(assistant, Role.class);
+        TableInfoHelper.initTableInfo(assistant, User.class);
+        TableInfoHelper.initTableInfo(assistant, Tenant.class);
     }
 
     @BeforeEach
@@ -352,6 +358,29 @@ class PermissionServiceImplTest {
         assertTrue(context.isSuperAdmin());
         assertEquals(DataScopeType.ALL.name(), context.getDataScopeType());
         assertEquals(DataScopeType.ALL.getLabel(), context.getDataScopeSummary());
+    }
+
+    @Test
+    void shouldFilterActiveMenusToCurrentUserTenantWhenBuildingAuthContext() {
+        Long userId = 1009L;
+        User user = new User();
+        user.setId(userId);
+        user.setTenantId(1L);
+        user.setOrgId(5001L);
+        user.setUsername("tenant-user");
+        user.setDeleted(0);
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of());
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        permissionService.getUserAuthContext(userId);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<Menu>> wrapperCaptor =
+                org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(menuMapper).selectList(wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
     }
 
     @Test
