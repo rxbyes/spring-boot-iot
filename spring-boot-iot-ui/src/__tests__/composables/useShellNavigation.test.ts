@@ -84,6 +84,37 @@ function createDynamicMenus(): MenuTreeNode[] {
   ];
 }
 
+function createLegacyQualityMenus(): MenuTreeNode[] {
+  return [
+    {
+      id: 93000005,
+      menuName: '质量工场',
+      menuCode: 'quality-workbench',
+      path: '',
+      type: 0,
+      meta: {
+        description: '研发工场、执行组织与结果基线',
+        menuTitle: '质量工场',
+        menuHint: '覆盖研发资产编排、执行组织与结果基线治理。'
+      },
+      children: [
+        {
+          id: 93003009,
+          parentId: 93000005,
+          menuName: '自动化工场（兼容入口）',
+          menuCode: 'system:automation-test',
+          path: '/automation-test',
+          type: 1,
+          meta: {
+            caption: '兼容旧入口'
+          },
+          children: []
+        }
+      ]
+    }
+  ];
+}
+
 describe('useShellNavigation', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -155,5 +186,37 @@ describe('useShellNavigation', () => {
     navigation.switchGroup('system-governance');
 
     expect(pushMock).toHaveBeenCalledWith('/system-management');
+  });
+
+  it('upgrades the legacy quality-workbench menu tree to the split rd/execution/results navigation', () => {
+    routeState.path = '/rd-automation-plans';
+    routeState.meta = { title: '计划编排台' };
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['DEVELOPER_STAFF'],
+        roles: [{ id: 31, roleCode: 'DEVELOPER_STAFF', roleName: '开发人员' }],
+        homePath: '/quality-workbench',
+        menus: createLegacyQualityMenus()
+      })
+    );
+
+    const navigation = useShellNavigation();
+    const qualityGroup = navigation.navigationGroups.value.find((group) => group.key === 'quality-workbench');
+
+    expect(qualityGroup?.items.map((item) => item.to)).toEqual([
+      '/quality-workbench',
+      '/rd-workbench',
+      '/rd-automation-inventory',
+      '/rd-automation-templates',
+      '/rd-automation-plans',
+      '/rd-automation-handoff',
+      '/automation-execution',
+      '/automation-results'
+    ]);
+    expect(qualityGroup?.items.some((item) => item.to === '/automation-test')).toBe(false);
+    expect(navigation.activeGroup.value.key).toBe('quality-workbench');
+    expect(navigation.activeTitle.value).toBe('计划编排台');
   });
 });

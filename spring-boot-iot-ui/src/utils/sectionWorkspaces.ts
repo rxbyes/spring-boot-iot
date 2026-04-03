@@ -250,6 +250,53 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
   }
 };
 
+const workspaceCompatibilityRouteMap: Record<string, string[]> = {
+  '/automation-test': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff',
+    '/automation-execution',
+    '/automation-results'
+  ],
+  '/automation-assets': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ],
+  '/rd-workbench': [
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ]
+};
+
+const hiddenCompatibilityWorkspacePaths = new Set(['/automation-assets', '/automation-test']);
+
+const canonicalGroupNavOrders: Record<string, string[]> = {
+  'quality-workbench': [
+    '/quality-workbench',
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff',
+    '/automation-execution',
+    '/automation-results'
+  ],
+  'rd-workbench': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ]
+};
+
 const guestRoleProfile: RoleWorkbenchProfile = {
   key: 'guest',
   label: '访客',
@@ -348,6 +395,33 @@ function normalizePath(path?: string | null): string {
   return normalized || '/';
 }
 
+export function expandWorkspaceAllowedPaths(paths?: string[] | null): string[] {
+  const result = new Set<string>();
+  const queue = (paths || []).map((item) => normalizePath(item));
+
+  while (queue.length > 0) {
+    const currentPath = queue.shift();
+    if (!currentPath || result.has(currentPath)) {
+      continue;
+    }
+
+    result.add(currentPath);
+    const aliasedPaths = workspaceCompatibilityRouteMap[currentPath] || [];
+    aliasedPaths.forEach((path) => {
+      const normalizedPath = normalizePath(path);
+      if (!result.has(normalizedPath)) {
+        queue.push(normalizedPath);
+      }
+    });
+  }
+
+  return Array.from(result);
+}
+
+export function isCompatibilityWorkspacePath(path?: string | null): boolean {
+  return hiddenCompatibilityWorkspacePaths.has(normalizePath(path));
+}
+
 function buildActivitySearchText(entry: Pick<ActivityEntry, 'title' | 'detail' | 'module' | 'action' | 'path'>): string {
   return [
     entry.title,
@@ -369,12 +443,30 @@ function findSectionCardRecord(path?: string | null) {
   return null;
 }
 
+function createSectionOverviewNavItem(config: SectionHomeConfig): WorkspaceNavItem {
+  return {
+    to: config.path,
+    label: config.navLabel,
+    caption: config.navCaption,
+    short: config.navShort
+  };
+}
+
+function createSectionCardNavItem(card: SectionHomeCard): WorkspaceNavItem {
+  return {
+    to: card.path,
+    label: card.label,
+    caption: card.description,
+    short: card.short
+  };
+}
+
 function pathAllowed(path: string, allowedPaths?: string[]): boolean {
   if (!allowedPaths || allowedPaths.length === 0) {
     return true;
   }
   const normalizedPath = normalizePath(path);
-  const normalizedAllowed = new Set(allowedPaths.map((item) => normalizePath(item)));
+  const normalizedAllowed = new Set(expandWorkspaceAllowedPaths(allowedPaths).map((item) => normalizePath(item)));
   if (normalizedAllowed.has(normalizedPath)) {
     return true;
   }
@@ -428,6 +520,45 @@ export function listStaticNavigationGroups(): WorkspaceNavGroup[] {
       short: card.short
     }))
   }));
+}
+
+export function listCanonicalWorkspaceNavItems(
+  groupKey?: string | null,
+  groupLabel?: string | null,
+  allowedPaths?: string[]
+): WorkspaceNavItem[] {
+  const config = resolveSectionHomeConfig(groupKey, groupLabel);
+  if (!config) {
+    return [];
+  }
+
+  const expandedAllowedPaths = expandWorkspaceAllowedPaths(allowedPaths);
+  const entryPaths = canonicalGroupNavOrders[config.key]
+    || [config.path, ...config.cards.map((card) => card.path)];
+  const items: WorkspaceNavItem[] = [];
+  const seenPaths = new Set<string>();
+
+  entryPaths.forEach((path) => {
+    const normalizedPath = normalizePath(path);
+    if (seenPaths.has(normalizedPath) || !pathAllowed(normalizedPath, expandedAllowedPaths)) {
+      return;
+    }
+
+    if (normalizedPath === config.path) {
+      items.push(createSectionOverviewNavItem(config));
+      seenPaths.add(normalizedPath);
+      return;
+    }
+
+    const matchedCard = findSectionCardRecord(normalizedPath);
+    if (!matchedCard) {
+      return;
+    }
+    items.push(createSectionCardNavItem(matchedCard.card));
+    seenPaths.add(normalizedPath);
+  });
+
+  return items;
 }
 
 export function getRouteMetaPreset(path?: string | null): RouteMetaPreset | undefined {
@@ -511,7 +642,7 @@ export function canAccessSectionHome(path: string, allowedPaths: string[]): bool
   if (!config) {
     return false;
   }
-  const normalizedAllowed = new Set(allowedPaths.map((item) => normalizePath(item)));
+  const normalizedAllowed = new Set(expandWorkspaceAllowedPaths(allowedPaths).map((item) => normalizePath(item)));
   return config.cards.some((card) => normalizedAllowed.has(normalizePath(card.path)));
 }
 

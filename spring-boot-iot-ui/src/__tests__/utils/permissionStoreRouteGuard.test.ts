@@ -81,6 +81,84 @@ describe('permission store route guard', () => {
     expect(permissionStore.hasRoutePermission('/not-exists')).toBe(false);
   });
 
+  it('expands the legacy automation-test menu into the split quality workbench routes', () => {
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['DEVELOPER_STAFF'],
+        roles: [{ id: 31, roleCode: 'DEVELOPER_STAFF', roleName: '开发人员' }],
+        menus: [
+          {
+            id: 93000005,
+            menuName: '质量工场',
+            menuCode: 'quality-workbench',
+            path: '',
+            type: 0,
+            children: [
+              {
+                id: 93003009,
+                parentId: 93000005,
+                menuName: '自动化工场（兼容入口）',
+                menuCode: 'system:automation-test',
+                path: '/automation-test',
+                type: 1,
+                children: []
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    expect(permissionStore.allowedPaths).toContain('/automation-test');
+    expect(permissionStore.allowedPaths).toContain('/rd-workbench');
+    expect(permissionStore.allowedPaths).toContain('/rd-automation-plans');
+    expect(permissionStore.allowedPaths).toContain('/automation-results');
+    expect(permissionStore.hasRoutePermission('/quality-workbench')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/rd-automation-handoff')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-execution')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(true);
+  });
+
+  it('expands the legacy automation-assets menu into the rd authoring routes only', () => {
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['DEVELOPER_STAFF'],
+        roles: [{ id: 32, roleCode: 'DEVELOPER_STAFF', roleName: '开发人员' }],
+        menus: [
+          {
+            id: 93000005,
+            menuName: '质量工场',
+            menuCode: 'quality-workbench',
+            path: '',
+            type: 0,
+            children: [
+              {
+                id: 93003012,
+                parentId: 93000005,
+                menuName: '自动化资产中心（兼容入口）',
+                menuCode: 'system:automation-assets',
+                path: '/automation-assets',
+                type: 1,
+                children: []
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    expect(permissionStore.allowedPaths).toContain('/automation-assets');
+    expect(permissionStore.allowedPaths).toContain('/rd-workbench');
+    expect(permissionStore.allowedPaths).toContain('/rd-automation-inventory');
+    expect(permissionStore.hasRoutePermission('/rd-automation-templates')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(false);
+  });
+
   it('keeps no-role users blocked even when menu tree is empty', () => {
     const permissionStore = usePermissionStore();
     permissionStore.setAccessToken('token');
