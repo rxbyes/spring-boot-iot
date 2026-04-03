@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -34,12 +35,12 @@ class RiskPointPendingRecommendationServiceImplTest {
     void getCandidatesShouldFlattenNestedPropertyLogsAndIgnoreNonPropertyMetadata() {
         Fixture fixture = new Fixture();
 
-        ProductModel vibration = fixture.productModel("vibrationRms", "振动均方根", "double", 1);
-        DeviceProperty vibrationProperty = fixture.deviceProperty("vibrationRms", "振动均方根", "1.25", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        ProductModel acceleration = fixture.productModel("gX", "X向加速度", "double", 1);
+        DeviceProperty accelerationProperty = fixture.deviceProperty("gX", "X向加速度", "1.25", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
 
         DeviceMessageLog propertyLog = fixture.messageLog(
                 "property",
-                "{\"traceId\":\"trace-1\",\"deviceCode\":\"demo-device-01\",\"timestamp\":\"2026-04-03T11:05:00\",\"properties\":{\"vibrationRms\":1.25,\"nested\":{\"tilt.x\":6.2}},\"reported\":{\"ignored\":true}}",
+                "{\"traceId\":\"trace-1\",\"deviceCode\":\"demo-device-01\",\"timestamp\":\"2026-04-03T11:05:00\",\"properties\":{\"gX\":1.25,\"nested\":{\"gpsTotalX\":6.2}},\"reported\":{\"ignored\":true}}",
                 LocalDateTime.of(2026, 4, 3, 11, 5, 0)
         );
         DeviceMessageLog eventLog = fixture.messageLog(
@@ -48,8 +49,8 @@ class RiskPointPendingRecommendationServiceImplTest {
                 LocalDateTime.of(2026, 4, 3, 11, 6, 0)
         );
 
-        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(vibration));
-        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(vibrationProperty));
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(acceleration));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(accelerationProperty));
         when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of(eventLog, propertyLog));
         when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
 
@@ -57,7 +58,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         assertEquals(2, result.getCandidates().size());
         assertIterableEquals(
-                List.of("vibrationRms", "nested.tilt.x"),
+                List.of("gX", "gpsTotalX"),
                 result.getCandidates().stream().map(RiskPointPendingMetricCandidateVO::getMetricIdentifier).toList()
         );
     }
@@ -75,28 +76,35 @@ class RiskPointPendingRecommendationServiceImplTest {
     @Test
     void getCandidatesShouldClassifyHighMediumAndLowBySpec() {
         Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("声发射监测仪");
+        fixture.pending.setDeviceName("声发射监测仪");
 
-        ProductModel modelBacked = fixture.productModel("displacement", "位移", "double", 1);
-        ProductModel weakModelOnly = fixture.productModel("modelOnly", "模型预置字段", "double", 2);
+        ProductModel modelBacked = fixture.productModel("OSP", "声压级", "double", 1);
+        ProductModel weakModelOnly = fixture.productModel("wave", "波形", "double", 2);
 
-        DeviceProperty displacementProperty = fixture.deviceProperty("displacement", "实时位移", "12.6", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
-        DeviceProperty runtimeOnlyProperty = fixture.deviceProperty("temperature", "温度", "26.5", LocalDateTime.of(2026, 4, 3, 10, 30, 0));
-        DeviceProperty strongRuntimeProperty = fixture.deviceProperty("tilt", "倾角", "3.5", LocalDateTime.of(2026, 4, 3, 10, 40, 0));
+        DeviceProperty modelBackedProperty = fixture.deviceProperty("OSP", "实时声压级", "12.6", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        DeviceProperty runtimeOnlyProperty = fixture.deviceProperty("freq", "主频", "26.5", LocalDateTime.of(2026, 4, 3, 10, 30, 0));
+        DeviceProperty strongRuntimeProperty = fixture.deviceProperty("VSP", "振速峰值", "3.5", LocalDateTime.of(2026, 4, 3, 10, 40, 0));
 
         DeviceMessageLog propertyLogA = fixture.messageLog(
                 "property",
-                "{\"properties\":{\"displacement\":12.6,\"temperature\":26.5,\"battery\":88,\"tilt\":3.5}}",
+                "{\"properties\":{\"OSP\":12.6,\"freq\":26.5,\"VSP\":3.5,\"amplitude\":1.1}}",
                 LocalDateTime.of(2026, 4, 3, 11, 5, 0)
         );
         DeviceMessageLog propertyLogB = fixture.messageLog(
                 "status",
-                "{\"status\":{\"tilt\":3.4}}",
+                "{\"status\":{\"VSP\":3.4}}",
                 LocalDateTime.of(2026, 4, 3, 11, 4, 0)
         );
         DeviceMessageLog propertyLogC = fixture.messageLog(
                 "property",
-                "{\"data\":{\"tilt\":3.6}}",
+                "{\"data\":{\"VSP\":3.6}}",
                 LocalDateTime.of(2026, 4, 3, 11, 3, 0)
+        );
+        DeviceMessageLog propertyLogD = fixture.messageLog(
+                "property",
+                "{\"data\":{\"VSP\":3.7}}",
+                LocalDateTime.of(2026, 4, 3, 11, 2, 0)
         );
 
         RiskPointDevicePendingPromotion promotion = new RiskPointDevicePendingPromotion();
@@ -108,8 +116,8 @@ class RiskPointPendingRecommendationServiceImplTest {
         promotion.setCreateTime(java.sql.Timestamp.valueOf(LocalDateTime.of(2026, 4, 2, 8, 0, 0)));
 
         when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(modelBacked, weakModelOnly));
-        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(displacementProperty, runtimeOnlyProperty, strongRuntimeProperty));
-        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of(propertyLogA, propertyLogB, propertyLogC));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(modelBackedProperty, runtimeOnlyProperty, strongRuntimeProperty));
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of(propertyLogA, propertyLogB, propertyLogC, propertyLogD));
         when(fixture.promotionMapper.selectList(any())).thenReturn(List.of(promotion));
 
         RiskPointPendingCandidateBundleVO result = fixture.service.getCandidates(9001L, 1001L);
@@ -121,25 +129,25 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         assertEquals(1, result.getPromotionHistory().size());
         assertEquals(5, result.getCandidates().size());
-        RiskPointPendingMetricCandidateVO highModelAndRuntime = candidateMap.get("displacement");
+        RiskPointPendingMetricCandidateVO highModelAndRuntime = candidateMap.get("OSP");
         assertEquals("HIGH", highModelAndRuntime.getRecommendationLevel());
-        assertEquals("实时位移", highModelAndRuntime.getMetricName());
+        assertEquals("实时声压级", highModelAndRuntime.getMetricName());
 
-        RiskPointPendingMetricCandidateVO highRuntimeOnly = candidateMap.get("tilt");
+        RiskPointPendingMetricCandidateVO highRuntimeOnly = candidateMap.get("VSP");
         assertEquals("HIGH", highRuntimeOnly.getRecommendationLevel());
-        assertEquals("tilt", highRuntimeOnly.getMetricIdentifier());
+        assertEquals("VSP", highRuntimeOnly.getMetricIdentifier());
 
-        RiskPointPendingMetricCandidateVO mediumRuntimeOnly = candidateMap.get("temperature");
+        RiskPointPendingMetricCandidateVO mediumRuntimeOnly = candidateMap.get("freq");
         assertEquals("MEDIUM", mediumRuntimeOnly.getRecommendationLevel());
-        assertEquals("temperature", mediumRuntimeOnly.getMetricIdentifier());
+        assertEquals("freq", mediumRuntimeOnly.getMetricIdentifier());
 
-        RiskPointPendingMetricCandidateVO mediumModelOnly = candidateMap.get("modelOnly");
+        RiskPointPendingMetricCandidateVO mediumModelOnly = candidateMap.get("wave");
         assertEquals("MEDIUM", mediumModelOnly.getRecommendationLevel());
-        assertEquals("modelOnly", mediumModelOnly.getMetricIdentifier());
+        assertEquals("wave", mediumModelOnly.getMetricIdentifier());
 
-        RiskPointPendingMetricCandidateVO low = candidateMap.get("battery");
+        RiskPointPendingMetricCandidateVO low = candidateMap.get("amplitude");
         assertEquals("LOW", low.getRecommendationLevel());
-        assertEquals("battery", low.getMetricIdentifier());
+        assertEquals("amplitude", low.getMetricIdentifier());
         assertEquals(List.of("MESSAGE_LOG"), low.getEvidenceSources());
     }
 
@@ -149,7 +157,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         DeviceMessageLog rawWrapperLog = fixture.messageLog(
                 "property",
-                "{\"bodies\":{\"body\":\"cipher-text\"},\"header\":{\"appId\":\"62000001\"},\"properties\":{\"displacement\":12.6}}",
+                "{\"bodies\":{\"body\":\"cipher-text\"},\"header\":{\"appId\":\"62000001\"},\"properties\":{\"dispsX\":12.6}}",
                 LocalDateTime.of(2026, 4, 3, 12, 0, 0)
         );
 
@@ -162,9 +170,48 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         assertEquals(1, result.getCandidates().size());
         assertIterableEquals(
-                List.of("displacement"),
+                List.of("dispsX"),
                 result.getCandidates().stream().map(RiskPointPendingMetricCandidateVO::getMetricIdentifier).toList()
         );
+    }
+
+    @Test
+    void getCandidatesShouldOnlyKeepBusinessMetricsForFixedInclinometerAndPreserveAliasEvidence() {
+        Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("固定测斜仪-L1");
+        fixture.pending.setDeviceName("固定测斜仪-L1");
+
+        DeviceProperty dispX = fixture.deviceProperty("L1_SW_1.dispsX", "深部位移X", "1.25", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        DeviceProperty dispY = fixture.deviceProperty("L1_SW_1.dispsY", "深部位移Y", "2.50", LocalDateTime.of(2026, 4, 3, 11, 1, 0));
+        DeviceProperty battery = fixture.deviceProperty("battery_dump_energy", "电池电量", "88", LocalDateTime.of(2026, 4, 3, 11, 2, 0));
+        DeviceProperty signal = fixture.deviceProperty("signal_4g", "4G信号", "-72", LocalDateTime.of(2026, 4, 3, 11, 3, 0));
+        DeviceProperty temp = fixture.deviceProperty("temp", "温度", "20.5", LocalDateTime.of(2026, 4, 3, 11, 4, 0));
+
+        DeviceMessageLog propertyLog = fixture.messageLog(
+                "property",
+                "{\"properties\":{\"L1_SW_1.dispsX\":1.25,\"L1_SW_1.dispsY\":2.5,\"battery_dump_energy\":88,\"signal_4g\":-72,\"temp\":20.5,\"humidity\":60,\"lat\":31.2304,\"lon\":121.4737,\"sw_version\":\"v1.0.3\"}}",
+                LocalDateTime.of(2026, 4, 3, 11, 5, 0)
+        );
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(dispX, dispY, battery, signal, temp));
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of(propertyLog));
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+
+        RiskPointPendingCandidateBundleVO result = fixture.service.getCandidates(9001L, 1001L);
+        Map<String, RiskPointPendingMetricCandidateVO> candidateMap = result.getCandidates().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        RiskPointPendingMetricCandidateVO::getMetricIdentifier,
+                        candidate -> candidate
+                ));
+
+        assertEquals(2, result.getCandidates().size());
+        assertIterableEquals(
+                List.of("dispsX", "dispsY"),
+                result.getCandidates().stream().map(RiskPointPendingMetricCandidateVO::getMetricIdentifier).toList()
+        );
+        assertTrue(candidateMap.get("dispsX").getReasonSummary().contains("L1_SW_1.dispsX"));
+        assertTrue(candidateMap.get("dispsY").getReasonSummary().contains("L1_SW_1.dispsY"));
     }
 
     private static final class Fixture {

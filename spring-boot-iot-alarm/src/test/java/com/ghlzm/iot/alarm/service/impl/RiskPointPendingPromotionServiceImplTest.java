@@ -36,11 +36,13 @@ class RiskPointPendingPromotionServiceImplTest {
     void promoteShouldCreateMultipleFormalBindingsAndWritePromotionHistory() {
         Fixture fixture = new Fixture();
         RiskPointDevicePendingBinding pending = fixture.pending("PENDING_METRIC_GOVERNANCE");
+        pending.setDeviceName("固定测斜仪-L1");
         RiskPoint riskPoint = fixture.riskPoint();
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
+        bundle.setDeviceName("固定测斜仪-L1");
         bundle.setCandidates(List.of(
                 fixture.candidate("dispsX", "X向位移", "HIGH", 100),
-                fixture.candidate("batteryVoltage", "电池电压", "MEDIUM", 60)
+                fixture.candidate("dispsY", "Y向位移", "HIGH", 96)
         ));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
@@ -58,7 +60,7 @@ class RiskPointPendingPromotionServiceImplTest {
         request.setPromotionNote("人工确认后转正");
         request.setMetrics(List.of(
                 fixture.metric("dispsX", "X向位移"),
-                fixture.metric("batteryVoltage", "电池电压")
+                fixture.metric("L1_SW_1.dispsY", "Y向位移")
         ));
 
         RiskPointPendingPromotionResultVO result = fixture.service.promote(77L, request, 1001L);
@@ -68,6 +70,9 @@ class RiskPointPendingPromotionServiceImplTest {
         assertEquals("SUCCESS", result.getItems().get(0).getPromotionStatus());
         assertEquals("SUCCESS", result.getItems().get(1).getPromotionStatus());
         verify(fixture.promotionMapper, times(2)).insert(any(RiskPointDevicePendingPromotion.class));
+        verify(fixture.riskPointService).bindDeviceAndReturn(argThat(
+                binding -> "dispsY".equals(binding.getMetricIdentifier())
+        ), eq(1001L));
         verify(fixture.pendingBindingMapper).updateById(org.mockito.ArgumentMatchers.<RiskPointDevicePendingBinding>argThat(row ->
                 "PROMOTED".equals(row.getResolutionStatus())
                         && Long.valueOf(9002L).equals(row.getPromotedBindingId())
@@ -126,6 +131,34 @@ class RiskPointPendingPromotionServiceImplTest {
                         && Long.valueOf(1001L).equals(row.getUpdateBy())
         ));
         verify(fixture.promotionMapper, never()).insert(any(RiskPointDevicePendingPromotion.class));
+    }
+
+    @Test
+    void promoteShouldRejectStatusMetricForFixedInclinometerEvenIfCandidateExists() {
+        Fixture fixture = new Fixture();
+        RiskPointDevicePendingBinding pending = fixture.pending("PENDING_METRIC_GOVERNANCE");
+        pending.setDeviceName("固定测斜仪-L1");
+        RiskPoint riskPoint = fixture.riskPoint();
+        RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
+        bundle.setDeviceName("固定测斜仪-L1");
+        bundle.setCandidates(List.of(
+                fixture.candidate("battery_dump_energy", "电池电量", "MEDIUM", 60),
+                fixture.candidate("dispsX", "X向位移", "HIGH", 100)
+        ));
+
+        when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
+        when(fixture.recommendationService.getCandidates(77L, 1001L)).thenReturn(bundle);
+        when(fixture.riskPointService.getById(12L, 1001L)).thenReturn(riskPoint);
+
+        RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
+        request.setMetrics(List.of(fixture.metric("battery_dump_energy", "电池电量")));
+
+        RiskPointPendingPromotionResultVO result = fixture.service.promote(77L, request, 1001L);
+
+        assertEquals(1, result.getItems().size());
+        assertEquals("INVALID_METRIC", result.getItems().get(0).getPromotionStatus());
+        verify(fixture.riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
+        verify(fixture.riskPointDeviceMapper, never()).selectOne(any());
     }
 
     private static final class Fixture {

@@ -52,6 +52,7 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
     private final RiskPointDeviceMapper riskPointDeviceMapper;
     private final RiskPointPendingRecommendationService recommendationService;
     private final RiskPointService riskPointService;
+    private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskPointPendingPromotionServiceImpl(RiskPointDevicePendingBindingMapper pendingBindingMapper,
@@ -74,19 +75,33 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
         riskPointService.getById(pending.getRiskPointId(), currentUserId);
         String promotionNote = normalize(request.getPromotionNote());
 
-        Map<String, RiskPointPendingMetricCandidateVO> candidateMap = buildCandidateMap(
-                recommendationService.getCandidates(pendingId, currentUserId)
-        );
+        RiskPointPendingCandidateBundleVO candidateBundle = recommendationService.getCandidates(pendingId, currentUserId);
+        Map<String, RiskPointPendingMetricCandidateVO> candidateMap = buildCandidateMap(candidateBundle);
         List<RiskPointPendingPromotionItemVO> items = new ArrayList<>();
         Long latestBindingId = pending.getPromotedBindingId();
         Date latestPromotionTime = pending.getPromotedTime();
 
         for (RiskPointPendingPromotionMetricDTO metric : request.getMetrics()) {
-            String metricIdentifier = normalize(metric == null ? null : metric.getMetricIdentifier());
+            String requestMetricIdentifier = normalize(metric == null ? null : metric.getMetricIdentifier());
+            String metricIdentifier = metricGovernanceRules.normalizePromotableMetricIdentifier(
+                    pending,
+                    candidateBundle == null ? null : candidateBundle.getDeviceName(),
+                    candidateBundle == null ? null : candidateBundle.getCandidates(),
+                    requestMetricIdentifier
+            );
             String metricName = normalize(metric == null ? null : metric.getMetricName());
             RiskPointPendingMetricCandidateVO candidate = metricIdentifier == null ? null : candidateMap.get(metricIdentifier);
             if (candidate == null) {
-                items.add(insertHistoryAndBuildItem(pending, metricIdentifier, metricName, null, ITEM_INVALID_METRIC, null, currentUserId, promotionNote));
+                items.add(insertHistoryAndBuildItem(
+                        pending,
+                        requestMetricIdentifier,
+                        metricName,
+                        null,
+                        ITEM_INVALID_METRIC,
+                        null,
+                        currentUserId,
+                        promotionNote
+                ));
                 continue;
             }
 

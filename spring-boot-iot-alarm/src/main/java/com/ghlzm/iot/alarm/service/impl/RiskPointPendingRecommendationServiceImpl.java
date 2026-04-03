@@ -78,6 +78,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private final DevicePropertyMapper devicePropertyMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
+    private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskPointPendingRecommendationServiceImpl(RiskPointPendingBindingService pendingBindingService,
@@ -106,8 +107,10 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         mergeMessageLogEvidence(candidateMap, device);
 
         RiskPointPendingCandidateBundleVO bundle = toBundle(pending);
-        bundle.setCandidates(candidateMap.values().stream()
+        List<RiskPointPendingMetricCandidateVO> rawCandidates = candidateMap.values().stream()
                 .map(this::toCandidate)
+                .toList();
+        bundle.setCandidates(metricGovernanceRules.governCandidates(pending, device, rawCandidates).stream()
                 .sorted(candidateComparator())
                 .toList());
         bundle.setPromotionHistory(loadPromotionHistory(pending.getId()));
