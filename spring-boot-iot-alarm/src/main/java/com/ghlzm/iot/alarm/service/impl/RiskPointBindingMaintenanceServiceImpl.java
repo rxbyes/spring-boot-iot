@@ -211,7 +211,10 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         replacement.setDeviceCode(oldBinding.getDeviceCode());
         replacement.setDeviceName(oldBinding.getDeviceName());
         replacement.setMetricIdentifier(newMetricIdentifier);
-        replacement.setMetricName(normalizeMetricName(request == null ? null : request.getMetricName()));
+        replacement.setMetricName(resolveReplacementMetricName(
+                request == null ? null : request.getMetricName(),
+                newMetricIdentifier
+        ));
         RiskPointDevice saved = riskPointService.bindDeviceAndReturn(replacement, currentUserId);
 
         int deletedRows = riskPointDeviceMapper.deleteById(bindingId);
@@ -252,6 +255,11 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     private String normalizeMetricName(String metricName) {
         return StringUtils.hasText(metricName) ? metricName.trim() : null;
+    }
+
+    private String resolveReplacementMetricName(String metricName, String metricIdentifier) {
+        String normalizedMetricName = normalizeMetricName(metricName);
+        return normalizedMetricName == null ? metricIdentifier : normalizedMetricName;
     }
 
     private boolean isDeleted(Integer deleted) {

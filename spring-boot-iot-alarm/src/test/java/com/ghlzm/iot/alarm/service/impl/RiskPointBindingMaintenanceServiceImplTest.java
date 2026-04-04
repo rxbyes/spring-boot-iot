@@ -227,6 +227,56 @@ class RiskPointBindingMaintenanceServiceImplTest {
         assertEquals("方位角", bindingCaptor.getValue().getMetricName());
     }
 
+    @Test
+    void replaceBindingMetricShouldFallbackMetricNameToIdentifierWhenBlank() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper
+        );
+        RiskPointDevice oldBinding = binding(
+                4001L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                new Date(1000L)
+        );
+        RiskPointDevice savedBinding = binding(
+                4999L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "AZI",
+                "AZI",
+                new Date(2000L)
+        );
+        when(riskPointDeviceMapper.selectById(4001L)).thenReturn(oldBinding);
+        when(riskPointService.getById(11L, 1001L)).thenReturn(new RiskPoint());
+        when(riskPointDeviceMapper.selectOne(any())).thenReturn(null);
+        when(riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), any())).thenReturn(savedBinding);
+        when(riskPointDeviceMapper.deleteById(4001L)).thenReturn(1);
+        RiskPointBindingReplaceRequest request = new RiskPointBindingReplaceRequest();
+        request.setMetricIdentifier(" AZI ");
+        request.setMetricName("   ");
+
+        RiskPointBindingMetricVO result = service.replaceBindingMetric(4001L, request, 1001L);
+
+        assertEquals(4999L, result.getBindingId());
+        ArgumentCaptor<RiskPointDevice> bindingCaptor = ArgumentCaptor.forClass(RiskPointDevice.class);
+        verify(riskPointService).bindDeviceAndReturn(bindingCaptor.capture(), any());
+        assertEquals("AZI", bindingCaptor.getValue().getMetricIdentifier());
+        assertEquals("AZI", bindingCaptor.getValue().getMetricName());
+    }
+
     private RiskPointDevice binding(Long id,
                                     Long riskPointId,
                                     Long deviceId,
