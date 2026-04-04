@@ -11,14 +11,36 @@ function readRouter() {
 }
 
 describe('automation rd workbench route splits', () => {
-  it('keeps quality workbench focused on rd and shared-center navigation', () => {
+  it('keeps quality workbench focused on business acceptance, rd, and shared-center navigation', () => {
     const source = readView('QualityWorkbenchLandingView.vue');
 
+    expect(source).toContain('/business-acceptance');
     expect(source).toContain('/rd-workbench');
     expect(source).toContain('/automation-execution');
     expect(source).toContain('/automation-results');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationResultImportPanel');
+  });
+
+  it('keeps the business acceptance view free of rd authoring widgets', () => {
+    const source = readView('BusinessAcceptanceWorkbenchView.vue');
+
+    expect(source).toContain('<BusinessAcceptancePackagePanel');
+    expect(source).toContain('<BusinessAcceptanceRunConfigPanel');
+    expect(source).toContain('launchSelectedPackage');
+    expect(source).toContain('useBusinessAcceptanceWorkbench');
+    expect(source).not.toContain('<AutomationScenarioEditor');
+    expect(source).not.toContain('<AutomationExecutionConfigPanel');
+  });
+
+  it('keeps the business acceptance result page focused on pass or fail conclusion and module drill-down', () => {
+    const source = readView('BusinessAcceptanceResultView.vue');
+
+    expect(source).toContain('<BusinessAcceptanceResultSummaryPanel');
+    expect(source).toContain('<BusinessAcceptanceModuleResultPanel');
+    expect(source).toContain('goToAutomationResults');
+    expect(source).not.toContain('<AutomationExecutionConfigPanel');
+    expect(source).not.toContain('<AutomationScenarioEditor');
   });
 
   it('keeps the rd-workbench landing page focused on four rd authoring modules', () => {
@@ -108,6 +130,8 @@ describe('automation rd workbench route splits', () => {
     const source = readRouter();
 
     expect(source).toContain("path: '/quality-workbench'");
+    expect(source).toContain("path: '/business-acceptance'");
+    expect(source).toContain("path: '/business-acceptance/results/:runId'");
     expect(source).toContain("path: '/rd-workbench'");
     expect(source).toContain("path: '/rd-automation-inventory'");
     expect(source).toContain("path: '/rd-automation-templates'");

@@ -107,7 +107,11 @@ class AutomationResultQueryServiceImplTest {
                         {
                           "runId": "20260402155432",
                           "options": {
-                            "scope": "delivery"
+                            "scope": "delivery",
+                            "packageCode": "product-device",
+                            "environmentCode": "dev",
+                            "accountTemplate": "acceptance-default",
+                            "selectedModules": "product-create,product-query"
                           },
                           "registryVersion": "1.0.0",
                           "summary": {
@@ -141,6 +145,10 @@ class AutomationResultQueryServiceImplTest {
 
         assertThat(detail.getRunId()).isEqualTo("20260402155432");
         assertThat(detail.getReportPath()).isEqualTo("logs/acceptance/registry-run-20260402155432.json");
+        assertThat(detail.getOptions()).containsEntry("packageCode", "product-device");
+        assertThat(detail.getOptions()).containsEntry("environmentCode", "dev");
+        assertThat(detail.getOptions()).containsEntry("accountTemplate", "acceptance-default");
+        assertThat(detail.getOptions()).containsEntry("selectedModules", "product-create,product-query");
         assertThat(detail.getSummary().getFailed()).isEqualTo(1);
         assertThat(detail.getResults()).hasSize(1);
         assertThat(detail.getResults().get(0).getScenarioId()).isEqualTo("risk.full-drill.red-chain");

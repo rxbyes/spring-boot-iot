@@ -185,18 +185,19 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看质量工场能力与专项入口',
     navShort: '概',
     title: '质量工场',
-    description: '围绕研发工场、执行组织与结果基线组织工程质量能力。',
-    intro: '建议先判断当前要编排研发自动化资产、组织执行，还是复盘运行结果，再进入对应专项页。',
+    description: '围绕业务验收、研发工场、执行组织与结果基线组织工程质量能力。',
+    intro: '建议先判断当前要发起业务验收、编排研发自动化资产，还是复盘运行结果，再进入对应专项页。',
     menuTitle: '质量工场',
-    menuHint: '覆盖研发资产编排、执行组织与结果基线治理。',
+    menuHint: '覆盖业务验收、研发资产编排、执行组织与结果基线治理。',
     matchKeys: ['quality-workbench', 'quality-core'],
     matchLabels: ['质量工场', '测试工具'],
     cards: [
+      { path: '/business-acceptance', label: '业务验收台', description: '按交付清单选择预置验收包并一键运行业务验收。', short: '验', keywords: ['业务验收台', '业务验收', '交付清单验收', '验收包'] },
       { path: '/rd-workbench', label: '研发工场', description: '面向研发的自动化资产编排主入口。', short: '研', keywords: ['研发工场', '研发自动化', '自动化资产编排'] },
       { path: '/automation-execution', label: '执行中心', description: '统一查看执行配置、命令预览和验收注册表依赖关系。', short: '执', keywords: ['执行中心', '执行配置', '验收注册表'] },
       { path: '/automation-results', label: '结果与基线中心', description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。', short: '果', keywords: ['结果与基线中心', '运行结果', '视觉基线'] }
     ],
-    steps: ['先进入研发工场拆分盘点、模板、计划与交付任务。', '再按执行中心组织回归。', '最后在结果与基线中心沉淀证据与改进建议。']
+    steps: ['业务验收优先进入业务验收台，按交付清单选择验收包并一键执行。', '研发再进入研发工场拆分盘点、模板、计划与交付任务。', '统一通过执行中心组织回归，并在结果与基线中心沉淀证据与改进建议。']
   },
   {
     key: 'rd-workbench',
@@ -280,6 +281,7 @@ const hiddenCompatibilityWorkspacePaths = new Set(['/automation-assets', '/autom
 const canonicalGroupNavOrders: Record<string, string[]> = {
   'quality-workbench': [
     '/quality-workbench',
+    '/business-acceptance',
     '/rd-workbench',
     '/rd-automation-inventory',
     '/rd-automation-templates',
