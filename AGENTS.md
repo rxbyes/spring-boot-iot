@@ -15,6 +15,7 @@ com.ghlzm.iot
 当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`，`application-test.yml` 继续保留 `mysql`。
 当前 `iot_agg_measure_hour` 已纳入 `sql/init-tdengine.sql` 手动初始化基线；应用运行时只会自动派生 `tb_ah_<tenantId>_<deviceId>` child table，不会自动创建该 stable。当前小时聚合仅覆盖 `MEASURE` 数值点位，且需同时开启 `iot.telemetry.aggregate.enabled=true` 与 `iot.telemetry.aggregate.hourly-enabled=true`。
 当前 `application-dev.yml` / `application-prod.yml` / `application-test.yml` 已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 `slave_1` 也补齐了独立 Hikari 基线，不再依赖默认 `10` 连接。
+质量工场当前已新增 `/business-acceptance` 业务验收台：面向验收人员、产品和项目经理只暴露 `环境 / 账号模板 / 模块范围` 三类轻配置，并在结果首屏直接回答“是否通过”“哪些模块没过”；`/automation-results` 继续作为底层结果与证据中心，并支持通过 `runId` query 直接预选同一次运行。
 产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-04-04 起继续在 `/products` 内复用同一抽屉，默认治理流程升级为“规范证据 + 报文证据 + 正式基线 -> compare -> apply”。当前首批内置规范预设为 `landslide-integrated-tilt-accel-crack-v1`，工作台与抽屉默认按“倾角 / 加速度 / 裂缝一体机”预设进入规范优先治理，并默认勾选倾角核心字段；单设备样本 JSON 与 `property / event / service` 人工补录继续保留为辅助证据入口。compare 行当前会并列返回规范出处、单位、原始字段别名、运行期来源表与正式模型基线；确认后仍直接写入 `iot_product_model`，不新增平行草稿表，`model-candidates/confirm` 仅保留兼容新增入口。该增强当前仍作为下一阶段设备中心维护，不并入 Phase 4 已交付范围。
 
 ### 当前构建模块基线

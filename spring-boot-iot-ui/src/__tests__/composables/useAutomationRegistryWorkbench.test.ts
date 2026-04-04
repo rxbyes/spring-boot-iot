@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  mockRoute,
   successMessageMock,
   errorMessageMock,
   pageAutomationResultsMock,
@@ -9,6 +10,9 @@ const {
   listAutomationResultEvidenceMock,
   getAutomationResultEvidenceContentMock
 } = vi.hoisted(() => ({
+  mockRoute: {
+    query: {}
+  },
   successMessageMock: vi.fn(),
   errorMessageMock: vi.fn(),
   pageAutomationResultsMock: vi.fn(),
@@ -31,6 +35,10 @@ vi.mock('@/utils/message', () => ({
     success: successMessageMock,
     error: errorMessageMock
   }
+}));
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
 }));
 
 import { useAutomationRegistryWorkbench } from '@/composables/useAutomationRegistryWorkbench';
@@ -111,6 +119,7 @@ function createPageResult(records: unknown[], pageNum = 1, pageSize = 10, total 
 
 describe('useAutomationRegistryWorkbench', () => {
   beforeEach(() => {
+    mockRoute.query = {};
     successMessageMock.mockReset();
     errorMessageMock.mockReset();
     pageAutomationResultsMock.mockReset();
@@ -118,6 +127,41 @@ describe('useAutomationRegistryWorkbench', () => {
     getAutomationResultDetailMock.mockReset();
     listAutomationResultEvidenceMock.mockReset();
     getAutomationResultEvidenceContentMock.mockReset();
+  });
+
+  it('preselects a run in automation results when runId query exists', async () => {
+    mockRoute.query = {
+      runId: '20260404153000'
+    };
+    getAutomationResultDetailMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRunDetail('20260404153000')
+    });
+    listAutomationResultEvidenceMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createEvidenceList('20260404153000')
+    });
+    getAutomationResultEvidenceContentMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        path: 'logs/acceptance/registry-run-20260404153000.json',
+        fileName: 'registry-run-20260404153000.json',
+        category: 'run-summary',
+        content: '{"runId":"20260404153000"}',
+        truncated: false
+      }
+    });
+
+    const workbench = useAutomationRegistryWorkbench();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(workbench.selectedLedgerRunId.value).toBe('20260404153000');
+    expect(getAutomationResultDetailMock).toHaveBeenCalledWith('20260404153000');
   });
 
   it('loads the first history page and auto-selects the first run detail', async () => {

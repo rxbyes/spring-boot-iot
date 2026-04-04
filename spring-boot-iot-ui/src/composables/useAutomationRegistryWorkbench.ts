@@ -1,4 +1,5 @@
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   getAutomationResultDetail,
   getAutomationResultEvidenceContent,
@@ -45,6 +46,7 @@ function createLedgerFilters(): AutomationResultLedgerFilters {
 }
 
 export function useAutomationRegistryWorkbench() {
+  const route = useRoute();
   const registryDocument = loadAcceptanceRegistryDocument();
   const importedRun = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
   const displaySource = ref<RegistryRunDisplaySource>('backend');
@@ -292,6 +294,18 @@ export function useAutomationRegistryWorkbench() {
     displaySource.value = 'backend';
     ElMessage.success('已清空导入结果');
   }
+
+  watch(
+    () => route.query.runId,
+    (runId) => {
+      const normalizedRunId = typeof runId === 'string' ? runId.trim() : '';
+      if (!normalizedRunId || normalizedRunId === selectedLedgerRunId.value) {
+        return;
+      }
+      void selectLedgerRun(normalizedRunId, { silent: true });
+    },
+    { immediate: true }
+  );
 
   return {
     registryDocument,

@@ -27,8 +27,20 @@ describe('automation rd workbench route splits', () => {
 
     expect(source).toContain('<BusinessAcceptancePackagePanel');
     expect(source).toContain('<BusinessAcceptanceRunConfigPanel');
+    expect(source).toContain('launchSelectedPackage');
+    expect(source).toContain('useBusinessAcceptanceWorkbench');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationExecutionConfigPanel');
+  });
+
+  it('keeps the business acceptance result page focused on pass or fail conclusion and module drill-down', () => {
+    const source = readView('BusinessAcceptanceResultView.vue');
+
+    expect(source).toContain('<BusinessAcceptanceResultSummaryPanel');
+    expect(source).toContain('<BusinessAcceptanceModuleResultPanel');
+    expect(source).toContain('goToAutomationResults');
+    expect(source).not.toContain('<AutomationExecutionConfigPanel');
+    expect(source).not.toContain('<AutomationScenarioEditor');
   });
 
   it('keeps the rd-workbench landing page focused on four rd authoring modules', () => {
