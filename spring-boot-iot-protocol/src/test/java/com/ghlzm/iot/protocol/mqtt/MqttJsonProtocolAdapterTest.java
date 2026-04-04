@@ -170,6 +170,29 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
+    void shouldExposePayloadComparisonMetadataForPlainLegacyDpPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = newAdapter(properties).decode("""
+                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
+                """.getBytes(StandardCharsets.UTF_8), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertEquals(null, readMetadata(protocolMetadata, "getDecryptedPayloadPreview"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(protocolMetadata, "getDecodedPayloadPreview");
+        assertEquals("property", decodedPreview.get("messageType"));
+        assertEquals("17165802", decodedPreview.get("deviceCode"));
+        assertTrue(decodedPreview.containsKey("properties"));
+    }
+
+    @Test
     void shouldSuppressFamilyObservabilityMetadataWhenFlagDisabled() {
         IotProperties properties = new IotProperties();
         properties.getProtocol().getLegacyDp().setFamilyObservabilityEnabled(false);
