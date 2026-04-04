@@ -32,6 +32,45 @@ public class ProductModelNormativePresetRegistry {
                     "QJ",
                     "L1_QJ_1"),
             definition(
+                    20,
+                    "L1_QJ_1.Y",
+                    "倾角测点 Y 轴倾角",
+                    "double",
+                    "°",
+                    1,
+                    "表 B.1",
+                    "倾角测点 Y 轴与水平面的夹角，建议进入 latest 和 telemetry。",
+                    List.of("Y", "angleY"),
+                    "L1",
+                    "QJ",
+                    "L1_QJ_1"),
+            definition(
+                    30,
+                    "L1_QJ_1.Z",
+                    "倾角测点 Z 轴倾角",
+                    "double",
+                    "°",
+                    1,
+                    "表 B.1",
+                    "倾角测点 Z 轴与水平面的夹角，建议进入 latest 和 telemetry。",
+                    List.of("Z", "angleZ"),
+                    "L1",
+                    "QJ",
+                    "L1_QJ_1"),
+            definition(
+                    40,
+                    "L1_QJ_1.angle",
+                    "倾角测点平面夹角",
+                    "double",
+                    "°",
+                    1,
+                    "表 B.1",
+                    "倾角测点平面夹角，可作为综合倾角结果进入 latest 和 telemetry。",
+                    List.of("angle", "tiltAngle", "planeAngle"),
+                    "L1",
+                    "QJ",
+                    "L1_QJ_1"),
+            definition(
                     50,
                     "L1_QJ_1.AZI",
                     "倾角测点方位角",
@@ -44,6 +83,58 @@ public class ProductModelNormativePresetRegistry {
                     "L1",
                     "QJ",
                     "L1_QJ_1"),
+            definition(
+                    60,
+                    "L1_JS_1.gX",
+                    "加速度测点 X 轴加速度",
+                    "double",
+                    "mg",
+                    1,
+                    "表 C.1",
+                    "加速度测点 X 轴加速度，建议进入 latest 和 telemetry。",
+                    List.of("gX", "accX"),
+                    "L1",
+                    "JS",
+                    "L1_JS_1"),
+            definition(
+                    70,
+                    "L1_JS_1.gY",
+                    "加速度测点 Y 轴加速度",
+                    "double",
+                    "mg",
+                    1,
+                    "表 C.1",
+                    "加速度测点 Y 轴加速度，建议进入 latest 和 telemetry。",
+                    List.of("gY", "accY"),
+                    "L1",
+                    "JS",
+                    "L1_JS_1"),
+            definition(
+                    80,
+                    "L1_JS_1.gZ",
+                    "加速度测点 Z 轴加速度",
+                    "double",
+                    "mg",
+                    1,
+                    "表 C.1",
+                    "加速度测点 Z 轴加速度，建议进入 latest 和 telemetry。",
+                    List.of("gZ", "accZ"),
+                    "L1",
+                    "JS",
+                    "L1_JS_1"),
+            definition(
+                    90,
+                    "L1_LF_1.value",
+                    "裂缝测点张开度",
+                    "double",
+                    "mm",
+                    1,
+                    "表 D.1",
+                    "裂缝测点张开度，建议进入 latest 和 telemetry。",
+                    List.of("value", "crackValue", "lfValue"),
+                    "L1",
+                    "LF",
+                    "L1_LF_1"),
             definition(
                     150,
                     "S1_ZT_1.signal_4g",
@@ -60,17 +151,25 @@ public class ProductModelNormativePresetRegistry {
 
     private final Map<String, Set<String>> integratedAliasMap = Map.of(
             "L1_QJ_1.X", Set.of("L1_QJ_1.X", "X", "x", "angleX"),
+            "L1_QJ_1.Y", Set.of("L1_QJ_1.Y", "Y", "y", "angleY"),
+            "L1_QJ_1.Z", Set.of("L1_QJ_1.Z", "Z", "z", "angleZ"),
+            "L1_QJ_1.angle", Set.of("L1_QJ_1.angle", "angle", "tiltAngle", "planeAngle"),
             "L1_QJ_1.AZI", Set.of("L1_QJ_1.AZI", "AZI", "azi"),
+            "L1_JS_1.gX", Set.of("L1_JS_1.gX", "gX", "gx", "accX"),
+            "L1_JS_1.gY", Set.of("L1_JS_1.gY", "gY", "gy", "accY"),
+            "L1_JS_1.gZ", Set.of("L1_JS_1.gZ", "gZ", "gz", "accZ"),
+            "L1_LF_1.value", Set.of("L1_LF_1.value", "value", "crackValue", "lfValue"),
             "S1_ZT_1.signal_4g", Set.of("S1_ZT_1.signal_4g", "signal_4g", "status4gSignal"));
 
     public List<ProductModelGovernanceEvidenceVO> buildPropertyPreset(String presetCode,
                                                                       Collection<String> selectedIdentifiers) {
         validatePresetCode(presetCode);
-        Set<String> filter = selectedIdentifiers == null
+        boolean selectAll = selectedIdentifiers == null;
+        Set<String> filter = selectAll
                 ? Set.of()
                 : new LinkedHashSet<>(selectedIdentifiers);
         return integratedDefinitions.stream()
-                .filter(item -> filter.isEmpty() || filter.contains(item.getIdentifier()))
+                .filter(item -> selectAll || filter.contains(item.getIdentifier()))
                 .map(this::copyEvidence)
                 .toList();
     }
