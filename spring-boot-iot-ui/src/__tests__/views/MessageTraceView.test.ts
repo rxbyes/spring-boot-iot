@@ -533,6 +533,65 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('时间线已过期，仅保留消息日志。');
   });
 
+  it('renders raw, decrypted, and decoded payload panels in the detail drawer', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: [
+          {
+            stage: 'PROTOCOL_DECODE',
+            handlerClass: 'MqttJsonProtocolAdapter',
+            handlerMethod: 'decode',
+            status: 'SUCCESS',
+            costMs: 8,
+            startedAt: '2026-03-23 10:00:00',
+            finishedAt: '2026-03-23 10:00:00',
+            summary: {
+              decryptedPayloadPreview: '{"temperature":26.5}',
+              decodedPayloadPreview: {
+                messageType: 'property',
+                deviceCode: 'demo-device-01',
+                properties: {
+                  temperature: 26.5
+                }
+              }
+            },
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('原始 Payload');
+    expect(wrapper.text()).toContain('解密后明文');
+    expect(wrapper.text()).toContain('解析结果');
+    expect(wrapper.text()).toContain('temperature');
+    expect(wrapper.text()).toContain('demo-device-01');
+  });
+
   it('shows the degraded hint when the trace timeline has expired', async () => {
     vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
       code: 200,
@@ -551,6 +610,29 @@ describe('MessageTraceView', () => {
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
     expect(wrapper.text()).toContain('时间线已过期，仅保留消息日志。');
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
+  });
+
+  it('keeps payload comparison placeholders visible when the timeline has expired', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('原始 Payload');
+    expect(wrapper.text()).toContain('解密后明文');
+    expect(wrapper.text()).toContain('解析结果');
+    expect(wrapper.text()).toContain('当前时间线已过期，无法恢复解密结果');
+    expect(wrapper.text()).toContain('当前时间线已过期，无法恢复解析结果');
+    expect(wrapper.text()).toContain('temperature');
   });
 
   it('renders the trace page with only real trace tabs and without support zones', async () => {

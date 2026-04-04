@@ -341,16 +341,11 @@
         <section class="detail-panel">
           <div class="detail-section-header">
             <div>
-              <h3>消息内容</h3>
-              <p>使用统一深色报文块承载 Payload，长 JSON、原始报文和多行内容在查看时更清晰。</p>
+              <h3>Payload 对照</h3>
+              <p>同时查看原始 Payload、解密后明文与解析结果，更直观判断上报数据是否在协议链路中出现偏差。</p>
             </div>
           </div>
-          <div class="detail-grid">
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">Payload</span>
-              <div class="detail-field__value detail-field__value--pre">{{ detailPayload }}</div>
-            </div>
-          </div>
+          <MessageTracePayloadComparisonSection :panels="detailPayloadComparison.panels" />
           <div class="detail-notice">
             <span class="detail-notice__label">排查建议</span>
             <strong class="detail-notice__value">{{ detailRouteAdvice }}</strong>
@@ -367,6 +362,7 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
+import MessageTracePayloadComparisonSection from '@/components/messageTrace/MessageTracePayloadComparisonSection.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
@@ -394,7 +390,8 @@ import type {
   MessageTraceStats
 } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
-import { formatDateTime, prettyJson } from '@/utils/format';
+import { formatDateTime } from '@/utils/format';
+import { resolveMessageTracePayloadComparison } from '@/utils/messageTracePayloadComparison';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
@@ -497,7 +494,13 @@ const detailTimelineEmptyDescription = computed(() => {
 const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
 const detailSubtitle = computed(() => detailData.value.topic || '查看接入消息详情');
 const detailDisplayTime = computed(() => formatDateTime(detailData.value.reportTime || detailData.value.createTime));
-const detailPayload = computed(() => prettyJson(detailData.value.payload || '--'));
+const detailPayloadComparison = computed(() =>
+  resolveMessageTracePayloadComparison({
+    rawPayload: detailData.value.payload,
+    timeline: detailTimeline.value,
+    timelineExpired: timelineExpired.value
+  })
+);
 const detailTopicSegments = computed(() => {
   if (!detailData.value.topic) {
     return '--';
