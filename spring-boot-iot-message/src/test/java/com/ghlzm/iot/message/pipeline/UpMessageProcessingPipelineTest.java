@@ -256,6 +256,35 @@ class UpMessageProcessingPipelineTest {
     }
 
     @Test
+    void processShouldExposeProtocolPayloadComparisonSummary() {
+        UpMessageProcessingRequest request = buildMqttRequest("$dp", "cipher-text");
+        RawDeviceMessage rawDeviceMessage = buildRawMessage("$dp", "legacy", "demo-device-01", "demo-product");
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "$dp");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setRouteType("legacy");
+        protocolMetadata.setDecryptedPayloadPreview("{\"plain\":true}");
+        protocolMetadata.setDecodedPayloadPreview(Map.of(
+                "messageType", "property",
+                "deviceCode", "demo-device-01",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(mqttTopicRouter.toRawMessage(anyString(), any(MqttMessage.class))).thenReturn(rawDeviceMessage);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(buildTarget("demo-device-01", upMessage));
+        when(devicePayloadApplyStageHandler.apply(any())).thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(any())).thenReturn(TelemetryPersistResult.persisted(1));
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
+        assertEquals("{\"plain\":true}", decodeStep.getSummary().get("decryptedPayloadPreview"));
+        assertEquals("demo-device-01", ((Map<?, ?>) decodeStep.getSummary().get("decodedPayloadPreview")).get("deviceCode"));
+    }
+
+    @Test
     void processShouldExposeTelemetryGovernanceSummary() {
         UpMessageProcessingRequest request = buildHttpRequest();
         DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");

@@ -274,6 +274,7 @@ public class UpMessageProcessingPipeline {
                 result.getSummary().put("childSplitApplied", protocolMetadata.getChildSplitApplied());
             }
         }
+        ProtocolDecodeSummarySupport.append(result, upMessage);
         return result;
     }
 
