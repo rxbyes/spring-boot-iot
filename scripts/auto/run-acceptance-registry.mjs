@@ -28,12 +28,32 @@ function parseRegistryArgs(argv) {
       options.id = arg.slice('--id='.length).trim();
       return;
     }
+    if (arg.startsWith('--registry-path=')) {
+      options.registryPath = arg.slice('--registry-path='.length).trim();
+      return;
+    }
     if (arg.startsWith('--module=')) {
       options.module = arg.slice('--module='.length).trim();
       return;
     }
     if (arg.startsWith('--scope=')) {
       options.scope = arg.slice('--scope='.length).trim();
+      return;
+    }
+    if (arg.startsWith('--package-code=')) {
+      options.packageCode = arg.slice('--package-code='.length).trim();
+      return;
+    }
+    if (arg.startsWith('--environment-code=')) {
+      options.environmentCode = arg.slice('--environment-code='.length).trim();
+      return;
+    }
+    if (arg.startsWith('--account-template=')) {
+      options.accountTemplate = arg.slice('--account-template='.length).trim();
+      return;
+    }
+    if (arg.startsWith('--selected-modules=')) {
+      options.selectedModules = arg.slice('--selected-modules='.length).trim();
       return;
     }
     if (arg.startsWith('--frontend-base-url=')) {
@@ -152,6 +172,7 @@ export async function runRegistryCli({
   const options = parseRegistryArgs(argv);
   const registry = await loadAcceptanceRegistry({
     workspaceRoot,
+    registryPath: options.registryPath,
     source: registrySource
   });
 
