@@ -5,11 +5,16 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.report.service.BusinessAcceptanceService;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
-import com.ghlzm.iot.report.vo.AutomationResultSummaryVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceAccountTemplateVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceFailureDetailVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceLatestResultVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceModuleResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptancePackageModuleVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptancePackageVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceResultVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceRunLaunchVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceRunRequest;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceRunStatusVO;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +24,8 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -27,87 +34,170 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-/**
- * 业务验收配置与结果发现服务
- */
 @Slf4j
 @Service
 public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService {
 
     private static final Pattern REGISTRY_RUN_FILE_PATTERN = Pattern.compile("^registry-run-(.+)\\.json$");
+    private static final Pattern RUN_ID_OUTPUT_PATTERN = Pattern.compile("\"runId\"\\s*:\\s*\"([^\"]+)\"");
     private static final DateTimeFormatter UPDATED_AT_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final DateTimeFormatter RUN_ID_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
+    private static final List<String> ENVIRONMENT_BLOCK_KEYWORDS = List.of("econnrefused", "connection refused", "timed out", "timeout", "fetch failed", "login", "health", "unavailable");
 
     private final Path workspaceRoot;
     private final Path packagesConfigPath;
     private final Path acceptanceRegistryPath;
     private final Path resultsDir;
+    private final Path registryRunnerScriptPath;
+    private final String nodeCommand;
     private final ObjectMapper objectMapper;
+    private final Map<String, JobState> jobStates = new ConcurrentHashMap<>();
 
     @Autowired
     public BusinessAcceptanceServiceImpl(
             @Value("${iot.business-acceptance.workspace-root:.}") String workspaceRoot,
             @Value("${iot.business-acceptance.packages-config:config/automation/business-acceptance-packages.json}") String packagesConfigPath,
             @Value("${iot.automation.registry-path:config/automation/acceptance-registry.json}") String acceptanceRegistryPath,
-            @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir
+            @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir,
+            @Value("${iot.automation.node-command:node}") String nodeCommand,
+            @Value("${iot.automation.registry-runner-script:scripts/auto/run-acceptance-registry.mjs}") String registryRunnerScriptPath
     ) {
-        this(
-                Paths.get(workspaceRoot),
-                Paths.get(packagesConfigPath),
-                Paths.get(acceptanceRegistryPath),
-                Paths.get(resultsDir),
-                JsonMapper.builder().findAndAddModules().build()
-        );
+        this(Paths.get(workspaceRoot), Paths.get(packagesConfigPath), Paths.get(acceptanceRegistryPath), Paths.get(resultsDir), nodeCommand, Paths.get(registryRunnerScriptPath), JsonMapper.builder().findAndAddModules().build());
     }
 
-    BusinessAcceptanceServiceImpl(
-            Path workspaceRoot,
-            Path packagesConfigPath,
-            Path acceptanceRegistryPath,
-            Path resultsDir,
-            ObjectMapper objectMapper
-    ) {
+    BusinessAcceptanceServiceImpl(Path workspaceRoot, Path packagesConfigPath, Path acceptanceRegistryPath, Path resultsDir, ObjectMapper objectMapper) {
+        this(workspaceRoot, packagesConfigPath, acceptanceRegistryPath, resultsDir, "node", Paths.get("scripts/auto/run-acceptance-registry.mjs"), objectMapper);
+    }
+
+    BusinessAcceptanceServiceImpl(Path workspaceRoot, Path packagesConfigPath, Path acceptanceRegistryPath, Path resultsDir, String nodeCommand, Path registryRunnerScriptPath, ObjectMapper objectMapper) {
         this.workspaceRoot = normalizePath(workspaceRoot, null);
         this.packagesConfigPath = normalizePath(packagesConfigPath, this.workspaceRoot);
         this.acceptanceRegistryPath = normalizePath(acceptanceRegistryPath, this.workspaceRoot);
         this.resultsDir = normalizePath(resultsDir, this.workspaceRoot);
+        this.registryRunnerScriptPath = normalizePath(registryRunnerScriptPath, this.workspaceRoot);
+        this.nodeCommand = normalizeText(nodeCommand);
         this.objectMapper = objectMapper;
     }
 
     @Override
     public List<BusinessAcceptancePackageVO> listPackages() {
         LoadedDefinition definition = loadDefinition();
-        return definition.getPackages().stream()
-                .map(pkg -> toPackageVO(pkg, resolveLatestResult(pkg)))
-                .toList();
+        return definition.packages().stream().map(pkg -> toPackageVO(pkg, resolveLatestResult(pkg, definition))).toList();
     }
 
     @Override
     public List<BusinessAcceptanceAccountTemplateVO> listAccountTemplates() {
-        LoadedDefinition definition = loadDefinition();
-        return definition.getAccountTemplates().stream()
-                .map(this::toAccountTemplateVO)
-                .toList();
+        return loadDefinition().accountTemplates().stream().map(this::toAccountTemplateVO).toList();
     }
 
-    private BusinessAcceptancePackageVO toPackageVO(
-            BusinessAcceptancePackageConfig pkg,
-            BusinessAcceptanceLatestResultVO latestResult
-    ) {
+    @Override
+    public BusinessAcceptanceRunLaunchVO launchRun(BusinessAcceptanceRunRequest request) {
+        LoadedDefinition definition = loadDefinition();
+        BusinessAcceptancePackageConfig pkg = resolvePackage(definition, request == null ? null : request.getPackageCode());
+        BusinessAcceptanceAccountTemplateConfig template = resolveAccountTemplate(definition, request == null ? null : request.getAccountTemplateCode());
+        String environmentCode = requireText(request == null ? null : request.getEnvironmentCode(), "运行环境不能为空");
+        validateEnvironment(pkg, template, environmentCode);
+        LinkedHashSet<String> moduleCodes = resolveRequestedModuleCodes(request == null ? null : request.getModuleCodes(), pkg);
+
+        String jobId = "ba-" + UUID.randomUUID();
+        Path derivedRegistryPath = writeDerivedRegistry(jobId, pkg, moduleCodes, definition.registry());
+        JobState state = new JobState();
+        state.setJobId(jobId);
+        state.setStatus("running");
+        state.setStartedAt(currentTimestamp());
+        jobStates.put(jobId, state);
+
+        submitLaunch(jobId, derivedRegistryPath, buildLaunchCommand(derivedRegistryPath, pkg.getPackageCode(), environmentCode, template.getTemplateCode(), moduleCodes));
+
+        BusinessAcceptanceRunLaunchVO launchVO = new BusinessAcceptanceRunLaunchVO();
+        launchVO.setJobId(jobId);
+        launchVO.setStatus(state.getStatus());
+        launchVO.setStartedAt(state.getStartedAt());
+        return launchVO;
+    }
+
+    @Override
+    public BusinessAcceptanceRunStatusVO getRunStatus(String jobId) {
+        JobState state = jobStates.get(normalizeText(jobId));
+        if (state == null) {
+            throw new BizException(404, "未找到业务验收任务: " + jobId);
+        }
+        BusinessAcceptanceRunStatusVO statusVO = new BusinessAcceptanceRunStatusVO();
+        statusVO.setJobId(state.getJobId());
+        statusVO.setStatus(state.getStatus());
+        statusVO.setRunId(state.getRunId());
+        statusVO.setStartedAt(state.getStartedAt());
+        statusVO.setFinishedAt(state.getFinishedAt());
+        statusVO.setErrorMessage(state.getErrorMessage());
+        return statusVO;
+    }
+
+    @Override
+    public BusinessAcceptanceResultVO getRunResult(String packageCode, String runId) {
+        LoadedDefinition definition = loadDefinition();
+        BusinessAcceptancePackageConfig pkg = resolvePackage(definition, packageCode);
+        return buildBusinessResult(pkg, readLedgerRun(runId), definition);
+    }
+
+    protected void submitLaunch(String jobId, Path derivedRegistryPath, List<String> command) {
+        CompletableFuture.runAsync(() -> executeLaunch(jobId, derivedRegistryPath, command));
+    }
+
+    private void executeLaunch(String jobId, Path derivedRegistryPath, List<String> command) {
+        JobState state = jobStates.get(jobId);
+        if (state == null) {
+            return;
+        }
+        try {
+            ProcessBuilder builder = new ProcessBuilder(command);
+            builder.directory(workspaceRoot.toFile());
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+            String output;
+            try (var inputStream = process.getInputStream()) {
+                output = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            process.waitFor();
+            state.setRunId(extractRunId(output));
+            state.setFinishedAt(currentTimestamp());
+            if (StringUtils.hasText(state.getRunId())) {
+                state.setStatus("completed");
+            } else {
+                state.setStatus(classifyFailureStatus(output));
+                state.setErrorMessage(trimErrorMessage(output));
+            }
+        } catch (Exception ex) {
+            state.setFinishedAt(currentTimestamp());
+            state.setStatus(classifyFailureStatus(ex.getMessage()));
+            state.setErrorMessage(trimErrorMessage(ex.getMessage()));
+            log.warn("业务验收任务执行失败: {}", jobId, ex);
+        }
+    }
+
+    private BusinessAcceptancePackageVO toPackageVO(BusinessAcceptancePackageConfig pkg, BusinessAcceptanceLatestResultVO latestResult) {
         BusinessAcceptancePackageVO vo = new BusinessAcceptancePackageVO();
         vo.setPackageCode(pkg.getPackageCode());
         vo.setPackageName(pkg.getPackageName());
@@ -139,8 +229,64 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         return vo;
     }
 
-    private BusinessAcceptanceLatestResultVO resolveLatestResult(BusinessAcceptancePackageConfig pkg) {
-        Optional<BusinessAcceptanceLedgerRun> latestRun = findLatestRun(pkg.getPackageCode());
+    private LoadedDefinition loadDefinition() {
+        RegistryDocument registry = readRegistryDocument();
+        BusinessAcceptanceDefinitionDocument document = readDefinitionDocument();
+        LinkedHashMap<String, BusinessAcceptanceAccountTemplateConfig> templateMap = new LinkedHashMap<>();
+        for (BusinessAcceptanceAccountTemplateConfig template : defaultList(document.getAccountTemplates())) {
+            String code = requireText(template.getTemplateCode(), "账号模板编码不能为空");
+            if (templateMap.putIfAbsent(code, template) != null) {
+                throw new BizException(500, "业务验收账号模板编码重复: " + code);
+            }
+            template.setTemplateCode(code);
+            template.setTemplateName(requireText(template.getTemplateName(), "账号模板名称不能为空"));
+            template.setUsername(requireText(template.getUsername(), "账号模板用户名不能为空"));
+            template.setRoleHint(normalizeText(template.getRoleHint()));
+            template.setSupportedEnvironments(normalizeStringList(template.getSupportedEnvironments()));
+        }
+
+        LinkedHashMap<String, BusinessAcceptancePackageConfig> packageMap = new LinkedHashMap<>();
+        for (BusinessAcceptancePackageConfig pkg : defaultList(document.getPackages())) {
+            String packageCode = requireText(pkg.getPackageCode(), "业务验收包编码不能为空");
+            if (packageMap.putIfAbsent(packageCode, pkg) != null) {
+                throw new BizException(500, "业务验收包编码重复: " + packageCode);
+            }
+            pkg.setPackageCode(packageCode);
+            pkg.setPackageName(requireText(pkg.getPackageName(), "业务验收包名称不能为空"));
+            pkg.setDescription(normalizeText(pkg.getDescription()));
+            pkg.setTargetRoles(normalizeStringList(pkg.getTargetRoles()));
+            pkg.setSupportedEnvironments(normalizeStringList(pkg.getSupportedEnvironments()));
+            pkg.setDefaultAccountTemplate(requireText(pkg.getDefaultAccountTemplate(), "默认账号模板不能为空"));
+            if (!templateMap.containsKey(pkg.getDefaultAccountTemplate())) {
+                throw new BizException(500, "业务验收包引用了未知账号模板: " + pkg.getDefaultAccountTemplate());
+            }
+
+            LinkedHashMap<String, BusinessAcceptanceModuleConfig> moduleMap = new LinkedHashMap<>();
+            for (BusinessAcceptanceModuleConfig module : defaultList(pkg.getModules())) {
+                String moduleCode = requireText(module.getModuleCode(), "业务验收模块编码不能为空");
+                if (moduleMap.putIfAbsent(moduleCode, module) != null) {
+                    throw new BizException(500, "业务验收包模块编码重复: " + moduleCode);
+                }
+                module.setModuleCode(moduleCode);
+                module.setModuleName(requireText(module.getModuleName(), "业务验收模块名称不能为空"));
+                module.setSuggestedDirection(normalizeText(module.getSuggestedDirection()));
+                module.setScenarioRefs(normalizeStringList(module.getScenarioRefs()));
+                if (module.getScenarioRefs().isEmpty()) {
+                    throw new BizException(500, "业务验收模块未配置场景引用: " + moduleCode);
+                }
+                module.getScenarioRefs().forEach(ref -> {
+                    if (!registry.scenarios().containsKey(ref)) {
+                        throw new BizException(500, "业务验收模块引用了未知场景: " + ref);
+                    }
+                });
+            }
+            pkg.setModules(new ArrayList<>(moduleMap.values()));
+        }
+        return new LoadedDefinition(new ArrayList<>(packageMap.values()), packageMap, new ArrayList<>(templateMap.values()), templateMap, registry);
+    }
+
+    private BusinessAcceptanceLatestResultVO resolveLatestResult(BusinessAcceptancePackageConfig pkg, LoadedDefinition definition) {
+        Optional<LedgerRun> latestRun = findLatestRun(pkg.getPackageCode());
         if (latestRun.isEmpty()) {
             BusinessAcceptanceLatestResultVO latestResult = new BusinessAcceptanceLatestResultVO();
             latestResult.setStatus("neverRun");
@@ -149,242 +295,455 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
             latestResult.setFailedModuleNames(Collections.emptyList());
             return latestResult;
         }
-
-        BusinessAcceptanceLedgerRun ledgerRun = latestRun.get();
-        Set<String> selectedModuleCodes = resolveSelectedModuleCodes(
-                ledgerRun.detail().getOptions(),
-                pkg.getModules()
-        );
-        List<String> failedModuleNames = pkg.getModules().stream()
-                .filter(module -> selectedModuleCodes.contains(module.getModuleCode()))
-                .filter(module -> moduleFailed(module, ledgerRun.detail().getResults()))
-                .map(BusinessAcceptanceModuleConfig::getModuleName)
-                .toList();
-
+        BusinessAcceptanceResultVO result = buildBusinessResult(pkg, latestRun.get(), definition);
         BusinessAcceptanceLatestResultVO latestResult = new BusinessAcceptanceLatestResultVO();
-        latestResult.setRunId(resolveRunId(ledgerRun.detail(), ledgerRun.file()));
-        latestResult.setStatus(resolveRunStatus(ledgerRun.detail().getSummary()));
-        latestResult.setUpdatedAt(resolveUpdatedAt(ledgerRun.updatedAtEpochMillis()));
-        latestResult.setFailedModuleNames(failedModuleNames);
-        latestResult.setFailedModuleCount(failedModuleNames.size());
-        latestResult.setPassedModuleCount(Math.max(0, selectedModuleCodes.size() - failedModuleNames.size()));
+        latestResult.setRunId(result.getRunId());
+        latestResult.setStatus(result.getStatus());
+        latestResult.setUpdatedAt(resolveUpdatedAt(latestRun.get().updatedAtEpochMillis()));
+        latestResult.setPassedModuleCount(result.getPassedModuleCount());
+        latestResult.setFailedModuleCount(result.getFailedModuleCount());
+        latestResult.setFailedModuleNames(result.getFailedModuleNames());
         return latestResult;
     }
 
-    private boolean moduleFailed(
-            BusinessAcceptanceModuleConfig module,
-            List<AutomationResultRunResultVO> results
-    ) {
-        Set<String> failedScenarioIds = normalizeResults(results).stream()
-                .filter(item -> !"passed".equalsIgnoreCase(defaultString(item.getStatus())))
-                .map(AutomationResultRunResultVO::getScenarioId)
-                .filter(StringUtils::hasText)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        return module.getScenarioRefs().stream().anyMatch(failedScenarioIds::contains);
+    private BusinessAcceptanceResultVO buildBusinessResult(BusinessAcceptancePackageConfig pkg, LedgerRun ledgerRun, LoadedDefinition definition) {
+        Set<String> selectedModuleCodes = resolveSelectedModuleCodes(ledgerRun.detail().getOptions(), pkg.getModules());
+        List<BusinessAcceptanceModuleResultVO> modules = pkg.getModules().stream()
+                .filter(module -> selectedModuleCodes.contains(module.getModuleCode()))
+                .map(module -> buildModuleResult(module, ledgerRun.detail(), definition))
+                .toList();
+
+        BusinessAcceptanceResultVO result = new BusinessAcceptanceResultVO();
+        result.setRunId(resolveRunId(ledgerRun.detail(), ledgerRun.file()));
+        result.setStatus(modules.stream().anyMatch(item -> "blocked".equals(item.getStatus())) ? "blocked"
+                : modules.stream().anyMatch(item -> "failed".equals(item.getStatus())) ? "failed" : "passed");
+        result.setPassedModuleCount((int) modules.stream().filter(item -> "passed".equals(item.getStatus())).count());
+        result.setFailedModuleCount((int) modules.stream().filter(item -> !"passed".equals(item.getStatus())).count());
+        result.setFailedModuleNames(modules.stream().filter(item -> !"passed".equals(item.getStatus())).map(BusinessAcceptanceModuleResultVO::getModuleName).toList());
+        result.setDurationText(resolveDurationText(result.getRunId(), ledgerRun.updatedAtEpochMillis()));
+        result.setJumpToAutomationResultsPath("/automation-results?runId=" + result.getRunId());
+        result.setModules(modules);
+        return result;
     }
 
-    private Optional<BusinessAcceptanceLedgerRun> findLatestRun(String packageCode) {
+    private BusinessAcceptanceModuleResultVO buildModuleResult(BusinessAcceptanceModuleConfig module, AutomationResultRunDetailVO detail, LoadedDefinition definition) {
+        List<AutomationResultRunResultVO> relatedResults = normalizeResults(detail.getResults()).stream()
+                .filter(item -> module.getScenarioRefs().contains(normalizeText(item.getScenarioId())))
+                .toList();
+        List<AutomationResultRunResultVO> failedResults = relatedResults.stream()
+                .filter(item -> !"passed".equalsIgnoreCase(normalizeText(item.getStatus())))
+                .toList();
+        boolean blocked = relatedResults.isEmpty() || failedResults.stream().anyMatch(this::environmentFailureDetected);
+        String status = blocked ? "blocked" : failedResults.isEmpty() ? "passed" : "failed";
+
+        BusinessAcceptanceModuleResultVO moduleResult = new BusinessAcceptanceModuleResultVO();
+        moduleResult.setModuleCode(module.getModuleCode());
+        moduleResult.setModuleName(module.getModuleName());
+        moduleResult.setStatus(status);
+        moduleResult.setSuggestedDirection("blocked".equals(status) ? "environment" : StringUtils.hasText(module.getSuggestedDirection()) ? module.getSuggestedDirection() : "needsReview");
+        moduleResult.setFailedScenarioTitles(failedResults.isEmpty() && !"passed".equals(status)
+                ? module.getScenarioRefs().stream().map(scenarioId -> resolveScenarioTitle(definition, scenarioId)).toList()
+                : failedResults.stream().map(item -> resolveScenarioTitle(definition, item.getScenarioId())).toList());
+        moduleResult.setFailedScenarioCount("passed".equals(status) ? 0 : Math.max(1, moduleResult.getFailedScenarioTitles().size()));
+        moduleResult.setFailureDetails("passed".equals(status) ? Collections.emptyList() : buildFailureDetails(module, failedResults, definition, status));
+        return moduleResult;
+    }
+
+    private List<BusinessAcceptanceFailureDetailVO> buildFailureDetails(BusinessAcceptanceModuleConfig module, List<AutomationResultRunResultVO> failedResults, LoadedDefinition definition, String moduleStatus) {
+        if (failedResults.isEmpty()) {
+            String scenarioId = module.getScenarioRefs().isEmpty() ? "" : module.getScenarioRefs().get(0);
+            return List.of(buildFallbackFailure(module, scenarioId, definition, moduleStatus));
+        }
+        return failedResults.stream().map(item -> {
+            BusinessAcceptanceFailureDetailVO failure = buildFallbackFailure(module, item.getScenarioId(), definition, moduleStatus);
+            failure.setSummary(StringUtils.hasText(item.getSummary()) ? normalizeText(item.getSummary()) : failure.getSummary());
+            if (item.getDetails() != null) {
+                failure.setStepLabel(resolveDetailValue(item.getDetails(), "stepLabel", failure.getStepLabel()));
+                failure.setApiRef(resolveDetailValue(item.getDetails(), "apiRef", failure.getApiRef()));
+                failure.setPageAction(resolveDetailValue(item.getDetails(), "pageAction", failure.getPageAction()));
+            }
+            return failure;
+        }).toList();
+    }
+
+    private BusinessAcceptanceFailureDetailVO buildFallbackFailure(BusinessAcceptanceModuleConfig module, String scenarioId, LoadedDefinition definition, String moduleStatus) {
+        BusinessAcceptanceFailureDetailVO failure = new BusinessAcceptanceFailureDetailVO();
+        failure.setScenarioId(normalizeText(scenarioId));
+        failure.setScenarioTitle(resolveScenarioTitle(definition, scenarioId));
+        failure.setStepLabel(module.getFallbackFailure() == null ? "" : normalizeText(module.getFallbackFailure().getStepLabel()));
+        failure.setApiRef(module.getFallbackFailure() == null ? "" : normalizeText(module.getFallbackFailure().getApiRef()));
+        failure.setPageAction(module.getFallbackFailure() == null ? "" : normalizeText(module.getFallbackFailure().getPageAction()));
+        String summary = module.getFallbackFailure() == null ? "" : normalizeText(module.getFallbackFailure().getSummary());
+        failure.setSummary(StringUtils.hasText(summary) ? summary : ("blocked".equals(moduleStatus) ? "环境阻塞，未读取到有效运行结果。" : "业务验收未通过，待研发或测试复核。"));
+        return failure;
+    }
+
+    private String resolveScenarioTitle(LoadedDefinition definition, String scenarioId) {
+        RegistryScenario scenario = definition.registry().scenarios().get(normalizeText(scenarioId));
+        return scenario == null ? normalizeText(scenarioId) : scenario.title();
+    }
+
+    private String resolveDetailValue(Map<String, Object> details, String key, String fallback) {
+        Object value = details.get(key);
+        return value == null ? fallback : normalizeText(String.valueOf(value));
+    }
+
+    private boolean environmentFailureDetected(AutomationResultRunResultVO result) {
+        String haystack = (normalizeText(result.getSummary()) + " " + String.valueOf(result.getDetails())).toLowerCase(Locale.ROOT);
+        return ENVIRONMENT_BLOCK_KEYWORDS.stream().anyMatch(haystack::contains);
+    }
+
+    private BusinessAcceptancePackageConfig resolvePackage(LoadedDefinition definition, String packageCode) {
+        String normalized = requireText(packageCode, "业务验收包不能为空");
+        BusinessAcceptancePackageConfig pkg = definition.packageMap().get(normalized);
+        if (pkg == null) {
+            throw new BizException(404, "未找到业务验收包: " + packageCode);
+        }
+        return pkg;
+    }
+
+    private BusinessAcceptanceAccountTemplateConfig resolveAccountTemplate(LoadedDefinition definition, String accountTemplateCode) {
+        String normalized = requireText(accountTemplateCode, "账号模板不能为空");
+        BusinessAcceptanceAccountTemplateConfig template = definition.accountTemplateMap().get(normalized);
+        if (template == null) {
+            throw new BizException(404, "未找到账号模板: " + accountTemplateCode);
+        }
+        return template;
+    }
+
+    private void validateEnvironment(BusinessAcceptancePackageConfig pkg, BusinessAcceptanceAccountTemplateConfig template, String environmentCode) {
+        if (!pkg.getSupportedEnvironments().contains(environmentCode)) {
+            throw new BizException(400, "业务验收包不支持当前环境: " + environmentCode);
+        }
+        if (!template.getSupportedEnvironments().contains(environmentCode)) {
+            throw new BizException(400, "账号模板不支持当前环境: " + environmentCode);
+        }
+    }
+
+    private LinkedHashSet<String> resolveRequestedModuleCodes(List<String> requestedModuleCodes, BusinessAcceptancePackageConfig pkg) {
+        LinkedHashSet<String> selected = new LinkedHashSet<>();
+        if (requestedModuleCodes == null || requestedModuleCodes.isEmpty()) {
+            pkg.getModules().forEach(module -> selected.add(module.getModuleCode()));
+            return selected;
+        }
+        Set<String> allowed = pkg.getModules().stream().map(BusinessAcceptanceModuleConfig::getModuleCode).collect(LinkedHashSet::new, Set::add, Set::addAll);
+        for (String moduleCode : requestedModuleCodes) {
+            String normalized = normalizeText(moduleCode);
+            if (!allowed.contains(normalized)) {
+                throw new BizException(400, "业务验收模块不属于当前验收包: " + moduleCode);
+            }
+            selected.add(normalized);
+        }
+        return selected;
+    }
+
+    private Set<String> resolveSelectedModuleCodes(Map<String, Object> options, List<BusinessAcceptanceModuleConfig> packageModules) {
+        LinkedHashSet<String> selected = new LinkedHashSet<>();
+        Object rawSelectedModules = options == null ? null : options.get("selectedModules");
+        if (rawSelectedModules instanceof String textValue) {
+            for (String item : textValue.split(",")) {
+                String normalized = normalizeText(item);
+                if (StringUtils.hasText(normalized)) {
+                    selected.add(normalized);
+                }
+            }
+        } else if (rawSelectedModules instanceof Collection<?> collection) {
+            for (Object item : collection) {
+                String normalized = normalizeText(item == null ? null : String.valueOf(item));
+                if (StringUtils.hasText(normalized)) {
+                    selected.add(normalized);
+                }
+            }
+        }
+        if (selected.isEmpty()) {
+            packageModules.forEach(module -> selected.add(module.getModuleCode()));
+        }
+        return selected;
+    }
+
+    private Path writeDerivedRegistry(String jobId, BusinessAcceptancePackageConfig pkg, LinkedHashSet<String> moduleCodes, RegistryDocument registry) {
+        try {
+            Path derivedDir = Files.createDirectories(resultsDir.resolve("derived-registries"));
+            Path derivedRegistryPath = derivedDir.resolve("business-acceptance-" + jobId + ".json").normalize();
+            LinkedHashMap<String, RegistryScenario> orderedScenarios = new LinkedHashMap<>();
+            LinkedHashSet<String> visiting = new LinkedHashSet<>();
+            pkg.getModules().stream()
+                    .filter(module -> moduleCodes.contains(module.getModuleCode()))
+                    .forEach(module -> module.getScenarioRefs().forEach(scenarioId ->
+                            appendScenario(registry, scenarioId, orderedScenarios, visiting)
+                    ));
+
+            ObjectNode root = objectMapper.createObjectNode();
+            root.put("version", StringUtils.hasText(registry.version()) ? registry.version() : "1.0.0");
+            root.put("generatedAt", currentTimestamp());
+            root.set("defaultTarget", registry.defaultTarget() == null ? objectMapper.createObjectNode() : registry.defaultTarget().deepCopy());
+
+            ArrayNode scenariosNode = objectMapper.createArrayNode();
+            orderedScenarios.values().forEach(item -> scenariosNode.add(item.source().deepCopy()));
+            root.set("scenarios", scenariosNode);
+
+            Files.writeString(
+                    derivedRegistryPath,
+                    objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root),
+                    StandardCharsets.UTF_8
+            );
+            return derivedRegistryPath;
+        } catch (IOException ex) {
+            throw new BizException(500, "Failed to write derived registry", ex);
+        }
+    }
+
+    private void appendScenario(
+            RegistryDocument registry,
+            String scenarioId,
+            Map<String, RegistryScenario> orderedScenarios,
+            Set<String> visiting
+    ) {
+        String normalized = normalizeText(scenarioId);
+        if (orderedScenarios.containsKey(normalized)) {
+            return;
+        }
+        if (!visiting.add(normalized)) {
+            throw new BizException(500, "Registry dependency cycle detected: " + normalized);
+        }
+        RegistryScenario scenario = registry.scenarios().get(normalized);
+        if (scenario == null) {
+            throw new BizException(500, "Registry scenario not found: " + normalized);
+        }
+        for (String dependencyId : scenario.dependsOn()) {
+            appendScenario(registry, dependencyId, orderedScenarios, visiting);
+        }
+        visiting.remove(normalized);
+        orderedScenarios.put(normalized, scenario);
+    }
+
+    private List<String> buildLaunchCommand(
+            Path derivedRegistryPath,
+            String packageCode,
+            String environmentCode,
+            String accountTemplateCode,
+            LinkedHashSet<String> moduleCodes
+    ) {
+        List<String> command = new ArrayList<>();
+        command.add(StringUtils.hasText(nodeCommand) ? nodeCommand : "node");
+        command.add(registryRunnerScriptPath.toString());
+        command.add("--registry-path=" + derivedRegistryPath);
+        command.add("--package-code=" + packageCode);
+        command.add("--environment-code=" + environmentCode);
+        command.add("--account-template=" + accountTemplateCode);
+        command.add("--selected-modules=" + String.join(",", moduleCodes));
+        return command;
+    }
+
+    private RegistryDocument readRegistryDocument() {
+        try {
+            JsonNode root = objectMapper.readTree(Files.readString(acceptanceRegistryPath, StandardCharsets.UTF_8));
+            if (root == null || !root.isObject()) {
+                throw new BizException(500, "Invalid acceptance registry document");
+            }
+            LinkedHashMap<String, RegistryScenario> scenarios = new LinkedHashMap<>();
+            JsonNode scenarioArray = root.get("scenarios");
+            if (scenarioArray != null && scenarioArray.isArray()) {
+                for (JsonNode scenarioNode : scenarioArray) {
+                    String scenarioId = requireText(readText(scenarioNode.get("id")), "Registry scenario id cannot be empty");
+                    if (scenarios.containsKey(scenarioId)) {
+                        throw new BizException(500, "Duplicate registry scenario id: " + scenarioId);
+                    }
+                    List<String> dependsOn = new ArrayList<>();
+                    JsonNode dependsOnNode = scenarioNode.get("dependsOn");
+                    if (dependsOnNode != null && dependsOnNode.isArray()) {
+                        dependsOnNode.forEach(depNode -> {
+                            String depId = normalizeText(readText(depNode));
+                            if (StringUtils.hasText(depId)) {
+                                dependsOn.add(depId);
+                            }
+                        });
+                    }
+                    scenarios.put(
+                            scenarioId,
+                            new RegistryScenario(
+                                    scenarioId,
+                                    normalizeText(readText(scenarioNode.get("title"))),
+                                    scenarioNode.deepCopy(),
+                                    List.copyOf(dependsOn)
+                            )
+                    );
+                }
+            }
+            return new RegistryDocument(
+                    normalizeText(readText(root.get("version"))),
+                    normalizeText(readText(root.get("generatedAt"))),
+                    root.get("defaultTarget") == null ? objectMapper.createObjectNode() : root.get("defaultTarget").deepCopy(),
+                    scenarios
+            );
+        } catch (IOException ex) {
+            throw new BizException(500, "Failed to read acceptance registry", ex);
+        }
+    }
+
+    private BusinessAcceptanceDefinitionDocument readDefinitionDocument() {
+        try {
+            return objectMapper.readValue(
+                    Files.readString(packagesConfigPath, StandardCharsets.UTF_8),
+                    BusinessAcceptanceDefinitionDocument.class
+            );
+        } catch (IOException ex) {
+            throw new BizException(500, "Failed to read business acceptance config", ex);
+        }
+    }
+
+    private Optional<LedgerRun> findLatestRun(String packageCode) {
         if (!Files.isDirectory(resultsDir)) {
             return Optional.empty();
         }
-
         try (Stream<Path> stream = Files.list(resultsDir)) {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(this::isRegistryRunFile)
                     .map(this::safeReadLedgerRun)
-                    .filter(Objects::nonNull)
-                    .filter(item -> packageCode.equals(resolveOptionText(item.detail().getOptions(), "packageCode")))
-                    .max(Comparator.comparingLong(BusinessAcceptanceLedgerRun::updatedAtEpochMillis));
-        } catch (IOException e) {
-            throw new BizException(500, "读取业务验收运行结果失败", e);
+                    .filter(java.util.Objects::nonNull)
+                    .filter(item -> packageCode.equals(normalizeText(String.valueOf(item.detail().getOptions().get("packageCode")))))
+                    .sorted(Comparator.comparingLong(LedgerRun::updatedAtEpochMillis).reversed())
+                    .findFirst();
+        } catch (IOException ex) {
+            throw new BizException(500, "Failed to scan acceptance results", ex);
         }
     }
 
-    private BusinessAcceptanceLedgerRun safeReadLedgerRun(Path file) {
+    private LedgerRun safeReadLedgerRun(Path file) {
+        try {
+            return readLedgerRun(file);
+        } catch (RuntimeException ex) {
+            log.warn("Skip unreadable acceptance ledger file: {}", file, ex);
+            return null;
+        }
+    }
+
+    private LedgerRun readLedgerRun(String runId) {
+        String normalizedRunId = requireText(runId, "runId cannot be empty");
+        Path file = resultsDir.resolve("registry-run-" + normalizedRunId + ".json").normalize();
+        if (!file.startsWith(resultsDir) || !Files.isRegularFile(file)) {
+            throw new BizException(404, "Acceptance run not found: " + normalizedRunId);
+        }
+        return readLedgerRun(file);
+    }
+
+    private LedgerRun readLedgerRun(Path file) {
         try {
             AutomationResultRunDetailVO detail = objectMapper.readValue(
                     Files.readString(file, StandardCharsets.UTF_8),
                     AutomationResultRunDetailVO.class
             );
-            long updatedAt = Files.getLastModifiedTime(file).toMillis();
-            return new BusinessAcceptanceLedgerRun(file, updatedAt, detail);
-        } catch (IOException e) {
-            log.warn("跳过无法解析的业务验收运行结果文件: {}", file, e);
-            return null;
+            detail.setRunId(resolveRunId(detail, file));
+            detail.setOptions(detail.getOptions() == null ? Collections.emptyMap() : detail.getOptions());
+            detail.setResults(normalizeResults(detail.getResults()));
+            return new LedgerRun(file, Files.getLastModifiedTime(file).toMillis(), detail);
+        } catch (IOException ex) {
+            throw new BizException(500, "Failed to read acceptance run: " + file.getFileName(), ex);
         }
     }
 
-    private boolean isRegistryRunFile(Path file) {
-        return REGISTRY_RUN_FILE_PATTERN.matcher(file.getFileName().toString()).matches();
+    private String resolveUpdatedAt(long updatedAtEpochMillis) {
+        return UPDATED_AT_FORMATTER.format(Instant.ofEpochMilli(updatedAtEpochMillis).atZone(ZoneId.systemDefault()));
     }
 
     private String resolveRunId(AutomationResultRunDetailVO detail, Path file) {
         if (StringUtils.hasText(detail.getRunId())) {
             return detail.getRunId().trim();
         }
-        String fileName = file.getFileName().toString();
-        return fileName.substring("registry-run-".length(), fileName.length() - ".json".length());
+        return resolveRunIdFromFileName(file).orElse(file.getFileName().toString());
     }
 
-    private String resolveUpdatedAt(long epochMillis) {
-        return UPDATED_AT_FORMATTER.format(
-                Instant.ofEpochMilli(epochMillis)
-                        .atZone(ZoneId.systemDefault())
-        );
+    private Optional<String> resolveRunIdFromFileName(Path file) {
+        Matcher matcher = REGISTRY_RUN_FILE_PATTERN.matcher(file.getFileName().toString());
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+        return Optional.of(matcher.group(1));
     }
 
-    private String resolveRunStatus(AutomationResultSummaryVO summary) {
-        if (summary != null && defaultInteger(summary.getFailed(), 0) > 0) {
-            return "failed";
-        }
-        return "passed";
-    }
-
-    private Set<String> resolveSelectedModuleCodes(
-            Map<String, Object> options,
-            List<BusinessAcceptanceModuleConfig> packageModules
-    ) {
-        LinkedHashSet<String> allowedModuleCodes = packageModules.stream()
-                .map(BusinessAcceptanceModuleConfig::getModuleCode)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        LinkedHashSet<String> selected = new LinkedHashSet<>();
-
-        Object rawSelectedModules = options == null ? null : options.get("selectedModules");
-        if (rawSelectedModules instanceof String textValue) {
-            for (String item : textValue.split(",")) {
-                String normalized = normalizeText(item);
-                if (allowedModuleCodes.contains(normalized)) {
-                    selected.add(normalized);
-                }
-            }
-        } else if (rawSelectedModules instanceof Iterable<?> iterable) {
-            for (Object item : iterable) {
-                String normalized = normalizeText(item == null ? null : String.valueOf(item));
-                if (allowedModuleCodes.contains(normalized)) {
-                    selected.add(normalized);
-                }
-            }
-        }
-
-        if (selected.isEmpty()) {
-            selected.addAll(allowedModuleCodes);
-        }
-        return selected;
-    }
-
-    private LoadedDefinition loadDefinition() {
-        BusinessAcceptanceDefinitionDocument document = readPackagesDocument();
-        Set<String> registryScenarioIds = readRegistryScenarioIds();
-
-        LinkedHashMap<String, BusinessAcceptanceAccountTemplateConfig> accountTemplates = new LinkedHashMap<>();
-        for (BusinessAcceptanceAccountTemplateConfig template : defaultList(document.getAccountTemplates())) {
-            String templateCode = requireText(template.getTemplateCode(), "账号模板编码不能为空");
-            if (accountTemplates.putIfAbsent(templateCode, template) != null) {
-                throw new BizException(500, "业务验收账号模板编码重复: " + templateCode);
-            }
-            template.setTemplateCode(templateCode);
-            template.setTemplateName(requireText(template.getTemplateName(), "账号模板名称不能为空"));
-            template.setUsername(requireText(template.getUsername(), "账号模板用户名不能为空"));
-            template.setRoleHint(normalizeText(template.getRoleHint()));
-            template.setSupportedEnvironments(normalizeStringList(template.getSupportedEnvironments()));
-        }
-
-        LinkedHashMap<String, BusinessAcceptancePackageConfig> packages = new LinkedHashMap<>();
-        for (BusinessAcceptancePackageConfig pkg : defaultList(document.getPackages())) {
-            String packageCode = requireText(pkg.getPackageCode(), "业务验收包编码不能为空");
-            if (packages.putIfAbsent(packageCode, pkg) != null) {
-                throw new BizException(500, "业务验收包编码重复: " + packageCode);
-            }
-
-            pkg.setPackageCode(packageCode);
-            pkg.setPackageName(requireText(pkg.getPackageName(), "业务验收包名称不能为空"));
-            pkg.setDescription(normalizeText(pkg.getDescription()));
-            pkg.setTargetRoles(normalizeStringList(pkg.getTargetRoles()));
-            pkg.setSupportedEnvironments(normalizeStringList(pkg.getSupportedEnvironments()));
-            pkg.setDefaultAccountTemplate(requireText(pkg.getDefaultAccountTemplate(), "默认账号模板不能为空"));
-
-            if (!accountTemplates.containsKey(pkg.getDefaultAccountTemplate())) {
-                throw new BizException(500, "业务验收包引用了未知账号模板: " + pkg.getDefaultAccountTemplate());
-            }
-
-            LinkedHashMap<String, BusinessAcceptanceModuleConfig> modules = new LinkedHashMap<>();
-            for (BusinessAcceptanceModuleConfig module : defaultList(pkg.getModules())) {
-                String moduleCode = requireText(module.getModuleCode(), "业务验收模块编码不能为空");
-                if (modules.putIfAbsent(moduleCode, module) != null) {
-                    throw new BizException(500, "业务验收包模块编码重复: " + moduleCode);
-                }
-
-                module.setModuleCode(moduleCode);
-                module.setModuleName(requireText(module.getModuleName(), "业务验收模块名称不能为空"));
-                module.setSuggestedDirection(normalizeText(module.getSuggestedDirection()));
-                List<String> scenarioRefs = normalizeStringList(module.getScenarioRefs());
-                if (scenarioRefs.isEmpty()) {
-                    throw new BizException(500, "业务验收模块未配置场景引用: " + moduleCode);
-                }
-                for (String scenarioRef : scenarioRefs) {
-                    if (!registryScenarioIds.contains(scenarioRef)) {
-                        throw new BizException(500, "业务验收模块引用了未知场景: " + scenarioRef);
-                    }
-                }
-                module.setScenarioRefs(scenarioRefs);
-            }
-            pkg.setModules(new ArrayList<>(modules.values()));
-        }
-
-        return new LoadedDefinition(
-                new ArrayList<>(packages.values()),
-                new ArrayList<>(accountTemplates.values())
-        );
-    }
-
-    private BusinessAcceptanceDefinitionDocument readPackagesDocument() {
-        if (!Files.isRegularFile(packagesConfigPath)) {
-            throw new BizException(500, "未找到业务验收包配置: " + packagesConfigPath);
+    private String resolveDurationText(String runId, long updatedAtEpochMillis) {
+        if (!StringUtils.hasText(runId)) {
+            return "unknown";
         }
         try {
-            return objectMapper.readValue(
-                    Files.readString(packagesConfigPath, StandardCharsets.UTF_8),
-                    BusinessAcceptanceDefinitionDocument.class
-            );
-        } catch (IOException e) {
-            throw new BizException(500, "读取业务验收包配置失败", e);
+            long startedAtMillis = LocalDateTime.parse(runId.trim(), RUN_ID_FORMATTER)
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli();
+            long durationSeconds = Math.max(0L, (updatedAtEpochMillis - startedAtMillis) / 1000L);
+            long hours = durationSeconds / 3600L;
+            long minutes = (durationSeconds % 3600L) / 60L;
+            long seconds = durationSeconds % 60L;
+            if (hours > 0) {
+                return hours + "h " + minutes + "m";
+            }
+            if (minutes > 0) {
+                return minutes + "m " + seconds + "s";
+            }
+            return seconds + "s";
+        } catch (DateTimeParseException ex) {
+            return "unknown";
         }
     }
 
-    private Set<String> readRegistryScenarioIds() {
-        if (!Files.isRegularFile(acceptanceRegistryPath)) {
-            throw new BizException(500, "未找到统一验收注册表: " + acceptanceRegistryPath);
+    private String currentTimestamp() {
+        return UPDATED_AT_FORMATTER.format(Instant.now().atZone(ZoneId.systemDefault()));
+    }
+
+    private String extractRunId(String output) {
+        if (!StringUtils.hasText(output)) {
+            return "";
         }
-        try {
-            JsonNode root = objectMapper.readTree(Files.readString(acceptanceRegistryPath, StandardCharsets.UTF_8));
-            LinkedHashSet<String> scenarioIds = new LinkedHashSet<>();
-            JsonNode scenarios = root.path("scenarios");
-            if (!scenarios.isArray()) {
-                return scenarioIds;
-            }
-            for (JsonNode scenario : scenarios) {
-                String scenarioId = normalizeText(scenario.path("id").asText());
-                if (!StringUtils.hasText(scenarioId)) {
-                    throw new BizException(500, "统一验收注册表存在空场景编码");
-                }
-                scenarioIds.add(scenarioId);
-            }
-            return scenarioIds;
-        } catch (IOException e) {
-            throw new BizException(500, "读取统一验收注册表失败", e);
+        Matcher matcher = RUN_ID_OUTPUT_PATTERN.matcher(output);
+        if (matcher.find()) {
+            return normalizeText(matcher.group(1));
         }
+        return "";
+    }
+
+    private String classifyFailureStatus(String message) {
+        String normalized = normalizeText(message).toLowerCase(Locale.ROOT);
+        return ENVIRONMENT_BLOCK_KEYWORDS.stream().anyMatch(normalized::contains) ? "blocked" : "failed";
+    }
+
+    private String trimErrorMessage(String message) {
+        String normalized = normalizeText(message).replaceAll("\\s+", " ");
+        if (!StringUtils.hasText(normalized)) {
+            return "";
+        }
+        if (normalized.length() <= MAX_ERROR_MESSAGE_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_ERROR_MESSAGE_LENGTH - 3) + "...";
     }
 
     private List<AutomationResultRunResultVO> normalizeResults(List<AutomationResultRunResultVO> results) {
-        return results == null ? Collections.emptyList() : results;
+        if (results == null) {
+            return Collections.emptyList();
+        }
+        results.forEach(item -> {
+            if (item.getEvidenceFiles() == null) {
+                item.setEvidenceFiles(Collections.emptyList());
+            } else {
+                item.setEvidenceFiles(item.getEvidenceFiles().stream()
+                        .map(this::normalizeText)
+                        .filter(StringUtils::hasText)
+                        .toList());
+            }
+        });
+        return results;
     }
 
-    private String resolveOptionText(Map<String, Object> options, String key) {
-        if (options == null || !options.containsKey(key) || options.get(key) == null) {
+    private boolean isRegistryRunFile(Path file) {
+        return REGISTRY_RUN_FILE_PATTERN.matcher(file.getFileName().toString()).matches();
+    }
+
+    private String readText(JsonNode node) {
+        if (node == null || node.isNull()) {
             return "";
         }
-        return normalizeText(String.valueOf(options.get(key)));
+        return node.asText();
     }
 
     private Path normalizePath(Path path, Path basePath) {
@@ -395,6 +754,17 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         return resolved.toAbsolutePath().normalize();
     }
 
+    private String normalizeText(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    private List<String> normalizeStringList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return values.stream().map(this::normalizeText).filter(StringUtils::hasText).toList();
+    }
+
     private String requireText(String value, String message) {
         String normalized = normalizeText(value);
         if (!StringUtils.hasText(normalized)) {
@@ -403,53 +773,36 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         return normalized;
     }
 
-    private String normalizeText(String value) {
-        if (!StringUtils.hasText(value)) {
-            return "";
-        }
-        return value.trim();
-    }
-
-    private List<String> normalizeStringList(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return values.stream()
-                .map(this::normalizeText)
-                .filter(StringUtils::hasText)
-                .toList();
-    }
-
     private <T> List<T> defaultList(List<T> values) {
         return values == null ? Collections.emptyList() : values;
     }
 
-    private int defaultInteger(Integer value, int fallback) {
-        return value == null ? fallback : value;
-    }
-
-    private String defaultString(String value) {
-        return value == null ? "" : value;
-    }
-
     private record LoadedDefinition(
             List<BusinessAcceptancePackageConfig> packages,
-            List<BusinessAcceptanceAccountTemplateConfig> accountTemplates
+            Map<String, BusinessAcceptancePackageConfig> packageMap,
+            List<BusinessAcceptanceAccountTemplateConfig> accountTemplates,
+            Map<String, BusinessAcceptanceAccountTemplateConfig> accountTemplateMap,
+            RegistryDocument registry
     ) {
-        List<BusinessAcceptancePackageConfig> getPackages() {
-            return packages;
-        }
-
-        List<BusinessAcceptanceAccountTemplateConfig> getAccountTemplates() {
-            return accountTemplates;
-        }
     }
 
-    private record BusinessAcceptanceLedgerRun(
-            Path file,
-            long updatedAtEpochMillis,
-            AutomationResultRunDetailVO detail
-    ) {
+    private record RegistryDocument(String version, String generatedAt, JsonNode defaultTarget, Map<String, RegistryScenario> scenarios) {
+    }
+
+    private record RegistryScenario(String id, String title, JsonNode source, List<String> dependsOn) {
+    }
+
+    private record LedgerRun(Path file, long updatedAtEpochMillis, AutomationResultRunDetailVO detail) {
+    }
+
+    @Data
+    private static class JobState {
+        private String jobId;
+        private String status;
+        private String runId;
+        private String startedAt;
+        private String finishedAt;
+        private String errorMessage;
     }
 
     @Data
