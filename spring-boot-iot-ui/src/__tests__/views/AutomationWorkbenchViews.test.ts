@@ -97,6 +97,9 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('<AutomationResultEvidencePanel');
     expect(source).toContain('<AutomationResultImportPanel');
     expect(source).toContain('<AutomationSuggestionPanel');
+    expect(source).toContain('先看当前结果，再判断当前基线是否稳定。');
+    expect(source).toContain('保留当前选中或导入的运行摘要');
+    expect(source).not.toContain('先看导入结果');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationExecutionConfigPanel');
   });

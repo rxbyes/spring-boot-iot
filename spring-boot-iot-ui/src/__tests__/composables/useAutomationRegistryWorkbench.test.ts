@@ -305,6 +305,116 @@ describe('useAutomationRegistryWorkbench', () => {
     expect(workbench.visibleEvidenceItems.value).toEqual([]);
   });
 
+  it('refreshes the currently selected run detail when the ledger reload keeps the same run', async () => {
+    pageAutomationResultsMock
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: createPageResult([createRunSummary('run-a')])
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: createPageResult([createRunSummary('run-a')])
+      });
+    getAutomationResultDetailMock
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: createRunDetail('run-a', {
+          summary: { total: 1, passed: 1, failed: 0 },
+          results: [
+            {
+              scenarioId: 'scenario.run-a',
+              runnerType: 'browserPlan',
+              status: 'passed',
+              blocking: 'warning',
+              summary: 'first snapshot'
+            }
+          ]
+        })
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: createRunDetail('run-a', {
+          summary: { total: 1, passed: 0, failed: 1 },
+          results: [
+            {
+              scenarioId: 'scenario.run-a',
+              runnerType: 'messageFlow',
+              status: 'failed',
+              blocking: 'blocker',
+              summary: 'second snapshot'
+            }
+          ]
+        })
+      });
+    listAutomationResultEvidenceMock
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: createEvidenceList('run-a')
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: [
+          {
+            path: 'logs/acceptance/registry-run-run-a.json',
+            fileName: 'registry-run-run-a.json',
+            category: 'run-summary',
+            source: 'report'
+          },
+          {
+            path: 'logs/acceptance/message-flow-run-a.json',
+            fileName: 'message-flow-run-a.json',
+            category: 'json',
+            source: 'scenario'
+          }
+        ]
+      });
+    getAutomationResultEvidenceContentMock
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          path: 'logs/acceptance/registry-run-run-a.json',
+          fileName: 'registry-run-run-a.json',
+          category: 'run-summary',
+          content: '{"stage":"first"}',
+          truncated: false
+        }
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          path: 'logs/acceptance/registry-run-run-a.json',
+          fileName: 'registry-run-run-a.json',
+          category: 'run-summary',
+          content: '{"stage":"second"}',
+          truncated: false
+        }
+      });
+
+    const workbench = useAutomationRegistryWorkbench();
+
+    await workbench.fetchRunLedger();
+    expect(workbench.currentRun.value?.summary.failed).toBe(0);
+    expect(workbench.visibleEvidenceItems.value).toHaveLength(2);
+    expect(workbench.visibleEvidencePreview.value?.content).toContain('first');
+
+    await workbench.fetchRunLedger();
+
+    expect(getAutomationResultDetailMock).toHaveBeenCalledTimes(2);
+    expect(listAutomationResultEvidenceMock).toHaveBeenCalledTimes(2);
+    expect(workbench.currentRun.value?.summary.failed).toBe(1);
+    expect(workbench.currentRun.value?.failedResults[0]?.summary).toBe('second snapshot');
+    expect(workbench.visibleEvidenceItems.value[1]?.path).toBe('logs/acceptance/message-flow-run-a.json');
+    expect(workbench.visibleEvidencePreview.value?.content).toContain('second');
+  });
+
   it('keeps manual import as a temporary detail overlay without changing ledger rows', async () => {
     pageAutomationResultsMock.mockResolvedValue({
       code: 200,

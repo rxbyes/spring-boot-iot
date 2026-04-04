@@ -17,7 +17,7 @@
       </template>
 
       <section class="tri-grid">
-        <PanelCard title="结果概况" description="先看导入结果，再判断当前基线是否稳定。">
+        <PanelCard title="结果概况" description="先看当前结果，再判断当前基线是否稳定。">
           <div class="quad-grid results-metrics">
             <MetricCard
               v-for="metric in resultsMetrics"
@@ -30,18 +30,18 @@
           </div>
         </PanelCard>
 
-        <PanelCard title="当前判断" description="把统一运行汇总与计划建议并列判断，优先处理 blocker。">
+        <PanelCard title="当前判断" description="把当前运行结果与计划建议并列判断，优先处理 blocker。">
           <StandardInlineState :tone="resultTone" :message="resultMessage" />
           <ul class="phase-ideas">
-            <li>结果中心只负责导入和复盘，不再编辑场景计划或执行配置。</li>
+            <li>结果中心只负责历史台账查看、兼容导入和复盘，不再编辑场景计划或执行配置。</li>
             <li>建议先处理失败场景，再按测试建议补齐断言、截图或接口校验。</li>
-            <li>当导入结果全部通过后，再做基线归档与交付复核。</li>
+            <li>当当前结果全部通过后，再做基线归档与交付复核。</li>
           </ul>
         </PanelCard>
 
         <ResponsePanel
           title="统一汇总快照"
-          description="保留当前导入的运行摘要，方便做结果复盘和证据引用。"
+          description="保留当前选中或导入的运行摘要，方便做结果复盘和证据引用。"
           :body="summaryBody"
         />
       </section>
@@ -88,7 +88,7 @@
       </section>
 
       <section>
-        <PanelCard title="失败场景明细" description="将导入失败与注册表口径并列，便于优先定位 blocker。">
+        <PanelCard title="失败场景明细" description="将当前运行失败与注册表口径并列，便于优先定位 blocker。">
           <StandardInlineState v-if="currentRunErrorMessage" tone="error" :message="currentRunErrorMessage" />
           <div v-else-if="failedScenarioDetails.length === 0" class="empty-block">
             当前没有失败场景；如果尚未选择运行，这里会在选中后展示失败明细。
