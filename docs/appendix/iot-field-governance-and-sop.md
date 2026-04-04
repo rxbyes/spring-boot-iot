@@ -3,7 +3,7 @@
 > 文档定位：面向业务人员的字段治理与建档联调补充指引。
 > 适用角色：业务、交付、实施、联调、运维。
 > 权威级别：附录补充；业务语义仍以 [../02-业务功能与流程说明.md](../02-业务功能与流程说明.md) 为准，交付边界仍以 [../21-业务功能清单与验收标准.md](../21-业务功能清单与验收标准.md) 与 [../19-第四阶段交付边界与复验进展.md](../19-第四阶段交付边界与复验进展.md) 为准。
-> 更新时间：2026-04-01
+> 更新时间：2026-04-04
 
 ## 1. 使用方式
 
@@ -627,3 +627,100 @@ foreach ($item in $items) {
    - 正确口径：latest 看结果，message-log 查证据。
 4. 把父设备直接当风险责任主体
    - 正确口径：谁承接真实监测值，谁才应承担风险绑定责任。
+
+## 7. 风险点 Pending 人工复核清单
+
+### 7.1 2026-04-04 批量治理后的剩余口径
+
+`2026-04-04` 批量治理执行后，`risk_point_device_pending_binding` 还剩 `17` 条 `manual_review` 记录未自动转正。
+
+这 `17` 条当前有三个共同点：
+
+1. 当前候选都只出现 `gX / gY / gZ`。
+2. 当前都还没有正式 `risk_point_device` 绑定。
+3. 当前都不建议把 `gX / gY / gZ` 直接写入正式风险绑定。
+
+业务上固定按下面三条判断：
+
+1. `GNSS 位移监测仪`
+   - 如果当前只有 `gX / gY / gZ`，先保留 pending，不转正。
+   - 优先等待真实运行证据补齐 `gpsTotalX / gpsTotalY / gpsTotalZ`，或先纠正产品归属、设备命名和字段语义。
+2. `GNSS 基准站`
+   - 如果当前只有 `gX / gY / gZ`，先确认这三个字段是否只是姿态、健康或内部辅助参数。
+   - 未确认前不纳入正式风险测点。
+3. `倾角仪`
+   - 如果当前只有 `gX / gY / gZ`，先确认是否应该继续收口到 `AZI / X / Y / Z / angle`。
+   - 未确认前不要把 `gX / gY / gZ` 直接转成正式风险点绑定。
+
+### 7.2 分组概览
+
+| 分组 | 数量 | 当前建议 |
+|---|---:|---|
+| 倾角仪 `gX/gY/gZ` 复核组 | 4 | 保留 pending，优先补规范字段映射 |
+| GNSS 位移监测仪 `gX/gY/gZ` 复核组 | 12 | 保留 pending，等待 `gpsTotalX/Y/Z` 证据或纠正产品归属 |
+| GNSS 基准站 `gX/gY/gZ` 复核组 | 1 | 保留 pending，先确认是否属于姿态/健康字段 |
+
+### 7.3 明细清单
+
+| pendingId | 分组 | 风险点 | 设备 | 产品 | 候选测点 | 系统建议 | 业务需确认 |
+|---|---|---|---|---|---|---|---|
+| 418 | 倾角仪 `gX/gY/gZ` 复核组 | G30连霍高速 K1731+077 | 倾角仪 (`15522566`) | 中海达 监测型 倾角仪 | `gX, gY, gZ` | 暂不转正，等待规范字段或补映射 | 确认该设备是否应继续收口到 `AZI / X / Y / Z / angle` |
+| 417 | 倾角仪 `gX/gY/gZ` 复核组 | G30连霍高速 K1731+077 | 倾角仪 (`15522597`) | 中海达 监测型 倾角仪 | `gX, gY, gZ` | 暂不转正，等待规范字段或补映射 | 确认该设备是否应继续收口到 `AZI / X / Y / Z / angle` |
+| 416 | 倾角仪 `gX/gY/gZ` 复核组 | G30连霍高速 K1731+077 | 倾角仪 (`15522761`) | 中海达 监测型 倾角仪 | `gX, gY, gZ` | 暂不转正，等待规范字段或补映射 | 确认该设备是否应继续收口到 `AZI / X / Y / Z / angle` |
+| 415 | 倾角仪 `gX/gY/gZ` 复核组 | G30连霍高速 K1731+077 | 倾角仪 (`15522772`) | 中海达 监测型 倾角仪 | `gX, gY, gZ` | 暂不转正，等待规范字段或补映射 | 确认该设备是否应继续收口到 `AZI / X / Y / Z / angle` |
+| 370 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G22青兰高速平定段K1652+855水毁 | GNSS (`SJ11F1148730978A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 324 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G6京藏高速兰海段K1652+225崩塌 | 浅表位移检测（GNSS）基准点 (`SJ11F1148730969A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 323 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G6京藏高速兰海段K1652+225崩塌 | 浅表位移检测（GNSS）1 (`SJ11F2148734255A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 279 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G568兰永一级K78+965-K79+140 | 固定测斜仪9 (`SJ11F4148737700A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 266 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G75兰海高速兰临段K22+200-K22+400滑坡 | 浅表位移检测（GNSS）基准点 (`SJ11F2148734245A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 263 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G75兰海高速兰临段K22+200-K22+400滑坡 | 浅表位移检测（GNSS）3 (`SJ11F2148734247A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 204 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G30连霍高速宝天段K1329+165 | SK1329+240 基准点 (`SJ11F1148730947`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 178 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G22青兰高速雷西段K1374+670-K1374+780 | GNSS (`SJ11F2148734232A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 43 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G30连霍高速树徐段K1740+300 | 浅表位移检测（GNSS）基准点 (`SJ11F2148734259A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 12 | GNSS 基准站 `gX/gY/gZ` 复核组 | G7011十天高速K595 | DB6-基准点（GNSS） (`SJ11F2148734260A`) | 南方测绘 监测型 GNSS基准站 | `gX, gY, gZ` | 暂不转正，待确认是否单独建基准站规则 | 确认该基准站 `gX/gY/gZ` 是否仅为姿态或健康参数 |
+| 11 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G7011十天高速K595 | DB4(GNSS) (`SJ11F1148730971A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 9 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G7011十天高速K595 | DB5(GNSS) (`SJ11F2148734249A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+| 7 | GNSS 位移监测仪 `gX/gY/gZ` 复核组 | G7011十天高速K595 | DB1(GNSS) (`SJ11F2148734243A`) | 南方测绘 监测型 GNSS位移监测仪 | `gX, gY, gZ` | 暂不转正，不把 `gX/gY/gZ` 直接写入正式绑定 | 核对设备归属与字段语义，若仍属 GNSS 位移监测则等待 `gpsTotalX/Y/Z` |
+
+### 7.4 业务确认后的推进建议
+
+1. 如果业务确认这些记录本质上属于 `gpsTotalX / gpsTotalY / gpsTotalZ` 或 `AZI / X / Y / Z / angle`，先补产品映射或字段归一，再转正。
+2. 如果业务确认这些字段只是姿态、健康、调试或厂家内部参数，则保持 pending 或直接排除，不进入正式 `risk_point_device`。
+3. 如果业务确认产品归属挂错，先改产品或设备归属，再重新收集运行期证据，不要直接沿用当前 `gX / gY / gZ` 结果转正。
+
+### 7.5 脚本化运营动作
+
+当前推荐把 `manual_review` 的业务确认固定收口为下面两步：
+
+1. 先导出业务确认模板
+   - 命令：`python3 scripts/manage-risk-point-pending-governance.py export-manual-review --manifest <manifest> --output-prefix <prefix>`
+   - 产物：`<prefix>.json`、`<prefix>.csv`、`<prefix>.md`
+   - 用途：给业务、实施、交付逐条确认“继续等待 / 补规范映射 / 修正产品归属 / 直接排除”
+2. 再回写分组化复核备注
+   - 命令：`python3 scripts/manage-risk-point-pending-governance.py annotate-manual-review --manifest <manifest>`
+   - 默认：只做 dry-run 预览，不改库
+   - 实际写回：`python3 scripts/manage-risk-point-pending-governance.py annotate-manual-review --manifest <manifest> --apply`
+   - 作用：只更新 `risk_point_device_pending_binding.resolution_note`，不改变 `resolution_status`
+3. 业务填完 CSV 后再执行决策
+   - 命令：`python3 scripts/manage-risk-point-pending-governance.py apply-manual-review-decisions --csv <csv>`
+   - 默认：只做 dry-run 预览，不改库
+   - 实际执行：`python3 scripts/manage-risk-point-pending-governance.py apply-manual-review-decisions --csv <csv> --apply`
+   - 作用：把 `PROMOTE / IGNORE / KEEP_PENDING` 三类决策真正执行到系统中
+
+这一步的业务边界必须固定：
+
+1. `annotate-manual-review` 不是转正命令。
+2. `annotate-manual-review` 不是忽略命令。
+3. 它只负责把“为什么暂不转正、下一步该核对什么”写回复核备注，方便后续业务确认和批量追踪。
+
+业务填写 CSV 时固定遵守下面的列规则：
+
+1. `business_decision`
+   - 允许值：`PROMOTE`、`IGNORE`、`KEEP_PENDING`
+2. `canonical_metrics`
+   - 仅 `PROMOTE` 必填
+   - 示例：`gpsTotalX,gpsTotalY,gpsTotalZ`
+3. `IGNORE / KEEP_PENDING`
+   - `canonical_metrics` 必须留空
+4. `notes`
+   - 建议写明业务确认原因，后续会进入执行备注

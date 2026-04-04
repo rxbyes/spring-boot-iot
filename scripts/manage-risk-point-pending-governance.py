@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -78,6 +79,10 @@ def current_timestamp() -> str:
 
 def default_output_path(prefix: str) -> Path:
     return Path.cwd() / f"{prefix}-{current_timestamp()}.json"
+
+
+def default_output_prefix(prefix: str) -> Path:
+    return Path.cwd() / f"{prefix}-{current_timestamp()}"
 
 
 def api_request(
@@ -371,9 +376,485 @@ def read_manifest(path: str) -> Dict[str, object]:
     return manifest
 
 
-def write_json(path: str | Path, payload: Dict[str, object]) -> None:
+def write_json(path: str | Path, payload: object) -> None:
     target = Path(path)
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def determine_manual_review_policy(item: Dict[str, object]) -> Dict[str, str]:
+    family = normalize_text(item.get("family")) or ""
+    product_name = normalize_text(item.get("productName")) or ""
+    device_name = normalize_text(item.get("deviceName")) or ""
+    family_text = f"{family} {product_name} {device_name}"
+    if family == "GNSS基准站" or "GNSS基准站" in family_text:
+        return {
+            "group": "GNSS 基准站 gX/gY/gZ 复核组",
+            "suggestedAction": "保留 pending，确认是否排除",
+            "systemRecommendation": "暂不转正，待确认是否单独建基准站规则",
+            "todo": "确认该基准站 gX/gY/gZ 是否仅为姿态/健康参数；若是，则不纳入正式风险测点",
+            "resolutionNote": (
+                "风险点与设备已匹配。2026-04-04 批量治理复核：当前候选仅见 gX/gY/gZ（加速度），"
+                "暂不转正；请先确认该 GNSS 基准站字段是否仅为姿态/健康参数，未确认前继续保留 pending。"
+            ),
+        }
+    if family == "GNSS位移监测仪" or "GNSS位移监测仪" in family_text:
+        return {
+            "group": "GNSS 位移监测仪 gX/gY/gZ 复核组",
+            "suggestedAction": "先核对产品归属，再决定是否继续等待",
+            "systemRecommendation": "暂不转正，不把 gX/gY/gZ 直接写入正式绑定",
+            "todo": "核对设备命名、产品归属与字段语义；若仍属 GNSS 位移监测，则等待 gpsTotalX/gpsTotalY/gpsTotalZ 证据",
+            "resolutionNote": (
+                "风险点与设备已匹配。2026-04-04 批量治理复核：当前候选仅见 gX/gY/gZ（加速度），"
+                "不符合当前 GNSS 位移重点测点口径，暂不转正；若仍属 GNSS 位移监测，请等待 "
+                "gpsTotalX/gpsTotalY/gpsTotalZ 运行证据或先纠正产品归属/字段语义。"
+            ),
+        }
+    if "倾角" in family_text:
+        return {
+            "group": "倾角仪 gX/gY/gZ 复核组",
+            "suggestedAction": "保留 pending，优先补字段映射",
+            "systemRecommendation": "暂不转正，等待规范字段或补映射",
+            "todo": "确认该设备是否应继续收口到 AZI/X/Y/Z/angle；若是，则不要把 gX/gY/gZ 直接转正",
+            "resolutionNote": (
+                "风险点与设备已匹配。2026-04-04 批量治理复核：当前候选仅见 gX/gY/gZ（加速度），"
+                "暂不转正；请先确认该设备是否应收口到 AZI/X/Y/Z/angle 等规范倾角测点，未确认前继续保留 pending。"
+            ),
+        }
+    normalized_family = family or product_name or device_name or "未识别设备"
+    return {
+        "group": f"{normalized_family} 人工复核组",
+        "suggestedAction": "保留 pending，等待业务确认",
+        "systemRecommendation": "暂不转正，等待人工复核",
+        "todo": "确认字段语义与业务归属后，再决定是否转正、继续等待或排除",
+        "resolutionNote": (
+            "风险点与设备已匹配。2026-04-04 批量治理复核：当前候选仍需人工确认字段语义与业务归属，"
+            "暂不转正，继续保留 pending。"
+        ),
+    }
+
+
+def build_manual_review_export_records(items: Sequence[Dict[str, object]]) -> List[Dict[str, object]]:
+    records: List[Dict[str, object]] = []
+    for item in items:
+        policy = determine_manual_review_policy(item)
+        candidate_entries = item.get("candidateMetrics") or []
+        metric_ids = [entry["metricIdentifier"] for entry in candidate_entries if normalize_text(entry.get("metricIdentifier"))]
+        metric_names = [entry["metricName"] for entry in candidate_entries if normalize_text(entry.get("metricName"))]
+        records.append(
+            {
+                "pending_id": int(item["pendingId"]),
+                "group": policy["group"],
+                "risk_point_name": normalize_text(item.get("riskPointName")),
+                "device_name": normalize_text(item.get("deviceName")),
+                "device_code": normalize_text(item.get("deviceCode")),
+                "product_name": normalize_text(item.get("productName")),
+                "resolution_status": normalize_text(item.get("resolutionStatus")),
+                "candidate_metric_ids": ", ".join(metric_ids),
+                "candidate_metric_names": ", ".join(metric_names),
+                "reason": normalize_text(item.get("reason")),
+                "suggested_action": policy["suggestedAction"],
+                "system_recommendation": policy["systemRecommendation"],
+                "todo": policy["todo"],
+                "business_decision": "",
+                "canonical_metrics": "",
+                "owner": "",
+                "due_date": "",
+                "notes": "",
+            }
+        )
+    return records
+
+
+def build_manual_review_markdown(records: Sequence[Dict[str, object]]) -> str:
+    lines = [
+        "# 风险点 Pending 人工复核导出",
+        "",
+        f"生成时间：{datetime.now().isoformat(timespec='seconds')}",
+        "",
+        "## 分组概览",
+        "",
+    ]
+    for group, count in Counter(record["group"] for record in records).items():
+        lines.append(f"- {group}：{count} 条")
+    lines.extend(
+        [
+            "",
+            "## 明细",
+            "",
+            "| pendingId | 分组 | 风险点 | 设备 | 产品 | 候选测点 | 建议动作 | 需核对事项 |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    )
+    for record in records:
+        lines.append(
+            f"| {record['pending_id']} | {record['group']} | {record['risk_point_name'] or ''} | "
+            f"{record['device_name'] or ''} (`{record['device_code'] or ''}`) | {record['product_name'] or ''} | "
+            f"{record['candidate_metric_ids'] or ''} | {record['suggested_action'] or ''} | {record['todo'] or ''} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_manual_review_exports(output_prefix: str | Path, records: Sequence[Dict[str, object]]) -> Dict[str, Path]:
+    prefix = Path(output_prefix)
+    json_path = Path(f"{prefix}.json")
+    csv_path = Path(f"{prefix}.csv")
+    md_path = Path(f"{prefix}.md")
+    write_json(json_path, list(records))
+    fieldnames = [
+        "pending_id",
+        "group",
+        "risk_point_name",
+        "device_name",
+        "device_code",
+        "product_name",
+        "resolution_status",
+        "candidate_metric_ids",
+        "candidate_metric_names",
+        "reason",
+        "suggested_action",
+        "system_recommendation",
+        "todo",
+        "business_decision",
+        "canonical_metrics",
+        "owner",
+        "due_date",
+        "notes",
+    ]
+    with csv_path.open("w", encoding="utf-8-sig", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)
+    md_path.write_text(build_manual_review_markdown(records), encoding="utf-8")
+    return {"json": json_path, "csv": csv_path, "md": md_path}
+
+
+def build_manual_review_annotation_rows(items: Sequence[Dict[str, object]]) -> List[Dict[str, object]]:
+    rows: List[Dict[str, object]] = []
+    for item in items:
+        policy = determine_manual_review_policy(item)
+        rows.append(
+            {
+                "pendingId": int(item["pendingId"]),
+                "deviceName": normalize_text(item.get("deviceName")),
+                "group": policy["group"],
+                "resolutionNote": policy["resolutionNote"],
+            }
+        )
+    return rows
+
+
+def read_manual_review_decision_csv(path: str | Path) -> List[Dict[str, object]]:
+    rows: List[Dict[str, object]] = []
+    with Path(path).open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        for raw in reader:
+            pending_id_text = normalize_text((raw or {}).get("pending_id"))
+            if not pending_id_text:
+                continue
+            business_decision = (normalize_text((raw or {}).get("business_decision")) or "").upper()
+            canonical_metrics_text = normalize_text((raw or {}).get("canonical_metrics")) or ""
+            canonical_metrics = [piece.strip() for piece in canonical_metrics_text.split(",") if piece.strip()]
+            rows.append(
+                {
+                    "pendingId": int(pending_id_text),
+                    "businessDecision": business_decision,
+                    "canonicalMetrics": canonical_metrics,
+                    "notes": normalize_text((raw or {}).get("notes")) or "",
+                    "owner": normalize_text((raw or {}).get("owner")) or "",
+                    "dueDate": normalize_text((raw or {}).get("due_date")) or "",
+                    "raw": raw or {},
+                }
+            )
+    return rows
+
+
+def validate_manual_review_decision_rows(
+    rows: Sequence[Dict[str, object]],
+    *,
+    allowed_pending_ids: set[int] | None = None,
+) -> None:
+    for row in rows:
+        pending_id = int(row["pendingId"])
+        business_decision = normalize_text(row.get("businessDecision")) or ""
+        canonical_metrics = row.get("canonicalMetrics") or []
+        if allowed_pending_ids is not None and pending_id not in allowed_pending_ids:
+            raise ValueError(f"pendingId={pending_id} 不在当前 manual_review manifest 内")
+        if not business_decision:
+            continue
+        if business_decision not in {"PROMOTE", "IGNORE", "KEEP_PENDING"}:
+            raise ValueError(f"pendingId={pending_id} business_decision 非法: {business_decision}")
+        if business_decision == "PROMOTE" and not canonical_metrics:
+            raise ValueError(f"pendingId={pending_id} PROMOTE 必须填写 canonical_metrics")
+        if business_decision in {"IGNORE", "KEEP_PENDING"} and canonical_metrics:
+            raise ValueError(f"pendingId={pending_id} {business_decision} 不得填写 canonical_metrics")
+
+
+def build_keep_pending_resolution_note(notes: str | None) -> str:
+    normalized_notes = normalize_text(notes)
+    if normalized_notes:
+        return f"业务确认继续保留 pending。{normalized_notes}"
+    return "业务确认继续保留 pending，待后续补充字段语义、产品归属或运行期证据。"
+
+
+def build_manual_review_decision_actions(rows: Sequence[Dict[str, object]]) -> List[Dict[str, object]]:
+    actions: List[Dict[str, object]] = []
+    for row in rows:
+        business_decision = normalize_text(row.get("businessDecision")) or ""
+        if not business_decision:
+            actions.append(
+                {
+                    "pendingId": int(row["pendingId"]),
+                    "businessDecision": "",
+                    "status": "SKIPPED",
+                    "skipReason": "business_decision 为空",
+                }
+            )
+            continue
+        if business_decision == "PROMOTE":
+            metrics = [
+                {"metricIdentifier": metric_identifier, "metricName": metric_identifier}
+                for metric_identifier in (row.get("canonicalMetrics") or [])
+            ]
+            note = normalize_text(row.get("notes")) or "业务确认 CSV 批量执行：按规范测点转正"
+            actions.append(
+                {
+                    "pendingId": int(row["pendingId"]),
+                    "businessDecision": business_decision,
+                    "requestBody": {
+                        "metrics": metrics,
+                        "completePending": True,
+                        "promotionNote": note,
+                    },
+                }
+            )
+            continue
+        if business_decision == "IGNORE":
+            note = normalize_text(row.get("notes")) or "业务确认 CSV 批量执行：确认排除"
+            actions.append(
+                {
+                    "pendingId": int(row["pendingId"]),
+                    "businessDecision": business_decision,
+                    "requestBody": {"ignoreNote": note},
+                }
+            )
+            continue
+        actions.append(
+            {
+                "pendingId": int(row["pendingId"]),
+                "businessDecision": business_decision,
+                "resolutionNote": build_keep_pending_resolution_note(normalize_text(row.get("notes"))),
+            }
+        )
+    return actions
+
+
+def execute_manual_review_decision_actions(
+    *,
+    base_url: str,
+    username: str,
+    password: str,
+    connection_args: Dict[str, object] | None,
+    actions: Sequence[Dict[str, object]],
+    apply_mode: bool,
+    update_by: int,
+) -> Dict[str, object]:
+    actionable = [action for action in actions if normalize_text(action.get("businessDecision"))]
+    token = None
+    requires_api = any(action["businessDecision"] in {"PROMOTE", "IGNORE"} for action in actionable)
+    if apply_mode and requires_api:
+        token = login(base_url, username, password)
+
+    connection = None
+    if apply_mode and any(action["businessDecision"] == "KEEP_PENDING" for action in actionable):
+        if connection_args is None:
+            raise RuntimeError("KEEP_PENDING apply 需要数据库连接参数")
+        connection = pymysql.connect(**connection_args)
+
+    results: List[Dict[str, object]] = []
+    try:
+        cursor = connection.cursor() if connection is not None else None
+        for action in actions:
+            pending_id = int(action["pendingId"])
+            business_decision = normalize_text(action.get("businessDecision")) or ""
+            if not business_decision:
+                result = {
+                    "pendingId": pending_id,
+                    "businessDecision": "",
+                    "dryRun": not apply_mode,
+                    "status": "SKIPPED",
+                    "skipReason": action.get("skipReason") or "business_decision 为空",
+                }
+                results.append(result)
+                print(
+                    f"apply-manual-review-decisions pendingId={pending_id} businessDecision=EMPTY "
+                    f"dryRun={not apply_mode} status=SKIPPED"
+                )
+                continue
+
+            result = {
+                "pendingId": pending_id,
+                "businessDecision": business_decision,
+                "dryRun": not apply_mode,
+            }
+            try:
+                if not apply_mode:
+                    if business_decision in {"PROMOTE", "IGNORE"}:
+                        result["requestBody"] = action["requestBody"]
+                    else:
+                        result["resolutionNotePreview"] = action["resolutionNote"]
+                    result["status"] = "DRY_RUN"
+                elif business_decision == "PROMOTE":
+                    response = api_request(
+                        base_url,
+                        f"/api/risk-point/pending-bindings/{pending_id}/promote",
+                        method="POST",
+                        token=token,
+                        body=action["requestBody"],
+                        timeout=30,
+                    )
+                    result["requestBody"] = action["requestBody"]
+                    result["response"] = response
+                    result["status"] = "APPLIED"
+                elif business_decision == "IGNORE":
+                    response = api_request(
+                        base_url,
+                        f"/api/risk-point/pending-bindings/{pending_id}/ignore",
+                        method="POST",
+                        token=token,
+                        body=action["requestBody"],
+                        timeout=30,
+                    )
+                    result["requestBody"] = action["requestBody"]
+                    result["response"] = response
+                    result["status"] = "APPLIED"
+                else:
+                    assert cursor is not None
+                    cursor.execute(
+                        """
+                        update risk_point_device_pending_binding
+                        set resolution_note = %s,
+                            update_by = %s,
+                            update_time = now()
+                        where id = %s
+                          and deleted = 0
+                          and resolution_status in (%s, %s)
+                        """,
+                        (action["resolutionNote"], update_by, pending_id, *PENDING_STATUSES),
+                    )
+                    result["resolutionNotePreview"] = action["resolutionNote"]
+                    result["status"] = "APPLIED" if cursor.rowcount == 1 else "SKIPPED"
+                results.append(result)
+                print(
+                    f"apply-manual-review-decisions pendingId={pending_id} businessDecision={business_decision} "
+                    f"dryRun={not apply_mode} status={result['status']}"
+                )
+            except Exception as exc:
+                result["status"] = "ERROR"
+                result["error"] = str(exc)
+                results.append(result)
+                print(
+                    f"apply-manual-review-decisions pendingId={pending_id} businessDecision={business_decision} "
+                    f"dryRun={not apply_mode} status=ERROR error={exc}"
+                )
+        if connection is not None:
+            connection.commit()
+    except Exception:
+        if connection is not None:
+            connection.rollback()
+        raise
+    finally:
+        if connection is not None:
+            connection.close()
+
+    return {
+        "generatedAt": datetime.now().isoformat(timespec="seconds"),
+        "mode": "apply-manual-review-decisions",
+        "apply": apply_mode,
+        "summary": dict(Counter(result["status"] for result in results)),
+        "results": results,
+    }
+
+
+def execute_manual_review_annotations(
+    *,
+    connection_args: Dict[str, object] | None,
+    items: Sequence[Dict[str, object]],
+    apply_mode: bool,
+    update_by: int,
+) -> Dict[str, object]:
+    annotation_rows = build_manual_review_annotation_rows(items)
+    results: List[Dict[str, object]] = []
+    if not apply_mode:
+        for row in annotation_rows:
+            result = {
+                "pendingId": row["pendingId"],
+                "deviceName": row.get("deviceName"),
+                "group": row["group"],
+                "dryRun": True,
+                "status": "DRY_RUN",
+                "resolutionNote": row["resolutionNote"],
+            }
+            results.append(result)
+            print(
+                f"annotate-manual-review pendingId={row['pendingId']} dryRun=True "
+                f"status=DRY_RUN note={row['resolutionNote']}"
+            )
+        return {
+            "generatedAt": datetime.now().isoformat(timespec="seconds"),
+            "mode": "annotate-manual-review",
+            "apply": False,
+            "summary": {"DRY_RUN": len(results)},
+            "results": results,
+        }
+
+    if connection_args is None:
+        raise RuntimeError("Manual review annotation apply requires connection args")
+
+    connection = pymysql.connect(**connection_args)
+    try:
+        with connection.cursor() as cursor:
+            for row in annotation_rows:
+                cursor.execute(
+                    """
+                    update risk_point_device_pending_binding
+                    set resolution_note = %s,
+                        update_by = %s,
+                        update_time = now()
+                    where id = %s
+                      and deleted = 0
+                      and resolution_status in (%s, %s)
+                    """,
+                    (row["resolutionNote"], update_by, row["pendingId"], *PENDING_STATUSES),
+                )
+                status = "APPLIED" if cursor.rowcount == 1 else "SKIPPED"
+                result = {
+                    "pendingId": row["pendingId"],
+                    "deviceName": row.get("deviceName"),
+                    "group": row["group"],
+                    "dryRun": False,
+                    "status": status,
+                    "resolutionNote": row["resolutionNote"],
+                }
+                results.append(result)
+                print(
+                    f"annotate-manual-review pendingId={row['pendingId']} dryRun=False "
+                    f"status={status} note={row['resolutionNote']}"
+                )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+    return {
+        "generatedAt": datetime.now().isoformat(timespec="seconds"),
+        "mode": "annotate-manual-review",
+        "apply": True,
+        "summary": dict(Counter(result["status"] for result in results)),
+        "results": results,
+    }
 
 
 def print_summary(manifest: Dict[str, object]) -> None:
@@ -526,6 +1007,41 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     ignore.add_argument("--apply", action="store_true", help="Actually call the backend ignore API.")
     ignore.add_argument("--result-output", help="Write execution result JSON to this file.")
 
+    export_manual_review = subparsers.add_parser(
+        "export-manual-review",
+        help="Export manual-review items to JSON/CSV/Markdown confirmation templates.",
+    )
+    export_manual_review.add_argument("--manifest", required=True, help="Path to the manifest JSON file.")
+    export_manual_review.add_argument("--pending-ids", help="Comma-separated pending ids to export.")
+    export_manual_review.add_argument("--limit", type=int, help="Only export the first N matching items.")
+    export_manual_review.add_argument("--output-prefix", help="Output file prefix without extension.")
+
+    annotate_manual_review = subparsers.add_parser(
+        "annotate-manual-review",
+        help="Dry-run or apply grouped resolution_note updates for manual-review items.",
+    )
+    annotate_manual_review.add_argument("--manifest", required=True, help="Path to the manifest JSON file.")
+    annotate_manual_review.add_argument("--pending-ids", help="Comma-separated pending ids to annotate.")
+    annotate_manual_review.add_argument("--limit", type=int, help="Only annotate the first N matching items.")
+    annotate_manual_review.add_argument("--apply", action="store_true", help="Actually update resolution_note in MySQL.")
+    annotate_manual_review.add_argument("--result-output", help="Write execution result JSON to this file.")
+    annotate_manual_review.add_argument("--update-by", type=int, default=1, help="Value to write into update_by when applying.")
+    add_connection_arguments(annotate_manual_review)
+
+    apply_manual_review_decisions = subparsers.add_parser(
+        "apply-manual-review-decisions",
+        help="Dry-run or apply PROMOTE/IGNORE/KEEP_PENDING decisions from a filled manual-review CSV.",
+    )
+    apply_manual_review_decisions.add_argument("--csv", required=True, help="Path to the filled decision CSV.")
+    apply_manual_review_decisions.add_argument("--manifest", help="Optional manifest JSON for pending id cross-check.")
+    apply_manual_review_decisions.add_argument("--pending-ids", help="Comma-separated pending ids to execute.")
+    apply_manual_review_decisions.add_argument("--limit", type=int, help="Only execute the first N matching rows.")
+    apply_manual_review_decisions.add_argument("--apply", action="store_true", help="Actually execute decisions in the real environment.")
+    apply_manual_review_decisions.add_argument("--result-output", help="Write execution result JSON to this file.")
+    apply_manual_review_decisions.add_argument("--update-by", type=int, default=1, help="Value to write into update_by when applying KEEP_PENDING.")
+    add_login_arguments(apply_manual_review_decisions)
+    add_connection_arguments(apply_manual_review_decisions)
+
     return parser.parse_args(argv)
 
 
@@ -584,6 +1100,80 @@ def run_action(args: argparse.Namespace, mode: str) -> int:
     return 0
 
 
+def run_export_manual_review(args: argparse.Namespace) -> int:
+    manifest = read_manifest(args.manifest)
+    items = select_items(
+        manifest.get("manual_review", []),
+        pending_ids=parse_pending_ids(args.pending_ids),
+        limit=args.limit,
+    )
+    records = build_manual_review_export_records(items)
+    output_prefix = Path(args.output_prefix) if args.output_prefix else default_output_prefix(
+        "risk-point-pending-manual-review"
+    )
+    files = write_manual_review_exports(output_prefix, records)
+    print(f"export-manual-review selectedCount={len(records)}")
+    for format_name, path in files.items():
+        print(f"{format_name}File={path}")
+    return 0
+
+
+def run_annotate_manual_review(args: argparse.Namespace) -> int:
+    manifest = read_manifest(args.manifest)
+    items = select_items(
+        manifest.get("manual_review", []),
+        pending_ids=parse_pending_ids(args.pending_ids),
+        limit=args.limit,
+    )
+    if not items:
+        print("annotate-manual-review selectedCount=0")
+        return 0
+    connection_args = None
+    if args.apply:
+        connection_args = resolve_connection_args(args.jdbc_url, args.user, args.password)
+    result = execute_manual_review_annotations(
+        connection_args=connection_args,
+        items=items,
+        apply_mode=bool(args.apply),
+        update_by=int(args.update_by),
+    )
+    summary_text = " ".join(f"{key}={value}" for key, value in sorted(result["summary"].items()))
+    print(f"annotate-manual-review summary dryRun={not bool(args.apply)} {summary_text}")
+    if args.result_output:
+        write_json(args.result_output, result)
+        print(f"resultFile={args.result_output}")
+    return 0
+
+
+def run_apply_manual_review_decisions(args: argparse.Namespace) -> int:
+    rows = read_manual_review_decision_csv(args.csv)
+    rows = select_items(rows, pending_ids=parse_pending_ids(args.pending_ids), limit=args.limit)
+    allowed_pending_ids = None
+    if args.manifest:
+        manifest = read_manifest(args.manifest)
+        allowed_pending_ids = {int(item["pendingId"]) for item in manifest.get("manual_review", [])}
+    validate_manual_review_decision_rows(rows, allowed_pending_ids=allowed_pending_ids)
+    actions = build_manual_review_decision_actions(rows)
+    connection_args = None
+    if args.apply and any(action.get("businessDecision") == "KEEP_PENDING" for action in actions):
+        connection_args = resolve_connection_args(args.jdbc_url, args.user, args.password)
+    result = execute_manual_review_decision_actions(
+        base_url=args.base_url,
+        username=args.login_username,
+        password=args.login_password,
+        connection_args=connection_args,
+        actions=actions,
+        apply_mode=bool(args.apply),
+        update_by=int(args.update_by),
+    )
+    summary_text = " ".join(f"{key}={value}" for key, value in sorted(result["summary"].items()))
+    print(f"apply-manual-review-decisions summary dryRun={not bool(args.apply)} {summary_text}")
+    if args.result_output:
+        write_json(args.result_output, result)
+        print(f"resultFile={args.result_output}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     if args.command == "build-manifest":
@@ -594,6 +1184,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_action(args, "promote")
     if args.command == "ignore":
         return run_action(args, "ignore")
+    if args.command == "export-manual-review":
+        return run_export_manual_review(args)
+    if args.command == "annotate-manual-review":
+        return run_annotate_manual_review(args)
+    if args.command == "apply-manual-review-decisions":
+        return run_apply_manual_review_decisions(args)
     raise RuntimeError(f"Unsupported command: {args.command}")
 
 
