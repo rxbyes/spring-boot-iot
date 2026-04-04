@@ -29,7 +29,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * 风险点绑定维护读侧实现。
+ * 风险点绑定维护服务实现。
  */
 @Service
 public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingMaintenanceService {

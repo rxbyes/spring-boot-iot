@@ -8,7 +8,7 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import java.util.List;
 
 /**
- * 风险点绑定维护读侧服务。
+ * 风险点绑定维护服务。
  */
 public interface RiskPointBindingMaintenanceService {
 
