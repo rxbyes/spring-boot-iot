@@ -7,6 +7,7 @@ import type {
   MessageFlowRecentSession,
   MessageFlowSession,
   MessageFlowSubmitResult,
+  MessageTraceDetail,
   MessageFlowTimeline,
   MessageTraceStats,
   PageResult
@@ -50,6 +51,10 @@ export const messageApi = {
 
   getMessageFlowTrace(traceId: string) {
     return request<MessageFlowTimeline>(`/api/device/message-flow/trace/${traceId}`);
+  },
+
+  getMessageTraceDetail(id: string | number) {
+    return request<MessageTraceDetail>(`/api/device/message-flow/detail/${id}`);
   },
 
   getMessageFlowOpsOverview() {

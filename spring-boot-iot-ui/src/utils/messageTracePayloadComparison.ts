@@ -18,10 +18,24 @@ export interface MessageTracePayloadComparisonModel {
 
 export function resolveMessageTracePayloadComparison(input: {
   rawPayload?: string | null;
+  decryptedPayload?: string | null;
+  decodedPayload?: Record<string, unknown> | null;
   timeline?: MessageFlowTimeline | null;
   timelineExpired: boolean;
 }): MessageTracePayloadComparisonModel {
   const summary = resolveProtocolDecodeSummary(input.timeline);
+  const detailDecryptedPayload = pickMeaningfulText(input.decryptedPayload);
+  const summaryDecryptedPayload = pickMeaningfulText(summary?.decryptedPayloadPreview);
+  const detailDecodedPayload = pickMeaningfulJsonValue(input.decodedPayload);
+  const summaryDecodedPayload = pickMeaningfulJsonValue(summary?.decodedPayloadPreview);
+  const decryptedPayload =
+    detailDecryptedPayload
+    ?? summaryDecryptedPayload
+    ?? (summary ? null : deriveDecryptedPayloadFromRaw(input.rawPayload));
+  const decodedPayload =
+    detailDecodedPayload
+    ?? summaryDecodedPayload
+    ?? (summary ? null : deriveDecodedPayloadFromRaw(input.rawPayload));
 
   return {
     panels: [
@@ -30,14 +44,14 @@ export function resolveMessageTracePayloadComparison(input: {
         'decrypted',
         '解密后明文',
         '展示协议解码阶段拿到的明文快照。',
-        summary?.decryptedPayloadPreview,
+        decryptedPayload,
         input.timelineExpired ? '当前时间线已过期，无法恢复解密结果' : '当前无解密结果'
       ),
       buildJsonPanel(
         'decoded',
         '解析结果',
         '展示协议层归一化后的结构化上行结果。',
-        summary?.decodedPayloadPreview,
+        decodedPayload,
         input.timelineExpired ? '当前时间线已过期，无法恢复解析结果' : '当前无解析结果'
       )
     ]
@@ -50,6 +64,48 @@ function resolveProtocolDecodeSummary(timeline?: MessageFlowTimeline | null): Pr
     return null;
   }
   return decodeStep.summary as ProtocolDecodeTimelineSummary;
+}
+
+function deriveDecryptedPayloadFromRaw(rawPayload?: string | null): string | null {
+  return pickMeaningfulText(rawPayload);
+}
+
+function deriveDecodedPayloadFromRaw(rawPayload?: string | null): Record<string, unknown> | string | null {
+  const normalizedRawPayload = pickMeaningfulText(rawPayload);
+  if (!normalizedRawPayload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedRawPayload) as unknown;
+    return pickMeaningfulJsonValue(parsed) ?? { rawPayload: normalizedRawPayload };
+  } catch {
+    return { rawPayload: normalizedRawPayload };
+  }
+}
+
+function pickMeaningfulText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function pickMeaningfulJsonValue(value: unknown): Record<string, unknown> | string | unknown[] | number | boolean | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return pickMeaningfulText(value);
+  }
+  if (Array.isArray(value)) {
+    return value.length ? value : null;
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>).length ? (value as Record<string, unknown>) : null;
+  }
+  return value;
 }
 
 function buildTextPanel(

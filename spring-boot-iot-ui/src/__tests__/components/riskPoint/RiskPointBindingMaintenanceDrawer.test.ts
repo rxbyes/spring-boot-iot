@@ -174,6 +174,18 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 function createBindingGroups() {
   return [
     {
@@ -230,7 +242,7 @@ function createMetricOptions() {
   ]
 }
 
-function mountDrawer() {
+function mountDrawer(propOverrides: Record<string, unknown> = {}) {
   return mount(RiskPointBindingMaintenanceDrawer, {
     props: {
       modelValue: true,
@@ -238,7 +250,8 @@ function mountDrawer() {
       riskPointName: '北坡风险点',
       riskPointCode: 'RP-NORTH-001',
       orgName: '北坡监测站',
-      pendingBindingCount: 2
+      pendingBindingCount: 2,
+      ...propOverrides
     },
     global: {
       stubs: {
@@ -328,6 +341,33 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 
+  it('filters already bound metrics out of the add-metric selector for the same device', async () => {
+    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+      ]
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2001')
+    await flushPromises()
+
+    const optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('Y向倾角')
+    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('裂缝宽度')
+  })
+
   it('whole-device unbind stays on the dedicated unbind API', async () => {
     const wrapper = mountDrawer()
     await flushPromises()
@@ -368,5 +408,208 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       metricName: 'Z向倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('filters the current and already bound metrics out of replace choices', async () => {
+    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+      ]
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-replace-open-9001"]').trigger('click')
+    await flushPromises()
+
+    const optionTexts = wrapper
+      .get('[data-testid="binding-replace-metric-9001"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('Y向倾角')
+    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('裂缝宽度')
+  })
+
+  it('ignores stale drawer loads when the risk point changes before the first request resolves', async () => {
+    const firstGroupRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createBindingGroups> }>()
+    const firstDeviceRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createBindableDevices> }>()
+
+    mockListBindingGroups.mockReset()
+    mockListBindableDevices.mockReset()
+    mockListBindingGroups
+      .mockReturnValueOnce(firstGroupRequest.promise)
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: [
+          {
+            deviceId: 3001,
+            deviceCode: 'DEV-3001',
+            deviceName: '南坡监测终端',
+            metricCount: 1,
+            metrics: [
+              {
+                bindingId: 9101,
+                metricIdentifier: 'southTilt',
+                metricName: '南坡倾角',
+                bindingSource: 'MANUAL',
+                createTime: '2026-04-04 10:00:00'
+              }
+            ]
+          }
+        ]
+      })
+    mockListBindableDevices
+      .mockReturnValueOnce(firstDeviceRequest.promise)
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: [
+          {
+            id: 3001,
+            deviceCode: 'DEV-3001',
+            deviceName: '南坡监测终端',
+            productId: 1201,
+            orgId: 7201,
+            orgName: '南坡监测站'
+          }
+        ]
+      })
+
+    const wrapper = mountDrawer()
+    await nextTick()
+
+    await wrapper.setProps({
+      riskPointId: 2,
+      riskPointName: '南坡风险点',
+      riskPointCode: 'RP-SOUTH-002',
+      orgName: '南坡监测站'
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('南坡监测终端')
+    expect(wrapper.text()).not.toContain('北坡一体机')
+
+    firstGroupRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createBindingGroups()
+    })
+    firstDeviceRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createBindableDevices()
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('南坡监测终端')
+    expect(wrapper.text()).not.toContain('北坡一体机')
+  })
+
+  it('keeps the latest add-device metric options when device selection changes quickly', async () => {
+    const firstMetricRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createMetricOptions> }>()
+
+    mockGetDeviceMetricOptions.mockReset()
+    mockGetDeviceMetricOptions
+      .mockReturnValueOnce(firstMetricRequest.promise)
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: [{ identifier: 'southTilt', name: '南坡倾角', type: 'property' }]
+      })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2001')
+    await nextTick()
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await flushPromises()
+
+    let optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('南坡倾角')
+    expect(optionTexts).not.toContain('X向倾角')
+
+    firstMetricRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createMetricOptions()
+    })
+    await flushPromises()
+
+    optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('南坡倾角')
+    expect(optionTexts).not.toContain('X向倾角')
+  })
+
+  it('re-filters add-metric options after binding groups finish loading late', async () => {
+    const delayedGroupRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createBindingGroups> }>()
+
+    mockListBindingGroups.mockReset()
+    mockListBindableDevices.mockReset()
+    mockGetDeviceMetricOptions.mockReset()
+    mockListBindingGroups.mockReturnValueOnce(delayedGroupRequest.promise)
+    mockListBindableDevices.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createBindableDevices()
+    })
+    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+      ]
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2001')
+    await flushPromises()
+
+    delayedGroupRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createBindingGroups()
+    })
+    await flushPromises()
+
+    const optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('Y向倾角')
+    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('裂缝宽度')
+  })
+
+  it('emits close only once when the drawer close sequence fires both events', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    ;(wrapper.vm as any).handleModelValueChange(false)
+    ;(wrapper.vm as any).handleClose()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.emitted('update:modelValue')).toHaveLength(1)
   })
 })

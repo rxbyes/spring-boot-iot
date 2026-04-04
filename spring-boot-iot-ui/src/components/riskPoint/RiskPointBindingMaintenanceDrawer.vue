@@ -179,7 +179,7 @@
                       placeholder="请选择替换后的测点"
                     >
                       <el-option
-                        v-for="option in getReplaceOptions(group.deviceId)"
+                        v-for="option in getReplaceOptions(group.deviceId, metric.bindingId)"
                         :key="option.identifier"
                         :label="option.name"
                         :value="option.identifier"
@@ -257,6 +257,9 @@ const addMetricOptions = ref<DeviceMetricOption[]>([])
 const activeReplaceBindingId = ref<number | null>(null)
 const metricOptionCache = reactive<Record<number, DeviceMetricOption[]>>({})
 const replaceSelectionMap = reactive<Record<number, string>>({})
+let latestDrawerLoadRequestId = 0
+let latestAddMetricRequestId = 0
+let latestReplaceMetricRequestId = 0
 
 const addForm = reactive({
   deviceId: '' as '' | number,
@@ -275,6 +278,40 @@ const bindingSourceLabelMap: Record<RiskPointBindingMetric['bindingSource'], str
 
 const getBindingSourceLabel = (source: RiskPointBindingMetric['bindingSource']) => bindingSourceLabelMap[source] || bindingSourceLabelMap.UNKNOWN
 
+const getBoundMetricIdentifiers = (deviceId: IdType, excludeBindingId?: IdType) => {
+  const normalizedDeviceId = Number(deviceId)
+  const normalizedExcludeBindingId = excludeBindingId ? Number(excludeBindingId) : 0
+  const group = bindingGroups.value.find((item) => Number(item.deviceId) === normalizedDeviceId)
+  return new Set(
+    (group?.metrics || [])
+      .filter((metric) => Number(metric.bindingId) !== normalizedExcludeBindingId)
+      .map((metric) => metric.metricIdentifier)
+      .filter(Boolean)
+  )
+}
+
+const getBindingMetricIdentifier = (deviceId: IdType, bindingId?: IdType) => {
+  if (!bindingId) {
+    return ''
+  }
+  const normalizedDeviceId = Number(deviceId)
+  const normalizedBindingId = Number(bindingId)
+  return (
+    bindingGroups.value
+      .find((item) => Number(item.deviceId) === normalizedDeviceId)
+      ?.metrics.find((metric) => Number(metric.bindingId) === normalizedBindingId)
+      ?.metricIdentifier || ''
+  )
+}
+
+const filterAvailableMetricOptions = (deviceId: IdType, options: DeviceMetricOption[], excludeBindingId?: IdType) => {
+  const boundMetricIdentifiers = getBoundMetricIdentifiers(deviceId, excludeBindingId)
+  const currentMetricIdentifier = getBindingMetricIdentifier(deviceId, excludeBindingId)
+  return options.filter(
+    (option) => !boundMetricIdentifiers.has(option.identifier) && option.identifier !== currentMetricIdentifier
+  )
+}
+
 const getMetricOptions = async (deviceId: IdType) => {
   const normalizedDeviceId = Number(deviceId)
   if (!normalizedDeviceId) {
@@ -292,7 +329,17 @@ const getMetricOptions = async (deviceId: IdType) => {
   return metricOptionCache[normalizedDeviceId]
 }
 
+const isActiveDrawerRequest = (requestId: number, riskPointId?: IdType | null) =>
+  requestId === latestDrawerLoadRequestId
+  && props.modelValue
+  && Number(props.riskPointId || 0) === Number(riskPointId || 0)
+
 const resetDrawerState = () => {
+  latestDrawerLoadRequestId += 1
+  latestAddMetricRequestId += 1
+  latestReplaceMetricRequestId += 1
+  loading.value = false
+  addSubmitting.value = false
   bindingGroups.value = []
   bindableDevices.value = []
   addMetricOptions.value = []
@@ -308,21 +355,28 @@ const resetDrawerState = () => {
   })
 }
 
-const loadBindingGroups = async () => {
-  if (!props.riskPointId) {
+const loadBindingGroups = async (riskPointId: IdType, requestId: number) => {
+  if (!riskPointId) {
     bindingGroups.value = []
     return
   }
-  const res = await listBindingGroups(props.riskPointId)
+  const res = await listBindingGroups(riskPointId)
+  if (!isActiveDrawerRequest(requestId, riskPointId)) {
+    return
+  }
   bindingGroups.value = res.code === 200 ? res.data || [] : []
+  refreshAddMetricOptionsForCurrentDevice()
 }
 
-const loadBindableDeviceOptions = async () => {
-  if (!props.riskPointId) {
+const loadBindableDeviceOptions = async (riskPointId: IdType, requestId: number) => {
+  if (!riskPointId) {
     bindableDevices.value = []
     return
   }
-  const res = await listBindableDevices(props.riskPointId)
+  const res = await listBindableDevices(riskPointId)
+  if (!isActiveDrawerRequest(requestId, riskPointId)) {
+    return
+  }
   bindableDevices.value = res.code === 200 ? res.data || [] : []
 }
 
@@ -331,14 +385,20 @@ const loadDrawerData = async () => {
     resetDrawerState()
     return
   }
+  const riskPointId = props.riskPointId
+  const requestId = ++latestDrawerLoadRequestId
   loading.value = true
   try {
-    await Promise.all([loadBindingGroups(), loadBindableDeviceOptions()])
+    await Promise.all([loadBindingGroups(riskPointId, requestId), loadBindableDeviceOptions(riskPointId, requestId)])
   } catch (error) {
-    console.error('加载风险点正式绑定维护数据失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '加载正式绑定维护数据失败')
+    if (isActiveDrawerRequest(requestId, riskPointId)) {
+      console.error('加载风险点正式绑定维护数据失败', error)
+      ElMessage.error(error instanceof Error ? error.message : '加载正式绑定维护数据失败')
+    }
   } finally {
-    loading.value = false
+    if (isActiveDrawerRequest(requestId, riskPointId)) {
+      loading.value = false
+    }
   }
 }
 
@@ -354,15 +414,41 @@ const getSelectedMetricOption = (deviceId: IdType, metricIdentifier: string) => 
   return options.find((item) => item.identifier === metricIdentifier)
 }
 
+const refreshAddMetricOptionsForCurrentDevice = () => {
+  const normalizedDeviceId = Number(addForm.deviceId)
+  if (!normalizedDeviceId) {
+    return
+  }
+  addMetricOptions.value = filterAvailableMetricOptions(
+    normalizedDeviceId,
+    metricOptionCache[normalizedDeviceId] || addMetricOptions.value
+  )
+  if (addForm.metricIdentifier && !addMetricOptions.value.some((item) => item.identifier === addForm.metricIdentifier)) {
+    addForm.metricIdentifier = ''
+  }
+}
+
 const handleAddDeviceChange = async (deviceId: string | number) => {
+  const requestId = ++latestAddMetricRequestId
   addForm.metricIdentifier = ''
   addMetricOptions.value = []
   if (!deviceId) {
     return
   }
   try {
-    addMetricOptions.value = await getMetricOptions(deviceId)
+    const options = filterAvailableMetricOptions(deviceId, await getMetricOptions(deviceId))
+    if (
+      requestId !== latestAddMetricRequestId
+      || !props.modelValue
+      || Number(addForm.deviceId || 0) !== Number(deviceId)
+    ) {
+      return
+    }
+    addMetricOptions.value = options
   } catch (error) {
+    if (requestId !== latestAddMetricRequestId || !props.modelValue) {
+      return
+    }
     console.error('加载新增测点选项失败', error)
     ElMessage.error(error instanceof Error ? error.message : '加载测点列表失败')
   }
@@ -461,20 +547,39 @@ const handleRemoveBinding = async (bindingId: IdType, deviceName: string, metric
 }
 
 const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
+  const requestId = ++latestReplaceMetricRequestId
+  const riskPointId = props.riskPointId
   try {
     actionLoadingKey.value = `replace-open:${bindingId}`
-    const options = await getMetricOptions(deviceId)
+    const options = filterAvailableMetricOptions(deviceId, await getMetricOptions(deviceId), bindingId)
+    if (
+      requestId !== latestReplaceMetricRequestId
+      || !props.modelValue
+      || Number(props.riskPointId || 0) !== Number(riskPointId || 0)
+    ) {
+      return
+    }
     activeReplaceBindingId.value = Number(bindingId)
     replaceSelectionMap[Number(bindingId)] = options[0]?.identifier || ''
   } catch (error) {
+    if (
+      requestId !== latestReplaceMetricRequestId
+      || !props.modelValue
+      || Number(props.riskPointId || 0) !== Number(riskPointId || 0)
+    ) {
+      return
+    }
     console.error('加载替换测点选项失败', error)
     ElMessage.error(error instanceof Error ? error.message : '加载替换测点列表失败')
   } finally {
-    actionLoadingKey.value = ''
+    if (requestId === latestReplaceMetricRequestId) {
+      actionLoadingKey.value = ''
+    }
   }
 }
 
-const getReplaceOptions = (deviceId: IdType) => metricOptionCache[Number(deviceId)] || []
+const getReplaceOptions = (deviceId: IdType, bindingId: IdType) =>
+  filterAvailableMetricOptions(deviceId, metricOptionCache[Number(deviceId)] || [], bindingId)
 
 const handleReplaceBinding = async (deviceId: IdType, bindingId: IdType) => {
   const metricIdentifier = replaceSelectionMap[Number(bindingId)]
@@ -517,13 +622,11 @@ const handleReplaceBinding = async (deviceId: IdType, bindingId: IdType) => {
 const handleModelValueChange = (value: boolean) => {
   emit('update:modelValue', value)
   if (!value) {
-    emit('close')
     resetDrawerState()
   }
 }
 
 const handleClose = () => {
-  emit('update:modelValue', false)
   emit('close')
   resetDrawerState()
 }

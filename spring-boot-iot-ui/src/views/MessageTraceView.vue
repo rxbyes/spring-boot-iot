@@ -241,116 +241,22 @@
       v-model="detailVisible"
       :title="detailTitle"
       :subtitle="detailSubtitle"
+      tag-layout="title-inline"
+      size="56rem"
       :tags="detailTags"
       :empty="!hasDetail"
     >
-        <section class="detail-panel detail-panel--hero">
-          <div class="detail-section-header">
-            <div>
-              <h3>消息概览</h3>
-              <p>从消息类型、上报时间和 Topic 拓扑快速理解当前接入报文的上下文与排查入口。</p>
-            </div>
-          </div>
-          <div class="detail-summary-grid">
-            <article class="detail-summary-card">
-              <span class="detail-summary-card__label">消息类型</span>
-              <strong class="detail-summary-card__value">{{ getMessageTypeLabel(detailData.messageType) }}</strong>
-              <p class="detail-summary-card__hint">产品标识：{{ formatValue(detailData.productKey) }}</p>
-            </article>
-            <article class="detail-summary-card">
-              <span class="detail-summary-card__label">上报时间</span>
-              <strong class="detail-summary-card__value">{{ detailDisplayTime }}</strong>
-              <p class="detail-summary-card__hint">日志 ID：{{ formatValue(detailData.id) }}</p>
-            </article>
-            <article class="detail-summary-card">
-              <span class="detail-summary-card__label">设备编码</span>
-              <strong class="detail-summary-card__value">{{ formatValue(detailData.deviceCode) }}</strong>
-              <p class="detail-summary-card__hint">产品标识：{{ formatValue(detailData.productKey) }}</p>
-            </article>
-            <article class="detail-summary-card">
-              <span class="detail-summary-card__label">TraceId</span>
-              <strong class="detail-summary-card__value">{{ formatValue(detailData.traceId) }}</strong>
-              <p class="detail-summary-card__hint">可与异常观测台联动排查</p>
-            </article>
-            <article class="detail-summary-card">
-              <span class="detail-summary-card__label">Topic 节点</span>
-              <strong class="detail-summary-card__value">{{ detailTopicSegments }}</strong>
-              <p class="detail-summary-card__hint">{{ formatValue(detailData.topic) }}</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>链路信息</h3>
-              <p>统一展示日志主键、TraceId、设备与 Topic，便于与异常观测台、接入智维页面联动定位。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">日志 ID</span>
-              <strong class="detail-field__value">{{ formatValue(detailData.id) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">TraceId</span>
-              <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailData.traceId) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备编码</span>
-              <strong class="detail-field__value">{{ formatValue(detailData.deviceCode) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">产品标识</span>
-              <strong class="detail-field__value">{{ formatValue(detailData.productKey) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">消息类型</span>
-              <strong class="detail-field__value">{{ getMessageTypeLabel(detailData.messageType) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">上报时间</span>
-              <strong class="detail-field__value">{{ detailDisplayTime }}</strong>
-            </div>
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">Topic</span>
-              <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailData.topic) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>处理时间线</h3>
-              <p>按 traceId 异步拉取 Redis 时间线，复盘固定 Pipeline 的阶段顺序、耗时与处理类/方法。</p>
-            </div>
-          </div>
-          <StandardTraceTimeline
-            :timeline="detailTimeline"
-            :loading="timelineLoading"
-            :empty-title="detailTimelineEmptyTitle"
-            :empty-description="detailTimelineEmptyDescription"
-          />
-          <div v-if="timelineExpired" class="detail-notice">
-            <span class="detail-notice__label">降级提示</span>
-            <strong class="detail-notice__value">时间线已过期，仅保留消息日志。</strong>
-          </div>
-        </section>
-
-        <section class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>Payload 对照</h3>
-              <p>同时查看原始 Payload、解密后明文与解析结果，更直观判断上报数据是否在协议链路中出现偏差。</p>
-            </div>
-          </div>
-          <MessageTracePayloadComparisonSection :panels="detailPayloadComparison.panels" />
-          <div class="detail-notice">
-            <span class="detail-notice__label">排查建议</span>
-            <strong class="detail-notice__value">{{ detailRouteAdvice }}</strong>
-          </div>
-        </section>
+      <MessageTraceDetailWorkbench
+        :detail="detailData"
+        :panels="detailPayloadComparison.panels"
+        :timeline="detailTimeline"
+        :timeline-loading="timelineLoading"
+        :timeline-expired="timelineExpired"
+        :timeline-lookup-error="detailTimelineLookupError"
+        :timeline-empty-title="detailTimelineEmptyTitle"
+        :timeline-empty-description="detailTimelineEmptyDescription"
+        :route-advice="detailRouteAdvice"
+      />
     </StandardDetailDrawer>
   </StandardPageShell>
 </template>
@@ -362,7 +268,7 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
-import MessageTracePayloadComparisonSection from '@/components/messageTrace/MessageTracePayloadComparisonSection.vue';
+import MessageTraceDetailWorkbench from '@/components/messageTrace/MessageTraceDetailWorkbench.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
@@ -371,7 +277,6 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
-import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
@@ -386,6 +291,7 @@ import {
 } from '@/utils/iotAccessDiagnostics';
 import type {
   DeviceMessageLog,
+  MessageTraceDetail,
   MessageFlowTimeline,
   MessageTraceStats
 } from '@/types/api';
@@ -444,10 +350,11 @@ const statsLoading = ref(false);
 const timelineLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
-const detailData = ref<Partial<DeviceMessageLog>>({});
+const detailData = ref<Partial<MessageTraceDetail & DeviceMessageLog>>({});
 const detailTimeline = ref<MessageFlowTimeline | null>(null);
 const detailTimelineLookupError = ref(false);
 let detailTimelineRequestToken = 0;
+let detailRequestToken = 0;
 const restoredDiagnosticContext = ref<DiagnosticContext | null>(null);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
@@ -493,20 +400,15 @@ const detailTimelineEmptyDescription = computed(() => {
 });
 const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
 const detailSubtitle = computed(() => detailData.value.topic || '查看接入消息详情');
-const detailDisplayTime = computed(() => formatDateTime(detailData.value.reportTime || detailData.value.createTime));
 const detailPayloadComparison = computed(() =>
   resolveMessageTracePayloadComparison({
-    rawPayload: detailData.value.payload,
+    rawPayload: detailData.value.rawPayload ?? detailData.value.payload,
+    decryptedPayload: detailData.value.decryptedPayload,
+    decodedPayload: detailData.value.decodedPayload,
     timeline: detailTimeline.value,
     timelineExpired: timelineExpired.value
   })
 );
-const detailTopicSegments = computed(() => {
-  if (!detailData.value.topic) {
-    return '--';
-  }
-  return String(detailData.value.topic).split('/').filter(Boolean).length.toString();
-});
 const detailRouteAdvice = computed(() => {
   if (detailData.value.traceId) {
     return `可携带当前 TraceId（${detailData.value.traceId}）跳转异常观测台，继续联动排查消息链路。`;
@@ -804,9 +706,15 @@ function handleTraceRowAction(command: string | number, row: DeviceMessageLog) {
 }
 
 function openDetail(row: DeviceMessageLog) {
-  detailData.value = { ...row };
+  detailData.value = {
+    ...row,
+    rawPayload: row.payload,
+    decryptedPayload: null,
+    decodedPayload: null
+  };
   detailVisible.value = true;
   detailTimelineLookupError.value = false;
+  loadDetailRecord(row);
   loadDetailTimeline(row.traceId);
 }
 
@@ -876,7 +784,6 @@ async function loadDetailTimeline(traceId?: string | null) {
     if (response.code !== 200) {
       detailTimeline.value = null;
       detailTimelineLookupError.value = true;
-      ElMessage.error(response.msg || '获取处理时间线失败');
       return;
     }
     detailTimeline.value = response.data || null;
@@ -886,10 +793,31 @@ async function loadDetailTimeline(traceId?: string | null) {
     }
     detailTimeline.value = null;
     detailTimelineLookupError.value = true;
-    ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
   } finally {
     if (requestToken === detailTimelineRequestToken) {
       timelineLoading.value = false;
+    }
+  }
+}
+
+async function loadDetailRecord(row: DeviceMessageLog) {
+  const requestToken = ++detailRequestToken;
+  try {
+    const response = await messageApi.getMessageTraceDetail(row.id);
+    if (requestToken !== detailRequestToken) {
+      return;
+    }
+    if (response.code !== 200 || !response.data) {
+      return;
+    }
+    detailData.value = {
+      ...detailData.value,
+      ...response.data,
+      rawPayload: response.data.rawPayload || row.payload || detailData.value.rawPayload || detailData.value.payload
+    };
+  } catch (error) {
+    if (requestToken !== detailRequestToken) {
+      return;
     }
   }
 }

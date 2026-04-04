@@ -90,6 +90,22 @@ export interface ProtocolDecodeTimelineSummary {
   decodedPayloadPreview?: Record<string, unknown> | null;
 }
 
+export interface MessageTraceDetail {
+  id: IdType;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  messageType?: string | null;
+  topic?: string | null;
+  rawPayload?: string | null;
+  decryptedPayload?: string | null;
+  decodedPayload?: Record<string, unknown> | null;
+  reportTime?: string | null;
+  createTime?: string | null;
+  timeline?: MessageFlowTimeline | null;
+  timelineLookupError?: boolean | null;
+}
+
 export interface MessageFlowSession {
   sessionId?: string | null;
   transportMode?: string | null;

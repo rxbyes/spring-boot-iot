@@ -29,8 +29,13 @@ import com.ghlzm.iot.device.service.handler.DeviceRiskDispatchStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
+import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
+import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
@@ -101,6 +106,10 @@ class DeviceMessageServiceImplTest {
     private JdbcTemplate jdbcTemplate;
     @Mock
     private PermissionService permissionService;
+    @Mock
+    private ProtocolAdapterRegistry protocolAdapterRegistry;
+    @Mock
+    private ProtocolAdapter protocolAdapter;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -151,7 +160,8 @@ class DeviceMessageServiceImplTest {
                 devicePayloadApplyStageHandler,
                 deviceStateStageHandler,
                 deviceRiskDispatchStageHandler,
-                permissionService
+                permissionService,
+                protocolAdapterRegistry
         );
     }
 
@@ -216,6 +226,95 @@ class DeviceMessageServiceImplTest {
         String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
         assertTrue(sqlSegment.contains("tenant_id"));
         assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
+    void getMessageTraceDetailShouldRecoverPayloadComparisonFromStoredLog() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+        device.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProtocolCode("mqtt-json");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("17165802");
+        upMessage.setProductKey("demo-product");
+        upMessage.setMessageType("property");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setDecryptedPayloadPreview("{\"17165802\":{\"temperature\":26.5}}");
+        protocolMetadata.setDecodedPayloadPreview(Map.of(
+                "messageType", "property",
+                "deviceCode", "17165802",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any(ProtocolContext.class))).thenReturn(upMessage);
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}", detail.getRawPayload());
+        assertEquals("{\"17165802\":{\"temperature\":26.5}}", detail.getDecryptedPayload());
+        assertEquals("17165802", detail.getDecodedPayload().get("deviceCode"));
+    }
+
+    @Test
+    void getMessageTraceDetailShouldFallbackToRawPayloadWhenRecoveryPreparationThrows() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+        device.setProtocolCode("mqtt-json");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenThrow(new IllegalStateException("catalog unavailable"));
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}", detail.getRawPayload());
+        assertEquals(detail.getRawPayload(), detail.getDecryptedPayload());
+        assertTrue(detail.getDecodedPayload().containsKey("header"));
+        assertTrue(detail.getDecodedPayload().containsKey("bodies"));
     }
 
     @Test

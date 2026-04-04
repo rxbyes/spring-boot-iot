@@ -42,6 +42,7 @@ import java.util.Set;
 @Service
 public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendingRecommendationService {
 
+    private static final int BAD_REQUEST_CODE = 400;
     private static final Set<String> PROMOTABLE_STATUSES = Set.of("PENDING_METRIC_GOVERNANCE", "PARTIALLY_PROMOTED");
     private static final Set<String> PROPERTY_LOG_TYPES = Set.of("property", "status");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of("properties", "property", "status", "telemetry", "data", "params", "payload");
@@ -120,13 +121,13 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private void validatePendingForRecommendation(RiskPointDevicePendingBinding pending) {
         if (!StringUtils.hasText(pending.getResolutionStatus())
                 || !PROMOTABLE_STATUSES.contains(pending.getResolutionStatus().trim().toUpperCase(Locale.ROOT))) {
-            throw new BizException("当前待治理状态不支持查看候选测点");
+            throw new BizException(BAD_REQUEST_CODE, "当前待治理状态不支持查看候选测点");
         }
         if (pending.getRiskPointId() == null) {
-            throw new BizException("待治理记录缺少风险点");
+            throw new BizException(BAD_REQUEST_CODE, "待治理记录缺少风险点");
         }
         if (pending.getDeviceId() == null) {
-            throw new BizException("待治理记录缺少设备");
+            throw new BizException(BAD_REQUEST_CODE, "待治理记录缺少设备");
         }
     }
 

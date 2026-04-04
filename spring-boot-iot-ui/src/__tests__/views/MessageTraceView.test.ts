@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ElMessage } from 'element-plus';
 
 import MessageTraceView from '@/views/MessageTraceView.vue';
 import { messageApi } from '@/api/message';
@@ -26,6 +27,7 @@ vi.mock('@/api/message', () => ({
   messageApi: {
     pageMessageTraceLogs: vi.fn(),
     pageMessageTraceStats: vi.fn(),
+    getMessageTraceDetail: vi.fn(),
     getMessageFlowTrace: vi.fn(),
     getMessageFlowOpsOverview: vi.fn(),
     getMessageFlowRecentSessions: vi.fn()
@@ -354,6 +356,33 @@ function createStatsResponse() {
   };
 }
 
+function createDetailResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      id: 1,
+      traceId: 'trace-001',
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      messageType: 'report',
+      topic: '/sys/demo-product/demo-device-01/thing/property/post',
+      rawPayload: '{"cipher":true}',
+      decryptedPayload: '{"temperature":26.5}',
+      decodedPayload: {
+        messageType: 'property',
+        deviceCode: 'demo-device-01',
+        properties: {
+          temperature: 26.5
+        }
+      },
+      reportTime: '2026-03-23 10:00:00',
+      createTime: '2026-03-23 10:00:00',
+      ...overrides
+    }
+  };
+}
+
 function createOpsOverviewResponse() {
   return {
     code: 200,
@@ -446,13 +475,23 @@ describe('MessageTraceView', () => {
     mockRouter.replace.mockReset();
     vi.mocked(messageApi.pageMessageTraceLogs).mockReset();
     vi.mocked(messageApi.pageMessageTraceStats).mockReset();
+    vi.mocked(messageApi.getMessageTraceDetail).mockReset();
     vi.mocked(messageApi.getMessageFlowTrace).mockReset();
     vi.mocked(messageApi.getMessageFlowOpsOverview).mockReset();
     vi.mocked(messageApi.getMessageFlowRecentSessions).mockReset();
     vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue(createPageResponse());
     vi.mocked(messageApi.pageMessageTraceStats).mockResolvedValue(createStatsResponse());
+    vi.mocked(messageApi.getMessageTraceDetail).mockResolvedValue(createDetailResponse());
     vi.mocked(messageApi.getMessageFlowOpsOverview).mockResolvedValue(createOpsOverviewResponse());
     vi.mocked(messageApi.getMessageFlowRecentSessions).mockResolvedValue(createRecentSessionsResponse());
+    vi.mocked(ElMessage.error).mockReset();
+    vi.mocked(ElMessage.success).mockReset();
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: vi.fn().mockResolvedValue(undefined)
+      }
+    });
   });
 
   it('restores diagnostic source from sessionStorage when route query is partial', async () => {
@@ -527,6 +566,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(messageApi.getMessageTraceDetail).toHaveBeenCalledWith(1);
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
     expect(wrapper.text()).toContain('trace-001');
     expect(wrapper.text()).toContain('INGRESS');
@@ -592,6 +632,53 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('demo-device-01');
   });
 
+  it('keeps the customer-facing detail workbench minimal and removes helper copy', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-chain-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-hero"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('属性上报');
+    expect(wrapper.text()).toContain('链路标识');
+    expect(wrapper.text()).toContain('接入上下文');
+    expect(wrapper.text()).toContain('消息概览');
+    expect(wrapper.text()).toContain('链路信息');
+    expect(wrapper.text()).toContain('Payload 对照');
+    expect(wrapper.text()).toContain('处理时间线');
+    expect(wrapper.text()).not.toContain('先从消息类型、上报时间与 Topic 拓扑建立判断');
+    expect(wrapper.text()).not.toContain('继续完整保留链路章节');
+    expect(wrapper.text()).not.toContain('固定并排查看原始报文');
+    expect(wrapper.text()).not.toContain('处理阶段继续沿用当前时间线语法');
+    expect(wrapper.text()).not.toContain('排查建议');
+    expect(wrapper.text()).not.toContain('可携带当前 TraceId');
+  });
+
   it('shows the degraded hint when the trace timeline has expired', async () => {
     vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
       code: 200,
@@ -608,11 +695,11 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
-    expect(wrapper.text()).toContain('时间线已过期，仅保留消息日志。');
+    expect(wrapper.text()).toContain('时间线已过期，但 payload 对照已从消息日志恢复。');
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
-  it('keeps payload comparison placeholders visible when the timeline has expired', async () => {
+  it('keeps recovered payload comparison visible when the timeline has expired', async () => {
     vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -630,9 +717,92 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('原始 Payload');
     expect(wrapper.text()).toContain('解密后明文');
     expect(wrapper.text()).toContain('解析结果');
-    expect(wrapper.text()).toContain('当前时间线已过期，无法恢复解密结果');
-    expect(wrapper.text()).toContain('当前时间线已过期，无法恢复解析结果');
-    expect(wrapper.text()).toContain('temperature');
+    expect(wrapper.text()).not.toContain('"temperature": 26.5');
+    await wrapper.find('[data-testid="message-trace-payload-toggle-raw"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('"cipher": true');
+  });
+
+  it('keeps the timeline collapsed until the user expands it', async () => {
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: [
+          {
+            stage: 'INGRESS',
+            handlerClass: 'UpMessageProcessingPipeline',
+            handlerMethod: 'ingress',
+            status: 'SUCCESS',
+            costMs: 1,
+            startedAt: '2026-03-23 10:00:00',
+            finishedAt: '2026-03-23 10:00:00',
+            summary: {},
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="message-trace-detail-timeline-stage"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('处理时间线');
+    expect(wrapper.text()).not.toContain('INGRESS');
+
+    await wrapper.find('[data-testid="message-trace-timeline-toggle"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('INGRESS');
+  });
+
+  it('keeps payload comparison populated when the detail api returns blank recovery fields', async () => {
+    vi.mocked(messageApi.getMessageTraceDetail).mockResolvedValue(createDetailResponse({
+      rawPayload: '{"temperature":26.5,"humidity":61}',
+      decryptedPayload: '',
+      decodedPayload: {}
+    }));
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('解密后明文');
+    expect(wrapper.text()).toContain('解析结果');
+    expect(wrapper.text()).toContain('humidity');
+    expect(wrapper.text()).not.toContain('当前时间线已过期，无法恢复解析结果');
   });
 
   it('renders the trace page with only real trace tabs and without support zones', async () => {
@@ -684,6 +854,7 @@ describe('MessageTraceView', () => {
 
     expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
     expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
+    expect(ElMessage.error).not.toHaveBeenCalled();
   });
 
   it('treats resolved non-200 timeline responses as storage errors instead of expiration', async () => {
@@ -704,6 +875,67 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
     expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
+    expect(ElMessage.error).not.toHaveBeenCalled();
+  });
+
+  it('keeps payload comparison readable and avoids error toasts when detail recovery fails', async () => {
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            traceId: 'trace-001',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            messageType: 'report',
+            topic: '/sys/demo-product/demo-device-01/thing/property/post',
+            payload: '{"temperature":26.5,"humidity":61}',
+            reportTime: '2026-03-23 10:00:00',
+            createTime: '2026-03-23 10:00:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(messageApi.getMessageTraceDetail).mockRejectedValue(new Error('系统繁忙，请稍后重试！'));
+    vi.mocked(messageApi.getMessageFlowTrace).mockRejectedValue(new Error('redis down'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('原始 Payload');
+    expect(wrapper.text()).toContain('解密后明文');
+    expect(wrapper.text()).toContain('解析结果');
+    expect(wrapper.text()).toContain('humidity');
+    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(ElMessage.error).not.toHaveBeenCalled();
+  });
+
+  it('copies payload content on demand from collapsed rows', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.find('[data-testid="message-trace-payload-copy-decoded"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(window.navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(window.navigator.clipboard.writeText).mock.calls[0]?.[0]).toContain('"deviceCode": "demo-device-01"');
+    expect(ElMessage.success).toHaveBeenCalled();
   });
 
   it('ignores stale timeline responses when switching between detail rows quickly', async () => {

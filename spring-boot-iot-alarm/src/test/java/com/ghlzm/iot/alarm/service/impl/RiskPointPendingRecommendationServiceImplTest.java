@@ -70,6 +70,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         BizException exception = assertThrows(BizException.class, () -> fixture.service.getCandidates(9001L, 1001L));
 
+        assertEquals(400, exception.getCode());
         assertEquals("当前待治理状态不支持查看候选测点", exception.getMessage());
     }
 

@@ -664,12 +664,15 @@ class RiskPointServiceImplTest {
         RegionService regionService = mock(RegionService.class);
         UserService userService = mock(UserService.class);
         DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
         RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
                 deviceMapper,
                 organizationService,
                 regionService,
                 userService,
-                dictService
+                dictService,
+                null,
+                deviceService
         ));
 
         RiskPointDevice request = new RiskPointDevice();
@@ -680,9 +683,17 @@ class RiskPointServiceImplTest {
         request.setMetricIdentifier("temperature");
         request.setMetricName("温度");
 
-        doReturn(existingRiskPoint("RP-OLD-001")).when(service).getById(12L);
-        doReturn(existingRiskPoint("RP-OLD-001")).when(service).getById(12L, 1001L);
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
         doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
         doAnswer(invocation -> {
             RiskPointDevice saved = invocation.getArgument(0);
             saved.setId(9003L);

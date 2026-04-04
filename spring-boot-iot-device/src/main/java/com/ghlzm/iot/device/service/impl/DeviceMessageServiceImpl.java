@@ -28,12 +28,18 @@ import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
+import com.ghlzm.iot.device.service.model.MessageTracePayloadRecovery;
 import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
+import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
+import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
@@ -94,6 +100,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private final DeviceStateStageHandler deviceStateStageHandler;
     private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
     private final PermissionService permissionService;
+    private final ProtocolAdapterRegistry protocolAdapterRegistry;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceMessageServiceImpl(DeviceMapper deviceMapper,
@@ -112,7 +119,8 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                                     DevicePayloadApplyStageHandler devicePayloadApplyStageHandler,
                                     DeviceStateStageHandler deviceStateStageHandler,
                                     DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler,
-                                    PermissionService permissionService) {
+                                    PermissionService permissionService,
+                                    ProtocolAdapterRegistry protocolAdapterRegistry) {
         this.deviceMapper = deviceMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -130,6 +138,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         this.deviceStateStageHandler = deviceStateStageHandler;
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
         this.permissionService = permissionService;
+        this.protocolAdapterRegistry = protocolAdapterRegistry;
     }
 
     @Override
@@ -184,6 +193,35 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         stats.setTopDeviceCodes(queryTopBuckets(querySpec, "device_code"));
         stats.setTopTopics(queryTopBuckets(querySpec, "topic"));
         return stats;
+    }
+
+    @Override
+    public MessageTraceDetailVO getMessageTraceDetail(Long currentUserId, Long id) {
+        if (id == null) {
+            throw new BizException("消息日志不存在或无权访问");
+        }
+        LambdaQueryWrapper<DeviceMessageLog> queryWrapper = buildMessageTraceQueryWrapper(null, currentUserId);
+        queryWrapper.eq(DeviceMessageLog::getId, id).last("limit 1");
+        DeviceMessageLog logRecord = deviceMessageLogMapper.selectOne(queryWrapper);
+        if (logRecord == null) {
+            throw new BizException("消息日志不存在或无权访问");
+        }
+
+        MessageTraceDetailVO detail = new MessageTraceDetailVO();
+        detail.setId(logRecord.getId());
+        detail.setTraceId(logRecord.getTraceId());
+        detail.setDeviceCode(logRecord.getDeviceCode());
+        detail.setProductKey(logRecord.getProductKey());
+        detail.setMessageType(logRecord.getMessageType());
+        detail.setTopic(logRecord.getTopic());
+        detail.setReportTime(logRecord.getReportTime());
+        detail.setCreateTime(logRecord.getCreateTime());
+
+        MessageTracePayloadRecovery recovery = recoverPayloadComparison(logRecord);
+        detail.setRawPayload(recovery.getRawPayload());
+        detail.setDecryptedPayload(recovery.getDecryptedPayload());
+        detail.setDecodedPayload(recovery.getDecodedPayload());
+        return detail;
     }
 
     @Override
@@ -924,6 +962,179 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
         Object code = replyPayload.get("code");
         return code == null ? "设备返回失败回执" : "设备返回失败回执, code=" + code;
+    }
+
+    private MessageTracePayloadRecovery recoverPayloadComparison(DeviceMessageLog logRecord) {
+        MessageTracePayloadRecovery recovery = new MessageTracePayloadRecovery();
+        String rawPayload = normalizeJsonPayloadSafely(logRecord == null ? null : logRecord.getPayload());
+        recovery.setRawPayload(rawPayload);
+        if (!hasText(rawPayload) || logRecord == null) {
+            return recovery;
+        }
+
+        try {
+            Device device = resolveTraceDetailDevice(logRecord);
+            Product product = resolveTraceDetailProduct(logRecord, device);
+            String protocolCode = resolveTraceDetailProtocolCode(device, product);
+            ProtocolAdapter adapter = hasText(protocolCode) ? protocolAdapterRegistry.getAdapter(protocolCode) : null;
+            if (adapter == null) {
+                applyFallbackPayloadRecovery(recovery, logRecord, rawPayload);
+                return recovery;
+            }
+
+            DeviceUpMessage upMessage = adapter.decode(
+                    rawPayload.getBytes(StandardCharsets.UTF_8),
+                    buildTraceDetailProtocolContext(logRecord, device, product)
+            );
+            DeviceUpProtocolMetadata metadata = upMessage == null ? null : upMessage.getProtocolMetadata();
+
+            String decryptedPayload = metadata == null ? null : normalizeJsonPayloadSafely(metadata.getDecryptedPayloadPreview());
+            if (!hasText(decryptedPayload)) {
+                decryptedPayload = rawPayload;
+            }
+            recovery.setDecryptedPayload(decryptedPayload);
+
+            Map<String, Object> decodedPayload = extractDecodedPayload(metadata, upMessage, logRecord, rawPayload);
+            recovery.setDecodedPayload(decodedPayload);
+        } catch (RuntimeException ex) {
+            log.warn("恢复链路追踪详情 payload 对照失败, logId={}", logRecord.getId(), ex);
+            applyFallbackPayloadRecovery(recovery, logRecord, rawPayload);
+        }
+        return recovery;
+    }
+
+    private Device resolveTraceDetailDevice(DeviceMessageLog logRecord) {
+        if (logRecord == null || logRecord.getDeviceId() == null || logRecord.getDeviceId() <= 0L) {
+            return null;
+        }
+        return deviceMapper.selectById(logRecord.getDeviceId());
+    }
+
+    private Product resolveTraceDetailProduct(DeviceMessageLog logRecord, Device device) {
+        Long productId = device != null && device.getProductId() != null
+                ? device.getProductId()
+                : logRecord == null ? null : logRecord.getProductId();
+        if (productId != null) {
+            return productMapper.selectById(productId);
+        }
+        if (logRecord != null && hasText(logRecord.getProductKey())) {
+            return findProductByKey(logRecord.getProductKey());
+        }
+        return null;
+    }
+
+    private String resolveTraceDetailProtocolCode(Device device, Product product) {
+        String deviceProtocolCode = normalizeText(device == null ? null : device.getProtocolCode());
+        if (hasText(deviceProtocolCode)) {
+            return deviceProtocolCode;
+        }
+        return normalizeText(product == null ? null : product.getProtocolCode());
+    }
+
+    private ProtocolContext buildTraceDetailProtocolContext(DeviceMessageLog logRecord, Device device, Product product) {
+        ProtocolContext context = new ProtocolContext();
+        context.setTenantCode(logRecord.getTenantId() == null ? null : String.valueOf(logRecord.getTenantId()));
+        context.setProductKey(hasText(logRecord.getProductKey())
+                ? logRecord.getProductKey()
+                : product == null ? null : product.getProductKey());
+        context.setDeviceCode(hasText(logRecord.getDeviceCode())
+                ? logRecord.getDeviceCode()
+                : device == null ? null : device.getDeviceCode());
+        context.setMessageType(logRecord.getMessageType());
+        context.setTopic(logRecord.getTopic());
+        if ("$dp".equals(logRecord.getTopic())) {
+            context.setTopicRouteType("legacy");
+        }
+        return context;
+    }
+
+    private Map<String, Object> extractDecodedPayload(DeviceUpProtocolMetadata metadata,
+                                                      DeviceUpMessage upMessage,
+                                                      DeviceMessageLog logRecord,
+                                                      String rawPayload) {
+        if (metadata != null && metadata.getDecodedPayloadPreview() != null && !metadata.getDecodedPayloadPreview().isEmpty()) {
+            return new LinkedHashMap<>(metadata.getDecodedPayloadPreview());
+        }
+        if (upMessage != null) {
+            Map<String, Object> decodedPayload = new LinkedHashMap<>();
+            if (hasText(upMessage.getMessageType())) {
+                decodedPayload.put("messageType", upMessage.getMessageType());
+            } else if (hasText(logRecord.getMessageType())) {
+                decodedPayload.put("messageType", logRecord.getMessageType());
+            }
+            if (hasText(upMessage.getDeviceCode())) {
+                decodedPayload.put("deviceCode", upMessage.getDeviceCode());
+            } else if (hasText(logRecord.getDeviceCode())) {
+                decodedPayload.put("deviceCode", logRecord.getDeviceCode());
+            }
+            if (hasText(upMessage.getProductKey())) {
+                decodedPayload.put("productKey", upMessage.getProductKey());
+            } else if (hasText(logRecord.getProductKey())) {
+                decodedPayload.put("productKey", logRecord.getProductKey());
+            }
+            if (upMessage.getProperties() != null && !upMessage.getProperties().isEmpty()) {
+                decodedPayload.put("properties", new LinkedHashMap<>(upMessage.getProperties()));
+            }
+            if (upMessage.getEvents() != null && !upMessage.getEvents().isEmpty()) {
+                decodedPayload.put("events", new LinkedHashMap<>(upMessage.getEvents()));
+            }
+            if (!decodedPayload.isEmpty()) {
+                return decodedPayload;
+            }
+        }
+        return buildFallbackDecodedPayload(logRecord, rawPayload);
+    }
+
+    private void applyFallbackPayloadRecovery(MessageTracePayloadRecovery recovery,
+                                              DeviceMessageLog logRecord,
+                                              String rawPayload) {
+        recovery.setDecryptedPayload(rawPayload);
+        recovery.setDecodedPayload(buildFallbackDecodedPayload(logRecord, rawPayload));
+    }
+
+    private Map<String, Object> buildFallbackDecodedPayload(DeviceMessageLog logRecord, String rawPayload) {
+        Object parsedPayload = parseJsonPayload(rawPayload);
+        if (parsedPayload instanceof Map<?, ?> map && !map.isEmpty()) {
+            Map<String, Object> decodedPayload = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() instanceof String key) {
+                    decodedPayload.put(key, entry.getValue());
+                }
+            }
+            return decodedPayload;
+        }
+
+        Map<String, Object> decodedPayload = new LinkedHashMap<>();
+        if (hasText(logRecord == null ? null : logRecord.getMessageType())) {
+            decodedPayload.put("messageType", logRecord.getMessageType());
+        }
+        if (hasText(logRecord == null ? null : logRecord.getDeviceCode())) {
+            decodedPayload.put("deviceCode", logRecord.getDeviceCode());
+        }
+        if (hasText(logRecord == null ? null : logRecord.getProductKey())) {
+            decodedPayload.put("productKey", logRecord.getProductKey());
+        }
+        decodedPayload.put("rawPayload", hasText(rawPayload) ? rawPayload : "{}");
+        return decodedPayload;
+    }
+
+    private String normalizeJsonPayloadSafely(String payloadText) {
+        String normalized = tryNormalizeJsonPayload(payloadText);
+        if (hasText(normalized)) {
+            return normalized;
+        }
+        return normalizeText(payloadText);
+    }
+
+    private Object parseJsonPayload(String payloadText) {
+        if (!hasText(payloadText)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(payloadText, Object.class);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private boolean hasText(String value) {
