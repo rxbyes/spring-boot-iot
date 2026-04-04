@@ -2,9 +2,11 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
@@ -167,6 +169,30 @@ public class RiskPointController {
                     requireCurrentUserId(authentication)
             );
             return R.ok(groups);
+      }
+
+      /**
+       * 删除单条风险点绑定测点。
+       */
+      @PostMapping("/bindings/{bindingId}/remove")
+      public R<Void> removeBinding(@PathVariable Long bindingId, Authentication authentication) {
+            bindingMaintenanceService.removeBinding(bindingId, requireCurrentUserId(authentication));
+            return R.ok();
+      }
+
+      /**
+       * 替换单条风险点绑定测点。
+       */
+      @PostMapping("/bindings/{bindingId}/replace")
+      public R<RiskPointBindingMetricVO> replaceBindingMetric(@PathVariable Long bindingId,
+                                                              @RequestBody RiskPointBindingReplaceRequest request,
+                                                              Authentication authentication) {
+            RiskPointBindingMetricVO replaced = bindingMaintenanceService.replaceBindingMetric(
+                    bindingId,
+                    request,
+                    requireCurrentUserId(authentication)
+            );
+            return R.ok(replaced);
       }
 
       private Long requireCurrentUserId(Authentication authentication) {

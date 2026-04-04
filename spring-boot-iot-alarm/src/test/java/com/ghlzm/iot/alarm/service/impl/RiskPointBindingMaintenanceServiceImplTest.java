@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
@@ -9,8 +10,10 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Date;
 import java.util.Arrays;
@@ -19,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -133,6 +137,94 @@ class RiskPointBindingMaintenanceServiceImplTest {
         assertEquals(1, result.size());
         assertEquals(1, result.get(0).getMetricCount());
         assertEquals("MANUAL", result.get(0).getMetrics().get(0).getBindingSource());
+    }
+
+    @Test
+    void removeBindingShouldDeleteOnlyTargetMetricBinding() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper
+        );
+        RiskPointDevice targetBinding = binding(
+                2001L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                new Date(1000L)
+        );
+        when(riskPointDeviceMapper.selectById(2001L)).thenReturn(targetBinding);
+        when(riskPointService.getById(11L, 1001L)).thenReturn(new RiskPoint());
+        when(riskPointDeviceMapper.deleteById(2001L)).thenReturn(1);
+
+        service.removeBinding(2001L, 1001L);
+
+        verify(riskPointDeviceMapper).deleteById(2001L);
+        verify(riskPointService, never()).unbindDevice(11L, 201L, 1001L);
+    }
+
+    @Test
+    void replaceBindingMetricShouldCreateNewBindingAndDeleteOldBinding() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper
+        );
+        RiskPointDevice oldBinding = binding(
+                3001L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                new Date(1000L)
+        );
+        RiskPointDevice savedBinding = binding(
+                3999L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "AZI",
+                "方位角",
+                new Date(2000L)
+        );
+        when(riskPointDeviceMapper.selectById(3001L)).thenReturn(oldBinding);
+        when(riskPointService.getById(11L, 1001L)).thenReturn(new RiskPoint());
+        when(riskPointDeviceMapper.selectOne(any())).thenReturn(null);
+        when(riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), any())).thenReturn(savedBinding);
+        when(riskPointDeviceMapper.deleteById(3001L)).thenReturn(1);
+        RiskPointBindingReplaceRequest request = new RiskPointBindingReplaceRequest();
+        request.setMetricIdentifier("AZI");
+        request.setMetricName("方位角");
+
+        RiskPointBindingMetricVO result = service.replaceBindingMetric(3001L, request, 1001L);
+
+        assertEquals(3999L, result.getBindingId());
+        assertEquals("AZI", result.getMetricIdentifier());
+        verify(riskPointDeviceMapper).deleteById(3001L);
+        ArgumentCaptor<RiskPointDevice> bindingCaptor = ArgumentCaptor.forClass(RiskPointDevice.class);
+        verify(riskPointService).bindDeviceAndReturn(bindingCaptor.capture(), any());
+        assertEquals(11L, bindingCaptor.getValue().getRiskPointId());
+        assertEquals(201L, bindingCaptor.getValue().getDeviceId());
+        assertEquals("DEV-201", bindingCaptor.getValue().getDeviceCode());
+        assertEquals("一号设备", bindingCaptor.getValue().getDeviceName());
+        assertEquals("AZI", bindingCaptor.getValue().getMetricIdentifier());
+        assertEquals("方位角", bindingCaptor.getValue().getMetricName());
     }
 
     private RiskPointDevice binding(Long id,

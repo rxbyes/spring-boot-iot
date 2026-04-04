@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
@@ -12,7 +13,10 @@ import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
+import com.ghlzm.iot.common.exception.BizException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -165,5 +169,105 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
             group.setMetricCount(group.getMetrics() == null ? 0 : group.getMetrics().size());
         }
         return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeBinding(Long bindingId, Long currentUserId) {
+        RiskPointDevice binding = requireBinding(bindingId);
+        riskPointService.getById(binding.getRiskPointId(), currentUserId);
+        int deletedRows = riskPointDeviceMapper.deleteById(bindingId);
+        if (deletedRows <= 0) {
+            throw new BizException("删除绑定失败");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RiskPointBindingMetricVO replaceBindingMetric(Long bindingId,
+                                                         RiskPointBindingReplaceRequest request,
+                                                         Long currentUserId) {
+        RiskPointDevice oldBinding = requireBinding(bindingId);
+        riskPointService.getById(oldBinding.getRiskPointId(), currentUserId);
+        String newMetricIdentifier = normalizeRequiredMetricIdentifier(request == null ? null : request.getMetricIdentifier());
+        String oldMetricIdentifier = normalizeMetricIdentifier(oldBinding.getMetricIdentifier());
+        if (Objects.equals(newMetricIdentifier, oldMetricIdentifier)) {
+            throw new BizException("替换测点不能与原测点相同");
+        }
+
+        RiskPointDevice duplicate = riskPointDeviceMapper.selectOne(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getRiskPointId, oldBinding.getRiskPointId())
+                .eq(RiskPointDevice::getDeviceId, oldBinding.getDeviceId())
+                .eq(RiskPointDevice::getMetricIdentifier, newMetricIdentifier)
+                .eq(RiskPointDevice::getDeleted, 0)
+                .ne(RiskPointDevice::getId, oldBinding.getId()));
+        if (duplicate != null) {
+            throw new BizException("目标测点已存在绑定记录");
+        }
+
+        RiskPointDevice replacement = new RiskPointDevice();
+        replacement.setRiskPointId(oldBinding.getRiskPointId());
+        replacement.setDeviceId(oldBinding.getDeviceId());
+        replacement.setDeviceCode(oldBinding.getDeviceCode());
+        replacement.setDeviceName(oldBinding.getDeviceName());
+        replacement.setMetricIdentifier(newMetricIdentifier);
+        replacement.setMetricName(normalizeMetricName(request == null ? null : request.getMetricName()));
+        RiskPointDevice saved = riskPointService.bindDeviceAndReturn(replacement, currentUserId);
+
+        int deletedRows = riskPointDeviceMapper.deleteById(bindingId);
+        if (deletedRows <= 0) {
+            throw new BizException("旧绑定删除失败，替换终止");
+        }
+        return toMetric(saved, SOURCE_MANUAL);
+    }
+
+    private RiskPointDevice requireBinding(Long bindingId) {
+        if (bindingId == null) {
+            throw new BizException("绑定ID不能为空");
+        }
+        RiskPointDevice binding = riskPointDeviceMapper.selectById(bindingId);
+        if (binding == null || isDeleted(binding.getDeleted())) {
+            throw new BizException("绑定记录不存在");
+        }
+        if (binding.getRiskPointId() == null) {
+            throw new BizException("绑定记录缺少风险点ID");
+        }
+        if (binding.getDeviceId() == null) {
+            throw new BizException("绑定记录缺少设备ID");
+        }
+        return binding;
+    }
+
+    private String normalizeRequiredMetricIdentifier(String metricIdentifier) {
+        String normalized = normalizeMetricIdentifier(metricIdentifier);
+        if (normalized == null) {
+            throw new BizException("测点标识不能为空");
+        }
+        return normalized;
+    }
+
+    private String normalizeMetricIdentifier(String metricIdentifier) {
+        return StringUtils.hasText(metricIdentifier) ? metricIdentifier.trim() : null;
+    }
+
+    private String normalizeMetricName(String metricName) {
+        return StringUtils.hasText(metricName) ? metricName.trim() : null;
+    }
+
+    private boolean isDeleted(Integer deleted) {
+        return deleted != null && deleted != 0;
+    }
+
+    private RiskPointBindingMetricVO toMetric(RiskPointDevice binding, String bindingSource) {
+        if (binding == null) {
+            throw new BizException("绑定保存失败");
+        }
+        RiskPointBindingMetricVO metric = new RiskPointBindingMetricVO();
+        metric.setBindingId(binding.getId());
+        metric.setMetricIdentifier(binding.getMetricIdentifier());
+        metric.setMetricName(binding.getMetricName());
+        metric.setBindingSource(bindingSource);
+        metric.setCreateTime(binding.getCreateTime());
+        return metric;
     }
 }

@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.controller;
 
+import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
@@ -69,6 +70,40 @@ class RiskPointControllerTest {
         assertEquals("DEVICE-3001", response.getData().get(0).getDeviceCode());
         assertEquals("PENDING_PROMOTION", response.getData().get(0).getMetrics().get(0).getBindingSource());
         verify(maintenanceService).listBindingGroups(7001L, 1001L);
+    }
+
+    @Test
+    void removeBindingShouldExtractCurrentUserAndDelegate() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+
+        R<Void> response = controller.removeBinding(88L, authentication(1001L));
+
+        assertEquals(200, response.getCode());
+        verify(maintenanceService).removeBinding(88L, 1001L);
+    }
+
+    @Test
+    void replaceBindingMetricShouldExtractCurrentUserAndDelegate() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+        RiskPointBindingReplaceRequest request = new RiskPointBindingReplaceRequest();
+        request.setMetricIdentifier("AZI");
+        request.setMetricName("方位角");
+        RiskPointBindingMetricVO replaced = new RiskPointBindingMetricVO();
+        replaced.setBindingId(199L);
+        replaced.setMetricIdentifier("AZI");
+        replaced.setMetricName("方位角");
+        replaced.setBindingSource("MANUAL");
+        when(maintenanceService.replaceBindingMetric(88L, request, 1001L)).thenReturn(replaced);
+
+        R<RiskPointBindingMetricVO> response = controller.replaceBindingMetric(88L, request, authentication(1001L));
+
+        assertEquals(199L, response.getData().getBindingId());
+        assertEquals("AZI", response.getData().getMetricIdentifier());
+        verify(maintenanceService).replaceBindingMetric(88L, request, 1001L);
     }
 
     private Authentication authentication(Long userId) {
