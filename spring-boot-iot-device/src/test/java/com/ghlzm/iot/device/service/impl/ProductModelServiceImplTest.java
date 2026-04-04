@@ -546,7 +546,7 @@ class ProductModelServiceImplTest {
 
     @Test
     void compareGovernanceShouldKeepUnmappedRuntimeFieldAsRuntimeOnly() {
-        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-survey-multi-detector-v1", "南方测绘多维检测仪"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
         when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
@@ -564,6 +564,21 @@ class ProductModelServiceImplTest {
 
         assertEquals("runtime_only", compareRow(result, "property", "mysteryField").getCompareStatus());
         assertTrue(compareRow(result, "property", "mysteryField").getRiskFlags().contains("manual_missing"));
+    }
+
+    @Test
+    void compareGovernanceShouldRejectInapplicableNormativePresetForWarningProduct() {
+        when(productMapper.selectById(1001L))
+                .thenReturn(product(1001L, "zhd-warning-sound-light-alarm-v1", "中海达 预警型 声光报警器"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setGovernanceMode("normative");
+        dto.setNormativePresetCode("landslide-integrated-tilt-accel-crack-v1");
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.compareGovernance(1001L, dto));
+
+        assertEquals("当前产品不适用规范预设: landslide-integrated-tilt-accel-crack-v1", ex.getMessage());
     }
 
     @Test

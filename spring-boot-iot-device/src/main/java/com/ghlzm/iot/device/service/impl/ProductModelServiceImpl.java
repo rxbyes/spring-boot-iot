@@ -268,11 +268,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
+        String normalizedNormativePresetCode = isNormativeMode(dto)
+                ? normalizeAndValidateNormativePresetCode(product, dto)
+                : null;
         ProductModelCandidateResultVO manualResult = isNormativeMode(dto)
-                ? buildNormativeGovernanceCandidates(productId, existingModels.size(), dto)
+                ? buildNormativeGovernanceCandidates(productId, existingModels.size(), dto, normalizedNormativePresetCode)
                 : buildManualGovernanceCandidates(productId, existingModels.size(), dto);
         ProductModelCandidateResultVO runtimeResult = shouldLoadRuntimeCandidates(dto)
-                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size(), dto)
+                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size(), dto, normalizedNormativePresetCode)
                 : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         return governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
     }
@@ -495,9 +498,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private ProductModelCandidateResultVO buildNormativeGovernanceCandidates(Long productId,
                                                                              int existingModelCount,
-                                                                             ProductModelGovernanceCompareDTO dto) {
+                                                                             ProductModelGovernanceCompareDTO dto,
+                                                                             String normalizedNormativePresetCode) {
         List<ProductModelGovernanceEvidenceVO> definitions = normativePresetRegistry.buildPropertyPreset(
-                dto == null ? null : dto.getNormativePresetCode(),
+                normalizedNormativePresetCode,
                 dto == null ? null : dto.getSelectedNormativeIdentifiers()
         );
         List<ProductModelCandidateVO> propertyCandidates = definitions.stream()
@@ -522,13 +526,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Long productId,
                                                                            Product product,
                                                                            int existingModelCount,
-                                                                           ProductModelGovernanceCompareDTO dto) {
+                                                                           ProductModelGovernanceCompareDTO dto,
+                                                                           String normalizedNormativePresetCode) {
         List<Device> devices = listActiveDevices(productId);
         List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
         List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
 
         PropertyEvidenceBundle runtimePropertyBundle = collectPropertyCandidates(properties, logs, Set.of());
-        List<ProductModelCandidateVO> propertyCandidates = remapRuntimePropertiesByPreset(runtimePropertyBundle.candidates(), dto);
+        List<ProductModelCandidateVO> propertyCandidates = remapRuntimePropertiesByPreset(
+                runtimePropertyBundle.candidates(),
+                dto,
+                normalizedNormativePresetCode
+        );
         PropertyEvidenceBundle propertyBundle = new PropertyEvidenceBundle(
                 propertyCandidates,
                 runtimePropertyBundle.evidenceCount(),
@@ -649,21 +658,36 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private List<ProductModelCandidateVO> remapRuntimePropertiesByPreset(List<ProductModelCandidateVO> runtimeCandidates,
-                                                                         ProductModelGovernanceCompareDTO dto) {
-        if (!isNormativeMode(dto)) {
+                                                                         ProductModelGovernanceCompareDTO dto,
+                                                                         String normalizedNormativePresetCode) {
+        if (!isNormativeMode(dto) || normalizedNormativePresetCode == null) {
             return runtimeCandidates;
         }
         Map<String, ProductModelCandidateVO> remapped = new LinkedHashMap<>();
         for (ProductModelCandidateVO candidate : runtimeCandidates) {
             ProductModelCandidateVO normalizedCandidate = normativePresetRegistry
-                    .findNormativeIdentifier(dto.getNormativePresetCode(), candidate.getIdentifier())
-                    .map(identifier -> applyNormativeIdentifier(candidate, identifier, dto.getNormativePresetCode()))
+                    .findNormativeIdentifier(normalizedNormativePresetCode, candidate.getIdentifier())
+                    .map(identifier -> applyNormativeIdentifier(candidate, identifier, normalizedNormativePresetCode))
                     .orElse(candidate);
             String key = governanceCandidateKey(normalizedCandidate.getModelType(), normalizedCandidate.getIdentifier());
             ProductModelCandidateVO existing = remapped.get(key);
             remapped.put(key, existing == null ? normalizedCandidate : mergeManualCandidate(existing, normalizedCandidate));
         }
         return sortGovernanceCandidates(remapped.values());
+    }
+
+    private String normalizeAndValidateNormativePresetCode(Product product, ProductModelGovernanceCompareDTO dto) {
+        String normalizedPresetCode = normalizeRequired(
+                dto == null ? null : normalizeOptional(dto.getNormativePresetCode()),
+                "规范预设编码"
+        ).toLowerCase(Locale.ROOT);
+        if (!normativePresetRegistry.isPresetApplicable(
+                normalizedPresetCode,
+                product == null ? null : product.getProductKey(),
+                product == null ? null : product.getProductName())) {
+            throw new BizException("当前产品不适用规范预设: " + normalizedPresetCode);
+        }
+        return normalizedPresetCode;
     }
 
     private String governanceCandidateKey(String modelType, String identifier) {

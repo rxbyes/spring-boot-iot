@@ -75,4 +75,21 @@ class ProductModelNormativePresetRegistryTest {
 
         assertTrue(definitions.isEmpty());
     }
+
+    @Test
+    void integratedPresetShouldBeResolvedForIntegratedMonitoringProduct() {
+        ProductModelNormativePresetRegistry registry = new ProductModelNormativePresetRegistry();
+
+        assertEquals(
+                ProductModelNormativePresetRegistry.PRESET_INTEGRATED,
+                registry.resolveApplicablePreset("south-survey-multi-detector-v1", "南方测绘多维检测仪").orElseThrow()
+        );
+    }
+
+    @Test
+    void integratedPresetShouldBeExcludedForWarningProduct() {
+        ProductModelNormativePresetRegistry registry = new ProductModelNormativePresetRegistry();
+
+        assertTrue(registry.resolveApplicablePreset("zhd-warning-sound-light-alarm-v1", "中海达 预警型 声光报警器").isEmpty());
+    }
 }

@@ -5,6 +5,7 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceEvidenceVO;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -16,6 +17,18 @@ public class ProductModelNormativePresetRegistry {
 
     public static final String GOVERNANCE_MODE_NORMATIVE = "normative";
     public static final String PRESET_INTEGRATED = "landslide-integrated-tilt-accel-crack-v1";
+    private static final String INTEGRATED_PRODUCT_KEY = "south-survey-multi-detector-v1";
+    private static final List<String> WARNING_KEYWORDS = List.of("warning", "预警", "声光报警", "广播", "爆闪灯", "情报板");
+    private static final List<String> INTEGRATED_KEYWORDS = List.of(
+            "south-survey-multi-detector-v1",
+            "multi-detector",
+            "integrated-tilt-accel-crack",
+            "倾角",
+            "加速度",
+            "裂缝",
+            "多维检测",
+            "一体机"
+    );
 
     private final List<ProductModelGovernanceEvidenceVO> integratedDefinitions = List.of(
             definition(
@@ -198,10 +211,46 @@ public class ProductModelNormativePresetRegistry {
                 .map(this::copyEvidence);
     }
 
+    public Optional<String> resolveApplicablePreset(String productKey, String productName) {
+        return isPresetApplicable(PRESET_INTEGRATED, productKey, productName)
+                ? Optional.of(PRESET_INTEGRATED)
+                : Optional.empty();
+    }
+
+    public boolean isPresetApplicable(String presetCode, String productKey, String productName) {
+        validatePresetCode(presetCode);
+        if (containsKeyword(productKey, WARNING_KEYWORDS) || containsKeyword(productName, WARNING_KEYWORDS)) {
+            return false;
+        }
+        return matchesIntegratedProduct(productKey, productName);
+    }
+
     private void validatePresetCode(String presetCode) {
         if (!PRESET_INTEGRATED.equals(presetCode)) {
             throw new BizException("暂不支持的规范预设: " + presetCode);
         }
+    }
+
+    private boolean matchesIntegratedProduct(String productKey, String productName) {
+        String normalizedKey = normalizeForKeywordMatch(productKey);
+        if (INTEGRATED_PRODUCT_KEY.equals(normalizedKey)) {
+            return true;
+        }
+        return containsKeyword(productKey, INTEGRATED_KEYWORDS) || containsKeyword(productName, INTEGRATED_KEYWORDS);
+    }
+
+    private boolean containsKeyword(String value, List<String> keywords) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String normalizedValue = normalizeForKeywordMatch(value);
+        return keywords.stream()
+                .map(this::normalizeForKeywordMatch)
+                .anyMatch(normalizedValue::contains);
+    }
+
+    private String normalizeForKeywordMatch(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private ProductModelGovernanceEvidenceVO definition(Integer sortNo,
