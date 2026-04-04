@@ -156,6 +156,11 @@ export interface RiskPointPendingPromotionRequest {
       promotionNote?: string;
 }
 
+export interface RiskPointBindingReplaceRequest {
+      metricIdentifier: string;
+      metricName: string;
+}
+
 export interface RiskPointPendingPromotionItem {
       metricIdentifier: string;
       metricName?: string | null;
@@ -247,6 +252,14 @@ export const listBindingSummaries = (riskPointIds: IdType[]): Promise<ApiEnvelop
 
 export const listBindingGroups = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointBindingDeviceGroup[]>> => {
       return request<RiskPointBindingDeviceGroup[]>(`/api/risk-point/binding-groups/${riskPointId}`, { method: 'GET' });
+};
+
+export const removeBinding = (bindingId: IdType): Promise<ApiEnvelope<void>> => {
+      return request<void>(`/api/risk-point/bindings/${bindingId}/remove`, { method: 'POST' });
+};
+
+export const replaceBinding = (bindingId: IdType, body: RiskPointBindingReplaceRequest): Promise<ApiEnvelope<RiskPointBindingMetric>> => {
+      return request<RiskPointBindingMetric>(`/api/risk-point/bindings/${bindingId}/replace`, { method: 'POST', body });
 };
 
 export const listPendingBindings = (params: {

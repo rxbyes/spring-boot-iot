@@ -222,13 +222,17 @@ const StandardWorkbenchRowActionsStub = defineComponent({
 
 const RiskPointBindingMaintenanceDrawerStub = defineComponent({
   name: 'RiskPointBindingMaintenanceDrawer',
-  props: ['modelValue', 'riskPoint', 'summary'],
+  props: ['modelValue', 'riskPointId', 'riskPointName', 'riskPointCode', 'orgName', 'pendingBindingCount'],
+  emits: ['updated'],
   template: `
     <section class="risk-point-binding-maintenance-drawer-stub" :data-model-value="modelValue">
       <h3>维护绑定</h3>
       <p>查看正式绑定摘要，并继续维护设备与测点关系。</p>
-      <div v-if="riskPoint">{{ riskPoint.riskPointName }}</div>
-      <div v-if="summary">{{ summary.boundDeviceCount }} 台设备 {{ summary.boundMetricCount }} 个测点 待治理 {{ summary.pendingBindingCount }} 条</div>
+      <div v-if="riskPointName">{{ riskPointName }}</div>
+      <div v-if="riskPointCode">{{ riskPointCode }}</div>
+      <div v-if="orgName">{{ orgName }}</div>
+      <div>待治理 {{ pendingBindingCount ?? 0 }} 条</div>
+      <button type="button" data-testid="binding-maintenance-updated" @click="$emit('updated')">刷新摘要</button>
     </section>
   `
 })
@@ -971,9 +975,58 @@ describe('RiskPointView', () => {
     await actionButton!.trigger('click')
     await nextTick()
 
+    const drawer = wrapper.findComponent(RiskPointBindingMaintenanceDrawerStub)
+
     expect(wrapper.text()).toContain('维护绑定')
     expect(vm.bindingMaintenanceVisible).toBe(true)
     expect(vm.bindingMaintenanceRiskPoint?.riskPointName).toBe('示例风险点')
+    expect(drawer.props('riskPointId')).toBe(1)
+    expect(drawer.props('riskPointName')).toBe('示例风险点')
+    expect(drawer.props('riskPointCode')).toBe('RP-OPSCEN-NORTHS-CRIT-001')
+    expect(drawer.props('orgName')).toBe('平台运维中心')
+    expect(drawer.props('pendingBindingCount')).toBe(1)
+  })
+
+  it('refreshes the list and binding summaries after the maintenance drawer emits updated', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 2,
+          boundMetricCount: 5,
+          pendingBindingCount: 1
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    const actionButton = wrapper
+      .findAll('.risk-point-row-actions-stub__item')
+      .find((node) => node.text() === '维护绑定')
+
+    await actionButton!.trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="binding-maintenance-updated"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(mockPageRiskPointList).toHaveBeenCalledTimes(2)
+    expect(mockListBindingSummaries).toHaveBeenCalledTimes(2)
   })
 
   it('submits the selected pending metrics through the promote API', async () => {

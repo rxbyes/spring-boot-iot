@@ -393,9 +393,13 @@
 
     <RiskPointBindingMaintenanceDrawer
       v-model="bindingMaintenanceVisible"
-      :risk-point="bindingMaintenanceRiskPoint"
-      :summary="bindingMaintenanceSummary"
+      :risk-point-id="bindingMaintenanceRiskPoint?.id"
+      :risk-point-name="bindingMaintenanceRiskPoint?.riskPointName"
+      :risk-point-code="bindingMaintenanceRiskPoint?.riskPointCode"
+      :org-name="bindingMaintenanceRiskPoint?.orgName"
+      :pending-binding-count="bindingMaintenanceSummary?.pendingBindingCount ?? 0"
       @close="handleBindingMaintenanceClose"
+      @updated="handleBindingMaintenanceUpdated"
     />
 
     <StandardFormDrawer
@@ -1251,6 +1255,10 @@ const openBindingMaintenance = (row: RiskPoint) => {
 
 const handleBindingMaintenanceClose = () => {
   bindingMaintenanceRiskPoint.value = null;
+};
+
+const handleBindingMaintenanceUpdated = () => {
+  void loadRiskPointList();
 };
 
 const handleRemoveAppliedFilter = (key: string) => {
