@@ -85,6 +85,11 @@ export interface MessageFlowTimeline {
   steps: MessageFlowStep[];
 }
 
+export interface ProtocolDecodeTimelineSummary {
+  decryptedPayloadPreview?: string | null;
+  decodedPayloadPreview?: Record<string, unknown> | null;
+}
+
 export interface MessageFlowSession {
   sessionId?: string | null;
   transportMode?: string | null;
