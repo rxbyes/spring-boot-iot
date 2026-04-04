@@ -198,6 +198,7 @@ const StandardFormDrawerStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
+  emits: ['command'],
   props: ['variant', 'directItems', 'menuItems', 'maxDirectItems'],
   template: `
     <section
@@ -205,13 +206,15 @@ const StandardWorkbenchRowActionsStub = defineComponent({
       :data-variant="variant"
       :data-max-direct-items="maxDirectItems"
     >
-      <span
+      <button
         v-for="item in directItems || []"
         :key="item.key || item.command"
+        type="button"
         class="risk-point-row-actions-stub__item"
+        @click="$emit('command', item.command)"
       >
         {{ item.label }}
-      </span>
+      </button>
       <span class="risk-point-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
     </section>
   `
@@ -832,6 +835,40 @@ describe('RiskPointView', () => {
     expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('维护绑定')
   })
 
+  it('shows an unbound summary state instead of three zero lines when no formal bindings exist', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 0,
+          boundMetricCount: 0,
+          pendingBindingCount: 2
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未绑定')
+    expect(wrapper.text()).toContain('待治理 2 条')
+    expect(wrapper.text()).not.toContain('0 台设备')
+    expect(wrapper.text()).not.toContain('0 个测点')
+  })
+
   it('skips completed pending rows and auto-loads the first promotable row', async () => {
     mockPageRiskPointList.mockResolvedValue({
       code: 200,
@@ -893,7 +930,7 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('Y向位移')
   })
 
-  it('opens the binding maintenance drawer instead of the legacy bind drawer entry', async () => {
+  it('opens the binding maintenance drawer when the row action emits maintain-binding', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -922,12 +959,16 @@ describe('RiskPointView', () => {
     await flushPromises()
 
     const vm = wrapper.vm as unknown as {
-      handleRiskPointRowAction: (command: 'maintain-binding', row: ReturnType<typeof createRiskPointRow>) => void
       bindingMaintenanceVisible: boolean
       bindingMaintenanceRiskPoint: ReturnType<typeof createRiskPointRow> | null
     }
 
-    vm.handleRiskPointRowAction('maintain-binding', createRiskPointRow())
+    const actionButton = wrapper
+      .findAll('.risk-point-row-actions-stub__item')
+      .find((node) => node.text() === '维护绑定')
+
+    expect(actionButton).toBeTruthy()
+    await actionButton!.trigger('click')
     await nextTick()
 
     expect(wrapper.text()).toContain('维护绑定')

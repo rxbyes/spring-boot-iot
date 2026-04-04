@@ -151,9 +151,17 @@
             <el-table-column label="绑定概览" :min-width="190">
               <template #default="{ row }">
                 <div class="risk-point-binding-summary">
-                  <span>{{ getBindingSummaryDeviceText(row) }}</span>
-                  <span>{{ getBindingSummaryMetricText(row) }}</span>
-                  <span>{{ getBindingSummaryPendingText(row) }}</span>
+                  <template v-if="hasFormalBindings(row)">
+                    <span>{{ getBindingSummaryDeviceText(row) }}</span>
+                    <span>{{ getBindingSummaryMetricText(row) }}</span>
+                    <span>{{ getBindingSummaryPendingText(row) }}</span>
+                  </template>
+                  <template v-else>
+                    <span>未绑定</span>
+                    <span v-if="getBindingSummaryPendingCount(row) > 0" class="risk-point-binding-summary__pending">
+                      {{ getBindingSummaryPendingText(row) }}
+                    </span>
+                  </template>
                 </div>
               </template>
             </el-table-column>
@@ -998,6 +1006,13 @@ const getBindingSummary = (row: Partial<RiskPoint>) => {
   return bindingSummaryMap.value[Number(row.id)] || null;
 };
 
+const getBindingSummaryPendingCount = (row: Partial<RiskPoint>) => getBindingSummary(row)?.pendingBindingCount ?? 0;
+
+const hasFormalBindings = (row: Partial<RiskPoint>) => {
+  const summary = getBindingSummary(row);
+  return (summary?.boundDeviceCount ?? 0) > 0 || (summary?.boundMetricCount ?? 0) > 0;
+};
+
 const getBindingSummaryDeviceText = (row: Partial<RiskPoint>) => {
   const summary = getBindingSummary(row);
   return `${summary?.boundDeviceCount ?? 0} 台设备`;
@@ -1009,8 +1024,7 @@ const getBindingSummaryMetricText = (row: Partial<RiskPoint>) => {
 };
 
 const getBindingSummaryPendingText = (row: Partial<RiskPoint>) => {
-  const summary = getBindingSummary(row);
-  return `待治理 ${summary?.pendingBindingCount ?? 0} 条`;
+  return `待治理 ${getBindingSummaryPendingCount(row)} 条`;
 };
 
 const getResponsibleUserText = (row: Partial<RiskPoint>) => {
@@ -1629,6 +1643,10 @@ onMounted(() => {
 .risk-point-binding-summary {
   gap: 0.2rem;
   color: var(--text-secondary);
+}
+
+.risk-point-binding-summary__pending {
+  color: var(--text-primary);
 }
 
 .risk-point-governance-list {
