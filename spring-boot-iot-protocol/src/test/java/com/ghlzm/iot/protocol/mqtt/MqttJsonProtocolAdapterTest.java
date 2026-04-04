@@ -137,6 +137,39 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
+    void shouldExposePayloadComparisonMetadataForEncryptedLegacyDpPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
+                properties,
+                List.of(new StubDecryptor(
+                        "62000001",
+                        buildPacket((byte) 2, """
+                                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}},"L4_NW_1":{"2026-03-14T06:00:00.000Z":36.5}}}
+                                """)
+                ))
+        );
+
+        DeviceUpMessage message = configuredAdapter.decode("""
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
+                """.getBytes(StandardCharsets.UTF_8), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertTrue(String.valueOf(readMetadata(protocolMetadata, "getDecryptedPayloadPreview")).contains("\"17165802\""));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(protocolMetadata, "getDecodedPayloadPreview");
+        assertEquals("property", decodedPreview.get("messageType"));
+        assertEquals("17165802", decodedPreview.get("deviceCode"));
+        assertTrue(decodedPreview.containsKey("properties"));
+    }
+
+    @Test
     void shouldSuppressFamilyObservabilityMetadataWhenFlagDisabled() {
         IotProperties properties = new IotProperties();
         properties.getProtocol().getLegacyDp().setFamilyObservabilityEnabled(false);

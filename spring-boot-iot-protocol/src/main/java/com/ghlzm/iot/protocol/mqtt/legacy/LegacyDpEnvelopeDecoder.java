@@ -65,6 +65,7 @@ public class LegacyDpEnvelopeDecoder {
             return new DecodedEnvelope(
                     decryptedMap,
                     payloadText,
+                    plaintext,
                     decryptedFrame.dataFormatType(),
                     buildFilePayload(decryptedMap, decryptedFrame),
                     appId
@@ -75,6 +76,7 @@ public class LegacyDpEnvelopeDecoder {
         return new DecodedEnvelope(
                 payloadMap,
                 buildRawPayloadForLog(parsedFrame, payloadText, payloadMap),
+                null,
                 parsedFrame.dataFormatType(),
                 buildFilePayload(payloadMap, parsedFrame),
                 null
@@ -237,6 +239,7 @@ public class LegacyDpEnvelopeDecoder {
 
     public record DecodedEnvelope(Map<String, Object> payload,
                                   String rawPayload,
+                                  String plaintextPayload,
                                   MqttDataFormatType dataFormatType,
                                   DeviceFilePayload filePayload,
                                   String appId) {

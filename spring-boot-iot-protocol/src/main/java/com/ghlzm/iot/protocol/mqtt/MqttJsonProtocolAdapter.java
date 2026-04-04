@@ -141,6 +141,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                             : normalizeResult.getTimestampSource(),
                     childSplitApplied
             );
+            protocolMetadata.setDecryptedPayloadPreview(decodedPayload.plaintextPayload());
+            protocolMetadata.setDecodedPayloadPreview(buildDecodedPayloadPreview(message));
             message.setProtocolMetadata(protocolMetadata);
             propagateProtocolMetadataToChildren(message, protocolMetadata);
             return message;
@@ -344,6 +346,31 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         fileMetadata.remove("_fileStreamBase64");
         events.put("file", fileMetadata);
         return events;
+    }
+
+    private Map<String, Object> buildDecodedPayloadPreview(DeviceUpMessage message) {
+        Map<String, Object> preview = new LinkedHashMap<>();
+        preview.put("messageType", message.getMessageType());
+        preview.put("deviceCode", message.getDeviceCode());
+        preview.put("productKey", message.getProductKey());
+        preview.put("dataFormatType", message.getDataFormatType());
+        if (message.getProperties() != null && !message.getProperties().isEmpty()) {
+            preview.put("properties", new LinkedHashMap<>(message.getProperties()));
+        }
+        if (message.getEvents() != null && !message.getEvents().isEmpty()) {
+            preview.put("events", new LinkedHashMap<>(message.getEvents()));
+        }
+        if (message.getFilePayload() != null) {
+            Map<String, Object> fileSummary = new LinkedHashMap<>();
+            fileSummary.put("fileType", message.getFilePayload().getFileType());
+            fileSummary.put("dataSetId", message.getFilePayload().getDataSetId());
+            fileSummary.put("binaryLength", message.getFilePayload().getBinaryLength());
+            preview.put("filePayload", fileSummary);
+        }
+        if (message.getChildMessages() != null && !message.getChildMessages().isEmpty()) {
+            preview.put("childMessageCount", message.getChildMessages().size());
+        }
+        return preview;
     }
 
     private String buildDecodeFailureMessage(Exception exception) {

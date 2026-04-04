@@ -73,6 +73,22 @@ class LegacyDpEnvelopeDecoderTest {
         assertNotNull(decodedPayload.get("17165802"));
     }
 
+    @Test
+    void shouldExposePlaintextPayloadForEncryptedEnvelope() {
+        Object decoder = newDecoder(List.of(new StubDecryptor(
+                "62000001",
+                buildPacket((byte) 2, """
+                        {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2}}}}
+                        """)
+        )));
+
+        Object decoded = decode(decoder, """
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertTrue(String.valueOf(invoke(decoded, "plaintextPayload")).contains("\"17165802\""));
+    }
+
     private Object newDecoder(List<MqttPayloadDecryptor> decryptors) {
         try {
             Class<?> decoderClass = Class.forName("com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder");
