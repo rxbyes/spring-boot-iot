@@ -67,18 +67,18 @@ export interface RiskPointBindingSummary {
 }
 
 export interface RiskPointBindingMetric {
-      bindingId?: IdType | null;
-      metricIdentifier?: string | null;
+      bindingId: IdType;
+      metricIdentifier: string;
       metricName?: string | null;
-      bindingSource?: string | null;
+      bindingSource: 'MANUAL' | 'PENDING_PROMOTION' | 'UNKNOWN';
       createTime?: string | null;
 }
 
 export interface RiskPointBindingDeviceGroup {
-      deviceId?: IdType | null;
-      deviceCode?: string | null;
-      deviceName?: string | null;
-      metricCount?: number | null;
+      deviceId: IdType;
+      deviceCode: string;
+      deviceName: string;
+      metricCount: number;
       metrics: RiskPointBindingMetric[];
 }
 
