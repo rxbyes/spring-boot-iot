@@ -13,11 +13,13 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import org.junit.jupiter.api.Test;
 
 import java.util.Date;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +52,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 pending(12L, "PARTIALLY_PROMOTED")
         ));
 
-        List<RiskPointBindingSummaryVO> result = service.listBindingSummaries(List.of(11L, 12L), 1001L);
+        List<RiskPointBindingSummaryVO> result = service.listBindingSummaries(Arrays.asList(11L, null, 11L, 12L), 1001L);
 
         assertEquals(2, result.size());
         assertEquals(11L, result.get(0).getRiskPointId());
@@ -61,8 +63,8 @@ class RiskPointBindingMaintenanceServiceImplTest {
         assertEquals(1, result.get(1).getBoundDeviceCount());
         assertEquals(1, result.get(1).getBoundMetricCount());
         assertEquals(1, result.get(1).getPendingBindingCount());
-        verify(riskPointService).getById(11L, 1001L);
-        verify(riskPointService).getById(12L, 1001L);
+        verify(riskPointService, times(1)).getById(11L, 1001L);
+        verify(riskPointService, times(1)).getById(12L, 1001L);
     }
 
     @Test
@@ -84,7 +86,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 binding(503L, 11L, 9201L, "DEV-A", "A设备", "a_metric", "A测点", new Date(1000L))
         ));
         when(pendingPromotionMapper.selectList(any())).thenReturn(List.of(
-                pendingPromotion(501L),
+                pendingPromotion(501L, "SUCCESS"),
                 pendingPromotion(9999L)
         ));
 
@@ -104,6 +106,33 @@ class RiskPointBindingMaintenanceServiceImplTest {
         assertEquals("z_metric", result.get(1).getMetrics().get(0).getMetricIdentifier());
         assertEquals("PENDING_PROMOTION", result.get(1).getMetrics().get(0).getBindingSource());
         verify(riskPointService).getById(11L, 1001L);
+    }
+
+    @Test
+    void listBindingGroupsShouldKeepManualWhenPromotionHistoryOnlyHasDuplicateSkipped() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper
+        );
+        when(riskPointService.getById(11L, 1001L)).thenReturn(new RiskPoint());
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
+                binding(701L, 11L, 9301L, "DEV-MANUAL", "人工绑定设备", "dispsX", "X向位移", new Date(1000L))
+        ));
+        when(pendingPromotionMapper.selectList(any())).thenReturn(List.of(
+                pendingPromotion(701L, "DUPLICATE_SKIPPED")
+        ));
+
+        List<RiskPointBindingDeviceGroupVO> result = service.listBindingGroups(11L, 1001L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getMetricCount());
+        assertEquals("MANUAL", result.get(0).getMetrics().get(0).getBindingSource());
     }
 
     private RiskPointDevice binding(Long id,
@@ -136,8 +165,13 @@ class RiskPointBindingMaintenanceServiceImplTest {
     }
 
     private RiskPointDevicePendingPromotion pendingPromotion(Long riskPointDeviceId) {
+        return pendingPromotion(riskPointDeviceId, null);
+    }
+
+    private RiskPointDevicePendingPromotion pendingPromotion(Long riskPointDeviceId, String promotionStatus) {
         RiskPointDevicePendingPromotion value = new RiskPointDevicePendingPromotion();
         value.setRiskPointDeviceId(riskPointDeviceId);
+        value.setPromotionStatus(promotionStatus);
         value.setDeleted(0);
         return value;
     }

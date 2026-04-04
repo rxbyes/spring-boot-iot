@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Comparator;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 风险点绑定维护读侧实现。
@@ -30,6 +32,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     private static final String STATUS_PENDING_METRIC_GOVERNANCE = "PENDING_METRIC_GOVERNANCE";
     private static final String STATUS_PARTIALLY_PROMOTED = "PARTIALLY_PROMOTED";
+    private static final String STATUS_PROMOTION_SUCCESS = "SUCCESS";
     private static final String SOURCE_PENDING_PROMOTION = "PENDING_PROMOTION";
     private static final String SOURCE_MANUAL = "MANUAL";
 
@@ -53,12 +56,19 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         if (riskPointIds == null || riskPointIds.isEmpty()) {
             return List.of();
         }
-        for (Long riskPointId : riskPointIds) {
+        List<Long> normalizedRiskPointIds = riskPointIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (normalizedRiskPointIds.isEmpty()) {
+            return List.of();
+        }
+        for (Long riskPointId : normalizedRiskPointIds) {
             riskPointService.getById(riskPointId, currentUserId);
         }
         List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
                 .eq(RiskPointDevice::getDeleted, 0)
-                .in(RiskPointDevice::getRiskPointId, riskPointIds));
+                .in(RiskPointDevice::getRiskPointId, normalizedRiskPointIds));
         Map<Long, Set<Long>> distinctDeviceIdsByRiskPointId = new LinkedHashMap<>();
         Map<Long, Integer> metricCountByRiskPointId = new LinkedHashMap<>();
         for (RiskPointDevice binding : bindings) {
@@ -72,7 +82,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
         List<RiskPointDevicePendingBinding> pendingRows = pendingBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDevicePendingBinding>()
                 .eq(RiskPointDevicePendingBinding::getDeleted, 0)
-                .in(RiskPointDevicePendingBinding::getRiskPointId, riskPointIds)
+                .in(RiskPointDevicePendingBinding::getRiskPointId, normalizedRiskPointIds)
                 .in(RiskPointDevicePendingBinding::getResolutionStatus, List.of(STATUS_PENDING_METRIC_GOVERNANCE, STATUS_PARTIALLY_PROMOTED)));
         Map<Long, Integer> pendingCountByRiskPointId = new LinkedHashMap<>();
         for (RiskPointDevicePendingBinding pending : pendingRows) {
@@ -84,8 +94,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
             pendingCountByRiskPointId.put(riskPointId, pendingCountByRiskPointId.getOrDefault(riskPointId, 0) + 1);
         }
 
-        List<RiskPointBindingSummaryVO> result = new ArrayList<>(riskPointIds.size());
-        for (Long riskPointId : riskPointIds) {
+        List<RiskPointBindingSummaryVO> result = new ArrayList<>(normalizedRiskPointIds.size());
+        for (Long riskPointId : normalizedRiskPointIds) {
             RiskPointBindingSummaryVO summary = new RiskPointBindingSummaryVO();
             summary.setRiskPointId(riskPointId);
             summary.setBoundDeviceCount(distinctDeviceIdsByRiskPointId.getOrDefault(riskPointId, Set.of()).size());
@@ -122,7 +132,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                     .eq(RiskPointDevicePendingPromotion::getDeleted, 0)
                     .in(RiskPointDevicePendingPromotion::getRiskPointDeviceId, bindingIds));
             for (RiskPointDevicePendingPromotion promotion : promotionRows) {
-                if (promotion.getRiskPointDeviceId() != null) {
+                if (promotion.getRiskPointDeviceId() != null
+                        && STATUS_PROMOTION_SUCCESS.equals(promotion.getPromotionStatus())) {
                     promotedBindingIds.add(promotion.getRiskPointDeviceId());
                 }
             }
