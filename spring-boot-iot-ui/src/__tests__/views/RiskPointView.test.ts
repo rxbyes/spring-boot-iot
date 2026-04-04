@@ -1,4 +1,4 @@
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, inject, nextTick, provide } from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,8 @@ const {
   mockUpdateRiskPoint,
   mockDeleteRiskPoint,
   mockBindDevice,
+  mockListBindingSummaries,
+  mockListBindingGroups,
   mockListPendingBindings,
   mockGetPendingCandidates,
   mockPromotePendingBinding,
@@ -29,6 +31,8 @@ const {
   mockUpdateRiskPoint: vi.fn(),
   mockDeleteRiskPoint: vi.fn(),
   mockBindDevice: vi.fn(),
+  mockListBindingSummaries: vi.fn(),
+  mockListBindingGroups: vi.fn(),
   mockListPendingBindings: vi.fn(),
   mockGetPendingCandidates: vi.fn(),
   mockPromotePendingBinding: vi.fn(),
@@ -50,11 +54,12 @@ vi.mock('@/api/riskPoint', () => ({
   updateRiskPoint: mockUpdateRiskPoint,
   deleteRiskPoint: mockDeleteRiskPoint,
   bindDevice: mockBindDevice,
+  listBindingSummaries: mockListBindingSummaries,
+  listBindingGroups: mockListBindingGroups,
   listPendingBindings: mockListPendingBindings,
   getPendingBindingCandidates: mockGetPendingCandidates,
   promotePendingBinding: mockPromotePendingBinding,
-  ignorePendingBinding: mockIgnorePendingBinding
-  bindDevice: mockBindDevice,
+  ignorePendingBinding: mockIgnorePendingBinding,
   listBindableDevices: mockListBindableDevices
 }))
 
@@ -158,10 +163,21 @@ const StandardPaginationStub = defineComponent({
 const StandardTableTextColumnStub = defineComponent({
   name: 'StandardTableTextColumn',
   props: ['label', 'prop', 'width', 'minWidth'],
+  setup() {
+    const rows = inject<Array<Record<string, unknown>>>('el-table-rows', [])
+    return { rows }
+  },
   template: `
     <section class="standard-table-text-column-stub">
       <header v-if="label" class="standard-table-text-column-stub__label">{{ label }}</header>
-      <slot name="default" :row="{}" />
+      <template v-if="$slots.default">
+        <template v-for="(row, index) in rows" :key="index">
+          <slot name="default" :row="row" />
+        </template>
+      </template>
+      <template v-else>
+        <div v-for="(row, index) in rows" :key="index">{{ prop ? row[prop] : '' }}</div>
+      </template>
     </section>
   `
 })
@@ -201,18 +217,42 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   `
 })
 
+const RiskPointBindingMaintenanceDrawerStub = defineComponent({
+  name: 'RiskPointBindingMaintenanceDrawer',
+  props: ['modelValue', 'riskPoint', 'summary'],
+  template: `
+    <section class="risk-point-binding-maintenance-drawer-stub" :data-model-value="modelValue">
+      <h3>维护绑定</h3>
+      <p>查看正式绑定摘要，并继续维护设备与测点关系。</p>
+      <div v-if="riskPoint">{{ riskPoint.riskPointName }}</div>
+      <div v-if="summary">{{ summary.boundDeviceCount }} 台设备 {{ summary.boundMetricCount }} 个测点 待治理 {{ summary.pendingBindingCount }} 条</div>
+    </section>
+  `
+})
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
+  props: ['data'],
+  setup(props) {
+    provide('el-table-rows', props.data ?? [])
+    return {}
+  },
   template: '<section class="el-table-stub"><slot /></section>'
 })
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
   props: ['label', 'width', 'type'],
+  setup() {
+    const rows = inject<Array<Record<string, unknown>>>('el-table-rows', [])
+    return { rows }
+  },
   template: `
     <section class="el-table-column-stub">
       <header v-if="label" class="el-table-column-stub__label">{{ label }}</header>
-      <slot name="default" :row="{}" />
+      <template v-for="(row, index) in rows" :key="index">
+        <slot name="default" :row="row" />
+      </template>
     </section>
   `
 })
@@ -292,7 +332,7 @@ function createRiskPointRow() {
   return {
     id: 1,
     riskPointCode: 'RP-OPSCEN-NORTHS-CRIT-001',
-    riskPointName: '一号风险对象',
+    riskPointName: '示例风险点',
     orgId: 7101,
     orgName: '平台运维中心',
     regionId: 1,
@@ -328,6 +368,7 @@ function mountView() {
         StandardTableToolbar: StandardTableToolbarStub,
         StandardPagination: StandardPaginationStub,
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+        RiskPointBindingMaintenanceDrawer: RiskPointBindingMaintenanceDrawerStub,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
         StandardFormDrawer: StandardFormDrawerStub,
@@ -360,6 +401,8 @@ describe('RiskPointView', () => {
     mockUpdateRiskPoint.mockReset()
     mockDeleteRiskPoint.mockReset()
     mockBindDevice.mockReset()
+    mockListBindingSummaries.mockReset()
+    mockListBindingGroups.mockReset()
     mockListBindableDevices.mockReset()
     mockListPendingBindings.mockReset()
     mockGetPendingCandidates.mockReset()
@@ -453,6 +496,16 @@ describe('RiskPointView', () => {
       }
     })
     mockListBindableDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListBindingSummaries.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListBindingGroups.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
@@ -737,6 +790,149 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('待治理转正')
     expect(wrapper.text()).toContain('X向位移')
     expect(wrapper.text()).toContain('PRODUCT_MODEL')
+  })
+
+  it('loads binding summaries for the current page and renders the summary column', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 2,
+          boundMetricCount: 5,
+          pendingBindingCount: 1
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      getRiskPointRowActions: () => Array<{ label: string }>
+    }
+
+    expect(mockListBindingSummaries).toHaveBeenCalledWith([1])
+    expect(wrapper.text()).toContain('绑定概览')
+    expect(wrapper.text()).toContain('2 台设备')
+    expect(wrapper.text()).toContain('5 个测点')
+    expect(wrapper.text()).toContain('待治理 1 条')
+    expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('维护绑定')
+  })
+
+  it('skips completed pending rows and auto-loads the first promotable row', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          { id: 77, riskPointId: 1, deviceCode: 'DEVICE-DONE', deviceName: '已完成设备', resolutionStatus: 'PROMOTED' },
+          { id: 78, riskPointId: 1, deviceCode: 'DEVICE-PENDING', deviceName: '待治理设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }
+        ]
+      }
+    })
+    mockGetPendingCandidates.mockImplementationOnce(async (pendingId: number) => {
+      if (pendingId === 77) {
+        throw new Error('系统繁忙，请稍后重试！')
+      }
+      return {
+        code: 200,
+        msg: 'success',
+        data: {
+          pendingId: 78,
+          riskPointId: 1,
+          deviceCode: 'DEVICE-PENDING',
+          deviceName: '待治理设备',
+          resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+          candidates: [
+            {
+              metricIdentifier: 'dispsY',
+              metricName: 'Y向位移',
+              recommendationLevel: 'HIGH',
+              evidenceSources: ['LATEST_PROPERTY']
+            }
+          ],
+          promotionHistory: []
+        }
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await (wrapper.vm as any).handleOpenPendingPromotion(createRiskPointRow())
+    await flushPromises()
+
+    expect(mockGetPendingCandidates).toHaveBeenCalledTimes(1)
+    expect(mockGetPendingCandidates).toHaveBeenCalledWith(78)
+    expect(wrapper.text()).toContain('DEVICE-PENDING')
+    expect(wrapper.text()).toContain('Y向位移')
+  })
+
+  it('opens the binding maintenance drawer instead of the legacy bind drawer entry', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 2,
+          boundMetricCount: 5,
+          pendingBindingCount: 1
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      handleRiskPointRowAction: (command: 'maintain-binding', row: ReturnType<typeof createRiskPointRow>) => void
+      bindingMaintenanceVisible: boolean
+      bindingMaintenanceRiskPoint: ReturnType<typeof createRiskPointRow> | null
+    }
+
+    vm.handleRiskPointRowAction('maintain-binding', createRiskPointRow())
+    await nextTick()
+
+    expect(wrapper.text()).toContain('维护绑定')
+    expect(vm.bindingMaintenanceVisible).toBe(true)
+    expect(vm.bindingMaintenanceRiskPoint?.riskPointName).toBe('示例风险点')
   })
 
   it('submits the selected pending metrics through the promote API', async () => {

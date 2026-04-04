@@ -59,6 +59,29 @@ export interface RiskPointDevice {
       deleted: number;
 }
 
+export interface RiskPointBindingSummary {
+      riskPointId: IdType;
+      boundDeviceCount: number;
+      boundMetricCount: number;
+      pendingBindingCount: number;
+}
+
+export interface RiskPointBindingMetric {
+      bindingId?: IdType | null;
+      metricIdentifier?: string | null;
+      metricName?: string | null;
+      bindingSource?: string | null;
+      createTime?: string | null;
+}
+
+export interface RiskPointBindingDeviceGroup {
+      deviceId?: IdType | null;
+      deviceCode?: string | null;
+      deviceName?: string | null;
+      metricCount?: number | null;
+      metrics: RiskPointBindingMetric[];
+}
+
 export interface RiskPointPendingBindingItem {
       id: IdType;
       riskPointId: IdType;
@@ -210,6 +233,20 @@ export const getBoundDevices = (riskPointId: IdType): Promise<ApiEnvelope<RiskPo
 // 获取风险点可绑定设备列表
 export const listBindableDevices = (riskPointId: IdType): Promise<ApiEnvelope<DeviceOption[]>> => {
       return request<DeviceOption[]>(`/api/risk-point/bindable-devices/${riskPointId}`, { method: 'GET' });
+};
+
+export const listBindingSummaries = (riskPointIds: IdType[]): Promise<ApiEnvelope<RiskPointBindingSummary[]>> => {
+      if (!riskPointIds.length) {
+            return Promise.resolve({ code: 200, msg: 'success', data: [] });
+      }
+      const queryString = buildQueryString({
+            riskPointIds: riskPointIds.map((item) => String(item)).join(',')
+      });
+      return request<RiskPointBindingSummary[]>(`/api/risk-point/binding-summaries?${queryString}`, { method: 'GET' });
+};
+
+export const listBindingGroups = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointBindingDeviceGroup[]>> => {
+      return request<RiskPointBindingDeviceGroup[]>(`/api/risk-point/binding-groups/${riskPointId}`, { method: 'GET' });
 };
 
 export const listPendingBindings = (params: {
