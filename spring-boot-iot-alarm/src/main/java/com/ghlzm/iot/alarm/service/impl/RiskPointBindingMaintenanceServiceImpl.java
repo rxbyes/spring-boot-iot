@@ -1,0 +1,158 @@
+package com.ghlzm.iot.alarm.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
+import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
+import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Comparator;
+
+/**
+ * 风险点绑定维护读侧实现。
+ */
+@Service
+public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingMaintenanceService {
+
+    private static final String STATUS_PENDING_METRIC_GOVERNANCE = "PENDING_METRIC_GOVERNANCE";
+    private static final String STATUS_PARTIALLY_PROMOTED = "PARTIALLY_PROMOTED";
+    private static final String SOURCE_PENDING_PROMOTION = "PENDING_PROMOTION";
+    private static final String SOURCE_MANUAL = "MANUAL";
+
+    private final RiskPointService riskPointService;
+    private final RiskPointDeviceMapper riskPointDeviceMapper;
+    private final RiskPointDevicePendingBindingMapper pendingBindingMapper;
+    private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
+
+    public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
+                                                  RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                  RiskPointDevicePendingPromotionMapper pendingPromotionMapper) {
+        this.riskPointService = riskPointService;
+        this.riskPointDeviceMapper = riskPointDeviceMapper;
+        this.pendingBindingMapper = pendingBindingMapper;
+        this.pendingPromotionMapper = pendingPromotionMapper;
+    }
+
+    @Override
+    public List<RiskPointBindingSummaryVO> listBindingSummaries(List<Long> riskPointIds, Long currentUserId) {
+        if (riskPointIds == null || riskPointIds.isEmpty()) {
+            return List.of();
+        }
+        for (Long riskPointId : riskPointIds) {
+            riskPointService.getById(riskPointId, currentUserId);
+        }
+        List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getDeleted, 0)
+                .in(RiskPointDevice::getRiskPointId, riskPointIds));
+        Map<Long, Set<Long>> distinctDeviceIdsByRiskPointId = new LinkedHashMap<>();
+        Map<Long, Integer> metricCountByRiskPointId = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            Long riskPointId = binding.getRiskPointId();
+            distinctDeviceIdsByRiskPointId.computeIfAbsent(riskPointId, key -> new LinkedHashSet<>());
+            if (binding.getDeviceId() != null) {
+                distinctDeviceIdsByRiskPointId.get(riskPointId).add(binding.getDeviceId());
+            }
+            metricCountByRiskPointId.put(riskPointId, metricCountByRiskPointId.getOrDefault(riskPointId, 0) + 1);
+        }
+
+        List<RiskPointDevicePendingBinding> pendingRows = pendingBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDevicePendingBinding>()
+                .eq(RiskPointDevicePendingBinding::getDeleted, 0)
+                .in(RiskPointDevicePendingBinding::getRiskPointId, riskPointIds)
+                .in(RiskPointDevicePendingBinding::getResolutionStatus, List.of(STATUS_PENDING_METRIC_GOVERNANCE, STATUS_PARTIALLY_PROMOTED)));
+        Map<Long, Integer> pendingCountByRiskPointId = new LinkedHashMap<>();
+        for (RiskPointDevicePendingBinding pending : pendingRows) {
+            if (!STATUS_PENDING_METRIC_GOVERNANCE.equals(pending.getResolutionStatus())
+                    && !STATUS_PARTIALLY_PROMOTED.equals(pending.getResolutionStatus())) {
+                continue;
+            }
+            Long riskPointId = pending.getRiskPointId();
+            pendingCountByRiskPointId.put(riskPointId, pendingCountByRiskPointId.getOrDefault(riskPointId, 0) + 1);
+        }
+
+        List<RiskPointBindingSummaryVO> result = new ArrayList<>(riskPointIds.size());
+        for (Long riskPointId : riskPointIds) {
+            RiskPointBindingSummaryVO summary = new RiskPointBindingSummaryVO();
+            summary.setRiskPointId(riskPointId);
+            summary.setBoundDeviceCount(distinctDeviceIdsByRiskPointId.getOrDefault(riskPointId, Set.of()).size());
+            summary.setBoundMetricCount(metricCountByRiskPointId.getOrDefault(riskPointId, 0));
+            summary.setPendingBindingCount(pendingCountByRiskPointId.getOrDefault(riskPointId, 0));
+            result.add(summary);
+        }
+        return result;
+    }
+
+    @Override
+    public List<RiskPointBindingDeviceGroupVO> listBindingGroups(Long riskPointId, Long currentUserId) {
+        riskPointService.getById(riskPointId, currentUserId);
+        List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getDeleted, 0)
+                .eq(RiskPointDevice::getRiskPointId, riskPointId)
+                .orderByAsc(RiskPointDevice::getDeviceCode)
+                .orderByAsc(RiskPointDevice::getMetricIdentifier));
+        if (bindings.isEmpty()) {
+            return List.of();
+        }
+        bindings = new ArrayList<>(bindings);
+        bindings.sort(Comparator
+                .comparing(RiskPointDevice::getDeviceCode, Comparator.nullsLast(String::compareTo))
+                .thenComparing(RiskPointDevice::getMetricIdentifier, Comparator.nullsLast(String::compareTo)));
+
+        Set<Long> bindingIds = bindings.stream()
+                .map(RiskPointDevice::getId)
+                .filter(id -> id != null)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<Long> promotedBindingIds = new LinkedHashSet<>();
+        if (!bindingIds.isEmpty()) {
+            List<RiskPointDevicePendingPromotion> promotionRows = pendingPromotionMapper.selectList(new LambdaQueryWrapper<RiskPointDevicePendingPromotion>()
+                    .eq(RiskPointDevicePendingPromotion::getDeleted, 0)
+                    .in(RiskPointDevicePendingPromotion::getRiskPointDeviceId, bindingIds));
+            for (RiskPointDevicePendingPromotion promotion : promotionRows) {
+                if (promotion.getRiskPointDeviceId() != null) {
+                    promotedBindingIds.add(promotion.getRiskPointDeviceId());
+                }
+            }
+        }
+
+        Map<Long, RiskPointBindingDeviceGroupVO> groups = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            Long deviceId = binding.getDeviceId();
+            RiskPointBindingDeviceGroupVO group = groups.computeIfAbsent(deviceId, key -> {
+                RiskPointBindingDeviceGroupVO value = new RiskPointBindingDeviceGroupVO();
+                value.setDeviceId(binding.getDeviceId());
+                value.setDeviceCode(binding.getDeviceCode());
+                value.setDeviceName(binding.getDeviceName());
+                value.setMetrics(new ArrayList<>());
+                return value;
+            });
+
+            RiskPointBindingMetricVO metric = new RiskPointBindingMetricVO();
+            metric.setBindingId(binding.getId());
+            metric.setMetricIdentifier(binding.getMetricIdentifier());
+            metric.setMetricName(binding.getMetricName());
+            metric.setBindingSource(promotedBindingIds.contains(binding.getId()) ? SOURCE_PENDING_PROMOTION : SOURCE_MANUAL);
+            metric.setCreateTime(binding.getCreateTime());
+            group.getMetrics().add(metric);
+        }
+
+        List<RiskPointBindingDeviceGroupVO> result = new ArrayList<>(groups.values());
+        for (RiskPointBindingDeviceGroupVO group : result) {
+            group.setMetricCount(group.getMetrics() == null ? 0 : group.getMetrics().size());
+        }
+        return result;
+    }
+}

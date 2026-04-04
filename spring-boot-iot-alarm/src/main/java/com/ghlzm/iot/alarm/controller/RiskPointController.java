@@ -2,12 +2,16 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
+import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -22,9 +26,17 @@ import java.util.List;
 public class RiskPointController {
 
       private final RiskPointService riskPointService;
+      private final RiskPointBindingMaintenanceService bindingMaintenanceService;
 
       public RiskPointController(RiskPointService riskPointService) {
+            this(riskPointService, null);
+      }
+
+      @Autowired
+      public RiskPointController(RiskPointService riskPointService,
+                                 RiskPointBindingMaintenanceService bindingMaintenanceService) {
             this.riskPointService = riskPointService;
+            this.bindingMaintenanceService = bindingMaintenanceService;
       }
 
       /**
@@ -129,6 +141,32 @@ public class RiskPointController {
       public R<List<DeviceOptionVO>> listBindableDevices(@PathVariable Long riskPointId, Authentication authentication) {
             List<DeviceOptionVO> devices = riskPointService.listBindableDevices(riskPointId, requireCurrentUserId(authentication));
             return R.ok(devices);
+      }
+
+      /**
+       * 查询风险点绑定摘要。
+       */
+      @GetMapping("/binding-summaries")
+      public R<List<RiskPointBindingSummaryVO>> listBindingSummaries(@RequestParam List<Long> riskPointIds,
+                                                                     Authentication authentication) {
+            List<RiskPointBindingSummaryVO> summaries = bindingMaintenanceService.listBindingSummaries(
+                    riskPointIds,
+                    requireCurrentUserId(authentication)
+            );
+            return R.ok(summaries);
+      }
+
+      /**
+       * 查询风险点按设备分组的正式绑定列表。
+       */
+      @GetMapping("/binding-groups/{riskPointId}")
+      public R<List<RiskPointBindingDeviceGroupVO>> listBindingGroups(@PathVariable Long riskPointId,
+                                                                       Authentication authentication) {
+            List<RiskPointBindingDeviceGroupVO> groups = bindingMaintenanceService.listBindingGroups(
+                    riskPointId,
+                    requireCurrentUserId(authentication)
+            );
+            return R.ok(groups);
       }
 
       private Long requireCurrentUserId(Authentication authentication) {
