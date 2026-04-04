@@ -212,6 +212,21 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/quality-workbench')
   },
   {
+    path: '/business-acceptance',
+    name: 'business-acceptance',
+    component: () => import('../views/BusinessAcceptanceWorkbenchView.vue'),
+    meta: routeMeta('/business-acceptance')
+  },
+  {
+    path: '/business-acceptance/results/:runId',
+    name: 'business-acceptance-results',
+    component: () => import('../views/BusinessAcceptanceResultView.vue'),
+    meta: routeMeta('/business-acceptance', {
+      title: '业务验收结果',
+      description: '查看业务验收包的模块结论与失败明细。'
+    })
+  },
+  {
     path: '/rd-workbench',
     name: 'rd-workbench',
     component: () => import('../views/RdWorkbenchLandingView.vue'),

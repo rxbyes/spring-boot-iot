@@ -125,14 +125,19 @@ describe('sectionHomes config', () => {
     });
   });
 
-  it('maps quality workbench to rd-workbench plus shared execution/results pages', () => {
+  it('maps quality workbench to business acceptance plus rd and shared centers', () => {
     const config = getSectionHomeConfigByPath('/quality-workbench');
 
     expect(config?.cards.map((item) => item.path)).toEqual([
+      '/business-acceptance',
       '/rd-workbench',
       '/automation-execution',
       '/automation-results'
     ]);
+    expect(getRouteMetaPreset('/business-acceptance')).toMatchObject({
+      title: '业务验收台',
+      description: '按交付清单选择预置验收包并一键运行业务验收。'
+    });
     expect(getRouteMetaPreset('/rd-workbench')).toMatchObject({
       title: '研发工场',
       description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。'

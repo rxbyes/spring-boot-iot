@@ -2,20 +2,20 @@
   <StandardPageShell class="quality-workbench-landing">
     <StandardWorkbenchPanel
       title="质量工场总览"
-      description="只负责判断当前应进入研发工场、执行中心还是结果与基线中心，不再承载资产编辑正文。"
+      description="先区分业务验收、研发编排和结果复盘，再进入对应专项页，不再把所有自动化能力堆在一个入口。"
       show-notices
     >
       <template #notices>
         <div class="landing-chip-list">
-          <span>研发优先</span>
+          <span>业务优先</span>
+          <span>研发编排</span>
           <span>执行共享</span>
           <span>结果共享</span>
-          <span>兼容旧入口</span>
         </div>
       </template>
 
       <section class="tri-grid">
-        <PanelCard title="结构概况" description="本轮把研发自动化资产编排抬升为独立主入口。">
+        <PanelCard title="结构概况" description="本轮先补上业务验收入口，再保留研发编排与共享结果底座。">
           <div class="quad-grid landing-metrics">
             <MetricCard
               v-for="metric in landingMetrics"
@@ -28,18 +28,18 @@
           </div>
         </PanelCard>
 
-        <PanelCard title="进入建议" description="先定职责，再进入对应专项页，避免重新回到同页堆功能。">
+        <PanelCard title="进入建议" description="先定角色任务，再进入对应专项页，避免重新回到同页堆功能。">
           <ul class="landing-list">
             <li v-for="step in entrySteps" :key="step">{{ step }}</li>
           </ul>
         </PanelCard>
 
-        <PanelCard title="本轮默认入口" description="研发需要先整理资产时，直接进入研发工场总览。">
+        <PanelCard title="本轮默认入口" description="业务角色优先从业务验收台发起验收，研发再进入研发工场。">
           <p class="landing-summary">
-            质量工场继续保留为上层分组，研发工场成为研发自动化资产编排的首选入口。
+            质量工场继续保留为上层分组，业务验收台负责一键运行预置验收包，研发工场继续负责自动化资产编排。
           </p>
-          <RouterLink to="/rd-workbench" class="landing-link landing-link--primary">
-            进入研发工场
+          <RouterLink to="/business-acceptance" class="landing-link landing-link--primary">
+            进入业务验收台
           </RouterLink>
         </PanelCard>
       </section>
@@ -74,6 +74,12 @@ const permissionStore = usePermissionStore();
 
 const qualityCards = [
   {
+    path: '/business-acceptance',
+    label: '业务验收台',
+    description: '按交付清单选择预置验收包并一键运行业务验收。',
+    short: '验'
+  },
+  {
     path: '/rd-workbench',
     label: '研发工场',
     description: '面向研发的自动化资产编排主入口。',
@@ -94,9 +100,9 @@ const qualityCards = [
 ] as const;
 
 const entrySteps = [
-  '研发先进入研发工场，拆开页面盘点、模板沉淀、计划编排与交付打包。',
-  '准备正式回归时切到执行中心，统一校准范围、命令与验收注册表。',
-  '回归完成后进入结果与基线中心，导入结果并沉淀质量证据。'
+  '验收人员、产品和项目经理先进入业务验收台，选择环境、账号模板和模块范围后一键执行。',
+  '研发需要维护自动化资产时，再进入研发工场拆开页面盘点、模板沉淀、计划编排与交付打包。',
+  '执行完成后统一进入结果与基线中心，复盘失败场景并沉淀质量证据。'
 ];
 
 const landingMetrics = computed(() => [
@@ -106,19 +112,19 @@ const landingMetrics = computed(() => [
     badge: { label: 'Hub', tone: 'brand' as const }
   },
   {
-    label: '研发主入口',
+    label: '业务入口',
     value: '1',
-    badge: { label: 'RD', tone: 'success' as const }
+    badge: { label: 'Biz', tone: 'success' as const }
+  },
+  {
+    label: '研发入口',
+    value: '1',
+    badge: { label: 'RD', tone: 'warning' as const }
   },
   {
     label: '共享中心',
     value: '2',
-    badge: { label: 'Share', tone: 'warning' as const }
-  },
-  {
-    label: '兼容入口',
-    value: '2',
-    badge: { label: 'Legacy', tone: 'danger' as const }
+    badge: { label: 'Share', tone: 'danger' as const }
   }
 ]);
 
