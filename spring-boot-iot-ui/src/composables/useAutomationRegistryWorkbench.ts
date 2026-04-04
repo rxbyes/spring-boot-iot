@@ -231,9 +231,7 @@ export function useAutomationRegistryWorkbench() {
       !!selectedLedgerRunId.value && records.some((item) => item.runId === selectedLedgerRunId.value);
 
     if (hasSelectedRun) {
-      if (!selectedLedgerRunDetail.value || selectedLedgerRunDetail.value.runId !== selectedLedgerRunId.value) {
-        await selectLedgerRun(selectedLedgerRunId.value, { silent: true });
-      }
+      await selectLedgerRun(selectedLedgerRunId.value, { silent: true });
       return;
     }
 
