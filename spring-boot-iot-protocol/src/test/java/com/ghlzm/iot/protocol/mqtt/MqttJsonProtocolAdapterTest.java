@@ -347,6 +347,33 @@ class MqttJsonProtocolAdapterTest {
         assertArrayEquals(new byte[]{0x11, 0x22, 0x33}, message.getFilePayload().getFirmwarePacket().getPacketData());
     }
 
+    @Test
+    void shouldExcludeFirmwareBase64ContentFromDecodedPayloadPreview() {
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+
+        String descriptor = """
+                {"did":"device-ota-1","ds_id":"ota-firmware","file_type":"bin","at":"2018-08-02T10:52:32.449Z","desc":"0-2-1024"}
+                """;
+        byte[] firmwarePacket = buildFirmwarePacket(1, new byte[]{0x11, 0x22, 0x33}, 2, "abcd1234");
+
+        DeviceUpMessage message = adapter.decode(buildType3Packet(descriptor, firmwarePacket), context);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(getProtocolMetadata(message), "getDecodedPayloadPreview");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> events = (Map<String, Object>) decodedPreview.get("events");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fileEvent = (Map<String, Object>) events.get("file");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> firmwarePreview = (Map<String, Object>) fileEvent.get("_firmwarePacket");
+
+        assertNotNull(firmwarePreview);
+        assertEquals(1, firmwarePreview.get("packetIndex"));
+        assertEquals(2, firmwarePreview.get("totalPackets"));
+        assertFalse(firmwarePreview.containsKey("packetDataBase64"));
+    }
+
     private byte[] buildPacket(byte type, String json) {
         byte[] jsonBytes = json.trim().getBytes(StandardCharsets.UTF_8);
         int length = jsonBytes.length;
