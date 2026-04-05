@@ -20,6 +20,33 @@ IndexSpecMap = Dict[str, List[Tuple[str, str]]]
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
+    "iot_device_relation": """
+CREATE TABLE IF NOT EXISTS iot_device_relation (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    parent_device_id BIGINT NOT NULL COMMENT '父设备ID',
+    parent_device_code VARCHAR(64) NOT NULL COMMENT '父设备编码',
+    logical_channel_code VARCHAR(64) NOT NULL COMMENT '逻辑通道编码',
+    child_device_id BIGINT NOT NULL COMMENT '子设备ID',
+    child_device_code VARCHAR(64) NOT NULL COMMENT '子设备编码',
+    child_product_id BIGINT DEFAULT NULL COMMENT '子产品ID',
+    child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品 productKey',
+    relation_type VARCHAR(32) NOT NULL COMMENT '关系类型 collector_child/gateway_child',
+    canonicalization_strategy VARCHAR(32) NOT NULL COMMENT '归一化策略 LEGACY/LF_VALUE',
+    status_mirror_strategy VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '状态镜像策略 NONE/SENSOR_STATE',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),
+    KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),
+    KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备逻辑通道关系表'
+""",
     "iot_device_online_session": """
 CREATE TABLE IF NOT EXISTS iot_device_online_session (
     id BIGINT NOT NULL COMMENT 'pk',

@@ -193,9 +193,8 @@ const summaryMetrics = computed<SummaryMetric[]>(() => [
 
 const ledgerIdentityItems = computed<LedgerItem[]>(() => [
   { key: 'id', label: '日志 ID', value: formatValue(props.detail.id) },
+  { key: 'createTime', label: '创建时间', value: formatDateTime(props.detail.createTime) },
   { key: 'traceId', label: 'TraceId', value: formatValue(props.detail.traceId), wide: true },
-  { key: 'messageType', label: '消息类型', value: messageTypeLabel.value },
-  { key: 'createTime', label: '创建时间', value: formatDateTime(props.detail.createTime) }
 ]);
 
 const ledgerContextItems = computed<LedgerItem[]>(() => [

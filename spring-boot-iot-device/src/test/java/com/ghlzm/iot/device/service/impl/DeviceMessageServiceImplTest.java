@@ -283,6 +283,58 @@ class DeviceMessageServiceImplTest {
     }
 
     @Test
+    void getMessageTraceDetailShouldFallbackToMqttJsonProtocolWhenProtocolMetadataMissing() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("17165802");
+        upMessage.setProductKey("demo-product");
+        upMessage.setMessageType("property");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setDecryptedPayloadPreview("{\"17165802\":{\"temperature\":26.5}}");
+        protocolMetadata.setDecodedPayloadPreview(Map.of(
+                "messageType", "property",
+                "deviceCode", "17165802",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any(ProtocolContext.class))).thenReturn(upMessage);
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"17165802\":{\"temperature\":26.5}}", detail.getDecryptedPayload());
+        assertEquals("17165802", detail.getDecodedPayload().get("deviceCode"));
+        verify(protocolAdapterRegistry).getAdapter("mqtt-json");
+    }
+
+    @Test
     void getMessageTraceDetailShouldFallbackToRawPayloadWhenRecoveryPreparationThrows() {
         DeviceMessageLog logRecord = new DeviceMessageLog();
         logRecord.setId(1L);

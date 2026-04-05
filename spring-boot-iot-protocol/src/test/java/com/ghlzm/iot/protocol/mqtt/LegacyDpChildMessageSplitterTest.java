@@ -329,6 +329,43 @@ class LegacyDpChildMessageSplitterTest {
         assertEquals(Map.of("value", 10.86, "sensor_state", 0), result.getChildMessages().get(0).getProperties());
     }
 
+    @Test
+    void shouldFallbackToCompatibilitySplitWhenNoTemplateMatches() {
+        IotProperties iotProperties = new IotProperties();
+        IotProperties.Device device = new IotProperties.Device();
+        device.setSubDeviceMappings(Map.of(
+                "GW001",
+                Map.of("L4_NW_1", "NW_CHILD_01")
+        ));
+        iotProperties.setDevice(device);
+
+        LegacyDpChildMessageSplitter splitter = new LegacyDpChildMessageSplitter(iotProperties);
+        LegacyDpNormalizeResult normalizeResult = new LegacyDpNormalizeResult();
+        normalizeResult.setProperties(new LinkedHashMap<>(Map.of("L4_NW_1", 36.5)));
+        normalizeResult.setTimestamp(LocalDateTime.of(2026, 4, 5, 8, 23, 10));
+        normalizeResult.setMessageType("property");
+        normalizeResult.setFamilyCodes(List.of("L4_NW_1"));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("compat-sensor");
+        parentMessage.setDeviceCode("GW001");
+        parentMessage.setMessageType("property");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 5, 8, 23, 10));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("GW001", Map.of("L4_NW_1", timestampPayload(36.5)));
+
+        LegacyDpNormalizeResult result = splitter.split(payload, parentMessage, normalizeResult);
+
+        assertEquals(Boolean.TRUE, result.getChildSplitApplied());
+        assertTrue(result.getProperties() == null || result.getProperties().isEmpty());
+        assertEquals(1, result.getChildMessages().size());
+        assertEquals("NW_CHILD_01", result.getChildMessages().get(0).getDeviceCode());
+        assertEquals(Map.of("L4_NW_1", 36.5), result.getChildMessages().get(0).getProperties());
+    }
+
     private Map<String, Object> timestampPayload(Object value) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("2026-03-20T06:24:02.000Z", value);

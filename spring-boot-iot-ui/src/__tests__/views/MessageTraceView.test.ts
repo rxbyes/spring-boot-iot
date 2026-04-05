@@ -220,13 +220,16 @@ const StandardActionLinkStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue', 'eyebrow', 'title', 'subtitle', 'empty'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle', 'empty', 'tags'],
   emits: ['update:modelValue'],
   template: `
     <section v-if="modelValue" class="message-trace-detail-drawer-stub">
       <p v-if="eyebrow">{{ eyebrow }}</p>
       <h3>{{ title }}</h3>
-      <p>{{ subtitle }}</p>
+      <p v-if="subtitle" class="message-trace-detail-drawer-stub__subtitle">{{ subtitle }}</p>
+      <div class="message-trace-detail-drawer-stub__tags">
+        <span v-for="tag in tags || []" :key="tag.label">{{ tag.label }}</span>
+      </div>
       <slot />
     </section>
   `
@@ -252,8 +255,23 @@ const StandardTraceTimelineStub = defineComponent({
 
 const StandardTableTextColumnStub = defineComponent({
   name: 'StandardTableTextColumn',
-  props: ['label'],
-  template: '<div class="standard-table-text-column-stub">{{ label }}</div>'
+  props: ['label', 'prop', 'showOverflowTooltip'],
+  setup() {
+    const rows = inject('tableRows', ref([]));
+    return { rows };
+  },
+  template: `
+    <div
+      class="standard-table-text-column-stub"
+      :data-label="label"
+      :data-show-overflow-tooltip="String(showOverflowTooltip)"
+    >
+      <div class="standard-table-text-column-stub__label">{{ label }}</div>
+      <div v-for="(row, index) in rows" :key="index" class="standard-table-text-column-stub__row">
+        <slot :row="row">{{ prop ? row?.[prop] : '' }}</slot>
+      </div>
+    </div>
+  `
 });
 
 const AccessErrorArchivePanelStub = defineComponent({
@@ -685,7 +703,7 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('可携带当前 TraceId');
   });
 
-  it('maps status messages to 状态上报 and removes auxiliary payload state chips', async () => {
+  it('maps status messages to 状态上报 and keeps message type out of the identity ledger', async () => {
     vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -733,9 +751,93 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('状态上报');
-    expect(wrapper.text()).toContain('消息类型状态上报');
+    expect(wrapper.text()).not.toContain('消息类型状态上报');
     expect(wrapper.text()).not.toContain('有内容');
     expect(wrapper.text()).not.toContain('暂无内容');
+  });
+
+  it('realigns report time to the China-time display expected by message trace and removes duplicated detail header tags', async () => {
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            traceId: 'trace-001',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            messageType: 'report',
+            topic: '$dp',
+            payload: '{"temperature":26.5}',
+            reportTime: '2026-04-05T10:50:35Z',
+            createTime: '2026-04-05 10:50:38'
+          }
+        ]
+      }
+    });
+    vi.mocked(messageApi.getMessageTraceDetail).mockResolvedValue(createDetailResponse({
+      topic: '$dp',
+      reportTime: '2026-04-05T10:50:35Z',
+      createTime: '2026-04-05 10:50:38'
+    }));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('2026/04/05 10:50:35');
+    expect(wrapper.text()).toContain('创建时间');
+    expect(wrapper.text()).toContain('2026/04/05 10:50:38');
+    expect(wrapper.text()).toContain('Topic');
+    expect(wrapper.text()).toContain('$dp');
+    expect(wrapper.text()).not.toContain('消息类型属性上报');
+    expect(wrapper.text()).not.toContain('Trace trace-001');
+    expect(wrapper.find('.message-trace-detail-drawer-stub__subtitle').exists()).toBe(false);
+  });
+
+  it('keeps payload summary hover text truncated instead of exposing the full payload tooltip', async () => {
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            traceId: 'trace-001',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            messageType: 'report',
+            topic: '$dp',
+            payload: '{"bodies":{"body":"4/oiMbnrqLc1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZmore-and-more"}}',
+            reportTime: '2026-04-05 19:29:12',
+            createTime: '2026-04-05 11:29:03'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const payloadColumn = wrapper.find('.standard-table-text-column-stub[data-label="Payload 摘要"]');
+    expect(payloadColumn.attributes('data-show-overflow-tooltip')).toBe('false');
+
+    const payloadPreview = wrapper.find('.message-trace-payload-preview');
+    expect(payloadPreview.exists()).toBe(true);
+    expect(payloadPreview.attributes('title')).toContain('...');
+    expect(payloadPreview.attributes('title')).not.toContain('ABCDEFGHIJKLMNOPQRSTUVWXYZmore-and-more');
   });
 
   it('shows the degraded hint when the trace timeline has expired', async () => {
@@ -1001,6 +1103,34 @@ describe('MessageTraceView', () => {
     expect(window.navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
     expect(vi.mocked(window.navigator.clipboard.writeText).mock.calls[0]?.[0]).toContain('"deviceCode": "demo-device-01"');
     expect(ElMessage.success).toHaveBeenCalled();
+  });
+
+  it('falls back to execCommand copy when Clipboard API is unavailable', async () => {
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: undefined
+    });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.find('[data-testid="message-trace-payload-copy-decoded"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(ElMessage.success).toHaveBeenCalled();
+    expect(ElMessage.warning).not.toHaveBeenCalledWith('当前环境暂不支持复制');
   });
 
   it('ignores stale timeline responses when switching between detail rows quickly', async () => {

@@ -80,6 +80,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
     private static final Long UNKNOWN_DEVICE_ID = 0L;
     private static final int MAX_PAGE_SIZE = 100;
     private static final String DISPATCH_FAILED_MESSAGE_TYPE = "dispatch_failed";
+    private static final String MQTT_JSON_PROTOCOL_CODE = "mqtt-json";
     private static final List<String> COMMAND_ID_ALIASES = List.of("commandId", "messageId");
     private static final List<String> ERROR_MESSAGE_ALIASES = List.of("errorMessage", "error", "msg", "message");
 
@@ -975,31 +976,59 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         try {
             Device device = resolveTraceDetailDevice(logRecord);
             Product product = resolveTraceDetailProduct(logRecord, device);
-            String protocolCode = resolveTraceDetailProtocolCode(device, product);
-            ProtocolAdapter adapter = hasText(protocolCode) ? protocolAdapterRegistry.getAdapter(protocolCode) : null;
-            if (adapter == null) {
-                applyFallbackPayloadRecovery(recovery, logRecord, rawPayload);
-                return recovery;
+            List<String> protocolCandidates = resolveTraceDetailProtocolCandidates(device, product, logRecord, rawPayload);
+            RuntimeException lastRecoveryFailure = null;
+            boolean encryptedEnvelopePayload = isEncryptedEnvelopePayload(rawPayload);
+            for (String protocolCode : protocolCandidates) {
+                ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(protocolCode);
+                if (adapter == null) {
+                    continue;
+                }
+                try {
+                    MessageTracePayloadRecovery candidateRecovery = recoverPayloadComparisonWithAdapter(
+                            adapter,
+                            logRecord,
+                            device,
+                            product,
+                            rawPayload
+                    );
+                    if (!encryptedEnvelopePayload || isMeaningfulPayloadRecovery(candidateRecovery, rawPayload)) {
+                        recovery.setDecryptedPayload(candidateRecovery.getDecryptedPayload());
+                        recovery.setDecodedPayload(candidateRecovery.getDecodedPayload());
+                        return recovery;
+                    }
+                } catch (RuntimeException ex) {
+                    lastRecoveryFailure = ex;
+                }
             }
-
-            DeviceUpMessage upMessage = adapter.decode(
-                    rawPayload.getBytes(StandardCharsets.UTF_8),
-                    buildTraceDetailProtocolContext(logRecord, device, product)
-            );
-            DeviceUpProtocolMetadata metadata = upMessage == null ? null : upMessage.getProtocolMetadata();
-
-            String decryptedPayload = metadata == null ? null : normalizeJsonPayloadSafely(metadata.getDecryptedPayloadPreview());
-            if (!hasText(decryptedPayload)) {
-                decryptedPayload = rawPayload;
+            if (lastRecoveryFailure != null) {
+                log.warn("恢复链路追踪详情 payload 对照失败, logId={}", logRecord.getId(), lastRecoveryFailure);
             }
-            recovery.setDecryptedPayload(decryptedPayload);
-
-            Map<String, Object> decodedPayload = extractDecodedPayload(metadata, upMessage, logRecord, rawPayload);
-            recovery.setDecodedPayload(decodedPayload);
         } catch (RuntimeException ex) {
             log.warn("恢复链路追踪详情 payload 对照失败, logId={}", logRecord.getId(), ex);
-            applyFallbackPayloadRecovery(recovery, logRecord, rawPayload);
         }
+        applyFallbackPayloadRecovery(recovery, logRecord, rawPayload);
+        return recovery;
+    }
+
+    private MessageTracePayloadRecovery recoverPayloadComparisonWithAdapter(ProtocolAdapter adapter,
+                                                                           DeviceMessageLog logRecord,
+                                                                           Device device,
+                                                                           Product product,
+                                                                           String rawPayload) {
+        DeviceUpMessage upMessage = adapter.decode(
+                rawPayload.getBytes(StandardCharsets.UTF_8),
+                buildTraceDetailProtocolContext(logRecord, device, product)
+        );
+        DeviceUpProtocolMetadata metadata = upMessage == null ? null : upMessage.getProtocolMetadata();
+
+        MessageTracePayloadRecovery recovery = new MessageTracePayloadRecovery();
+        String decryptedPayload = metadata == null ? null : normalizeJsonPayloadSafely(metadata.getDecryptedPayloadPreview());
+        if (!hasText(decryptedPayload)) {
+            decryptedPayload = rawPayload;
+        }
+        recovery.setDecryptedPayload(decryptedPayload);
+        recovery.setDecodedPayload(extractDecodedPayload(metadata, upMessage, logRecord, rawPayload));
         return recovery;
     }
 
@@ -1023,12 +1052,64 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         return null;
     }
 
-    private String resolveTraceDetailProtocolCode(Device device, Product product) {
-        String deviceProtocolCode = normalizeText(device == null ? null : device.getProtocolCode());
-        if (hasText(deviceProtocolCode)) {
-            return deviceProtocolCode;
+    private List<String> resolveTraceDetailProtocolCandidates(Device device,
+                                                              Product product,
+                                                              DeviceMessageLog logRecord,
+                                                              String rawPayload) {
+        List<String> candidates = new ArrayList<>();
+        addProtocolCandidate(candidates, device == null ? null : device.getProtocolCode());
+        addProtocolCandidate(candidates, product == null ? null : product.getProtocolCode());
+        if (looksLikeMqttJsonPayload(logRecord, rawPayload)) {
+            addProtocolCandidate(candidates, MQTT_JSON_PROTOCOL_CODE);
         }
-        return normalizeText(product == null ? null : product.getProtocolCode());
+        return candidates;
+    }
+
+    private void addProtocolCandidate(List<String> candidates, String protocolCode) {
+        String normalizedProtocolCode = normalizeText(protocolCode);
+        if (!hasText(normalizedProtocolCode) || candidates.contains(normalizedProtocolCode)) {
+            return;
+        }
+        candidates.add(normalizedProtocolCode);
+    }
+
+    private boolean looksLikeMqttJsonPayload(DeviceMessageLog logRecord, String rawPayload) {
+        String topic = normalizeText(logRecord == null ? null : logRecord.getTopic());
+        if ("$dp".equals(topic) || (hasText(topic) && topic.startsWith("/sys/"))) {
+            return true;
+        }
+        Object parsedPayload = parseJsonPayload(rawPayload);
+        if (!(parsedPayload instanceof Map<?, ?> payloadMap) || payloadMap.isEmpty()) {
+            return false;
+        }
+        if (payloadMap.get("header") instanceof Map<?, ?> && payloadMap.get("bodies") instanceof Map<?, ?>) {
+            return true;
+        }
+        return payloadMap.containsKey("deviceCode")
+                || payloadMap.containsKey("productKey")
+                || payloadMap.containsKey("messageType");
+    }
+
+    private boolean isEncryptedEnvelopePayload(String rawPayload) {
+        Object parsedPayload = parseJsonPayload(rawPayload);
+        return parsedPayload instanceof Map<?, ?> payloadMap
+                && payloadMap.get("header") instanceof Map<?, ?>
+                && payloadMap.get("bodies") instanceof Map<?, ?>;
+    }
+
+    private boolean isMeaningfulPayloadRecovery(MessageTracePayloadRecovery recovery, String rawPayload) {
+        if (recovery == null) {
+            return false;
+        }
+        boolean decryptedRecovered = hasText(recovery.getDecryptedPayload())
+                && !rawPayload.equals(recovery.getDecryptedPayload());
+        if (decryptedRecovered) {
+            return true;
+        }
+        Map<String, Object> decodedPayload = recovery.getDecodedPayload();
+        return decodedPayload != null
+                && !decodedPayload.isEmpty()
+                && !(decodedPayload.containsKey("header") && decodedPayload.containsKey("bodies"));
     }
 
     private ProtocolContext buildTraceDetailProtocolContext(DeviceMessageLog logRecord, Device device, Product product) {

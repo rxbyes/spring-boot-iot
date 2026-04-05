@@ -81,16 +81,47 @@ async function handleCopy(panel: MessageTracePayloadComparisonPanel) {
     return;
   }
 
-  if (!navigator.clipboard?.writeText) {
-    ElMessage.warning('当前环境暂不支持复制');
-    return;
-  }
-
   try {
-    await navigator.clipboard.writeText(panel.content);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(panel.content);
+    } else if (!copyWithExecCommand(panel.content)) {
+      ElMessage.warning('当前环境暂不支持复制');
+      return;
+    }
     ElMessage.success(`${panel.title}已复制`);
   } catch {
+    if (copyWithExecCommand(panel.content)) {
+      ElMessage.success(`${panel.title}已复制`);
+      return;
+    }
     ElMessage.warning('复制失败，请稍后重试');
+  }
+}
+
+function copyWithExecCommand(content: string) {
+  if (typeof document === 'undefined' || typeof document.execCommand !== 'function' || !document.body) {
+    return false;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = content;
+  textArea.setAttribute('readonly', 'true');
+  textArea.style.position = 'fixed';
+  textArea.style.top = '0';
+  textArea.style.left = '0';
+  textArea.style.opacity = '0';
+  textArea.style.pointerEvents = 'none';
+  document.body.appendChild(textArea);
+
+  try {
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textArea.remove();
   }
 }
 </script>

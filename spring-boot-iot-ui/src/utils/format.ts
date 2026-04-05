@@ -1,21 +1,55 @@
+const DISPLAY_TIME_ZONE = 'Asia/Shanghai';
+const EXPLICIT_ZONE_PATTERN = /(z|[+-]\d{2}:?\d{2})$/i;
+const NAIVE_DATE_TIME_PATTERN =
+  /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/;
+const MESSAGE_TRACE_SHIFT_MS = 8 * 60 * 60 * 1000;
+const MESSAGE_TRACE_SHIFT_TOLERANCE_MS = 30 * 60 * 1000;
+
 export function formatDateTime(value?: string | null): string {
   if (!value) {
     return '--';
   }
 
-  const date = new Date(value);
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return '--';
+  }
+
+  const naiveMatch = normalized.match(NAIVE_DATE_TIME_PATTERN);
+  if (naiveMatch && !EXPLICIT_ZONE_PATTERN.test(normalized)) {
+    const [, year, month, day, hour, minute, second = '00'] = naiveMatch;
+    return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+  }
+
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
   return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: DISPLAY_TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
+    hour12: false
   }).format(date);
+}
+
+export function formatMessageTraceReportTime(reportTime?: string | null, createTime?: string | null): string {
+  const reportDate = parseDateTimeValue(reportTime);
+  const createDate = parseDateTimeValue(createTime);
+
+  if (reportDate && createDate) {
+    const diffMs = reportDate.getTime() - createDate.getTime();
+    if (Math.abs(diffMs - MESSAGE_TRACE_SHIFT_MS) <= MESSAGE_TRACE_SHIFT_TOLERANCE_MS) {
+      return formatLocalDateTime(new Date(reportDate.getTime() - MESSAGE_TRACE_SHIFT_MS));
+    }
+  }
+
+  return formatDateTime(reportTime || createTime);
 }
 
 export function prettyJson(value: unknown): string {
@@ -94,6 +128,44 @@ export function truncateText(value: string, maxLength = 64): string {
   }
 
   return `${value.slice(0, maxLength)}...`;
+}
+
+function parseDateTimeValue(value?: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const naiveMatch = normalized.match(NAIVE_DATE_TIME_PATTERN);
+  if (naiveMatch && !EXPLICIT_ZONE_PATTERN.test(normalized)) {
+    const [, year, month, day, hour, minute, second = '00'] = naiveMatch;
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second)
+    );
+  }
+
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatLocalDateTime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 }
 
 function isValidXml(value: string): boolean {

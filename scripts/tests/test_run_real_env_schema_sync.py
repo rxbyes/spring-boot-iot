@@ -46,6 +46,15 @@ class DictTargetDefinitionTest(unittest.TestCase):
         )
 
 
+class SchemaSyncCoverageTest(unittest.TestCase):
+    def test_create_table_sql_covers_device_relation_table(self):
+        create_sql = schema_sync.CREATE_TABLE_SQL.get("iot_device_relation")
+        self.assertIsNotNone(create_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", create_sql)
+        self.assertIn("idx_relation_parent_code", create_sql)
+        self.assertIn("idx_relation_child_code", create_sql)
+
+
 class FakeCursor:
     def __init__(self):
         self.executed = []

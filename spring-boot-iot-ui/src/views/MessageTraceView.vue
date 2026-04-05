@@ -412,10 +412,7 @@ const detailTags = computed(() => {
   if (!hasDetail.value) {
     return [];
   }
-  return [
-    { label: getMessageTypeLabel(detailData.value.messageType), type: 'primary' as const },
-    ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
-  ];
+  return [];
 });
 const {
   tags: activeFilterTags,
