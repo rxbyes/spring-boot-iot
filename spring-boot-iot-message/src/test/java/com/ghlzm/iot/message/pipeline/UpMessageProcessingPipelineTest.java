@@ -36,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -285,6 +286,38 @@ class UpMessageProcessingPipelineTest {
     }
 
     @Test
+    void processShouldExposeProtocolTemplateEvidenceSummary() {
+        UpMessageProcessingRequest request = buildMqttRequest("$dp", "cipher-text");
+        RawDeviceMessage rawDeviceMessage = buildRawMessage("$dp", "legacy", "demo-device-01", "demo-product");
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "$dp");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setRouteType("legacy");
+        Object templateEvidence = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence");
+        invokeSetter(templateEvidence, "setTemplateCodes", List.of("crack_child_template"));
+        Object execution = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence");
+        invokeSetter(execution, "setTemplateCode", "crack_child_template");
+        invokeSetter(execution, "setLogicalChannelCode", "L1_LF_1");
+        invokeSetter(execution, "setChildDeviceCode", "202018143");
+        invokeSetter(templateEvidence, "setExecutions", List.of(execution));
+        invokeSetter(protocolMetadata, "setTemplateEvidence", templateEvidence);
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(mqttTopicRouter.toRawMessage(anyString(), any(MqttMessage.class))).thenReturn(rawDeviceMessage);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(buildTarget("demo-device-01", upMessage));
+        when(devicePayloadApplyStageHandler.apply(any())).thenReturn(buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 1)));
+        when(telemetryPersistStageHandler.persist(any())).thenReturn(TelemetryPersistResult.persisted(1));
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        MessageFlowStep decodeStep = findStep(result.getTimeline(), MessageFlowStages.PROTOCOL_DECODE);
+        assertEquals(List.of("crack_child_template"), decodeStep.getSummary().get("templateCodes"));
+        assertEquals(1, decodeStep.getSummary().get("templateExecutionCount"));
+        assertEquals(List.of("L1_LF_1"), decodeStep.getSummary().get("templateLogicalCodes"));
+    }
+
+    @Test
     void processShouldExposeTelemetryGovernanceSummary() {
         UpMessageProcessingRequest request = buildHttpRequest();
         DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");
@@ -520,5 +553,31 @@ class UpMessageProcessingPipelineTest {
                 .filter(step -> stage.equals(step.getStage()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private Object newInstance(String className) {
+        try {
+            return Class.forName(className).getConstructor().newInstance();
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected class " + className + " with a public no-args constructor", ex);
+        }
+    }
+
+    private void invokeSetter(Object target, String methodName, Object arg) {
+        try {
+            Method method = findCompatibleMethod(target.getClass(), methodName, 1);
+            method.invoke(target, arg);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected method " + methodName + " on " + target.getClass().getName(), ex);
+        }
+    }
+
+    private Method findCompatibleMethod(Class<?> type, String methodName, int argCount) throws NoSuchMethodException {
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == argCount) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException(methodName);
     }
 }

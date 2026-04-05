@@ -383,6 +383,7 @@ public class ProductModelGovernanceComparator {
         evidence.setMessageEvidenceCount(candidate.getMessageEvidenceCount());
         evidence.setLastReportTime(candidate.getLastReportTime());
         evidence.setSourceTables(candidate.getSourceTables());
+        evidence.setProtocolTemplateEvidence(candidate.getProtocolTemplateEvidence());
         return evidence;
     }
 

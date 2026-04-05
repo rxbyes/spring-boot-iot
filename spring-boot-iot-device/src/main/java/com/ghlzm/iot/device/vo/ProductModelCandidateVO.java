@@ -63,4 +63,6 @@ public class ProductModelCandidateVO {
     private LocalDateTime lastReportTime;
 
     private List<String> sourceTables;
+
+    private ProductModelProtocolTemplateEvidenceVO protocolTemplateEvidence;
 }

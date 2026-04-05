@@ -273,6 +273,18 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
         assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
         assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+        Object templateEvidence = readMetadata(protocolMetadata, "getTemplateEvidence");
+        assertNotNull(templateEvidence);
+        assertEquals(List.of("deep_displacement_child_template"), readMetadata(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) readMetadata(templateEvidence, "getExecutions");
+        assertEquals(2, executions.size());
+        assertEquals("deep_displacement_child_template", readMetadata(executions.get(0), "getTemplateCode"));
+        assertEquals("L1_SW_1", readMetadata(executions.get(0), "getLogicalChannelCode"));
+        assertEquals("84330701", readMetadata(executions.get(0), "getChildDeviceCode"));
+        assertEquals("LEGACY", readMetadata(executions.get(0), "getCanonicalizationStrategy"));
+        assertEquals(Boolean.FALSE, readMetadata(executions.get(0), "getStatusMirrorApplied"));
+        assertEquals(List.of("L1_SW_1"), readMetadata(executions.get(0), "getParentRemovalKeys"));
     }
 
     @Test
@@ -317,6 +329,18 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
         assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
         assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+        Object templateEvidence = readMetadata(protocolMetadata, "getTemplateEvidence");
+        assertNotNull(templateEvidence);
+        assertEquals(List.of("crack_child_template"), readMetadata(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) readMetadata(templateEvidence, "getExecutions");
+        assertEquals(2, executions.size());
+        assertEquals("crack_child_template", readMetadata(executions.get(0), "getTemplateCode"));
+        assertEquals("L1_LF_1", readMetadata(executions.get(0), "getLogicalChannelCode"));
+        assertEquals("202018143", readMetadata(executions.get(0), "getChildDeviceCode"));
+        assertEquals("LF_VALUE", readMetadata(executions.get(0), "getCanonicalizationStrategy"));
+        assertEquals(Boolean.TRUE, readMetadata(executions.get(0), "getStatusMirrorApplied"));
+        assertEquals(List.of("L1_LF_1"), readMetadata(executions.get(0), "getParentRemovalKeys"));
     }
 
     @Test

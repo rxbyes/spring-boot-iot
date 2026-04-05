@@ -222,6 +222,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         detail.setRawPayload(recovery.getRawPayload());
         detail.setDecryptedPayload(recovery.getDecryptedPayload());
         detail.setDecodedPayload(recovery.getDecodedPayload());
+        detail.setProtocolMetadata(recovery.getProtocolMetadata());
         return detail;
     }
 
@@ -995,6 +996,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
                     if (!encryptedEnvelopePayload || isMeaningfulPayloadRecovery(candidateRecovery, rawPayload)) {
                         recovery.setDecryptedPayload(candidateRecovery.getDecryptedPayload());
                         recovery.setDecodedPayload(candidateRecovery.getDecodedPayload());
+                        recovery.setProtocolMetadata(candidateRecovery.getProtocolMetadata());
                         return recovery;
                     }
                 } catch (RuntimeException ex) {
@@ -1029,6 +1031,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
         recovery.setDecryptedPayload(decryptedPayload);
         recovery.setDecodedPayload(extractDecodedPayload(metadata, upMessage, logRecord, rawPayload));
+        recovery.setProtocolMetadata(metadata);
         return recovery;
     }
 

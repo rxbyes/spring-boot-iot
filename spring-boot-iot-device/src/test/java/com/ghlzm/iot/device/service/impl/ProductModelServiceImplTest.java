@@ -27,8 +27,18 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
+import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
+import com.ghlzm.iot.protocol.core.context.ProtocolContext;
+import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence;
+import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,12 +48,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,11 +76,15 @@ class ProductModelServiceImplTest {
     private CommandRecordMapper commandRecordMapper;
     @Mock
     private DeviceRelationService deviceRelationService;
+    @Mock
+    private ProtocolAdapterRegistry protocolAdapterRegistry;
 
+    private InMemoryProductModelGovernanceReceiptStore governanceReceiptStore;
     private ProductModelServiceImpl productModelService;
 
     @BeforeEach
     void setUp() {
+        governanceReceiptStore = new InMemoryProductModelGovernanceReceiptStore();
         productModelService = new ProductModelServiceImpl(
                 productMapper,
                 productModelMapper,
@@ -76,7 +92,9 @@ class ProductModelServiceImplTest {
                 devicePropertyMapper,
                 deviceMessageLogMapper,
                 commandRecordMapper,
-                deviceRelationService
+                deviceRelationService,
+                protocolAdapterRegistry,
+                governanceReceiptStore
         );
     }
 
@@ -652,6 +670,114 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldAttachCrackTemplateEvidenceToRuntimeCandidates() {
+        Device childDevice = device(3001L);
+        childDevice.setDeviceCode("202018143");
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-crack-sensor-v1", "裂缝计"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(childDevice));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "value", "裂缝值", "double", LocalDateTime.of(2026, 4, 5, 10, 0)),
+                property(3001L, "sensor_state", "传感器状态", "integer", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog(1001L, "202018143", "$dp", "property", "{\"SK00EA0D1307986\":{\"L1_LF_1\":10.86}}", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter(decodedChildMessage(
+                "SK00EA0D1307986",
+                "202018143",
+                Map.of("value", 10.86, "sensor_state", 0),
+                protocolTemplateEvidence("crack_child_template", "L1_LF_1", "202018143", "LF_VALUE", true, List.of("L1_LF_1"))
+        )));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+        ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
+        ProductModelGovernanceCompareRowVO sensorStateRow = compareRow(result, "property", "sensor_state");
+
+        assertEquals("runtime_only", valueRow.getCompareStatus());
+        assertNotNull(valueRow.getRuntimeCandidate().getProtocolTemplateEvidence());
+        assertIterableEquals(List.of("crack_child_template"), valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateCodes());
+        assertIterableEquals(List.of("L1_LF_1"), valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getLogicalChannelCodes());
+        assertIterableEquals(List.of("202018143"), valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getChildDeviceCodes());
+        assertIterableEquals(List.of("LF_VALUE"), valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getCanonicalizationStrategies());
+        assertEquals(Boolean.TRUE, valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getStatusMirrorApplied());
+        assertIterableEquals(List.of("L1_LF_1"), valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getParentRemovalKeys());
+        assertEquals(1, valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateExecutionCount());
+        assertEquals(0, valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getDecodeFailureCount());
+
+        assertNotNull(sensorStateRow.getRuntimeCandidate().getProtocolTemplateEvidence());
+        assertIterableEquals(List.of("crack_child_template"), sensorStateRow.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateCodes());
+    }
+
+    @Test
+    void compareGovernanceShouldAttachDeepDisplacementTemplateEvidenceToRuntimeCandidates() {
+        Device childDevice = device(3001L);
+        childDevice.setDeviceCode("202018299");
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-deep-displacement-v1", "深位移计"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(childDevice));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "dispsX", "X 向位移", "double", LocalDateTime.of(2026, 4, 5, 11, 0)),
+                property(3001L, "dispsY", "Y 向位移", "double", LocalDateTime.of(2026, 4, 5, 11, 0))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog(1001L, "202018299", "$dp", "property", "{\"SK00FB0D1310195\":{\"L1_SW_1\":{\"2026-04-05T11:00:00.000Z\":{\"dispsX\":-0.0445,\"dispsY\":0.0293}}}}", LocalDateTime.of(2026, 4, 5, 11, 0))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter(decodedChildMessage(
+                "SK00FB0D1310195",
+                "202018299",
+                Map.of("dispsX", -0.0445, "dispsY", 0.0293),
+                protocolTemplateEvidence("deep_displacement_child_template", "L1_SW_1", "202018299", "LEGACY", false, List.of("L1_SW_1"))
+        )));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+        ProductModelGovernanceCompareRowVO dispsX = compareRow(result, "property", "dispsX");
+        ProductModelGovernanceCompareRowVO dispsY = compareRow(result, "property", "dispsY");
+
+        assertNotNull(dispsX.getRuntimeCandidate().getProtocolTemplateEvidence());
+        assertIterableEquals(List.of("deep_displacement_child_template"), dispsX.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateCodes());
+        assertEquals(Boolean.FALSE, dispsX.getRuntimeCandidate().getProtocolTemplateEvidence().getStatusMirrorApplied());
+        assertNotNull(dispsY.getRuntimeCandidate().getProtocolTemplateEvidence());
+        assertIterableEquals(List.of("deep_displacement_child_template"), dispsY.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateCodes());
+    }
+
+    @Test
+    void compareGovernanceShouldNotFailWhenTemplateEvidenceDecodeFails() {
+        Device childDevice = device(3001L);
+        childDevice.setDeviceCode("202018143");
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-crack-sensor-v1", "裂缝计"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(childDevice));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "value", "裂缝值", "double", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog(1001L, "202018143", "$dp", "property", "{\"SK00EA0D1307986\":{\"L1_LF_1\":10.86}}", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(failingProtocolAdapter(new BizException("decode failed")));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+        ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
+
+        assertEquals("runtime_only", valueRow.getCompareStatus());
+        assertNotNull(valueRow.getRuntimeCandidate().getProtocolTemplateEvidence());
+        assertEquals(1, valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getDecodeFailureCount());
+        assertEquals(0, valueRow.getRuntimeCandidate().getProtocolTemplateEvidence().getTemplateExecutionCount());
+    }
+
+    @Test
     void compareGovernanceShouldRejectInapplicableNormativePresetForWarningProduct() {
         when(productMapper.selectById(1001L))
                 .thenReturn(product(1001L, "zhd-warning-sound-light-alarm-v1", "中海达 预警型 声光报警器"));
@@ -685,6 +811,47 @@ class ProductModelServiceImplTest {
         assertEquals(1, result.getCreatedCount());
         assertEquals(1, result.getUpdatedCount());
         assertEquals(1, result.getSkippedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldReturnAppliedItemsWithTemplateReceipt() {
+        Device childDevice = device(3001L);
+        childDevice.setDeviceCode("202018143");
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-crack-sensor-v1", "裂缝计"));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(childDevice));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "value", "裂缝值", "double", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog(1001L, "202018143", "$dp", "property", "{\"SK00EA0D1307986\":{\"L1_LF_1\":10.86}}", LocalDateTime.of(2026, 4, 5, 10, 0))
+        ));
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter(decodedChildMessage(
+                "SK00EA0D1307986",
+                "202018143",
+                Map.of("value", 10.86),
+                protocolTemplateEvidence("crack_child_template", "L1_LF_1", "202018143", "LF_VALUE", true, List.of("L1_LF_1"))
+        )));
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "value", "裂缝值")
+        ));
+
+        ProductModelGovernanceCompareDTO compareDTO = new ProductModelGovernanceCompareDTO();
+        compareDTO.setIncludeRuntimeCandidates(true);
+        productModelService.compareGovernance(1001L, compareDTO);
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+
+        assertEquals(1, result.getCreatedCount());
+        assertNotNull(result.getAppliedItems());
+        assertEquals(1, result.getAppliedItems().size());
+        assertEquals("value", result.getAppliedItems().get(0).getIdentifier());
+        assertEquals("create", result.getAppliedItems().get(0).getDecision());
+        assertIterableEquals(List.of("crack_child_template"), result.getAppliedItems().get(0).getTemplateCodes());
+        assertIterableEquals(List.of("LF_VALUE"), result.getAppliedItems().get(0).getCanonicalizationStrategies());
+        assertIterableEquals(List.of("202018143"), result.getAppliedItems().get(0).getChildDeviceCodes());
+        verify(protocolAdapterRegistry, times(1)).getAdapter("mqtt-json");
     }
 
     @Test
@@ -775,8 +942,19 @@ class ProductModelServiceImplTest {
     }
 
     private DeviceMessageLog messageLog(String messageType, String payload, LocalDateTime reportTime) {
+        return messageLog(1001L, "device-3001", null, messageType, payload, reportTime);
+    }
+
+    private DeviceMessageLog messageLog(Long productId,
+                                        String deviceCode,
+                                        String topic,
+                                        String messageType,
+                                        String payload,
+                                        LocalDateTime reportTime) {
         DeviceMessageLog log = new DeviceMessageLog();
-        log.setProductId(1001L);
+        log.setProductId(productId);
+        log.setDeviceCode(deviceCode);
+        log.setTopic(topic);
         log.setMessageType(messageType);
         log.setPayload(payload);
         log.setReportTime(reportTime);
@@ -881,5 +1059,90 @@ class ProductModelServiceImplTest {
         rule.setCanonicalizationStrategy(canonicalizationStrategy);
         rule.setStatusMirrorStrategy(statusMirrorStrategy);
         return rule;
+    }
+
+    private ProtocolAdapter protocolAdapter(DeviceUpMessage decodedMessage) {
+        return new ProtocolAdapter() {
+            @Override
+            public String getProtocolCode() {
+                return "mqtt-json";
+            }
+
+            @Override
+            public DeviceUpMessage decode(byte[] payload, ProtocolContext context) {
+                return decodedMessage;
+            }
+
+            @Override
+            public byte[] encode(DeviceDownMessage message, ProtocolContext context) {
+                return new byte[0];
+            }
+        };
+    }
+
+    private ProtocolAdapter failingProtocolAdapter(RuntimeException exception) {
+        return new ProtocolAdapter() {
+            @Override
+            public String getProtocolCode() {
+                return "mqtt-json";
+            }
+
+            @Override
+            public DeviceUpMessage decode(byte[] payload, ProtocolContext context) {
+                throw exception;
+            }
+
+            @Override
+            public byte[] encode(DeviceDownMessage message, ProtocolContext context) {
+                return new byte[0];
+            }
+        };
+    }
+
+    private DeviceUpMessage decodedChildMessage(String parentDeviceCode,
+                                                String childDeviceCode,
+                                                Map<String, Object> childProperties,
+                                                ProtocolTemplateEvidence templateEvidence) {
+        DeviceUpProtocolMetadata metadata = new DeviceUpProtocolMetadata();
+        metadata.setTemplateEvidence(templateEvidence);
+
+        DeviceUpMessage childMessage = new DeviceUpMessage();
+        childMessage.setDeviceCode(childDeviceCode);
+        childMessage.setProductKey("child-product");
+        childMessage.setProtocolCode("mqtt-json");
+        childMessage.setMessageType("property");
+        childMessage.setTopic("$dp");
+        childMessage.setProperties(new LinkedHashMap<>(childProperties));
+        childMessage.setProtocolMetadata(metadata);
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setDeviceCode(parentDeviceCode);
+        parentMessage.setProductKey("parent-product");
+        parentMessage.setProtocolCode("mqtt-json");
+        parentMessage.setMessageType("property");
+        parentMessage.setTopic("$dp");
+        parentMessage.setProtocolMetadata(metadata);
+        parentMessage.setChildMessages(List.of(childMessage));
+        return parentMessage;
+    }
+
+    private ProtocolTemplateEvidence protocolTemplateEvidence(String templateCode,
+                                                              String logicalChannelCode,
+                                                              String childDeviceCode,
+                                                              String canonicalizationStrategy,
+                                                              boolean statusMirrorApplied,
+                                                              List<String> parentRemovalKeys) {
+        ProtocolTemplateExecutionEvidence execution = new ProtocolTemplateExecutionEvidence();
+        execution.setTemplateCode(templateCode);
+        execution.setLogicalChannelCode(logicalChannelCode);
+        execution.setChildDeviceCode(childDeviceCode);
+        execution.setCanonicalizationStrategy(canonicalizationStrategy);
+        execution.setStatusMirrorApplied(statusMirrorApplied);
+        execution.setParentRemovalKeys(parentRemovalKeys);
+
+        ProtocolTemplateEvidence evidence = new ProtocolTemplateEvidence();
+        evidence.setTemplateCodes(List.of(templateCode));
+        evidence.setExecutions(List.of(execution));
+        return evidence;
     }
 }

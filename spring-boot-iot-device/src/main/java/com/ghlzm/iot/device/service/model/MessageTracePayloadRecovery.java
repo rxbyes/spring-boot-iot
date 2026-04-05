@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.service.model;
 
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import lombok.Data;
 
 import java.util.LinkedHashMap;
@@ -14,4 +15,5 @@ public class MessageTracePayloadRecovery {
     private String rawPayload;
     private String decryptedPayload;
     private Map<String, Object> decodedPayload = new LinkedHashMap<>();
+    private DeviceUpProtocolMetadata protocolMetadata;
 }

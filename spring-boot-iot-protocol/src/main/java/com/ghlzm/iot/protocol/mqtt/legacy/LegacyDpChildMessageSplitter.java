@@ -2,6 +2,8 @@ package com.ghlzm.iot.protocol.mqtt.legacy;
 
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateContext;
 import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateExecutionResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateExecutor;
@@ -13,9 +15,11 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -46,11 +50,30 @@ public class LegacyDpChildMessageSplitter {
     }
 
     public LegacyDpChildMessageSplitter(IotProperties iotProperties, LegacyDpRelationResolver relationResolver) {
+        this(iotProperties, relationResolver, new LegacyDpChildTemplateRegistry());
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties,
+                                        LegacyDpRelationResolver relationResolver,
+                                        LegacyDpChildTemplateRegistry templateRegistry) {
+        this(
+                iotProperties,
+                relationResolver,
+                new LegacyDpChildTemplateMatcher(templateRegistry == null
+                        ? new LegacyDpChildTemplateRegistry()
+                        : templateRegistry),
+                new LegacyDpChildTemplateExecutor()
+        );
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties,
+                                        LegacyDpRelationResolver relationResolver,
+                                        LegacyDpChildTemplateMatcher templateMatcher,
+                                        LegacyDpChildTemplateExecutor templateExecutor) {
         this.iotProperties = iotProperties;
         this.relationResolver = relationResolver == null ? LegacyDpRelationResolver.noop() : relationResolver;
-        LegacyDpChildTemplateRegistry templateRegistry = new LegacyDpChildTemplateRegistry();
-        this.templateMatcher = new LegacyDpChildTemplateMatcher(templateRegistry);
-        this.templateExecutor = new LegacyDpChildTemplateExecutor();
+        this.templateMatcher = Objects.requireNonNull(templateMatcher, "templateMatcher");
+        this.templateExecutor = Objects.requireNonNull(templateExecutor, "templateExecutor");
     }
 
     public LegacyDpNormalizeResult split(Map<String, Object> payload,
@@ -60,6 +83,7 @@ public class LegacyDpChildMessageSplitter {
         if (parentMessage == null) {
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
@@ -68,6 +92,7 @@ public class LegacyDpChildMessageSplitter {
             result.setProperties(collapseStandaloneDeepDisplacementProperties(parentMessage, result));
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
@@ -75,11 +100,13 @@ public class LegacyDpChildMessageSplitter {
         if (!(basePayload instanceof Map<?, ?> basePayloadMap)) {
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
         List<DeviceUpMessage> childMessages = new ArrayList<>();
         List<String> parentRemovalKeys = new ArrayList<>();
+        List<ProtocolTemplateExecutionEvidence> templateExecutions = new ArrayList<>();
         for (LegacyDpRelationRule rule : relationRules) {
             String logicalCode = rule.logicalChannelCode();
             String childDeviceCode = rule.childDeviceCode();
@@ -106,6 +133,7 @@ public class LegacyDpChildMessageSplitter {
                 childTimestamp = templateExecution.childTimestamp();
                 childRawPayload = templateExecution.rawPayload();
                 parentRemovalKeys.addAll(templateExecution.parentRemovalKeys());
+                templateExecutions.add(buildTemplateExecutionEvidence(logicalCode, childDeviceCode, templateExecution));
             } else {
                 LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(rule, basePayloadMap.get(logicalCode));
                 if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
@@ -135,6 +163,7 @@ public class LegacyDpChildMessageSplitter {
         }
 
         result.setChildMessages(childMessages);
+        result.setTemplateEvidence(buildTemplateEvidence(templateExecutions));
         if (childMessages.isEmpty()) {
             result.setChildSplitApplied(Boolean.FALSE);
             return result;
@@ -143,6 +172,35 @@ public class LegacyDpChildMessageSplitter {
         result.setChildSplitApplied(Boolean.TRUE);
         result.setProperties(removeChildLogicalProperties(result.getProperties(), parentRemovalKeys));
         return result;
+    }
+
+    private ProtocolTemplateExecutionEvidence buildTemplateExecutionEvidence(String logicalCode,
+                                                                            String childDeviceCode,
+                                                                            LegacyDpChildTemplateExecutionResult executionResult) {
+        ProtocolTemplateExecutionEvidence evidence = new ProtocolTemplateExecutionEvidence();
+        evidence.setTemplateCode(executionResult.templateCode());
+        evidence.setLogicalChannelCode(logicalCode);
+        evidence.setChildDeviceCode(childDeviceCode);
+        evidence.setCanonicalizationStrategy(executionResult.canonicalizationStrategy());
+        evidence.setStatusMirrorApplied(executionResult.statusMirrorApplied());
+        evidence.setParentRemovalKeys(executionResult.parentRemovalKeys());
+        return evidence;
+    }
+
+    private ProtocolTemplateEvidence buildTemplateEvidence(List<ProtocolTemplateExecutionEvidence> executions) {
+        if (executions == null || executions.isEmpty()) {
+            return null;
+        }
+        ProtocolTemplateEvidence evidence = new ProtocolTemplateEvidence();
+        evidence.setExecutions(List.copyOf(executions));
+        LinkedHashSet<String> templateCodes = new LinkedHashSet<>();
+        for (ProtocolTemplateExecutionEvidence execution : executions) {
+            if (execution != null && execution.getTemplateCode() != null && !execution.getTemplateCode().isBlank()) {
+                templateCodes.add(execution.getTemplateCode());
+            }
+        }
+        evidence.setTemplateCodes(List.copyOf(templateCodes));
+        return evidence;
     }
 
     private List<LegacyDpRelationRule> resolveRelationRules(String baseDeviceCode) {

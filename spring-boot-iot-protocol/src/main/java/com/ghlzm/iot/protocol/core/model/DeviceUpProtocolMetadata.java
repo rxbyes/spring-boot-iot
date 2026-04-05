@@ -20,4 +20,5 @@ public class DeviceUpProtocolMetadata {
     private String routeType;
     private String decryptedPayloadPreview;
     private Map<String, Object> decodedPayloadPreview;
+    private ProtocolTemplateEvidence templateEvidence;
 }

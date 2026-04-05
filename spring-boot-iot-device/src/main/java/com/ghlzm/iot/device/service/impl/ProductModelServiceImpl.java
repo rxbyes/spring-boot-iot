@@ -22,15 +22,20 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceRelationService;
+import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceAppliedItemVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceEvidenceVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
+import com.ghlzm.iot.device.vo.ProductModelProtocolTemplateEvidenceVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
+import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -175,6 +180,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
     private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
     private final ProductModelNormativePresetRegistry normativePresetRegistry = new ProductModelNormativePresetRegistry();
+    private final ProductModelProtocolTemplateEvidenceResolver protocolTemplateEvidenceResolver;
+    private final ProductModelGovernanceReceiptStore governanceReceiptStore;
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
@@ -182,7 +189,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                    DevicePropertyMapper devicePropertyMapper,
                                    DeviceMessageLogMapper deviceMessageLogMapper,
                                    CommandRecordMapper commandRecordMapper,
-                                   DeviceRelationService deviceRelationService) {
+                                   DeviceRelationService deviceRelationService,
+                                   ProtocolAdapterRegistry protocolAdapterRegistry,
+                                   ProductModelGovernanceReceiptStore governanceReceiptStore) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
         this.deviceMapper = deviceMapper;
@@ -190,6 +199,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.commandRecordMapper = commandRecordMapper;
         this.deviceRelationService = deviceRelationService;
+        this.protocolTemplateEvidenceResolver = new ProductModelProtocolTemplateEvidenceResolver(protocolAdapterRegistry);
+        this.governanceReceiptStore = governanceReceiptStore;
     }
 
     @Override
@@ -288,7 +299,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         ProductModelCandidateResultVO runtimeResult = shouldLoadRuntimeCandidates(dto)
                 ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size(), dto, normalizedNormativePresetCode)
                 : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
-        return governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
+        ProductModelGovernanceCompareVO compareResult =
+                governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
+        governanceReceiptStore.replaceProtocolTemplateEvidence(productId, collectCompareProtocolTemplateEvidence(compareResult));
+        return compareResult;
     }
 
     @Override
@@ -319,6 +333,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         result.setSkippedCount(skippedCount);
         result.setConflictCount(0);
         result.setLastAppliedAt(LocalDateTime.now());
+        result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
         return result;
     }
 
@@ -550,6 +565,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 dto,
                 normalizedNormativePresetCode
         );
+        attachProtocolTemplateEvidence(product, devices, properties, logs, propertyCandidates);
         PropertyEvidenceBundle propertyBundle = new PropertyEvidenceBundle(
                 propertyCandidates,
                 runtimePropertyBundle.evidenceCount(),
@@ -568,6 +584,59 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 null,
                 0
         );
+    }
+
+    private void attachProtocolTemplateEvidence(Product product,
+                                                List<Device> devices,
+                                                List<DeviceProperty> properties,
+                                                List<DeviceMessageLog> logs,
+                                                List<ProductModelCandidateVO> propertyCandidates) {
+        protocolTemplateEvidenceResolver.attach(product, devices, properties, logs, propertyCandidates);
+    }
+
+    private Map<String, ProductModelProtocolTemplateEvidenceVO> collectCompareProtocolTemplateEvidence(
+            ProductModelGovernanceCompareVO compareResult) {
+        if (compareResult == null || compareResult.getCompareRows() == null || compareResult.getCompareRows().isEmpty()) {
+            return Map.of();
+        }
+        Map<String, ProductModelProtocolTemplateEvidenceVO> evidenceByIdentifier = new LinkedHashMap<>();
+        for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
+            if (row == null || row.getRuntimeCandidate() == null || row.getRuntimeCandidate().getProtocolTemplateEvidence() == null) {
+                continue;
+            }
+            String identifier = normalizeOptional(row.getIdentifier());
+            if (identifier == null) {
+                identifier = normalizeOptional(row.getRuntimeCandidate().getIdentifier());
+            }
+            if (identifier != null) {
+                evidenceByIdentifier.put(identifier, row.getRuntimeCandidate().getProtocolTemplateEvidence());
+            }
+        }
+        return evidenceByIdentifier;
+    }
+
+    private List<ProductModelGovernanceAppliedItemVO> buildGovernanceAppliedItems(Long productId,
+                                                                                  List<ProductModelGovernanceApplyDTO.ApplyItem> items) {
+        List<ProductModelGovernanceApplyDTO.ApplyItem> safeItems = items == null ? List.of() : items;
+        Map<String, ProductModelProtocolTemplateEvidenceVO> protocolTemplateEvidenceByIdentifier =
+                governanceReceiptStore.loadProtocolTemplateEvidence(productId);
+        return safeItems.stream()
+                .map(item -> toAppliedItem(item, protocolTemplateEvidenceByIdentifier.get(normalizeOptional(item.getIdentifier()))))
+                .toList();
+    }
+
+    private ProductModelGovernanceAppliedItemVO toAppliedItem(ProductModelGovernanceApplyDTO.ApplyItem item,
+                                                              ProductModelProtocolTemplateEvidenceVO protocolTemplateEvidence) {
+        ProductModelGovernanceAppliedItemVO appliedItem = new ProductModelGovernanceAppliedItemVO();
+        appliedItem.setModelType(normalizeOptional(item.getModelType()));
+        appliedItem.setIdentifier(normalizeOptional(item.getIdentifier()));
+        appliedItem.setDecision(normalizeOptional(item.getDecision()));
+        if (protocolTemplateEvidence != null) {
+            appliedItem.setTemplateCodes(protocolTemplateEvidence.getTemplateCodes());
+            appliedItem.setCanonicalizationStrategies(protocolTemplateEvidence.getCanonicalizationStrategies());
+            appliedItem.setChildDeviceCodes(protocolTemplateEvidence.getChildDeviceCodes());
+        }
+        return appliedItem;
     }
 
     private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Long productId,
@@ -754,6 +823,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             sources.addAll(overlay.getSourceTables());
         }
         merged.setSourceTables(new ArrayList<>(sources));
+        merged.setProtocolTemplateEvidence(firstNonNull(overlay.getProtocolTemplateEvidence(), existing.getProtocolTemplateEvidence()));
         return merged;
     }
 
@@ -827,6 +897,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setSourceTables(runtimeCandidate.getSourceTables() == null
                 ? List.of()
                 : new ArrayList<>(runtimeCandidate.getSourceTables()));
+        candidate.setProtocolTemplateEvidence(runtimeCandidate.getProtocolTemplateEvidence());
         return candidate;
     }
 

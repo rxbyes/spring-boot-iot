@@ -394,6 +394,24 @@ function createDetailResponse(overrides: Record<string, unknown> = {}) {
           temperature: 26.5
         }
       },
+      protocolMetadata: {
+        routeType: 'legacy',
+        normalizationStrategy: 'LEGACY_DP',
+        childSplitApplied: true,
+        templateEvidence: {
+          templateCodes: ['crack_child_template'],
+          executions: [
+            {
+              templateCode: 'crack_child_template',
+              logicalChannelCode: 'L1_LF_1',
+              childDeviceCode: '202018143',
+              canonicalizationStrategy: 'LF_VALUE',
+              statusMirrorApplied: true,
+              parentRemovalKeys: ['L1_LF_1']
+            }
+          ]
+        }
+      },
       reportTime: '2026-03-23 10:00:00',
       createTime: '2026-03-23 10:00:00',
       ...overrides
@@ -654,6 +672,22 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('解析结果');
     expect(wrapper.text()).toContain('temperature');
     expect(wrapper.text()).toContain('demo-device-01');
+  });
+
+  it('renders protocol template evidence in the detail drawer when available', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('协议模板证据');
+    expect(wrapper.text()).toContain('crack_child_template');
+    expect(wrapper.text()).toContain('L1_LF_1');
+    expect(wrapper.text()).toContain('202018143');
+    expect(wrapper.text()).toContain('LF_VALUE');
   });
 
   it('keeps the customer-facing detail workbench minimal and removes helper copy', async () => {

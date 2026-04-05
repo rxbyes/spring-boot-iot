@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.vo.messageflow;
 
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public class MessageTraceDetailVO {
     private Map<String, Object> decodedPayload = new LinkedHashMap<>();
     private LocalDateTime reportTime;
     private LocalDateTime createTime;
+    private DeviceUpProtocolMetadata protocolMetadata;
     private MessageFlowTimelineVO timeline;
     private Boolean timelineLookupError;
 }

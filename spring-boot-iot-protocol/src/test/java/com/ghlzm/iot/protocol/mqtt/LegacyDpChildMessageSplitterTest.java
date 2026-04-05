@@ -6,6 +6,10 @@ import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationRule;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplate;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateContext;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateExecutionResult;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
@@ -364,6 +368,78 @@ class LegacyDpChildMessageSplitterTest {
         assertEquals(1, result.getChildMessages().size());
         assertEquals("NW_CHILD_01", result.getChildMessages().get(0).getDeviceCode());
         assertEquals(Map.of("L4_NW_1", 36.5), result.getChildMessages().get(0).getProperties());
+    }
+
+    @Test
+    void shouldUseInjectedTemplateRegistryAndExposeTemplateEvidence() {
+        IotProperties iotProperties = new IotProperties();
+        LegacyDpRelationResolver relationResolver = parentDeviceCode -> List.of(
+                new LegacyDpRelationRule("L1_SW_1", "CUSTOM-CHILD-01", "LEGACY", "NONE")
+        );
+        LegacyDpChildTemplate customTemplate = new LegacyDpChildTemplate() {
+            @Override
+            public String getTemplateCode() {
+                return "custom_child_template";
+            }
+
+            @Override
+            public boolean matches(LegacyDpChildTemplateContext context) {
+                return context != null && "L1_SW_1".equals(context.logicalCode());
+            }
+
+            @Override
+            public LegacyDpChildTemplateExecutionResult execute(LegacyDpChildTemplateContext context) {
+                return new LegacyDpChildTemplateExecutionResult(
+                        "custom_child_template",
+                        Map.of("custom_axis", 99.1),
+                        List.of("L1_SW_1"),
+                        false,
+                        "CUSTOM",
+                        LocalDateTime.of(2026, 4, 5, 9, 30, 0),
+                        "{\"L1_SW_1\":{\"2026-04-05T01:30:00.000Z\":{\"dispsX\":99.1}}}"
+                );
+            }
+        };
+        LegacyDpChildMessageSplitter splitter = new LegacyDpChildMessageSplitter(
+                iotProperties,
+                relationResolver,
+                new LegacyDpChildTemplateRegistry(List.of(customTemplate))
+        );
+        LegacyDpNormalizeResult normalizeResult = new LegacyDpNormalizeResult();
+        normalizeResult.setProperties(new LinkedHashMap<>(Map.of("L1_SW_1.dispsX", 99.1)));
+        normalizeResult.setTimestamp(LocalDateTime.of(2026, 4, 5, 9, 30, 0));
+        normalizeResult.setMessageType("property");
+        normalizeResult.setFamilyCodes(List.of("L1_SW_1"));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("custom-product");
+        parentMessage.setDeviceCode("GW_CUSTOM");
+        parentMessage.setMessageType("property");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 5, 9, 30, 0));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("GW_CUSTOM", Map.of("L1_SW_1", timestampPayload(Map.of("dispsX", 99.1))));
+
+        LegacyDpNormalizeResult result = splitter.split(payload, parentMessage, normalizeResult);
+
+        assertEquals(Boolean.TRUE, result.getChildSplitApplied());
+        assertEquals(1, result.getChildMessages().size());
+        assertEquals("CUSTOM-CHILD-01", result.getChildMessages().get(0).getDeviceCode());
+        assertEquals(Map.of("custom_axis", 99.1), result.getChildMessages().get(0).getProperties());
+
+        Object templateEvidence = invoke(result, "getTemplateEvidence");
+        assertEquals(List.of("custom_child_template"), invoke(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) invoke(templateEvidence, "getExecutions");
+        assertEquals(1, executions.size());
+        assertEquals("custom_child_template", invoke(executions.get(0), "getTemplateCode"));
+        assertEquals("L1_SW_1", invoke(executions.get(0), "getLogicalChannelCode"));
+        assertEquals("CUSTOM-CHILD-01", invoke(executions.get(0), "getChildDeviceCode"));
+        assertEquals("CUSTOM", invoke(executions.get(0), "getCanonicalizationStrategy"));
+        assertEquals(Boolean.FALSE, invoke(executions.get(0), "getStatusMirrorApplied"));
+        assertEquals(List.of("L1_SW_1"), invoke(executions.get(0), "getParentRemovalKeys"));
     }
 
     private Map<String, Object> timestampPayload(Object value) {

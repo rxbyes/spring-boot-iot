@@ -359,6 +359,47 @@ describe('ProductModelDesignerDrawer', () => {
     })
   })
 
+  it('shows the apply receipt in the current governance session after apply succeeds', async () => {
+    mockApplyProductModelGovernance.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        createdCount: 1,
+        updatedCount: 0,
+        skippedCount: 0,
+        conflictCount: 0,
+        lastAppliedAt: '2026-03-31T12:05:00',
+        appliedItems: [
+          {
+            modelType: 'property',
+            identifier: 'L1_QJ_1.X',
+            decision: 'create',
+            templateCodes: ['crack_child_template'],
+            canonicalizationStrategies: ['LF_VALUE'],
+            childDeviceCodes: ['202018143']
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.find('[data-testid="governance-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="governance-apply-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="governance-apply-receipt"]').text()).toContain('本次治理回执')
+    expect(wrapper.get('[data-testid="governance-apply-receipt"]').text()).toContain('crack_child_template')
+    expect(wrapper.get('[data-testid="governance-apply-receipt"]').text()).toContain('202018143')
+    expect(wrapper.get('[data-testid="governance-apply-receipt"]').text()).toContain('L1_QJ_1.X')
+  })
+
   it('shows an empty normative preset state for warning products and can switch to generic governance', async () => {
     const wrapper = mountDrawer({
       productKey: 'zhd-warning-sound-light-alarm-v1',

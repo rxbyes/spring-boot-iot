@@ -186,7 +186,9 @@ Payload：
 - 默认兼容路径仍为 v1：继续复用 adapter 内原有 inline helper。
 - v2 路径复用 `LegacyDpFamilyResolver`、`LegacyDpPropertyNormalizer`、`LegacyDpChildMessageSplitter`。
 - 2026-03-25：`LegacyDpChildMessageSplitter` 已补齐单设备深部位移兜底逻辑。无子设备映射、且 family code 仅包含 `S1_ZT_1` 与单个 `L1_SW_*` 逻辑测点时，会把逻辑前缀属性折叠为当前设备的 `dispsX / dispsY`，继续保持基准站拆子设备场景不变；`MqttJsonProtocolAdapter` 适配器层回归也已补齐。
-- 2026-04-05：Phase 5 Wave 1 协议模板执行底座已落地到 v2 路径。当前裂缝与深部位移父子拆分不再直接硬编码在 `LegacyDpChildMessageSplitter` 内，而是以 `crack_child_template`、`deep_displacement_child_template` 两个内置模板承载；`LegacyDpChildMessageSplitter` 只保留总编排与兼容 fallback，方便后续继续扩展配置化注册与治理面消费模板元信息。
+- 2026-04-05：Phase 5 Wave 1 协议模板执行底座已落地到 v2 路径。当前裂缝与深部位移父子拆分不再直接硬编码在 `LegacyDpChildMessageSplitter` 内，而是以 `crack_child_template`、`deep_displacement_child_template` 两个内置模板承载；`LegacyDpChildMessageSplitter` 只保留总编排与兼容 fallback，并已补齐“可替换模板注册表/匹配器”构造入口，方便后续继续扩展配置化注册与治理面消费模板元信息。
+- 2026-04-05：`MqttJsonProtocolAdapter` 当前会把模板执行证据外提到 `DeviceUpProtocolMetadata.templateEvidence`：固定包含 `templateCodes[]`，以及按通道展开的 `executions[]`（`templateCode / logicalChannelCode / childDeviceCode / canonicalizationStrategy / statusMirrorApplied / parentRemovalKeys[]`）。该结构已同时服务 `message-flow` 时间线摘要和 `/api/device/message-flow/detail/{id}` 的过期详情恢复，不再只停留在 splitter 内部。
+- 2026-04-05：Phase 5 Wave 2 已把这份模板证据正式接入产品治理消费面。`spring-boot-iot-device` 当前会在 `/api/device/product/{productId}/model-governance/compare` 读路径内，基于近期真实 `iot_device_message_log` 轻量重解码并聚合治理侧快照，把 `templateCodes / logicalChannelCodes / childDeviceCodes / canonicalizationStrategies / statusMirrorApplied / parentRemovalKeys / templateExecutionCount / decodeFailureCount` 挂到 `runtimeCandidate.protocolTemplateEvidence`；`/api/device/product/{productId}/model-governance/apply` 会复用最近一次 compare 已生成的模板快照回传最小来源回执，不会在 apply 阶段再次重解码真实报文，这些模板元信息也仍不写入正式模型表。
 - `iot.telemetry.legacy-mapping-validate-only=true` 时会并行执行 old/new 比对并输出差异日志，但 decode 结果继续沿用 v1。
 - `iot.protocol.legacy-dp.normalizer-v2-enabled=true` 后，才会把 legacy `$dp` 的标准化与子消息拆分切换到 v2。
 - 以上切换只发生在协议层内部，不改变 `MqttMessageConsumer`、固定 Pipeline 顺序、控制器接口或外部 API 结构。
@@ -209,7 +211,7 @@ Payload：
 - `message` 模块负责固定 Pipeline 编排；`MqttMessageConsumer` 和 `DeviceHttpController` 都统一进入同一条 Pipeline。
 - `TOPIC_ROUTE` 继续由 `MqttTopicRouter` 负责；HTTP 入口在该阶段固定标记为 `SKIPPED/DIRECT_HTTP`。
 - `PROTOCOL_DECODE` 继续由 `MqttJsonProtocolAdapter` 负责，不再顺带承担“流程展示”职责；阶段摘要固定输出 `routeType`、`messageType`、`dataFormatType`、`childMessageCount`、`filePayload`。
-- 当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，legacy `$dp` 的 `PROTOCOL_DECODE` 还会输出 `appId`、`familyCodes`、`normalizationStrategy`、`timestampSource`、`childSplitApplied`。
+- 当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，legacy `$dp` 的 `PROTOCOL_DECODE` 还会输出 `appId`、`familyCodes`、`normalizationStrategy`、`timestampSource`、`childSplitApplied`，以及模板化拆分摘要 `templateCodes`、`templateExecutionCount`、`templateLogicalCodes`。
 - 当 `iot.protocol.legacy-dp.family-observability-enabled=false` 时，legacy `$dp` 仍正常解码与入库，但不再附带协议元数据。
 - `device` 模块负责 `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 等显式 stage handler。
 - `telemetry` 模块负责 `TELEMETRY_PERSIST`，按标准化 `properties` 写 TDengine；`reply` / 文件载荷 / 空属性消息会跳过该步骤。
