@@ -188,11 +188,21 @@ public class ProductModelGovernanceComparator {
         }
         if (runtime == null) {
             riskFlags.add("runtime_missing");
+        } else if (isWeakRuntimeEvidence(runtime)) {
+            riskFlags.add("runtime_low_evidence");
         }
         if (suspectedMatches != null && !suspectedMatches.isEmpty()) {
             riskFlags.add("suspected_match");
         }
         return riskFlags;
+    }
+
+    private boolean isWeakRuntimeEvidence(ProductModelGovernanceEvidenceVO runtime) {
+        if (runtime == null || !"property".equals(normalize(runtime.getModelType()))) {
+            return false;
+        }
+        return firstNonNull(runtime.getMessageEvidenceCount(), 0) <= 0
+                && firstNonNull(runtime.getEvidenceCount(), 0) <= 1;
     }
 
     private Map<String, ProductModelGovernanceEvidenceVO> toCandidateEvidenceMap(ProductModelCandidateResultVO result) {
@@ -436,5 +446,9 @@ public class ProductModelGovernanceComparator {
 
     private <T> List<T> safeList(List<T> values) {
         return values == null ? List.of() : values;
+    }
+
+    private <T> T firstNonNull(T preferred, T fallback) {
+        return preferred != null ? preferred : fallback;
     }
 }
