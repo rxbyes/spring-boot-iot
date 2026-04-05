@@ -179,7 +179,7 @@ export async function runRegistryCli({
   if (options.list) {
     return {
       exitCode: 0,
-      listed: registry.scenarios
+      listed: filterRegistryScenarios(registry, options)
     };
   }
 

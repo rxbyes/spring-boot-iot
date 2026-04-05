@@ -28,6 +28,69 @@
       }
     },
     {
+      "id": "iot-access.browser-smoke",
+      "title": "接入智维浏览器主链路专项",
+      "module": "iot-access",
+      "docRef": "docs/superpowers/specs/2026-04-05-iot-access-automation-design.md#6",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "blocker",
+      "dependsOn": [],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 12
+      },
+      "runner": {
+        "planRef": "config/automation/iot-access-web-smoke-plan.json",
+        "scenarioScopes": ["delivery", "baseline"],
+        "failScopes": ["delivery"]
+      }
+    },
+    {
+      "id": "iot-access.api-smoke",
+      "title": "接入智维接口主链路专项",
+      "module": "iot-access",
+      "docRef": "docs/superpowers/specs/2026-04-05-iot-access-automation-design.md#8",
+      "runnerType": "apiSmoke",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": [],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 10
+      },
+      "runner": {
+        "pointFilters": [
+          "IOT-PRODUCT",
+          "IOT-DEVICE",
+          "INGEST-HTTP",
+          "MQTT-DOWN",
+          "SYS-AUDIT"
+        ]
+      }
+    },
+    {
+      "id": "iot-access.message-flow",
+      "title": "接入智维链路追踪专项",
+      "module": "iot-access",
+      "docRef": "docs/superpowers/specs/2026-04-05-iot-access-automation-design.md#7",
+      "runnerType": "messageFlow",
+      "scope": "baseline",
+      "blocking": "warning",
+      "dependsOn": ["iot-access.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json"],
+      "timeouts": {
+        "maxMinutes": 10
+      },
+      "runner": {
+        "entryScript": "scripts/run-message-flow-acceptance.py",
+        "requiresExpiredTraceId": true
+      }
+    },
+    {
       "id": "system.api-smoke",
       "title": "系统与业务 API 冒烟",
       "module": "system",
