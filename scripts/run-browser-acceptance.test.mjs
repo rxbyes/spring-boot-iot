@@ -111,12 +111,26 @@ test('iot access smoke plan defines expected scenarios, ready selectors, and rep
   const fileDebugScenario = scenarios.get('iot-access-file-debug');
   assert.equal(fileDebugScenario?.scope, 'baseline');
   const fileDebugStepIds = (fileDebugScenario?.steps || []).map((step) => step.id);
-  assert.deepEqual(fileDebugStepIds, ['file-debug-fill-device-code', 'file-debug-refresh-data']);
-  const fileDebugRefreshStep = fileDebugScenario?.steps.find((step) => step.id === 'file-debug-refresh-data');
-  assert.equal(fileDebugRefreshStep?.type, 'triggerApi');
-  assert.match(fileDebugRefreshStep?.matcher || '', /\/api\/device\/.*\/(file-snapshots|firmware-aggregates)$/);
-  assert.equal(fileDebugRefreshStep?.action?.locator?.type, 'role');
-  assert.equal(fileDebugRefreshStep?.action?.locator?.name, '刷新数据');
+  assert.deepEqual(fileDebugStepIds, [
+    'file-debug-fill-device-code',
+    'file-debug-refresh-file-snapshots',
+    'file-debug-refresh-firmware-aggregates'
+  ]);
+  const fileSnapshotsStep = fileDebugScenario?.steps.find((step) => step.id === 'file-debug-refresh-file-snapshots');
+  assert.equal(fileSnapshotsStep?.type, 'triggerApi');
+  assert.equal(fileSnapshotsStep?.matcher, '/api/device/iot-access-device-${runToken}/file-snapshots');
+  assert.equal(fileSnapshotsStep?.action?.locator?.type, 'role');
+  assert.equal(fileSnapshotsStep?.action?.locator?.name, '\u5237\u65b0\u6570\u636e');
+  const firmwareAggregatesStep = fileDebugScenario?.steps.find(
+    (step) => step.id === 'file-debug-refresh-firmware-aggregates'
+  );
+  assert.equal(firmwareAggregatesStep?.type, 'triggerApi');
+  assert.equal(
+    firmwareAggregatesStep?.matcher,
+    '/api/device/iot-access-device-${runToken}/firmware-aggregates'
+  );
+  assert.equal(firmwareAggregatesStep?.action?.locator?.type, 'role');
+  assert.equal(firmwareAggregatesStep?.action?.locator?.name, '\u5237\u65b0\u6570\u636e');
 });
 
 test('reporting and file debug contracts are aligned with current source defaults', () => {
@@ -136,6 +150,15 @@ test('reporting and file debug contracts are aligned with current source default
   assert.match(reportWorkbenchSource, /发送 HTTP 模拟/);
   assert.match(iotApiSource, /\/api\/device\/\$\{deviceCode\}\/file-snapshots/);
   assert.match(iotApiSource, /\/api\/device\/\$\{deviceCode\}\/firmware-aggregates/);
+});
+
+test('iot access tab workspace gives query key precedence when resolving active key', () => {
+  const tabWorkspaceSource = fs.readFileSync(
+    path.join(repoRoot, 'spring-boot-iot-ui', 'src', 'components', 'iotAccess', 'IotAccessTabWorkspace.vue'),
+    'utf8'
+  );
+
+  assert.match(tabWorkspaceSource, /route\.query\?\.\[props\.queryKey\]/);
 });
 
 test('sample web smoke plan matches current login and product/device workbench flow', () => {

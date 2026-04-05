@@ -462,10 +462,25 @@
           "value": "iot-access-device-${runToken}"
         },
         {
-          "id": "file-debug-refresh-data",
-          "label": "点击刷新数据",
+          "id": "file-debug-refresh-file-snapshots",
+          "label": "刷新数据并等待 file snapshots",
           "type": "triggerApi",
           "matcher": "/api/device/iot-access-device-${runToken}/file-snapshots",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "刷新数据",
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "file-debug-refresh-firmware-aggregates",
+          "label": "刷新数据并等待 firmware aggregates",
+          "type": "triggerApi",
+          "matcher": "/api/device/iot-access-device-${runToken}/firmware-aggregates",
           "action": {
             "type": "click",
             "locator": {
