@@ -287,7 +287,8 @@
     {
       "key": "iot-access-reporting",
       "name": "上报入口冒烟",
-      "route": "/reporting",
+      "route": "/reporting?tab=simulate",
+      "expectedPath": "/reporting",
       "scope": "delivery",
       "readySelector": "#report-device-code",
       "requiresLogin": true,
@@ -309,6 +310,21 @@
           "value": "iot-access-device-${runToken}"
         },
         {
+          "id": "reporting-query-device",
+          "label": "查询设备",
+          "type": "triggerApi",
+          "matcher": "/api/device/code/",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询设备",
+              "exact": true
+            }
+          }
+        },
+        {
           "id": "reporting-fill-payload",
           "label": "填写上报报文",
           "type": "fill",
@@ -326,8 +342,10 @@
           "action": {
             "type": "click",
             "locator": {
-              "type": "css",
-              "value": "#report-submit"
+              "type": "role",
+              "role": "button",
+              "name": "发送 HTTP 模拟",
+              "exact": true
             }
           },
           "captures": [
@@ -446,12 +464,16 @@
         {
           "id": "file-debug-refresh-data",
           "label": "点击刷新数据",
-          "type": "click",
-          "locator": {
-            "type": "role",
-            "role": "button",
-            "name": "刷新数据",
-            "exact": true
+          "type": "triggerApi",
+          "matcher": "/api/device/iot-access-device-${runToken}/file-snapshots",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "刷新数据",
+              "exact": true
+            }
           }
         }
       ]
