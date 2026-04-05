@@ -5,6 +5,8 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationRule;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
@@ -274,6 +276,79 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
+    void shouldSplitConfiguredCrackChildrenToCanonicalValueAndMirrorSensorState() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        Map<String, String> baseStationMappings = new LinkedHashMap<>();
+        baseStationMappings.put("L1_LF_1", "202018143");
+        baseStationMappings.put("L1_LF_2", "202018135");
+        deviceConfig.setSubDeviceMappings(Map.of("SK00EA0D1307986", baseStationMappings));
+        properties.setDevice(deviceConfig);
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"ext_power_volt":12.12,"sensor_state":{"L1_LF_1":0,"L1_LF_2":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86},"L1_LF_2":{"2026-04-04T22:10:35.000Z":6.95}}}
+                """), context);
+
+        assertEquals("SK00EA0D1307986", message.getDeviceCode());
+        assertEquals("status", message.getMessageType());
+        assertNotNull(message.getChildMessages());
+        assertEquals(2, message.getChildMessages().size());
+        assertEquals("202018143", message.getChildMessages().get(0).getDeviceCode());
+        assertEquals(10.86, message.getChildMessages().get(0).getProperties().get("value"));
+        assertEquals(0, message.getChildMessages().get(0).getProperties().get("sensor_state"));
+        assertEquals("202018135", message.getChildMessages().get(1).getDeviceCode());
+        assertEquals(6.95, message.getChildMessages().get(1).getProperties().get("value"));
+        assertEquals(0, message.getChildMessages().get(1).getProperties().get("sensor_state"));
+        assertEquals(12.12, message.getProperties().get("S1_ZT_1.ext_power_volt"));
+        assertEquals(0, message.getProperties().get("S1_ZT_1.sensor_state.L1_LF_1"));
+        assertEquals(0, message.getProperties().get("S1_ZT_1.sensor_state.L1_LF_2"));
+        assertFalse(message.getProperties().containsKey("L1_LF_1"));
+        assertFalse(message.getProperties().containsKey("L1_LF_2"));
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(List.of("S1_ZT_1", "L1_LF_1", "L1_LF_2"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+    }
+
+    @Test
+    void shouldPreferRelationRegistryRuleOverLegacyConfigFallbackWhenDecodingCollectorPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        deviceConfig.setSubDeviceMappings(Map.of(
+                "SK00EA0D1307986",
+                Map.of("L1_LF_1", "WRONG-CONFIG-CHILD")
+        ));
+        properties.setDevice(deviceConfig);
+        LegacyDpRelationResolver relationResolver = parentDeviceCode -> List.of(
+                new LegacyDpRelationRule("L1_LF_1", "202018143", "LF_VALUE", "SENSOR_STATE")
+        );
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties, List.of(), relationResolver);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"sensor_state":{"L1_LF_1":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86}}}
+                """), context);
+
+        assertNotNull(message.getChildMessages());
+        assertEquals(1, message.getChildMessages().size());
+        assertEquals("202018143", message.getChildMessages().get(0).getDeviceCode());
+        assertEquals(Map.of("value", 10.86, "sensor_state", 0), message.getChildMessages().get(0).getProperties());
+    }
+
+    @Test
     void shouldCollapseSingleDeepDisplacementLogicalPropertiesWithoutSubDeviceMappings() {
         IotProperties properties = new IotProperties();
         properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
@@ -418,10 +493,16 @@ class MqttJsonProtocolAdapterTest {
     }
 
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties) {
-        return newAdapter(iotProperties, List.of());
+        return newAdapter(iotProperties, List.of(), parentDeviceCode -> List.of());
     }
 
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties, List<MqttPayloadDecryptor> decryptors) {
+        return newAdapter(iotProperties, decryptors, parentDeviceCode -> List.of());
+    }
+
+    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
+                                               List<MqttPayloadDecryptor> decryptors,
+                                               LegacyDpRelationResolver relationResolver) {
         LegacyDpEnvelopeDecoder envelopeDecoder = new LegacyDpEnvelopeDecoder(
                 new MqttPayloadDecryptorRegistry(decryptors),
                 new MqttPayloadFrameParser(),
@@ -434,7 +515,8 @@ class MqttJsonProtocolAdapterTest {
         );
         return new MqttJsonProtocolAdapter(
                 envelopeDecoder,
-                iotProperties
+                iotProperties,
+                relationResolver
         );
     }
 

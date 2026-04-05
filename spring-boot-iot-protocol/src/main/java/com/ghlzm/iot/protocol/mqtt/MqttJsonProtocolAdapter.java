@@ -12,6 +12,9 @@ import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -58,13 +61,26 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private final LegacyDpChildMessageSplitter legacyDpChildMessageSplitter;
     private final IotProperties iotProperties;
 
+    @Autowired
+    public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
+                                   IotProperties iotProperties,
+                                   ObjectProvider<LegacyDpRelationResolver> relationResolverProvider) {
+        this(legacyDpEnvelopeDecoder, iotProperties, relationResolverProvider.getIfAvailable(LegacyDpRelationResolver::noop));
+    }
+
     public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
                                    IotProperties iotProperties) {
+        this(legacyDpEnvelopeDecoder, iotProperties, LegacyDpRelationResolver.noop());
+    }
+
+    public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
+                                   IotProperties iotProperties,
+                                   LegacyDpRelationResolver relationResolver) {
         this.legacyDpEnvelopeDecoder = legacyDpEnvelopeDecoder;
         this.iotProperties = iotProperties;
         this.legacyDpFamilyResolver = new LegacyDpFamilyResolver();
         this.legacyDpPropertyNormalizer = new LegacyDpPropertyNormalizer(this.legacyDpFamilyResolver);
-        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties);
+        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties, relationResolver);
     }
 
     @Override

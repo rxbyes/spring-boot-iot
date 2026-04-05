@@ -300,6 +300,12 @@
       :product="businessWorkbenchProduct"
       @update:activeView="handleBusinessWorkbenchViewChange"
     >
+      <template #header-actions>
+        <StandardButton data-testid="open-product-workbench-edit" @click="handleBusinessWorkbenchEdit">
+          编辑档案
+        </StandardButton>
+      </template>
+
       <template #overview>
         <ProductDetailWorkbench
           v-if="businessWorkbenchLoadedViews.overview && (detailData || businessWorkbenchProduct)"
@@ -1663,9 +1669,9 @@ function handleAdd() {
   formVisible.value = true
 }
 
-function handleEdit(row: Product) {
+function openEditWorkbench(row: Product, initialProduct?: Product | null) {
   const cachedDetail = getCachedProductDetail(row)
-  const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
+  const editSnapshot = resolveDetailSnapshot(initialProduct || row, cachedDetail)
 
   activeEditSessionId += 1
   const editSessionId = activeEditSessionId
@@ -1680,6 +1686,10 @@ function handleEdit(row: Product) {
   handleBusinessWorkbenchViewChange('edit')
   editWorkspaceRef.value?.clearValidate()
   void refreshEditableDetail(row, editSessionId, cachedDetail)
+}
+
+function handleEdit(row: Product) {
+  openEditWorkbench(row)
 }
 
 function handleOpenDetail(row: Product) {
@@ -1698,6 +1708,14 @@ function handleOpenProductModelDesigner(row: Product) {
   businessWorkbenchProduct.value = row
   businessWorkbenchVisible.value = true
   handleBusinessWorkbenchViewChange('models')
+}
+
+function handleBusinessWorkbenchEdit() {
+  const sourceProduct = businessWorkbenchProduct.value || currentProduct.value
+  if (!sourceProduct) {
+    return
+  }
+  openEditWorkbench(currentProduct.value || sourceProduct, sourceProduct)
 }
 
 // 查看设备

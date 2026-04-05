@@ -21,7 +21,9 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.ProductModelService;
+import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
@@ -64,6 +66,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String STATUS_NEEDS_REVIEW = "needs_review";
     private static final String EXTRACTION_MODE_RUNTIME = "runtime";
     private static final String EXTRACTION_MODE_MANUAL = "manual";
+    private static final String MANUAL_EXTRACT_MODE_DIRECT = "direct";
+    private static final String MANUAL_EXTRACT_MODE_RELATION_CHILD = "relation_child";
+    private static final String PARENT_SENSOR_STATE_PREFIX = "S1_ZT_1.sensor_state.";
     private static final String SAMPLE_TYPE_BUSINESS = "business";
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String SAMPLE_TYPE_OTHER = "other";
@@ -165,6 +170,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final DevicePropertyMapper devicePropertyMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final CommandRecordMapper commandRecordMapper;
+    private final DeviceRelationService deviceRelationService;
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
     private final ProductModelNormativePresetRegistry normativePresetRegistry = new ProductModelNormativePresetRegistry();
 
@@ -173,13 +179,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                    DeviceMapper deviceMapper,
                                    DevicePropertyMapper devicePropertyMapper,
                                    DeviceMessageLogMapper deviceMessageLogMapper,
-                                   CommandRecordMapper commandRecordMapper) {
+                                   CommandRecordMapper commandRecordMapper,
+                                   DeviceRelationService deviceRelationService) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
         this.deviceMapper = deviceMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.commandRecordMapper = commandRecordMapper;
+        this.deviceRelationService = deviceRelationService;
     }
 
     @Override
@@ -218,7 +226,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
         List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
 
-        PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(properties, logs, existingIdentifiers);
+        RelationGovernanceContext relationContext = buildRelationGovernanceContext(devices);
+        PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(devices, properties, logs, existingIdentifiers, relationContext);
         EventEvidenceBundle eventBundle = collectEventCandidates(logs, existingIdentifiers);
         ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, existingIdentifiers);
         return buildCandidateResult(
@@ -239,7 +248,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
         Set<String> existingIdentifiers = toIdentifierSet(existingModels.stream().map(ProductModel::getIdentifier).toList());
-        ManualSampleSnapshot snapshot = parseManualSample(dto);
+        ManualSampleSnapshot snapshot = parseManualSample(productId, dto);
         PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, existingIdentifiers);
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
@@ -532,7 +541,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
         List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
 
-        PropertyEvidenceBundle runtimePropertyBundle = collectPropertyCandidates(properties, logs, Set.of());
+        RelationGovernanceContext relationContext = buildRelationGovernanceContext(devices);
+        PropertyEvidenceBundle runtimePropertyBundle = collectPropertyCandidates(devices, properties, logs, Set.of(), relationContext);
         List<ProductModelCandidateVO> propertyCandidates = remapRuntimePropertiesByPreset(
                 runtimePropertyBundle.candidates(),
                 dto,
@@ -561,7 +571,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Long productId,
                                                                             int existingModelCount,
                                                                             ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
-        ManualSampleSnapshot snapshot = parseManualSample(toManualExtractDTO(manualExtract));
+        ManualSampleSnapshot snapshot = parseManualSample(productId, toManualExtractDTO(manualExtract));
         PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, Set.of());
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
@@ -590,6 +600,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
         dto.setSampleType(input.getSampleType());
         dto.setSamplePayload(input.getSamplePayload());
+        dto.setSourceDeviceCode(input.getSourceDeviceCode());
+        dto.setExtractMode(input.getExtractMode());
         return dto;
     }
 
@@ -1031,7 +1043,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
     }
 
-    private ManualSampleSnapshot parseManualSample(ProductModelManualExtractDTO dto) {
+    private ManualSampleSnapshot parseManualSample(Long productId, ProductModelManualExtractDTO dto) {
+        ManualSampleSnapshot rawSnapshot = parseManualSampleRaw(dto);
+        return applyRelationAwareManualSnapshot(productId, dto, rawSnapshot);
+    }
+
+    private ManualSampleSnapshot parseManualSampleRaw(ProductModelManualExtractDTO dto) {
         String sampleType = normalizeSampleType(dto == null ? null : dto.getSampleType());
         String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(dto == null ? null : dto.getSamplePayload()));
         if (normalizedPayload == null) {
@@ -1056,6 +1073,57 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         } catch (Exception ex) {
             throw new BizException("样本报文必须是合法 JSON");
         }
+    }
+
+    private ManualSampleSnapshot applyRelationAwareManualSnapshot(Long productId,
+                                                                 ProductModelManualExtractDTO dto,
+                                                                 ManualSampleSnapshot rawSnapshot) {
+        String effectiveSourceDeviceCode = normalizeOptional(dto == null ? null : dto.getSourceDeviceCode());
+        if (effectiveSourceDeviceCode == null) {
+            effectiveSourceDeviceCode = rawSnapshot.deviceCode();
+        }
+        List<DeviceRelationRule> relationRules = listRelationRulesByParentDeviceCode(effectiveSourceDeviceCode);
+        if (relationRules.isEmpty()) {
+            return new ManualSampleSnapshot(
+                    effectiveSourceDeviceCode,
+                    rawSnapshot.sampleType(),
+                    rawSnapshot.leaves(),
+                    rawSnapshot.ignoredFieldCount()
+            );
+        }
+
+        String extractMode = normalizeManualExtractMode(dto == null ? null : dto.getExtractMode());
+        if (MANUAL_EXTRACT_MODE_RELATION_CHILD.equals(extractMode)) {
+            List<ManualLeafEvidence> canonicalLeaves = canonicalizeRelationChildLeaves(productId, rawSnapshot.leaves(), relationRules);
+            return new ManualSampleSnapshot(
+                    effectiveSourceDeviceCode,
+                    rawSnapshot.sampleType(),
+                    canonicalLeaves,
+                    rawSnapshot.ignoredFieldCount()
+            );
+        }
+
+        List<ManualLeafEvidence> filteredLeaves = rawSnapshot.leaves().stream()
+                .filter(evidence -> !isChildOwnedIdentifier(evidence.identifier(), relationRules))
+                .toList();
+        return new ManualSampleSnapshot(
+                effectiveSourceDeviceCode,
+                rawSnapshot.sampleType(),
+                filteredLeaves,
+                rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - filteredLeaves.size())
+        );
+    }
+
+    private String normalizeManualExtractMode(String extractMode) {
+        String normalized = normalizeOptional(extractMode);
+        if (normalized == null) {
+            return MANUAL_EXTRACT_MODE_DIRECT;
+        }
+        String lowered = normalized.toLowerCase(Locale.ROOT);
+        if (!Set.of(MANUAL_EXTRACT_MODE_DIRECT, MANUAL_EXTRACT_MODE_RELATION_CHILD).contains(lowered)) {
+            throw new BizException("提炼模式不支持: " + extractMode);
+        }
+        return lowered;
     }
 
     private void collectManualLeafValues(JsonNode node,
@@ -1129,14 +1197,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return null;
     }
 
-    private PropertyEvidenceBundle collectPropertyCandidates(List<DeviceProperty> properties,
+    private PropertyEvidenceBundle collectPropertyCandidates(List<Device> devices,
+                                                             List<DeviceProperty> properties,
                                                              List<DeviceMessageLog> logs,
-                                                             Set<String> existingIdentifiers) {
+                                                             Set<String> existingIdentifiers,
+                                                             RelationGovernanceContext relationContext) {
         Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
         int evidenceCount = 0;
         for (DeviceProperty property : properties) {
             String identifier = normalizeOptional(property.getIdentifier());
-            if (identifier == null || existingIdentifiers.contains(identifier)) {
+            if (identifier == null
+                    || existingIdentifiers.contains(identifier)
+                    || shouldFilterRuntimeIdentifier(identifier, resolveRuntimeRules(relationContext, property.getDeviceId(), null))) {
                 continue;
             }
             evidenceCount++;
@@ -1150,7 +1222,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map<String, String> extracted = extractPropertyLeaves(log.getPayload());
             for (Map.Entry<String, String> entry : extracted.entrySet()) {
                 String identifier = normalizeOptional(entry.getKey());
-                if (identifier == null || existingIdentifiers.contains(identifier)) {
+                if (identifier == null
+                        || existingIdentifiers.contains(identifier)
+                        || shouldFilterRuntimeIdentifier(identifier, resolveRuntimeRules(relationContext, null, log.getDeviceCode()))) {
                     continue;
                 }
                 accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
@@ -1166,6 +1240,133 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                         .thenComparing(ProductModelCandidateVO::getIdentifier))
                 .toList();
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
+    }
+
+    private RelationGovernanceContext buildRelationGovernanceContext(List<Device> devices) {
+        Map<Long, String> deviceCodeById = new LinkedHashMap<>();
+        Map<String, List<DeviceRelationRule>> rulesByParentDeviceCode = new LinkedHashMap<>();
+        if (devices == null || devices.isEmpty()) {
+            return new RelationGovernanceContext(deviceCodeById, rulesByParentDeviceCode);
+        }
+        for (Device device : devices) {
+            if (device == null || device.getId() == null) {
+                continue;
+            }
+            String deviceCode = normalizeOptional(device.getDeviceCode());
+            if (deviceCode == null) {
+                continue;
+            }
+            deviceCodeById.put(device.getId(), deviceCode);
+            List<DeviceRelationRule> rules = listRelationRulesByParentDeviceCode(deviceCode);
+            if (!rules.isEmpty()) {
+                rulesByParentDeviceCode.put(deviceCode, rules);
+            }
+        }
+        return new RelationGovernanceContext(deviceCodeById, rulesByParentDeviceCode);
+    }
+
+    private List<DeviceRelationRule> listRelationRulesByParentDeviceCode(String parentDeviceCode) {
+        if (deviceRelationService == null) {
+            return List.of();
+        }
+        List<DeviceRelationRule> rules = deviceRelationService.listEnabledRulesByParentDeviceCode(parentDeviceCode);
+        return rules == null ? List.of() : rules;
+    }
+
+    private List<DeviceRelationRule> resolveRuntimeRules(RelationGovernanceContext relationContext,
+                                                         Long deviceId,
+                                                         String deviceCode) {
+        if (relationContext == null || relationContext.rulesByParentDeviceCode().isEmpty()) {
+            return List.of();
+        }
+        String resolvedDeviceCode = normalizeOptional(deviceCode);
+        if (resolvedDeviceCode == null && deviceId != null) {
+            resolvedDeviceCode = relationContext.deviceCodeById().get(deviceId);
+        }
+        if (resolvedDeviceCode == null) {
+            return List.of();
+        }
+        List<DeviceRelationRule> rules = relationContext.rulesByParentDeviceCode().get(resolvedDeviceCode);
+        return rules == null ? List.of() : rules;
+    }
+
+    private boolean shouldFilterRuntimeIdentifier(String identifier, List<DeviceRelationRule> rules) {
+        return isChildOwnedIdentifier(identifier, rules);
+    }
+
+    private boolean isChildOwnedIdentifier(String identifier, List<DeviceRelationRule> rules) {
+        String normalizedIdentifier = normalizeOptional(identifier);
+        if (normalizedIdentifier == null || rules == null || rules.isEmpty()) {
+            return false;
+        }
+        for (DeviceRelationRule rule : rules) {
+            String logicalChannelCode = normalizeOptional(rule == null ? null : rule.getLogicalChannelCode());
+            if (logicalChannelCode == null) {
+                continue;
+            }
+            if (normalizedIdentifier.equals(logicalChannelCode) || normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<ManualLeafEvidence> canonicalizeRelationChildLeaves(Long productId,
+                                                                     List<ManualLeafEvidence> leaves,
+                                                                     List<DeviceRelationRule> rules) {
+        if (leaves == null || leaves.isEmpty() || rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        List<DeviceRelationRule> matchedRules = rules.stream()
+                .filter(rule -> rule != null && productId != null && productId.equals(rule.getChildProductId()))
+                .toList();
+        if (matchedRules.isEmpty()) {
+            return List.of();
+        }
+        List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
+        for (ManualLeafEvidence leaf : leaves) {
+            if (leaf == null) {
+                continue;
+            }
+            for (DeviceRelationRule rule : matchedRules) {
+                String canonicalIdentifier = canonicalizeRelationChildIdentifier(leaf.identifier(), rule);
+                if (canonicalIdentifier == null) {
+                    continue;
+                }
+                canonicalLeaves.add(new ManualLeafEvidence(canonicalIdentifier, leaf.sampleValue(), leaf.valueType()));
+                break;
+            }
+        }
+        return canonicalLeaves;
+    }
+
+    private String canonicalizeRelationChildIdentifier(String identifier, DeviceRelationRule rule) {
+        String normalizedIdentifier = normalizeOptional(identifier);
+        String logicalChannelCode = normalizeOptional(rule == null ? null : rule.getLogicalChannelCode());
+        if (normalizedIdentifier == null || logicalChannelCode == null) {
+            return null;
+        }
+        if (normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)
+                && "SENSOR_STATE".equalsIgnoreCase(normalizeOptional(rule.getStatusMirrorStrategy()))) {
+            return "sensor_state";
+        }
+        if (normalizedIdentifier.equals(logicalChannelCode)) {
+            return resolveCanonicalChildIdentifier(null, rule);
+        }
+        String logicalPrefix = logicalChannelCode + ".";
+        if (!normalizedIdentifier.startsWith(logicalPrefix)) {
+            return null;
+        }
+        String childField = normalizedIdentifier.substring(logicalPrefix.length());
+        return resolveCanonicalChildIdentifier(childField, rule);
+    }
+
+    private String resolveCanonicalChildIdentifier(String childField, DeviceRelationRule rule) {
+        String strategy = normalizeOptional(rule == null ? null : rule.getCanonicalizationStrategy());
+        if ("LF_VALUE".equalsIgnoreCase(strategy)) {
+            return "value";
+        }
+        return normalizeOptional(childField);
     }
 
     private EventEvidenceBundle collectEventCandidates(List<DeviceMessageLog> logs, Set<String> existingIdentifiers) {
@@ -1560,11 +1761,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (normalized.startsWith("s1_zt_")
                 || normalized.contains("signal")
                 || normalized.contains("battery")
+                || "sensor_state".equals(lastSegment)
                 || normalized.contains("sensor_state")
                 || normalized.contains("sw_version")
                 || normalized.endsWith(".temp")
                 || "temp".equals(lastSegment)) {
             return "device_status";
+        }
+        if ("value".equals(lastSegment)) {
+            return "telemetry";
         }
         if (normalized.startsWith("l")
                 && (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
@@ -1637,11 +1842,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private boolean isSensorStateIdentifier(String identifier) {
-        return identifier.toLowerCase(Locale.ROOT).contains("sensor_state.");
+        String normalized = identifier.toLowerCase(Locale.ROOT);
+        return "sensor_state".equals(normalized) || normalized.contains("sensor_state.");
     }
 
     private String resolveSensorStateLabel(String identifier) {
         String normalized = identifier.toLowerCase(Locale.ROOT);
+        if ("sensor_state".equals(normalized)) {
+            return "传感器状态";
+        }
         int markerIndex = normalized.indexOf("sensor_state.");
         if (markerIndex < 0) {
             return null;
@@ -1803,6 +2012,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private record ServiceEvidenceBundle(List<ProductModelCandidateVO> candidates, int evidenceCount, String hint) {
+    }
+
+    private record RelationGovernanceContext(Map<Long, String> deviceCodeById,
+                                             Map<String, List<DeviceRelationRule>> rulesByParentDeviceCode) {
     }
 
     private record ManualSampleSnapshot(String deviceCode,

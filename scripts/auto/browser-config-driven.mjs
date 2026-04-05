@@ -394,9 +394,10 @@ function createStepExecutionUtils({ page, helpers, context, options }) {
         context,
         label,
         timeout
-      }),
+    }),
     applyStepCaptures: (captures, result) => applyStepCaptures(captures, result, context),
     resolveFilePaths: (rawValue) => resolveFilePaths(options.workspaceRoot || process.cwd(), rawValue, context),
+    getVariable: (name) => context.variables[String(name || '').trim()],
     getLocatorCheckedState,
     resolveDialog: (step) => resolveDialog(page, step, context)
   };
@@ -539,6 +540,24 @@ function registerBuiltinPlanStepHandlers() {
       throw new Error(`Expected URL to include "${expected}", got "${page.url()}".`);
     }
     return {
+      expected
+    };
+  });
+
+  registerPlanStepHandler('assertVariableEquals', async ({ step, utils }) => {
+    const variableName = String(step.variable || '').trim();
+    if (!variableName) {
+      throw new Error('variable is required.');
+    }
+
+    const actual = utils.getVariable(variableName);
+    const expected = utils.interpolateTemplate(step.value || '');
+    if (String(actual ?? '') !== expected) {
+      throw new Error(`Expected variable "${variableName}" to equal "${expected}", got "${String(actual ?? '')}".`);
+    }
+
+    return {
+      variable: variableName,
       expected
     };
   });

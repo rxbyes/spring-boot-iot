@@ -384,7 +384,7 @@ export interface ProductModelGovernanceManualDraftItem {
 }
 
 export interface ProductModelGovernanceComparePayload {
-  governanceMode?: 'normative' | 'manual' | null;
+  governanceMode?: 'normative' | 'generic' | null;
   normativePresetCode?: string | null;
   selectedNormativeIdentifiers?: string[] | null;
   manualExtract?: ProductModelGovernanceManualExtractPayload;

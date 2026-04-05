@@ -569,6 +569,12 @@ describe('MessageTraceView', () => {
     expect(messageApi.getMessageTraceDetail).toHaveBeenCalledWith(1);
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
     expect(wrapper.text()).toContain('trace-001');
+    expect(wrapper.text()).not.toContain('INGRESS');
+
+    await wrapper.find('[data-testid="message-trace-timeline-toggle"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
     expect(wrapper.text()).toContain('INGRESS');
     expect(wrapper.text()).not.toContain('时间线已过期，仅保留消息日志。');
   });
@@ -677,6 +683,59 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('处理阶段继续沿用当前时间线语法');
     expect(wrapper.text()).not.toContain('排查建议');
     expect(wrapper.text()).not.toContain('可携带当前 TraceId');
+  });
+
+  it('maps status messages to 状态上报 and removes auxiliary payload state chips', async () => {
+    vi.mocked(messageApi.pageMessageTraceLogs).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            traceId: 'trace-001',
+            deviceCode: 'demo-device-01',
+            productKey: 'demo-product',
+            messageType: 'status',
+            topic: '/sys/demo-product/demo-device-01/thing/status/post',
+            payload: '{"online":true}',
+            reportTime: '2026-03-23 10:00:00',
+            createTime: '2026-03-23 10:00:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(messageApi.getMessageTraceDetail).mockResolvedValue(createDetailResponse({
+      messageType: 'status',
+      topic: '/sys/demo-product/demo-device-01/thing/status/post',
+      rawPayload: '{"online":true}',
+      decryptedPayload: '{"online":true}',
+      decodedPayload: {
+        messageType: 'status',
+        deviceCode: 'demo-device-01',
+        status: {
+          online: true
+        }
+      }
+    }));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('demo-device-01状态上报demo-product');
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('状态上报');
+    expect(wrapper.text()).toContain('消息类型状态上报');
+    expect(wrapper.text()).not.toContain('有内容');
+    expect(wrapper.text()).not.toContain('暂无内容');
   });
 
   it('shows the degraded hint when the trace timeline has expired', async () => {
@@ -801,6 +860,12 @@ describe('MessageTraceView', () => {
 
     expect(wrapper.text()).toContain('解密后明文');
     expect(wrapper.text()).toContain('解析结果');
+    expect(wrapper.text()).not.toContain('humidity');
+
+    await wrapper.find('[data-testid="message-trace-payload-toggle-decoded"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
     expect(wrapper.text()).toContain('humidity');
     expect(wrapper.text()).not.toContain('当前时间线已过期，无法恢复解析结果');
   });
@@ -1073,6 +1138,12 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('trace-002');
+    expect(wrapper.text()).not.toContain('DEVICE_CONTRACT');
+
+    await wrapper.find('[data-testid="message-trace-timeline-toggle"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
     expect(wrapper.text()).toContain('DEVICE_CONTRACT');
     expect(wrapper.text()).not.toContain('message-flow 存储异常/Redis 不可用');
     expect(wrapper.text()).not.toContain('时间线查询异常，优先排查 Redis / message-flow 存储');

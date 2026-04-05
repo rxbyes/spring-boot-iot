@@ -257,7 +257,7 @@ public class IotProperties {
         private Integer offlineTimeoutLockTtlSeconds = 90;
         /**
          * 基准站设备编码 -> 逻辑子设备编码 -> 实际子设备 deviceCode。
-         * 当前用于兼容“基准站一包多测点”的历史上报场景。
+         * 当前仅作为 legacy `$dp` 关系注册缺失时的兼容兜底，不再作为正式主数据来源。
          */
         private Map<String, Map<String, String>> subDeviceMappings = new LinkedHashMap<>();
     }

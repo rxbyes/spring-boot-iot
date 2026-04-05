@@ -4,20 +4,6 @@
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
     <div v-else class="device-workspace__content">
-      <section class="device-workspace__ledger-ruler">
-        <ul class="device-workspace__ruler-metrics">
-          <li
-            v-for="metric in summaryMetrics"
-            :key="metric.key"
-            class="device-workspace__ruler-item"
-            :data-tone="metric.tone"
-          >
-            <span>{{ metric.label }}</span>
-            <strong>{{ metric.value }}</strong>
-          </li>
-        </ul>
-      </section>
-
       <section class="device-workspace__registry-sheet">
         <header class="device-workspace__registry-heading">
           <strong>设备清册</strong>
@@ -77,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRefs } from 'vue'
+import { toRefs } from 'vue'
 
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import type { Device, Product } from '@/types/api'
@@ -111,9 +97,6 @@ const props = withDefaults(
 
 const {
   devices,
-  totalDevices,
-  onlineDevices,
-  offlineDevices,
   loading,
   loadingText,
   errorMessage,
@@ -127,40 +110,6 @@ const emit = defineEmits<{
 }>()
 const deviceLedgerRowActions = [{ command: 'view' as const, label: '查看' }]
 
-const onlineRatioText = computed(() => {
-  if (totalDevices.value <= 0) {
-    return '--'
-  }
-  return `${Math.round((onlineDevices.value / totalDevices.value) * 100)}%`
-})
-
-const summaryMetrics = computed(() => [
-  {
-    key: 'total',
-    label: '设备总数',
-    value: String(totalDevices.value),
-    tone: 'brand'
-  },
-  {
-    key: 'online',
-    label: '在线设备',
-    value: String(onlineDevices.value),
-    tone: 'brand'
-  },
-  {
-    key: 'offline',
-    label: '离线设备',
-    value: String(offlineDevices.value),
-    tone: 'brand'
-  },
-  {
-    key: 'ratio',
-    label: '在线比例',
-    value: onlineRatioText.value,
-    tone: 'brand'
-  }
-])
-
 const deviceLedgerActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: deviceLedgerRowActions
 })
@@ -173,8 +122,6 @@ function handleViewDevice(device: Device) {
 <style scoped>
 .product-device-workspace,
 .device-workspace__content,
-.device-workspace__ledger-ruler,
-.device-workspace__ruler-metrics,
 .device-workspace__registry-sheet {
   display: grid;
 }
@@ -197,46 +144,8 @@ function handleViewDevice(device: Device) {
   color: color-mix(in srgb, var(--danger) 78%, var(--text-secondary));
   border-color: color-mix(in srgb, var(--danger) 20%, var(--panel-border));
 }
-
-.device-workspace__ledger-ruler {
-  border-top: 1px solid var(--panel-border-strong);
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.device-workspace__ruler-metrics {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-}
-
-.device-workspace__ruler-item {
-  display: grid;
-  gap: 0.32rem;
-  min-width: 0;
-  padding: 0.96rem 1rem 0.9rem;
-  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-}
-
-.device-workspace__ruler-item:last-child {
-  border-right: 0;
-}
-
-.device-workspace__ruler-item span {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.6;
-}
-
-.device-workspace__ruler-item strong,
 .device-workspace__registry-heading strong {
   color: var(--text-heading);
-}
-
-.device-workspace__ruler-item strong {
-  font-size: 1.18rem;
-  line-height: 1.36;
 }
 
 .device-workspace__registry-sheet {
@@ -281,34 +190,5 @@ function handleViewDevice(device: Device) {
 
 .device-workspace__table-shell :deep(.el-table__row:hover) {
   background: color-mix(in srgb, var(--brand) 4%, transparent);
-}
-
-@media (max-width: 960px) {
-  .device-workspace__ruler-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .device-workspace__ruler-item:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .device-workspace__ruler-item:nth-child(n + 3) {
-    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  }
-}
-
-@media (max-width: 720px) {
-  .device-workspace__ruler-metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .device-workspace__ruler-item {
-    border-right: 0;
-    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  }
-
-  .device-workspace__ruler-item:first-child {
-    border-top: 0;
-  }
 }
 </style>

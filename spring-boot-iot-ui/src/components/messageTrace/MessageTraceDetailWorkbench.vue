@@ -4,9 +4,6 @@
       <div class="message-trace-detail-workbench__lead-main">
         <span class="message-trace-detail-workbench__section-kicker">消息概览</span>
         <strong class="message-trace-detail-workbench__lead-value">{{ messageTypeLabel }}</strong>
-        <span class="message-trace-detail-workbench__lead-caption">
-          先从消息类型、上报时间与 Topic 拓扑建立判断，再决定往 Payload 对照还是处理时间线继续钻。
-        </span>
       </div>
 
       <section class="message-trace-detail-workbench__scale-ledger">
@@ -16,7 +13,7 @@
           class="message-trace-detail-workbench__scale-note"
         >
           <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
+          <strong :title="metric.value">{{ metric.value }}</strong>
         </article>
       </section>
     </section>
@@ -26,17 +23,13 @@
       data-testid="message-trace-detail-chain-stage"
     >
       <div class="message-trace-detail-workbench__stage-header">
-        <div>
-          <h3>链路信息</h3>
-          <p>继续完整保留链路章节，再在章内拆分链路标识与接入上下文，避免信息散排。</p>
-        </div>
+        <h3>链路信息</h3>
       </div>
 
       <div class="message-trace-detail-workbench__journal-grid">
         <section class="message-trace-detail-workbench__sheet">
           <header class="message-trace-detail-workbench__sheet-header">
             <strong class="message-trace-detail-workbench__sheet-title">链路标识</strong>
-            <p>先确认日志主键、TraceId、消息类型与处理锚点。</p>
           </header>
 
           <div class="message-trace-detail-workbench__ledger-grid">
@@ -49,7 +42,7 @@
               ]"
             >
               <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span class="message-trace-detail-workbench__ledger-value">{{ item.value }}</span>
+              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">{{ item.value }}</span>
             </article>
           </div>
         </section>
@@ -57,7 +50,6 @@
         <section class="message-trace-detail-workbench__sheet">
           <header class="message-trace-detail-workbench__sheet-header">
             <strong class="message-trace-detail-workbench__sheet-title">接入上下文</strong>
-            <p>把设备、产品和 Topic 收在同一组，便于继续联动异常观测与接入智维页面。</p>
           </header>
 
           <div class="message-trace-detail-workbench__ledger-grid">
@@ -70,7 +62,7 @@
               ]"
             >
               <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span class="message-trace-detail-workbench__ledger-value">{{ item.value }}</span>
+              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">{{ item.value }}</span>
             </article>
           </div>
         </section>
@@ -79,49 +71,53 @@
 
     <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-payload-stage">
       <div class="message-trace-detail-workbench__stage-header">
-        <div>
-          <h3>Payload 对照</h3>
-          <p>固定并排查看原始报文、恢复后的明文和解析结果，直接判断偏差出现在协议前还是协议后。</p>
-        </div>
+        <h3>Payload 对照</h3>
       </div>
 
       <MessageTracePayloadComparisonSection :panels="panels" />
-
-      <div class="message-trace-detail-workbench__notice">
-        <span class="message-trace-detail-workbench__notice-label">排查建议</span>
-        <strong class="message-trace-detail-workbench__notice-value">{{ routeAdvice }}</strong>
-      </div>
     </section>
 
     <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-timeline-stage">
-      <div class="message-trace-detail-workbench__stage-header">
-        <div>
-          <h3>处理时间线</h3>
-          <p>处理阶段继续沿用当前时间线语法，只负责复盘 Pipeline，不再决定 Payload 是否可读。</p>
-        </div>
+      <div class="message-trace-detail-workbench__stage-header message-trace-detail-workbench__stage-header--between">
+        <h3>处理时间线</h3>
+        <button
+          type="button"
+          class="message-trace-detail-workbench__toggle"
+          data-testid="message-trace-timeline-toggle"
+          @click="toggleTimeline"
+        >
+          {{ timelineExpanded ? '收起' : '展开' }}
+        </button>
       </div>
 
-      <StandardTraceTimeline
-        :timeline="timeline"
-        :loading="timelineLoading"
-        :empty-title="timelineEmptyTitle"
-        :empty-description="timelineEmptyDescription"
-      />
-
-      <div v-if="timelineLookupError" class="message-trace-detail-workbench__notice">
-        <span class="message-trace-detail-workbench__notice-label">存储提示</span>
-        <strong class="message-trace-detail-workbench__notice-value">当前时间线查询异常，但 payload 对照仍可继续排查。</strong>
+      <div
+        class="message-trace-detail-workbench__timeline-summary"
+        :class="`message-trace-detail-workbench__timeline-summary--${timelineSummaryTone}`"
+      >
+        <span class="message-trace-detail-workbench__timeline-label">{{ timelineSummaryLabel }}</span>
+        <strong class="message-trace-detail-workbench__timeline-title">{{ timelineSummaryTitle }}</strong>
+        <p
+          v-if="timelineSummaryDescription"
+          class="message-trace-detail-workbench__timeline-description"
+        >
+          {{ timelineSummaryDescription }}
+        </p>
       </div>
-      <div v-else-if="timelineExpired" class="message-trace-detail-workbench__notice">
-        <span class="message-trace-detail-workbench__notice-label">降级提示</span>
-        <strong class="message-trace-detail-workbench__notice-value">时间线已过期，但 payload 对照已从消息日志恢复。</strong>
+
+      <div v-if="timelineExpanded" class="message-trace-detail-workbench__timeline-body">
+        <StandardTraceTimeline
+          :timeline="timeline"
+          :loading="timelineLoading"
+          :empty-title="timelineEmptyTitle"
+          :empty-description="timelineEmptyDescription"
+        />
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import MessageTracePayloadComparisonSection from '@/components/messageTrace/MessageTracePayloadComparisonSection.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
@@ -151,8 +147,17 @@ const props = defineProps<{
   timelineLookupError: boolean;
   timelineEmptyTitle: string;
   timelineEmptyDescription: string;
-  routeAdvice: string;
 }>();
+
+const timelineExpanded = ref(false);
+
+watch(
+  () => [props.detail.id, props.detail.traceId, props.detail.createTime, props.timeline?.traceId],
+  () => {
+    timelineExpanded.value = false;
+  },
+  { immediate: true }
+);
 
 const messageTypeLabel = computed(() => getMessageTypeLabel(props.detail.messageType));
 const topicSegments = computed(() => {
@@ -161,6 +166,7 @@ const topicSegments = computed(() => {
   }
   return String(props.detail.topic).split('/').filter(Boolean).length.toString();
 });
+const timelineStepCount = computed(() => props.timeline?.steps?.length ?? 0);
 
 const summaryMetrics = computed<SummaryMetric[]>(() => [
   {
@@ -198,6 +204,65 @@ const ledgerContextItems = computed<LedgerItem[]>(() => [
   { key: 'topic', label: 'Topic', value: formatValue(props.detail.topic), wide: true }
 ]);
 
+const timelineSummaryTone = computed(() => {
+  if (props.timelineLookupError) {
+    return 'warning';
+  }
+  if (props.timelineExpired) {
+    return 'muted';
+  }
+  if (props.timelineLoading) {
+    return 'loading';
+  }
+  if (timelineStepCount.value > 0) {
+    return 'ready';
+  }
+  return 'plain';
+});
+
+const timelineSummaryLabel = computed(() => {
+  if (props.timelineLookupError) {
+    return '存储状态';
+  }
+  if (props.timelineExpired) {
+    return '降级提示';
+  }
+  if (props.timelineLoading) {
+    return '处理中';
+  }
+  if (timelineStepCount.value > 0) {
+    return '处理摘要';
+  }
+  return '当前状态';
+});
+
+const timelineSummaryTitle = computed(() => {
+  if (props.timelineLookupError) {
+    return 'message-flow 存储异常/Redis 不可用';
+  }
+  if (props.timelineExpired) {
+    return '时间线已过期，但 payload 对照已从消息日志恢复。';
+  }
+  if (props.timelineLoading) {
+    return '正在读取处理时间线';
+  }
+  if (timelineStepCount.value > 0) {
+    return `已记录 ${timelineStepCount.value} 个处理节点`;
+  }
+  return props.timelineEmptyTitle;
+});
+
+const timelineSummaryDescription = computed(() => {
+  if (props.timelineLookupError || props.timelineExpired || timelineStepCount.value === 0) {
+    return props.timelineEmptyDescription;
+  }
+  return '';
+});
+
+function toggleTimeline() {
+  timelineExpanded.value = !timelineExpanded.value;
+}
+
 function formatValue(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
     return '--';
@@ -209,6 +274,8 @@ function getMessageTypeLabel(value?: string | null) {
   switch (value) {
     case 'report':
       return '属性上报';
+    case 'status':
+      return '状态上报';
     case 'reply':
       return '命令回执';
     case 'online':
@@ -232,29 +299,29 @@ function getMessageTypeLabel(value?: string | null) {
 }
 
 .message-trace-detail-workbench {
-  gap: 1.35rem;
+  gap: 1.2rem;
 }
 
 .message-trace-detail-workbench__lead-sheet {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.92fr);
-  gap: 1.8rem;
-  align-items: start;
-  padding-top: 0.92rem;
-  border-top: 1px solid var(--panel-border-strong);
+  grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 6px);
+  background: var(--ops-list-surface-bg-strong);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .message-trace-detail-workbench__lead-main {
-  gap: 0.42rem;
-  padding-right: 1.45rem;
-  border-right: 1px solid var(--panel-border);
+  gap: 0.48rem;
+  align-content: center;
 }
 
 .message-trace-detail-workbench__section-kicker,
 .message-trace-detail-workbench__scale-note span,
-.message-trace-detail-workbench__sheet-header p,
 .message-trace-detail-workbench__ledger-label,
-.message-trace-detail-workbench__notice-label {
+.message-trace-detail-workbench__timeline-label {
   color: var(--text-caption);
   font-size: 12px;
   line-height: 1.58;
@@ -272,36 +339,36 @@ function getMessageTypeLabel(value?: string | null) {
 }
 
 .message-trace-detail-workbench__lead-value {
-  font-size: clamp(2.2rem, 3.8vw, 3.1rem);
+  font-size: clamp(2.2rem, 4vw, 3rem);
   font-weight: 700;
   line-height: 1;
 }
 
-.message-trace-detail-workbench__lead-caption {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.68;
-}
-
 .message-trace-detail-workbench__scale-ledger {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.78rem;
 }
 
 .message-trace-detail-workbench__scale-note {
   display: grid;
-  gap: 0.36rem;
+  gap: 0.34rem;
+  min-width: 0;
   min-height: 5rem;
-  padding: 0.34rem 0 0.72rem 1rem;
-  border-left: 1px solid var(--panel-border);
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-md) + 4px);
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
 }
 
 .message-trace-detail-workbench__scale-note strong {
+  display: block;
+  min-width: 0;
   color: var(--text-heading);
-  font-size: 1rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .message-trace-detail-workbench__stage {
@@ -310,12 +377,27 @@ function getMessageTypeLabel(value?: string | null) {
   padding: 1rem 1.05rem;
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 4px);
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: var(--shadow-inset-highlight-78);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .message-trace-detail-workbench__stage--subtle {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--ops-list-surface-bg);
+}
+
+.message-trace-detail-workbench__stage-header,
+.message-trace-detail-workbench__stage-header--between {
+  display: flex;
+  align-items: center;
+}
+
+.message-trace-detail-workbench__stage-header {
+  justify-content: flex-start;
+}
+
+.message-trace-detail-workbench__stage-header--between {
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .message-trace-detail-workbench__stage-header h3 {
@@ -325,32 +407,27 @@ function getMessageTypeLabel(value?: string | null) {
   line-height: 1.4;
 }
 
-.message-trace-detail-workbench__stage-header p {
-  margin: 0.35rem 0 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
 .message-trace-detail-workbench__journal-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
-  gap: 1.2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .message-trace-detail-workbench__sheet {
-  gap: 0.78rem;
-  padding-top: 0.88rem;
-  border-top: 1px solid var(--panel-border-strong);
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-md) + 4px);
+  background: var(--surface-soft);
 }
 
 .message-trace-detail-workbench__sheet-header {
   display: grid;
-  gap: 0.24rem;
 }
 
 .message-trace-detail-workbench__sheet-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .message-trace-detail-workbench__ledger-grid {
@@ -364,9 +441,9 @@ function getMessageTypeLabel(value?: string | null) {
   gap: 0.34rem;
   min-width: 0;
   padding: 0.92rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-md) + 2px);
-  background: rgba(248, 251, 255, 0.92);
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--surface-soft));
 }
 
 .message-trace-detail-workbench__ledger-item--wide {
@@ -376,21 +453,70 @@ function getMessageTypeLabel(value?: string | null) {
 .message-trace-detail-workbench__ledger-value {
   color: var(--text-heading);
   font-size: 14px;
-  line-height: 1.58;
+  line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
-.message-trace-detail-workbench__notice {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: calc(var(--radius-md) + 2px);
-  background: rgba(248, 251, 255, 0.92);
+.message-trace-detail-workbench__toggle {
+  min-width: 72px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
-.message-trace-detail-workbench__notice-value {
+.message-trace-detail-workbench__toggle:hover {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 6%, white);
+}
+
+.message-trace-detail-workbench__timeline-summary {
+  display: grid;
+  gap: 0.36rem;
+  padding: 0.95rem 1rem;
+  border-radius: calc(var(--radius-md) + 4px);
+  border: 1px solid var(--panel-border);
+  background: var(--surface-soft);
+}
+
+.message-trace-detail-workbench__timeline-summary--ready {
+  border-color: color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 5%, var(--surface-soft));
+}
+
+.message-trace-detail-workbench__timeline-summary--warning {
+  border-color: color-mix(in srgb, var(--warning) 22%, var(--panel-border));
+  background: color-mix(in srgb, var(--warning-bg) 42%, white);
+}
+
+.message-trace-detail-workbench__timeline-summary--muted {
+  background: var(--surface-muted);
+}
+
+.message-trace-detail-workbench__timeline-summary--loading {
+  border-color: color-mix(in srgb, var(--accent) 16%, var(--panel-border));
+  background: color-mix(in srgb, var(--info-bg) 42%, white);
+}
+
+.message-trace-detail-workbench__timeline-title {
   color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-trace-detail-workbench__timeline-description {
+  margin: 0;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -400,18 +526,6 @@ function getMessageTypeLabel(value?: string | null) {
   .message-trace-detail-workbench__journal-grid {
     grid-template-columns: 1fr;
   }
-
-  .message-trace-detail-workbench__lead-main {
-    padding-right: 0;
-    padding-bottom: 0.9rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .message-trace-detail-workbench__scale-note {
-    min-height: auto;
-    padding-left: 0.82rem;
-  }
 }
 
 @media (max-width: 720px) {
@@ -420,10 +534,9 @@ function getMessageTypeLabel(value?: string | null) {
     grid-template-columns: 1fr;
   }
 
-  .message-trace-detail-workbench__scale-note {
-    padding-left: 0;
-    border-left: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
+  .message-trace-detail-workbench__stage-header--between {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .message-trace-detail-workbench__ledger-item--wide {

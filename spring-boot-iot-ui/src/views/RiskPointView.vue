@@ -125,7 +125,16 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
-            <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180" />
+            <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180">
+              <template #default="{ row }">
+                <StandardActionLink
+                  :data-testid="`risk-point-name-link-${row.id}`"
+                  @click="openRiskPointDetail(row)"
+                >
+                  {{ row.riskPointName }}
+                </StandardActionLink>
+              </template>
+            </StandardTableTextColumn>
             <el-table-column prop="orgName" label="所属组织" :min-width="160">
               <template #default="{ row }">
                 <span>{{ row.orgName || '未配置组织' }}</span>
@@ -148,23 +157,6 @@
                 </el-tag>
               </template>
             </StandardTableTextColumn>
-            <el-table-column label="绑定概览" :min-width="190">
-              <template #default="{ row }">
-                <div class="risk-point-binding-summary">
-                  <template v-if="hasFormalBindings(row)">
-                    <span>{{ getBindingSummaryDeviceText(row) }}</span>
-                    <span>{{ getBindingSummaryMetricText(row) }}</span>
-                    <span>{{ getBindingSummaryPendingText(row) }}</span>
-                  </template>
-                  <template v-else>
-                    <span>未绑定</span>
-                    <span v-if="getBindingSummaryPendingCount(row) > 0" class="risk-point-binding-summary__pending">
-                      {{ getBindingSummaryPendingText(row) }}
-                    </span>
-                  </template>
-                </div>
-              </template>
-            </el-table-column>
             <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
               <template #default="{ row }">
                 <span>{{ getResponsibleUserText(row) }}</span>
@@ -391,6 +383,17 @@
       </template>
     </StandardFormDrawer>
 
+    <RiskPointDetailDrawer
+      v-model="riskPointDetailVisible"
+      :risk-point-id="detailRiskPoint?.id"
+      :initial-risk-point="detailRiskPoint"
+      :initial-summary="detailRiskPoint ? bindingSummaryMap[Number(detailRiskPoint.id)] || null : null"
+      @close="handleRiskPointDetailClose"
+      @edit="handleEditFromDetail"
+      @maintain-binding="handleMaintainBindingFromDetail"
+      @pending-promotion="handlePendingPromotionFromDetail"
+    />
+
     <RiskPointBindingMaintenanceDrawer
       v-model="bindingMaintenanceVisible"
       :risk-point-id="bindingMaintenanceRiskPoint?.id"
@@ -530,6 +533,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
@@ -540,6 +544,7 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue';
+import RiskPointDetailDrawer from '@/components/riskPoint/RiskPointDetailDrawer.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
@@ -591,13 +596,14 @@ type LazyRegionTreeNode = {
   data?: RegionTreeOption;
 };
 type TreeResolveFn = (data: RegionTreeOption[]) => void;
-type RiskPointRowActionCommand = 'edit' | 'maintain-binding' | 'pending-promotion' | 'delete';
+type RiskPointRowActionCommand = 'detail' | 'edit' | 'maintain-binding' | 'pending-promotion' | 'delete';
 
 const PROMOTABLE_PENDING_STATUSES = new Set(['PENDING_METRIC_GOVERNANCE', 'PARTIALLY_PROMOTED']);
 
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
+const riskPointDetailVisible = ref(false);
 const bindingMaintenanceVisible = ref(false);
 const pendingPromotionVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
@@ -617,9 +623,11 @@ const pendingLoading = ref(false);
 const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
+const detailRiskPoint = ref<RiskPoint | null>(null);
 const bindingMaintenanceRiskPoint = ref<RiskPoint | null>(null);
 const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
+    { command: 'detail', label: '详情' },
     { command: 'edit', label: '编辑' },
     { command: 'maintain-binding', label: '维护绑定' },
     { command: 'pending-promotion', label: '待治理转正' },
@@ -1003,34 +1011,6 @@ const getCurrentRiskLevelText = (level: string) => resolveRiskLevelText(level);
 
 const getRiskPointLevelText = (level?: string) => resolveRiskPointLevelText(level, riskPointLevelOptions.value);
 
-const getBindingSummary = (row: Partial<RiskPoint>) => {
-  if (!row.id) {
-    return null;
-  }
-  return bindingSummaryMap.value[Number(row.id)] || null;
-};
-
-const getBindingSummaryPendingCount = (row: Partial<RiskPoint>) => getBindingSummary(row)?.pendingBindingCount ?? 0;
-
-const hasFormalBindings = (row: Partial<RiskPoint>) => {
-  const summary = getBindingSummary(row);
-  return (summary?.boundDeviceCount ?? 0) > 0 || (summary?.boundMetricCount ?? 0) > 0;
-};
-
-const getBindingSummaryDeviceText = (row: Partial<RiskPoint>) => {
-  const summary = getBindingSummary(row);
-  return `${summary?.boundDeviceCount ?? 0} 台设备`;
-};
-
-const getBindingSummaryMetricText = (row: Partial<RiskPoint>) => {
-  const summary = getBindingSummary(row);
-  return `${summary?.boundMetricCount ?? 0} 个测点`;
-};
-
-const getBindingSummaryPendingText = (row: Partial<RiskPoint>) => {
-  return `待治理 ${getBindingSummaryPendingCount(row)} 条`;
-};
-
 const getResponsibleUserText = (row: Partial<RiskPoint>) => {
   if (!row.responsibleUser) {
     return '未指定负责人';
@@ -1216,6 +1196,7 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
 };
 
 const getRiskPointRowActions = () => [
+  { command: 'detail' as const, label: '详情' },
   { command: 'edit' as const, label: '编辑' },
   { command: 'maintain-binding' as const, label: '维护绑定' },
   { command: 'pending-promotion' as const, label: '待治理转正' },
@@ -1223,6 +1204,10 @@ const getRiskPointRowActions = () => [
 ];
 
 const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskPoint) => {
+  if (command === 'detail') {
+    openRiskPointDetail(row);
+    return;
+  }
   if (command === 'edit') {
     handleEdit(row);
     return;
@@ -1246,6 +1231,42 @@ const clearSelection = () => {
 const handleRefresh = () => {
   clearSelection();
   void loadRiskPointList();
+};
+
+const openRiskPointDetail = (row: RiskPoint) => {
+  detailRiskPoint.value = row;
+  riskPointDetailVisible.value = true;
+};
+
+const handleRiskPointDetailClose = () => {
+  detailRiskPoint.value = null;
+};
+
+const handleEditFromDetail = async () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    await handleEdit(row);
+  }
+};
+
+const handleMaintainBindingFromDetail = () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    openBindingMaintenance(row);
+  }
+};
+
+const handlePendingPromotionFromDetail = async () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    await handleOpenPendingPromotion(row);
+  }
 };
 
 const openBindingMaintenance = (row: RiskPoint) => {
@@ -1642,19 +1663,9 @@ onMounted(() => {
 }
 
 .risk-point-notice-stack,
-.risk-point-binding-summary,
 .risk-point-governance-list {
   display: grid;
   gap: 0.75rem;
-}
-
-.risk-point-binding-summary {
-  gap: 0.2rem;
-  color: var(--text-secondary);
-}
-
-.risk-point-binding-summary__pending {
-  color: var(--text-primary);
 }
 
 .risk-point-governance-list {

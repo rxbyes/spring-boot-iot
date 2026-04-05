@@ -76,6 +76,28 @@ describe('StandardDetailDrawer', () => {
     expect(wrapper.find('.detail-drawer__footer').exists()).toBe(false)
   })
 
+  it('renders header actions when a header-actions slot is provided', () => {
+    const wrapper = mount(StandardDetailDrawer, {
+      props: {
+        modelValue: true,
+        title: '产品详情',
+        subtitle: '统一查看产品主档'
+      },
+      slots: {
+        'header-actions': '<button class="detail-header-action">编辑档案</button>',
+        default: '<div class="detail-body">body</div>'
+      },
+      global: {
+        stubs: {
+          'el-drawer': DrawerStub
+        }
+      }
+    })
+
+    expect(wrapper.find('.detail-header-action').exists()).toBe(true)
+    expect(wrapper.find('.detail-header-action').text()).toBe('编辑档案')
+  })
+
   it('supports an inline title-row tag layout without wrapping status pills onto a second line', () => {
     const wrapper = mount(StandardDetailDrawer, {
       props: {

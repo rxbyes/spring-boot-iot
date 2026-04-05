@@ -67,7 +67,7 @@
       </div>
 
       <article
-        v-if="governanceMode === 'normative'"
+        v-if="governanceMode === 'normative' && activeNormativePreset"
         class="product-model-designer-drawer__preset-card"
       >
         <div class="product-model-designer-drawer__preset-copy">
@@ -92,6 +92,22 @@
             </div>
           </label>
         </div>
+      </article>
+
+      <article
+        v-else-if="governanceMode === 'normative'"
+        class="product-model-designer-drawer__preset-empty"
+      >
+        <strong>当前产品暂无适用规范预设</strong>
+        <p>该产品未命中监测型规范字段模板，请改用通用双证据治理，或待专属规范预设补齐后再使用规范治理。</p>
+        <button
+          type="button"
+          class="product-model-designer-drawer__preset-empty-action"
+          data-testid="governance-switch-generic"
+          @click="governanceMode = 'generic'"
+        >
+          切换到通用双证据
+        </button>
       </article>
 
       <div class="product-model-designer-drawer__sample-type">
@@ -367,7 +383,7 @@ import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
-import { INTEGRATED_NORMATIVE_PRESET } from '@/components/product/productModelGovernanceNormativePresets'
+import { resolveApplicableNormativePreset } from '@/components/product/productModelGovernanceNormativePresets'
 import { productApi } from '@/api/product'
 import type {
   Product,
@@ -423,8 +439,8 @@ const compareLoading = ref(false)
 const applyLoading = ref(false)
 const errorMessage = ref('')
 const governanceMode = ref<GovernanceMode>('normative')
-const normativePresetCode = ref(INTEGRATED_NORMATIVE_PRESET.code)
-const selectedNormativeIdentifiers = ref<string[]>([...INTEGRATED_NORMATIVE_PRESET.defaultIdentifiers])
+const normativePresetCode = ref('')
+const selectedNormativeIdentifiers = ref<string[]>([])
 const manualSampleType = ref<ProductModelManualSampleType>('business')
 const manualSamplePayload = ref('')
 const includeRuntimeCandidates = ref(true)
@@ -436,7 +452,8 @@ let manualDraftSeed = 0
 
 const compareSummary = computed(() => compareResult.value?.summary ?? null)
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
-const activeNormativePreset = computed(() => INTEGRATED_NORMATIVE_PRESET)
+const activeNormativePreset = computed(() => resolveApplicableNormativePreset(props.product))
+const hasApplicableNormativePreset = computed(() => Boolean(activeNormativePreset.value))
 const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
@@ -452,6 +469,17 @@ const selectedApplyEntries = computed(() =>
 )
 const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => selectedApplyEntries.value.map((entry) => entry.item))
 const hasLoadedContent = computed(() => Boolean(models.value.length || compareResult.value))
+
+watch(
+  () => activeNormativePreset.value?.code,
+  () => {
+    normativePresetCode.value = activeNormativePreset.value?.code ?? ''
+    selectedNormativeIdentifiers.value = activeNormativePreset.value
+      ? [...activeNormativePreset.value.defaultIdentifiers]
+      : []
+  },
+  { immediate: true }
+)
 
 watch(
   () => [props.modelValue, props.product?.id] as const,
@@ -569,12 +597,17 @@ async function handleCompare() {
   compareLoading.value = true
   errorMessage.value = ''
   const trimmedSamplePayload = manualSamplePayload.value.trim()
+  const shouldUseNormativePreset = governanceMode.value === 'normative' && hasApplicableNormativePreset.value
+  const effectiveGovernanceMode: GovernanceMode = shouldUseNormativePreset ? 'normative' : 'generic'
+  if (governanceMode.value === 'normative' && !hasApplicableNormativePreset.value) {
+    ElMessage.warning('当前产品暂无适用规范预设，已改按通用双证据生成对比结果')
+  }
   try {
     const response = await productApi.compareProductModelGovernance(props.product.id, {
-      governanceMode: governanceMode.value,
-      normativePresetCode: governanceMode.value === 'normative' ? normativePresetCode.value : undefined,
-      selectedNormativeIdentifiers: governanceMode.value === 'normative' ? selectedNormativeIdentifiers.value : undefined,
-      manualExtract: governanceMode.value === 'generic' && trimmedSamplePayload
+      governanceMode: effectiveGovernanceMode,
+      normativePresetCode: shouldUseNormativePreset ? normativePresetCode.value : undefined,
+      selectedNormativeIdentifiers: shouldUseNormativePreset ? selectedNormativeIdentifiers.value : undefined,
+      manualExtract: effectiveGovernanceMode === 'generic' && trimmedSamplePayload
         ? {
             sampleType: manualSampleType.value,
             samplePayload: trimmedSamplePayload
@@ -677,8 +710,10 @@ function buildApplyItem(row: ProductModelGovernanceCompareRow, decision: Product
 
 function resetGovernanceSession() {
   governanceMode.value = 'normative'
-  normativePresetCode.value = INTEGRATED_NORMATIVE_PRESET.code
-  selectedNormativeIdentifiers.value = [...INTEGRATED_NORMATIVE_PRESET.defaultIdentifiers]
+  normativePresetCode.value = activeNormativePreset.value?.code ?? ''
+  selectedNormativeIdentifiers.value = activeNormativePreset.value
+    ? [...activeNormativePreset.value.defaultIdentifiers]
+    : []
   manualSampleType.value = 'business'
   manualSamplePayload.value = ''
   includeRuntimeCandidates.value = true
@@ -816,6 +851,25 @@ function resetGovernanceSession() {
   border: 1px solid var(--panel-border);
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.98));
+}
+
+.product-model-designer-drawer__preset-empty {
+  display: grid;
+  gap: 0.72rem;
+  padding: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--brand) 26%, var(--panel-border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel-background) 92%, white);
+}
+
+.product-model-designer-drawer__preset-empty-action {
+  width: fit-content;
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--brand);
+  cursor: pointer;
+  padding: 0.46rem 0.9rem;
 }
 
 .product-model-designer-drawer__preset-copy span,

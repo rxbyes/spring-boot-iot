@@ -139,13 +139,31 @@ async function readApiResponse(response) {
     payload = null;
   }
 
+  let requestBody = '';
+  let requestBodyReadError;
+  try {
+    requestBody = response.request().postData() || '';
+  } catch (error) {
+    requestBodyReadError = error instanceof Error ? error.message : String(error);
+  }
+
+  let requestPayload = null;
+  try {
+    requestPayload = requestBody ? JSON.parse(requestBody) : null;
+  } catch {
+    requestPayload = null;
+  }
+
   return {
     url: response.url(),
     status: response.status(),
     method: response.request().method(),
     payload,
     text,
-    bodyReadError
+    bodyReadError,
+    requestBody,
+    requestPayload,
+    requestBodyReadError
   };
 }
 

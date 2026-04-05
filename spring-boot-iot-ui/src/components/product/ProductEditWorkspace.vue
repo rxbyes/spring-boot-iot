@@ -7,21 +7,6 @@
       </div>
     </section>
 
-    <section class="product-edit-workspace__revision-ruler">
-      <article class="product-edit-workspace__revision-ruler-item">
-        <span>产品 Key</span>
-        <strong>{{ formatText(model.productKey) }}</strong>
-      </article>
-      <article class="product-edit-workspace__revision-ruler-item">
-        <span>协议编码</span>
-        <strong>{{ formatText(model.protocolCode) }}</strong>
-      </article>
-      <article class="product-edit-workspace__revision-ruler-item">
-        <span>节点与状态</span>
-        <strong>{{ nodeTypeText }} / {{ statusText }}</strong>
-      </article>
-    </section>
-
     <StandardInlineState
       class="product-edit-workspace__inline-state"
       :message="inlineMessage"
@@ -152,8 +137,6 @@ const formRef = ref<FormInstance>()
 
 const submitText = computed(() => (props.editing ? '保存' : '新增'))
 const cancelText = computed(() => (props.editing ? '取消编辑' : '取消'))
-const nodeTypeText = computed(() => (props.model.nodeType === 2 ? '网关设备' : '直连设备'))
-const statusText = computed(() => (props.model.status === 0 ? '停用' : '启用'))
 const sectionNote = computed(() => {
   if (props.editing) {
     return '当前变更会直接回写产品经营工作台的头部信息、治理语境和列表档案。'
@@ -170,13 +153,6 @@ const inlineMessage = computed(() => {
   }
   return '优先核对产品标识、协议编码、节点类型与状态，避免运行中的接入链路发生漂移。'
 })
-
-function formatText(value?: string | number | null) {
-  if (value === undefined || value === null || value === '') {
-    return '--'
-  }
-  return String(value)
-}
 
 async function validate() {
   const valid = await formRef.value?.validate().catch(() => false)
@@ -195,8 +171,7 @@ defineExpose({
 
 <style scoped>
 .product-edit-workspace,
-.product-edit-workspace__summary-copy,
-.product-edit-workspace__revision-ruler {
+.product-edit-workspace__summary-copy {
   display: grid;
 }
 
@@ -215,8 +190,7 @@ defineExpose({
   gap: 0.34rem;
 }
 
-.product-edit-workspace__revision-title,
-.product-edit-workspace__revision-ruler-item strong {
+.product-edit-workspace__revision-title {
   margin: 0;
   color: var(--text-heading);
 }
@@ -227,8 +201,7 @@ defineExpose({
   line-height: 1.2;
 }
 
-.product-edit-workspace__summary-description,
-.product-edit-workspace__revision-ruler-item span {
+.product-edit-workspace__summary-description {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
@@ -237,34 +210,6 @@ defineExpose({
 .product-edit-workspace__section-note {
   max-width: 42rem;
   font-size: 0.9rem;
-}
-
-.product-edit-workspace__revision-ruler {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--panel-border);
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.product-edit-workspace__revision-ruler-item {
-  display: grid;
-  gap: 0.3rem;
-  min-width: 0;
-  padding: 0.96rem 1rem 0.9rem;
-  border-right: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-}
-
-.product-edit-workspace__revision-ruler-item:last-child {
-  border-right: 0;
-}
-
-.product-edit-workspace__revision-ruler-item span {
-  font-size: 0.8rem;
-}
-
-.product-edit-workspace__revision-ruler-item strong {
-  font-size: 1.08rem;
-  line-height: 1.4;
 }
 
 .product-edit-workspace__draft-sheet {
@@ -278,20 +223,5 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-}
-
-@media (max-width: 960px) {
-  .product-edit-workspace__revision-ruler {
-    grid-template-columns: 1fr;
-  }
-
-  .product-edit-workspace__revision-ruler-item {
-    border-right: 0;
-    border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  }
-
-  .product-edit-workspace__revision-ruler-item:first-child {
-    border-top: 0;
-  }
 }
 </style>

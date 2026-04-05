@@ -14,4 +14,8 @@ public class ProductModelManualExtractDTO {
 
     @NotBlank(message = "请输入样本报文")
     private String samplePayload;
+
+    private String sourceDeviceCode;
+
+    private String extractMode;
 }

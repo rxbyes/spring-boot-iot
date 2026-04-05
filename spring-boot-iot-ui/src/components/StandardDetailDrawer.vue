@@ -36,16 +36,21 @@
           </div>
           <p v-if="subtitle" class="detail-drawer__subtitle">{{ subtitle }}</p>
         </div>
-        <div v-if="tagLayout !== 'title-inline' && tags.length" class="detail-drawer__tags">
-          <el-tag
-            v-for="tag in tags"
-            :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
-            :type="tag.type || 'info'"
-            :effect="tag.effect || 'light'"
-            round
-          >
-            {{ tag.label }}
-          </el-tag>
+        <div v-if="hasHeaderAside" class="detail-drawer__aside">
+          <div v-if="tagLayout !== 'title-inline' && tags.length" class="detail-drawer__tags">
+            <el-tag
+              v-for="tag in tags"
+              :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
+              :type="tag.type || 'info'"
+              :effect="tag.effect || 'light'"
+              round
+            >
+              {{ tag.label }}
+            </el-tag>
+          </div>
+          <div v-if="hasHeaderActions" class="detail-drawer__actions">
+            <slot name="header-actions" />
+          </div>
         </div>
       </div>
     </template>
@@ -68,7 +73,7 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     title: string;
@@ -107,6 +112,8 @@ const emit = defineEmits<{
 
 const slots = useSlots()
 const hasFooterSlot = computed(() => Boolean(slots.footer))
+const hasHeaderActions = computed(() => Boolean(slots['header-actions']))
+const hasHeaderAside = computed(() => hasHeaderActions.value || (props.tagLayout !== 'title-inline' && props.tags.length > 0))
 </script>
 
 <style scoped>
@@ -152,6 +159,13 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   min-width: 0;
 }
 
+.detail-drawer__aside {
+  display: grid;
+  justify-items: end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .detail-drawer__title-row {
   display: block;
 }
@@ -186,6 +200,13 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.detail-drawer__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
@@ -517,6 +538,12 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   }
 
   .detail-drawer__tags {
+    justify-content: flex-start;
+  }
+
+  .detail-drawer__aside,
+  .detail-drawer__actions {
+    justify-items: start;
     justify-content: flex-start;
   }
 

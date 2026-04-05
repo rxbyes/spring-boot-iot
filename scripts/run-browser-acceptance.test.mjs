@@ -73,6 +73,27 @@ test('sample web smoke plan matches current login and product/device workbench f
   );
   const deviceVisualStep = deviceScenario.steps.find((step) => step.id === 'device-assert-visual-page');
   assert.equal(deviceVisualStep?.optional, true, 'device visual baseline sample should be optional by default');
+
+  const productGovernanceScenario = scenarios.get('product-governance-warning-fallback');
+  assert.ok(productGovernanceScenario, 'product governance warning fallback scenario should exist');
+  assert.equal(productGovernanceScenario.readySelector, '#quick-search');
+  assert.ok(
+    productGovernanceScenario.steps.some((step) => step.id === 'product-governance-open-workbench' && step.type === 'tableRowAction'),
+    'product governance scenario should open the workbench from the current product list row'
+  );
+  const compareStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-compare-fallback');
+  assert.equal(compareStep?.type, 'triggerApi');
+  assert.equal(compareStep?.matcher, '/model-governance/compare');
+  assert.deepEqual(compareStep?.captures, [
+    {
+      variable: 'governanceMode',
+      path: 'requestPayload.governanceMode'
+    }
+  ]);
+  const assertModeStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-assert-generic-mode');
+  assert.equal(assertModeStep?.type, 'assertVariableEquals');
+  assert.equal(assertModeStep?.variable, 'governanceMode');
+  assert.equal(assertModeStep?.value, 'generic');
 });
 
 test('automation plan source no longer uses removed console page title selector defaults', () => {
@@ -106,4 +127,32 @@ test('selectOption handler supports Element Plus select triggers', () => {
   );
 
   assert.match(configDrivenSource, /locator\.locator\('\.el-select__wrapper, \.el-select__selection, \.el-input__wrapper'/);
+});
+
+test('config driven browser steps support request payload captures and variable assertions', () => {
+  const browserCoreSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-acceptance-core.mjs'),
+    'utf8'
+  );
+  const configDrivenSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-config-driven.mjs'),
+    'utf8'
+  );
+
+  assert.match(browserCoreSource, /requestPayload\b/);
+  assert.match(configDrivenSource, /registerPlanStepHandler\('assertVariableEquals'/);
+});
+
+test('product governance compare payload type exposes generic mode contract', () => {
+  const apiSource = fs.readFileSync(
+    path.join(repoRoot, 'spring-boot-iot-ui', 'src', 'types', 'api.ts'),
+    'utf8'
+  );
+  const apiDeclarationSource = fs.readFileSync(
+    path.join(repoRoot, 'spring-boot-iot-ui', 'src', 'types', 'api.d.ts'),
+    'utf8'
+  );
+
+  assert.match(apiSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
+  assert.match(apiDeclarationSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
 });

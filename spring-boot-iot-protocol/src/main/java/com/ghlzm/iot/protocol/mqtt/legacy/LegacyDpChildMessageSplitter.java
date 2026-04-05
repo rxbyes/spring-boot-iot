@@ -19,14 +19,28 @@ import java.util.regex.Pattern;
 public class LegacyDpChildMessageSplitter {
 
     private static final String DEEP_DISPLACEMENT_PARENT_STATUS_FAMILY = "S1_ZT_1";
+    private static final String PARENT_SENSOR_STATE_PROPERTY_PREFIX = "S1_ZT_1.sensor_state.";
+    private static final String CHILD_SENSOR_STATE_PROPERTY = "sensor_state";
+    private static final String CHILD_CRACK_VALUE_PROPERTY = "value";
+    private static final String CANONICALIZATION_STRATEGY_LEGACY = "LEGACY";
+    private static final String CANONICALIZATION_STRATEGY_LF_VALUE = "LF_VALUE";
+    private static final String STATUS_MIRROR_STRATEGY_NONE = "NONE";
+    private static final String STATUS_MIRROR_STRATEGY_SENSOR_STATE = "SENSOR_STATE";
     private static final Pattern DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN = Pattern.compile("^L1_SW_\\d+$");
+    private static final Pattern CRACK_LOGICAL_CODE_PATTERN = Pattern.compile("^L1_LF_\\d+$");
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final LegacyDpFamilyResolver familyResolver = new LegacyDpFamilyResolver();
     private final IotProperties iotProperties;
+    private final LegacyDpRelationResolver relationResolver;
 
     public LegacyDpChildMessageSplitter(IotProperties iotProperties) {
+        this(iotProperties, LegacyDpRelationResolver.noop());
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties, LegacyDpRelationResolver relationResolver) {
         this.iotProperties = iotProperties;
+        this.relationResolver = relationResolver == null ? LegacyDpRelationResolver.noop() : relationResolver;
     }
 
     public LegacyDpNormalizeResult split(Map<String, Object> payload,
@@ -39,8 +53,8 @@ public class LegacyDpChildMessageSplitter {
             return result;
         }
 
-        Map<String, String> subDeviceMappings = resolveSubDeviceMappings(parentMessage.getDeviceCode());
-        if (subDeviceMappings.isEmpty()) {
+        List<LegacyDpRelationRule> relationRules = resolveRelationRules(parentMessage.getDeviceCode());
+        if (relationRules.isEmpty()) {
             result.setProperties(collapseStandaloneDeepDisplacementProperties(parentMessage, result));
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
@@ -56,20 +70,23 @@ public class LegacyDpChildMessageSplitter {
 
         List<DeviceUpMessage> childMessages = new ArrayList<>();
         List<String> logicalCodes = new ArrayList<>();
-        List<Map.Entry<String, String>> mappingEntries = new ArrayList<>(subDeviceMappings.entrySet());
-        mappingEntries.sort(Map.Entry.comparingByKey());
-        for (Map.Entry<String, String> entry : mappingEntries) {
-            String logicalCode = entry.getKey();
-            String childDeviceCode = entry.getValue();
+        for (LegacyDpRelationRule rule : relationRules) {
+            String logicalCode = rule.logicalChannelCode();
+            String childDeviceCode = rule.childDeviceCode();
             if (logicalCode == null || logicalCode.isBlank() || childDeviceCode == null || childDeviceCode.isBlank()) {
                 continue;
             }
 
-            LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(logicalCode, basePayloadMap.get(logicalCode));
+            LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(rule, basePayloadMap.get(logicalCode));
             if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
                 continue;
             }
 
+            Map<String, Object> childProperties = mergeDerivedChildProperties(
+                    rule,
+                    latestLogicalPayload.properties(),
+                    result.getProperties()
+            );
             DeviceUpMessage childMessage = new DeviceUpMessage();
             childMessage.setTenantId(parentMessage.getTenantId());
             childMessage.setProductKey(parentMessage.getProductKey());
@@ -79,7 +96,7 @@ public class LegacyDpChildMessageSplitter {
             childMessage.setTimestamp(latestLogicalPayload.timestamp() == null
                     ? parentMessage.getTimestamp()
                     : latestLogicalPayload.timestamp());
-            childMessage.setProperties(latestLogicalPayload.properties());
+            childMessage.setProperties(childProperties);
             childMessage.setRawPayload(latestLogicalPayload.rawPayload());
             childMessages.add(childMessage);
             logicalCodes.add(logicalCode);
@@ -96,13 +113,60 @@ public class LegacyDpChildMessageSplitter {
         return result;
     }
 
-    private Map<String, String> resolveSubDeviceMappings(String baseDeviceCode) {
+    private List<LegacyDpRelationRule> resolveRelationRules(String baseDeviceCode) {
+        if (baseDeviceCode == null || baseDeviceCode.isBlank()) {
+            return List.of();
+        }
+        List<LegacyDpRelationRule> registryRules = sanitizeRelationRules(relationResolver.listRulesByParentDeviceCode(baseDeviceCode));
+        if (!registryRules.isEmpty()) {
+            return registryRules;
+        }
+        Map<String, String> configuredMappings = resolveLegacySubDeviceMappings(baseDeviceCode);
+        if (configuredMappings.isEmpty()) {
+            return List.of();
+        }
+        return configuredMappings.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank()
+                        && entry.getValue() != null && !entry.getValue().isBlank())
+                .map(entry -> new LegacyDpRelationRule(
+                        entry.getKey(),
+                        entry.getValue(),
+                        resolveLegacyCanonicalizationStrategy(entry.getKey()),
+                        resolveLegacyStatusMirrorStrategy(entry.getKey())
+                ))
+                .sorted(Comparator.comparing(LegacyDpRelationRule::logicalChannelCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private Map<String, String> resolveLegacySubDeviceMappings(String baseDeviceCode) {
         if (baseDeviceCode == null || baseDeviceCode.isBlank() || iotProperties.getDevice() == null
                 || iotProperties.getDevice().getSubDeviceMappings() == null) {
             return Map.of();
         }
         Map<String, String> configuredMappings = iotProperties.getDevice().getSubDeviceMappings().get(baseDeviceCode);
         return configuredMappings == null || configuredMappings.isEmpty() ? Map.of() : configuredMappings;
+    }
+
+    private List<LegacyDpRelationRule> sanitizeRelationRules(List<LegacyDpRelationRule> rules) {
+        if (rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        return rules.stream()
+                .filter(rule -> rule != null
+                        && rule.logicalChannelCode() != null
+                        && !rule.logicalChannelCode().isBlank()
+                        && rule.childDeviceCode() != null
+                        && !rule.childDeviceCode().isBlank())
+                .sorted(Comparator.comparing(LegacyDpRelationRule::logicalChannelCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private String resolveLegacyCanonicalizationStrategy(String logicalCode) {
+        return isCrackLogicalCode(logicalCode) ? CANONICALIZATION_STRATEGY_LF_VALUE : CANONICALIZATION_STRATEGY_LEGACY;
+    }
+
+    private String resolveLegacyStatusMirrorStrategy(String logicalCode) {
+        return isCrackLogicalCode(logicalCode) ? STATUS_MIRROR_STRATEGY_SENSOR_STATE : STATUS_MIRROR_STRATEGY_NONE;
     }
 
     private Map<String, Object> collapseStandaloneDeepDisplacementProperties(DeviceUpMessage parentMessage,
@@ -146,6 +210,10 @@ public class LegacyDpChildMessageSplitter {
 
     private boolean isDeepDisplacementLogicalCode(String familyCode) {
         return familyCode != null && DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN.matcher(familyCode).matches();
+    }
+
+    private boolean isCrackLogicalCode(String logicalCode) {
+        return logicalCode != null && CRACK_LOGICAL_CODE_PATTERN.matcher(logicalCode).matches();
     }
 
     private boolean containsOnlyStandaloneDeepDisplacementFamilies(List<String> familyCodes, String logicalCode) {
@@ -193,7 +261,8 @@ public class LegacyDpChildMessageSplitter {
         return isDeepDisplacementLogicalCode(propertyKey.substring(0, separatorIndex));
     }
 
-    private LatestLogicalPayload extractLatestLogicalPayload(String logicalCode, Object logicalPayload) {
+    private LatestLogicalPayload extractLatestLogicalPayload(LegacyDpRelationRule rule, Object logicalPayload) {
+        String logicalCode = rule == null ? null : rule.logicalChannelCode();
         if (logicalPayload == null) {
             return null;
         }
@@ -213,7 +282,7 @@ public class LegacyDpChildMessageSplitter {
             rawPayload = writeLogicalRawPayload(logicalCode, latestPayload);
         }
 
-        Map<String, Object> properties = toLogicalProperties(logicalCode, latestValue);
+        Map<String, Object> properties = toLogicalProperties(rule, latestValue);
         return properties.isEmpty() ? null : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload);
     }
 
@@ -247,16 +316,56 @@ public class LegacyDpChildMessageSplitter {
         return timestampedValues.get(timestampedValues.size() - 1);
     }
 
-    private Map<String, Object> toLogicalProperties(String logicalCode, Object value) {
+    private Map<String, Object> toLogicalProperties(LegacyDpRelationRule rule, Object value) {
         Map<String, Object> properties = new LinkedHashMap<>();
         if (value instanceof Map<?, ?> mapValue) {
             flattenChildProperties("", mapValue, properties);
             return properties;
         }
         if (value != null) {
-            properties.put(logicalCode, value);
+            String propertyKey = resolveChildScalarPropertyKey(rule);
+            if (propertyKey != null && !propertyKey.isBlank()) {
+                properties.put(propertyKey, value);
+            }
         }
         return properties;
+    }
+
+    private String resolveChildScalarPropertyKey(LegacyDpRelationRule rule) {
+        if (rule == null || rule.logicalChannelCode() == null || rule.logicalChannelCode().isBlank()) {
+            return null;
+        }
+        return CANONICALIZATION_STRATEGY_LF_VALUE.equalsIgnoreCase(normalizeStrategy(rule.canonicalizationStrategy()))
+                ? CHILD_CRACK_VALUE_PROPERTY
+                : rule.logicalChannelCode();
+    }
+
+    private Map<String, Object> mergeDerivedChildProperties(LegacyDpRelationRule rule,
+                                                            Map<String, Object> logicalProperties,
+                                                            Map<String, Object> parentProperties) {
+        Map<String, Object> mergedProperties = new LinkedHashMap<>();
+        if (logicalProperties != null && !logicalProperties.isEmpty()) {
+            mergedProperties.putAll(logicalProperties);
+        }
+        Object sensorState = resolveDerivedChildSensorState(rule, parentProperties);
+        if (sensorState != null) {
+            mergedProperties.put(CHILD_SENSOR_STATE_PROPERTY, sensorState);
+        }
+        return mergedProperties;
+    }
+
+    private Object resolveDerivedChildSensorState(LegacyDpRelationRule rule, Map<String, Object> parentProperties) {
+        if (rule == null
+                || !STATUS_MIRROR_STRATEGY_SENSOR_STATE.equalsIgnoreCase(normalizeStrategy(rule.statusMirrorStrategy()))
+                || parentProperties == null
+                || parentProperties.isEmpty()) {
+            return null;
+        }
+        return parentProperties.get(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode());
+    }
+
+    private String normalizeStrategy(String strategy) {
+        return strategy == null ? null : strategy.trim().toUpperCase();
     }
 
     private void flattenChildProperties(String prefix, Map<?, ?> source, Map<String, Object> target) {

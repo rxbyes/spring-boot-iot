@@ -6,6 +6,7 @@ import RiskPointView from '@/views/RiskPointView.vue'
 
 const {
   mockPageRiskPointList,
+  mockGetRiskPointById,
   mockAddRiskPoint,
   mockUpdateRiskPoint,
   mockDeleteRiskPoint,
@@ -27,6 +28,7 @@ const {
   mockListMissingBindings
 } = vi.hoisted(() => ({
   mockPageRiskPointList: vi.fn(),
+  mockGetRiskPointById: vi.fn(),
   mockAddRiskPoint: vi.fn(),
   mockUpdateRiskPoint: vi.fn(),
   mockDeleteRiskPoint: vi.fn(),
@@ -50,6 +52,7 @@ const {
 
 vi.mock('@/api/riskPoint', () => ({
   pageRiskPointList: mockPageRiskPointList,
+  getRiskPointById: mockGetRiskPointById,
   addRiskPoint: mockAddRiskPoint,
   updateRiskPoint: mockUpdateRiskPoint,
   deleteRiskPoint: mockDeleteRiskPoint,
@@ -196,6 +199,38 @@ const StandardFormDrawerStub = defineComponent({
   `
 })
 
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['modelValue', 'title', 'subtitle', 'tags', 'loading', 'empty'],
+  emits: ['update:modelValue'],
+  template: `
+    <section class="standard-detail-drawer-stub" :data-model-value="modelValue">
+      <header class="standard-detail-drawer-stub__header">
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+        <div class="standard-detail-drawer-stub__tags">
+          <span v-for="tag in tags || []" :key="tag.label">{{ tag.label }}</span>
+        </div>
+      </header>
+      <div v-if="loading" class="standard-detail-drawer-stub__loading">loading</div>
+      <div v-else-if="empty" class="standard-detail-drawer-stub__empty">empty</div>
+      <slot v-else />
+      <slot name="footer" />
+    </section>
+  `
+})
+
+const StandardActionLinkStub = defineComponent({
+  name: 'StandardActionLink',
+  props: ['disabled'],
+  emits: ['click'],
+  template: `
+    <button type="button" :disabled="Boolean(disabled)" @click="$emit('click')">
+      <slot />
+    </button>
+  `
+})
+
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
   emits: ['command'],
@@ -216,6 +251,23 @@ const StandardWorkbenchRowActionsStub = defineComponent({
         {{ item.label }}
       </button>
       <span class="risk-point-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </section>
+  `
+})
+
+const RiskPointDetailDrawerStub = defineComponent({
+  name: 'RiskPointDetailDrawer',
+  props: ['modelValue', 'riskPointId', 'initialRiskPoint', 'initialSummary'],
+  emits: ['edit', 'maintain-binding', 'pending-promotion', 'close'],
+  template: `
+    <section class="risk-point-detail-drawer-stub" :data-model-value="modelValue">
+      <h3>风险对象详情</h3>
+      <div v-if="initialRiskPoint">{{ initialRiskPoint.riskPointName }}</div>
+      <div v-if="initialSummary">待治理 {{ initialSummary.pendingBindingCount ?? 0 }} 条</div>
+      <button type="button" data-testid="detail-drawer-edit" @click="$emit('edit')">编辑风险点</button>
+      <button type="button" data-testid="detail-drawer-maintain-binding" @click="$emit('maintain-binding')">维护绑定</button>
+      <button type="button" data-testid="detail-drawer-pending-promotion" @click="$emit('pending-promotion')">待治理转正</button>
+      <button type="button" data-testid="detail-drawer-close" @click="$emit('close')">关闭</button>
     </section>
   `
 })
@@ -374,7 +426,10 @@ function mountView() {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardPagination: StandardPaginationStub,
+        StandardActionLink: StandardActionLinkStub,
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
+        RiskPointDetailDrawer: RiskPointDetailDrawerStub,
         RiskPointBindingMaintenanceDrawer: RiskPointBindingMaintenanceDrawerStub,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
@@ -404,6 +459,7 @@ function mountView() {
 describe('RiskPointView', () => {
   beforeEach(() => {
     mockPageRiskPointList.mockReset()
+    mockGetRiskPointById.mockReset()
     mockAddRiskPoint.mockReset()
     mockUpdateRiskPoint.mockReset()
     mockDeleteRiskPoint.mockReset()
@@ -506,6 +562,11 @@ describe('RiskPointView', () => {
       code: 200,
       msg: 'success',
       data: []
+    })
+    mockGetRiskPointById.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
     })
     mockListBindingSummaries.mockResolvedValue({
       code: 200,
@@ -799,7 +860,7 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('PRODUCT_MODEL')
   })
 
-  it('loads binding summaries for the current page and renders the summary column', async () => {
+  it('loads binding summaries for the current page without rendering a binding-status column in the list', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -830,16 +891,18 @@ describe('RiskPointView', () => {
     const vm = wrapper.vm as unknown as {
       getRiskPointRowActions: () => Array<{ label: string }>
     }
+    const columnLabels = wrapper.findAll('.el-table-column-stub__label').map((node) => node.text())
 
     expect(mockListBindingSummaries).toHaveBeenCalledWith([1])
-    expect(wrapper.text()).toContain('绑定概览')
-    expect(wrapper.text()).toContain('2 台设备')
-    expect(wrapper.text()).toContain('5 个测点')
-    expect(wrapper.text()).toContain('待治理 1 条')
+    expect(columnLabels).not.toContain('绑定状态')
+    expect(wrapper.text()).not.toContain('已绑定 / 待治理')
+    expect(wrapper.text()).not.toContain('2 台设备 · 5 个测点')
+    expect(wrapper.text()).not.toContain('待治理 1 条')
+    expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('详情')
     expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('维护绑定')
   })
 
-  it('shows an unbound summary state instead of three zero lines when no formal bindings exist', async () => {
+  it('keeps pending and unbound summary text out of the list when only the detail drawer owns binding information', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -867,10 +930,127 @@ describe('RiskPointView', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('未绑定')
-    expect(wrapper.text()).toContain('待治理 2 条')
-    expect(wrapper.text()).not.toContain('0 台设备')
-    expect(wrapper.text()).not.toContain('0 个测点')
+    expect(wrapper.text()).not.toContain('待治理 2 条')
+    expect(wrapper.findAll('.el-table-column-stub__label').map((node) => node.text())).not.toContain('绑定状态')
+    expect(wrapper.text()).not.toContain('绑定状态')
+    expect(wrapper.text()).not.toContain('绑定概览')
+  })
+
+  it('opens the detail drawer from the risk-point name and the row action', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 1,
+          boundMetricCount: 2,
+          pendingBindingCount: 0
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="risk-point-name-link-1"]').trigger('click')
+    await nextTick()
+
+    let detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
+    expect(detailDrawer.props('modelValue')).toBe(true)
+    expect(detailDrawer.props('riskPointId')).toBe(1)
+
+    await (wrapper.vm as any).handleRiskPointRowAction('detail', createRiskPointRow())
+    await nextTick()
+
+    detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
+    expect(detailDrawer.props('modelValue')).toBe(true)
+    expect(detailDrawer.props('riskPointId')).toBe(1)
+  })
+
+  it('routes detail drawer actions into the existing edit and maintenance flows', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 1,
+          boundMetricCount: 2,
+          pendingBindingCount: 1
+        }
+      ]
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    await (wrapper.vm as any).openRiskPointDetail(createRiskPointRow())
+    await nextTick()
+
+    let detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
+    await detailDrawer.get('[data-testid="detail-drawer-edit"]').trigger('click')
+    await nextTick()
+    expect(wrapper.findAllComponents(StandardFormDrawerStub)[0].props('modelValue')).toBe(true)
+
+    await (wrapper.vm as any).openRiskPointDetail(createRiskPointRow())
+    await nextTick()
+    detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
+    await detailDrawer.get('[data-testid="detail-drawer-maintain-binding"]').trigger('click')
+    await nextTick()
+    expect(wrapper.findComponent(RiskPointBindingMaintenanceDrawerStub).props('modelValue')).toBe(true)
+
+    await (wrapper.vm as any).openRiskPointDetail(createRiskPointRow())
+    await nextTick()
+    detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
+    await detailDrawer.get('[data-testid="detail-drawer-pending-promotion"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('待治理转正')
   })
 
   it('skips completed pending rows and auto-loads the first promotable row', async () => {

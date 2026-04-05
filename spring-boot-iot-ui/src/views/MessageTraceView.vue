@@ -255,7 +255,6 @@
         :timeline-lookup-error="detailTimelineLookupError"
         :timeline-empty-title="detailTimelineEmptyTitle"
         :timeline-empty-description="detailTimelineEmptyDescription"
-        :route-advice="detailRouteAdvice"
       />
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -409,15 +408,6 @@ const detailPayloadComparison = computed(() =>
     timelineExpired: timelineExpired.value
   })
 );
-const detailRouteAdvice = computed(() => {
-  if (detailData.value.traceId) {
-    return `可携带当前 TraceId（${detailData.value.traceId}）跳转异常观测台，继续联动排查消息链路。`;
-  }
-  if (detailData.value.topic) {
-    return '可根据当前 Topic 跳转异常观测台，继续联动排查接入链路。';
-  }
-  return '可结合设备编码与产品标识继续检索异常观测台。';
-});
 const detailTags = computed(() => {
   if (!hasDetail.value) {
     return [];
@@ -741,12 +731,16 @@ function getMessageTypeLabel(value?: string | null) {
   switch (value) {
     case 'report':
       return '属性上报';
+    case 'status':
+      return '状态上报';
     case 'reply':
       return '命令回执';
     case 'online':
       return '上线消息';
     case 'offline':
       return '离线消息';
+    case 'property':
+      return '属性上报';
     default:
       return formatValue(value);
   }

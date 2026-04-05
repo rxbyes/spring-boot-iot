@@ -7,11 +7,13 @@ import ProductModelDesignerDrawer from '@/components/product/ProductModelDesigne
 const {
   mockListProductModels,
   mockCompareProductModelGovernance,
-  mockApplyProductModelGovernance
+  mockApplyProductModelGovernance,
+  mockWarningMessage
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
-  mockApplyProductModelGovernance: vi.fn()
+  mockApplyProductModelGovernance: vi.fn(),
+  mockWarningMessage: vi.fn()
 }))
 
 vi.mock('@/api/product', () => ({
@@ -32,7 +34,7 @@ vi.mock('@/utils/message', () => ({
   ElMessage: {
     success: vi.fn(),
     error: vi.fn(),
-    warning: vi.fn()
+    warning: mockWarningMessage
   }
 }))
 
@@ -230,16 +232,23 @@ function compareResult() {
   }
 }
 
-function mountDrawer() {
+function mountDrawer(productOverrides?: Partial<{
+  id: number
+  productKey: string
+  productName: string
+  protocolCode: string
+  nodeType: number
+}>) {
   return mount(ProductModelDesignerDrawer, {
     props: {
       modelValue: true,
       product: {
         id: 1001,
-        productKey: 'south-monitor',
-        productName: '南方监测终端',
+        productKey: 'south-survey-multi-detector-v1',
+        productName: '南方测绘多维检测仪',
         protocolCode: 'mqtt-json',
-        nodeType: 1
+        nodeType: 1,
+        ...productOverrides
       }
     },
     global: {
@@ -269,6 +278,7 @@ describe('ProductModelDesignerDrawer', () => {
     mockListProductModels.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
+    mockWarningMessage.mockReset()
     mockListProductModels.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -346,6 +356,45 @@ describe('ProductModelDesignerDrawer', () => {
           compareStatus: 'double_aligned'
         }
       ]
+    })
+  })
+
+  it('shows an empty normative preset state for warning products and can switch to generic governance', async () => {
+    const wrapper = mountDrawer({
+      productKey: 'zhd-warning-sound-light-alarm-v1',
+      productName: '中海达 预警型 声光报警器'
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('当前产品暂无适用规范预设')
+    expect(wrapper.text()).not.toContain('倾角 X 轴')
+
+    await wrapper.find('[data-testid="governance-switch-generic"]').trigger('click')
+
+    expect(wrapper.text()).toContain('通用双证据')
+  })
+
+  it('falls back to generic compare when the current product has no applicable normative preset', async () => {
+    const wrapper = mountDrawer({
+      productKey: 'zhd-warning-sound-light-alarm-v1',
+      productName: '中海达 预警型 声光报警器'
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.find('[data-testid="governance-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockWarningMessage).toHaveBeenCalledWith('当前产品暂无适用规范预设，已改按通用双证据生成对比结果')
+    expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
+      governanceMode: 'generic',
+      normativePresetCode: undefined,
+      selectedNormativeIdentifiers: undefined,
+      manualExtract: undefined,
+      manualDraftItems: [],
+      includeRuntimeCandidates: true
     })
   })
 })

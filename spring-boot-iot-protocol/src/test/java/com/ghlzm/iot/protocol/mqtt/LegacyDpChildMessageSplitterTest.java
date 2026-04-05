@@ -2,16 +2,22 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationRule;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyDpChildMessageSplitterTest {
@@ -177,10 +183,184 @@ class LegacyDpChildMessageSplitterTest {
         assertTrue(!parentProperties.containsKey("dispsY"));
     }
 
-    private Map<String, Object> timestampPayload(Map<String, Object> value) {
+    @Test
+    void shouldSplitMappedCrackChildrenToCanonicalValueAndMirrorSensorState() {
+        IotProperties iotProperties = new IotProperties();
+        IotProperties.Device device = new IotProperties.Device();
+        device.setSubDeviceMappings(Map.of(
+                "SK00EA0D1307986",
+                crackChildMappings()
+        ));
+        iotProperties.setDevice(device);
+
+        Object splitter = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter",
+                new Class<?>[]{IotProperties.class},
+                iotProperties
+        );
+        Object normalizeResult = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult",
+                new Class<?>[0]
+        );
+
+        Map<String, Double> crackValues = crackValues();
+        Map<String, Object> parentProperties = new LinkedHashMap<>();
+        parentProperties.put("S1_ZT_1.ext_power_volt", 12.12);
+        parentProperties.put("S1_ZT_1.signal_4g", 22);
+        crackValues.forEach((logicalCode, value) -> {
+            parentProperties.put(logicalCode, value);
+            parentProperties.put("S1_ZT_1.sensor_state." + logicalCode, 0);
+        });
+        invoke(normalizeResult, "setProperties", parentProperties);
+        invoke(normalizeResult, "setTimestamp", LocalDateTime.of(2026, 4, 4, 22, 10, 35));
+        invoke(normalizeResult, "setMessageType", "property");
+        invoke(normalizeResult, "setFamilyCodes", List.of(
+                "S1_ZT_1",
+                "L1_LF_1",
+                "L1_LF_2",
+                "L1_LF_3",
+                "L1_LF_4",
+                "L1_LF_5",
+                "L1_LF_6",
+                "L1_LF_7",
+                "L1_LF_8",
+                "L1_LF_9"
+        ));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("south_rtu");
+        parentMessage.setDeviceCode("SK00EA0D1307986");
+        parentMessage.setMessageType("property");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 4, 22, 10, 35));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, Object> devicePayload = new LinkedHashMap<>();
+        Map<String, Object> statusPayload = new LinkedHashMap<>();
+        statusPayload.put("ext_power_volt", 12.12);
+        statusPayload.put("signal_4g", 22);
+        statusPayload.put("sensor_state", new LinkedHashMap<>(Map.of(
+                "L1_LF_1", 0,
+                "L1_LF_2", 0,
+                "L1_LF_3", 0,
+                "L1_LF_4", 0,
+                "L1_LF_5", 0,
+                "L1_LF_6", 0,
+                "L1_LF_7", 0,
+                "L1_LF_8", 0,
+                "L1_LF_9", 0
+        )));
+        devicePayload.put("S1_ZT_1", timestampPayload(statusPayload));
+        crackValues.forEach((logicalCode, value) -> devicePayload.put(logicalCode, timestampPayload(value)));
+        payload.put("SK00EA0D1307986", devicePayload);
+
+        Object result = invoke(splitter, "split", payload, parentMessage, normalizeResult);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> splitParentProperties = (Map<String, Object>) invoke(result, "getProperties");
+        @SuppressWarnings("unchecked")
+        List<DeviceUpMessage> childMessages = (List<DeviceUpMessage>) invoke(result, "getChildMessages");
+
+        assertEquals(Boolean.TRUE, invoke(result, "getChildSplitApplied"));
+        assertEquals(9, childMessages.size());
+        assertEquals(12.12, splitParentProperties.get("S1_ZT_1.ext_power_volt"));
+        assertEquals(22, splitParentProperties.get("S1_ZT_1.signal_4g"));
+        assertEquals(0, splitParentProperties.get("S1_ZT_1.sensor_state.L1_LF_1"));
+        assertEquals(0, splitParentProperties.get("S1_ZT_1.sensor_state.L1_LF_9"));
+        assertFalse(splitParentProperties.containsKey("L1_LF_1"));
+        assertFalse(splitParentProperties.containsKey("L1_LF_9"));
+
+        Map<String, Map<String, Object>> childPropertiesByDeviceCode = new HashMap<>();
+        for (DeviceUpMessage childMessage : childMessages) {
+            childPropertiesByDeviceCode.put(childMessage.getDeviceCode(), childMessage.getProperties());
+        }
+
+        assertEquals(Map.of("value", 10.86, "sensor_state", 0), childPropertiesByDeviceCode.get("202018143"));
+        assertEquals(Map.of("value", 6.95, "sensor_state", 0), childPropertiesByDeviceCode.get("202018135"));
+        assertEquals(Map.of("value", 2473.72, "sensor_state", 0), childPropertiesByDeviceCode.get("202018121"));
+        assertEquals(Map.of("value", 2473.72, "sensor_state", 0), childPropertiesByDeviceCode.get("202018137"));
+        assertEquals(Map.of("value", 6.73, "sensor_state", 0), childPropertiesByDeviceCode.get("202018142"));
+        assertEquals(Map.of("value", 2473.72, "sensor_state", 0), childPropertiesByDeviceCode.get("202018130"));
+        assertEquals(Map.of("value", 2473.72, "sensor_state", 0), childPropertiesByDeviceCode.get("202018127"));
+        assertEquals(Map.of("value", 6.82, "sensor_state", 0), childPropertiesByDeviceCode.get("202018118"));
+        assertEquals(Map.of("value", 10.8, "sensor_state", 0), childPropertiesByDeviceCode.get("202018139"));
+    }
+
+    @Test
+    void shouldPreferRelationRegistryRuleOverLegacyConfigFallbackForCollectorPayload() {
+        IotProperties iotProperties = new IotProperties();
+        IotProperties.Device device = new IotProperties.Device();
+        device.setSubDeviceMappings(Map.of(
+                "SK00EA0D1307986",
+                Map.of("L1_LF_1", "WRONG-CONFIG-CHILD")
+        ));
+        iotProperties.setDevice(device);
+
+        LegacyDpRelationResolver relationResolver = parentDeviceCode -> List.of(
+                new LegacyDpRelationRule("L1_LF_1", "202018143", "LF_VALUE", "SENSOR_STATE")
+        );
+        LegacyDpChildMessageSplitter splitter = new LegacyDpChildMessageSplitter(iotProperties, relationResolver);
+        LegacyDpNormalizeResult normalizeResult = new LegacyDpNormalizeResult();
+
+        Map<String, Object> parentProperties = new LinkedHashMap<>();
+        parentProperties.put("L1_LF_1", 10.86);
+        parentProperties.put("S1_ZT_1.sensor_state.L1_LF_1", 0);
+        normalizeResult.setProperties(parentProperties);
+        normalizeResult.setTimestamp(LocalDateTime.of(2026, 4, 4, 22, 10, 35));
+        normalizeResult.setMessageType("property");
+        normalizeResult.setFamilyCodes(List.of("S1_ZT_1", "L1_LF_1"));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("south_rtu");
+        parentMessage.setDeviceCode("SK00EA0D1307986");
+        parentMessage.setMessageType("property");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 4, 22, 10, 35));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("SK00EA0D1307986", Map.of("L1_LF_1", timestampPayload(10.86)));
+
+        LegacyDpNormalizeResult result = splitter.split(payload, parentMessage, normalizeResult);
+
+        assertEquals(1, result.getChildMessages().size());
+        assertEquals("202018143", result.getChildMessages().get(0).getDeviceCode());
+        assertEquals(Map.of("value", 10.86, "sensor_state", 0), result.getChildMessages().get(0).getProperties());
+    }
+
+    private Map<String, Object> timestampPayload(Object value) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("2026-03-20T06:24:02.000Z", value);
         return payload;
+    }
+
+    private Map<String, String> crackChildMappings() {
+        return Map.of(
+                "L1_LF_1", "202018143",
+                "L1_LF_2", "202018135",
+                "L1_LF_3", "202018121",
+                "L1_LF_4", "202018137",
+                "L1_LF_5", "202018142",
+                "L1_LF_6", "202018130",
+                "L1_LF_7", "202018127",
+                "L1_LF_8", "202018118",
+                "L1_LF_9", "202018139"
+        );
+    }
+
+    private Map<String, Double> crackValues() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put("L1_LF_1", 10.86);
+        values.put("L1_LF_2", 6.95);
+        values.put("L1_LF_3", 2473.72);
+        values.put("L1_LF_4", 2473.72);
+        values.put("L1_LF_5", 6.73);
+        values.put("L1_LF_6", 2473.72);
+        values.put("L1_LF_7", 2473.72);
+        values.put("L1_LF_8", 6.82);
+        values.put("L1_LF_9", 10.8);
+        return values;
     }
 
     private Object newInstance(String className, Class<?>[] parameterTypes, Object... args) {

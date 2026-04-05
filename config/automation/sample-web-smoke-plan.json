@@ -229,6 +229,148 @@
       ]
     },
     {
+      "key": "product-governance-warning-fallback",
+      "name": "预警产品治理空态与通用降级",
+      "route": "/products",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "description": "验证预警型产品进入物模型治理后显示无适用规范预设空态，并在 compare 时自动退化为 generic。",
+      "businessFlow": "产品治理工作台、规范预设适用性判断与 compare 请求降级",
+      "featurePoints": [
+        "预警产品空态提示",
+        "通用双证据降级",
+        "compare 请求治理模式回写"
+      ],
+      "initialApis": [],
+      "steps": [
+        {
+          "id": "product-governance-fill-quick-search",
+          "label": "填写预警产品快速搜索",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#quick-search"
+          },
+          "value": "中海达 预警型 声光报警器",
+          "optional": false
+        },
+        {
+          "id": "product-governance-query",
+          "label": "按预警产品名称查询台账",
+          "type": "triggerApi",
+          "matcher": "/api/device/product/page",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-open-workbench",
+          "label": "打开预警产品经营工作台",
+          "type": "tableRowAction",
+          "rowText": "中海达 预警型 声光报警器",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "进入工作台",
+              "exact": true
+            }
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-switch-models",
+          "label": "切换到物模型治理页签",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "物模型治理",
+            "exact": true
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-open-drawer",
+          "label": "进入双证据治理抽屉",
+          "type": "click",
+          "locator": {
+            "type": "testId",
+            "value": "confirm-model-candidates"
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-wait-empty-state-action",
+          "label": "等待空态切换按钮出现",
+          "type": "waitVisible",
+          "locator": {
+            "type": "testId",
+            "value": "governance-switch-generic"
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-assert-empty-state",
+          "label": "断言预警产品显示规范预设空态",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "当前产品暂无适用规范预设",
+          "optional": false
+        },
+        {
+          "id": "product-governance-compare-fallback",
+          "label": "触发 compare 并捕获治理模式",
+          "type": "triggerApi",
+          "matcher": "/model-governance/compare",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "governance-compare-submit"
+            }
+          },
+          "captures": [
+            {
+              "variable": "governanceMode",
+              "path": "requestPayload.governanceMode"
+            }
+          ],
+          "optional": false
+        },
+        {
+          "id": "product-governance-assert-generic-mode",
+          "label": "断言 compare 请求已退化为 generic",
+          "type": "assertVariableEquals",
+          "variable": "governanceMode",
+          "value": "generic",
+          "optional": false
+        },
+        {
+          "id": "product-governance-assert-warning-copy",
+          "label": "断言页面提示已自动改按通用双证据执行",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "当前产品暂无适用规范预设，已改按通用双证据生成对比结果",
+          "optional": false
+        }
+      ]
+    },
+    {
       "key": "device-workbench",
       "name": "设备资产建档与库存校验",
       "route": "/devices",

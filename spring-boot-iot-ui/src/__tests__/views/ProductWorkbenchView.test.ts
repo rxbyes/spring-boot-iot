@@ -199,6 +199,7 @@ const ProductBusinessWorkbenchDrawerStub = defineComponent({
     <section v-if="modelValue" class="product-business-workbench-drawer-stub">
       <h2 class="product-business-workbench-drawer-stub__title">{{ product?.productName }}</h2>
       <p class="product-business-workbench-drawer-stub__key">{{ product?.productKey }}</p>
+      <div class="product-business-workbench-drawer-stub__header-actions"><slot name="header-actions" /></div>
       <p data-testid="product-business-workbench-active-view">{{ activeView }}</p>
       <slot v-if="activeView === 'overview'" name="overview" />
       <slot v-else-if="activeView === 'models'" name="models" />
@@ -595,7 +596,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.get('.product-business-workbench-drawer-stub__title').text()).toBe('演示产品')
   })
 
-  it('routes edit and devices into the same business workbench with their own default views', async () => {
+  it('keeps devices in the same workbench and opens edit from the header action', async () => {
     const wrapper = mountView()
 
     const product = {
@@ -615,8 +616,10 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('devices')
     expect(wrapper.find('.product-device-list-workspace-stub').exists()).toBe(true)
 
-    ;(wrapper.vm as any).businessWorkbenchVisible = false
-    ;(wrapper.vm as any).handleRowAction('edit', product)
+    ;(wrapper.vm as any).handleRowAction('detail', product)
+    await nextTick()
+    expect(wrapper.find('.product-business-workbench-drawer-stub__header-actions').text()).toContain('编辑档案')
+    await wrapper.get('[data-testid="open-product-workbench-edit"]').trigger('click')
     await nextTick()
     expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
     expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)

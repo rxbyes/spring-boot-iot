@@ -27,6 +27,10 @@ public class ProductModelGovernanceCompareDTO {
         private String sampleType;
 
         private String samplePayload;
+
+        private String sourceDeviceCode;
+
+        private String extractMode;
     }
 
     @Data

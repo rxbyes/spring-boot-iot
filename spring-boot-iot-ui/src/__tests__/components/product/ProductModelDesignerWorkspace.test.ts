@@ -150,15 +150,22 @@ function candidateResult() {
   return undefined
 }
 
-function mountWorkspace() {
+function mountWorkspace(productOverrides?: Partial<{
+  id: number
+  productKey: string
+  productName: string
+  protocolCode: string
+  nodeType: number
+}>) {
   return mount(ProductModelDesignerWorkspace, {
     props: {
       product: {
         id: 1001,
-        productKey: 'south-monitor',
-        productName: '南方监测终端',
+        productKey: 'south-survey-multi-detector-v1',
+        productName: '南方测绘多维检测仪',
         protocolCode: 'mqtt-json',
-        nodeType: 1
+        nodeType: 1,
+        ...productOverrides
       }
     },
     global: {
@@ -198,7 +205,7 @@ describe('ProductModelDesignerWorkspace', () => {
     })
   })
 
-  it('loads normative-first governance guidance in the journal workspace', async () => {
+  it('loads concise normative-first governance guidance in the journal workspace', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
@@ -233,9 +240,13 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('规范证据优先')
     expect(wrapper.text()).toContain('报文验证')
     expect(wrapper.text()).toContain('倾角 / 加速度 / 裂缝一体机')
-    expect(wrapper.text()).toContain('样本 JSON')
-    expect(wrapper.text()).toContain('对比治理')
+    expect(wrapper.text()).toContain('样本 JSON 仅作辅助核对')
+    expect(wrapper.text()).toContain('证据比对')
+    expect(wrapper.text()).toContain('契约字段')
     expect(wrapper.text()).toContain('进入双证据治理')
+    expect(wrapper.text()).not.toContain('手动提炼')
+    expect(wrapper.text()).not.toContain('物模型治理')
+    expect(wrapper.text()).not.toContain('样本 JSON 继续保留为辅助核对工具')
   })
 
   it('renders formal mode cards from the same embedded workspace', async () => {
@@ -261,7 +272,7 @@ describe('ProductModelDesignerWorkspace', () => {
     await flushPromises()
     await nextTick()
 
-    await findButtonByText(wrapper, '正式模型')!.trigger('click')
+    await findButtonByText(wrapper, '正式字段')!.trigger('click')
     await flushPromises()
     await nextTick()
 
@@ -269,11 +280,25 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('.product-model-designer__journal-ruler').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__formal-sheet').exists()).toBe(true)
     expect(wrapper.find('.product-model-designer__formal-stage-copy').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__formal-intro').text()).toContain('正式模型')
-    expect(wrapper.text()).toContain('统一维护产品正式物模型')
+    expect(wrapper.find('.product-model-designer__formal-intro').text()).toContain('正式字段')
+    expect(wrapper.text()).toContain('统一维护产品正式字段')
     expect(wrapper.text()).toContain('温度')
     expect(wrapper.text()).toContain('设备温度正式契约')
+    expect(wrapper.text()).not.toContain('正式模型')
     expect(wrapper.find('.product-model-designer__header-meta').exists()).toBe(false)
     expect(mockListProductModelCandidates).not.toHaveBeenCalled()
+  })
+
+  it('shows generic governance guidance in the workspace for warning products without preset applicability', async () => {
+    const wrapper = mountWorkspace({
+      productKey: 'zhd-warning-sound-light-alarm-v1',
+      productName: '中海达 预警型 声光报警器'
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('通用双证据治理')
+    expect(wrapper.text()).toContain('暂无适用规范预设')
+    expect(wrapper.text()).not.toContain('倾角 / 加速度 / 裂缝一体机')
   })
 })

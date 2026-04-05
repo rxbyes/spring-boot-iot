@@ -18,6 +18,8 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.DeviceRelationService;
+import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
@@ -60,6 +62,8 @@ class ProductModelServiceImplTest {
     private DeviceMessageLogMapper deviceMessageLogMapper;
     @Mock
     private CommandRecordMapper commandRecordMapper;
+    @Mock
+    private DeviceRelationService deviceRelationService;
 
     private ProductModelServiceImpl productModelService;
 
@@ -71,7 +75,8 @@ class ProductModelServiceImplTest {
                 deviceMapper,
                 devicePropertyMapper,
                 deviceMessageLogMapper,
-                commandRecordMapper
+                commandRecordMapper,
+                deviceRelationService
         );
     }
 
@@ -446,6 +451,35 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void manualExtractShouldCanonicalizeCollectorPayloadForChildProductWhenRelationChildModeEnabled() {
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceRelationService.listEnabledRulesByParentDeviceCode("SK00EA0D1307986")).thenReturn(List.of(
+                relationRule("SK00EA0D1307986", "L1_LF_1", "202018143", 2002L, "south-crack-sensor-v1", "LF_VALUE", "SENSOR_STATE"),
+                relationRule("SK00EA0D1307986", "L1_LF_2", "202018135", 2002L, "south-crack-sensor-v1", "LF_VALUE", "SENSOR_STATE")
+        ));
+
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("business");
+        dto.setExtractMode("relation_child");
+        dto.setSourceDeviceCode("SK00EA0D1307986");
+        dto.setSamplePayload("""
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"temp":18.69,"sensor_state":{"L1_LF_1":0,"L1_LF_2":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86},"L1_LF_2":{"2026-04-04T22:10:35.000Z":6.95}}}
+                """);
+
+        ProductModelCandidateResultVO result = productModelService.manualExtractModelCandidates(2002L, dto);
+
+        assertEquals(List.of("sensor_state", "value"), result.getPropertyCandidates().stream()
+                .map(ProductModelCandidateVO::getIdentifier)
+                .sorted()
+                .toList());
+        assertEquals(4, result.getSummary().getPropertyEvidenceCount());
+        assertEquals("SK00EA0D1307986", result.getSummary().getSampleDeviceCode());
+        assertEquals("telemetry", candidate(result.getPropertyCandidates(), "value").getGroupKey());
+        assertEquals("device_status", candidate(result.getPropertyCandidates(), "sensor_state").getGroupKey());
+    }
+
+    @Test
     void confirmModelCandidatesShouldOnlyInsertConfirmedItemsAndSkipExistingIdentifiers() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
         when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "temperature", 10)));
@@ -490,6 +524,32 @@ class ProductModelServiceImplTest {
         assertEquals("formal_exists", compareRow(result, "property", "L1_QJ_1.angle").getCompareStatus());
         assertEquals("runtime_only", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
         assertEquals("double_aligned", compareRow(result, "service", "reboot").getCompareStatus());
+    }
+
+    @Test
+    void compareGovernanceShouldFilterCollectorChildOwnedRuntimeFieldsByRelationRegistry() {
+        Device collector = device(3001L);
+        collector.setDeviceCode("SK00EA0D1307986");
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south-collector-rtu-v1", "采集中枢"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(collector));
+        when(deviceRelationService.listEnabledRulesByParentDeviceCode("SK00EA0D1307986")).thenReturn(List.of(
+                relationRule("SK00EA0D1307986", "L1_LF_1", "202018143", 2002L, "south-crack-sensor-v1", "LF_VALUE", "SENSOR_STATE")
+        ));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "L1_LF_1", "裂缝值", "double", LocalDateTime.of(2026, 4, 4, 22, 10, 35)),
+                property(3001L, "S1_ZT_1.signal_4g", "4G 信号强度", "integer", LocalDateTime.of(2026, 4, 4, 22, 10, 35))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        dto.setIncludeRuntimeCandidates(true);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        assertEquals("runtime_only", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
+        assertTrue(result.getCompareRows().stream().noneMatch(row -> "L1_LF_1".equals(row.getIdentifier())));
     }
 
     @Test
@@ -778,5 +838,23 @@ class ProductModelServiceImplTest {
                 .filter(row -> modelType.equals(row.getModelType()) && identifier.equals(row.getIdentifier()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private DeviceRelationRule relationRule(String parentDeviceCode,
+                                            String logicalChannelCode,
+                                            String childDeviceCode,
+                                            Long childProductId,
+                                            String childProductKey,
+                                            String canonicalizationStrategy,
+                                            String statusMirrorStrategy) {
+        DeviceRelationRule rule = new DeviceRelationRule();
+        rule.setParentDeviceCode(parentDeviceCode);
+        rule.setLogicalChannelCode(logicalChannelCode);
+        rule.setChildDeviceCode(childDeviceCode);
+        rule.setChildProductId(childProductId);
+        rule.setChildProductKey(childProductKey);
+        rule.setCanonicalizationStrategy(canonicalizationStrategy);
+        rule.setStatusMirrorStrategy(statusMirrorStrategy);
+        return rule;
     }
 }

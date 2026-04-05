@@ -1,6 +1,15 @@
+import type { Product } from '@/types/api'
+
 export interface ProductModelGovernanceNormativePresetItem {
   identifier: string
   label: string
+}
+
+export interface ProductModelGovernanceNormativePresetMatcher {
+  productKeys?: string[]
+  productKeyKeywords?: string[]
+  productNameKeywords?: string[]
+  excludedKeywords?: string[]
 }
 
 export interface ProductModelGovernanceNormativePreset {
@@ -10,6 +19,7 @@ export interface ProductModelGovernanceNormativePreset {
   helperText: string
   defaultIdentifiers: string[]
   availableIdentifiers: ProductModelGovernanceNormativePresetItem[]
+  matcher: ProductModelGovernanceNormativePresetMatcher
 }
 
 export const INTEGRATED_NORMATIVE_PRESET: ProductModelGovernanceNormativePreset = {
@@ -29,7 +39,40 @@ export const INTEGRATED_NORMATIVE_PRESET: ProductModelGovernanceNormativePreset 
     { identifier: 'L1_JS_1.gZ', label: '加速度 Z 轴' },
     { identifier: 'L1_LF_1.value', label: '裂缝张开度' },
     { identifier: 'S1_ZT_1.signal_4g', label: '4G 信号强度' }
-  ]
+  ],
+  matcher: {
+    productKeys: ['south-survey-multi-detector-v1'],
+    productKeyKeywords: ['multi-detector', 'tilt-accel-crack'],
+    productNameKeywords: ['多维检测仪', '一体机'],
+    excludedKeywords: ['warning', '预警', '声光报警', '广播', '爆闪灯', '情报板']
+  }
 }
 
 export const PRODUCT_MODEL_GOVERNANCE_NORMATIVE_PRESETS = [INTEGRATED_NORMATIVE_PRESET]
+
+function normalize(value?: string | null) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+export function resolveApplicableNormativePreset(
+  product?: Pick<Product, 'productKey' | 'productName'> | null
+) {
+  const productKey = normalize(product?.productKey)
+  const productName = normalize(product?.productName)
+  return PRODUCT_MODEL_GOVERNANCE_NORMATIVE_PRESETS.find((preset) => {
+    const excluded = preset.matcher.excludedKeywords?.some((keyword) =>
+      productKey.includes(normalize(keyword)) || productName.includes(normalize(keyword))
+    )
+    if (excluded) {
+      return false
+    }
+    const exactMatch = preset.matcher.productKeys?.map(normalize).includes(productKey)
+    const keyKeywordMatch = preset.matcher.productKeyKeywords?.some((keyword) =>
+      productKey.includes(normalize(keyword))
+    )
+    const nameKeywordMatch = preset.matcher.productNameKeywords?.some((keyword) =>
+      productName.includes(normalize(keyword))
+    )
+    return Boolean(exactMatch || keyKeywordMatch || nameKeywordMatch)
+  }) ?? null
+}

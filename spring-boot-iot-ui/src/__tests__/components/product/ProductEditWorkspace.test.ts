@@ -38,7 +38,7 @@ const ElFormStub = defineComponent({
 })
 
 describe('ProductEditWorkspace', () => {
-  it('renders the edit workspace as a journal revision section with a ruler and draft sheet', async () => {
+  it('renders the edit workspace as a concise editing section without repeating identity statistics', async () => {
     const wrapper = mount(ProductEditWorkspace, {
       props: {
         model: {
@@ -83,9 +83,8 @@ describe('ProductEditWorkspace', () => {
     expect(wrapper.find('.product-edit-workspace__section-note').text()).toContain('当前变更会直接回写')
     expect(wrapper.find('.product-edit-workspace__brief-band').exists()).toBe(false)
     expect(wrapper.find('.product-edit-workspace__revision-board').exists()).toBe(false)
-    expect(wrapper.find('.product-edit-workspace__revision-ruler').exists()).toBe(true)
-    expect(wrapper.findAll('.product-edit-workspace__revision-ruler-item')).toHaveLength(3)
-    expect(wrapper.find('.product-edit-workspace__revision-ruler-item small').exists()).toBe(false)
+    expect(wrapper.find('.product-edit-workspace__revision-ruler').exists()).toBe(false)
+    expect(wrapper.findAll('.product-edit-workspace__revision-ruler-item')).toHaveLength(0)
     expect(wrapper.find('.product-edit-workspace__notice').exists()).toBe(false)
     expect(wrapper.find('.standard-inline-state-stub').exists()).toBe(true)
     expect(wrapper.find('.product-edit-workspace__draft-sheet').exists()).toBe(true)
@@ -94,6 +93,7 @@ describe('ProductEditWorkspace', () => {
     expect(wrapper.text()).toContain('接入基线')
     expect(wrapper.text()).toContain('补充说明')
     expect(wrapper.text()).toContain('最新档案已取回')
+    expect(wrapper.text()).not.toContain('节点与状态')
 
     await wrapper.get('[data-testid="product-edit-cancel"]').trigger('click')
     await wrapper.get('[data-testid="product-edit-submit"]').trigger('click')

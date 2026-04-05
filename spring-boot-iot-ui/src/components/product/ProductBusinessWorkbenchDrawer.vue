@@ -7,7 +7,9 @@
     @update:modelValue="emit('update:modelValue', $event)"
   >
     <template #header-actions>
-      <slot name="header-actions" />
+      <div class="product-business-workbench__header-action-slot">
+        <slot name="header-actions" />
+      </div>
     </template>
 
     <section class="product-business-workbench__header">
@@ -28,14 +30,8 @@
           </div>
         </div>
 
-        <div v-if="metaItems.length" class="product-business-workbench__meta-line">
-          <span
-            v-for="item in metaItems"
-            :key="item.key"
-            class="product-business-workbench__meta-point"
-          >
-            {{ item.value }}
-          </span>
+        <div class="product-business-workbench__meta-line">
+          <span class="product-business-workbench__meta-copy">{{ contractStatement }}</span>
         </div>
 
         <div class="product-business-workbench__tab-strip">
@@ -120,11 +116,10 @@ const emit = defineEmits<{
   (event: 'update:activeView', value: ProductBusinessWorkbenchView): void
 }>()
 
-const viewOptions: Array<{ key: ProductBusinessWorkbenchView; label: string }> = [
-  { key: 'overview', label: '经营总览' },
-  { key: 'models', label: '物模型治理' },
+const viewOptions: Array<{ key: Exclude<ProductBusinessWorkbenchView, 'edit'>; label: string }> = [
+  { key: 'overview', label: '产品总览' },
   { key: 'devices', label: '关联设备' },
-  { key: 'edit', label: '编辑治理' }
+  { key: 'models', label: '契约字段' }
 ]
 
 function formatText(value?: string | null) {
@@ -158,54 +153,29 @@ const totalDevicesText = computed(() => {
 const scaleCaption = computed(() => (props.product?.status === 0 ? '历史关联设备总量' : '关联设备总量'))
 const statusStatement = computed(() => {
   if (!props.product) {
-    return '选择产品后进入统一产品经营页。'
+    return '选择产品后查看产品总览、关联设备与契约字段。'
   }
 
   if (props.product.status === 0) {
-    return '当前产品处于停用状态，优先核对档案与契约。'
+    return '当前产品已停用，建议先核对档案与接入契约。'
   }
 
   const totalDevices = Number(props.product.deviceCount ?? 0)
   const onlineDevices = Number(props.product.onlineDeviceCount ?? 0)
   if (totalDevices <= 0) {
-    return '当前已完成建档，等待首批设备进入稳定运行。'
+    return '产品档案已建立，等待首批设备接入。'
   }
 
   const onlineCoverage = Math.round((onlineDevices / totalDevices) * 100)
-  if (onlineCoverage >= 60) {
-    return '已进入运行期，当前继续围绕规模、契约与档案校准。'
-  }
   if (onlineCoverage > 0) {
-    return '运行数据已形成基线，当前继续补齐在线覆盖。'
+    return '当前已有运行设备，可继续核对在线覆盖与契约字段。'
   }
-  return '已有关联设备，当前仍需补齐在线运行基线。'
+  return '当前已有设备接入，建议补齐在线基线与契约字段。'
 })
-const metaItems = computed(() => {
-  const items = [
-    {
-      key: 'productKey',
-      value: productKeyText.value,
-      visible: productKeyText.value !== '--' && productKeyText.value !== productHeadline.value
-    },
-    {
-      key: 'protocolCode',
-      value: protocolText.value,
-      visible: protocolText.value !== '--'
-    },
-    {
-      key: 'nodeType',
-      value: nodeTypeText.value,
-      visible: nodeTypeText.value !== '--'
-    },
-    {
-      key: 'dataFormat',
-      value: dataFormatText.value,
-      visible: dataFormatText.value !== '--'
-    }
-  ]
-
-  return items.filter((item) => item.visible)
-})
+const contractStatement = computed(
+  () =>
+    `产品key：${productKeyText.value}｜接入协议：${protocolText.value}｜节点类型：${nodeTypeText.value}｜数据格式：${dataFormatText.value}`
+)
 const scaleValueText = computed(() => totalDevicesText.value)
 </script>
 
@@ -221,10 +191,15 @@ const scaleValueText = computed(() => totalDevicesText.value)
 .product-business-workbench__journal-head,
 .product-business-workbench__journal-masthead,
 .product-business-workbench__title-column,
+.product-business-workbench__header-action-slot,
 .product-business-workbench__scale-panel,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
+}
+
+.product-business-workbench__header-action-slot {
+  align-items: center;
 }
 
 .product-business-workbench__journal-head {
@@ -307,37 +282,15 @@ const scaleValueText = computed(() => totalDevicesText.value)
 }
 
 .product-business-workbench__meta-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.42rem 0.92rem;
   padding-top: 0.72rem;
   border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   font-size: 0.78rem;
   line-height: 1.7;
 }
 
-.product-business-workbench__meta-point {
-  position: relative;
-  padding-right: 0.88rem;
-}
-
-.product-business-workbench__meta-point::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 0;
-  width: 1px;
-  height: 0.74rem;
-  background: color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  transform: translateY(-50%);
-}
-
-.product-business-workbench__meta-point:last-child {
-  padding-right: 0;
-}
-
-.product-business-workbench__meta-point:last-child::after {
-  display: none;
+.product-business-workbench__meta-copy {
+  display: block;
+  color: var(--text-secondary);
 }
 
 .product-business-workbench__tab-strip {

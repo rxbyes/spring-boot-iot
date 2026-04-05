@@ -161,12 +161,16 @@ Payload：
   - 协议层会从最外层 key 提取 `deviceCode`
   - 设备状态、GNSS、倾角仪、加速度等嵌套数据会被拍平成属性
   - 属性标识形如 `L1_QJ_1.X`、`L1_JS_1.gY`、`S1_ZT_1.ext_power_volt`
-  - 若配置了 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}`，协议层会把“基准站一包多测点”报文拆成多个 `childMessages`：
+  - 若父设备已在 `iot_device_relation` 中登记“逻辑通道 -> 子设备”关系，协议层会优先按关系主数据把“基准站/采集中枢一包多测点”报文拆成多个 `childMessages`；若关系主数据缺失，才回退到 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}` 配置兜底：
     - 父消息继续保留原始密文/明文日志与在线状态更新
     - 子消息按映射后的真实 `deviceCode` 分别进入 `device` 模块落库
     - 当逻辑测点值为 `时间戳 -> 对象` 结构时，子消息属性会写成对象内字段，例如 `dispsX`、`dispsY`
-    - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性会回落为该逻辑测点自身
-  - 对于未配置 `sub-device-mappings`、且 payload 家族只包含父级状态 `S1_ZT_1` 与单个深部位移逻辑测点 `L1_SW_*` 的场景，协议层会把父消息中的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 折叠回当前设备属性 `dispsX / dispsY`，避免把单设备深部位移误写成基站子测点前缀属性
+    - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性默认回落为该逻辑测点自身
+    - 对于 `SK00EA0D1307986` 这类“采集中枢 + 裂缝子设备”场景，若映射逻辑测点为 `L1_LF_n`，子消息会把标量统一收口为 `value`，不再继续保留 `L1_LF_n` 作为子设备正式属性键
+    - 若父报文同时携带 `S1_ZT_1.sensor_state.L1_LF_n`，协议层会把对应通道状态镜像到子消息 `sensor_state`，用于子设备侧展示测点健康态
+    - 父消息在完成裂缝子设备拆分后，不再保留 `L1_LF_n` 裂缝主监测值，但仍保留 `S1_ZT_1.*` 与 `S1_ZT_1.sensor_state.L1_LF_n`
+    - 当前配置项 `iot.device.sub-device-mappings` 已降级为 legacy 兼容入口，不再作为正式主数据来源；长期关系治理以 `iot_device_relation` 为准
+  - 对于未配置设备关系主数据、且也未命中 `sub-device-mappings` 兜底，同时 payload 家族只包含父级状态 `S1_ZT_1` 与单个深部位移逻辑测点 `L1_SW_*` 的场景，协议层会把父消息中的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 折叠回当前设备属性 `dispsX / dispsY`，避免把单设备深部位移误写成基站子测点前缀属性
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥

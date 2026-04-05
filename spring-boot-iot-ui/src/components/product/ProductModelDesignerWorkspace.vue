@@ -2,12 +2,12 @@
   <div class="product-model-designer-workspace">
     <div v-if="!product" class="product-model-designer__empty">
       <strong>请先选择产品</strong>
-      <p>需要先选中产品，才能继续进入物模型治理。</p>
+      <p>需要先选中产品，才能继续查看契约字段。</p>
     </div>
 
     <div v-else-if="loading" class="detail-notice">
       <span class="detail-notice__label">加载中</span>
-      <strong class="detail-notice__value">正在加载产品物模型...</strong>
+      <strong class="detail-notice__value">正在加载契约字段...</strong>
     </div>
 
     <div v-else-if="errorMessage" class="detail-notice detail-notice--danger">
@@ -18,7 +18,7 @@
     <template v-else>
       <section class="product-model-designer__journal-head">
         <div class="product-model-designer__journal-copy">
-          <span class="product-model-designer__journal-kicker">物模型治理</span>
+          <span class="product-model-designer__journal-kicker">契约字段</span>
           <h3 class="product-model-designer__journal-title">{{ designerStageTitle }}</h3>
           <p class="product-model-designer__journal-summary">{{ headerStatement }}</p>
         </div>
@@ -30,7 +30,7 @@
             :class="{ 'product-model-designer__mode-chip--active': designerMode === 'manual' }"
             @click="designerMode = 'manual'"
           >
-            手动提炼
+            证据比对
           </button>
           <button
             type="button"
@@ -38,7 +38,7 @@
             :class="{ 'product-model-designer__mode-chip--active': designerMode === 'formal' }"
             @click="designerMode = 'formal'"
           >
-            正式模型
+            正式字段
           </button>
         </div>
       </section>
@@ -57,8 +57,8 @@
       <section v-if="designerMode === 'manual'" class="product-model-designer__governance-sheet">
         <div class="product-model-designer__sheet-head">
           <div class="product-model-designer__sheet-copy">
-            <strong>规范证据优先 + 报文验证</strong>
-            <p>首批按 {{ INTEGRATED_NORMATIVE_PRESET.title }} 规范字段骨架执行 compare，样本 JSON 继续保留为辅助核对工具。</p>
+            <strong>{{ governanceSheetHeading }}</strong>
+            <p>{{ governanceSheetDescription }}</p>
           </div>
           <StandardButton action="confirm" data-testid="confirm-model-candidates" @click="fullDesignerVisible = true">
             进入双证据治理
@@ -85,9 +85,9 @@
 
       <section v-else class="product-model-designer__formal-sheet">
         <div class="product-model-designer__formal-stage-copy">
-          <h3 class="product-model-designer__formal-title">统一维护产品正式物模型</h3>
+          <h3 class="product-model-designer__formal-title">统一维护产品正式字段</h3>
           <p class="product-model-designer__formal-intro">
-            正式模型只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
+            正式字段只保留已经确认的契约，便于按类型集中核对字段、排序和说明。
           </p>
         </div>
         <div class="product-model-designer__formal-overview" role="tablist" aria-label="产品物模型类型">
@@ -144,7 +144,7 @@ import { computed, ref, watch } from 'vue'
 
 import StandardButton from '@/components/StandardButton.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
-import { INTEGRATED_NORMATIVE_PRESET } from '@/components/product/productModelGovernanceNormativePresets'
+import { resolveApplicableNormativePreset } from '@/components/product/productModelGovernanceNormativePresets'
 import { productApi } from '@/api/product'
 import type { Product, ProductModel, ProductModelType } from '@/types/api'
 
@@ -157,26 +157,6 @@ const typeOptions: Array<{ label: string; value: ProductModelType }> = [
   { label: '事件模型', value: 'event' },
   { label: '服务模型', value: 'service' }
 ]
-const manualLedgerItems = [
-  {
-    key: 'preset',
-    title: '规范证据优先',
-    summary: INTEGRATED_NORMATIVE_PRESET.title,
-    description: '首批以内置规范字段骨架发起 compare，正式模型统一采用规范化 identifier，不再围绕厂家原始字段名直接建正式契约。'
-  },
-  {
-    key: 'runtime',
-    title: '报文验证',
-    summary: '样本 JSON 保留为辅助核对工具',
-    description: '运行期证据会并列拉取属性快照、消息日志与命令记录，样本 JSON 继续保留为人工核对辅助，不作为默认 compare 主入口。'
-  },
-  {
-    key: 'apply',
-    title: '显式 apply',
-    summary: '继续落在 iot_product_model',
-    description: '对比后的候选只会通过新增 / 修订 / 跳过的显式决策写库，不新增草稿表和并行路由。'
-  }
-] as const
 
 const emptyDescriptionMap: Record<ProductModelType, string> = {
   property: '当前还没有属性模型，可以先定义遥测属性、规格 JSON 和风险监测字段。',
@@ -190,31 +170,71 @@ const models = ref<ProductModel[]>([])
 const designerMode = ref<DesignerMode>('manual')
 const activeType = ref<ProductModelType>('property')
 const fullDesignerVisible = ref(false)
+const activeNormativePreset = computed(() => resolveApplicableNormativePreset(props.product))
+const hasApplicableNormativePreset = computed(() => Boolean(activeNormativePreset.value))
 
 const designerStageTitle = computed(() =>
-  designerMode.value === 'manual' ? '基于规范证据 + 报文证据治理产品契约' : '统一维护产品正式物模型'
+  designerMode.value === 'manual' ? '证据比对' : '正式字段'
 )
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
 const headerStatement = computed(() => {
   if (designerMode.value === 'formal') {
-    return '正式模型维持当前契约总表，新增字段再回到手动提炼核对来源证据。'
+    return '正式字段维持当前契约总表，新增字段再回到证据比对核对来源。'
   }
-  return '先按规范字段骨架发起 compare，再用报文证据核对稳定上报，样本 JSON 继续保留为辅助核对工具。'
+  if (!hasApplicableNormativePreset.value) {
+    return '当前产品暂无适用规范预设，先按通用双证据治理当前契约。'
+  }
+  return '先按规范字段发起 compare，再用报文证据核对稳定上报，样本 JSON 仅作辅助核对。'
 })
+const governanceSheetHeading = computed(() =>
+  hasApplicableNormativePreset.value ? '规范证据优先 + 报文验证' : '通用双证据治理'
+)
+const governanceSheetDescription = computed(() => {
+  if (!hasApplicableNormativePreset.value) {
+    return '当前产品未命中规范字段模板，进入治理后会回到通用 compare。'
+  }
+  return `首批按 ${activeNormativePreset.value?.title || ''} 规范字段骨架执行 compare。`
+})
+const manualLedgerItems = computed(() => [
+  {
+    key: 'preset',
+    title: hasApplicableNormativePreset.value ? '规范证据优先' : '通用双证据',
+    summary: hasApplicableNormativePreset.value
+      ? (activeNormativePreset.value?.title || '')
+      : '暂无适用规范预设',
+    description: hasApplicableNormativePreset.value
+      ? '首批以内置规范字段骨架发起 compare，正式字段统一采用规范化 identifier。'
+      : '当前产品未命中内置规范预设，compare 会回到通用双证据治理。'
+  },
+  {
+    key: 'runtime',
+    title: '报文验证',
+    summary: '样本 JSON 仅作辅助核对',
+    description: '运行期证据会并列拉取属性快照、消息日志与命令记录，样本 JSON 仅作辅助核对。'
+  },
+  {
+    key: 'apply',
+    title: '显式 apply',
+    summary: '继续落在 iot_product_model',
+    description: '对比后的候选只会通过显式决策写库，不新增草稿表和并行路由。'
+  }
+])
 const summaryCards = computed(() => [
   {
     key: 'currentMode',
     label: '当前入口',
-    value: designerMode.value === 'manual' ? '对比治理' : '正式模型'
+    value: designerMode.value === 'manual' ? '证据比对' : '正式字段'
   },
   {
     key: 'evidenceBoundary',
     label: '治理语义',
-    value: designerMode.value === 'manual' ? '规范优先 + 报文验证' : '正式契约'
+    value: designerMode.value === 'manual'
+      ? (hasApplicableNormativePreset.value ? '规范优先 + 报文验证' : '通用双证据治理')
+      : '正式契约'
   },
   {
     key: 'formalModels',
-    label: '正式模型',
+    label: '正式字段',
     value: `${models.value.length} 条`
   }
 ])
