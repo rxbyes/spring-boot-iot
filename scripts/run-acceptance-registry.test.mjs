@@ -33,10 +33,35 @@ test('canonical registry includes iot-access specialized scenarios', async () =>
   assert.ok(apiScenario, 'missing scenario: iot-access.api-smoke');
   assert.ok(messageFlowScenario, 'missing scenario: iot-access.message-flow');
 
+  const iotAccessScenarios = registry.scenarios.filter((item) =>
+    item.id.startsWith('iot-access.')
+  );
+  assert.deepEqual(
+    iotAccessScenarios.map((item) => item.id).sort(),
+    [
+      'iot-access.api-smoke',
+      'iot-access.browser-smoke',
+      'iot-access.message-flow'
+    ]
+  );
+
+  assert.equal(browserScenario.module, 'iot-access');
+  assert.equal(browserScenario.scope, 'delivery');
+  assert.equal(browserScenario.blocking, 'blocker');
+  assert.deepEqual(browserScenario.evidence, ['json', 'md', 'screenshot']);
+  assert.equal(browserScenario.timeouts.maxMinutes, 12);
   assert.equal(
     browserScenario.runner.planRef,
     'config/automation/iot-access-web-smoke-plan.json'
   );
+  assert.deepEqual(browserScenario.runner.scenarioScopes, ['delivery', 'baseline']);
+  assert.deepEqual(browserScenario.runner.failScopes, ['delivery']);
+
+  assert.equal(apiScenario.module, 'iot-access');
+  assert.equal(apiScenario.scope, 'delivery');
+  assert.equal(apiScenario.blocking, 'warning');
+  assert.deepEqual(apiScenario.evidence, ['json', 'md']);
+  assert.equal(apiScenario.timeouts.maxMinutes, 10);
   assert.deepEqual(apiScenario.runner.pointFilters, [
     'IOT-PRODUCT',
     'IOT-DEVICE',
@@ -44,7 +69,20 @@ test('canonical registry includes iot-access specialized scenarios', async () =>
     'MQTT-DOWN',
     'SYS-AUDIT'
   ]);
+  assert.equal('moduleFilters' in apiScenario.runner, false);
+
+  assert.equal(messageFlowScenario.module, 'iot-access');
   assert.equal(messageFlowScenario.runnerType, 'messageFlow');
+  assert.equal(messageFlowScenario.scope, 'baseline');
+  assert.equal(messageFlowScenario.blocking, 'warning');
+  assert.deepEqual(messageFlowScenario.dependsOn, ['iot-access.browser-smoke']);
+  assert.deepEqual(messageFlowScenario.evidence, ['json']);
+  assert.equal(messageFlowScenario.timeouts.maxMinutes, 10);
+  assert.equal(
+    messageFlowScenario.runner.entryScript,
+    'scripts/run-message-flow-acceptance.py'
+  );
+  assert.equal(messageFlowScenario.runner.requiresExpiredTraceId, true);
 });
 
 test('loads the canonical registry and rejects duplicate ids', async () => {
