@@ -77,6 +77,9 @@ logging:
     mybatis.sql.com.ghlzm.iot.system.mapper.HelpDocumentMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageReadMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.system.mapper.DeviceMessageLogMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.RegionMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.DeviceMapper.selectList: OFF
 
 iot:
   security:

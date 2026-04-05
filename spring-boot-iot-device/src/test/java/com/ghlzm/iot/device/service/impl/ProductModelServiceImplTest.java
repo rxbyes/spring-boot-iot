@@ -275,6 +275,7 @@ class ProductModelServiceImplTest {
         ProductModelCandidateVO deviceStatus = candidate(result.getPropertyCandidates(), "S1_ZT_1.signal_4g");
         assertEquals("device_status", deviceStatus.getGroupKey());
         assertEquals(Boolean.FALSE, deviceStatus.getNeedsReview());
+        assertEquals(0.93D, deviceStatus.getConfidence());
         assertTrue(deviceStatus.getDescription().contains("设备状态"));
 
         ProductModelCandidateVO location = candidate(result.getPropertyCandidates(), "lat");
@@ -286,15 +287,17 @@ class ProductModelServiceImplTest {
         assertEquals("needs_review", verifyField.getCandidateStatus());
         assertTrue(verifyField.getDescription().contains("人工归一"));
 
-        ProductModelCandidateVO typoField = candidate(result.getPropertyCandidates(), "singal_NB");
-        assertEquals(Boolean.TRUE, typoField.getNeedsReview());
-        assertEquals("needs_review", typoField.getCandidateStatus());
-        assertTrue(typoField.getDescription().contains("人工归一"));
+        ProductModelCandidateVO typoField = candidate(result.getPropertyCandidates(), "signal_NB");
+        assertEquals(Boolean.FALSE, typoField.getNeedsReview());
+        assertEquals("ready", typoField.getCandidateStatus());
+        assertEquals(0.72D, typoField.getConfidence());
+        assertEquals(List.of("singal_NB"), typoField.getRawIdentifiers());
+        assertTrue(typoField.getDescription().contains("设备状态"));
 
         assertEquals(5, result.getSummary().getPropertyCandidateCount());
         assertEquals(0, result.getSummary().getEventCandidateCount());
         assertEquals(0, result.getSummary().getServiceCandidateCount());
-        assertEquals(2, result.getSummary().getNeedsReviewCount());
+        assertEquals(1, result.getSummary().getNeedsReviewCount());
         assertEquals(1, result.getSummary().getExistingModelCount());
     }
 
@@ -480,6 +483,26 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void manualExtractShouldNormalizeKnownAliasIdentifierIntoCandidateZone() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
+        dto.setSampleType("status");
+        dto.setSamplePayload("""
+                {"SK11E80D1307426AZ":{"S1_ZT_1":{"2026-04-05T03:05:55.000Z":{"singal_NB":-67}}}}
+                """);
+
+        ProductModelCandidateResultVO result = productModelService.manualExtractModelCandidates(1001L, dto);
+
+        ProductModelCandidateVO signalNb = candidate(result.getPropertyCandidates(), "S1_ZT_1.signal_NB");
+        assertEquals(Boolean.FALSE, signalNb.getNeedsReview());
+        assertEquals("ready", signalNb.getCandidateStatus());
+        assertEquals(List.of("S1_ZT_1.singal_NB"), signalNb.getRawIdentifiers());
+        assertEquals("device_status", signalNb.getGroupKey());
+    }
+
+    @Test
     void confirmModelCandidatesShouldOnlyInsertConfirmedItemsAndSkipExistingIdentifiers() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
         when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "temperature", 10)));
@@ -599,6 +622,7 @@ class ProductModelServiceImplTest {
         assertEquals("表 B.1", inclinometerX.getManualCandidate().getNormativeSource());
         assertIterableEquals(List.of("X", "angleX"), inclinometerX.getManualCandidate().getRawIdentifiers());
         assertEquals("runtime", inclinometerX.getRuntimeCandidate().getEvidenceOrigin());
+        assertEquals(0.76D, inclinometerX.getRuntimeCandidate().getConfidence());
         assertIterableEquals(List.of("X"), inclinometerX.getRuntimeCandidate().getRawIdentifiers());
         assertEquals("double_aligned", compareRow(result, "property", "S1_ZT_1.signal_4g").getCompareStatus());
         assertEquals("formal_exists", compareRow(result, "property", "L1_QJ_1.AZI").getCompareStatus());
@@ -624,6 +648,7 @@ class ProductModelServiceImplTest {
 
         assertEquals("runtime_only", compareRow(result, "property", "mysteryField").getCompareStatus());
         assertTrue(compareRow(result, "property", "mysteryField").getRiskFlags().contains("manual_missing"));
+        assertTrue(compareRow(result, "property", "mysteryField").getRiskFlags().contains("runtime_low_evidence"));
     }
 
     @Test

@@ -139,6 +139,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("humidity_out", "外部湿度"),
             Map.entry("signal_4g", "4G 信号强度"),
             Map.entry("signal_nb", "NB 信号强度"),
+            Map.entry("signal_db", "信号值"),
             Map.entry("singal_nb", "NB 信号强度"),
             Map.entry("singal_db", "信号值"),
             Map.entry("solar_volt", "太阳能电压"),
@@ -172,6 +173,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final CommandRecordMapper commandRecordMapper;
     private final DeviceRelationService deviceRelationService;
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
+    private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
     private final ProductModelNormativePresetRegistry normativePresetRegistry = new ProductModelNormativePresetRegistry();
 
     public ProductModelServiceImpl(ProductMapper productMapper,
@@ -805,11 +807,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setUnit(definition.getUnit());
         candidate.setRawIdentifiers(runtimeCandidate.getIdentifier().equals(normativeIdentifier)
                 ? runtimeCandidate.getRawIdentifiers()
-                : List.of(runtimeCandidate.getIdentifier()));
+                : mergeStringList(runtimeCandidate.getRawIdentifiers(), List.of(runtimeCandidate.getIdentifier())));
         candidate.setMonitorContentCode(definition.getMonitorContentCode());
         candidate.setMonitorTypeCode(definition.getMonitorTypeCode());
         candidate.setSensorCode(definition.getSensorCode());
-        candidate.setConfidence(resolveConfidence(groupKey, false, firstNonNull(runtimeCandidate.getMessageEvidenceCount(), 0) > 0));
+        boolean hasMessageEvidence = firstNonNull(runtimeCandidate.getMessageEvidenceCount(), 0) > 0;
+        candidate.setConfidence(adjustPropertyConfidenceForEvidenceThreshold(
+                resolveConfidence(groupKey, false, hasMessageEvidence),
+                runtimeCandidate.getEvidenceCount(),
+                runtimeCandidate.getMessageEvidenceCount(),
+                false
+        ));
         candidate.setNeedsReview(Boolean.FALSE);
         candidate.setCandidateStatus(STATUS_READY);
         candidate.setReviewReason(null);
@@ -1025,12 +1033,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         int evidenceCount = 0;
         for (ManualLeafEvidence evidence : snapshot.leaves()) {
             evidenceCount++;
-            String identifier = normalizeOptional(evidence.identifier());
+            ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
+                    propertyCandidateFilter.normalizeIdentifier(normalizeOptional(evidence.identifier()));
+            String identifier = normalizeOptional(normalizedIdentifier.identifier());
             if (identifier == null || existingIdentifiers.contains(identifier)) {
                 continue;
             }
             accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
-                    .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence);
+                    .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence, normalizedIdentifier.rawIdentifiers());
         }
 
         List<ProductModelCandidateVO> candidates = accumulators.values().stream()
@@ -1205,14 +1215,19 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
         int evidenceCount = 0;
         for (DeviceProperty property : properties) {
-            String identifier = normalizeOptional(property.getIdentifier());
-            if (identifier == null
+            String rawIdentifier = normalizeOptional(property.getIdentifier());
+            ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
+                    propertyCandidateFilter.normalizeIdentifier(rawIdentifier);
+            String identifier = normalizeOptional(normalizedIdentifier.identifier());
+            if (rawIdentifier == null
+                    || identifier == null
                     || existingIdentifiers.contains(identifier)
-                    || shouldFilterRuntimeIdentifier(identifier, resolveRuntimeRules(relationContext, property.getDeviceId(), null))) {
+                    || shouldFilterRuntimeIdentifier(rawIdentifier, resolveRuntimeRules(relationContext, property.getDeviceId(), null))) {
                 continue;
             }
             evidenceCount++;
-            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new).acceptProperty(property);
+            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
+                    .acceptProperty(property, normalizedIdentifier.rawIdentifiers());
         }
 
         for (DeviceMessageLog log : logs) {
@@ -1221,14 +1236,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             }
             Map<String, String> extracted = extractPropertyLeaves(log.getPayload());
             for (Map.Entry<String, String> entry : extracted.entrySet()) {
-                String identifier = normalizeOptional(entry.getKey());
-                if (identifier == null
+                String rawIdentifier = normalizeOptional(entry.getKey());
+                ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
+                        propertyCandidateFilter.normalizeIdentifier(rawIdentifier);
+                String identifier = normalizeOptional(normalizedIdentifier.identifier());
+                if (rawIdentifier == null
+                        || identifier == null
                         || existingIdentifiers.contains(identifier)
-                        || shouldFilterRuntimeIdentifier(identifier, resolveRuntimeRules(relationContext, null, log.getDeviceCode()))) {
+                        || shouldFilterRuntimeIdentifier(rawIdentifier, resolveRuntimeRules(relationContext, null, log.getDeviceCode()))) {
                     continue;
                 }
                 accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
-                        .acceptLog(resolveLogTime(log), entry.getValue());
+                        .acceptLog(resolveLogTime(log), entry.getValue(), normalizedIdentifier.rawIdentifiers());
             }
         }
 
@@ -1458,7 +1477,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setDescription(description);
         candidate.setGroupKey(groupKey);
         candidate.setEvidenceOrigin("runtime");
-        candidate.setConfidence(resolveConfidence(groupKey, needsReview, accumulator.messageEvidenceCount > 0));
+        candidate.setRawIdentifiers(accumulator.rawIdentifiers.isEmpty() ? null : List.copyOf(accumulator.rawIdentifiers));
+        boolean hasMessageEvidence = accumulator.messageEvidenceCount > 0;
+        candidate.setConfidence(adjustPropertyConfidenceForEvidenceThreshold(
+                resolveConfidence(groupKey, needsReview, hasMessageEvidence),
+                accumulator.evidenceCount,
+                accumulator.messageEvidenceCount,
+                needsReview
+        ));
         candidate.setNeedsReview(needsReview);
         candidate.setCandidateStatus(needsReview ? STATUS_NEEDS_REVIEW : STATUS_READY);
         candidate.setReviewReason(resolvePropertyReviewReason(needsReview, accumulator.sampleType));
@@ -1923,6 +1949,22 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         };
     }
 
+    private Double adjustPropertyConfidenceForEvidenceThreshold(Double confidence,
+                                                                Integer evidenceCount,
+                                                                Integer messageEvidenceCount,
+                                                                boolean needsReview) {
+        if (confidence == null || needsReview) {
+            return confidence;
+        }
+        if (firstNonNull(messageEvidenceCount, 0) > 0) {
+            return confidence;
+        }
+        if (firstNonNull(evidenceCount, 0) <= 1) {
+            return Math.max(0.35D, confidence - 0.15D);
+        }
+        return confidence;
+    }
+
     private String resolvePropertyDataType(String valueType, String sampleValue, String identifier) {
         String normalizedValueType = normalizeOptional(valueType);
         if (normalizedValueType != null) {
@@ -2058,14 +2100,16 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         private int messageEvidenceCount;
         private LocalDateTime lastReportTime;
         private final LinkedHashSet<String> sourceTables = new LinkedHashSet<>();
+        private final LinkedHashSet<String> rawIdentifiers = new LinkedHashSet<>();
 
         private PropertyAccumulator(String identifier) {
             this.identifier = identifier;
         }
 
-        private void acceptProperty(DeviceProperty property) {
+        private void acceptProperty(DeviceProperty property, List<String> observedRawIdentifiers) {
             evidenceCount++;
             sourceTables.add("iot_device_property");
+            appendRawIdentifiers(observedRawIdentifiers);
             if (normalizeText(property.getPropertyName()) != null) {
                 propertyName = normalizeText(property.getPropertyName());
             }
@@ -2078,19 +2122,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             updateLastReportTime(property.getReportTime() != null ? property.getReportTime() : property.getUpdateTime());
         }
 
-        private void acceptLog(LocalDateTime logTime, String sampleValue) {
+        private void acceptLog(LocalDateTime logTime, String sampleValue, List<String> observedRawIdentifiers) {
             messageEvidenceCount++;
             sourceTables.add("iot_device_message_log");
+            appendRawIdentifiers(observedRawIdentifiers);
             if (normalizeText(sampleValue) != null) {
                 this.sampleValue = normalizeText(sampleValue);
             }
             updateLastReportTime(logTime);
         }
 
-        private void acceptManualSample(String sampleType, LocalDateTime reportTime, ManualLeafEvidence evidence) {
+        private void acceptManualSample(String sampleType,
+                                        LocalDateTime reportTime,
+                                        ManualLeafEvidence evidence,
+                                        List<String> observedRawIdentifiers) {
             evidenceCount++;
             messageEvidenceCount++;
             sourceTables.add("manual_sample");
+            appendRawIdentifiers(observedRawIdentifiers);
             this.sampleType = sampleType;
             String identifierTail = tailSegment(evidence.identifier());
             if (normalizeText(identifierTail) != null) {
@@ -2111,6 +2160,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             }
             if (lastReportTime == null || candidateTime.isAfter(lastReportTime)) {
                 lastReportTime = candidateTime;
+            }
+        }
+
+        private void appendRawIdentifiers(List<String> observedRawIdentifiers) {
+            if (observedRawIdentifiers == null || observedRawIdentifiers.isEmpty()) {
+                return;
+            }
+            for (String rawIdentifier : observedRawIdentifiers) {
+                String normalized = normalizeText(rawIdentifier);
+                if (normalized != null) {
+                    rawIdentifiers.add(normalized);
+                }
             }
         }
 
