@@ -11,6 +11,42 @@ import {
 } from './auto/acceptance-registry-lib.mjs';
 import { runRegistryCli } from './auto/run-acceptance-registry.mjs';
 
+test('canonical registry includes iot-access specialized scenarios', async () => {
+  const canonicalRegistryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const source = JSON.parse(await fs.readFile(canonicalRegistryPath, 'utf8'));
+  const registry = await loadAcceptanceRegistry({ source });
+
+  const browserScenario = registry.scenarios.find(
+    (item) => item.id === 'iot-access.browser-smoke'
+  );
+  const apiScenario = registry.scenarios.find(
+    (item) => item.id === 'iot-access.api-smoke'
+  );
+  const messageFlowScenario = registry.scenarios.find(
+    (item) => item.id === 'iot-access.message-flow'
+  );
+
+  assert.ok(browserScenario, 'missing scenario: iot-access.browser-smoke');
+  assert.ok(apiScenario, 'missing scenario: iot-access.api-smoke');
+  assert.ok(messageFlowScenario, 'missing scenario: iot-access.message-flow');
+
+  assert.equal(
+    browserScenario.runner.planRef,
+    'config/automation/iot-access-web-smoke-plan.json'
+  );
+  assert.deepEqual(apiScenario.runner.pointFilters, [
+    'IOT-PRODUCT',
+    'IOT-DEVICE',
+    'INGEST-HTTP',
+    'MQTT-DOWN',
+    'SYS-AUDIT'
+  ]);
+  assert.equal(messageFlowScenario.runnerType, 'messageFlow');
+});
+
 test('loads the canonical registry and rejects duplicate ids', async () => {
   await assert.rejects(
     () =>
