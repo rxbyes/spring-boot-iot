@@ -29,6 +29,65 @@ test('config-driven dry-run works without loading default scenario module', () =
   assert.match(result.stdout, /"key": "login"/);
 });
 
+test('iot access dry-run loads dedicated smoke plan and prints required routes', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/iot-access-web-smoke-plan.json'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /"dryRun": true/);
+  for (const route of ['/products', '/devices', '/reporting', '/system-log', '/message-trace', '/file-debug']) {
+    assert.match(result.stdout, new RegExp(`"route": "${route}"`));
+  }
+});
+
+test('iot access smoke plan defines expected scenarios, ready selectors, and reporting trace capture', () => {
+  const planPath = path.join(repoRoot, 'config', 'automation', 'iot-access-web-smoke-plan.json');
+  const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+  const scenarios = new Map(plan.scenarios.map((scenario) => [scenario.key, scenario]));
+
+  assert.equal(plan.scenarios.length, 7);
+  for (const key of [
+    'iot-access-login',
+    'iot-access-products',
+    'iot-access-devices',
+    'iot-access-reporting',
+    'iot-access-system-log',
+    'iot-access-message-trace',
+    'iot-access-file-debug'
+  ]) {
+    assert.ok(scenarios.has(key), `${key} scenario should exist`);
+  }
+
+  assert.equal(scenarios.get('iot-access-products')?.readySelector, '#quick-search');
+  assert.equal(scenarios.get('iot-access-devices')?.readySelector, '#quick-search');
+  assert.equal(scenarios.get('iot-access-reporting')?.readySelector, '#report-device-code');
+  assert.equal(scenarios.get('iot-access-system-log')?.readySelector, '#quick-search');
+  assert.equal(scenarios.get('iot-access-message-trace')?.readySelector, '#quick-search');
+  assert.equal(scenarios.get('iot-access-file-debug')?.readySelector, '#file-debug-device-code');
+
+  const reportingScenario = scenarios.get('iot-access-reporting');
+  const reportingStep = reportingScenario?.steps.find((step) => step.id === 'reporting-submit-and-capture-trace');
+  assert.equal(reportingStep?.type, 'triggerApi');
+  assert.equal(reportingStep?.matcher, '/api/message/http/report');
+  assert.deepEqual(reportingStep?.captures, [
+    {
+      variable: 'traceId',
+      path: 'payload.data.traceId'
+    }
+  ]);
+});
+
 test('sample web smoke plan matches current login and product/device workbench flow', () => {
   const samplePlanPath = path.join(repoRoot, 'config', 'automation', 'sample-web-smoke-plan.json');
   const samplePlan = JSON.parse(fs.readFileSync(samplePlanPath, 'utf8'));

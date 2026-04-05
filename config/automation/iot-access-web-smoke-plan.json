@@ -1,0 +1,459 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-05T12:00:00+08:00",
+  "target": {
+    "planName": "接入智维自动化专项基线",
+    "frontendBaseUrl": "http://127.0.0.1:5174",
+    "backendBaseUrl": "http://127.0.0.1:9999",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "iot-access-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": [
+      "delivery",
+      "baseline"
+    ],
+    "failScopes": [
+      "delivery"
+    ]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "web-smoke"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "iot-access-login",
+      "name": "接入智维登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化接入智维自动化会话。",
+      "businessFlow": "登录鉴权与会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口成功返回"
+      ],
+      "steps": [
+        {
+          "id": "login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "iot-access-products",
+      "name": "产品工作台冒烟",
+      "route": "/products",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "requiresLogin": true,
+      "description": "创建产品并回写产品主键用于后续链路。",
+      "businessFlow": "产品建模入口与产品资产创建",
+      "featurePoints": [
+        "产品创建",
+        "产品主键捕获"
+      ],
+      "steps": [
+        {
+          "id": "products-open-create",
+          "label": "打开新增产品抽屉",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "新增产品",
+            "exact": true
+          }
+        },
+        {
+          "id": "products-fill-key",
+          "label": "填写产品编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#product-key"
+          },
+          "value": "iot-access-product-${runToken}"
+        },
+        {
+          "id": "products-fill-name",
+          "label": "填写产品名称",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#product-name"
+          },
+          "value": "接入智维产品-${runToken}"
+        },
+        {
+          "id": "products-fill-protocol",
+          "label": "填写协议编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#protocol-code"
+          },
+          "value": "mqtt-json"
+        },
+        {
+          "id": "products-fill-format",
+          "label": "填写数据格式",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#data-format"
+          },
+          "value": "JSON"
+        },
+        {
+          "id": "products-submit",
+          "label": "提交产品并捕获主键",
+          "type": "triggerApi",
+          "matcher": "/api/device/product/add",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#product-submit-button"
+            }
+          },
+          "captures": [
+            {
+              "variable": "productId",
+              "path": "payload.data.id"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "iot-access-devices",
+      "name": "设备工作台冒烟",
+      "route": "/devices",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "requiresLogin": true,
+      "description": "创建设备并绑定产品信息。",
+      "businessFlow": "设备档案创建与主键捕获",
+      "featurePoints": [
+        "设备创建",
+        "设备主键捕获"
+      ],
+      "steps": [
+        {
+          "id": "devices-open-create",
+          "label": "打开新增设备抽屉",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "新增设备",
+            "exact": true
+          }
+        },
+        {
+          "id": "devices-select-product",
+          "label": "选择产品",
+          "type": "selectOption",
+          "locator": {
+            "type": "css",
+            "value": "#device-form-product-key"
+          },
+          "optionText": "iot-access-product-${runToken}"
+        },
+        {
+          "id": "devices-fill-name",
+          "label": "填写设备名称",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#device-name"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "devices-fill-code",
+          "label": "填写设备编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#device-code"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "devices-fill-secret",
+          "label": "填写设备密钥",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#device-secret"
+          },
+          "value": "123456"
+        },
+        {
+          "id": "devices-fill-client-id",
+          "label": "填写 ClientId",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#client-id"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "devices-fill-username",
+          "label": "填写设备账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#username"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "devices-fill-password",
+          "label": "填写设备密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#password"
+          },
+          "value": "123456"
+        },
+        {
+          "id": "devices-submit",
+          "label": "提交设备并捕获主键",
+          "type": "triggerApi",
+          "matcher": "/api/device/add",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "提交设备建档",
+              "exact": true
+            }
+          },
+          "captures": [
+            {
+              "variable": "deviceId",
+              "path": "payload.data.id"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "iot-access-reporting",
+      "name": "上报入口冒烟",
+      "route": "/reporting",
+      "scope": "delivery",
+      "readySelector": "#report-device-code",
+      "requiresLogin": true,
+      "description": "触发 HTTP 上报并捕获 traceId。",
+      "businessFlow": "设备上报与链路追踪编号回写",
+      "featurePoints": [
+        "上报接口触发",
+        "traceId 捕获"
+      ],
+      "steps": [
+        {
+          "id": "reporting-fill-device-code",
+          "label": "填写设备编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#report-device-code"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "reporting-fill-payload",
+          "label": "填写上报报文",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#report-payload"
+          },
+          "value": "{\"temperature\": 21.5, \"humidity\": 52}"
+        },
+        {
+          "id": "reporting-submit-and-capture-trace",
+          "label": "提交上报并捕获 traceId",
+          "type": "triggerApi",
+          "matcher": "/api/message/http/report",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#report-submit"
+            }
+          },
+          "captures": [
+            {
+              "variable": "traceId",
+              "path": "payload.data.traceId"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "iot-access-system-log",
+      "name": "系统日志追踪冒烟",
+      "route": "/system-log",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "requiresLogin": true,
+      "description": "使用 traceId 校验系统日志查询链路。",
+      "businessFlow": "按 traceId 回查日志",
+      "featurePoints": [
+        "日志检索"
+      ],
+      "steps": [
+        {
+          "id": "system-log-fill-quick-search",
+          "label": "填入 traceId",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#quick-search"
+          },
+          "value": "${variables.traceId}"
+        },
+        {
+          "id": "system-log-query",
+          "label": "执行日志查询",
+          "type": "triggerApi",
+          "matcher": "/api/system/log/page",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "iot-access-message-trace",
+      "name": "消息追踪冒烟",
+      "route": "/message-trace",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "requiresLogin": true,
+      "description": "按 traceId 复核消息链路。",
+      "businessFlow": "消息追踪检索",
+      "featurePoints": [
+        "trace 查询"
+      ],
+      "steps": [
+        {
+          "id": "message-trace-fill-quick-search",
+          "label": "填入 traceId",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#quick-search"
+          },
+          "value": "${variables.traceId}"
+        },
+        {
+          "id": "message-trace-query",
+          "label": "执行追踪查询",
+          "type": "triggerApi",
+          "matcher": "/api/message/log/page",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "iot-access-file-debug",
+      "name": "文件调试冒烟",
+      "route": "/file-debug",
+      "scope": "delivery",
+      "readySelector": "#file-debug-device-code",
+      "requiresLogin": true,
+      "description": "使用 runToken 与 traceId 串联文件调试入口。",
+      "businessFlow": "文件调试链路联动验证",
+      "featurePoints": [
+        "设备编码联动",
+        "traceId 联动"
+      ],
+      "steps": [
+        {
+          "id": "file-debug-fill-device-code",
+          "label": "填写设备编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#file-debug-device-code"
+          },
+          "value": "iot-access-device-${runToken}"
+        },
+        {
+          "id": "file-debug-fill-trace-id",
+          "label": "填写 traceId",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#file-debug-trace-id"
+          },
+          "value": "${variables.traceId}"
+        }
+      ]
+    }
+  ]
+}
