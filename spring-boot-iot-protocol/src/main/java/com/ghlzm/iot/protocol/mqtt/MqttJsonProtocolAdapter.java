@@ -7,6 +7,7 @@ import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
@@ -147,6 +148,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             }
 
             message.setRawPayload(decodedPayload.rawPayload());
+            ProtocolTemplateEvidence templateEvidence = normalizeResult == null
+                    ? null
+                    : normalizeResult.getTemplateEvidence();
             DeviceUpProtocolMetadata protocolMetadata = buildProtocolMetadata(
                     context,
                     decodedPayload.appId(),
@@ -156,7 +160,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                     normalizeResult == null
                             ? resolvedTimestamp.timestampSource()
                             : normalizeResult.getTimestampSource(),
-                    childSplitApplied
+                    childSplitApplied,
+                    templateEvidence
             );
             protocolMetadata.setDecryptedPayloadPreview(decodedPayload.plaintextPayload());
             protocolMetadata.setDecodedPayloadPreview(buildDecodedPayloadPreview(message));
@@ -272,7 +277,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                                                            String appId,
                                                            List<String> familyCodes,
                                                            String timestampSource,
-                                                           boolean childSplitApplied) {
+                                                           boolean childSplitApplied,
+                                                           ProtocolTemplateEvidence templateEvidence) {
         DeviceUpProtocolMetadata metadata = new DeviceUpProtocolMetadata();
         metadata.setAppId(appId);
         metadata.setRouteType(resolveRouteType(context));
@@ -281,6 +287,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             metadata.setTimestampSource(timestampSource);
             metadata.setChildSplitApplied(childSplitApplied);
             metadata.setNormalizationStrategy(isLegacyDpNormalizerV2Enabled() ? "LEGACY_DP" : "LEGACY_DP_COMPAT");
+            metadata.setTemplateEvidence(templateEvidence);
         }
         return metadata;
     }

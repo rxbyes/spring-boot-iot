@@ -90,6 +90,32 @@ export interface ProtocolDecodeTimelineSummary {
   decodedPayloadPreview?: Record<string, unknown> | null;
 }
 
+export interface ProtocolTemplateExecutionEvidence {
+  templateCode?: string | null;
+  logicalChannelCode?: string | null;
+  childDeviceCode?: string | null;
+  canonicalizationStrategy?: string | null;
+  statusMirrorApplied?: boolean | null;
+  parentRemovalKeys?: string[] | null;
+}
+
+export interface ProtocolTemplateEvidence {
+  templateCodes?: string[] | null;
+  executions?: ProtocolTemplateExecutionEvidence[] | null;
+}
+
+export interface DeviceUpProtocolMetadata {
+  appId?: string | null;
+  familyCodes?: string[] | null;
+  normalizationStrategy?: string | null;
+  timestampSource?: string | null;
+  childSplitApplied?: boolean | null;
+  routeType?: string | null;
+  decryptedPayloadPreview?: string | null;
+  decodedPayloadPreview?: Record<string, unknown> | null;
+  templateEvidence?: ProtocolTemplateEvidence | null;
+}
+
 export interface MessageTraceDetail {
   id: IdType;
   traceId?: string | null;
@@ -102,6 +128,7 @@ export interface MessageTraceDetail {
   decodedPayload?: Record<string, unknown> | null;
   reportTime?: string | null;
   createTime?: string | null;
+  protocolMetadata?: DeviceUpProtocolMetadata | null;
   timeline?: MessageFlowTimeline | null;
   timelineLookupError?: boolean | null;
 }
@@ -250,6 +277,18 @@ export interface ProductModelCandidate {
   messageEvidenceCount?: number | null;
   lastReportTime?: string | null;
   sourceTables?: string[] | null;
+  protocolTemplateEvidence?: ProductModelProtocolTemplateEvidence | null;
+}
+
+export interface ProductModelProtocolTemplateEvidence {
+  templateCodes?: string[] | null;
+  logicalChannelCodes?: string[] | null;
+  childDeviceCodes?: string[] | null;
+  canonicalizationStrategies?: string[] | null;
+  statusMirrorApplied?: boolean | null;
+  parentRemovalKeys?: string[] | null;
+  templateExecutionCount?: number | null;
+  decodeFailureCount?: number | null;
 }
 
 export interface ProductModelCandidateSummary {
@@ -327,6 +366,7 @@ export interface ProductModelGovernanceEvidence {
   messageEvidenceCount?: number | null;
   lastReportTime?: string | null;
   sourceTables?: string[] | null;
+  protocolTemplateEvidence?: ProductModelProtocolTemplateEvidence | null;
 }
 
 export interface ProductModelGovernanceCompareRow {
@@ -419,6 +459,16 @@ export interface ProductModelGovernanceApplyResult {
   skippedCount?: number | null;
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
+  appliedItems?: ProductModelGovernanceAppliedItem[] | null;
+}
+
+export interface ProductModelGovernanceAppliedItem {
+  modelType?: ProductModelType | null;
+  identifier?: string | null;
+  decision?: ProductModelGovernanceDecision | null;
+  templateCodes?: string[] | null;
+  canonicalizationStrategies?: string[] | null;
+  childDeviceCodes?: string[] | null;
 }
 
 export interface ProductModelCandidateConfirmItem {

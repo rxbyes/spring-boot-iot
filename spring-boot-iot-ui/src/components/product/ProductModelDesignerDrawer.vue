@@ -333,6 +333,55 @@
       </div>
     </section>
 
+    <section
+      v-if="product && applyResult"
+      class="detail-panel product-model-designer-drawer__receipt-stage"
+      data-testid="governance-apply-receipt"
+    >
+      <div class="detail-section-header">
+        <div>
+          <h3>本次治理回执</h3>
+          <p>回执只保留在当前抽屉会话内，用于确认本次 apply 采用了哪些模板来源摘要。</p>
+        </div>
+      </div>
+
+      <div class="product-model-designer-drawer__result-grid">
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">纳入新增</span>
+          <strong class="detail-summary-card__value">{{ applyResult.createdCount ?? 0 }}</strong>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">纳入修订</span>
+          <strong class="detail-summary-card__value">{{ applyResult.updatedCount ?? 0 }}</strong>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">跳过</span>
+          <strong class="detail-summary-card__value">{{ applyResult.skippedCount ?? 0 }}</strong>
+        </article>
+      </div>
+
+      <div v-if="applyResult.appliedItems?.length" class="product-model-designer-drawer__apply-list">
+        <article
+          v-for="item in applyResult.appliedItems"
+          :key="applyReceiptItemKey(item)"
+          class="detail-card"
+        >
+          <div class="detail-card__header">
+            <strong>{{ item.identifier || '--' }}</strong>
+            <span class="product-model-designer-drawer__candidate-identifier">{{ applyReceiptDecisionLabel(item.decision) }}</span>
+          </div>
+          <div class="detail-card__meta">
+            <span>{{ item.modelType || '--' }}</span>
+            <span>{{ item.identifier || '--' }}</span>
+            <span>{{ applyReceiptTemplateSummary(item) }}</span>
+          </div>
+          <p class="product-model-designer-drawer__candidate-description">
+            {{ applyReceiptEvidenceSummary(item) }}
+          </p>
+        </article>
+      </div>
+    </section>
+
     <section v-if="product" class="detail-panel product-model-designer-drawer__formal-stage">
       <div class="detail-section-header">
         <div>
@@ -389,6 +438,8 @@ import type {
   Product,
   ProductModel,
   ProductModelGovernanceApplyItem,
+  ProductModelGovernanceApplyResult,
+  ProductModelGovernanceAppliedItem,
   ProductModelGovernanceCompareResult,
   ProductModelGovernanceCompareRow,
   ProductModelGovernanceDecision,
@@ -446,6 +497,7 @@ const manualSamplePayload = ref('')
 const includeRuntimeCandidates = ref(true)
 const models = ref<ProductModel[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
+const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const manualDrafts = ref<ManualDraftForm[]>([])
 const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
 let manualDraftSeed = 0
@@ -516,6 +568,35 @@ function compareStatusLabel(status: ProductModelGovernanceCompareRow['compareSta
 
 function applyDecisionLabel(decision: ProductModelGovernanceDecision) {
   return decision === 'update' ? '纳入修订' : '纳入新增'
+}
+
+function applyReceiptDecisionLabel(decision?: ProductModelGovernanceDecision | null) {
+  if (decision === 'update') {
+    return '纳入修订'
+  }
+  if (decision === 'create') {
+    return '纳入新增'
+  }
+  return '已回执'
+}
+
+function applyReceiptItemKey(item: ProductModelGovernanceAppliedItem) {
+  return [item.modelType, item.identifier, item.decision].filter(Boolean).join(':')
+}
+
+function applyReceiptTemplateSummary(item: ProductModelGovernanceAppliedItem) {
+  return item.templateCodes?.length
+    ? item.templateCodes.join(' / ')
+    : '未返回模板摘要'
+}
+
+function applyReceiptEvidenceSummary(item: ProductModelGovernanceAppliedItem) {
+  const segments = [
+    item.templateCodes?.length ? `模板来源：${item.templateCodes.join(' / ')}` : null,
+    item.canonicalizationStrategies?.length ? `规范策略：${item.canonicalizationStrategies.join(' / ')}` : null,
+    item.childDeviceCodes?.length ? `子设备样本：${item.childDeviceCodes.join(' / ')}` : null
+  ].filter((segment): segment is string => Boolean(segment))
+  return segments.join(' · ') || '当前回执未返回模板来源摘要。'
 }
 
 function applyEvidenceSummary(row: ProductModelGovernanceCompareRow) {
@@ -596,6 +677,7 @@ async function handleCompare() {
   }
   compareLoading.value = true
   errorMessage.value = ''
+  applyResult.value = null
   const trimmedSamplePayload = manualSamplePayload.value.trim()
   const shouldUseNormativePreset = governanceMode.value === 'normative' && hasApplicableNormativePreset.value
   const effectiveGovernanceMode: GovernanceMode = shouldUseNormativePreset ? 'normative' : 'generic'
@@ -643,9 +725,10 @@ async function handleApply() {
   applyLoading.value = true
   errorMessage.value = ''
   try {
-    await productApi.applyProductModelGovernance(props.product.id, {
+    const response = await productApi.applyProductModelGovernance(props.product.id, {
       items: selectedApplyItems.value
     })
+    applyResult.value = response.data ?? null
     ElMessage.success('治理应用成功')
     await loadModels(props.product.id)
   } catch (error) {
@@ -718,6 +801,7 @@ function resetGovernanceSession() {
   manualSamplePayload.value = ''
   includeRuntimeCandidates.value = true
   compareResult.value = null
+  applyResult.value = null
   manualDrafts.value = []
   decisionState.value = {}
 }
@@ -729,6 +813,7 @@ function resetGovernanceSession() {
 .product-model-designer-drawer__summary-stage,
 .product-model-designer-drawer__compare-stage,
 .product-model-designer-drawer__confirm-stage,
+.product-model-designer-drawer__receipt-stage,
 .product-model-designer-drawer__formal-stage,
 .product-model-designer-drawer__draft-stage {
   display: grid;

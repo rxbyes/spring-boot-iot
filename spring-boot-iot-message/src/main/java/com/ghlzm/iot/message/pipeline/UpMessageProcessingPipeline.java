@@ -27,6 +27,8 @@ import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.telemetry.service.handler.TelemetryPersistStageHandler;
@@ -272,6 +274,22 @@ public class UpMessageProcessingPipeline {
             }
             if (protocolMetadata.getChildSplitApplied() != null) {
                 result.getSummary().put("childSplitApplied", protocolMetadata.getChildSplitApplied());
+            }
+            ProtocolTemplateEvidence templateEvidence = protocolMetadata.getTemplateEvidence();
+            if (templateEvidence != null) {
+                if (templateEvidence.getTemplateCodes() != null && !templateEvidence.getTemplateCodes().isEmpty()) {
+                    result.getSummary().put("templateCodes", templateEvidence.getTemplateCodes());
+                }
+                if (templateEvidence.getExecutions() != null && !templateEvidence.getExecutions().isEmpty()) {
+                    result.getSummary().put("templateExecutionCount", templateEvidence.getExecutions().size());
+                    List<String> logicalCodes = templateEvidence.getExecutions().stream()
+                            .map(ProtocolTemplateExecutionEvidence::getLogicalChannelCode)
+                            .filter(this::hasText)
+                            .toList();
+                    if (!logicalCodes.isEmpty()) {
+                        result.getSummary().put("templateLogicalCodes", logicalCodes);
+                    }
+                }
             }
         }
         ProtocolDecodeSummarySupport.append(result, upMessage);

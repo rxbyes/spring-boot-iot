@@ -67,4 +67,6 @@ public class ProductModelGovernanceEvidenceVO {
     private LocalDateTime lastReportTime;
 
     private List<String> sourceTables;
+
+    private ProductModelProtocolTemplateEvidenceVO protocolTemplateEvidence;
 }

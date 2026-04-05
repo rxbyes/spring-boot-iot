@@ -1,6 +1,7 @@
 package com.ghlzm.iot.protocol.mqtt.legacy;
 
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -21,4 +22,5 @@ public class LegacyDpNormalizeResult {
     private List<String> familyCodes = List.of();
     private List<DeviceUpMessage> childMessages = List.of();
     private Boolean childSplitApplied = Boolean.FALSE;
+    private ProtocolTemplateEvidence templateEvidence;
 }

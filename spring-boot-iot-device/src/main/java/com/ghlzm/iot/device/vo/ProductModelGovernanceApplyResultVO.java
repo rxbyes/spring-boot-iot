@@ -1,6 +1,7 @@
 package com.ghlzm.iot.device.vo;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Data;
 
 /**
@@ -18,4 +19,6 @@ public class ProductModelGovernanceApplyResultVO {
     private Integer conflictCount;
 
     private LocalDateTime lastAppliedAt;
+
+    private List<ProductModelGovernanceAppliedItemVO> appliedItems;
 }

@@ -147,4 +147,72 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).toContain('表 B.1')
     expect(wrapper.text()).toContain('X / angleX')
   })
+
+  it('renders protocol template evidence details in the runtime evidence card', () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'runtime_only',
+            suggestedAction: '继续观察',
+            riskFlags: [],
+            suspectedMatches: [],
+            runtimeCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '裂缝值',
+              dataType: 'double',
+              sourceTables: ['iot_device_property', 'iot_device_message_log'],
+              protocolTemplateEvidence: {
+                templateCodes: ['crack_child_template'],
+                childDeviceCodes: ['202018143'],
+                canonicalizationStrategies: ['LF_VALUE'],
+                statusMirrorApplied: true,
+                parentRemovalKeys: ['L1_LF_1']
+              }
+            }
+          }
+        ]
+      }
+    })
+
+    expect(wrapper.text()).toContain('crack_child_template')
+    expect(wrapper.text()).toContain('202018143')
+    expect(wrapper.text()).toContain('LF_VALUE')
+    expect(wrapper.text()).toContain('状态镜像')
+    expect(wrapper.text()).toContain('L1_LF_1')
+  })
+
+  it('keeps the runtime evidence card unchanged when protocol template evidence is absent', () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'runtime_only',
+            suggestedAction: '继续观察',
+            riskFlags: [],
+            suspectedMatches: [],
+            runtimeCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '裂缝值',
+              dataType: 'double',
+              sourceTables: ['iot_device_property', 'iot_device_message_log']
+            }
+          }
+        ]
+      }
+    })
+
+    expect(wrapper.text()).not.toContain('模板来源：')
+    expect(wrapper.text()).not.toContain('逻辑通道：')
+    expect(wrapper.text()).not.toContain('子设备样本：')
+    expect(wrapper.text()).not.toContain('规范策略：')
+    expect(wrapper.text()).not.toContain('状态镜像：')
+    expect(wrapper.text()).not.toContain('父字段剔除：')
+  })
 })

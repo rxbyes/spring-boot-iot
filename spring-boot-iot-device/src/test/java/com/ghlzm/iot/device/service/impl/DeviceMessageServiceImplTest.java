@@ -53,6 +53,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -265,6 +266,17 @@ class DeviceMessageServiceImplTest {
                 "deviceCode", "17165802",
                 "properties", Map.of("temperature", 26.5)
         ));
+        Object templateEvidence = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence");
+        invokeSetter(templateEvidence, "setTemplateCodes", List.of("crack_child_template"));
+        Object execution = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence");
+        invokeSetter(execution, "setTemplateCode", "crack_child_template");
+        invokeSetter(execution, "setLogicalChannelCode", "L1_LF_1");
+        invokeSetter(execution, "setChildDeviceCode", "202018143");
+        invokeSetter(execution, "setCanonicalizationStrategy", "LF_VALUE");
+        invokeSetter(execution, "setStatusMirrorApplied", Boolean.TRUE);
+        invokeSetter(execution, "setParentRemovalKeys", List.of("L1_LF_1"));
+        invokeSetter(templateEvidence, "setExecutions", List.of(execution));
+        invokeSetter(protocolMetadata, "setTemplateEvidence", templateEvidence);
         upMessage.setProtocolMetadata(protocolMetadata);
 
         when(permissionService.getDataPermissionContext(99L))
@@ -280,6 +292,14 @@ class DeviceMessageServiceImplTest {
         assertEquals("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}", detail.getRawPayload());
         assertEquals("{\"17165802\":{\"temperature\":26.5}}", detail.getDecryptedPayload());
         assertEquals("17165802", detail.getDecodedPayload().get("deviceCode"));
+        Object detailProtocolMetadata = invokeGetter(detail, "getProtocolMetadata");
+        Object detailTemplateEvidence = invokeGetter(detailProtocolMetadata, "getTemplateEvidence");
+        assertEquals(List.of("crack_child_template"), invokeGetter(detailTemplateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) invokeGetter(detailTemplateEvidence, "getExecutions");
+        assertEquals(1, executions.size());
+        assertEquals("202018143", invokeGetter(executions.get(0), "getChildDeviceCode"));
+        assertEquals(Boolean.TRUE, invokeGetter(executions.get(0), "getStatusMirrorApplied"));
     }
 
     @Test
@@ -894,5 +914,39 @@ class DeviceMessageServiceImplTest {
         properties.put("dispsX", dispsX);
         properties.put("dispsY", dispsY);
         return properties;
+    }
+
+    private Object newInstance(String className) {
+        try {
+            return Class.forName(className).getConstructor().newInstance();
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected class " + className + " with a public no-args constructor", ex);
+        }
+    }
+
+    private void invokeSetter(Object target, String methodName, Object arg) {
+        invokeMethod(target, methodName, new Class<?>[]{arg.getClass().getInterfaces().length > 0 ? arg.getClass().getInterfaces()[0] : arg.getClass()}, new Object[]{arg});
+    }
+
+    private Object invokeGetter(Object target, String methodName) {
+        return invokeMethod(target, methodName, new Class<?>[0], new Object[0]);
+    }
+
+    private Object invokeMethod(Object target, String methodName, Class<?>[] parameterTypes, Object[] args) {
+        try {
+            Method method = findCompatibleMethod(target.getClass(), methodName, args.length);
+            return method.invoke(target, args);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected method " + methodName + " on " + target.getClass().getName(), ex);
+        }
+    }
+
+    private Method findCompatibleMethod(Class<?> type, String methodName, int argCount) throws NoSuchMethodException {
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == argCount) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException(methodName);
     }
 }

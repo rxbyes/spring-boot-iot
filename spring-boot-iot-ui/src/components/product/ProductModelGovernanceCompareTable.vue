@@ -198,9 +198,34 @@ function evidenceNotes(evidence?: ProductModelGovernanceEvidence | null) {
   if (!evidence) {
     return []
   }
+  const protocolTemplateEvidence = evidence.protocolTemplateEvidence
   return [
     evidence.normativeSource,
-    evidence.rawIdentifiers?.length ? evidence.rawIdentifiers.join(' / ') : null
+    evidence.rawIdentifiers?.length ? evidence.rawIdentifiers.join(' / ') : null,
+    protocolTemplateEvidence?.templateCodes?.length
+      ? `模板来源：${protocolTemplateEvidence.templateCodes.join(' / ')}`
+      : null,
+    protocolTemplateEvidence?.logicalChannelCodes?.length
+      ? `逻辑通道：${protocolTemplateEvidence.logicalChannelCodes.join(' / ')}`
+      : null,
+    protocolTemplateEvidence?.childDeviceCodes?.length
+      ? `子设备样本：${protocolTemplateEvidence.childDeviceCodes.join(' / ')}`
+      : null,
+    protocolTemplateEvidence?.canonicalizationStrategies?.length
+      ? `规范策略：${protocolTemplateEvidence.canonicalizationStrategies.join(' / ')}`
+      : null,
+    protocolTemplateEvidence?.statusMirrorApplied === true
+      ? '状态镜像：已镜像'
+      : null,
+    protocolTemplateEvidence?.statusMirrorApplied === false
+      ? '状态镜像：无'
+      : null,
+    protocolTemplateEvidence?.parentRemovalKeys?.length
+      ? `父字段剔除：${protocolTemplateEvidence.parentRemovalKeys.join(' / ')}`
+      : null,
+    protocolTemplateEvidence?.decodeFailureCount
+      ? `模板重解码失败 ${protocolTemplateEvidence.decodeFailureCount} 次`
+      : null
   ].filter((item): item is string => Boolean(item))
 }
 

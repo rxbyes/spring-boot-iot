@@ -93,6 +93,65 @@
       </div>
     </section>
 
+    <section
+      v-if="showTemplateEvidenceStage"
+      class="message-trace-detail-workbench__stage message-trace-detail-workbench__stage--subtle"
+      data-testid="message-trace-detail-template-stage"
+    >
+      <div class="message-trace-detail-workbench__stage-header">
+        <h3>协议模板证据</h3>
+      </div>
+
+      <div class="message-trace-detail-workbench__journal-grid">
+        <section class="message-trace-detail-workbench__sheet">
+          <header class="message-trace-detail-workbench__sheet-header">
+            <strong class="message-trace-detail-workbench__sheet-title">模板摘要</strong>
+          </header>
+
+          <div class="message-trace-detail-workbench__ledger-grid">
+            <article
+              v-for="item in templateSummaryItems"
+              :key="item.key"
+              :class="[
+                'message-trace-detail-workbench__ledger-item',
+                { 'message-trace-detail-workbench__ledger-item--wide': item.wide }
+              ]"
+            >
+              <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
+              <span
+                :class="[
+                  'message-trace-detail-workbench__ledger-value',
+                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
+                ]"
+                :title="item.value"
+              >
+                {{ item.value }}
+              </span>
+            </article>
+          </div>
+        </section>
+
+        <section class="message-trace-detail-workbench__sheet">
+          <header class="message-trace-detail-workbench__sheet-header">
+            <strong class="message-trace-detail-workbench__sheet-title">模板执行</strong>
+          </header>
+
+          <div class="message-trace-detail-workbench__ledger-grid">
+            <article
+              v-for="item in templateExecutionItems"
+              :key="item.key"
+              class="message-trace-detail-workbench__ledger-item message-trace-detail-workbench__ledger-item--wide"
+            >
+              <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
+              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">
+                {{ item.value }}
+              </span>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-payload-stage">
       <div class="message-trace-detail-workbench__stage-header">
         <h3>Payload 对照</h3>
@@ -233,6 +292,53 @@ const ledgerContextItems = computed<LedgerItem[]>(() => [
   { key: 'topic', label: 'Topic', value: formatValue(props.detail.topic), wide: true }
 ]);
 
+const templateEvidence = computed(() => props.detail.protocolMetadata?.templateEvidence);
+const templateCodes = computed(() => templateEvidence.value?.templateCodes?.filter((code): code is string => Boolean(code)) ?? []);
+const templateExecutions = computed(() => templateEvidence.value?.executions ?? []);
+const showTemplateEvidenceStage = computed(() => templateCodes.value.length > 0 || templateExecutions.value.length > 0);
+
+const templateSummaryItems = computed<LedgerItem[]>(() => {
+  const items: LedgerItem[] = [];
+  if (templateCodes.value.length > 0) {
+    items.push({
+      key: 'templateCodes',
+      label: '模板编码',
+      value: templateCodes.value.join(' / '),
+      wide: true,
+      truncate: true
+    });
+  }
+  if (props.detail.protocolMetadata?.normalizationStrategy) {
+    items.push({
+      key: 'normalizationStrategy',
+      label: '归一策略',
+      value: formatValue(props.detail.protocolMetadata.normalizationStrategy)
+    });
+  }
+  if (props.detail.protocolMetadata?.childSplitApplied !== undefined && props.detail.protocolMetadata?.childSplitApplied !== null) {
+    items.push({
+      key: 'childSplitApplied',
+      label: '子拆分',
+      value: formatBoolean(props.detail.protocolMetadata.childSplitApplied)
+    });
+  }
+  items.push({
+    key: 'templateExecutionCount',
+    label: '执行条目',
+    value: String(templateExecutions.value.length)
+  });
+  return items;
+});
+
+const templateExecutionItems = computed<LedgerItem[]>(() =>
+  templateExecutions.value.map((execution, index) => ({
+    key: `template-execution-${index}`,
+    label: formatTemplateExecutionLabel(execution.logicalChannelCode, execution.childDeviceCode),
+    value: formatTemplateExecutionValue(execution),
+    wide: true
+  }))
+);
+
 const timelineSummaryTone = computed(() => {
   if (props.timelineLookupError) {
     return 'warning';
@@ -297,6 +403,38 @@ function formatValue(value?: string | number | null) {
     return '--';
   }
   return String(value);
+}
+
+function formatBoolean(value?: boolean | null) {
+  if (value === undefined || value === null) {
+    return '--';
+  }
+  return value ? '已应用' : '未应用';
+}
+
+function formatTemplateExecutionLabel(logicalChannelCode?: string | null, childDeviceCode?: string | null) {
+  const logicalCode = formatValue(logicalChannelCode);
+  const childCode = formatValue(childDeviceCode);
+  return `${logicalCode} -> ${childCode}`;
+}
+
+function formatTemplateExecutionValue(execution: {
+  templateCode?: string | null;
+  canonicalizationStrategy?: string | null;
+  statusMirrorApplied?: boolean | null;
+  parentRemovalKeys?: string[] | null;
+}) {
+  const segments = [
+    formatValue(execution.templateCode),
+    execution.canonicalizationStrategy ? `归一: ${execution.canonicalizationStrategy}` : '',
+    execution.statusMirrorApplied === null || execution.statusMirrorApplied === undefined
+      ? ''
+      : `状态镜像: ${formatBoolean(execution.statusMirrorApplied)}`,
+    execution.parentRemovalKeys && execution.parentRemovalKeys.length > 0
+      ? `父字段清理: ${execution.parentRemovalKeys.join(' / ')}`
+      : ''
+  ].filter(Boolean);
+  return segments.join(' | ');
 }
 
 function getMessageTypeLabel(value?: string | null) {
