@@ -46,6 +46,7 @@ test('canonical registry includes iot-access specialized scenarios', async () =>
   );
 
   assert.equal(browserScenario.module, 'iot-access');
+  assert.equal(browserScenario.runnerType, 'browserPlan');
   assert.equal(browserScenario.scope, 'delivery');
   assert.equal(browserScenario.blocking, 'blocker');
   assert.deepEqual(browserScenario.evidence, ['json', 'md', 'screenshot']);
@@ -58,6 +59,7 @@ test('canonical registry includes iot-access specialized scenarios', async () =>
   assert.deepEqual(browserScenario.runner.failScopes, ['delivery']);
 
   assert.equal(apiScenario.module, 'iot-access');
+  assert.equal(apiScenario.runnerType, 'apiSmoke');
   assert.equal(apiScenario.scope, 'delivery');
   assert.equal(apiScenario.blocking, 'warning');
   assert.deepEqual(apiScenario.evidence, ['json', 'md']);
