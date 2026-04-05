@@ -750,8 +750,10 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+
     expect(wrapper.text()).toContain('状态上报');
-    expect(wrapper.text()).not.toContain('消息类型状态上报');
+    expect(chainStageText).not.toContain('消息类型');
     expect(wrapper.text()).not.toContain('有内容');
     expect(wrapper.text()).not.toContain('暂无内容');
   });
@@ -793,12 +795,14 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+
     expect(wrapper.text()).toContain('2026/04/05 10:50:35');
     expect(wrapper.text()).toContain('创建时间');
     expect(wrapper.text()).toContain('2026/04/05 10:50:38');
     expect(wrapper.text()).toContain('Topic');
     expect(wrapper.text()).toContain('$dp');
-    expect(wrapper.text()).not.toContain('消息类型属性上报');
+    expect(chainStageText).not.toContain('消息类型');
     expect(wrapper.text()).not.toContain('Trace trace-001');
     expect(wrapper.find('.message-trace-detail-drawer-stub__subtitle').exists()).toBe(false);
   });

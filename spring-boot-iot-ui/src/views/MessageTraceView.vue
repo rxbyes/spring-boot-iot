@@ -144,7 +144,7 @@
                     {{ formatValue(row.productKey) }}
                   </span>
                   <span class="message-trace-mobile-card__meta-item standard-mobile-record-card__meta-item">
-                    {{ formatDateTime(row.reportTime || row.createTime) }}
+                    {{ formatMessageTraceReportTime(row.reportTime, row.createTime) }}
                   </span>
                 </div>
 
@@ -163,7 +163,12 @@
                   </div>
                   <div class="message-trace-mobile-card__field message-trace-mobile-card__field--full">
                     <span class="standard-mobile-record-card__field-label">Payload 摘要</span>
-                    <strong class="standard-mobile-record-card__field-value">{{ formatInlineText(row.payload) }}</strong>
+                    <strong
+                      class="standard-mobile-record-card__field-value"
+                      :title="formatPayloadHoverText(row.payload)"
+                    >
+                      {{ formatPayloadPreview(row.payload) }}
+                    </strong>
                   </div>
                 </div>
 
@@ -192,14 +197,16 @@
               </template>
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
-            <StandardTableTextColumn label="Payload 摘要" :min-width="260">
+            <StandardTableTextColumn label="Payload 摘要" :min-width="260" :show-overflow-tooltip="false">
               <template #default="{ row }">
-                {{ formatInlineText(row.payload) }}
+                <span class="message-trace-payload-preview" :title="formatPayloadHoverText(row.payload)">
+                  {{ formatPayloadPreview(row.payload) }}
+                </span>
               </template>
             </StandardTableTextColumn>
             <StandardTableTextColumn label="上报时间" :width="180">
               <template #default="{ row }">
-                {{ formatDateTime(row.reportTime || row.createTime) }}
+                {{ formatMessageTraceReportTime(row.reportTime, row.createTime) }}
               </template>
             </StandardTableTextColumn>
             <el-table-column
@@ -295,7 +302,7 @@ import type {
   MessageTraceStats
 } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
-import { formatDateTime } from '@/utils/format';
+import { formatMessageTraceReportTime, truncateText } from '@/utils/format';
 import { resolveMessageTracePayloadComparison } from '@/utils/messageTracePayloadComparison';
 
 type ObservabilityViewMode = 'message-trace' | 'access-error';
@@ -398,7 +405,7 @@ const detailTimelineEmptyDescription = computed(() => {
   return '没有 traceId 时，只能查看消息日志本身，无法继续拉取处理时间线。';
 });
 const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
-const detailSubtitle = computed(() => detailData.value.topic || '查看接入消息详情');
+const detailSubtitle = computed(() => '');
 const detailPayloadComparison = computed(() =>
   resolveMessageTracePayloadComparison({
     rawPayload: detailData.value.rawPayload ?? detailData.value.payload,
@@ -758,6 +765,14 @@ function formatInlineText(value?: string | null) {
   return normalized || '--';
 }
 
+function formatPayloadPreview(value?: string | null) {
+  return truncateText(formatInlineText(value), 56);
+}
+
+function formatPayloadHoverText(value?: string | null) {
+  return truncateText(formatInlineText(value), 88);
+}
+
 async function loadDetailTimeline(traceId?: string | null) {
   const requestToken = ++detailTimelineRequestToken;
   detailTimeline.value = null;
@@ -990,6 +1005,14 @@ onMounted(() => {
 
 .message-trace-table {
   display: block;
+}
+
+.message-trace-payload-preview {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message-trace-notice-grid {

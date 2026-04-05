@@ -13,7 +13,15 @@
           class="message-trace-detail-workbench__scale-note"
         >
           <span>{{ metric.label }}</span>
-          <strong :title="metric.value">{{ metric.value }}</strong>
+          <strong
+            :class="[
+              'message-trace-detail-workbench__scale-note-value',
+              { 'message-trace-detail-workbench__scale-note-value--truncate': metric.truncate }
+            ]"
+            :title="metric.value"
+          >
+            {{ metric.value }}
+          </strong>
         </article>
       </section>
     </section>
@@ -42,7 +50,15 @@
               ]"
             >
               <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">{{ item.value }}</span>
+              <span
+                :class="[
+                  'message-trace-detail-workbench__ledger-value',
+                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
+                ]"
+                :title="item.value"
+              >
+                {{ item.value }}
+              </span>
             </article>
           </div>
         </section>
@@ -62,7 +78,15 @@
               ]"
             >
               <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">{{ item.value }}</span>
+              <span
+                :class="[
+                  'message-trace-detail-workbench__ledger-value',
+                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
+                ]"
+                :title="item.value"
+              >
+                {{ item.value }}
+              </span>
             </article>
           </div>
         </section>
@@ -123,19 +147,21 @@ import MessageTracePayloadComparisonSection from '@/components/messageTrace/Mess
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import type { MessageFlowTimeline, MessageTraceDetail } from '@/types/api';
 import type { MessageTracePayloadComparisonPanel } from '@/utils/messageTracePayloadComparison';
-import { formatDateTime } from '@/utils/format';
+import { formatDateTime, formatMessageTraceReportTime } from '@/utils/format';
 
 interface LedgerItem {
   key: string;
   label: string;
   value: string;
   wide?: boolean;
+  truncate?: boolean;
 }
 
 interface SummaryMetric {
   key: string;
   label: string;
   value: string;
+  truncate?: boolean;
 }
 
 const props = defineProps<{
@@ -172,22 +198,26 @@ const summaryMetrics = computed<SummaryMetric[]>(() => [
   {
     key: 'reportTime',
     label: '上报时间',
-    value: formatDateTime(props.detail.reportTime || props.detail.createTime)
+    value: formatMessageTraceReportTime(props.detail.reportTime, props.detail.createTime),
+    truncate: true
   },
   {
     key: 'topicSegments',
     label: 'Topic 节点',
-    value: topicSegments.value
+    value: topicSegments.value,
+    truncate: true
   },
   {
     key: 'productKey',
     label: '产品标识',
-    value: formatValue(props.detail.productKey)
+    value: formatValue(props.detail.productKey),
+    truncate: true
   },
   {
     key: 'logId',
     label: '日志 ID',
-    value: formatValue(props.detail.id)
+    value: formatValue(props.detail.id),
+    truncate: true
   }
 ]);
 
@@ -199,7 +229,7 @@ const ledgerIdentityItems = computed<LedgerItem[]>(() => [
 
 const ledgerContextItems = computed<LedgerItem[]>(() => [
   { key: 'deviceCode', label: '设备编码', value: formatValue(props.detail.deviceCode) },
-  { key: 'productKey', label: '产品标识', value: formatValue(props.detail.productKey) },
+  { key: 'productKey', label: '产品标识', value: formatValue(props.detail.productKey), truncate: true },
   { key: 'topic', label: 'Topic', value: formatValue(props.detail.topic), wide: true }
 ]);
 
@@ -359,12 +389,15 @@ function getMessageTypeLabel(value?: string | null) {
   background: color-mix(in srgb, var(--surface-soft) 88%, white);
 }
 
-.message-trace-detail-workbench__scale-note strong {
+.message-trace-detail-workbench__scale-note-value {
   display: block;
   min-width: 0;
   color: var(--text-heading);
   font-size: 15px;
   line-height: 1.5;
+}
+
+.message-trace-detail-workbench__scale-note-value--truncate {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -454,6 +487,13 @@ function getMessageTypeLabel(value?: string | null) {
   font-size: 14px;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.message-trace-detail-workbench__ledger-value--truncate {
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message-trace-detail-workbench__toggle {
