@@ -221,6 +221,104 @@ test('lists registry scenarios without executing runners', async () => {
   assert.equal(result.listed[0].id, 'auth.browser-smoke');
 });
 
+test('list mode filters delivery scenarios by scope', async () => {
+  const result = await runRegistryCli({
+    argv: ['--list', '--scope=delivery'],
+    registrySource: {
+      version: '1.0.0',
+      scenarios: [
+        {
+          id: 'iot-access.browser-smoke',
+          module: 'iot-access',
+          runnerType: 'browserPlan',
+          scope: 'delivery',
+          blocking: 'blocker',
+          dependsOn: [],
+          runner: {}
+        },
+        {
+          id: 'iot-access.message-flow',
+          module: 'iot-access',
+          runnerType: 'messageFlow',
+          scope: 'baseline',
+          blocking: 'warning',
+          dependsOn: [],
+          runner: {}
+        }
+      ]
+    }
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(
+    result.listed.map((item) => item.id),
+    ['iot-access.browser-smoke']
+  );
+});
+
+test('list mode filters baseline scenarios by scope', async () => {
+  const result = await runRegistryCli({
+    argv: ['--list', '--scope=baseline'],
+    registrySource: {
+      version: '1.0.0',
+      scenarios: [
+        {
+          id: 'iot-access.browser-smoke',
+          module: 'iot-access',
+          runnerType: 'browserPlan',
+          scope: 'delivery',
+          blocking: 'blocker',
+          dependsOn: [],
+          runner: {}
+        },
+        {
+          id: 'iot-access.message-flow',
+          module: 'iot-access',
+          runnerType: 'messageFlow',
+          scope: 'baseline',
+          blocking: 'warning',
+          dependsOn: [],
+          runner: {}
+        }
+      ]
+    }
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(
+    result.listed.map((item) => item.id),
+    ['iot-access.message-flow']
+  );
+});
+
+test('canonical registry list mode respects delivery and baseline scopes', async () => {
+  const canonicalRegistryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const source = JSON.parse(await fs.readFile(canonicalRegistryPath, 'utf8'));
+
+  const deliveryResult = await runRegistryCli({
+    argv: ['--list', '--scope=delivery'],
+    registrySource: source
+  });
+  const baselineResult = await runRegistryCli({
+    argv: ['--list', '--scope=baseline'],
+    registrySource: source
+  });
+
+  const deliveryIds = new Set(deliveryResult.listed.map((item) => item.id));
+  const baselineIds = new Set(baselineResult.listed.map((item) => item.id));
+
+  assert.equal(deliveryResult.exitCode, 0);
+  assert.equal(baselineResult.exitCode, 0);
+  assert.equal(deliveryIds.has('iot-access.browser-smoke'), true);
+  assert.equal(deliveryIds.has('iot-access.api-smoke'), true);
+  assert.equal(baselineIds.has('iot-access.message-flow'), true);
+  assert.equal(baselineIds.has('iot-access.browser-smoke'), false);
+  assert.equal(baselineIds.has('iot-access.api-smoke'), false);
+});
+
 test('runRegistryCli accepts a derived registry path and persists business metadata', async () => {
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'registry-cli-'));
   const registryPath = path.join(workspaceRoot, 'business-acceptance-registry.json');
