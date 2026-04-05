@@ -77,6 +77,8 @@ test('iot access smoke plan defines expected scenarios, ready selectors, and rep
   assert.equal(scenarios.get('iot-access-file-debug')?.readySelector, '#file-debug-device-code');
 
   const reportingScenario = scenarios.get('iot-access-reporting');
+  const reportingPayloadStep = reportingScenario?.steps.find((step) => step.id === 'reporting-fill-payload');
+  assert.equal(reportingPayloadStep?.locator?.value, '#payload');
   const reportingStep = reportingScenario?.steps.find((step) => step.id === 'reporting-submit-and-capture-trace');
   assert.equal(reportingStep?.type, 'triggerApi');
   assert.equal(reportingStep?.matcher, '/api/message/http/report');
@@ -86,6 +88,24 @@ test('iot access smoke plan defines expected scenarios, ready selectors, and rep
       path: 'payload.data.traceId'
     }
   ]);
+
+  const systemLogScenario = scenarios.get('iot-access-system-log');
+  assert.equal(systemLogScenario?.scope, 'baseline');
+  const systemLogQueryStep = systemLogScenario?.steps.find((step) => step.id === 'system-log-query');
+  assert.equal(systemLogQueryStep?.matcher, '/api/system/audit-log/page');
+
+  const messageTraceScenario = scenarios.get('iot-access-message-trace');
+  const messageTraceQueryStep = messageTraceScenario?.steps.find((step) => step.id === 'message-trace-query');
+  assert.equal(messageTraceQueryStep?.matcher, '/api/device/message-trace/page');
+
+  const fileDebugScenario = scenarios.get('iot-access-file-debug');
+  assert.equal(fileDebugScenario?.scope, 'baseline');
+  const fileDebugStepIds = (fileDebugScenario?.steps || []).map((step) => step.id);
+  assert.deepEqual(fileDebugStepIds, ['file-debug-fill-device-code', 'file-debug-refresh-data']);
+  const fileDebugRefreshStep = fileDebugScenario?.steps.find((step) => step.id === 'file-debug-refresh-data');
+  assert.equal(fileDebugRefreshStep?.type, 'click');
+  assert.equal(fileDebugRefreshStep?.locator?.type, 'role');
+  assert.equal(fileDebugRefreshStep?.locator?.name, '刷新数据');
 });
 
 test('sample web smoke plan matches current login and product/device workbench flow', () => {

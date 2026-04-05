@@ -314,7 +314,7 @@
           "type": "fill",
           "locator": {
             "type": "css",
-            "value": "#report-payload"
+            "value": "#payload"
           },
           "value": "{\"temperature\": 21.5, \"humidity\": 52}"
         },
@@ -343,7 +343,7 @@
       "key": "iot-access-system-log",
       "name": "系统日志追踪冒烟",
       "route": "/system-log",
-      "scope": "delivery",
+      "scope": "baseline",
       "readySelector": "#quick-search",
       "requiresLogin": true,
       "description": "使用 traceId 校验系统日志查询链路。",
@@ -366,7 +366,7 @@
           "id": "system-log-query",
           "label": "执行日志查询",
           "type": "triggerApi",
-          "matcher": "/api/system/log/page",
+          "matcher": "/api/system/audit-log/page",
           "action": {
             "type": "click",
             "locator": {
@@ -406,7 +406,7 @@
           "id": "message-trace-query",
           "label": "执行追踪查询",
           "type": "triggerApi",
-          "matcher": "/api/message/log/page",
+          "matcher": "/api/device/message-trace/page",
           "action": {
             "type": "click",
             "locator": {
@@ -423,14 +423,14 @@
       "key": "iot-access-file-debug",
       "name": "文件调试冒烟",
       "route": "/file-debug",
-      "scope": "delivery",
+      "scope": "baseline",
       "readySelector": "#file-debug-device-code",
       "requiresLogin": true,
-      "description": "使用 runToken 与 traceId 串联文件调试入口。",
+      "description": "使用设备编码触发文件调试刷新动作。",
       "businessFlow": "文件调试链路联动验证",
       "featurePoints": [
         "设备编码联动",
-        "traceId 联动"
+        "刷新数据动作"
       ],
       "steps": [
         {
@@ -444,14 +444,15 @@
           "value": "iot-access-device-${runToken}"
         },
         {
-          "id": "file-debug-fill-trace-id",
-          "label": "填写 traceId",
-          "type": "fill",
+          "id": "file-debug-refresh-data",
+          "label": "点击刷新数据",
+          "type": "click",
           "locator": {
-            "type": "css",
-            "value": "#file-debug-trace-id"
-          },
-          "value": "${variables.traceId}"
+            "type": "role",
+            "role": "button",
+            "name": "刷新数据",
+            "exact": true
+          }
         }
       ]
     }
