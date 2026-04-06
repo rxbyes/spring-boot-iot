@@ -7,11 +7,16 @@ import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
+import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
@@ -153,15 +158,25 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
+    private final NormativeMetricDefinitionService normativeMetricDefinitionService;
+    private final ProductMetricEvidenceService productMetricEvidenceService;
+    private final ProductContractReleaseService productContractReleaseService;
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
     private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
+    private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
+                                   NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                   ProductMetricEvidenceService productMetricEvidenceService,
+                                   ProductContractReleaseService productContractReleaseService,
                                    ProductModelGovernanceReceiptStore governanceReceiptStore) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
+        this.normativeMetricDefinitionService = normativeMetricDefinitionService;
+        this.productMetricEvidenceService = productMetricEvidenceService;
+        this.productContractReleaseService = productContractReleaseService;
         this.governanceReceiptStore = governanceReceiptStore;
     }
 
@@ -194,12 +209,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     @Override
     public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
-        getRequiredProduct(productId);
+        Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
         ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(productId, existingModels.size(), dto);
         ProductModelCandidateResultVO runtimeResult = emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         ProductModelGovernanceCompareVO compareResult =
                 governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
+        decorateCompareResultWithNormativeMetadata(product, compareResult);
+        persistManualMetricEvidence(product, manualResult);
         governanceReceiptStore.replaceProtocolTemplateEvidence(productId, Map.of());
         return compareResult;
     }
@@ -207,7 +224,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ProductModelGovernanceApplyResultVO applyGovernance(Long productId, ProductModelGovernanceApplyDTO dto) {
-        getRequiredProduct(productId);
+        Product product = getRequiredProduct(productId);
         int createdCount = 0;
         int updatedCount = 0;
         int skippedCount = 0;
@@ -232,6 +249,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         result.setSkippedCount(skippedCount);
         result.setConflictCount(0);
         result.setLastAppliedAt(LocalDateTime.now());
+        result.setReleaseBatchId(createReleaseBatch(product, createdCount + updatedCount));
         result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
         return result;
     }
@@ -334,6 +352,102 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(productId, existingModelCount, dto.getManualExtract());
         refreshCandidateSummary(result, existingModelCount);
         return result;
+    }
+
+    private void decorateCompareResultWithNormativeMetadata(Product product,
+                                                            ProductModelGovernanceCompareVO compareResult) {
+        if (compareResult == null || compareResult.getCompareRows() == null || compareResult.getCompareRows().isEmpty()) {
+            return;
+        }
+        String scenarioCode = normativeMatcher.resolveScenarioCode(product);
+        if (!StringUtils.hasText(scenarioCode)) {
+            return;
+        }
+        List<NormativeMetricDefinition> definitions = safeNormativeDefinitions(
+                normativeMetricDefinitionService.listByScenario(scenarioCode)
+        );
+        if (definitions.isEmpty()) {
+            return;
+        }
+        for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
+            if (row == null || !MODEL_TYPE_PROPERTY.equals(normalizeOptional(row.getModelType()))) {
+                continue;
+            }
+            String identifier = normalizeOptional(row.getIdentifier());
+            if (identifier == null || definitions.stream().noneMatch(item -> identifier.equals(item.getIdentifier()))) {
+                continue;
+            }
+            ProductModelNormativeMatcher.NormativeMatchResult match = normativeMatcher.matchProperty(
+                    identifier,
+                    resolveRawIdentifiers(row),
+                    definitions
+            );
+            if (match == null) {
+                continue;
+            }
+            row.setNormativeIdentifier(match.normativeIdentifier());
+            row.setNormativeName(match.normativeName());
+            row.setRiskReady(match.riskReady());
+            row.setRawIdentifiers(match.rawIdentifiers());
+            if (match.riskReady() && !row.getRiskFlags().contains("risk_ready")) {
+                row.getRiskFlags().add("risk_ready");
+            }
+        }
+    }
+
+    private void persistManualMetricEvidence(Product product,
+                                             ProductModelCandidateResultVO manualResult) {
+        if (product == null || manualResult == null || manualResult.getPropertyCandidates() == null) {
+            return;
+        }
+        String scenarioCode = normativeMatcher.resolveScenarioCode(product);
+        if (!StringUtils.hasText(scenarioCode)) {
+            return;
+        }
+        List<VendorMetricEvidence> rows = new ArrayList<>();
+        for (ProductModelCandidateVO candidate : manualResult.getPropertyCandidates()) {
+            if (candidate == null || !StringUtils.hasText(candidate.getIdentifier())) {
+                continue;
+            }
+            List<String> rawIdentifiers = candidate.getRawIdentifiers() == null || candidate.getRawIdentifiers().isEmpty()
+                    ? List.of(candidate.getIdentifier())
+                    : candidate.getRawIdentifiers();
+            for (String rawIdentifier : rawIdentifiers) {
+                String normalizedRawIdentifier = normalizeOptional(rawIdentifier);
+                if (normalizedRawIdentifier == null) {
+                    continue;
+                }
+                VendorMetricEvidence row = new VendorMetricEvidence();
+                row.setProductId(product.getId());
+                row.setRawIdentifier(normalizedRawIdentifier);
+                row.setCanonicalIdentifier(candidate.getIdentifier());
+                row.setLogicalChannelCode(resolveLogicalChannelCode(normalizedRawIdentifier));
+                row.setEvidenceOrigin("manual_compare");
+                row.setValueType(candidate.getDataType());
+                row.setEvidenceCount(firstPositive(candidate.getEvidenceCount(), 1));
+                row.setLastSeenTime(LocalDateTime.now());
+                row.setMetadataJson(buildManualEvidenceMetadata(scenarioCode, manualResult));
+                rows.add(row);
+            }
+        }
+        productMetricEvidenceService.replaceManualEvidence(product.getId(), scenarioCode, rows);
+    }
+
+    private Long createReleaseBatch(Product product, int releasedFieldCount) {
+        if (product == null || releasedFieldCount <= 0) {
+            return null;
+        }
+        String scenarioCode = normativeMatcher.resolveScenarioCode(product);
+        if (!StringUtils.hasText(scenarioCode)) {
+            return null;
+        }
+        return productContractReleaseService.createBatch(
+                product.getId(),
+                scenarioCode,
+                "manual_compare_apply",
+                releasedFieldCount,
+                0L
+        );
     }
 
     private List<ProductModelGovernanceAppliedItemVO> buildGovernanceAppliedItems(Long productId,
@@ -487,8 +601,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             if (identifier == null || existingIdentifiers.contains(identifier)) {
                 continue;
             }
+            List<String> observedRawIdentifiers = mergeRawIdentifiers(
+                    evidence.rawIdentifiers(),
+                    normalizedIdentifier.rawIdentifiers()
+            );
             accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
-                    .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence, normalizedIdentifier.rawIdentifiers());
+                    .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence, observedRawIdentifiers);
         }
 
         List<ProductModelCandidateVO> candidates = accumulators.values().stream()
@@ -551,7 +669,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             if (canonicalIdentifier == null) {
                 continue;
             }
-            canonicalLeaves.add(new ManualLeafEvidence(canonicalIdentifier, leaf.sampleValue(), leaf.valueType()));
+            canonicalLeaves.add(new ManualLeafEvidence(
+                    canonicalIdentifier,
+                    leaf.sampleValue(),
+                    leaf.valueType(),
+                    mergeRawIdentifiers(leaf.rawIdentifiers(), List.of(leaf.identifier()))
+            ));
         }
         return new ManualSampleSnapshot(
                 parentDeviceCode,
@@ -1117,7 +1240,84 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                         int ignoredFieldCount) {
     }
 
-    private record ManualLeafEvidence(String identifier, String sampleValue, String valueType) {
+    private List<NormativeMetricDefinition> safeNormativeDefinitions(List<NormativeMetricDefinition> definitions) {
+        return definitions == null ? List.of() : definitions;
+    }
+
+    private List<String> resolveRawIdentifiers(ProductModelGovernanceCompareRowVO row) {
+        if (row.getManualCandidate() != null && row.getManualCandidate().getRawIdentifiers() != null
+                && !row.getManualCandidate().getRawIdentifiers().isEmpty()) {
+            return row.getManualCandidate().getRawIdentifiers();
+        }
+        if (row.getRuntimeCandidate() != null && row.getRuntimeCandidate().getRawIdentifiers() != null
+                && !row.getRuntimeCandidate().getRawIdentifiers().isEmpty()) {
+            return row.getRuntimeCandidate().getRawIdentifiers();
+        }
+        return List.of();
+    }
+
+    private String resolveLogicalChannelCode(String rawIdentifier) {
+        String normalized = normalizeOptional(rawIdentifier);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith(PARENT_SENSOR_STATE_PREFIX)) {
+            return normalized.substring(PARENT_SENSOR_STATE_PREFIX.length());
+        }
+        Matcher matcher = POINT_IDENTIFIER_PATTERN.matcher(normalized);
+        if (matcher.matches()) {
+            return normalized;
+        }
+        return null;
+    }
+
+    private String buildManualEvidenceMetadata(String scenarioCode, ProductModelCandidateResultVO manualResult) {
+        String sampleType = manualResult == null || manualResult.getSummary() == null
+                ? null
+                : normalizeOptional(manualResult.getSummary().getSampleType());
+        if (!StringUtils.hasText(scenarioCode) && !StringUtils.hasText(sampleType)) {
+            return null;
+        }
+        if (StringUtils.hasText(scenarioCode) && StringUtils.hasText(sampleType)) {
+            return "{\"scenarioCode\":\"" + scenarioCode + "\",\"sampleType\":\"" + sampleType + "\"}";
+        }
+        if (StringUtils.hasText(scenarioCode)) {
+            return "{\"scenarioCode\":\"" + scenarioCode + "\"}";
+        }
+        return "{\"sampleType\":\"" + sampleType + "\"}";
+    }
+
+    @SafeVarargs
+    private final List<String> mergeRawIdentifiers(List<String>... groups) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        if (groups == null) {
+            return List.of();
+        }
+        for (List<String> group : groups) {
+            if (group == null) {
+                continue;
+            }
+            for (String item : group) {
+                String normalized = normalizeOptional(item);
+                if (normalized != null) {
+                    merged.add(normalized);
+                }
+            }
+        }
+        return merged.isEmpty() ? List.of() : List.copyOf(merged);
+    }
+
+    private int firstPositive(Integer value, int fallback) {
+        if (value == null || value <= 0) {
+            return fallback;
+        }
+        return value;
+    }
+
+    private record ManualLeafEvidence(String identifier,
+                                      String sampleValue,
+                                      String valueType,
+                                      List<String> rawIdentifiers) {
     }
 
     private static final class ManualLeafCollector {
@@ -1125,7 +1325,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         private int ignoredFieldCount;
 
         private void add(String identifier, String sampleValue, String valueType) {
-            leaves.add(new ManualLeafEvidence(identifier, sampleValue, valueType));
+            leaves.add(new ManualLeafEvidence(identifier, sampleValue, valueType, List.of(identifier)));
         }
 
         private void incrementIgnoredFieldCount() {

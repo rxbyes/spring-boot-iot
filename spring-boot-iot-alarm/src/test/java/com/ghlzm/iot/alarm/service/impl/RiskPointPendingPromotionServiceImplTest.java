@@ -41,8 +41,8 @@ class RiskPointPendingPromotionServiceImplTest {
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
         bundle.setDeviceName("固定测斜仪-L1");
         bundle.setCandidates(List.of(
-                fixture.candidate("dispsX", "X向位移", "HIGH", 100),
-                fixture.candidate("dispsY", "Y向位移", "HIGH", 96)
+                fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L),
+                fixture.candidate("dispsY", "Y向位移", "HIGH", 96, 7002L)
         ));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
@@ -72,6 +72,7 @@ class RiskPointPendingPromotionServiceImplTest {
         verify(fixture.promotionMapper, times(2)).insert(any(RiskPointDevicePendingPromotion.class));
         verify(fixture.riskPointService).bindDeviceAndReturn(argThat(
                 binding -> "dispsY".equals(binding.getMetricIdentifier())
+                        && Long.valueOf(7002L).equals(binding.getRiskMetricId())
         ), eq(1001L));
         verify(fixture.pendingBindingMapper).updateById(org.mockito.ArgumentMatchers.<RiskPointDevicePendingBinding>argThat(row ->
                 "PROMOTED".equals(row.getResolutionStatus())
@@ -91,7 +92,7 @@ class RiskPointPendingPromotionServiceImplTest {
         existing.setDeviceId(2001L);
         existing.setMetricIdentifier("dispsX");
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
-        bundle.setCandidates(List.of(fixture.candidate("dispsX", "X向位移", "HIGH", 100)));
+        bundle.setCandidates(List.of(fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L)));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
         when(fixture.recommendationService.getCandidates(77L, 1001L)).thenReturn(bundle);
@@ -142,8 +143,8 @@ class RiskPointPendingPromotionServiceImplTest {
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
         bundle.setDeviceName("固定测斜仪-L1");
         bundle.setCandidates(List.of(
-                fixture.candidate("battery_dump_energy", "电池电量", "MEDIUM", 60),
-                fixture.candidate("dispsX", "X向位移", "HIGH", 100)
+                fixture.candidate("battery_dump_energy", "电池电量", "MEDIUM", 60, null),
+                fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L)
         ));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
@@ -196,8 +197,13 @@ class RiskPointPendingPromotionServiceImplTest {
             return value;
         }
 
-        private RiskPointPendingMetricCandidateVO candidate(String identifier, String name, String level, int score) {
+        private RiskPointPendingMetricCandidateVO candidate(String identifier,
+                                                            String name,
+                                                            String level,
+                                                            int score,
+                                                            Long riskMetricId) {
             RiskPointPendingMetricCandidateVO value = new RiskPointPendingMetricCandidateVO();
+            value.setRiskMetricId(riskMetricId);
             value.setMetricIdentifier(identifier);
             value.setMetricName(name);
             value.setRecommendationLevel(level);

@@ -268,6 +268,13 @@
             <span>本次暂不生效</span>
             <strong>{{ applyResult.skippedCount ?? 0 }}</strong>
           </article>
+          <article
+            v-if="applyResult.releaseBatchId"
+            class="product-model-designer__summary-card"
+          >
+            <span>发布批次</span>
+            <strong>{{ applyResult.releaseBatchId }}</strong>
+          </article>
         </div>
       </section>
 
@@ -817,7 +824,7 @@ function resetSession() {
 .product-model-designer__summary-grid,
 .product-model-designer__receipt {
   grid-column: 1 / -1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.72rem;
 }
 

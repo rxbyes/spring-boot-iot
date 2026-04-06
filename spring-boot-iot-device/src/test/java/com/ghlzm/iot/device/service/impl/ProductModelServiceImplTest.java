@@ -8,6 +8,9 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.ProductContractReleaseService;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
@@ -41,6 +44,12 @@ class ProductModelServiceImplTest {
     private ProductMapper productMapper;
     @Mock
     private ProductModelMapper productModelMapper;
+    @Mock
+    private NormativeMetricDefinitionService normativeMetricDefinitionService;
+    @Mock
+    private ProductMetricEvidenceService productMetricEvidenceService;
+    @Mock
+    private ProductContractReleaseService productContractReleaseService;
 
     private InMemoryProductModelGovernanceReceiptStore governanceReceiptStore;
     private ProductModelServiceImpl productModelService;
@@ -51,6 +60,9 @@ class ProductModelServiceImplTest {
         productModelService = new ProductModelServiceImpl(
                 productMapper,
                 productModelMapper,
+                normativeMetricDefinitionService,
+                productMetricEvidenceService,
+                productContractReleaseService,
                 governanceReceiptStore
         );
     }
@@ -271,6 +283,37 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normativeDefinition("phase1-crack", "value", "裂缝监测值", 1),
+                normativeDefinition("phase1-crack", "sensor_state", "传感器状态", 0)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307986");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018143")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307986":{"L1_LF_1":{"2026-04-05T20:34:06.000Z":10.86}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(2002L, dto);
+
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("value", row.getIdentifier());
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals("裂缝监测值", row.getNormativeName());
+        assertTrue(row.getRiskReady());
+        assertEquals(List.of("L1_LF_1"), row.getRawIdentifiers());
+    }
+
+    @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -296,6 +339,42 @@ class ProductModelServiceImplTest {
                         .toList()
         );
         assertTrue(result.getCompareRows().stream().noneMatch(row -> "temp".equals(row.getIdentifier())));
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateGnssRowsWithNormativeMetadata() {
+        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "GNSS位移监测仪"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase2-gnss")).thenReturn(List.of(
+                normativeDefinition("phase2-gnss", "gpsInitial", "GNSS 原始观测基础数据", 0),
+                normativeDefinition("phase2-gnss", "gpsTotalX", "GNSS 累计位移 X", 1),
+                normativeDefinition("phase2-gnss", "gpsTotalY", "GNSS 累计位移 Y", 1),
+                normativeDefinition("phase2-gnss", "gpsTotalZ", "GNSS 累计位移 Z", 1)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-gnss-01":{"gpsTotalX":{"2026-04-06T08:00:00.000Z":12.6},"gpsTotalY":{"2026-04-06T08:00:00.000Z":3.2}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(3003L, dto);
+
+        assertEquals(
+                List.of("gpsTotalX", "gpsTotalY"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .toList()
+        );
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("gpsTotalX", row.getNormativeIdentifier());
+        assertEquals("GNSS 累计位移 X", row.getNormativeName());
+        assertTrue(row.getRiskReady());
+        assertEquals(List.of("gpsTotalX"), row.getRawIdentifiers());
     }
 
     @Test
@@ -338,6 +417,38 @@ class ProductModelServiceImplTest {
         assertEquals(1, result.getCreatedCount());
         assertEquals(1, result.getUpdatedCount());
         assertEquals(1, result.getSkippedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldReturnReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "裂缝监测产品"));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(productContractReleaseService.createBatch(1001L, "phase1-crack", "manual_compare_apply", 1, 0L))
+                .thenReturn(12345L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "裂缝监测值")));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+
+        assertNotNull(result.getReleaseBatchId());
+        assertEquals(1, result.getCreatedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldReturnGnssReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "GNSS位移监测仪"));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(productContractReleaseService.createBatch(3003L, "phase2-gnss", "manual_compare_apply", 1, 0L))
+                .thenReturn(22345L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "gpsTotalX", "GNSS 累计位移 X")));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3003L, dto);
+
+        assertEquals(22345L, result.getReleaseBatchId());
+        assertEquals(1, result.getCreatedCount());
     }
 
     @Test
@@ -448,5 +559,18 @@ class ProductModelServiceImplTest {
                 .filter(row -> modelType.equals(row.getModelType()) && identifier.equals(row.getIdentifier()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private com.ghlzm.iot.device.entity.NormativeMetricDefinition normativeDefinition(String scenarioCode,
+                                                                                      String identifier,
+                                                                                      String displayName,
+                                                                                      int riskEnabled) {
+        com.ghlzm.iot.device.entity.NormativeMetricDefinition definition =
+                new com.ghlzm.iot.device.entity.NormativeMetricDefinition();
+        definition.setScenarioCode(scenarioCode);
+        definition.setIdentifier(identifier);
+        definition.setDisplayName(displayName);
+        definition.setRiskEnabled(riskEnabled);
+        return definition;
     }
 }

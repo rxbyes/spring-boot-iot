@@ -1,0 +1,85 @@
+<h2>第三段：模块边界与第一阶段重构路径</h2>
+<p class="subtitle">目标：按现有模块化单体边界实施，不破坏现有模块职责，同时把未来扩展点提前抽出来。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">保留的核心模块职责</div>
+    <div class="mockup-body">
+      <p><strong>spring-boot-iot-protocol</strong></p>
+      <p>只负责 Topic、解密、解码、父子归一、协议模板执行，输出标准化证据。</p>
+      <p><strong>spring-boot-iot-device</strong></p>
+      <p>只负责产品、设备、设备关系、合同发布、治理工作台，不直接承载风险判级规则。</p>
+      <p><strong>spring-boot-iot-alarm</strong></p>
+      <p>只负责风险指标目录、风险点、阈值、联动、预案、告警、事件、运营消费。</p>
+      <p><strong>spring-boot-iot-report</strong></p>
+      <p>只负责基于正式风险指标和闭环结果做分析报表。</p>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">第一阶段建议新增的子能力</div>
+    <div class="mockup-body">
+      <p><strong>device 内新增</strong></p>
+      <p>规范字段库、厂商字段证据/映射、合同发布批次与差异治理服务。</p>
+      <p><strong>alarm 内新增</strong></p>
+      <p>风险指标目录层，让风险点绑定不再直接面向产品合同字段。</p>
+      <p><strong>admin / observability 配套</strong></p>
+      <p>治理任务、发布审计、漂移告警、回滚记录。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">第一阶段推荐重构顺序</div>
+    <div class="mockup-body">
+      <p><strong>Phase 1</strong>：先把“裂缝直报 + 采集终端挂裂缝子设备”做成样板切片。</p>
+      <p>1. 建规范字段库与字段分类规则</p>
+      <p>2. 把 `$dp` 运行证据沉淀为“厂商字段证据/映射”</p>
+      <p>3. 让 <code>iot_product_model</code> 只发布正式合同</p>
+      <p>4. 在 alarm 域新增“风险指标目录”桥梁层</p>
+      <p>5. 风险点绑定改绑风险指标，而不是直接绑原始字段</p>
+      <p>6. 阈值/联动/预案/运营都统一消费风险指标目录</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>必须避免的反模式</h4>
+      <ul>
+        <li>继续把厂商字段归一规则堆进 <code>ProductModelServiceImpl</code></li>
+        <li>让风险点直接绑定 <code>iot_product_model.identifier</code> 而没有风险指标桥梁</li>
+        <li>让 <code>spring-boot-iot-alarm</code> 反过来决定产品合同命名</li>
+        <li>把“规范库、证据、发布结果”继续混存到同一张表</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>第一阶段刻意不做</h4>
+      <ul>
+        <li>不立刻追求全品类、全厂商一次纳管</li>
+        <li>不先做零代码接入平台</li>
+        <li>不把风险 GIS/运营分析细节和字段治理耦在一起开发</li>
+        <li>不为短期兼容继续放大页面层 compare 逻辑</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="module-boundaries-ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>模块边界和拆分路径认可</h3>
+      <p>继续最后一段：错误处理、发布控制和验证策略。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="module-boundaries-adjust" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>这里还要调</h3>
+      <p>我先调整模块职责，再进入验证策略。</p>
+    </div>
+  </div>
+</div>

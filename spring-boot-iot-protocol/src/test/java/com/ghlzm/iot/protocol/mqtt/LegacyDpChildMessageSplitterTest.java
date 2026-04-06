@@ -2,6 +2,7 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
@@ -389,6 +390,13 @@ class LegacyDpChildMessageSplitterTest {
 
             @Override
             public LegacyDpChildTemplateExecutionResult execute(LegacyDpChildTemplateContext context) {
+                ProtocolMetricEvidence evidence = new ProtocolMetricEvidence();
+                evidence.setRawIdentifier("L1_SW_1.dispsX");
+                evidence.setCanonicalIdentifier("custom_axis");
+                evidence.setLogicalChannelCode("L1_SW_1");
+                evidence.setSampleValue("99.1");
+                evidence.setValueType("double");
+                evidence.setEvidenceOrigin("custom_template");
                 return new LegacyDpChildTemplateExecutionResult(
                         "custom_child_template",
                         Map.of("custom_axis", 99.1),
@@ -396,7 +404,8 @@ class LegacyDpChildMessageSplitterTest {
                         false,
                         "CUSTOM",
                         LocalDateTime.of(2026, 4, 5, 9, 30, 0),
-                        "{\"L1_SW_1\":{\"2026-04-05T01:30:00.000Z\":{\"dispsX\":99.1}}}"
+                        "{\"L1_SW_1\":{\"2026-04-05T01:30:00.000Z\":{\"dispsX\":99.1}}}",
+                        List.of(evidence)
                 );
             }
         };
@@ -440,6 +449,16 @@ class LegacyDpChildMessageSplitterTest {
         assertEquals("CUSTOM", invoke(executions.get(0), "getCanonicalizationStrategy"));
         assertEquals(Boolean.FALSE, invoke(executions.get(0), "getStatusMirrorApplied"));
         assertEquals(List.of("L1_SW_1"), invoke(executions.get(0), "getParentRemovalKeys"));
+
+        @SuppressWarnings("unchecked")
+        List<Object> metricEvidence = (List<Object>) invoke(result, "getMetricEvidence");
+        assertEquals(1, metricEvidence.size());
+        assertEquals("L1_SW_1.dispsX", invoke(metricEvidence.get(0), "getRawIdentifier"));
+        assertEquals("custom_axis", invoke(metricEvidence.get(0), "getCanonicalIdentifier"));
+        assertEquals("L1_SW_1", invoke(metricEvidence.get(0), "getLogicalChannelCode"));
+        assertEquals("GW_CUSTOM", invoke(metricEvidence.get(0), "getParentDeviceCode"));
+        assertEquals("CUSTOM-CHILD-01", invoke(metricEvidence.get(0), "getChildDeviceCode"));
+        assertEquals("custom_template", invoke(metricEvidence.get(0), "getEvidenceOrigin"));
     }
 
     private Map<String, Object> timestampPayload(Object value) {

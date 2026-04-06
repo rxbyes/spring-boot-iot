@@ -4,13 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.common.exception.BizException;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.mockito.ArgumentMatchers;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,8 +25,13 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class RuleDefinitionServiceImplTest {
+
+    @Mock
+    private RiskMetricCatalogService riskMetricCatalogService;
 
     private static void initLambdaCache() {
         if (TableInfoHelper.getTableInfo(RuleDefinition.class) != null) {
@@ -34,7 +44,7 @@ class RuleDefinitionServiceImplTest {
 
     @Test
     void addRuleShouldRejectEnabledRuleWithoutExpression() {
-        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         RuleDefinition rule = new RuleDefinition();
         rule.setRuleName("空表达式策略");
         rule.setMetricIdentifier("dispsX");
@@ -48,7 +58,7 @@ class RuleDefinitionServiceImplTest {
 
     @Test
     void updateRuleShouldRejectEnabledRuleWithInvalidExpression() {
-        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         RuleDefinition rule = new RuleDefinition();
         rule.setId(9102L);
         rule.setRuleName("非法表达式策略");
@@ -64,7 +74,7 @@ class RuleDefinitionServiceImplTest {
 
     @Test
     void addRuleShouldPersistWhenExpressionIsExecutable() {
-        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         RuleDefinition rule = new RuleDefinition();
         rule.setRuleName("红色策略");
         rule.setMetricIdentifier("dispsX");
@@ -82,9 +92,33 @@ class RuleDefinitionServiceImplTest {
     }
 
     @Test
+    void addRuleShouldResolveMetricIdentifierFromRiskMetricCatalogWhenRiskMetricIdPresent() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("GNSS 红色策略");
+        rule.setRiskMetricId(6102L);
+        rule.setAlarmLevel("critical");
+        rule.setExpression("value >= 12");
+        rule.setStatus(0);
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(6102L);
+        catalog.setContractIdentifier("gpsTotalX");
+        catalog.setRiskMetricName("GNSS 累计位移 X");
+        when(riskMetricCatalogService.getById(6102L)).thenReturn(catalog);
+        doReturn(true).when(service).save(ArgumentMatchers.any(RuleDefinition.class));
+
+        service.addRule(rule);
+
+        assertEquals("gpsTotalX", rule.getMetricIdentifier());
+        assertEquals("GNSS 累计位移 X", rule.getMetricName());
+        verify(service).save(rule);
+    }
+
+    @Test
     void pageRuleListShouldApplyRuleNameLikeFilter() {
         initLambdaCache();
-        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         Page<RuleDefinition> page = new Page<>(1L, 10L);
         page.setRecords(java.util.List.of());
         page.setTotal(0L);
@@ -103,7 +137,7 @@ class RuleDefinitionServiceImplTest {
     @Test
     void pageRuleListShouldTreatOrangeFilterAsCompatibleWithLegacyWarningSeverity() {
         initLambdaCache();
-        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl());
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         Page<RuleDefinition> page = new Page<>(1L, 10L);
         page.setRecords(java.util.List.of());
         page.setTotal(0L);

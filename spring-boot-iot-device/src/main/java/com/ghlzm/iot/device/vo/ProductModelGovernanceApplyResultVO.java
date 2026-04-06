@@ -20,5 +20,7 @@ public class ProductModelGovernanceApplyResultVO {
 
     private LocalDateTime lastAppliedAt;
 
+    private Long releaseBatchId;
+
     private List<ProductModelGovernanceAppliedItemVO> appliedItems;
 }

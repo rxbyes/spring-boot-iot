@@ -197,7 +197,8 @@ describe('ProductModelDesignerWorkspace', () => {
       data: {
         createdCount: 1,
         updatedCount: 0,
-        skippedCount: 0
+        skippedCount: 0,
+        releaseBatchId: 99001
       }
     })
     mockListDeviceRelations.mockResolvedValue({
@@ -289,6 +290,8 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockApplyProductModelGovernance).toHaveBeenCalled()
     expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('本次新增生效')
+    expect(wrapper.text()).toContain('发布批次')
+    expect(wrapper.text()).toContain('99001')
   })
 
   it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {

@@ -1244,13 +1244,18 @@ describe('RiskPointView', () => {
     await flushPromises()
     ;(wrapper.vm as any).pendingPromotionForm.pendingId = 77
     ;(wrapper.vm as any).pendingPromotionForm.riskPointId = 1
-    ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }]
+    ;(wrapper.vm as any).togglePendingMetric({
+      riskMetricId: 6102,
+      metricIdentifier: 'dispsX',
+      metricName: 'X向位移',
+      evidenceSources: []
+    })
     ;(wrapper.vm as any).pendingPromotionForm.completePending = true
 
     await (wrapper.vm as any).handlePendingPromotionSubmit()
 
     expect(mockPromotePendingBinding).toHaveBeenCalledWith(77, {
-      metrics: [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }],
+      metrics: [{ riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X向位移' }],
       completePending: true,
       promotionNote: ''
     })

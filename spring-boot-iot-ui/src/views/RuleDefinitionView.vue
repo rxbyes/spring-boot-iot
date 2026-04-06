@@ -361,6 +361,7 @@ const formRef = ref();
 const formTitle = computed(() => (form.id ? '编辑规则' : '新增规则'));
 const form = reactive({
   id: undefined as number | undefined,
+  riskMetricId: undefined as number | undefined,
   ruleName: '',
   metricIdentifier: '',
   metricName: '',
@@ -570,6 +571,7 @@ const loadAlarmLevelOptionList = async () => {
 
 const resetRuleForm = () => {
   form.id = undefined;
+  form.riskMetricId = undefined;
   form.ruleName = '';
   form.metricIdentifier = '';
   form.metricName = '';
@@ -589,6 +591,7 @@ const handleAdd = () => {
 
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
+  form.riskMetricId = row.riskMetricId == null ? undefined : Number(row.riskMetricId);
   form.ruleName = row.ruleName;
   form.metricIdentifier = row.metricIdentifier;
   form.metricName = row.metricName;

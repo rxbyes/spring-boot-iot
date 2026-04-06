@@ -13,9 +13,11 @@ import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
@@ -69,6 +71,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final ProductService productService;
     private final DevicePropertyMapper devicePropertyMapper;
     private final ProductModelMapper productModelMapper;
+    private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
     private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
     private final DeviceInvalidReportStateService invalidReportStateService;
@@ -79,6 +82,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
                              ProductModelMapper productModelMapper,
+                             RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties,
                              DeviceInvalidReportStateService invalidReportStateService,
@@ -87,6 +91,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
+        this.riskMetricCatalogReadMapper = riskMetricCatalogReadMapper;
         this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
         this.invalidReportStateService = invalidReportStateService;
@@ -449,6 +454,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         Device device = getRequiredById(deviceId);
         ensureDeviceAccessible(currentUserId, device);
         Map<String, DeviceMetricOptionVO> optionMap = new LinkedHashMap<>();
+        Map<String, Long> publishedRiskMetricIds = loadPublishedRiskMetricIds(device.getProductId());
 
         List<ProductModel> productModels = productModelMapper.selectList(
                 new LambdaQueryWrapper<ProductModel>()
@@ -465,6 +471,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                     ? productModel.getIdentifier()
                     : productModel.getModelName());
             option.setDataType(productModel.getDataType());
+            option.setRiskMetricId(publishedRiskMetricIds.get(option.getIdentifier()));
             optionMap.put(option.getIdentifier(), option);
         }
 
@@ -481,11 +488,35 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         ? deviceProperty.getIdentifier()
                         : deviceProperty.getPropertyName());
                 option.setDataType(deviceProperty.getValueType());
+                option.setRiskMetricId(publishedRiskMetricIds.get(deviceProperty.getIdentifier()));
                 return option;
             });
         }
 
         return optionMap.values().stream().collect(Collectors.toList());
+    }
+
+    private Map<String, Long> loadPublishedRiskMetricIds(Long productId) {
+        if (productId == null) {
+            return Map.of();
+        }
+        List<RiskMetricCatalogReadModel> rows = riskMetricCatalogReadMapper.selectList(
+                new LambdaQueryWrapper<RiskMetricCatalogReadModel>()
+                        .eq(RiskMetricCatalogReadModel::getProductId, productId)
+                        .eq(RiskMetricCatalogReadModel::getEnabled, 1)
+                        .eq(RiskMetricCatalogReadModel::getDeleted, 0)
+        );
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        return rows.stream()
+                .filter(row -> StringUtils.hasText(row.getContractIdentifier()) && row.getId() != null)
+                .collect(Collectors.toMap(
+                        RiskMetricCatalogReadModel::getContractIdentifier,
+                        RiskMetricCatalogReadModel::getId,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
     }
 
     private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {

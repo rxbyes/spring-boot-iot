@@ -52,6 +52,10 @@ function mountTable() {
           suggestedAction: '纳入新增',
           riskFlags: [],
           suspectedMatches: [],
+          normativeIdentifier: 'device_reboot',
+          normativeName: '设备重启',
+          riskReady: true,
+          rawIdentifiers: ['restart', 'reboot'],
           manualCandidate: {
             modelType: 'service',
             identifier: 'reboot',
@@ -90,6 +94,9 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).toContain('正式字段：暂无')
     expect(wrapper.text()).toContain('identifier:')
     expect(wrapper.text()).toContain('类型:')
+    expect(wrapper.text()).toContain('规范字段：设备重启')
+    expect(wrapper.text()).toContain('原始字段：restart / reboot')
+    expect(wrapper.text()).toContain('可进入风险闭环')
     expect(wrapper.text()).toContain('来自上报样本')
     expect(wrapper.text()).toContain('reboot')
     expect(wrapper.text()).not.toContain('建议人工确认')

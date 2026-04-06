@@ -93,6 +93,67 @@ CREATE TABLE IF NOT EXISTS iot_device_metric_latest (
     KEY idx_tel_latest_device_reported (device_id, reported_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='telemetry v2 latest projection'
 """,
+    "iot_normative_metric_definition": """
+CREATE TABLE IF NOT EXISTS iot_normative_metric_definition (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',
+    identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',
+    display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',
+    unit VARCHAR(32) DEFAULT NULL COMMENT '单位',
+    precision_digits INT DEFAULT NULL COMMENT '精度',
+    monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',
+    monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',
+    risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='规范字段定义表'
+""",
+    "iot_vendor_metric_evidence": """
+CREATE TABLE IF NOT EXISTS iot_vendor_metric_evidence (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    parent_device_code VARCHAR(64) DEFAULT NULL COMMENT '父设备编码',
+    child_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    canonical_identifier VARCHAR(64) DEFAULT NULL COMMENT '建议规范字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    evidence_origin VARCHAR(32) NOT NULL COMMENT '证据来源',
+    sample_value VARCHAR(255) DEFAULT NULL COMMENT '样例值',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
+    evidence_count INT NOT NULL DEFAULT 0 COMMENT '命中次数',
+    last_seen_time DATETIME DEFAULT NULL COMMENT '最后出现时间',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_vendor_metric_evidence (product_id, raw_identifier, logical_channel_code),
+    KEY idx_vendor_metric_product_seen (product_id, last_seen_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段证据表'
+""",
+    "iot_product_contract_release_batch": """
+CREATE TABLE IF NOT EXISTS iot_product_contract_release_batch (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+    release_source VARCHAR(64) NOT NULL COMMENT '发布来源',
+    released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_product_contract_release_product_time (product_id, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布批次表'
+""",
     "iot_device_access_error_log": """
 CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -242,6 +303,28 @@ CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion (
     KEY idx_pending_promotion_status (tenant_id, promotion_status, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理转正明细表'
 """,
+    "risk_metric_catalog": """
+CREATE TABLE IF NOT EXISTS risk_metric_catalog (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    product_model_id BIGINT DEFAULT NULL COMMENT '合同字段ID',
+    contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',
+    risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',
+    risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',
+    threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持趋势分析',
+    gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于GIS',
+    insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于对象洞察',
+    analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于运营分析',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标目录表'
+""",
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -329,7 +412,11 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
         ("create_by", "BIGINT DEFAULT NULL COMMENT 'creator'"),
         ("update_by", "BIGINT DEFAULT NULL COMMENT 'updater'"),
     ],
+    "risk_point_device": [
+        ("risk_metric_id", "BIGINT DEFAULT NULL COMMENT '风险指标ID'"),
+    ],
     "rule_definition": [
+        ("risk_metric_id", "BIGINT DEFAULT NULL COMMENT '风险指标ID'"),
         ("metric_name", "VARCHAR(64) DEFAULT NULL COMMENT 'metric name'"),
         ("expression", "VARCHAR(256) DEFAULT NULL COMMENT 'expression'"),
         ("notification_methods", "VARCHAR(64) DEFAULT NULL COMMENT 'notification methods'"),
@@ -392,6 +479,18 @@ INDEXES_TO_ADD: IndexSpecMap = {
         (
             "idx_device_tenant_org_deleted",
             "ALTER TABLE `iot_device` ADD INDEX `idx_device_tenant_org_deleted` (`tenant_id`, `org_id`, `deleted`, `last_report_time`, `id`)",
+        ),
+    ],
+    "risk_point_device": [
+        (
+            "idx_risk_point_device_metric_catalog",
+            "ALTER TABLE `risk_point_device` ADD INDEX `idx_risk_point_device_metric_catalog` (`risk_metric_id`)",
+        ),
+    ],
+    "rule_definition": [
+        (
+            "idx_rule_definition_metric_catalog",
+            "ALTER TABLE `rule_definition` ADD INDEX `idx_rule_definition_metric_catalog` (`risk_metric_id`)",
         ),
     ],
 }

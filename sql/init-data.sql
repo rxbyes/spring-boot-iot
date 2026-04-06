@@ -400,6 +400,28 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+INSERT INTO iot_normative_metric_definition (
+    id, tenant_id, scenario_code, device_family, identifier, display_name, unit,
+    precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled, metadata_json
+) VALUES
+    (920001, 1, 'phase1-crack', 'CRACK', 'value', '裂缝监测值', 'mm', 4, 'L1', 'LF', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state')),
+    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0, JSON_OBJECT('usage', 'raw_observation')),
+    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state'))
+ON DUPLICATE KEY UPDATE
+    display_name = VALUES(display_name),
+    unit = VALUES(unit),
+    precision_digits = VALUES(precision_digits),
+    monitor_content_code = VALUES(monitor_content_code),
+    monitor_type_code = VALUES(monitor_type_code),
+    risk_enabled = VALUES(risk_enabled),
+    trend_enabled = VALUES(trend_enabled),
+    metadata_json = VALUES(metadata_json),
+    deleted = 0;
+
 INSERT INTO iot_device (
     id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id, username, password,
     protocol_code, node_type, online_status, activate_status, device_status, firmware_version,

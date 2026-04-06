@@ -12,6 +12,8 @@ public class RiskPointBindingMetricVO {
 
     private Long bindingId;
 
+    private Long riskMetricId;
+
     private String metricIdentifier;
 
     private String metricName;

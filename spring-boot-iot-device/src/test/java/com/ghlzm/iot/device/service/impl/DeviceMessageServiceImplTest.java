@@ -22,6 +22,7 @@ import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.handler.DeviceContractStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceMessageLogStageHandler;
 import com.ghlzm.iot.device.service.handler.DevicePayloadApplyStageHandler;
@@ -102,6 +103,8 @@ class DeviceMessageServiceImplTest {
     @Mock
     private DeviceSessionService deviceSessionService;
     @Mock
+    private ProductMetricEvidenceService productMetricEvidenceService;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private JdbcTemplate jdbcTemplate;
@@ -133,7 +136,8 @@ class DeviceMessageServiceImplTest {
                         devicePropertyMapper,
                         devicePropertyMetadataService,
                         commandRecordService,
-                        deviceFileService
+                        deviceFileService,
+                        productMetricEvidenceService
                 );
         DeviceStateStageHandler deviceStateStageHandler =
                 new DeviceStateStageHandler(

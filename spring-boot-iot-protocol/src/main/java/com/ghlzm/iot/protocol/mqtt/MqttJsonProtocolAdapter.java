@@ -7,6 +7,7 @@ import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
 import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
@@ -161,7 +162,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                             ? resolvedTimestamp.timestampSource()
                             : normalizeResult.getTimestampSource(),
                     childSplitApplied,
-                    templateEvidence
+                    templateEvidence,
+                    normalizeResult == null ? null : normalizeResult.getMetricEvidence()
             );
             protocolMetadata.setDecryptedPayloadPreview(decodedPayload.plaintextPayload());
             protocolMetadata.setDecodedPayloadPreview(buildDecodedPayloadPreview(message));
@@ -278,7 +280,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                                                            List<String> familyCodes,
                                                            String timestampSource,
                                                            boolean childSplitApplied,
-                                                           ProtocolTemplateEvidence templateEvidence) {
+                                                           ProtocolTemplateEvidence templateEvidence,
+                                                           List<ProtocolMetricEvidence> metricEvidence) {
         DeviceUpProtocolMetadata metadata = new DeviceUpProtocolMetadata();
         metadata.setAppId(appId);
         metadata.setRouteType(resolveRouteType(context));
@@ -288,6 +291,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             metadata.setChildSplitApplied(childSplitApplied);
             metadata.setNormalizationStrategy(isLegacyDpNormalizerV2Enabled() ? "LEGACY_DP" : "LEGACY_DP_COMPAT");
             metadata.setTemplateEvidence(templateEvidence);
+            metadata.setMetricEvidence(metricEvidence == null ? List.of() : List.copyOf(metricEvidence));
         }
         return metadata;
     }

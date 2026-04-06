@@ -131,6 +131,7 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
             binding.setDeviceId(pending.getDeviceId());
             binding.setDeviceCode(pending.getDeviceCode());
             binding.setDeviceName(pending.getDeviceName());
+            binding.setRiskMetricId(candidate.getRiskMetricId());
             binding.setMetricIdentifier(metricIdentifier);
             binding.setMetricName(resolveMetricName(metricName, candidate));
             RiskPointDevice saved = riskPointService.bindDeviceAndReturn(binding, currentUserId);

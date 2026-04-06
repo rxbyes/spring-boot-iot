@@ -83,15 +83,18 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         .in(!riskPointIds.isEmpty(), RiskPoint::getId, riskPointIds))
                 .stream()
                 .collect(Collectors.toMap(RiskPoint::getId, Function.identity(), (left, right) -> left));
-        Map<String, List<RuleDefinition>> enabledRulesByMetric = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
+        List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                         .eq(RuleDefinition::getDeleted, 0)
-                        .eq(RuleDefinition::getStatus, 0))
-                .stream()
+                        .eq(RuleDefinition::getStatus, 0));
+        Map<String, List<RuleDefinition>> enabledRulesByMetric = enabledRules.stream()
                 .filter(rule -> StringUtils.hasText(rule.getMetricIdentifier()))
                 .collect(Collectors.groupingBy(RuleDefinition::getMetricIdentifier));
+        Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
+                .filter(rule -> rule.getRiskMetricId() != null)
+                .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
 
         List<RiskGovernanceGapItemVO> items = bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric))
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId())))
                 .toList();
@@ -112,11 +115,17 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return StringUtils.hasText(binding.getDeviceCode()) && binding.getDeviceCode().contains(query.getDeviceCode().trim());
     }
 
-    private boolean matchesPolicy(RiskPointDevice binding, Map<String, List<RuleDefinition>> enabledRulesByMetric) {
-        if (binding == null || !StringUtils.hasText(binding.getMetricIdentifier())) {
+    private boolean matchesPolicy(RiskPointDevice binding,
+                                  Map<String, List<RuleDefinition>> enabledRulesByMetric,
+                                  Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId) {
+        if (binding == null) {
             return false;
         }
-        return enabledRulesByMetric.containsKey(binding.getMetricIdentifier());
+        if (binding.getRiskMetricId() != null && enabledRulesByRiskMetricId.containsKey(binding.getRiskMetricId())) {
+            return true;
+        }
+        return StringUtils.hasText(binding.getMetricIdentifier())
+                && enabledRulesByMetric.containsKey(binding.getMetricIdentifier());
     }
 
     private RiskGovernanceGapItemVO toMissingBindingItem(Device device) {
@@ -139,6 +148,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         item.setDeviceName(binding.getDeviceName());
         item.setRiskPointId(binding.getRiskPointId());
         item.setRiskPointName(riskPoint == null ? null : riskPoint.getRiskPointName());
+        item.setRiskMetricId(binding.getRiskMetricId());
         item.setMetricIdentifier(binding.getMetricIdentifier());
         item.setMetricName(binding.getMetricName());
         return item;

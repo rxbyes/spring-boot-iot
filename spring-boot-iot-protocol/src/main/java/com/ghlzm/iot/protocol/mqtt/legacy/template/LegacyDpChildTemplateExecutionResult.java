@@ -1,5 +1,6 @@
 package com.ghlzm.iot.protocol.mqtt.legacy.template;
 
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -15,7 +16,8 @@ public record LegacyDpChildTemplateExecutionResult(String templateCode,
                                                    boolean statusMirrorApplied,
                                                    String canonicalizationStrategy,
                                                    LocalDateTime childTimestamp,
-                                                   String rawPayload) {
+                                                   String rawPayload,
+                                                   List<ProtocolMetricEvidence> metricEvidence) {
 
     public LegacyDpChildTemplateExecutionResult {
         if (childProperties == null || childProperties.isEmpty()) {
@@ -24,5 +26,6 @@ public record LegacyDpChildTemplateExecutionResult(String templateCode,
             childProperties = Collections.unmodifiableMap(new LinkedHashMap<>(childProperties));
         }
         parentRemovalKeys = parentRemovalKeys == null ? List.of() : List.copyOf(parentRemovalKeys);
+        metricEvidence = metricEvidence == null ? List.of() : List.copyOf(metricEvidence);
     }
 }

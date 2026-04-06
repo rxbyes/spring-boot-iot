@@ -1,0 +1,85 @@
+package com.ghlzm.iot.device.service.impl;
+
+import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
+import com.ghlzm.iot.device.entity.Product;
+import java.util.List;
+import java.util.Locale;
+import org.springframework.util.StringUtils;
+
+/**
+ * 产品物模型规范匹配器。
+ */
+final class ProductModelNormativeMatcher {
+
+    static final String SCENARIO_PHASE1_CRACK = "phase1-crack";
+    static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
+
+    String resolveScenarioCode(Product product) {
+        if (product == null) {
+            return null;
+        }
+        if (matchesGnss(product.getProductKey())
+                || matchesGnss(product.getProductName())
+                || matchesGnss(product.getManufacturer())
+                || matchesGnss(product.getDescription())) {
+            return SCENARIO_PHASE2_GNSS;
+        }
+        if (matchesCrack(product.getProductKey())
+                || matchesCrack(product.getProductName())
+                || matchesCrack(product.getManufacturer())
+                || matchesCrack(product.getDescription())) {
+            return SCENARIO_PHASE1_CRACK;
+        }
+        return null;
+    }
+
+    NormativeMatchResult matchProperty(String canonicalIdentifier,
+                                       List<String> rawIdentifiers,
+                                       List<NormativeMetricDefinition> definitions) {
+        if (!StringUtils.hasText(canonicalIdentifier) || definitions == null || definitions.isEmpty()) {
+            return null;
+        }
+        NormativeMetricDefinition definition = definitions.stream()
+                .filter(item -> canonicalIdentifier.equals(item.getIdentifier()))
+                .findFirst()
+                .orElseThrow(() -> new BizException("未找到规范字段定义: " + canonicalIdentifier));
+        return new NormativeMatchResult(
+                definition.getIdentifier(),
+                definition.getDisplayName(),
+                Integer.valueOf(1).equals(definition.getRiskEnabled()),
+                rawIdentifiers == null ? List.of() : rawIdentifiers
+        );
+    }
+
+    private boolean matchesCrack(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("crack")
+                || value.contains("裂缝")
+                || normalized.contains("_lf_")
+                || normalized.contains("-lf-")
+                || normalized.endsWith("-lf")
+                || normalized.startsWith("lf-");
+    }
+
+    private boolean matchesGnss(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("gnss")
+                || value.contains("北斗")
+                || value.contains("卫星");
+    }
+
+    record NormativeMatchResult(
+            String normativeIdentifier,
+            String normativeName,
+            boolean riskReady,
+            List<String> rawIdentifiers
+    ) {
+    }
+}

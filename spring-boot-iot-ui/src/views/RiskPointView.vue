@@ -469,6 +469,7 @@
               </div>
               <div class="risk-point-pending-candidate-list__meta">
                 <span>{{ candidate.metricIdentifier }}</span>
+                <span v-if="candidate.riskMetricId">目录指标 #{{ candidate.riskMetricId }}</span>
                 <span>{{ (candidate.evidenceSources || []).join(' / ') }}</span>
               </div>
               <p v-if="candidate.reasonSummary" class="risk-point-pending-candidate-list__summary">{{ candidate.reasonSummary }}</p>
@@ -687,7 +688,7 @@ const bindForm = reactive({
 const pendingPromotionForm = reactive({
   riskPointId: undefined as number | undefined,
   pendingId: undefined as number | undefined,
-  selectedMetrics: [] as Array<{ metricIdentifier: string; metricName: string }>,
+  selectedMetrics: [] as Array<{ riskMetricId?: IdType | null; metricIdentifier: string; metricName: string }>,
   completePending: true,
   promotionNote: ''
 });
@@ -1512,6 +1513,7 @@ const isPendingMetricSelected = (metricIdentifier: string) =>
 
 const togglePendingMetric = (candidate: RiskPointPendingMetricCandidate) => {
   const nextMetric = {
+    riskMetricId: candidate.riskMetricId,
     metricIdentifier: candidate.metricIdentifier,
     metricName: candidate.metricName || candidate.metricIdentifier
   };

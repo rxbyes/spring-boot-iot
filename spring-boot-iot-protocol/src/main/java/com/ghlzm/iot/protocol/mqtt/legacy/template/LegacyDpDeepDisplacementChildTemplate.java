@@ -28,7 +28,7 @@ public final class LegacyDpDeepDisplacementChildTemplate implements LegacyDpChil
         LegacyDpLogicalPayloadDescriptor descriptor = describe(context);
         if (descriptor == null || context == null) {
             return new LegacyDpChildTemplateExecutionResult(
-                    TEMPLATE_CODE, Map.of(), List.of(), false, null, null, null
+                    TEMPLATE_CODE, Map.of(), List.of(), false, null, null, null, List.of()
             );
         }
         return new LegacyDpChildTemplateExecutionResult(
@@ -39,7 +39,8 @@ public final class LegacyDpDeepDisplacementChildTemplate implements LegacyDpChil
                 context.relationRule() == null ? null
                         : LegacyDpChildTemplateSupport.normalizeStrategy(context.relationRule().canonicalizationStrategy()),
                 descriptor.timestamp(),
-                descriptor.rawPayload()
+                descriptor.rawPayload(),
+                List.of()
         );
     }
 

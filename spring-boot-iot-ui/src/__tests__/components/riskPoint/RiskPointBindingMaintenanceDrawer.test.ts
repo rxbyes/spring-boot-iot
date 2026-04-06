@@ -196,6 +196,7 @@ function createBindingGroups() {
       metrics: [
         {
           bindingId: 9001,
+          riskMetricId: 6101,
           metricIdentifier: 'tiltX',
           metricName: 'X向倾角',
           bindingSource: 'MANUAL',
@@ -203,6 +204,7 @@ function createBindingGroups() {
         },
         {
           bindingId: 9002,
+          riskMetricId: 6102,
           metricIdentifier: 'crackWidth',
           metricName: '裂缝宽度',
           bindingSource: 'PENDING_PROMOTION',
@@ -318,6 +320,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('裂缝宽度')
     expect(wrapper.text()).toContain('人工维护')
     expect(wrapper.text()).toContain('待治理转正')
+    expect(wrapper.text()).toContain('目录指标 #6101')
     expect(wrapper.text()).toContain('待治理 2 条')
   })
 

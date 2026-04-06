@@ -372,6 +372,10 @@ export interface ProductModelGovernanceEvidence {
 export interface ProductModelGovernanceCompareRow {
   modelType: ProductModelType;
   identifier: string;
+  normativeIdentifier?: string | null;
+  normativeName?: string | null;
+  riskReady?: boolean | null;
+  rawIdentifiers?: string[] | null;
   manualCandidate?: ProductModelGovernanceEvidence | null;
   runtimeCandidate?: ProductModelGovernanceEvidence | null;
   formalModel?: ProductModelGovernanceEvidence | null;
@@ -452,6 +456,7 @@ export interface ProductModelGovernanceApplyResult {
   skippedCount?: number | null;
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
+  releaseBatchId?: IdType | null;
   appliedItems?: ProductModelGovernanceAppliedItem[] | null;
 }
 

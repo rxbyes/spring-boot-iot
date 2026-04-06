@@ -6,6 +6,7 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
@@ -35,16 +36,19 @@ public class DevicePayloadApplyStageHandler {
     private final DevicePropertyMetadataService devicePropertyMetadataService;
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
+    private final ProductMetricEvidenceService productMetricEvidenceService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DevicePayloadApplyStageHandler(DevicePropertyMapper devicePropertyMapper,
                                           DevicePropertyMetadataService devicePropertyMetadataService,
                                           CommandRecordService commandRecordService,
-                                          DeviceFileService deviceFileService) {
+                                          DeviceFileService deviceFileService,
+                                          ProductMetricEvidenceService productMetricEvidenceService) {
         this.devicePropertyMapper = devicePropertyMapper;
         this.devicePropertyMetadataService = devicePropertyMetadataService;
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
+        this.productMetricEvidenceService = productMetricEvidenceService;
     }
 
     public DevicePayloadApplyResult apply(DeviceProcessingTarget target) {
@@ -69,6 +73,7 @@ public class DevicePayloadApplyStageHandler {
         }
 
         updateLatestProperties(target, upMessage);
+        productMetricEvidenceService.captureRuntimeEvidence(target.getProduct(), upMessage);
         result.setBranch("PROPERTY");
         result.getSummary().put("propertyCount", propertyCount(upMessage));
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));

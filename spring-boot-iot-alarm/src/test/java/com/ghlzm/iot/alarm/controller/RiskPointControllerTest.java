@@ -52,6 +52,7 @@ class RiskPointControllerTest {
         RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
         RiskPointBindingMetricVO metric = new RiskPointBindingMetricVO();
         metric.setBindingId(88L);
+        metric.setRiskMetricId(6101L);
         metric.setMetricIdentifier("dispsX");
         metric.setMetricName("X向位移");
         metric.setBindingSource("PENDING_PROMOTION");
@@ -68,6 +69,7 @@ class RiskPointControllerTest {
 
         assertEquals(1, response.getData().size());
         assertEquals("DEVICE-3001", response.getData().get(0).getDeviceCode());
+        assertEquals(6101L, response.getData().get(0).getMetrics().get(0).getRiskMetricId());
         assertEquals("PENDING_PROMOTION", response.getData().get(0).getMetrics().get(0).getBindingSource());
         verify(maintenanceService).listBindingGroups(7001L, 1001L);
     }
@@ -90,10 +92,12 @@ class RiskPointControllerTest {
         RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
         RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
         RiskPointBindingReplaceRequest request = new RiskPointBindingReplaceRequest();
+        request.setRiskMetricId(6102L);
         request.setMetricIdentifier("AZI");
         request.setMetricName("方位角");
         RiskPointBindingMetricVO replaced = new RiskPointBindingMetricVO();
         replaced.setBindingId(199L);
+        replaced.setRiskMetricId(6102L);
         replaced.setMetricIdentifier("AZI");
         replaced.setMetricName("方位角");
         replaced.setBindingSource("MANUAL");
@@ -102,6 +106,7 @@ class RiskPointControllerTest {
         R<RiskPointBindingMetricVO> response = controller.replaceBindingMetric(88L, request, authentication(1001L));
 
         assertEquals(199L, response.getData().getBindingId());
+        assertEquals(6102L, response.getData().getRiskMetricId());
         assertEquals("AZI", response.getData().getMetricIdentifier());
         verify(maintenanceService).replaceBindingMetric(88L, request, 1001L);
     }

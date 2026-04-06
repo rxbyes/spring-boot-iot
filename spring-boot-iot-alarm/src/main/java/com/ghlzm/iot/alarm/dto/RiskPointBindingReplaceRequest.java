@@ -8,6 +8,8 @@ import lombok.Data;
 @Data
 public class RiskPointBindingReplaceRequest {
 
+    private Long riskMetricId;
+
     private String metricIdentifier;
 
     private String metricName;

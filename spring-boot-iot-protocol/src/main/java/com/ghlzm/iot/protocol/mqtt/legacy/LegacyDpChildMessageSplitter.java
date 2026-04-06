@@ -2,6 +2,7 @@ package com.ghlzm.iot.protocol.mqtt.legacy;
 
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
 import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
 import com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateContext;
@@ -107,6 +108,9 @@ public class LegacyDpChildMessageSplitter {
         List<DeviceUpMessage> childMessages = new ArrayList<>();
         List<String> parentRemovalKeys = new ArrayList<>();
         List<ProtocolTemplateExecutionEvidence> templateExecutions = new ArrayList<>();
+        List<ProtocolMetricEvidence> metricEvidence = new ArrayList<>(
+                result.getMetricEvidence() == null ? List.of() : result.getMetricEvidence()
+        );
         for (LegacyDpRelationRule rule : relationRules) {
             String logicalCode = rule.logicalChannelCode();
             String childDeviceCode = rule.childDeviceCode();
@@ -134,6 +138,11 @@ public class LegacyDpChildMessageSplitter {
                 childRawPayload = templateExecution.rawPayload();
                 parentRemovalKeys.addAll(templateExecution.parentRemovalKeys());
                 templateExecutions.add(buildTemplateExecutionEvidence(logicalCode, childDeviceCode, templateExecution));
+                metricEvidence.addAll(adoptMetricEvidence(
+                        parentMessage.getDeviceCode(),
+                        childDeviceCode,
+                        templateExecution.metricEvidence()
+                ));
             } else {
                 LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(rule, basePayloadMap.get(logicalCode));
                 if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
@@ -164,6 +173,7 @@ public class LegacyDpChildMessageSplitter {
 
         result.setChildMessages(childMessages);
         result.setTemplateEvidence(buildTemplateEvidence(templateExecutions));
+        result.setMetricEvidence(metricEvidence.isEmpty() ? List.of() : List.copyOf(metricEvidence));
         if (childMessages.isEmpty()) {
             result.setChildSplitApplied(Boolean.FALSE);
             return result;
@@ -172,6 +182,31 @@ public class LegacyDpChildMessageSplitter {
         result.setChildSplitApplied(Boolean.TRUE);
         result.setProperties(removeChildLogicalProperties(result.getProperties(), parentRemovalKeys));
         return result;
+    }
+
+    private List<ProtocolMetricEvidence> adoptMetricEvidence(String parentDeviceCode,
+                                                             String childDeviceCode,
+                                                             List<ProtocolMetricEvidence> templateEvidence) {
+        if (templateEvidence == null || templateEvidence.isEmpty()) {
+            return List.of();
+        }
+        List<ProtocolMetricEvidence> rows = new ArrayList<>();
+        for (ProtocolMetricEvidence item : templateEvidence) {
+            if (item == null) {
+                continue;
+            }
+            ProtocolMetricEvidence copied = new ProtocolMetricEvidence();
+            copied.setRawIdentifier(item.getRawIdentifier());
+            copied.setCanonicalIdentifier(item.getCanonicalIdentifier());
+            copied.setLogicalChannelCode(item.getLogicalChannelCode());
+            copied.setParentDeviceCode(item.getParentDeviceCode() == null ? parentDeviceCode : item.getParentDeviceCode());
+            copied.setChildDeviceCode(item.getChildDeviceCode() == null ? childDeviceCode : item.getChildDeviceCode());
+            copied.setSampleValue(item.getSampleValue());
+            copied.setValueType(item.getValueType());
+            copied.setEvidenceOrigin(item.getEvidenceOrigin());
+            rows.add(copied);
+        }
+        return rows;
     }
 
     private ProtocolTemplateExecutionEvidence buildTemplateExecutionEvidence(String logicalCode,

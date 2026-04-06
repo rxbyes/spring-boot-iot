@@ -46,6 +46,7 @@ export interface RiskPointDevice {
       deviceId: IdType;
       deviceCode: string;
       deviceName: string;
+      riskMetricId?: IdType | null;
       metricIdentifier: string;
       metricName: string;
       defaultThreshold: string;
@@ -68,6 +69,7 @@ export interface RiskPointBindingSummary {
 
 export interface RiskPointBindingMetric {
       bindingId: IdType;
+      riskMetricId?: IdType | null;
       metricIdentifier: string;
       metricName?: string | null;
       bindingSource: 'MANUAL' | 'PENDING_PROMOTION' | 'UNKNOWN';
@@ -99,6 +101,7 @@ export interface RiskPointPendingBindingItem {
 }
 
 export interface RiskPointPendingMetricCandidate {
+      riskMetricId?: IdType | null;
       metricIdentifier: string;
       metricName: string;
       dataType?: string | null;
@@ -146,6 +149,7 @@ export interface RiskPointPendingCandidateBundle {
 }
 
 export interface RiskPointPendingPromotionMetric {
+      riskMetricId?: IdType | null;
       metricIdentifier: string;
       metricName: string;
 }
@@ -157,6 +161,7 @@ export interface RiskPointPendingPromotionRequest {
 }
 
 export interface RiskPointBindingReplaceRequest {
+      riskMetricId?: IdType | null;
       metricIdentifier: string;
       metricName: string;
 }

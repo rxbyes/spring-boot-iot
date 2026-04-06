@@ -2,7 +2,9 @@ package com.ghlzm.iot.alarm.service.impl;
 
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingMetricCandidateVO;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RiskPointPendingRecommendationServiceImplTest {
@@ -215,6 +218,35 @@ class RiskPointPendingRecommendationServiceImplTest {
         assertTrue(candidateMap.get("dispsY").getReasonSummary().contains("L1_SW_1.dispsY"));
     }
 
+    @Test
+    void getCandidatesShouldAttachCatalogRiskMetricIdForReleasedCrackMetric() {
+        Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("裂缝计-L1");
+        fixture.pending.setDeviceName("裂缝计-L1");
+        fixture.pending.setRiskPointName("K79+620 裂缝监测点");
+
+        ProductModel releasedValue = fixture.productModel("value", "裂缝监测值", "double", 1);
+        DeviceProperty latestValue = fixture.deviceProperty("value", "裂缝监测值", "10.86", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(7001L);
+        catalog.setProductId(2001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricName("裂缝监测值");
+        catalog.setEnabled(1);
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(releasedValue));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(latestValue));
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.riskMetricCatalogService.listEnabledByProduct(2001L)).thenReturn(List.of(catalog));
+
+        RiskPointPendingCandidateBundleVO result = fixture.service.getCandidates(9001L, 1001L);
+
+        assertEquals(1, result.getCandidates().size());
+        assertEquals(7001L, result.getCandidates().get(0).getRiskMetricId());
+        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(org.mockito.ArgumentMatchers.eq(2001L), any(), org.mockito.ArgumentMatchers.eq(java.util.Set.of("value")));
+    }
+
     private static final class Fixture {
         private final RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
         private final DeviceService deviceService = mock(DeviceService.class);
@@ -222,13 +254,15 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final DevicePropertyMapper devicePropertyMapper = mock(DevicePropertyMapper.class);
         private final DeviceMessageLogMapper deviceMessageLogMapper = mock(DeviceMessageLogMapper.class);
         private final RiskPointDevicePendingPromotionMapper promotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        private final RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
         private final RiskPointPendingRecommendationServiceImpl service = new RiskPointPendingRecommendationServiceImpl(
                 bindingService,
                 deviceService,
                 productModelMapper,
                 devicePropertyMapper,
                 deviceMessageLogMapper,
-                promotionMapper
+                promotionMapper,
+                riskMetricCatalogService
         );
         private final RiskPointDevicePendingBinding pending = pending();
         private final Device device = device();

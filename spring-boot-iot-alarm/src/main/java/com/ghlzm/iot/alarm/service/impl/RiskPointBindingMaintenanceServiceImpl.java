@@ -157,6 +157,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
             RiskPointBindingMetricVO metric = new RiskPointBindingMetricVO();
             metric.setBindingId(binding.getId());
+            metric.setRiskMetricId(binding.getRiskMetricId());
             metric.setMetricIdentifier(binding.getMetricIdentifier());
             metric.setMetricName(binding.getMetricName());
             metric.setBindingSource(promotedBindingIds.contains(binding.getId()) ? SOURCE_PENDING_PROMOTION : SOURCE_MANUAL);
@@ -210,6 +211,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         replacement.setDeviceId(oldBinding.getDeviceId());
         replacement.setDeviceCode(oldBinding.getDeviceCode());
         replacement.setDeviceName(oldBinding.getDeviceName());
+        replacement.setRiskMetricId(request == null ? null : request.getRiskMetricId());
         replacement.setMetricIdentifier(newMetricIdentifier);
         replacement.setMetricName(resolveReplacementMetricName(
                 request == null ? null : request.getMetricName(),
@@ -272,6 +274,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         }
         RiskPointBindingMetricVO metric = new RiskPointBindingMetricVO();
         metric.setBindingId(binding.getId());
+        metric.setRiskMetricId(binding.getRiskMetricId());
         metric.setMetricIdentifier(binding.getMetricIdentifier());
         metric.setMetricName(binding.getMetricName());
         metric.setBindingSource(bindingSource);

@@ -142,6 +142,7 @@
                     <div>
                       <strong>{{ metric.metricName || metric.metricIdentifier }}</strong>
                       <p>{{ metric.metricIdentifier }}</p>
+                      <p v-if="metric.riskMetricId">目录指标 #{{ metric.riskMetricId }}</p>
                     </div>
                     <el-tag :data-testid="`binding-source-badge-${metric.bindingId}`" type="info">
                       {{ getBindingSourceLabel(metric.bindingSource) }}

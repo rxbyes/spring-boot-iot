@@ -58,7 +58,7 @@ class RiskPolicyResolverTest {
         RiskPolicyDecision decision = resolver.resolve(1L, binding("dispsX"), new BigDecimal("12.8"));
 
         assertEquals("RULE_DEFINITION", decision.getSource());
-        assertEquals("critical", decision.getAlarmLevel());
+        assertEquals("red", decision.getAlarmLevel());
         assertEquals("red", decision.getRiskPointLevel());
         assertEquals(9101L, decision.getRuleId());
         assertTrue(decision.shouldCreateAlarm());
@@ -79,7 +79,7 @@ class RiskPolicyResolverTest {
         RiskPolicyDecision decision = resolver.resolve(1L, binding("dispsX"), new BigDecimal("7.5"));
 
         assertEquals("AUTO_CLOSURE", decision.getSource());
-        assertEquals("medium", decision.getAlarmLevel());
+        assertEquals("yellow", decision.getAlarmLevel());
         assertEquals("yellow", decision.getRiskPointLevel());
         assertTrue(decision.shouldCreateAlarm());
         assertFalse(decision.shouldCreateEvent());
@@ -112,10 +112,33 @@ class RiskPolicyResolverTest {
         RiskPolicyDecision decision = resolver.resolve(1L, binding("dispsY"), new BigDecimal("21.6"));
 
         assertEquals("RULE_DEFINITION", decision.getSource());
-        assertEquals("critical", decision.getAlarmLevel());
+        assertEquals("red", decision.getAlarmLevel());
         assertEquals("red", decision.getRiskPointLevel());
         assertEquals(8218L, decision.getRuleId());
         assertTrue(decision.shouldCreateEvent());
+    }
+
+    @Test
+    void resolveShouldMatchEnabledRuleByRiskMetricId() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(9301L);
+        rule.setRuleName("裂缝监测值红色策略");
+        rule.setRiskMetricId(7001L);
+        rule.setExpression("value >= 10");
+        rule.setAlarmLevel("critical");
+        rule.setConvertToEvent(1);
+        rule.setStatus(0);
+        rule.setDeleted(0);
+
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        RiskPointDevice binding = binding("value");
+        binding.setRiskMetricId(7001L);
+        RiskPolicyDecision decision = resolver.resolve(1L, binding, new BigDecimal("10.8"));
+
+        assertEquals("RULE_DEFINITION", decision.getSource());
+        assertEquals("red", decision.getAlarmLevel());
+        assertEquals(9301L, decision.getRuleId());
     }
 
     private RiskPointDevice binding(String metricIdentifier) {

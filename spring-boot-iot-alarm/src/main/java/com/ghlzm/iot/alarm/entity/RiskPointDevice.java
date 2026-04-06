@@ -45,6 +45,11 @@ public class RiskPointDevice implements Serializable {
       /**
        * 测点标识符
        */
+      private Long riskMetricId;
+
+      /**
+       * 测点标识符
+       */
       private String metricIdentifier;
 
       /**

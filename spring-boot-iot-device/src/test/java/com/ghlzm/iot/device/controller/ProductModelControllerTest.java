@@ -85,11 +85,14 @@ class ProductModelControllerTest {
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
         ProductModelGovernanceCompareVO result = new ProductModelGovernanceCompareVO();
         result.setProductId(1001L);
+        result.setCompareRows(List.of(compareRow("value", "value", "裂缝监测值", true)));
         when(productModelService.compareGovernance(1001L, dto)).thenReturn(result);
 
         R<ProductModelGovernanceCompareVO> response = controller.compareGovernance(1001L, dto);
 
         assertEquals(1001L, response.getData().getProductId());
+        assertEquals("value", response.getData().getCompareRows().get(0).getNormativeIdentifier());
+        assertEquals(true, response.getData().getCompareRows().get(0).getRiskReady());
         verify(productModelService).compareGovernance(1001L, dto);
     }
 
@@ -98,11 +101,13 @@ class ProductModelControllerTest {
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
         ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
         result.setCreatedCount(1);
+        result.setReleaseBatchId(12345L);
         when(productModelService.applyGovernance(1001L, dto)).thenReturn(result);
 
         R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto);
 
         assertEquals(1, response.getData().getCreatedCount());
+        assertEquals(12345L, response.getData().getReleaseBatchId());
         verify(productModelService).applyGovernance(1001L, dto);
     }
 
@@ -115,5 +120,18 @@ class ProductModelControllerTest {
         vo.setModelName(identifier);
         vo.setSortNo(sortNo);
         return vo;
+    }
+
+    private com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO compareRow(String identifier,
+                                                                                   String normativeIdentifier,
+                                                                                   String normativeName,
+                                                                                   boolean riskReady) {
+        com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO row =
+                new com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO();
+        row.setIdentifier(identifier);
+        row.setNormativeIdentifier(normativeIdentifier);
+        row.setNormativeName(normativeName);
+        row.setRiskReady(riskReady);
+        return row;
     }
 }

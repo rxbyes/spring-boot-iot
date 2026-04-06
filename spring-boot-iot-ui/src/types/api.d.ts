@@ -116,6 +116,10 @@ export interface ProductModelGovernanceEvidence {
 export interface ProductModelGovernanceCompareRow {
   modelType: 'property' | 'event' | 'service';
   identifier: string;
+  normativeIdentifier?: string | null;
+  normativeName?: string | null;
+  riskReady?: boolean | null;
+  rawIdentifiers?: string[] | null;
   manualCandidate?: ProductModelGovernanceEvidence | null;
   runtimeCandidate?: ProductModelGovernanceEvidence | null;
   formalModel?: ProductModelGovernanceEvidence | null;
@@ -190,6 +194,7 @@ export interface ProductModelGovernanceApplyResult {
   skippedCount?: number | null;
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
+  releaseBatchId?: string | number | null;
 }
 
 export interface DeviceRelation {

@@ -11,6 +11,8 @@ import java.util.List;
 @Data
 public class RiskPointPendingMetricCandidateVO {
 
+    private Long riskMetricId;
+
     private String metricIdentifier;
 
     private String metricName;

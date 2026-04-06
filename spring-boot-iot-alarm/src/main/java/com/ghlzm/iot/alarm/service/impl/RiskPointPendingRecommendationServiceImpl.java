@@ -3,7 +3,9 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
@@ -79,6 +81,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private final DevicePropertyMapper devicePropertyMapper;
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
+    private final RiskMetricCatalogService riskMetricCatalogService;
     private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -88,12 +91,31 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
                                                      DevicePropertyMapper devicePropertyMapper,
                                                      DeviceMessageLogMapper deviceMessageLogMapper,
                                                      RiskPointDevicePendingPromotionMapper pendingPromotionMapper) {
+        this(
+                pendingBindingService,
+                deviceService,
+                productModelMapper,
+                devicePropertyMapper,
+                deviceMessageLogMapper,
+                pendingPromotionMapper,
+                null
+        );
+    }
+
+    public RiskPointPendingRecommendationServiceImpl(RiskPointPendingBindingService pendingBindingService,
+                                                     DeviceService deviceService,
+                                                     ProductModelMapper productModelMapper,
+                                                     DevicePropertyMapper devicePropertyMapper,
+                                                     DeviceMessageLogMapper deviceMessageLogMapper,
+                                                     RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
+                                                     RiskMetricCatalogService riskMetricCatalogService) {
         this.pendingBindingService = pendingBindingService;
         this.deviceService = deviceService;
         this.productModelMapper = productModelMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.pendingPromotionMapper = pendingPromotionMapper;
+        this.riskMetricCatalogService = riskMetricCatalogService;
     }
 
     @Override
@@ -102,8 +124,10 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         validatePendingForRecommendation(pending);
         Device device = deviceService.getRequiredById(pending.getDeviceId());
         LinkedHashMap<String, CandidateAccumulator> candidateMap = new LinkedHashMap<>();
+        List<ProductModel> releasedProductModels = listReleasedProductModels(device);
+        publishRiskMetricCatalog(device, releasedProductModels);
 
-        mergeProductModelEvidence(candidateMap, device);
+        mergeProductModelEvidence(candidateMap, releasedProductModels);
         mergeLatestPropertyEvidence(candidateMap, device);
         mergeMessageLogEvidence(candidateMap, device);
 
@@ -111,7 +135,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         List<RiskPointPendingMetricCandidateVO> rawCandidates = candidateMap.values().stream()
                 .map(this::toCandidate)
                 .toList();
-        bundle.setCandidates(metricGovernanceRules.governCandidates(pending, device, rawCandidates).stream()
+        bundle.setCandidates(decorateRiskMetricCatalog(device, metricGovernanceRules.governCandidates(pending, device, rawCandidates)).stream()
                 .sorted(candidateComparator())
                 .toList());
         bundle.setPromotionHistory(loadPromotionHistory(pending.getId()));
@@ -131,13 +155,27 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         }
     }
 
-    private void mergeProductModelEvidence(Map<String, CandidateAccumulator> candidateMap, Device device) {
+    private List<ProductModel> listReleasedProductModels(Device device) {
+        if (device == null || device.getProductId() == null) {
+            return List.of();
+        }
         List<ProductModel> productModels = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
                 .eq(ProductModel::getDeleted, 0)
                 .eq(ProductModel::getProductId, device.getProductId())
                 .eq(ProductModel::getModelType, "property")
                 .orderByAsc(ProductModel::getSortNo)
                 .orderByAsc(ProductModel::getIdentifier));
+        return productModels == null ? List.of() : productModels;
+    }
+
+    private void publishRiskMetricCatalog(Device device, List<ProductModel> productModels) {
+        if (riskMetricCatalogService == null || device == null || device.getProductId() == null || productModels == null || productModels.isEmpty()) {
+            return;
+        }
+        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), productModels, Set.of("value"));
+    }
+
+    private void mergeProductModelEvidence(Map<String, CandidateAccumulator> candidateMap, List<ProductModel> productModels) {
         for (ProductModel productModel : productModels) {
             if (!StringUtils.hasText(productModel.getIdentifier())) {
                 continue;
@@ -244,6 +282,37 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private boolean isPropertyLog(DeviceMessageLog log) {
         String messageType = normalizeOptional(log == null ? null : log.getMessageType());
         return messageType != null && PROPERTY_LOG_TYPES.contains(messageType.toLowerCase(Locale.ROOT));
+    }
+
+    private List<RiskPointPendingMetricCandidateVO> decorateRiskMetricCatalog(Device device,
+                                                                              List<RiskPointPendingMetricCandidateVO> candidates) {
+        if (riskMetricCatalogService == null || device == null || device.getProductId() == null || candidates == null || candidates.isEmpty()) {
+            return candidates == null ? List.of() : candidates;
+        }
+        List<RiskMetricCatalog> catalogs = riskMetricCatalogService.listEnabledByProduct(device.getProductId());
+        if (catalogs == null || catalogs.isEmpty()) {
+            return candidates;
+        }
+        Map<String, RiskMetricCatalog> catalogByIdentifier = new LinkedHashMap<>();
+        for (RiskMetricCatalog catalog : catalogs) {
+            if (catalog != null && StringUtils.hasText(catalog.getContractIdentifier())) {
+                catalogByIdentifier.put(catalog.getContractIdentifier(), catalog);
+            }
+        }
+        for (RiskPointPendingMetricCandidateVO candidate : candidates) {
+            if (candidate == null || !StringUtils.hasText(candidate.getMetricIdentifier())) {
+                continue;
+            }
+            RiskMetricCatalog catalog = catalogByIdentifier.get(candidate.getMetricIdentifier());
+            if (catalog == null) {
+                continue;
+            }
+            candidate.setRiskMetricId(catalog.getId());
+            if (StringUtils.hasText(catalog.getRiskMetricName())) {
+                candidate.setMetricName(catalog.getRiskMetricName());
+            }
+        }
+        return candidates;
     }
 
     private List<RiskPointPendingPromotionHistoryVO> loadPromotionHistory(Long pendingId) {

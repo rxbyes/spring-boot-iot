@@ -24,6 +24,8 @@ public class RiskGovernanceGapItemVO {
 
     private String riskPointName;
 
+    private Long riskMetricId;
+
     private String metricIdentifier;
 
     private String metricName;

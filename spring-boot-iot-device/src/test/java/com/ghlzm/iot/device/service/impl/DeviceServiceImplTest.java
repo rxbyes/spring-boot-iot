@@ -10,15 +10,18 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.Organization;
@@ -63,6 +66,8 @@ class DeviceServiceImplTest {
     @Mock
     private ProductModelMapper productModelMapper;
     @Mock
+    private RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
+    @Mock
     private DeviceMapper deviceMapper;
     @Mock
     private UnregisteredDeviceRosterService unregisteredDeviceRosterService;
@@ -92,6 +97,7 @@ class DeviceServiceImplTest {
                 productService,
                 devicePropertyMapper,
                 productModelMapper,
+                riskMetricCatalogReadMapper,
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
@@ -477,11 +483,50 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void listMetricOptionsShouldExposeRiskMetricIdForPublishedMetric() {
+        Device device = new Device();
+        device.setId(4001L);
+        device.setTenantId(8L);
+        device.setProductId(3003L);
+
+        ProductModel productModel = new ProductModel();
+        productModel.setId(3202L);
+        productModel.setProductId(3003L);
+        productModel.setModelType("property");
+        productModel.setIdentifier("gpsTotalX");
+        productModel.setModelName("GNSS 累计位移 X");
+        productModel.setDataType("double");
+        productModel.setDeleted(0);
+
+        com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel catalog =
+                new com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel();
+        catalog.setId(6102L);
+        catalog.setProductId(3003L);
+        catalog.setContractIdentifier("gpsTotalX");
+        catalog.setEnabled(1);
+        catalog.setDeleted(0);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(device).when(deviceService).getRequiredById(4001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(productModel));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogReadMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        List<DeviceMetricOptionVO> options = deviceService.listMetricOptions(99L, 4001L);
+
+        assertEquals(1, options.size());
+        assertEquals(6102L, options.get(0).getRiskMetricId());
+        assertEquals("gpsTotalX", options.get(0).getIdentifier());
+    }
+
+    @Test
     void addDeviceShouldResolveInvalidReportStateAfterArchiveCreate() {
         DeviceServiceImpl resolvingService = spy(new DeviceServiceImpl(
                 productService,
                 devicePropertyMapper,
                 productModelMapper,
+                riskMetricCatalogReadMapper,
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,

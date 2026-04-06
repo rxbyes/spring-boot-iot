@@ -14,6 +14,14 @@ public class ProductModelGovernanceCompareRowVO {
 
     private String identifier;
 
+    private String normativeIdentifier;
+
+    private String normativeName;
+
+    private Boolean riskReady;
+
+    private List<String> rawIdentifiers = new ArrayList<>();
+
     private ProductModelGovernanceEvidenceVO manualCandidate;
 
     private ProductModelGovernanceEvidenceVO runtimeCandidate;

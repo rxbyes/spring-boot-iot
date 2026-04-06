@@ -11,4 +11,5 @@ public class DeviceMetricOptionVO {
     private String identifier;
     private String name;
     private String dataType;
+    private Long riskMetricId;
 }

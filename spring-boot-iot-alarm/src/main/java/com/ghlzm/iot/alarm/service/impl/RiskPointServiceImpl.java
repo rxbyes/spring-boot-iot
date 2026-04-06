@@ -2,11 +2,13 @@ package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
@@ -54,13 +56,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private final DictService dictService;
       private final PermissionService permissionService;
       private final DeviceService deviceService;
+      private final RiskMetricCatalogService riskMetricCatalogService;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null, null);
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -69,7 +72,17 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   UserService userService,
                                   DictService dictService,
                                   PermissionService permissionService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, null);
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, null, null);
+      }
+
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService,
+                                  DeviceService deviceService) {
+            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, null);
       }
 
       @Autowired
@@ -79,7 +92,8 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   UserService userService,
                                   DictService dictService,
                                   PermissionService permissionService,
-                                  DeviceService deviceService) {
+                                  DeviceService deviceService,
+                                  RiskMetricCatalogService riskMetricCatalogService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
             this.organizationService = organizationService;
             this.regionService = regionService;
@@ -87,6 +101,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             this.dictService = dictService;
             this.permissionService = permissionService;
             this.deviceService = deviceService;
+            this.riskMetricCatalogService = riskMetricCatalogService;
       }
 
       @Override
@@ -220,12 +235,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPointDevice.getDeviceId() == null) {
                   throw new BizException("请选择设备");
             }
-            if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
-                  throw new BizException("请选择测点");
-            }
             RiskPoint riskPoint = hasDataPermissionSupport() && currentUserId != null
                     ? getById(riskPointDevice.getRiskPointId(), currentUserId)
                     : getById(riskPointDevice.getRiskPointId());
+            Device device = resolveRequiredDevice(currentUserId, riskPointDevice.getDeviceId());
+            applyRiskMetricCatalog(riskPointDevice, device);
+            if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  throw new BizException("请选择测点");
+            }
 
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
@@ -237,7 +254,6 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("设备已绑定到该风险点");
             }
 
-            Device device = resolveRequiredDevice(currentUserId, riskPointDevice.getDeviceId());
             validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId());
             riskPointDevice.setDeviceCode(device.getDeviceCode());
             riskPointDevice.setDeviceName(device.getDeviceName());
@@ -331,6 +347,37 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     .filter(device -> Objects.equals(riskPoint.getOrgId(), device.getOrgId()))
                     .filter(device -> currentRiskPointDeviceIds.contains(device.getId()) || !occupiedDeviceIds.contains(device.getId()))
                     .toList();
+      }
+
+      private void applyRiskMetricCatalog(RiskPointDevice riskPointDevice, Device device) {
+            if (riskPointDevice == null || device == null || device.getProductId() == null || riskMetricCatalogService == null) {
+                  return;
+            }
+            RiskMetricCatalog catalog = resolveRiskMetricCatalog(device.getProductId(),
+                    riskPointDevice.getRiskMetricId(),
+                    riskPointDevice.getMetricIdentifier());
+            if (catalog == null) {
+                  riskPointDevice.setMetricIdentifier(normalizeMetricIdentifier(riskPointDevice.getMetricIdentifier()));
+                  riskPointDevice.setMetricName(resolveMetricName(riskPointDevice.getMetricName(), riskPointDevice.getMetricIdentifier()));
+                  return;
+            }
+            riskPointDevice.setRiskMetricId(catalog.getId());
+            riskPointDevice.setMetricIdentifier(catalog.getContractIdentifier());
+            riskPointDevice.setMetricName(resolveMetricName(catalog.getRiskMetricName(), catalog.getContractIdentifier()));
+      }
+
+      private RiskMetricCatalog resolveRiskMetricCatalog(Long productId, Long riskMetricId, String metricIdentifier) {
+            if (riskMetricCatalogService == null || productId == null) {
+                  return null;
+            }
+            if (riskMetricId != null) {
+                  RiskMetricCatalog catalog = riskMetricCatalogService.getById(riskMetricId);
+                  if (catalog == null || !Objects.equals(productId, catalog.getProductId())) {
+                        throw new BizException("风险指标不存在或不属于当前设备产品");
+                  }
+                  return catalog;
+            }
+            return riskMetricCatalogService.getByProductAndIdentifier(productId, metricIdentifier);
       }
 
       private Device resolveRequiredDevice(Long currentUserId, Long deviceId) {
@@ -620,6 +667,17 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
       private String appendCodeSuffix(String base, int suffix) {
             return base + "-" + String.format("%03d", suffix);
+      }
+
+      private String normalizeMetricIdentifier(String metricIdentifier) {
+            return StringUtils.hasText(metricIdentifier) ? metricIdentifier.trim() : null;
+      }
+
+      private String resolveMetricName(String metricName, String metricIdentifier) {
+            if (StringUtils.hasText(metricName)) {
+                  return metricName.trim();
+            }
+            return normalizeMetricIdentifier(metricIdentifier);
       }
 
       private String buildCodeSegment(String source, int maxLength) {

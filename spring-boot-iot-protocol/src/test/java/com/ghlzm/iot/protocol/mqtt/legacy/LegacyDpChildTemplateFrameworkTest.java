@@ -63,12 +63,17 @@ class LegacyDpChildTemplateFrameworkTest {
         Map<String, Object> childProperties = (Map<String, Object>) invoke(execution, "childProperties");
         @SuppressWarnings("unchecked")
         List<String> parentRemovalKeys = (List<String>) invoke(execution, "parentRemovalKeys");
+        @SuppressWarnings("unchecked")
+        List<Object> metricEvidence = (List<Object>) invoke(execution, "metricEvidence");
 
         assertEquals(Map.of("value", 10.86, "sensor_state", 0), childProperties);
         assertEquals(List.of("L1_LF_1"), parentRemovalKeys);
         assertEquals("crack_child_template", invoke(execution, "templateCode"));
         assertEquals("LF_VALUE", invoke(execution, "canonicalizationStrategy"));
         assertEquals(Boolean.TRUE, invoke(execution, "statusMirrorApplied"));
+        assertEquals(2, metricEvidence.size());
+        assertEquals("value", invoke(metricEvidence.get(0), "getCanonicalIdentifier"));
+        assertEquals("sensor_state", invoke(metricEvidence.get(1), "getCanonicalIdentifier"));
     }
 
     @Test

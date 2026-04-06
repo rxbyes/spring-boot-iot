@@ -135,6 +135,19 @@ const ElAlertStub = defineComponent({
   `
 });
 
+const ElFormStub = defineComponent({
+  name: 'ElForm',
+  template: '<form class="el-form-stub"><slot /></form>',
+  methods: {
+    async validate() {
+      return true;
+    },
+    clearValidate() {
+      return undefined;
+    }
+  }
+});
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -142,6 +155,7 @@ function flushPromises() {
 function createRuleRow() {
   return {
     id: 1,
+    riskMetricId: 6102,
     ruleName: '北坡位移红色阈值',
     metricIdentifier: 'displacementX',
     metricName: '位移 X',
@@ -175,7 +189,7 @@ function mountView() {
         StandardButton: true,
         EmptyState: true,
         ElAlert: ElAlertStub,
-        ElForm: true,
+        ElForm: ElFormStub,
         ElFormItem: true,
         ElInput: true,
         ElInputNumber: true,
@@ -297,5 +311,38 @@ describe('RuleDefinitionView', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('红色 2 项');
+  });
+
+  it('preserves riskMetricId when editing and submitting an existing rule', async () => {
+    const pageResponse = {
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRuleRow()]
+      }
+    };
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockUpdateRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRuleRow()
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleEdit(createRuleRow());
+    await nextTick();
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockUpdateRule).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1,
+      riskMetricId: 6102,
+      metricIdentifier: 'displacementX'
+    }));
   });
 });

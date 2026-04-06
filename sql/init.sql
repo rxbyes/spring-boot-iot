@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS iot_alarm_record;
 DROP TABLE IF EXISTS emergency_plan;
 DROP TABLE IF EXISTS linkage_rule;
 DROP TABLE IF EXISTS rule_definition;
+DROP TABLE IF EXISTS risk_metric_catalog;
 DROP TABLE IF EXISTS risk_point_highway_detail;
 DROP TABLE IF EXISTS risk_point_device_pending_promotion;
 DROP TABLE IF EXISTS risk_point_device_pending_binding;
@@ -29,6 +30,9 @@ DROP TABLE IF EXISTS iot_device_property;
 DROP TABLE IF EXISTS iot_device_relation;
 DROP TABLE IF EXISTS iot_device_online_session;
 DROP TABLE IF EXISTS iot_device;
+DROP TABLE IF EXISTS iot_product_contract_release_batch;
+DROP TABLE IF EXISTS iot_vendor_metric_evidence;
+DROP TABLE IF EXISTS iot_normative_metric_definition;
 DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
 
@@ -483,6 +487,64 @@ CREATE TABLE iot_product_model (
     UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产品物模型表';
 
+CREATE TABLE iot_normative_metric_definition (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',
+    identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',
+    display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',
+    unit VARCHAR(32) DEFAULT NULL COMMENT '单位',
+    precision_digits INT DEFAULT NULL COMMENT '精度',
+    monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',
+    monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',
+    risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='规范字段定义表';
+
+CREATE TABLE iot_vendor_metric_evidence (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    parent_device_code VARCHAR(64) DEFAULT NULL COMMENT '父设备编码',
+    child_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    canonical_identifier VARCHAR(64) DEFAULT NULL COMMENT '建议规范字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    evidence_origin VARCHAR(32) NOT NULL COMMENT '证据来源',
+    sample_value VARCHAR(255) DEFAULT NULL COMMENT '样例值',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
+    evidence_count INT NOT NULL DEFAULT 0 COMMENT '命中次数',
+    last_seen_time DATETIME DEFAULT NULL COMMENT '最后出现时间',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_vendor_metric_evidence (product_id, raw_identifier, logical_channel_code),
+    KEY idx_vendor_metric_product_seen (product_id, last_seen_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段证据表';
+
+CREATE TABLE iot_product_contract_release_batch (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+    release_source VARCHAR(64) NOT NULL COMMENT '发布来源',
+    released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_product_contract_release_product_time (product_id, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布批次表';
+
 CREATE TABLE iot_device (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -900,12 +962,34 @@ CREATE TABLE risk_point_highway_detail (
     KEY idx_project_type (project_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='高速公路风险点扩展表';
 
+CREATE TABLE risk_metric_catalog (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    product_model_id BIGINT DEFAULT NULL COMMENT '合同字段ID',
+    contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',
+    risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',
+    risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',
+    threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持趋势分析',
+    gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于GIS',
+    insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于对象洞察',
+    analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于运营分析',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标目录表';
+
 CREATE TABLE risk_point_device (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
     device_id BIGINT NOT NULL COMMENT '设备ID',
     device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
     device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
     metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
     metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
     default_threshold VARCHAR(64) DEFAULT NULL COMMENT '默认阈值',
@@ -918,7 +1002,8 @@ CREATE TABLE risk_point_device (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_risk_point_metric (risk_point_id, device_id, metric_identifier),
-    KEY idx_risk_device (risk_point_id, device_id)
+    KEY idx_risk_device (risk_point_id, device_id),
+    KEY idx_risk_point_device_metric_catalog (risk_metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备绑定表';
 
 CREATE TABLE risk_point_device_pending_binding (
@@ -983,6 +1068,7 @@ CREATE TABLE risk_point_device_pending_promotion (
 CREATE TABLE rule_definition (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
     metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
     metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
     expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',
@@ -998,7 +1084,8 @@ CREATE TABLE rule_definition (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    KEY idx_metric_identifier (metric_identifier)
+    KEY idx_metric_identifier (metric_identifier),
+    KEY idx_rule_definition_metric_catalog (risk_metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='阈值规则表';
 
 CREATE TABLE linkage_rule (

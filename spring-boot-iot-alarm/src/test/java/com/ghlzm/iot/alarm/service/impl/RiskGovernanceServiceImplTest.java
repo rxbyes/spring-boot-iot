@@ -94,4 +94,45 @@ class RiskGovernanceServiceImplTest {
         assertEquals("K79+620边坡", result.getRecords().get(0).getRiskPointName());
         assertEquals("dispsX", result.getRecords().get(0).getMetricIdentifier());
     }
+
+    @Test
+    void listMissingPoliciesShouldTreatRiskMetricIdMatchAsConfiguredPolicy() {
+        DeviceMapper deviceMapper = mock(DeviceMapper.class);
+        RiskPointMapper riskPointMapper = mock(RiskPointMapper.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RuleDefinitionMapper ruleDefinitionMapper = mock(RuleDefinitionMapper.class);
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper
+        );
+
+        RiskPointDevice binding = new RiskPointDevice();
+        binding.setRiskPointId(8001L);
+        binding.setDeviceId(3002L);
+        binding.setDeviceCode("demo-device-01");
+        binding.setDeviceName("演示设备");
+        binding.setMetricIdentifier("value");
+        binding.setMetricName("裂缝监测值");
+        binding.setRiskMetricId(7001L);
+        binding.setDeleted(0);
+
+        RiskPoint riskPoint = new RiskPoint();
+        riskPoint.setId(8001L);
+        riskPoint.setRiskPointName("K79+620边坡");
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRiskMetricId(7001L);
+        rule.setStatus(0);
+        rule.setDeleted(0);
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(new RiskGovernanceGapQuery());
+
+        assertEquals(0L, result.getTotal());
+    }
 }

@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.auto.RiskPolicyResolver;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
@@ -21,6 +23,12 @@ import java.util.Locale;
 @Service
 public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper, RuleDefinition>
             implements RuleDefinitionService {
+
+      private final RiskMetricCatalogService riskMetricCatalogService;
+
+      public RuleDefinitionServiceImpl(RiskMetricCatalogService riskMetricCatalogService) {
+            this.riskMetricCatalogService = riskMetricCatalogService;
+      }
 
       @Override
       public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
@@ -104,11 +112,49 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             if (rule == null) {
                   throw new BizException("阈值策略不能为空");
             }
+            RiskMetricCatalog catalog = resolveRiskMetricCatalog(rule);
+            if (catalog != null) {
+                  bindCatalogIdentity(rule, catalog);
+            } else if (StringUtils.hasText(rule.getMetricIdentifier())) {
+                  rule.setMetricIdentifier(rule.getMetricIdentifier().trim());
+            } else {
+                  throw new BizException("阈值策略必须绑定目录指标或测点标识符");
+            }
             if (Integer.valueOf(0).equals(rule.getStatus()) && !StringUtils.hasText(rule.getExpression())) {
                   throw new BizException("启用中的阈值策略必须提供可执行表达式");
             }
             if (StringUtils.hasText(rule.getExpression()) && !RiskPolicyResolver.isExecutableExpression(rule.getExpression())) {
                   throw new BizException("阈值策略表达式格式无效，仅支持 value >= 12 这类写法");
+            }
+      }
+
+      private RiskMetricCatalog resolveRiskMetricCatalog(RuleDefinition rule) {
+            if (rule.getRiskMetricId() == null) {
+                  return null;
+            }
+            RiskMetricCatalog catalog = riskMetricCatalogService.getById(rule.getRiskMetricId());
+            if (catalog == null) {
+                  throw new BizException("风险指标目录不存在或已停用: " + rule.getRiskMetricId());
+            }
+            return catalog;
+      }
+
+      private void bindCatalogIdentity(RuleDefinition rule, RiskMetricCatalog catalog) {
+            String contractIdentifier = catalog.getContractIdentifier();
+            if (!StringUtils.hasText(contractIdentifier)) {
+                  throw new BizException("风险指标目录缺少合同字段标识: " + catalog.getId());
+            }
+            if (StringUtils.hasText(rule.getMetricIdentifier())) {
+                  String normalizedIdentifier = rule.getMetricIdentifier().trim();
+                  if (!normalizedIdentifier.equals(contractIdentifier)) {
+                        throw new BizException("目录指标与测点标识符不一致");
+                  }
+                  rule.setMetricIdentifier(normalizedIdentifier);
+            } else {
+                  rule.setMetricIdentifier(contractIdentifier);
+            }
+            if (!StringUtils.hasText(rule.getMetricName()) && StringUtils.hasText(catalog.getRiskMetricName())) {
+                  rule.setMetricName(catalog.getRiskMetricName());
             }
       }
 }

@@ -21,4 +21,5 @@ public class DeviceUpProtocolMetadata {
     private String decryptedPayloadPreview;
     private Map<String, Object> decodedPayloadPreview;
     private ProtocolTemplateEvidence templateEvidence;
+    private List<ProtocolMetricEvidence> metricEvidence;
 }

@@ -38,8 +38,8 @@ public class RiskPolicyResolver {
     }
 
     public RiskPolicyDecision resolve(Long tenantId, RiskPointDevice binding, BigDecimal absoluteValue) {
-        if (binding != null && StringUtils.hasText(binding.getMetricIdentifier())) {
-            RuleDefinition matchedRule = listEnabledRules(tenantId, binding.getMetricIdentifier()).stream()
+        if (binding != null && (StringUtils.hasText(binding.getMetricIdentifier()) || binding.getRiskMetricId() != null)) {
+            RuleDefinition matchedRule = listEnabledRules(tenantId, binding.getRiskMetricId(), binding.getMetricIdentifier()).stream()
                     .filter(rule -> matches(rule == null ? null : rule.getExpression(), absoluteValue))
                     .max(rulePriorityComparator())
                     .orElse(null);
@@ -66,15 +66,27 @@ public class RiskPolicyResolver {
         return SIMPLE_EXPRESSION.matcher(expression).matches();
     }
 
-    private List<RuleDefinition> listEnabledRules(Long tenantId, String metricIdentifier) {
-        if (!StringUtils.hasText(metricIdentifier)) {
+    private List<RuleDefinition> listEnabledRules(Long tenantId, Long riskMetricId, String metricIdentifier) {
+        if (riskMetricId == null && !StringUtils.hasText(metricIdentifier)) {
             return List.of();
         }
         List<RuleDefinition> rules = ruleDefinitionMapper.selectList(
                 new LambdaQueryWrapper<RuleDefinition>()
                         .eq(RuleDefinition::getDeleted, 0)
                         .eq(RuleDefinition::getStatus, 0)
-                        .eq(RuleDefinition::getMetricIdentifier, metricIdentifier)
+                        .and(wrapper -> {
+                            if (riskMetricId != null && StringUtils.hasText(metricIdentifier)) {
+                                wrapper.eq(RuleDefinition::getRiskMetricId, riskMetricId)
+                                        .or()
+                                        .eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
+                                return;
+                            }
+                            if (riskMetricId != null) {
+                                wrapper.eq(RuleDefinition::getRiskMetricId, riskMetricId);
+                                return;
+                            }
+                            wrapper.eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
+                        })
                         .eq(tenantId != null, RuleDefinition::getTenantId, tenantId)
                         .orderByDesc(RuleDefinition::getCreateTime)
         );

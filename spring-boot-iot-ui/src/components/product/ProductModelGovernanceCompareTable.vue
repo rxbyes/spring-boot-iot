@@ -45,6 +45,8 @@
               <span>identifier: {{ row.identifier }}</span>
               <span>类型: {{ rowTypeLabel(row) }}</span>
               <span>{{ rowDataHint(row) }}</span>
+              <span v-if="rowNormativeLabel(row)">规范字段：{{ rowNormativeLabel(row) }}</span>
+              <span v-if="row.rawIdentifiers?.length">原始字段：{{ row.rawIdentifiers.join(' / ') }}</span>
             </div>
           </div>
         </header>
@@ -82,7 +84,13 @@
           </small>
         </div>
 
-        <div v-if="visibleRiskFlags(row).length" class="product-model-governance-compare-table__risk-flags">
+        <div v-if="row.riskReady || visibleRiskFlags(row).length" class="product-model-governance-compare-table__risk-flags">
+          <span
+            v-if="row.riskReady"
+            class="product-model-governance-compare-table__risk-flag"
+          >
+            可进入风险闭环
+          </span>
           <span
             v-for="flag in visibleRiskFlags(row)"
             :key="flag"
@@ -209,6 +217,13 @@ function rowTypeLabel(row: ProductModelGovernanceCompareRow) {
     event: '事件',
     service: '服务'
   }[row.modelType] ?? row.modelType
+}
+
+function rowNormativeLabel(row: ProductModelGovernanceCompareRow) {
+  if (row.normativeName && row.normativeIdentifier && row.normativeName !== row.normativeIdentifier) {
+    return `${row.normativeName} (${row.normativeIdentifier})`
+  }
+  return row.normativeName || row.normativeIdentifier || ''
 }
 
 function rowDataHint(row: ProductModelGovernanceCompareRow) {
