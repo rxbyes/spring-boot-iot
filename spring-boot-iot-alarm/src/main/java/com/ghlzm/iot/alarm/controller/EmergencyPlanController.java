@@ -2,9 +2,13 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.EmergencyPlan;
 import com.ghlzm.iot.alarm.service.EmergencyPlanService;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,8 +21,14 @@ import java.util.List;
 @RequestMapping("/api/emergency-plan")
 public class EmergencyPlanController {
 
-      @Autowired
-      private EmergencyPlanService emergencyPlanService;
+      private final EmergencyPlanService emergencyPlanService;
+      private final GovernancePermissionGuard permissionGuard;
+
+      public EmergencyPlanController(EmergencyPlanService emergencyPlanService,
+                                     GovernancePermissionGuard permissionGuard) {
+            this.emergencyPlanService = emergencyPlanService;
+            this.permissionGuard = permissionGuard;
+      }
 
       /**
        * 获取预案列表
@@ -63,7 +73,12 @@ public class EmergencyPlanController {
        * 新增预案
        */
       @PostMapping("/add")
-      public R<EmergencyPlan> addPlan(@RequestBody EmergencyPlan plan) {
+      public R<EmergencyPlan> addPlan(@RequestBody EmergencyPlan plan, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "应急预案维护",
+                    GovernancePermissionCodes.EMERGENCY_PLAN_WRITE
+            );
             emergencyPlanService.addPlan(plan);
             return R.ok(plan);
       }
@@ -72,7 +87,12 @@ public class EmergencyPlanController {
        * 更新预案
        */
       @PostMapping("/update")
-      public R<EmergencyPlan> updatePlan(@RequestBody EmergencyPlan plan) {
+      public R<EmergencyPlan> updatePlan(@RequestBody EmergencyPlan plan, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "应急预案维护",
+                    GovernancePermissionCodes.EMERGENCY_PLAN_WRITE
+            );
             emergencyPlanService.updatePlan(plan);
             return R.ok(plan);
       }
@@ -81,8 +101,20 @@ public class EmergencyPlanController {
        * 删除预案
        */
       @PostMapping("/delete/{id}")
-      public R<Void> deletePlan(@PathVariable Long id) {
+      public R<Void> deletePlan(@PathVariable Long id, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "应急预案维护",
+                    GovernancePermissionCodes.EMERGENCY_PLAN_WRITE
+            );
             emergencyPlanService.deletePlan(id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new BizException("未登录或登录状态已失效");
+            }
+            return principal.userId();
       }
 }

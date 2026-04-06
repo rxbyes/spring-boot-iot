@@ -1,13 +1,19 @@
 package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
+import com.ghlzm.iot.alarm.service.RiskGovernanceOpsService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,9 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class RiskGovernanceController {
 
     private final RiskGovernanceService riskGovernanceService;
+    private final RiskGovernanceOpsService riskGovernanceOpsService;
 
-    public RiskGovernanceController(RiskGovernanceService riskGovernanceService) {
+    public RiskGovernanceController(RiskGovernanceService riskGovernanceService,
+                                    RiskGovernanceOpsService riskGovernanceOpsService) {
         this.riskGovernanceService = riskGovernanceService;
+        this.riskGovernanceOpsService = riskGovernanceOpsService;
     }
 
     @GetMapping("/missing-bindings")
@@ -57,5 +66,33 @@ public class RiskGovernanceController {
     @GetMapping("/dashboard-overview")
     public R<RiskGovernanceDashboardOverviewVO> getDashboardOverview() {
         return R.ok(riskGovernanceService.getDashboardOverview());
+    }
+
+    @GetMapping("/ops-alerts")
+    public R<PageResult<RiskGovernanceOpsAlertItemVO>> pageOpsAlerts(@RequestParam(required = false) Long productId,
+                                                                      @RequestParam(required = false) String alertType,
+                                                                      @RequestParam(required = false) Long pageNum,
+                                                                      @RequestParam(required = false) Long pageSize) {
+        return R.ok(riskGovernanceOpsService.pageOpsAlerts(productId, alertType, pageNum, pageSize));
+    }
+
+    @GetMapping("/replay")
+    public R<RiskGovernanceReplayVO> replay(@RequestParam(required = false) String traceId,
+                                            @RequestParam(required = false) String deviceCode,
+                                            @RequestParam(required = false) String productKey,
+                                            Authentication authentication) {
+        return R.ok(riskGovernanceOpsService.replay(
+                requireCurrentUserId(authentication),
+                traceId,
+                deviceCode,
+                productKey
+        ));
+    }
+
+    private Long requireCurrentUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+            throw new BizException("未登录或登录状态已失效");
+        }
+        return principal.userId();
     }
 }

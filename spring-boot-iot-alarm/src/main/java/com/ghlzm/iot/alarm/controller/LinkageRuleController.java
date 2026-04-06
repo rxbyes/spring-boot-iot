@@ -2,9 +2,13 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.service.LinkageRuleService;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,8 +20,14 @@ import java.util.List;
 @RequestMapping("/api/linkage-rule")
 public class LinkageRuleController {
 
-      @Autowired
-      private LinkageRuleService linkageRuleService;
+      private final LinkageRuleService linkageRuleService;
+      private final GovernancePermissionGuard permissionGuard;
+
+      public LinkageRuleController(LinkageRuleService linkageRuleService,
+                                   GovernancePermissionGuard permissionGuard) {
+            this.linkageRuleService = linkageRuleService;
+            this.permissionGuard = permissionGuard;
+      }
 
       /**
        * 获取规则列表
@@ -56,7 +66,12 @@ public class LinkageRuleController {
        * 新增规则
        */
       @PostMapping("/add")
-      public R<LinkageRule> addRule(@RequestBody LinkageRule rule) {
+      public R<LinkageRule> addRule(@RequestBody LinkageRule rule, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "联动编排维护",
+                    GovernancePermissionCodes.LINKAGE_RULE_WRITE
+            );
             linkageRuleService.addRule(rule);
             return R.ok(rule);
       }
@@ -65,7 +80,12 @@ public class LinkageRuleController {
        * 更新规则
        */
       @PostMapping("/update")
-      public R<LinkageRule> updateRule(@RequestBody LinkageRule rule) {
+      public R<LinkageRule> updateRule(@RequestBody LinkageRule rule, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "联动编排维护",
+                    GovernancePermissionCodes.LINKAGE_RULE_WRITE
+            );
             linkageRuleService.updateRule(rule);
             return R.ok(rule);
       }
@@ -74,8 +94,20 @@ public class LinkageRuleController {
        * 删除规则
        */
       @PostMapping("/delete/{id}")
-      public R<Void> deleteRule(@PathVariable Long id) {
+      public R<Void> deleteRule(@PathVariable Long id, Authentication authentication) {
+            permissionGuard.requireAnyPermission(
+                    requireCurrentUserId(authentication),
+                    "联动编排维护",
+                    GovernancePermissionCodes.LINKAGE_RULE_WRITE
+            );
             linkageRuleService.deleteRule(id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new BizException("未登录或登录状态已失效");
+            }
+            return principal.userId();
       }
 }

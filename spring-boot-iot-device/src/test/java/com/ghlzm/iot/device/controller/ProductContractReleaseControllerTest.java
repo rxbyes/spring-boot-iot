@@ -4,6 +4,9 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
+import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
@@ -22,11 +27,14 @@ class ProductContractReleaseControllerTest {
     @Mock
     private ProductContractReleaseService productContractReleaseService;
 
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
+
     private ProductContractReleaseController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductContractReleaseController(productContractReleaseService);
+        controller = new ProductContractReleaseController(productContractReleaseService, permissionGuard);
     }
 
     @Test
@@ -53,6 +61,21 @@ class ProductContractReleaseControllerTest {
         verify(productContractReleaseService).getBatch(7001L);
     }
 
+    @Test
+    void rollbackBatchShouldRequirePermissionAndDelegateToService() {
+        Authentication authentication = authentication(10001L);
+        ProductContractReleaseRollbackResultVO result = new ProductContractReleaseRollbackResultVO();
+        result.setRolledBackBatchId(7001L);
+        result.setRollbackMode("LOGICAL_BATCH_ROLLBACK");
+        when(productContractReleaseService.rollbackLatestBatch(7001L, 10001L)).thenReturn(result);
+
+        R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, authentication);
+
+        assertEquals(7001L, response.getData().getRolledBackBatchId());
+        verify(permissionGuard).requireAnyPermission(10001L, "契约发布回滚", "iot:products:update");
+        verify(productContractReleaseService).rollbackLatestBatch(7001L, 10001L);
+    }
+
     private ProductContractReleaseBatchVO batchVO(Long id,
                                                   String scenarioCode,
                                                   String releaseSource,
@@ -66,5 +89,10 @@ class ProductContractReleaseControllerTest {
         vo.setCreateBy(10001L);
         vo.setCreateTime(LocalDateTime.of(2026, 4, 6, 9, 30));
         return vo;
+    }
+
+    private Authentication authentication(Long userId) {
+        JwtUserPrincipal principal = new JwtUserPrincipal(userId, "demo");
+        return new UsernamePasswordAuthenticationToken(principal, null, List.of());
     }
 }
