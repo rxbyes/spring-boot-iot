@@ -1,0 +1,68 @@
+<h2>方案 B：语义契约中台总体蓝图</h2>
+<p class="subtitle">核心思想：把“行业规范”“厂商上报”“正式物模型”“风险闭环”从一个页面流程，升级成一套分层平台能力。</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">五层治理架构</div>
+    <div class="mockup-body">
+      <div style="display:grid;gap:14px;">
+        <div style="padding:12px 14px;border:1px solid #d6e2f0;border-radius:12px;background:#f7fbff;">
+          <strong>1. 规范语义层</strong>
+          <p style="margin:6px 0 0;">行业/业务规范字段库、命名规则、单位、精度、监测类型、是否可进风险闭环。</p>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #d6e2f0;border-radius:12px;background:#fffdfa;">
+          <strong>2. 运行证据层</strong>
+          <p style="margin:6px 0 0;">$dp 原始报文、latest、消息日志、设备关系、逻辑通道、解密结果、协议模板证据。</p>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #d6e2f0;border-radius:12px;background:#f9fff7;">
+          <strong>3. 治理决策层</strong>
+          <p style="margin:6px 0 0;">规范字段 vs 运行证据 vs 已发布合同做差异分析，输出命名推荐、冲突、缺失、待确认项。</p>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #d6e2f0;border-radius:12px;background:#fff;">
+          <strong>4. 合同发布层</strong>
+          <p style="margin:6px 0 0;"><code>iot_product_model</code> 不再承载“全部治理语义”，而是只承载“已发布、可消费的正式合同”。</p>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #d6e2f0;border-radius:12px;background:#fef9f6;">
+          <strong>5. 风险闭环消费层</strong>
+          <p style="margin:6px 0 0;">风险点、阈值策略、联动编排、应急预案、风险运营只消费正式规范 identifier。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">当前模式</div>
+    <div class="mockup-body">
+      <p><strong>页面</strong> 驱动治理</p>
+      <p>样本 / 日志 / compare / apply / 风险绑定</p>
+      <p>很多语义都挤在 <code>iot_product_model</code> 和页面逻辑里。</p>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">目标模式</div>
+    <div class="mockup-body">
+      <p><strong>中台</strong> 驱动治理</p>
+      <p>规范先定义，证据再校验，治理后发布，发布后再进入风险闭环。</p>
+      <p><code>iot_product_model</code> 只保存“正式发布结果”，不是全部判断过程。</p>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="section1-approve" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>这一层次划分对</h3>
+      <p>继续下一段：核心对象模型与表/模块职责。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="section1-adjust" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>方向对，但要调整</h3>
+      <p>我先根据你的反馈改蓝图，再往下展开。</p>
+    </div>
+  </div>
+</div>

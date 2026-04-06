@@ -493,6 +493,14 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
         applyMessageTraceDeviceScope(queryWrapper, currentUserId);
         if (query != null) {
+            if (hasText(query.getKeyword())) {
+                String keyword = query.getKeyword().trim();
+                queryWrapper.and(wrapper -> wrapper.eq(DeviceMessageLog::getTraceId, keyword)
+                        .or()
+                        .eq(DeviceMessageLog::getDeviceCode, keyword)
+                        .or()
+                        .eq(DeviceMessageLog::getProductKey, keyword));
+            }
             if (StringUtils.hasText(query.getDeviceCode())) {
                 queryWrapper.eq(DeviceMessageLog::getDeviceCode, query.getDeviceCode().trim());
             }
@@ -502,8 +510,9 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
             if (StringUtils.hasText(query.getTraceId())) {
                 queryWrapper.eq(DeviceMessageLog::getTraceId, query.getTraceId().trim());
             }
-            if (StringUtils.hasText(query.getMessageType())) {
-                queryWrapper.eq(DeviceMessageLog::getMessageType, query.getMessageType().trim());
+            String normalizedMessageType = normalizeTraceMessageType(query.getMessageType());
+            if (StringUtils.hasText(normalizedMessageType)) {
+                queryWrapper.eq(DeviceMessageLog::getMessageType, normalizedMessageType);
             }
             if (StringUtils.hasText(query.getTopic())) {
                 queryWrapper.like(DeviceMessageLog::getTopic, query.getTopic().trim());
@@ -526,10 +535,11 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         if (query == null) {
             return new QuerySpec(where.toString(), params);
         }
+        appendTraceKeyword(where, params, query.getKeyword());
         appendTextEquals(where, params, "device_code", query.getDeviceCode());
         appendTextEquals(where, params, "product_key", query.getProductKey());
         appendTextEquals(where, params, "trace_id", query.getTraceId());
-        appendTextEquals(where, params, "message_type", query.getMessageType());
+        appendTextEquals(where, params, "message_type", normalizeTraceMessageType(query.getMessageType()));
         appendTextLike(where, params, "topic", query.getTopic());
         return new QuerySpec(where.toString(), params);
     }
@@ -682,6 +692,17 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         }
         where.append(" AND ").append(column).append(" = ?");
         params.add(value.trim());
+    }
+
+    private void appendTraceKeyword(StringBuilder where, List<Object> params, String keyword) {
+        if (!hasText(keyword)) {
+            return;
+        }
+        String normalizedKeyword = keyword.trim();
+        where.append(" AND (trace_id = ? OR device_code = ? OR product_key = ?)");
+        params.add(normalizedKeyword);
+        params.add(normalizedKeyword);
+        params.add(normalizedKeyword);
     }
 
     private void appendTextLike(StringBuilder where, List<Object> params, String column, String value) {
@@ -1219,6 +1240,17 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private String normalizeTraceMessageType(String messageType) {
+        if (!hasText(messageType)) {
+            return null;
+        }
+        String normalized = messageType.trim();
+        if ("report".equalsIgnoreCase(normalized)) {
+            return "property";
+        }
+        return normalized;
     }
 
     private boolean hasText(String value) {

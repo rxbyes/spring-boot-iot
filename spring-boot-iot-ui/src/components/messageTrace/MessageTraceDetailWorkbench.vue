@@ -441,10 +441,14 @@ function getMessageTypeLabel(value?: string | null) {
   switch (value) {
     case 'report':
       return '属性上报';
+    case 'event':
+      return '事件上报';
     case 'status':
       return '状态上报';
     case 'reply':
       return '命令回执';
+    case 'service':
+      return '服务调用';
     case 'online':
       return '上线消息';
     case 'offline':

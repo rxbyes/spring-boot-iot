@@ -559,6 +559,23 @@ describe('MessageTraceView', () => {
     }));
   });
 
+  it('restores a unified keyword from route query and sends it to both list and stats apis', async () => {
+    mockRoute.query = {
+      keyword: 'demo-device-01'
+    };
+
+    mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(messageApi.pageMessageTraceLogs).toHaveBeenCalledWith(expect.objectContaining({
+      keyword: 'demo-device-01'
+    }));
+    expect(messageApi.pageMessageTraceStats).toHaveBeenCalledWith(expect.objectContaining({
+      keyword: 'demo-device-01'
+    }));
+  });
+
   it('loads and renders the trace timeline in the detail drawer', async () => {
     vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
       code: 200,
@@ -1043,7 +1060,28 @@ describe('MessageTraceView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('112');
+    expect(actionColumn?.attributes('data-width')).toBe('96');
+  });
+
+  it('keeps quick search and message type options aligned with the trace contract source', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/MessageTraceView.vue'), 'utf8');
+
+    expect(source).toContain('placeholder="快速搜索（TraceId / 设备编码 / 产品标识）"');
+    expect(source).toContain("value: 'property'");
+    expect(source).toContain("value: 'event'");
+    expect(source).toContain("value: 'status'");
+    expect(source).toContain("value: 'reply'");
+    expect(source).toContain("value: 'service'");
+    expect(source).not.toContain("value: 'report'");
+    expect(source).not.toContain("value: 'online'");
+    expect(source).not.toContain("value: 'offline'");
+    expect(source).not.toContain('show-advanced-toggle');
+    expect(source).not.toContain('@toggle-advanced="toggleAdvancedFilters"');
+    expect(source).not.toContain('<template #advanced>');
+    expect(source).not.toContain('<template #actions>');
+    expect(source).toMatch(
+      /<template #primary>[\s\S]*placeholder="快速搜索（TraceId \/ 设备编码 \/ 产品标识）"[\s\S]*placeholder="消息类型"[\s\S]*placeholder="Topic"[\s\S]*>查询<\/StandardButton>[\s\S]*>重置<\/StandardButton>[\s\S]*<\/template>/
+    );
   });
 
   it('shows storage error copy when timeline lookup fails', async () => {
@@ -1341,28 +1379,15 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).not.toContain('时间线已过期');
   });
 
-  it('carries row context when jumping to anomaly observability from the action column', async () => {
+  it('hides observe actions in trace mode and does not jump to anomaly observability', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '观测')!.trigger('click');
-    await flushPromises();
-
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/system-log',
-      query: {
-        traceId: 'trace-001',
-        deviceCode: 'demo-device-01',
-        productKey: 'demo-product',
-        requestUrl: '/sys/demo-product/demo-device-01/thing/property/post',
-        requestMethod: 'MQTT'
-      }
-    });
-    const persistedRaw = window.sessionStorage.getItem('iot-access:diagnostic-context');
-    expect(persistedRaw).toBeTruthy();
-    const persisted = JSON.parse(persistedRaw as string);
-    expect(persisted.context.sourcePage).toBe('message-trace');
+    expect(findButtonByText(wrapper, '观测')).toBeUndefined();
+    expect(wrapper.text()).not.toContain('观测');
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem('iot-access:diagnostic-context')).toBeNull();
   });
 
   it('uses shared workbench row actions and shared list surface in trace mode', () => {

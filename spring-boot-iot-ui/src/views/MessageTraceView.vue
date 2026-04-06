@@ -13,7 +13,7 @@
           title="链路追踪台"
           description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
           show-filters
-          :show-applied-filters="hasAppliedFilters"
+          :show-applied-filters="showAppliedFilters"
           :show-inline-state="showTraceInlineState"
           show-toolbar
           show-pagination
@@ -22,37 +22,19 @@
         <template #filters>
           <StandardListFilterHeader
             :model="searchForm"
-            :show-advanced="showAdvancedFilters"
-            show-advanced-toggle
-            :advanced-hint="advancedFilterHint"
-            @toggle-advanced="toggleAdvancedFilters"
+            :primary-columns="'minmax(320px, 1.5fr) minmax(200px, 0.72fr) minmax(320px, 1fr) auto auto'"
+            :primary-visible-count="5"
           >
             <template #primary>
               <el-form-item>
                 <el-input
                   id="quick-search"
                   v-model="quickSearchKeyword"
-                  placeholder="快速搜索（TraceId）"
+                  placeholder="快速搜索（TraceId / 设备编码 / 产品标识）"
                   clearable
                   prefix-icon="Search"
                   @keyup.enter="handleQuickSearch"
                   @clear="handleClearQuickSearch"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-input
-                  v-model="searchForm.deviceCode"
-                  placeholder="设备编码"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-input
-                  v-model="searchForm.productKey"
-                  placeholder="产品标识"
-                  clearable
-                  @keyup.enter="handleSearch"
                 />
               </el-form-item>
               <el-form-item>
@@ -65,8 +47,6 @@
                   />
                 </el-select>
               </el-form-item>
-            </template>
-            <template #advanced>
               <el-form-item>
                 <el-input
                   v-model="searchForm.topic"
@@ -75,21 +55,24 @@
                   @keyup.enter="handleSearch"
                 />
               </el-form-item>
-            </template>
-            <template #actions>
-              <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-              <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+              <el-form-item class="message-trace-filter-button-item">
+                <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+              </el-form-item>
+              <el-form-item class="message-trace-filter-button-item">
+                <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+              </el-form-item>
             </template>
           </StandardListFilterHeader>
-          <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
-            <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
-              快速搜索：{{ appliedFilters.traceId.trim() }}
-            </el-tag>
-          </div>
         </template>
 
         <template #applied-filters>
+          <div v-if="appliedFilters.keyword.trim()" class="message-trace-quick-search-tag">
+            <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
+              快速搜索：{{ appliedFilters.keyword.trim() }}
+            </el-tag>
+          </div>
           <StandardAppliedFiltersBar
+            v-if="activeFilterTags.length > 0"
             :tags="activeFilterTags"
             @remove="handleRemoveAppliedFilter"
             @clear="handleClearAppliedFilters"
@@ -269,7 +252,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
@@ -291,7 +274,6 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import {
   describeDiagnosticSource,
-  persistDiagnosticContext,
   resolveDiagnosticContext,
   type DiagnosticContext
 } from '@/utils/iotAccessDiagnostics';
@@ -308,12 +290,8 @@ import { resolveMessageTracePayloadComparison } from '@/utils/messageTracePayloa
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
-const router = useRouter();
 const messageTraceActionColumnWidth = resolveWorkbenchActionColumnWidth({
-  directItems: [
-    { command: 'detail', label: '详情' },
-    { command: 'observe', label: '观测' }
-  ]
+  directItems: [{ command: 'detail', label: '详情' }]
 });
 const pageModeOptions = [
   { key: 'message-trace', label: '链路追踪' },
@@ -326,13 +304,15 @@ const isAccessErrorMode = computed(() => pageMode.value === 'access-error');
 const isMessageTraceMode = computed(() => pageMode.value === 'message-trace');
 
 const messageTypeOptions = [
-  { label: '属性上报', value: 'report' },
+  { label: '属性上报', value: 'property' },
+  { label: '事件上报', value: 'event' },
+  { label: '状态上报', value: 'status' },
   { label: '命令回执', value: 'reply' },
-  { label: '上线消息', value: 'online' },
-  { label: '离线消息', value: 'offline' }
+  { label: '服务调用', value: 'service' }
 ];
 
 const searchForm = reactive({
+  keyword: '',
   deviceCode: '',
   productKey: '',
   traceId: '',
@@ -340,6 +320,7 @@ const searchForm = reactive({
   topic: ''
 });
 const appliedFilters = reactive({
+  keyword: '',
   deviceCode: '',
   productKey: '',
   traceId: '',
@@ -347,7 +328,6 @@ const appliedFilters = reactive({
   topic: ''
 });
 const quickSearchKeyword = ref('');
-const showAdvancedFilters = ref(false);
 
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 
@@ -423,8 +403,7 @@ const detailTags = computed(() => {
 });
 const {
   tags: activeFilterTags,
-  hasAppliedFilters,
-  advancedAppliedCount,
+  hasAppliedFilters: hasAppliedFilterTags,
   syncAppliedFilters,
   removeFilter: removeAppliedFilter
 } = useListAppliedFilters({
@@ -435,9 +414,10 @@ const {
     { key: 'deviceCode', label: '设备编码' },
     { key: 'productKey', label: '产品标识' },
     { key: 'messageType', label: (value) => `消息类型：${getMessageTypeLabel(value)}`, clearValue: '' },
-    { key: 'topic', label: 'Topic', advanced: true }
+    { key: 'topic', label: 'Topic' }
   ],
   defaults: {
+    keyword: '',
     deviceCode: '',
     productKey: '',
     traceId: '',
@@ -445,12 +425,9 @@ const {
     topic: ''
   }
 });
-const advancedFilterHint = computed(() => {
-  if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
-    return '';
-  }
-  return `更多条件已生效 ${advancedAppliedCount.value} 项`;
-});
+const showAppliedFilters = computed(() =>
+  Boolean(appliedFilters.keyword.trim()) || hasAppliedFilterTags.value
+);
 const traceRuleSummary = computed(() => {
   if (detailTimelineLookupError.value) {
     return '时间线查询异常，优先排查 Redis / message-flow 存储';
@@ -458,8 +435,11 @@ const traceRuleSummary = computed(() => {
   if (timelineExpired.value) {
     return '时间线已过期，仅保留消息日志。';
   }
-  if (appliedFilters.traceId && tableData.value.length > 0) {
-    return '当前 Trace 可继续查 system_error';
+  if (
+    tableData.value.length > 0
+    && (appliedFilters.keyword || appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey)
+  ) {
+    return '当前链路结果已命中，可继续查看详情复盘。';
   }
   if (restoredDiagnosticContext.value) {
     return '已恢复跨页排查上下文，可继续联动定位。';
@@ -478,15 +458,15 @@ const traceInlineMessage = computed(() => {
 const showTraceInlineState = computed(() => Boolean(traceInlineMessage.value));
 
 function syncQuickSearchKeywordFromFilters() {
-  quickSearchKeyword.value = searchForm.traceId;
+  quickSearchKeyword.value = searchForm.keyword;
 }
 
 function applyQuickSearchKeywordToFilters() {
-  searchForm.traceId = quickSearchKeyword.value.trim();
+  searchForm.keyword = quickSearchKeyword.value.trim();
 }
 
-function syncAdvancedFilterState() {
-  showAdvancedFilters.value = Boolean(searchForm.topic.trim());
+function syncKeywordFilter() {
+  appliedFilters.keyword = searchForm.keyword.trim();
 }
 
 function readQueryValue(key: keyof MessageTraceQueryParams) {
@@ -494,68 +474,21 @@ function readQueryValue(key: keyof MessageTraceQueryParams) {
   return typeof value === 'string' ? value : '';
 }
 
-function normalizeText(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function pickDiagnosticValue(...values: unknown[]) {
-  for (const value of values) {
-    const normalized = normalizeText(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return undefined;
-}
-
-interface DiagnosticSourceCandidate {
-  traceId?: string | null;
-  deviceCode?: string | null;
-  productKey?: string | null;
-  topic?: string | null;
-}
-
-function buildVisibleDiagnosticContext(): DiagnosticContext {
-  return {
-    sourcePage: 'message-trace',
-    traceId: pickDiagnosticValue(quickSearchKeyword.value),
-    deviceCode: pickDiagnosticValue(searchForm.deviceCode),
-    productKey: pickDiagnosticValue(searchForm.productKey),
-    topic: pickDiagnosticValue(searchForm.topic),
-    capturedAt: new Date().toISOString()
-  };
-}
-
-function buildDiagnosticContext(source?: DiagnosticSourceCandidate): DiagnosticContext {
-  const visibleContext = buildVisibleDiagnosticContext();
-  return {
-    ...visibleContext,
-    traceId: pickDiagnosticValue(source?.traceId, visibleContext.traceId),
-    deviceCode: pickDiagnosticValue(source?.deviceCode, visibleContext.deviceCode),
-    productKey: pickDiagnosticValue(source?.productKey, visibleContext.productKey),
-    topic: pickDiagnosticValue(source?.topic, visibleContext.topic),
-    capturedAt: new Date().toISOString()
-  };
-}
-
-function persistCurrentDiagnosticContext(source?: DiagnosticSourceCandidate) {
-  persistDiagnosticContext(buildDiagnosticContext(source));
-}
-
 function applyRouteQuery() {
   const resolvedContext = resolveDiagnosticContext(route.query as Record<string, unknown>);
   restoredDiagnosticContext.value = resolvedContext;
+  searchForm.keyword = readQueryValue('keyword');
   searchForm.deviceCode = readQueryValue('deviceCode') || resolvedContext?.deviceCode || '';
   searchForm.productKey = readQueryValue('productKey') || resolvedContext?.productKey || '';
   searchForm.traceId = readQueryValue('traceId') || resolvedContext?.traceId || '';
   searchForm.messageType = readQueryValue('messageType');
   searchForm.topic = readQueryValue('topic') || resolvedContext?.topic || '';
   syncQuickSearchKeywordFromFilters();
-  syncAdvancedFilterState();
 }
 
 function buildFilterQueryParams(): MessageTraceQueryParams {
   return {
+    keyword: appliedFilters.keyword,
     deviceCode: appliedFilters.deviceCode,
     productKey: appliedFilters.productKey,
     traceId: appliedFilters.traceId,
@@ -611,19 +544,19 @@ async function loadTraceStats() {
 }
 
 function resetSearchForm() {
+  searchForm.keyword = '';
   searchForm.deviceCode = '';
   searchForm.productKey = '';
   searchForm.traceId = '';
   searchForm.messageType = '';
   searchForm.topic = '';
   quickSearchKeyword.value = '';
-  showAdvancedFilters.value = false;
 }
 
 function triggerSearch(resetPageFirst = false) {
   applyQuickSearchKeywordToFilters();
-  syncAdvancedFilterState();
   syncAppliedFilters();
+  syncKeywordFilter();
   if (resetPageFirst) {
     resetPage();
   }
@@ -654,10 +587,6 @@ function handleClearQuickSearch() {
   triggerSearch(true);
 }
 
-function toggleAdvancedFilters() {
-  showAdvancedFilters.value = !showAdvancedFilters.value;
-}
-
 function handleClearAppliedFilters() {
   handleReset();
 }
@@ -665,7 +594,6 @@ function handleClearAppliedFilters() {
 function handleRemoveAppliedFilter(key: string) {
   removeAppliedFilter(key);
   syncQuickSearchKeywordFromFilters();
-  syncAdvancedFilterState();
   triggerSearch(true);
 }
 
@@ -679,23 +607,13 @@ function handlePageChange(page: number) {
   loadTableData();
 }
 
-function getTraceDirectActions(row: DeviceMessageLog) {
-  return [
-    { command: 'detail', label: '详情' },
-    { command: 'observe', label: '观测', disabled: !canJumpWithRow(row) }
-  ];
+function getTraceDirectActions(_: DeviceMessageLog) {
+  return [{ command: 'detail', label: '详情' }];
 }
 
 function handleTraceRowAction(command: string | number, row: DeviceMessageLog) {
   if (command === 'detail') {
     openDetail(row);
-    return;
-  }
-  if (command === 'observe') {
-    if (!canJumpWithRow(row)) {
-      return;
-    }
-    jumpToSystemLog(row);
   }
 }
 
@@ -712,33 +630,18 @@ function openDetail(row: DeviceMessageLog) {
   loadDetailTimeline(row.traceId);
 }
 
-function canJumpWithRow(row: DeviceMessageLog) {
-  return Boolean(row.traceId || row.deviceCode || row.productKey || row.topic);
-}
-
-function jumpToSystemLog(row?: DeviceMessageLog) {
-  const context = buildDiagnosticContext(row);
-  persistCurrentDiagnosticContext(row);
-  router.push({
-    path: '/system-log',
-    query: {
-      traceId: context.traceId || undefined,
-      deviceCode: context.deviceCode || undefined,
-      productKey: context.productKey || undefined,
-      requestUrl: context.topic || undefined,
-      requestMethod: context.topic ? 'MQTT' : undefined
-    }
-  });
-}
-
 function getMessageTypeLabel(value?: string | null) {
   switch (value) {
     case 'report':
       return '属性上报';
+    case 'event':
+      return '事件上报';
     case 'status':
       return '状态上报';
     case 'reply':
       return '命令回执';
+    case 'service':
+      return '服务调用';
     case 'online':
       return '上线消息';
     case 'offline':
@@ -831,6 +734,7 @@ async function loadDetailRecord(row: DeviceMessageLog) {
 watch(
   () => [
     route.query.mode,
+    route.query.keyword,
     route.query.deviceCode,
     route.query.productKey,
     route.query.traceId,
@@ -847,6 +751,7 @@ watch(
     applyRouteQuery();
     resetPage();
     syncAppliedFilters();
+    syncKeywordFilter();
     loadTableData();
     loadTraceStats();
   }
@@ -868,6 +773,7 @@ onMounted(() => {
   }
   applyRouteQuery();
   syncAppliedFilters();
+  syncKeywordFilter();
   loadTableData();
   loadTraceStats();
 });

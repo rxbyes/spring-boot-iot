@@ -1,0 +1,91 @@
+<h2>方案 B 修订版：双核心域总体蓝图</h2>
+<p class="subtitle">不是“物模型治理完成后顺手接风险”，而是同时建设两个核心域：<strong>语义契约治理域</strong> 与 <strong>风险运营闭环域</strong>。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">核心域 A：语义契约治理域</div>
+    <div class="mockup-body">
+      <div style="display:grid;gap:10px;">
+        <div style="padding:10px 12px;border:1px solid #dbe5f0;border-radius:12px;background:#f7fbff;">
+          <strong>规范语义层</strong>
+          <p style="margin:6px 0 0;">行业/业务规范字段、命名规则、单位、监测类型、是否允许进风险闭环。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #dbe5f0;border-radius:12px;background:#fffdfa;">
+          <strong>运行证据层</strong>
+          <p style="margin:6px 0 0;">$dp 报文、解密结果、消息日志、latest、逻辑通道、父子设备关系、协议模板证据。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #dbe5f0;border-radius:12px;background:#f9fff7;">
+          <strong>治理决策层</strong>
+          <p style="margin:6px 0 0;">差异比对、命名推荐、冲突裁决、缺失识别、样板扩展、版本治理。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #dbe5f0;border-radius:12px;background:#ffffff;">
+          <strong>合同发布层</strong>
+          <p style="margin:6px 0 0;"><code>iot_product_model</code> 只保存“已发布正式合同”，不再承载全部治理过程。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">核心域 B：风险运营闭环域</div>
+    <div class="mockup-body">
+      <div style="display:grid;gap:10px;">
+        <div style="padding:10px 12px;border:1px solid #ecdccc;border-radius:12px;background:#fffaf5;">
+          <strong>风险对象层</strong>
+          <p style="margin:6px 0 0;">风险点、对象档案、设备/测点正式绑定，只认正式规范 identifier。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #ecdccc;border-radius:12px;background:#fff8f1;">
+          <strong>策略决策层</strong>
+          <p style="margin:6px 0 0;">阈值策略、判级策略、联动编排、预案匹配、策略版本和启停。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #ecdccc;border-radius:12px;background:#fff6ef;">
+          <strong>事件闭环层</strong>
+          <p style="margin:6px 0 0;">告警记录、事件协同、工单流转、应急处置、处置审计。</p>
+        </div>
+        <div style="padding:10px 12px;border:1px solid #ecdccc;border-radius:12px;background:#fff4ed;">
+          <strong>运营呈现层</strong>
+          <p style="margin:6px 0 0;">实时监测、GIS 态势图、对象洞察、告警运营、运营分析。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">两大核心域的唯一耦合点</div>
+    <div class="mockup-body">
+      <p><strong>语义契约治理域输出：</strong> 正式规范字段合同（产品级）。</p>
+      <p><strong>风险运营闭环域消费：</strong> 已发布的规范 identifier、可用于风险的字段标签、字段分组与单位。</p>
+      <p><strong>明确不再直接消费：</strong> 厂商原始字段名、$dp 逻辑通道名、临时 compare 候选。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">主链路视角</div>
+    <div class="mockup-body">
+      <p><strong>接入主链路：</strong> Topic / 解密 / 解码 / 关系归一 / 标准化证据沉淀</p>
+      <p><strong>治理主链路：</strong> 规范库对齐 / 差异比对 / 人工裁决 / 合同发布</p>
+      <p><strong>风险主链路：</strong> 风险点绑定 / 阈值策略 / 联动编排 / 应急预案 / 告警运营</p>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="blueprint-v2-ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>这版蓝图对了</h3>
+      <p>继续下一段：核心对象模型、表职责和模块边界。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="blueprint-v2-adjust" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>还要再调</h3>
+      <p>我先继续修蓝图，不急着展开数据模型。</p>
+    </div>
+  </div>
+</div>

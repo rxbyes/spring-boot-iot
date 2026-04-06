@@ -14,6 +14,7 @@ import type {
 } from '../types/api';
 
 export interface MessageTraceQueryParams {
+  keyword?: string;
   deviceCode?: string;
   productKey?: string;
   traceId?: string;

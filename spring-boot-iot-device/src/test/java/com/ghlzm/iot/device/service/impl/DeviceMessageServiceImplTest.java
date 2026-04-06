@@ -230,6 +230,31 @@ class DeviceMessageServiceImplTest {
     }
 
     @Test
+    void pageMessageTraceLogsShouldApplyKeywordAcrossTraceDeviceAndProduct() {
+        com.ghlzm.iot.device.dto.DeviceMessageTraceQuery query = new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery();
+        query.setKeyword("demo-device-01");
+        query.setMessageType("report");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, Page.class));
+
+        deviceMessageService.pageMessageTraceLogs(99L, query, 1, 10);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<DeviceMessageLog>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceMessageLogMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("trace_id"));
+        assertTrue(sqlSegment.contains("device_code"));
+        assertTrue(sqlSegment.contains("product_key"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().containsValue("demo-device-01"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().containsValue("property"));
+    }
+
+    @Test
     void getMessageTraceDetailShouldRecoverPayloadComparisonFromStoredLog() {
         DeviceMessageLog logRecord = new DeviceMessageLog();
         logRecord.setId(1L);
@@ -473,6 +498,36 @@ class DeviceMessageServiceImplTest {
         assertTrue(executedSql.stream().allMatch(sql -> sql.contains("org_id")));
         assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
         assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(7101L)));
+    }
+
+    @Test
+    void getMessageTraceStatsShouldApplyKeywordAndNormalizeLegacyReportMessageType() {
+        com.ghlzm.iot.device.dto.DeviceMessageTraceQuery query = new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery();
+        query.setKeyword("demo-device-01");
+        query.setMessageType("report");
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return 1L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        deviceMessageService.getMessageTraceStats(99L, query);
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("(trace_id = ? OR device_code = ? OR product_key = ?)")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains("demo-device-01")));
+        assertTrue(executedArgs.stream().anyMatch(args -> Arrays.asList(args).contains("property")));
     }
 
     @Test
