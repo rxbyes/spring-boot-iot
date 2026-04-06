@@ -1,5 +1,6 @@
 package com.ghlzm.iot.admin.observability.alerting;
 
+import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -39,6 +40,7 @@ public class ObservabilityAlertingService {
     private static final String MQTT_DISCONNECT_TIMEOUT = "mqtt-disconnect-timeout";
     private static final String FAILURE_STAGE_SPIKE = "failure-stage-spike";
     private static final String IN_APP_BRIDGE_FAILURE_BURST = "in-app-bridge-failure-burst";
+    private static final String RISK_GOVERNANCE_MISSING_POLICY_BURST = "risk-governance-missing-policy-burst";
     private static final String GLOBAL_DIMENSION_KEY = "global";
     private static final String COOLDOWN_KEY_PREFIX = "iot:observability:alerting:cooldown:";
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -46,6 +48,7 @@ public class ObservabilityAlertingService {
     private final AuditLogService auditLogService;
     private final DeviceAccessErrorLogService deviceAccessErrorLogService;
     private final InAppMessageBridgeAlertQueryService inAppMessageBridgeAlertQueryService;
+    private final RiskGovernanceService riskGovernanceService;
     private final MqttMessageConsumer mqttMessageConsumer;
     private final MqttConsumerRuntimeState mqttConsumerRuntimeState;
     private final ObservabilityAlertNotificationService observabilityAlertNotificationService;
@@ -57,6 +60,7 @@ public class ObservabilityAlertingService {
     public ObservabilityAlertingService(AuditLogService auditLogService,
                                         DeviceAccessErrorLogService deviceAccessErrorLogService,
                                         InAppMessageBridgeAlertQueryService inAppMessageBridgeAlertQueryService,
+                                        RiskGovernanceService riskGovernanceService,
                                         MqttMessageConsumer mqttMessageConsumer,
                                         MqttConsumerRuntimeState mqttConsumerRuntimeState,
                                         ObservabilityAlertNotificationService observabilityAlertNotificationService,
@@ -66,6 +70,7 @@ public class ObservabilityAlertingService {
                 auditLogService,
                 deviceAccessErrorLogService,
                 inAppMessageBridgeAlertQueryService,
+                riskGovernanceService,
                 mqttMessageConsumer,
                 mqttConsumerRuntimeState,
                 observabilityAlertNotificationService,
@@ -78,6 +83,7 @@ public class ObservabilityAlertingService {
     ObservabilityAlertingService(AuditLogService auditLogService,
                                  DeviceAccessErrorLogService deviceAccessErrorLogService,
                                  InAppMessageBridgeAlertQueryService inAppMessageBridgeAlertQueryService,
+                                 RiskGovernanceService riskGovernanceService,
                                  MqttMessageConsumer mqttMessageConsumer,
                                  MqttConsumerRuntimeState mqttConsumerRuntimeState,
                                  ObservabilityAlertNotificationService observabilityAlertNotificationService,
@@ -87,6 +93,7 @@ public class ObservabilityAlertingService {
         this.auditLogService = auditLogService;
         this.deviceAccessErrorLogService = deviceAccessErrorLogService;
         this.inAppMessageBridgeAlertQueryService = inAppMessageBridgeAlertQueryService;
+        this.riskGovernanceService = riskGovernanceService;
         this.mqttMessageConsumer = mqttMessageConsumer;
         this.mqttConsumerRuntimeState = mqttConsumerRuntimeState;
         this.observabilityAlertNotificationService = observabilityAlertNotificationService;
@@ -108,6 +115,7 @@ public class ObservabilityAlertingService {
             evaluateSafely(MQTT_DISCONNECT_TIMEOUT, () -> evaluateMqttDisconnectAlert(now, config));
             evaluateSafely(FAILURE_STAGE_SPIKE, () -> evaluateFailureStageAlerts(now, config));
             evaluateSafely(IN_APP_BRIDGE_FAILURE_BURST, () -> evaluateInAppBridgeAlerts(now, config));
+            evaluateSafely(RISK_GOVERNANCE_MISSING_POLICY_BURST, () -> evaluateRiskGovernanceMissingPolicyAlerts(config));
         } finally {
             TraceContextHolder.clear();
         }
@@ -262,6 +270,38 @@ public class ObservabilityAlertingService {
         }
     }
 
+    private void evaluateRiskGovernanceMissingPolicyAlerts(IotProperties.Observability.Alerting alertingConfig) {
+        IotProperties.Observability.Alerting.RiskGovernanceMissingPolicy config =
+                alertingConfig.getRiskGovernanceMissingPolicy();
+        if (config == null || !Boolean.TRUE.equals(config.getEnabled())) {
+            return;
+        }
+        int threshold = positiveOrDefault(config.getThreshold(), 3);
+        List<RiskGovernanceService.MissingPolicyAlertSignal> signals =
+                riskGovernanceService.listMissingPolicyAlertSignals();
+        for (RiskGovernanceService.MissingPolicyAlertSignal signal : signals) {
+            if (signal == null || signal.bindingCount() < threshold) {
+                continue;
+            }
+            triggerAlert(
+                    new ObservabilityAlertTrigger(
+                            RISK_GOVERNANCE_MISSING_POLICY_BURST,
+                            normalizeKey(signal.dimensionKey(), "missing-policy"),
+                            resolveMissingPolicyDimensionLabel(signal),
+                            resolveMissingPolicyMetricLabel(signal),
+                            signal.bindingCount(),
+                            threshold,
+                            null,
+                            null,
+                            "风险指标 %s 当前有 %d 个已绑定风险点缺少启用阈值策略，达到阈值 %d 个。"
+                                    .formatted(resolveMissingPolicyMetricLabel(signal), signal.bindingCount(), threshold),
+                            buildMissingPolicyContext(signal)
+                    ),
+                    alertingConfig
+            );
+        }
+    }
+
     private void triggerAlert(ObservabilityAlertTrigger trigger, IotProperties.Observability.Alerting alertingConfig) {
         int cooldownMinutes = positiveOrDefault(alertingConfig.getCooldownMinutes(), 30);
         if (!acquireCooldown(trigger, cooldownMinutes)) {
@@ -379,6 +419,38 @@ public class ObservabilityAlertingService {
 
     private String formatInstant(Instant instant) {
         return LocalDateTime.ofInstant(instant, resolveZone()).format(TIME_FORMATTER);
+    }
+
+    private String resolveMissingPolicyDimensionLabel(RiskGovernanceService.MissingPolicyAlertSignal signal) {
+        if (signal != null && StringUtils.hasText(signal.dimensionLabel())) {
+            return signal.dimensionLabel();
+        }
+        return "missing-policy";
+    }
+
+    private String resolveMissingPolicyMetricLabel(RiskGovernanceService.MissingPolicyAlertSignal signal) {
+        if (signal != null && StringUtils.hasText(signal.metricName())) {
+            if (StringUtils.hasText(signal.metricIdentifier())) {
+                return signal.metricName() + " (" + signal.metricIdentifier() + ")";
+            }
+            return signal.metricName();
+        }
+        if (signal != null && StringUtils.hasText(signal.metricIdentifier())) {
+            return signal.metricIdentifier();
+        }
+        if (signal != null && signal.riskMetricId() != null) {
+            return "riskMetricId=" + signal.riskMetricId();
+        }
+        return "unknown-metric";
+    }
+
+    private Map<String, Object> buildMissingPolicyContext(RiskGovernanceService.MissingPolicyAlertSignal signal) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("riskMetricId", signal == null || signal.riskMetricId() == null ? "-" : signal.riskMetricId());
+        context.put("metricIdentifier", signal == null || !StringUtils.hasText(signal.metricIdentifier()) ? "-" : signal.metricIdentifier());
+        context.put("metricName", signal == null || !StringUtils.hasText(signal.metricName()) ? "-" : signal.metricName());
+        context.put("riskPointCount", signal == null ? 0L : signal.riskPointCount());
+        return context;
     }
 
     private ZoneId resolveZone() {

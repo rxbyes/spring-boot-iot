@@ -33,6 +33,8 @@ class IotPropertiesAlertingBindingTest {
         assertTrue(alerting.getInAppBridge().getEnabled());
         assertEquals(10, alerting.getInAppBridge().getWindowMinutes());
         assertEquals(3, alerting.getInAppBridge().getThreshold());
+        assertTrue(alerting.getRiskGovernanceMissingPolicy().getEnabled());
+        assertEquals(3, alerting.getRiskGovernanceMissingPolicy().getThreshold());
     }
 
     @Test
@@ -52,7 +54,9 @@ class IotPropertiesAlertingBindingTest {
                 Map.entry("iot.observability.alerting.failure-stage.threshold", "12"),
                 Map.entry("iot.observability.alerting.in-app-bridge.enabled", "false"),
                 Map.entry("iot.observability.alerting.in-app-bridge.window-minutes", "25"),
-                Map.entry("iot.observability.alerting.in-app-bridge.threshold", "6")
+                Map.entry("iot.observability.alerting.in-app-bridge.threshold", "6"),
+                Map.entry("iot.observability.alerting.risk-governance-missing-policy.enabled", "false"),
+                Map.entry("iot.observability.alerting.risk-governance-missing-policy.threshold", "9")
         )));
 
         IotProperties properties = binder.bind("iot", Bindable.of(IotProperties.class))
@@ -74,5 +78,7 @@ class IotPropertiesAlertingBindingTest {
         assertFalse(alerting.getInAppBridge().getEnabled());
         assertEquals(25, alerting.getInAppBridge().getWindowMinutes());
         assertEquals(6, alerting.getInAppBridge().getThreshold());
+        assertFalse(alerting.getRiskGovernanceMissingPolicy().getEnabled());
+        assertEquals(9, alerting.getRiskGovernanceMissingPolicy().getThreshold());
     }
 }
