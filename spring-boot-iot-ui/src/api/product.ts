@@ -24,6 +24,16 @@ export interface ProductPageQueryParams {
   pageSize?: number
 }
 
+export interface ProductContractReleaseBatch {
+  id?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  createBy?: IdType | null
+  createTime?: string | null
+}
+
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
@@ -128,6 +138,21 @@ export const productApi = {
       method: 'POST',
       body: payload
     });
+  },
+
+  pageProductContractReleaseBatches(
+    productId: IdType,
+    params: { pageNum?: number; pageSize?: number } = {}
+  ): Promise<ApiEnvelope<PageResult<ProductContractReleaseBatch>>> {
+    const query = buildQuery(params)
+    return request<PageResult<ProductContractReleaseBatch>>(
+      `/api/device/product/${productId}/contract-release-batches${query ? `?${query}` : ''}`,
+      { method: 'GET' }
+    )
+  },
+
+  getProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseBatch>> {
+    return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
   },
 
   /**

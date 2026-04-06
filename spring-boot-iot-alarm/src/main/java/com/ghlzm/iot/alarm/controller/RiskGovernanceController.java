@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.controller;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
@@ -51,5 +52,10 @@ public class RiskGovernanceController {
     @GetMapping("/coverage-overview")
     public R<RiskGovernanceCoverageOverviewVO> getCoverageOverview(@RequestParam Long productId) {
         return R.ok(riskGovernanceService.getCoverageOverview(productId));
+    }
+
+    @GetMapping("/dashboard-overview")
+    public R<RiskGovernanceDashboardOverviewVO> getDashboardOverview() {
+        return R.ok(riskGovernanceService.getDashboardOverview());
     }
 }

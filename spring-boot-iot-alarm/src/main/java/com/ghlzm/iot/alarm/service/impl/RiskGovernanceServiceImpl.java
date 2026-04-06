@@ -13,13 +13,18 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import org.springframework.stereotype.Service;
@@ -47,19 +52,25 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final RuleDefinitionMapper ruleDefinitionMapper;
     private final RiskMetricCatalogMapper riskMetricCatalogMapper;
     private final ProductModelMapper productModelMapper;
+    private final ProductMapper productMapper;
+    private final ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
 
     public RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                                      RiskPointMapper riskPointMapper,
                                      RiskPointDeviceMapper riskPointDeviceMapper,
                                      RuleDefinitionMapper ruleDefinitionMapper,
                                      RiskMetricCatalogMapper riskMetricCatalogMapper,
-                                     ProductModelMapper productModelMapper) {
+                                     ProductModelMapper productModelMapper,
+                                     ProductMapper productMapper,
+                                     ProductContractReleaseBatchMapper productContractReleaseBatchMapper) {
         this.deviceMapper = deviceMapper;
         this.riskPointMapper = riskPointMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.ruleDefinitionMapper = ruleDefinitionMapper;
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productModelMapper = productModelMapper;
+        this.productMapper = productMapper;
+        this.productContractReleaseBatchMapper = productContractReleaseBatchMapper;
     }
 
     @Override
@@ -229,6 +240,94 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setContractMetricCoverageRate(calculateRate(publishedRiskMetricCount, contractPropertyCount));
         overview.setBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setRuleCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
+        return overview;
+    }
+
+    @Override
+    public RiskGovernanceDashboardOverviewVO getDashboardOverview() {
+        Set<Long> productIds = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                        .eq(Product::getDeleted, 0))
+                .stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        long totalProductCount = productIds.size();
+
+        Set<Long> releasedProductIds = productContractReleaseBatchMapper.selectList(new LambdaQueryWrapper<ProductContractReleaseBatch>()
+                        .eq(ProductContractReleaseBatch::getDeleted, 0))
+                .stream()
+                .map(ProductContractReleaseBatch::getProductId)
+                .filter(Objects::nonNull)
+                .filter(productIds::contains)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<RiskMetricCatalog> enabledCatalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
+                .eq(RiskMetricCatalog::getDeleted, 0)
+                .eq(RiskMetricCatalog::getEnabled, 1));
+        Set<Long> catalogIds = enabledCatalogs.stream()
+                .map(RiskMetricCatalog::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> catalogIdentifiers = enabledCatalogs.stream()
+                .map(RiskMetricCatalog::getContractIdentifier)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> catalogProductIds = enabledCatalogs.stream()
+                .map(RiskMetricCatalog::getProductId)
+                .filter(Objects::nonNull)
+                .filter(productIds::contains)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<Long> governedProductIds = new LinkedHashSet<>();
+        governedProductIds.addAll(releasedProductIds);
+        governedProductIds.addAll(catalogProductIds);
+
+        Set<String> boundMetricKeys = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                        .eq(RiskPointDevice::getDeleted, 0))
+                .stream()
+                .map(this::toBindingMetricKey)
+                .filter(StringUtils::hasText)
+                .filter(key -> matchesCatalogKey(key, catalogIds, catalogIdentifiers))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<String> ruleMetricKeys = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
+                        .eq(RuleDefinition::getDeleted, 0)
+                        .eq(RuleDefinition::getStatus, 0))
+                .stream()
+                .map(this::toRuleMetricKey)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        long publishedRiskMetricCount = catalogIds.size();
+        long boundRiskMetricCount = boundMetricKeys.size();
+        long ruleCoveredRiskMetricCount = ruleMetricKeys.stream()
+                .filter(boundMetricKeys::contains)
+                .count();
+
+        long releasedProductCount = releasedProductIds.size();
+        long governedProductCount = governedProductIds.size();
+        long pendingProductGovernanceCount = Math.max(0L, totalProductCount - governedProductCount);
+        long pendingContractReleaseCount = Math.max(0L, totalProductCount - releasedProductCount);
+        long pendingRiskBindingCount = listMissingBindings(null).getTotal();
+        long pendingPolicyCount = listMissingPolicies(null).getTotal();
+        long pendingReplayCount = listMissingPolicyAlertSignals().size();
+
+        RiskGovernanceDashboardOverviewVO overview = new RiskGovernanceDashboardOverviewVO();
+        overview.setTotalProductCount(totalProductCount);
+        overview.setGovernedProductCount(governedProductCount);
+        overview.setPendingProductGovernanceCount(pendingProductGovernanceCount);
+        overview.setReleasedProductCount(releasedProductCount);
+        overview.setPendingContractReleaseCount(pendingContractReleaseCount);
+        overview.setPublishedRiskMetricCount(publishedRiskMetricCount);
+        overview.setBoundRiskMetricCount(boundRiskMetricCount);
+        overview.setRuleCoveredRiskMetricCount(ruleCoveredRiskMetricCount);
+        overview.setPendingRiskBindingCount(pendingRiskBindingCount);
+        overview.setPendingPolicyCount(pendingPolicyCount);
+        overview.setPendingReplayCount(pendingReplayCount);
+        overview.setGovernanceCompletionRate(calculateRate(governedProductCount, totalProductCount));
+        overview.setMetricBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
+        overview.setPolicyCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
         return overview;
     }
 

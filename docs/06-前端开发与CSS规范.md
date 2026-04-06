@@ -138,6 +138,8 @@
 - `接入智维` 跨页诊断联动统一复用 `src/utils/iotAccessDiagnostics.ts`；query 只承接 `deviceCode / traceId / productKey / topic` 这类短字段，其余来源元信息走带 TTL 的 `sessionStorage`，不得在页面内各自拼 query 或长期缓存旧上下文。
 - `产品定义中心`、`设备资产中心` 若从 `链路验证中心`、`链路追踪台`、`异常观测台`、`数据校验台` 或失败归档跳入，只允许在 `StandardWorkbenchPanel` 的 `inline-state` 槽位展示一条紧凑来源提示；不得再追加介绍墙、概况卡或重复导流文案。
 - `产品定义中心` 若需要照顾移动端浏览，优先复用现有 `product-mobile-card` 响应式列表作为桌面表格的同数据补充；不要再为“更现代”而新增桌面卡片网格、视图切换下拉或另一套卡片阴影/描边语法。
+- `产品定义中心` 当前允许在 `StandardWorkbenchPanel.notices` 收口“任务导向治理提示”，但必须只消费真实接口数据：产品维度覆盖率统一来自 `GET /api/risk-governance/coverage-overview?productId=...`，正式合同发布状态统一来自 `GET /api/device/product/{productId}/contract-release-batches`。不得回退为静态待办文案或页面私有 hardcode 计数。
+- `风险运营驾驶舱` 管理视角的治理经营指标与待办队列，当前必须优先消费 `GET /api/risk-governance/dashboard-overview`；若治理接口临时不可用，只允许退化为占位提示，不得把告警统计硬映射成“治理完成率/覆盖率”类指标。
 - `/device-access` 入口工作台与无权限空态不得再使用 `QUIET CONSOLE`、`ACCESS STATUS` 这类英文 eyebrow；入口页只允许通过真实业务页签、搜索和入口列表表达层级，不再叠加第二层状态语气卡。
 - `/reporting` 当前必须保持“默认结果复盘 + 共享诊断状态头 + 真页签工作区”结构；`结果复盘 / 模拟验证 / 最近记录` 继续保留真实业务页签，不得回退为说明墙、假页签或单大长页。
 - `/reporting` 的跨页诊断动作应下沉到诊断复盘正文中的“当前判断 / 下一步动作”区域，不要再放回页头右上角形成功能菜单感。

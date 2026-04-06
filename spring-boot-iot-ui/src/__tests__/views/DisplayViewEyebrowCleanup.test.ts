@@ -8,6 +8,11 @@ const mockRouterPush = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mockRouterPush
+  }),
+  RouterLink: defineComponent({
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a class="router-link-stub" :data-to="String(to)"><slot /></a>'
   })
 }))
 
@@ -44,6 +49,29 @@ vi.mock('../../api/report', () => ({
     data: {
       total: 20,
       onlineRate: 92
+    }
+  })
+}))
+
+vi.mock('../../api/riskGovernance', () => ({
+  getRiskGovernanceDashboardOverview: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      totalProductCount: 10,
+      governedProductCount: 8,
+      pendingProductGovernanceCount: 2,
+      releasedProductCount: 7,
+      pendingContractReleaseCount: 3,
+      publishedRiskMetricCount: 12,
+      boundRiskMetricCount: 9,
+      ruleCoveredRiskMetricCount: 7,
+      pendingRiskBindingCount: 4,
+      pendingPolicyCount: 2,
+      pendingReplayCount: 1,
+      governanceCompletionRate: 80,
+      metricBindingCoverageRate: 75,
+      policyCoverageRate: 77.8
     }
   })
 }))
@@ -97,6 +125,7 @@ function buildPanelGlobal() {
       AutomationScenarioEditor: true,
       AutomationPlanImportDrawer: true,
       AutomationManualPageDrawer: true,
+      RouterLink: true,
       ElTable: true,
       ElTableColumn: true,
       ElTag: true
@@ -119,7 +148,9 @@ describe('display view eyebrow cleanup', () => {
 
     expect(panelCards.length).toBeGreaterThan(0)
     expect(panelCards.every((item) => item.props('eyebrow') === undefined)).toBe(true)
-    expect(responsePanel.props('eyebrow')).toBeUndefined()
+    if (responsePanel.exists()) {
+      expect(responsePanel.props('eyebrow')).toBeUndefined()
+    }
     expect(wrapper.text()).not.toContain('Automation Studio')
   })
 

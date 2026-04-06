@@ -5,6 +5,7 @@ import type { ApiEnvelope, PageResult, IdType } from '@/types/api';
 export interface RiskGovernanceGapQuery {
   deviceCode?: string;
   riskPointId?: IdType;
+  productId?: IdType;
   pageNum?: number;
   pageSize?: number;
 }
@@ -21,6 +22,51 @@ export interface RiskGovernanceGapItem {
   metricIdentifier?: string | null;
   metricName?: string | null;
   lastReportTime?: string | null;
+}
+
+export interface RiskMetricCatalogItem {
+  id?: IdType | null;
+  productId?: IdType | null;
+  productModelId?: IdType | null;
+  contractIdentifier?: string | null;
+  riskMetricCode?: string | null;
+  riskMetricName?: string | null;
+  thresholdDirection?: string | null;
+  trendEnabled?: number | null;
+  gisEnabled?: number | null;
+  insightEnabled?: number | null;
+  analyticsEnabled?: number | null;
+  enabled?: number | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface RiskGovernanceCoverageOverview {
+  productId?: IdType | null;
+  contractPropertyCount?: number | null;
+  publishedRiskMetricCount?: number | null;
+  boundRiskMetricCount?: number | null;
+  ruleCoveredRiskMetricCount?: number | null;
+  contractMetricCoverageRate?: number | null;
+  bindingCoverageRate?: number | null;
+  ruleCoverageRate?: number | null;
+}
+
+export interface RiskGovernanceDashboardOverview {
+  totalProductCount?: number | null;
+  governedProductCount?: number | null;
+  pendingProductGovernanceCount?: number | null;
+  releasedProductCount?: number | null;
+  pendingContractReleaseCount?: number | null;
+  publishedRiskMetricCount?: number | null;
+  boundRiskMetricCount?: number | null;
+  ruleCoveredRiskMetricCount?: number | null;
+  pendingRiskBindingCount?: number | null;
+  pendingPolicyCount?: number | null;
+  pendingReplayCount?: number | null;
+  governanceCompletionRate?: number | null;
+  metricBindingCoverageRate?: number | null;
+  policyCoverageRate?: number | null;
 }
 
 export function listMissingBindings(
@@ -41,4 +87,23 @@ export function listMissingPolicies(
     ? `/api/risk-governance/missing-policies?${queryString}`
     : '/api/risk-governance/missing-policies';
   return request<PageResult<RiskGovernanceGapItem>>(path, { method: 'GET' });
+}
+
+export function pageRiskMetricCatalogs(
+  params: Pick<RiskGovernanceGapQuery, 'productId' | 'pageNum' | 'pageSize'> = {}
+): Promise<ApiEnvelope<PageResult<RiskMetricCatalogItem>>> {
+  const queryString = buildQueryString(params);
+  const path = queryString
+    ? `/api/risk-governance/metric-catalogs?${queryString}`
+    : '/api/risk-governance/metric-catalogs';
+  return request<PageResult<RiskMetricCatalogItem>>(path, { method: 'GET' });
+}
+
+export function getRiskGovernanceCoverageOverview(productId: IdType): Promise<ApiEnvelope<RiskGovernanceCoverageOverview>> {
+  const queryString = buildQueryString({ productId });
+  return request<RiskGovernanceCoverageOverview>(`/api/risk-governance/coverage-overview?${queryString}`, { method: 'GET' });
+}
+
+export function getRiskGovernanceDashboardOverview(): Promise<ApiEnvelope<RiskGovernanceDashboardOverview>> {
+  return request<RiskGovernanceDashboardOverview>('/api/risk-governance/dashboard-overview', { method: 'GET' });
 }

@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.controller;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
@@ -93,5 +94,20 @@ class RiskGovernanceControllerTest {
 
         assertEquals(1001L, response.getData().getProductId());
         assertEquals(2L, response.getData().getPublishedRiskMetricCount());
+    }
+
+    @Test
+    void getDashboardOverviewShouldDelegateToService() {
+        RiskGovernanceService service = mock(RiskGovernanceService.class);
+        RiskGovernanceController controller = new RiskGovernanceController(service);
+        RiskGovernanceDashboardOverviewVO overview = new RiskGovernanceDashboardOverviewVO();
+        overview.setTotalProductCount(12L);
+        overview.setPendingPolicyCount(3L);
+        when(service.getDashboardOverview()).thenReturn(overview);
+
+        R<RiskGovernanceDashboardOverviewVO> response = controller.getDashboardOverview();
+
+        assertEquals(12L, response.getData().getTotalProductCount());
+        assertEquals(3L, response.getData().getPendingPolicyCount());
     }
 }

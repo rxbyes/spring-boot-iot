@@ -5,6 +5,7 @@
       description="统一维护产品台账、协议绑定与接入契约。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
+      show-notices
       show-toolbar
       :show-inline-state="showListInlineState"
       show-pagination
@@ -57,6 +58,52 @@
           @remove="removeAppliedFilter"
           @clear="handleClearAppliedFilters"
         />
+      </template>
+
+      <template #notices>
+        <div class="product-governance-notice-stack">
+          <el-alert
+            :title="governanceSummaryTitle"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-if="governanceErrorMessage"
+            :title="governanceErrorMessage"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-else-if="governanceTaskItems.length"
+            :title="`当前聚焦产品仍有 ${governanceTaskItems.length} 项治理待办`"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <ul class="product-governance-task-list">
+              <li v-for="task in governanceTaskItems" :key="task.key">
+                <div class="product-governance-task-list__content">
+                  <strong>{{ task.title }}</strong>
+                  <span>{{ task.detail }}</span>
+                </div>
+                <StandardButton action="refresh" link @click="openGovernanceTask(task.path)">去处理</StandardButton>
+              </li>
+            </ul>
+          </el-alert>
+          <el-alert
+            v-else-if="governanceFocusProduct && !governanceLoading"
+            title="当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。"
+            type="success"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+        </div>
       </template>
 
       <template #toolbar>
@@ -480,8 +527,9 @@ import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.
 import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
-import { productApi } from '@/api/product'
+import { productApi, type ProductContractReleaseBatch } from '@/api/product'
 import { deviceApi } from '@/api/device'
+import { getRiskGovernanceCoverageOverview, type RiskGovernanceCoverageOverview } from '@/api/riskGovernance'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
 import type { Device, PageResult, Product, ProductAddPayload } from '@/types/api'
@@ -528,6 +576,14 @@ function formatCount(value?: number | null) {
   return Number.isFinite(count) ? String(count) : '--'
 }
 
+function formatPercentValue(value?: number | null, digits = 1) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) {
+    return '--'
+  }
+  return `${numeric.toFixed(digits)}%`
+}
+
 interface ProductSearchForm {
   productName: string
   nodeType: number | undefined
@@ -563,6 +619,13 @@ interface ProductToolbarAction {
   command: 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
   label: string
   disabled?: boolean
+}
+
+interface GovernanceTaskItem {
+  key: 'pending-contract-release' | 'pending-metric-publish' | 'pending-risk-binding' | 'pending-policy'
+  title: string
+  detail: string
+  path: string
 }
 
 const route = useRoute()
@@ -610,6 +673,10 @@ const editingProductId = ref<string | number | null>(null)
 const tableData = ref<Product[]>([])
 const selectedRows = ref<Product[]>([])
 const detailData = ref<Product | null>(null)
+const governanceLoading = ref(false)
+const governanceErrorMessage = ref('')
+const governanceCoverageOverview = ref<RiskGovernanceCoverageOverview | null>(null)
+const latestContractReleaseBatch = ref<ProductContractReleaseBatch | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'product-definition-center'
@@ -617,6 +684,7 @@ const defaultPageSize = 10
 let latestListRequestId = 0
 let latestDetailRequestId = 0
 let latestEditRequestId = 0
+let latestGovernanceRequestId = 0
 let listAbortController: AbortController | null = null
 let listPrefetchAbortController: AbortController | null = null
 let detailAbortController: AbortController | null = null
@@ -686,6 +754,69 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const governanceFocusProduct = computed(() => businessWorkbenchProduct.value || currentProduct.value || tableData.value[0] || null)
+const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
+  if (!governanceFocusProduct.value || governanceLoading.value || !governanceCoverageOverview.value) {
+    return []
+  }
+
+  const tasks: GovernanceTaskItem[] = []
+  const coverage = governanceCoverageOverview.value
+  const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+
+  if (!hasReleaseBatch) {
+    tasks.push({
+      key: 'pending-contract-release',
+      title: '待发布合同',
+      detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
+      path: '/products'
+    })
+  }
+
+  if (Number(coverage.contractMetricCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-metric-publish',
+      title: '待发布风险指标目录',
+      detail: `合同字段 ${formatCount(coverage.contractPropertyCount)} 项中，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项。`,
+      path: '/products'
+    })
+  }
+
+  if (Number(coverage.bindingCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-risk-binding',
+      title: '待绑定风险点',
+      detail: `目录指标 ${formatCount(coverage.publishedRiskMetricCount)} 项中，已绑定 ${formatCount(coverage.boundRiskMetricCount)} 项。`,
+      path: '/risk-point'
+    })
+  }
+
+  if (Number(coverage.ruleCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-policy',
+      title: '待补阈值策略',
+      detail: `已绑定指标 ${formatCount(coverage.boundRiskMetricCount)} 项中，策略覆盖 ${formatCount(coverage.ruleCoveredRiskMetricCount)} 项。`,
+      path: '/rule-definition'
+    })
+  }
+
+  return tasks
+})
+const governanceSummaryTitle = computed(() => {
+  const focusProduct = governanceFocusProduct.value
+  if (!focusProduct) {
+    return '请先选择产品，系统会自动展示当前聚焦产品的治理链路进度。'
+  }
+  if (governanceLoading.value) {
+    return `正在同步 ${focusProduct.productName || focusProduct.productKey || '当前产品'} 的治理进度...`
+  }
+  if (!governanceCoverageOverview.value) {
+    return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}。治理概览暂未返回，请稍后重试。`
+  }
+
+  const coverage = governanceCoverageOverview.value
+  return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项，风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项，策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}。`
+})
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidth({
@@ -1717,6 +1848,54 @@ function handleBusinessWorkbenchEdit() {
   openEditWorkbench(currentProduct.value || sourceProduct, sourceProduct)
 }
 
+function openGovernanceTask(path: string) {
+  const focusProduct = governanceFocusProduct.value
+  recordActivity({
+    title: `产品治理待办跳转 · ${path}`,
+    detail: `聚焦产品 ${focusProduct?.productKey || '--'} 进入 ${path}`,
+    tag: 'product-governance-task'
+  })
+  void router.push(path)
+}
+
+async function loadGovernanceSnapshot(product: Product | null) {
+  const requestId = ++latestGovernanceRequestId
+  if (!product?.id) {
+    governanceCoverageOverview.value = null
+    latestContractReleaseBatch.value = null
+    governanceErrorMessage.value = ''
+    governanceLoading.value = false
+    return
+  }
+
+  governanceLoading.value = true
+  governanceErrorMessage.value = ''
+  try {
+    const [coverageRes, releaseRes] = await Promise.all([
+      getRiskGovernanceCoverageOverview(product.id),
+      productApi.pageProductContractReleaseBatches(product.id, { pageNum: 1, pageSize: 1 })
+    ])
+
+    if (requestId !== latestGovernanceRequestId) {
+      return
+    }
+
+    governanceCoverageOverview.value = coverageRes.code === 200 ? coverageRes.data || null : null
+    latestContractReleaseBatch.value = releaseRes.code === 200 ? releaseRes.data?.records?.[0] || null : null
+  } catch (error) {
+    if (requestId !== latestGovernanceRequestId) {
+      return
+    }
+    governanceCoverageOverview.value = null
+    latestContractReleaseBatch.value = null
+    governanceErrorMessage.value = resolveRequestErrorMessage(error, '治理进度加载失败，请稍后重试。')
+  } finally {
+    if (requestId === latestGovernanceRequestId) {
+      governanceLoading.value = false
+    }
+  }
+}
+
 // 查看设备
 function handleViewDevice(device: Device) {
   console.log('view device', device)
@@ -2020,6 +2199,14 @@ watch(
   }
 )
 
+watch(
+  () => String(governanceFocusProduct.value?.id || ''),
+  () => {
+    void loadGovernanceSnapshot(governanceFocusProduct.value)
+  },
+  { immediate: true }
+)
+
 watch(businessWorkbenchVisible, (visible) => {
   if (visible) {
     return
@@ -2112,6 +2299,43 @@ onMounted(async () => {
 
 .product-quick-search-tag__chip {
   cursor: pointer;
+}
+
+.product-governance-notice-stack {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.product-governance-task-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.56rem;
+}
+
+.product-governance-task-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.72rem;
+}
+
+.product-governance-task-list__content {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.product-governance-task-list__content strong {
+  color: var(--text-heading);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.product-governance-task-list__content span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .product-mobile-list {

@@ -138,6 +138,7 @@ import {
   getEventClosureAnalysis,
   getRiskTrendAnalysis
 } from '../api/report';
+import { getRiskGovernanceDashboardOverview, type RiskGovernanceDashboardOverview } from '../api/riskGovernance';
 import { activityEntries, recordActivity } from '../stores/activity';
 import { usePermissionStore } from '../stores/permission';
 import { sortByPreferredPaths } from '../utils/sectionWorkspaces';
@@ -264,29 +265,29 @@ const rolePresets: RolePreset[] = [
   {
     key: 'manager',
     label: '管理人员',
-    caption: '经营态势、风险趋势与资源调度',
-    emphasis: '关注平台总体风险态势、处置效率和组织执行力，支撑管理决策。',
+    caption: '治理经营、闭环覆盖与积压调度',
+    emphasis: '关注治理覆盖率、发布进度与待办积压，支撑经营视角的资源决策。',
     kpis: [
-      { label: '今日新增告警', value: '126', badge: { label: '较昨日 +8%', tone: 'warning' } },
-      { label: '今日闭环事件', value: '41', badge: { label: '闭环率 87%', tone: 'success' } },
-      { label: '高风险点覆盖率', value: '93%', badge: { label: '持续提升', tone: 'brand' } },
-      { label: '组织执行指数', value: '84', badge: { label: '中高水平', tone: 'muted' } }
+      { label: '治理完成率', value: '--', badge: { label: '治理产品 / 总产品', tone: 'brand' } },
+      { label: '风险指标绑定覆盖率', value: '--', badge: { label: '目录指标 -> 风险点绑定', tone: 'success' } },
+      { label: '策略覆盖率', value: '--', badge: { label: '绑定测点 -> 阈值策略', tone: 'warning' } },
+      { label: '治理积压总量', value: '--', badge: { label: '待处理任务', tone: 'muted' } }
     ],
     focusDimensions: [
-      { title: '风险趋势', value: '近 7 日波动 +5%', description: '风险告警总量短期上升，需关注季节性因素。', trend: '+5%', trendTone: 'down' },
-      { title: '事件闭环效率', value: '87%', description: '近 24 小时未闭环比例处于可控区间。', trend: '+3%', trendTone: 'up' },
-      { title: '跨组织协同得分', value: '81', description: '组织与区域协同质量评分。', trend: '+2', trendTone: 'up' },
-      { title: '报告覆盖率', value: '90%', description: '日报/周报生成与审核覆盖程度。', trend: '稳定', trendTone: 'stable' }
+      { title: '已治理产品', value: '--', description: '至少进入发布批次或风险指标目录的产品。', trend: '待同步', trendTone: 'stable' },
+      { title: '待发布合同', value: '--', description: '产品已接入但尚未形成正式合同发布。', trend: '待同步', trendTone: 'stable' },
+      { title: '已绑定风险指标', value: '--', description: '目录指标中已完成风险点绑定的指标数量。', trend: '待同步', trendTone: 'stable' },
+      { title: '待运营复盘', value: '--', description: '按风险指标维度汇总的缺策略复盘事项。', trend: '待同步', trendTone: 'stable' }
     ],
     queues: [
-      { label: '高风险区域告警', value: '29', hint: '需资源倾斜', percent: 72, tag: '决策', tone: 'danger' },
-      { label: '跨部门协同事件', value: '14', hint: '需管理协调', percent: 51, tag: '协同', tone: 'warning' },
-      { label: '本周复盘事项', value: '6', hint: '纳入经营复盘', percent: 33, tag: '复盘', tone: 'brand' }
+      { label: '待治理产品', value: '--', hint: '尚未进入治理主链路', percent: 0, tag: '治理', tone: 'warning' },
+      { label: '待绑定风险点', value: '--', hint: '设备已上报但未绑定风险对象', percent: 0, tag: '纳管', tone: 'danger' },
+      { label: '待补阈值策略', value: '--', hint: '风险点已绑定但缺策略覆盖', percent: 0, tag: '策略', tone: 'brand' }
     ],
     todos: [
-      { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '查看高风险区域态势', detail: '确认重点区域告警攀升原因与资源分配。', actionLabel: '进入运营分析中心', tone: 'danger', path: '/report-analysis' },
-      { id: 'mg-2', priority: 'P2', window: '今日', title: '审阅跨部门协同事件', detail: '对超时事件给出协调决策。', actionLabel: '进入事件协同台', tone: 'warning', path: '/event-disposal' },
-      { id: 'mg-3', priority: 'P3', window: '本周', title: '复核治理执行情况', detail: '关注审计记录和组织执行情况。', actionLabel: '进入审计中心', tone: 'brand', path: '/audit-log' }
+      { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '处理待治理产品', detail: '优先补齐治理积压产品的契约发布与目录发布。', actionLabel: '进入产品定义中心', tone: 'warning', path: '/products' },
+      { id: 'mg-2', priority: 'P2', window: '今日', title: '收口风险绑定缺口', detail: '推进已上报设备完成风险点绑定，进入正式纳管。', actionLabel: '进入风险对象中心', tone: 'danger', path: '/risk-point' },
+      { id: 'mg-3', priority: 'P2', window: '本周', title: '补齐策略与复盘事项', detail: '逐项处理缺阈值策略与待复盘风险指标。', actionLabel: '进入阈值策略', tone: 'brand', path: '/rule-definition' }
     ]
   },
   {
@@ -353,7 +354,7 @@ const dataSourceHint = computed(() => {
     return '数据源状态：正在加载真实统计数据...';
   }
   if (dataSourceState.value === 'live') {
-    return `数据源状态：真实报表聚合（最近同步：${dashboardUpdatedAt.value || '--'}）`;
+    return `数据源状态：真实报表与治理聚合（最近同步：${dashboardUpdatedAt.value || '--'}）`;
   }
   return '数据源状态：真实接口不可用，当前显示稳定兜底口径';
 });
@@ -427,8 +428,9 @@ function applyLiveMetrics(payload: {
   alarmStats: any;
   eventStats: any;
   deviceHealth: any;
+  governanceOverview: RiskGovernanceDashboardOverview | null;
 }) {
-  const { riskTrend, alarmStats, eventStats, deviceHealth } = payload;
+  const { riskTrend, alarmStats, eventStats, deviceHealth, governanceOverview } = payload;
 
   const alarmTotal = Number(alarmStats?.total ?? 0);
   const alarmCritical = Number(alarmStats?.critical ?? 0);
@@ -472,12 +474,122 @@ function applyLiveMetrics(payload: {
 
   const manager = rolePresets.find((item) => item.key === 'manager');
   if (manager) {
-    manager.kpis[0].value = formatInteger(alarmTotal);
-    manager.kpis[0].badge = { label: `趋势 ${alarmTrendDelta >= 0 ? '+' : ''}${alarmTrendDelta}`, tone: alarmTrendDelta > 0 ? 'warning' : 'success' };
-    manager.kpis[1].value = formatInteger(eventClosed);
-    manager.kpis[1].badge = { label: `闭环率 ${formatPercent(closureRate, 0)}`, tone: closureRate >= 85 ? 'success' : 'warning' };
-    manager.kpis[2].value = formatPercent(onlineRate, 1);
-    manager.kpis[3].value = formatInteger(alarmCritical + alarmHigh + eventUnclosed);
+    if (governanceOverview) {
+      const totalProductCount = Number(governanceOverview.totalProductCount ?? 0);
+      const governedProductCount = Number(governanceOverview.governedProductCount ?? 0);
+      const releasedProductCount = Number(governanceOverview.releasedProductCount ?? 0);
+      const pendingProductGovernanceCount = Number(governanceOverview.pendingProductGovernanceCount ?? 0);
+      const pendingContractReleaseCount = Number(governanceOverview.pendingContractReleaseCount ?? 0);
+      const pendingRiskBindingCount = Number(governanceOverview.pendingRiskBindingCount ?? 0);
+      const pendingPolicyCount = Number(governanceOverview.pendingPolicyCount ?? 0);
+      const pendingReplayCount = Number(governanceOverview.pendingReplayCount ?? 0);
+      const publishedRiskMetricCount = Number(governanceOverview.publishedRiskMetricCount ?? 0);
+      const boundRiskMetricCount = Number(governanceOverview.boundRiskMetricCount ?? 0);
+      const ruleCoveredRiskMetricCount = Number(governanceOverview.ruleCoveredRiskMetricCount ?? 0);
+      const governanceCompletionRate = Number(governanceOverview.governanceCompletionRate ?? 0);
+      const metricBindingCoverageRate = Number(governanceOverview.metricBindingCoverageRate ?? 0);
+      const policyCoverageRate = Number(governanceOverview.policyCoverageRate ?? 0);
+      const backlogTotal = pendingProductGovernanceCount + pendingContractReleaseCount + pendingRiskBindingCount + pendingPolicyCount + pendingReplayCount;
+
+      manager.kpis[0].value = formatPercent(governanceCompletionRate, 1);
+      manager.kpis[0].badge = {
+        label: `${formatInteger(governedProductCount)} / ${formatInteger(totalProductCount)} 产品`,
+        tone: governanceCompletionRate >= 80 ? 'success' : 'warning'
+      };
+      manager.kpis[1].value = formatPercent(metricBindingCoverageRate, 1);
+      manager.kpis[1].badge = {
+        label: `${formatInteger(boundRiskMetricCount)} / ${formatInteger(publishedRiskMetricCount)} 指标`,
+        tone: metricBindingCoverageRate >= 70 ? 'success' : 'warning'
+      };
+      manager.kpis[2].value = formatPercent(policyCoverageRate, 1);
+      manager.kpis[2].badge = {
+        label: `${formatInteger(ruleCoveredRiskMetricCount)} / ${formatInteger(boundRiskMetricCount)} 策略`,
+        tone: policyCoverageRate >= 70 ? 'success' : 'warning'
+      };
+      manager.kpis[3].value = formatInteger(backlogTotal);
+      manager.kpis[3].badge = { label: `复盘 ${formatInteger(pendingReplayCount)} 项`, tone: backlogTotal > 0 ? 'warning' : 'success' };
+
+      manager.focusDimensions[0].value = `${formatInteger(governedProductCount)} / ${formatInteger(totalProductCount)}`;
+      manager.focusDimensions[0].description = '已进入合同发布或风险指标目录的产品规模。';
+      manager.focusDimensions[0].trend = formatPercent(governanceCompletionRate, 1);
+      manager.focusDimensions[0].trendTone = governanceCompletionRate >= 80 ? 'up' : 'down';
+
+      manager.focusDimensions[1].value = formatInteger(pendingContractReleaseCount);
+      manager.focusDimensions[1].description = '产品仍处于样本治理阶段，尚未形成正式合同批次。';
+      manager.focusDimensions[1].trend = `已发布 ${formatInteger(releasedProductCount)}`;
+      manager.focusDimensions[1].trendTone = pendingContractReleaseCount > 0 ? 'down' : 'up';
+
+      manager.focusDimensions[2].value = `${formatInteger(boundRiskMetricCount)} / ${formatInteger(publishedRiskMetricCount)}`;
+      manager.focusDimensions[2].description = '目录指标进入风险点绑定后的纳管进度。';
+      manager.focusDimensions[2].trend = formatPercent(metricBindingCoverageRate, 1);
+      manager.focusDimensions[2].trendTone = metricBindingCoverageRate >= 70 ? 'up' : 'down';
+
+      manager.focusDimensions[3].value = formatInteger(pendingReplayCount);
+      manager.focusDimensions[3].description = '按风险指标维度聚合出的待复盘事项。';
+      manager.focusDimensions[3].trend = `待补策略 ${formatInteger(pendingPolicyCount)}`;
+      manager.focusDimensions[3].trendTone = pendingReplayCount > 0 ? 'down' : 'stable';
+
+      const productBacklogPercent = totalProductCount > 0
+        ? Math.min(100, Math.round((pendingProductGovernanceCount * 100) / totalProductCount))
+        : 0;
+      const bindingBacklogPercent = publishedRiskMetricCount > 0
+        ? Math.min(100, Math.round((pendingRiskBindingCount * 100) / publishedRiskMetricCount))
+        : 0;
+      const policyBacklogPercent = boundRiskMetricCount > 0
+        ? Math.min(100, Math.round((pendingPolicyCount * 100) / boundRiskMetricCount))
+        : 0;
+
+      manager.queues[0].value = formatInteger(pendingProductGovernanceCount);
+      manager.queues[0].hint = `待发布合同 ${formatInteger(pendingContractReleaseCount)}`;
+      manager.queues[0].percent = productBacklogPercent;
+      manager.queues[0].tag = pendingProductGovernanceCount > 0 ? '待治理' : '已收口';
+      manager.queues[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
+
+      manager.queues[1].value = formatInteger(pendingRiskBindingCount);
+      manager.queues[1].hint = '设备已上报但未完成风险点绑定';
+      manager.queues[1].percent = bindingBacklogPercent;
+      manager.queues[1].tag = pendingRiskBindingCount > 0 ? '待纳管' : '已收口';
+      manager.queues[1].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
+
+      manager.queues[2].value = formatInteger(pendingPolicyCount);
+      manager.queues[2].hint = `待复盘事项 ${formatInteger(pendingReplayCount)}`;
+      manager.queues[2].percent = policyBacklogPercent;
+      manager.queues[2].tag = pendingPolicyCount > 0 ? '待策略' : '已收口';
+      manager.queues[2].tone = pendingPolicyCount > 0 ? 'brand' : 'muted';
+
+      manager.todos[0].title = pendingProductGovernanceCount > 0
+        ? `处理 ${formatInteger(pendingProductGovernanceCount)} 个待治理产品`
+        : '复核产品治理进度';
+      manager.todos[0].detail = pendingContractReleaseCount > 0
+        ? `当前还有 ${formatInteger(pendingContractReleaseCount)} 个产品待发布合同。`
+        : '当前无待发布合同，建议抽查最新发布批次。';
+      manager.todos[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
+
+      manager.todos[1].title = pendingRiskBindingCount > 0
+        ? `收口 ${formatInteger(pendingRiskBindingCount)} 个待绑定风险点`
+        : '复核风险绑定链路';
+      manager.todos[1].detail = pendingRiskBindingCount > 0
+        ? '优先处理已有上报但未纳管设备，缩短闭环断点。'
+        : '当前无待绑定设备，建议复核新接入设备抽样。';
+      manager.todos[1].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
+
+      manager.todos[2].title = pendingPolicyCount > 0
+        ? `补齐 ${formatInteger(pendingPolicyCount)} 个待补阈值策略`
+        : '维持策略覆盖基线';
+      manager.todos[2].detail = pendingReplayCount > 0
+        ? `仍有 ${formatInteger(pendingReplayCount)} 个复盘事项需要收口。`
+        : '当前无待复盘事项，建议定期复验策略有效性。';
+      manager.todos[2].tone = pendingPolicyCount > 0 ? 'brand' : 'muted';
+    } else {
+      manager.kpis[0].value = '--';
+      manager.kpis[1].value = '--';
+      manager.kpis[2].value = '--';
+      manager.kpis[3].value = '--';
+      manager.kpis[0].badge = { label: '治理接口暂不可用', tone: 'warning' };
+      manager.kpis[1].badge = { label: '治理接口暂不可用', tone: 'warning' };
+      manager.kpis[2].badge = { label: '治理接口暂不可用', tone: 'warning' };
+      manager.kpis[3].badge = { label: '治理接口暂不可用', tone: 'warning' };
+    }
   }
 
   const rd = rolePresets.find((item) => item.key === 'rd');
@@ -502,11 +614,12 @@ async function loadDashboardMetrics() {
   dataSourceState.value = 'loading';
   try {
     const { startDate, endDate } = getDateRangeOfLast7Days();
-    const [riskTrendRes, alarmRes, eventRes, deviceRes] = await Promise.all([
+    const [riskTrendRes, alarmRes, eventRes, deviceRes, governanceRes] = await Promise.all([
       getRiskTrendAnalysis(startDate, endDate),
       getAlarmStatistics(startDate, endDate),
       getEventClosureAnalysis(startDate, endDate),
-      getDeviceHealthAnalysis()
+      getDeviceHealthAnalysis(),
+      getRiskGovernanceDashboardOverview().catch(() => null)
     ]);
 
     const allSuccess = [riskTrendRes, alarmRes, eventRes, deviceRes].every((item: any) => item?.code === 200);
@@ -519,7 +632,8 @@ async function loadDashboardMetrics() {
       riskTrend: Array.isArray(riskTrendRes.data) ? riskTrendRes.data : [],
       alarmStats: alarmRes.data || {},
       eventStats: eventRes.data || {},
-      deviceHealth: deviceRes.data || {}
+      deviceHealth: deviceRes.data || {},
+      governanceOverview: governanceRes && governanceRes.code === 200 ? governanceRes.data || null : null
     });
 
     dataSourceState.value = 'live';

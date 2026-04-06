@@ -12,10 +12,12 @@ const {
   mockRoute,
   mockRouter,
   mockPageProducts,
+  mockPageProductContractReleaseBatches,
   mockGetProductById,
   mockAddProduct,
   mockUpdateProduct,
-  mockDeleteProduct
+  mockDeleteProduct,
+  mockGetRiskGovernanceCoverageOverview
 } = vi.hoisted(() => ({
   mockRoute: {
     path: '/products',
@@ -26,10 +28,12 @@ const {
     push: vi.fn()
   },
   mockPageProducts: vi.fn(),
+  mockPageProductContractReleaseBatches: vi.fn(),
   mockGetProductById: vi.fn(),
   mockAddProduct: vi.fn(),
   mockUpdateProduct: vi.fn(),
-  mockDeleteProduct: vi.fn()
+  mockDeleteProduct: vi.fn(),
+  mockGetRiskGovernanceCoverageOverview: vi.fn()
 }))
 
 vi.mock('vue-router', () => ({
@@ -40,11 +44,16 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/product', () => ({
   productApi: {
     pageProducts: mockPageProducts,
+    pageProductContractReleaseBatches: mockPageProductContractReleaseBatches,
     getProductById: mockGetProductById,
     addProduct: mockAddProduct,
     updateProduct: mockUpdateProduct,
     deleteProduct: mockDeleteProduct
   }
+}))
+
+vi.mock('@/api/riskGovernance', () => ({
+  getRiskGovernanceCoverageOverview: mockGetRiskGovernanceCoverageOverview
 }))
 
 vi.mock('@/api/device', () => ({
@@ -95,6 +104,7 @@ const StandardWorkbenchPanelStub = defineComponent({
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="product-workbench-panel-stub__filters"><slot name="filters" /></div>
+      <div class="product-workbench-panel-stub__notices"><slot name="notices" /></div>
       <div class="product-workbench-panel-stub__toolbar"><slot name="toolbar" /></div>
       <div class="product-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="product-workbench-panel-stub__body"><slot /></div>
@@ -283,7 +293,13 @@ const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
   emits: ['selection-change'],
-  template: '<section class="el-table-stub"><slot /></section>'
+  setup(_props, { expose, slots }) {
+    expose({
+      clearSelection: () => undefined,
+      toggleRowSelection: () => undefined
+    })
+    return () => h('section', { class: 'el-table-stub' }, slots.default ? slots.default() : [])
+  }
 })
 
 const ElTableColumnStub = defineComponent({
@@ -366,10 +382,12 @@ describe('ProductWorkbenchView', () => {
     mockRouter.replace.mockResolvedValue(undefined)
     mockRouter.push.mockResolvedValue(undefined)
     mockPageProducts.mockReset()
+    mockPageProductContractReleaseBatches.mockReset()
     mockGetProductById.mockReset()
     mockAddProduct.mockReset()
     mockUpdateProduct.mockReset()
     mockDeleteProduct.mockReset()
+    mockGetRiskGovernanceCoverageOverview.mockReset()
     mockPageProducts.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -380,10 +398,34 @@ describe('ProductWorkbenchView', () => {
         records: []
       }
     })
+    mockPageProductContractReleaseBatches.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 1,
+        records: []
+      }
+    })
     mockGetProductById.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockAddProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockUpdateProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockDeleteProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 5,
+        publishedRiskMetricCount: 4,
+        boundRiskMetricCount: 2,
+        ruleCoveredRiskMetricCount: 1,
+        contractMetricCoverageRate: 80,
+        bindingCoverageRate: 50,
+        ruleCoverageRate: 50
+      }
+    })
     installSessionStorageMock()
     vi.mocked(ElMessage.error).mockReset()
     vi.mocked(ElMessage.success).mockReset()
@@ -400,6 +442,48 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('新增产品')
     expect(wrapper.text()).toContain('统一维护产品台账')
     expect(wrapper.text()).not.toContain('PRODUCT CENTER')
+  })
+
+  it('shows governance task notices for the focused product when contract and coverage are incomplete', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'demo-product',
+            productName: '演示产品',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 1,
+        records: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('待发布合同')
+    expect(wrapper.text()).toContain('待发布风险指标目录')
+    expect(wrapper.text()).toContain('待绑定风险点')
+    expect(wrapper.text()).toContain('待补阈值策略')
   })
 
   it('keeps the product toolbar focused by collapsing low-frequency actions into a more-actions menu', async () => {
