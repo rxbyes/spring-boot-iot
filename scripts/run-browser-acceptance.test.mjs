@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -49,6 +49,37 @@ test('iot access dry-run loads dedicated smoke plan and prints required routes',
   for (const route of ['/products', '/devices', '/reporting\\?tab=simulate', '/system-log', '/message-trace', '/file-debug']) {
     assert.match(result.stdout, new RegExp(`"route": "${route}"`));
   }
+});
+
+test('config-driven dry-run prefers acceptance env urls over plan defaults', async (t) => {
+  const { runCli } = await import(pathToFileURL(browserAcceptanceScript).href);
+  const previousFrontendUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL;
+  const previousBackendUrl = process.env.IOT_ACCEPTANCE_BACKEND_URL;
+
+  t.after(() => {
+    if (previousFrontendUrl === undefined) {
+      delete process.env.IOT_ACCEPTANCE_FRONTEND_URL;
+    } else {
+      process.env.IOT_ACCEPTANCE_FRONTEND_URL = previousFrontendUrl;
+    }
+    if (previousBackendUrl === undefined) {
+      delete process.env.IOT_ACCEPTANCE_BACKEND_URL;
+    } else {
+      process.env.IOT_ACCEPTANCE_BACKEND_URL = previousBackendUrl;
+    }
+  });
+
+  process.env.IOT_ACCEPTANCE_FRONTEND_URL = 'http://127.0.0.1:5175';
+  process.env.IOT_ACCEPTANCE_BACKEND_URL = 'http://127.0.0.1:10099';
+
+  const result = await runCli([
+    '--dry-run',
+    '--no-append-issues',
+    '--plan=config/automation/iot-access-web-smoke-plan.json'
+  ]);
+
+  assert.equal(result.options.frontendBaseUrl, 'http://127.0.0.1:5175/');
+  assert.equal(result.options.backendBaseUrl, 'http://127.0.0.1:10099/');
 });
 
 test('iot access smoke plan defines expected scenarios, ready selectors, and reporting trace capture', () => {
@@ -213,19 +244,19 @@ test('sample web smoke plan matches current login and product/device workbench f
     productGovernanceScenario.steps.some((step) => step.id === 'product-governance-open-workbench' && step.type === 'tableRowAction'),
     'product governance scenario should open the workbench from the current product list row'
   );
-  const compareStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-compare-fallback');
-  assert.equal(compareStep?.type, 'triggerApi');
-  assert.equal(compareStep?.matcher, '/model-governance/compare');
-  assert.deepEqual(compareStep?.captures, [
-    {
-      variable: 'governanceMode',
-      path: 'requestPayload.governanceMode'
-    }
-  ]);
-  const assertModeStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-assert-generic-mode');
-  assert.equal(assertModeStep?.type, 'assertVariableEquals');
-  assert.equal(assertModeStep?.variable, 'governanceMode');
-  assert.equal(assertModeStep?.value, 'generic');
+  const workspaceStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-wait-workspace');
+  assert.equal(workspaceStep?.type, 'waitVisible');
+  assert.equal(workspaceStep?.locator?.value, 'contract-field-sample-stage');
+  const compareEntryStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-wait-compare-action');
+  assert.equal(compareEntryStep?.type, 'waitVisible');
+  assert.equal(compareEntryStep?.locator?.value, 'contract-field-compare-submit');
+  const workspaceTitleStep = productGovernanceScenario.steps.find((step) => step.id === 'product-governance-assert-workspace-title');
+  assert.equal(workspaceTitleStep?.type, 'assertText');
+  assert.equal(workspaceTitleStep?.value, '基于现有上报手动提炼契约字段');
+  assert.ok(
+    productGovernanceScenario.steps.every((step) => step.matcher !== '/model-governance/compare'),
+    'current product governance smoke should validate workspace reachability instead of old generic compare fallback'
+  );
 });
 
 test('automation plan source no longer uses removed console page title selector defaults', () => {
@@ -252,6 +283,31 @@ test('device route preload in browser core uses current product ready selector',
   );
 });
 
+test('browser core waits for login redirect before marking login helper complete', () => {
+  const browserCoreSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-acceptance-core.mjs'),
+    'utf8'
+  );
+
+  assert.match(
+    browserCoreSource,
+    /await page\.waitForURL\(\(url\) => !isLoginPath\(url\.toString\(\)\),\s*\{\s*timeout:\s*runtimeOptions\.pageReadyTimeout\s*\}\)/s
+  );
+  assert.match(browserCoreSource, /Login succeeded but page did not leave \/login\./);
+});
+
+test('scenario login recovery waits for pending redirect before attempting another login', () => {
+  const browserCoreSource = fs.readFileSync(
+    path.join(repoRoot, 'scripts', 'auto', 'browser-acceptance-core.mjs'),
+    'utf8'
+  );
+
+  assert.match(
+    browserCoreSource,
+    /const ensureScenarioLogin = async \(page, scenarioKey\) => \{\s*if \(!isLoginPath\(page\.url\(\)\)\) \{\s*return;\s*\}\s*try \{\s*await page\.waitForURL\(\(url\) => !isLoginPath\(url\.toString\(\)\),\s*\{\s*timeout:\s*Math\.min\(runtimeOptions\.pageReadyTimeout, 3000\)\s*\}\);\s*return;/s
+  );
+});
+
 test('selectOption handler supports Element Plus select triggers', () => {
   const configDrivenSource = fs.readFileSync(
     path.join(repoRoot, 'scripts', 'auto', 'browser-config-driven.mjs'),
@@ -275,7 +331,7 @@ test('config driven browser steps support request payload captures and variable 
   assert.match(configDrivenSource, /registerPlanStepHandler\('assertVariableEquals'/);
 });
 
-test('product governance compare payload type exposes generic mode contract', () => {
+test('product governance compare payload type exposes manual extract contract', () => {
   const apiSource = fs.readFileSync(
     path.join(repoRoot, 'spring-boot-iot-ui', 'src', 'types', 'api.ts'),
     'utf8'
@@ -285,6 +341,10 @@ test('product governance compare payload type exposes generic mode contract', ()
     'utf8'
   );
 
-  assert.match(apiSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
-  assert.match(apiDeclarationSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
+  assert.match(apiSource, /manualExtract\?: ProductModelGovernanceManualExtractPayload;/);
+  assert.match(apiDeclarationSource, /manualExtract\?: \{/);
+  assert.match(apiDeclarationSource, /sampleType: 'business' \| 'status';/);
+  assert.match(apiDeclarationSource, /deviceStructure: 'single' \| 'composite';/);
+  assert.doesNotMatch(apiSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
+  assert.doesNotMatch(apiDeclarationSource, /governanceMode\?: 'normative' \| 'generic' \| null;/);
 });

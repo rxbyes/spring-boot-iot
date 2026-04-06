@@ -474,6 +474,7 @@ const handleAddBinding = async () => {
     const res = await bindDevice({
       riskPointId: props.riskPointId,
       deviceId: Number(addForm.deviceId),
+      riskMetricId: option?.riskMetricId ?? undefined,
       metricIdentifier: addForm.metricIdentifier,
       metricName: option?.name || addForm.metricIdentifier
     })
@@ -598,6 +599,7 @@ const handleReplaceBinding = async (deviceId: IdType, bindingId: IdType) => {
       confirmButtonText: '确认替换'
     })
     const res = await replaceBinding(bindingId, {
+      riskMetricId: option?.riskMetricId ?? undefined,
       metricIdentifier,
       metricName: option?.name || metricIdentifier
     })

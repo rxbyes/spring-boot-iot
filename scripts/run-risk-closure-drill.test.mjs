@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   findBindingForDeviceMetric,
@@ -8,6 +11,8 @@ import {
   summarizeRiskClosureDrill,
   resolveRiskClosureFixture
 } from './auto/run-risk-closure-drill.mjs';
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 test('summarizes the full blue-yellow-orange-red drill into final counts', () => {
   const summary = summarizeRiskClosureDrill([
@@ -127,4 +132,11 @@ test('warms up metric options once when a fresh device has no runtime metrics ye
   assert.equal(loadCount, 2);
   assert.equal(warmupCount, 1);
   assert.equal(metric.identifier, 'dispsY');
+});
+
+test('fresh risk drill provisioning uses riskPointLevel instead of legacy riskLevel field', () => {
+  const source = fs.readFileSync(path.join(scriptDir, 'auto', 'run-risk-closure-drill.mjs'), 'utf8');
+
+  assert.match(source, /riskPointLevel:\s*'level_1'/);
+  assert.doesNotMatch(source, /riskLevel:\s*'warning'/);
 });

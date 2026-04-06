@@ -397,6 +397,31 @@ describe('DeviceWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('产品 Key：')
   })
 
+  it('applies the quick-search keyword when clicking query', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('#quick-search').setValue('autotest-device-001')
+    await nextTick()
+
+    const queryButton = wrapper
+      .findAll('button.standard-button-stub')
+      .find((button) => button.text() === '查询')
+
+    expect(queryButton).toBeTruthy()
+
+    await queryButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/devices',
+      query: {
+        keyword: 'autotest-device-001'
+      }
+    })
+  })
+
   it('restores the device detail drawer title and description while keeping the simplified workbench body', async () => {
     const wrapper = mountView()
     await flushPromises()

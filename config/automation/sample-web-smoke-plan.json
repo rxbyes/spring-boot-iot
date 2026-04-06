@@ -230,16 +230,16 @@
     },
     {
       "key": "product-governance-warning-fallback",
-      "name": "预警产品治理空态与通用降级",
+      "name": "预警产品契约字段工作区可达",
       "route": "/products",
       "scope": "delivery",
       "readySelector": "#quick-search",
-      "description": "验证预警型产品进入物模型治理后显示无适用规范预设空态，并在 compare 时自动退化为 generic。",
-      "businessFlow": "产品治理工作台、规范预设适用性判断与 compare 请求降级",
+      "description": "验证预警型产品进入工作台后可以切换到契约字段工作区，并看到当前单页治理入口。",
+      "businessFlow": "产品治理工作台与契约字段单页工作区可达性",
       "featurePoints": [
-        "预警产品空态提示",
-        "通用双证据降级",
-        "compare 请求治理模式回写"
+        "产品工作台可达",
+        "契约字段页签可切换",
+        "单页样本提取入口可见"
       ],
       "initialApis": [],
       "steps": [
@@ -288,84 +288,56 @@
         },
         {
           "id": "product-governance-switch-models",
-          "label": "切换到物模型治理页签",
+          "label": "切换到契约字段页签",
           "type": "click",
           "locator": {
             "type": "role",
             "role": "button",
-            "name": "物模型治理",
+            "name": "契约字段",
             "exact": true
           },
           "optional": false
         },
         {
-          "id": "product-governance-open-drawer",
-          "label": "进入双证据治理抽屉",
-          "type": "click",
-          "locator": {
-            "type": "testId",
-            "value": "confirm-model-candidates"
-          },
-          "optional": false
-        },
-        {
-          "id": "product-governance-wait-empty-state-action",
-          "label": "等待空态切换按钮出现",
+          "id": "product-governance-wait-workspace",
+          "label": "等待契约字段工作区出现",
           "type": "waitVisible",
           "locator": {
             "type": "testId",
-            "value": "governance-switch-generic"
+            "value": "contract-field-sample-stage"
           },
           "optional": false
         },
         {
-          "id": "product-governance-assert-empty-state",
-          "label": "断言预警产品显示规范预设空态",
+          "id": "product-governance-wait-compare-action",
+          "label": "等待提取契约字段按钮出现",
+          "type": "waitVisible",
+          "locator": {
+            "type": "testId",
+            "value": "contract-field-compare-submit"
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-assert-workspace-title",
+          "label": "断言进入契约字段工作区",
           "type": "assertText",
           "locator": {
             "type": "css",
             "value": "body"
           },
-          "value": "当前产品暂无适用规范预设",
+          "value": "基于现有上报手动提炼契约字段",
           "optional": false
         },
         {
-          "id": "product-governance-compare-fallback",
-          "label": "触发 compare 并捕获治理模式",
-          "type": "triggerApi",
-          "matcher": "/model-governance/compare",
-          "action": {
-            "type": "click",
-            "locator": {
-              "type": "testId",
-              "value": "governance-compare-submit"
-            }
-          },
-          "captures": [
-            {
-              "variable": "governanceMode",
-              "path": "requestPayload.governanceMode"
-            }
-          ],
-          "optional": false
-        },
-        {
-          "id": "product-governance-assert-generic-mode",
-          "label": "断言 compare 请求已退化为 generic",
-          "type": "assertVariableEquals",
-          "variable": "governanceMode",
-          "value": "generic",
-          "optional": false
-        },
-        {
-          "id": "product-governance-assert-warning-copy",
-          "label": "断言页面提示已自动改按通用双证据执行",
+          "id": "product-governance-assert-sample-stage",
+          "label": "断言样本输入区已展示",
           "type": "assertText",
           "locator": {
             "type": "css",
             "value": "body"
           },
-          "value": "当前产品暂无适用规范预设，已改按通用双证据生成对比结果",
+          "value": "样本输入",
           "optional": false
         }
       ]

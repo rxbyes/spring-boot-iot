@@ -238,9 +238,9 @@ function createBindableDevices() {
 
 function createMetricOptions() {
   return [
-    { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-    { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
-    { identifier: 'tiltZ', name: 'Z向倾角', type: 'property' }
+    { identifier: 'tiltX', name: 'X向倾角', type: 'property', riskMetricId: 6101 },
+    { identifier: 'tiltY', name: 'Y向倾角', type: 'property', riskMetricId: 6103 },
+    { identifier: 'tiltZ', name: 'Z向倾角', type: 'property', riskMetricId: 6104 }
   ]
 }
 
@@ -338,6 +338,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: 1,
       deviceId: 2002,
+      riskMetricId: 6103,
       metricIdentifier: 'tiltY',
       metricName: 'Y向倾角'
     })
@@ -407,6 +408,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith(2001)
     expect(mockReplaceBinding).toHaveBeenCalledWith(9001, {
+      riskMetricId: 6104,
       metricIdentifier: 'tiltZ',
       metricName: 'Z向倾角'
     })

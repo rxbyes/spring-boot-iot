@@ -677,6 +677,16 @@ export async function runBrowserAcceptance({
       throw new AcceptanceError('Login response did not include a token.', loginResult);
     }
 
+    try {
+      await page.waitForURL((url) => !isLoginPath(url.toString()), {
+        timeout: runtimeOptions.pageReadyTimeout
+      });
+    } catch {
+      throw new AcceptanceError('Login succeeded but page did not leave /login.', {
+        currentUrl: page.url()
+      });
+    }
+
     return {
       username: loginResult.payload.data.username || runtimeOptions.login.username,
       tokenPresent: true
@@ -686,6 +696,14 @@ export async function runBrowserAcceptance({
   const ensureScenarioLogin = async (page, scenarioKey) => {
     if (!isLoginPath(page.url())) {
       return;
+    }
+    try {
+      await page.waitForURL((url) => !isLoginPath(url.toString()), {
+        timeout: Math.min(runtimeOptions.pageReadyTimeout, 3000)
+      });
+      return;
+    } catch {
+      // Ignore timeout here and fall through to an explicit re-login attempt.
     }
     await login(page);
     if (isLoginPath(page.url())) {

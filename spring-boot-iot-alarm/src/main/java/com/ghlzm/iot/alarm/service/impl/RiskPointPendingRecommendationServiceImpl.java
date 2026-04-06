@@ -21,6 +21,7 @@ import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
@@ -102,6 +103,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         );
     }
 
+    @Autowired
     public RiskPointPendingRecommendationServiceImpl(RiskPointPendingBindingService pendingBindingService,
                                                      DeviceService deviceService,
                                                      ProductModelMapper productModelMapper,

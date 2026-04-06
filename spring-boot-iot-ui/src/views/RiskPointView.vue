@@ -1569,6 +1569,7 @@ const handleBindSubmit = async () => {
       deviceId: bindForm.deviceId,
       deviceCode: selectedDevice.deviceCode,
       deviceName: selectedDevice.deviceName,
+      riskMetricId: selectedMetric.riskMetricId ?? undefined,
       metricIdentifier: selectedMetric.identifier,
       metricName: selectedMetric.name
     });

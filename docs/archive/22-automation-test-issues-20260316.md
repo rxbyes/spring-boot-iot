@@ -739,3 +739,236 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 18. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 16:26:03（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260406162603.json`
+- `logs/acceptance/iot-access-browser-results-20260406162603.json`
+- `logs/acceptance/iot-access-browser-report-20260406162603.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260406162603/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`4`
+- 失败：`3`
+- 交付范围：`2` 通过 / `3` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：产品工作台冒烟 巡检失败
+
+- 场景：`iot-access-products`
+- 路由：`/products`
+- 范围：`delivery`
+- 现象：locator.fill: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('#login-username')[22m
+- 初步判断：登录态或 Bearer 鉴权链路异常，需要先确认会话恢复、路由守卫和接口鉴权是否一致。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406162603.json`；`logs/acceptance/iot-access-browser-screenshots-20260406162603/iot-access-products-fail.png`
+- 状态：待处理
+
+### 问题 2：设备工作台冒烟 巡检失败
+
+- 场景：`iot-access-devices`
+- 路由：`/devices`
+- 范围：`delivery`
+- 现象：选择产品: locator.waitFor: Timeout 30000ms exceeded. Call log: [2m - waiting for getByRole('option', { name: 'iot-access-product-0406162603', exact: true }).first() to be visible[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406162603.json`；`logs/acceptance/iot-access-browser-screenshots-20260406162603/iot-access-devices-fail.png`
+- 状态：待处理
+
+### 问题 3：上报入口冒烟 巡检失败
+
+- 场景：`iot-access-reporting`
+- 路由：`/reporting?tab=simulate`
+- 范围：`delivery`
+- 现象：查询设备: 查询设备 returned code 500.
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406162603.json`；`logs/acceptance/iot-access-browser-screenshots-20260406162603/iot-access-reporting-fail.png`
+- 状态：待处理
+
+## 19. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 17:22:16（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260406172216.json`
+- `logs/acceptance/iot-access-browser-results-20260406172216.json`
+- `logs/acceptance/iot-access-browser-report-20260406172216.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260406172216/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`4`
+- 失败：`3`
+- 交付范围：`2` 通过 / `3` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：产品工作台冒烟 巡检失败
+
+- 场景：`iot-access-products`
+- 路由：`/products`
+- 范围：`delivery`
+- 现象：locator.fill: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('#login-username')[22m
+- 初步判断：登录态或 Bearer 鉴权链路异常，需要先确认会话恢复、路由守卫和接口鉴权是否一致。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406172216.json`；`logs/acceptance/iot-access-browser-screenshots-20260406172216/iot-access-products-fail.png`
+- 状态：待处理
+
+### 问题 2：设备工作台冒烟 巡检失败
+
+- 场景：`iot-access-devices`
+- 路由：`/devices`
+- 范围：`delivery`
+- 现象：选择产品: locator.waitFor: Timeout 30000ms exceeded. Call log: [2m - waiting for getByRole('option', { name: 'iot-access-product-0406172216', exact: true }).first() to be visible[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406172216.json`；`logs/acceptance/iot-access-browser-screenshots-20260406172216/iot-access-devices-fail.png`
+- 状态：待处理
+
+### 问题 3：上报入口冒烟 巡检失败
+
+- 场景：`iot-access-reporting`
+- 路由：`/reporting?tab=simulate`
+- 范围：`delivery`
+- 现象：查询设备: 查询设备 returned code 500.
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/iot-access-browser-results-20260406172216.json`；`logs/acceptance/iot-access-browser-screenshots-20260406172216/iot-access-reporting-fail.png`
+- 状态：待处理
+
+## 20. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 17:25:23（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260406172523.json`
+- `logs/acceptance/iot-access-browser-results-20260406172523.json`
+- `logs/acceptance/iot-access-browser-report-20260406172523.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260406172523/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 21. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 17:48:33（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260406174833.json`
+- `logs/acceptance/config-browser-results-20260406174833.json`
+- `logs/acceptance/config-browser-report-20260406174833.md`
+- `logs/acceptance/config-browser-screenshots-20260406174833/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`2`
+- 失败：`2`
+- 交付范围：`2` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `1` 失败
+
+### 本轮失败问题
+
+### 问题 1：预警产品治理空态与通用降级 巡检失败
+
+- 场景：`product-governance-warning-fallback`
+- 路由：`/products`
+- 范围：`delivery`
+- 现象：切换到物模型治理页签: locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for getByRole('button', { name: '物模型治理', exact: true }).first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/config-browser-results-20260406174833.json`；`logs/acceptance/config-browser-screenshots-20260406174833/product-governance-warning-fallback-fail.png`
+- 状态：待处理
+
+### 问题 2：设备资产建档与库存校验 巡检失败
+
+- 场景：`device-workbench`
+- 路由：`/devices`
+- 范围：`baseline`
+- 现象：按设备编码查询台账: page.waitForResponse: Timeout 15000ms exceeded while waiting for event "response"
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/config-browser-results-20260406174833.json`；`logs/acceptance/config-browser-screenshots-20260406174833/device-workbench-fail.png`
+- 状态：待处理
+
+## 22. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 17:59:12（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260406175912.json`
+- `logs/acceptance/config-browser-results-20260406175912.json`
+- `logs/acceptance/config-browser-report-20260406175912.md`
+- `logs/acceptance/config-browser-screenshots-20260406175912/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 23. 浏览器自动化巡检记录（2026-04-06）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-06 18:00:09（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260406180009.json`
+- `logs/acceptance/config-browser-results-20260406180009.json`
+- `logs/acceptance/config-browser-report-20260406180009.md`
+- `logs/acceptance/config-browser-screenshots-20260406180009/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

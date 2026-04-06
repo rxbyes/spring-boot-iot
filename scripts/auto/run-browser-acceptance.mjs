@@ -109,6 +109,8 @@ export async function runCli(argv = process.argv.slice(2)) {
   const workspaceRoot = path.resolve(path.dirname(__filename), '..', '..');
   const planInfo = args.plan ? await loadAutomationPlan(workspaceRoot, args.plan) : null;
   const target = planInfo?.plan?.target || {};
+  const frontendBaseUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL?.trim() || target.frontendBaseUrl;
+  const backendBaseUrl = process.env.IOT_ACCEPTANCE_BACKEND_URL?.trim() || target.backendBaseUrl;
   const defaultScenarioModule = planInfo ? null : await loadDefaultScenarioModule();
 
   const result = await runBrowserAcceptance({
@@ -122,8 +124,8 @@ export async function runCli(argv = process.argv.slice(2)) {
       updateBaseline: args.updateBaseline,
       scenarioScopes: args.scopes || target.scenarioScopes,
       failScopes: args.failScopes || target.failScopes,
-      frontendBaseUrl: target.frontendBaseUrl,
-      backendBaseUrl: target.backendBaseUrl,
+      frontendBaseUrl,
+      backendBaseUrl,
       browserPath: target.browserPath || undefined,
       headless: target.headless,
       username: target.username,

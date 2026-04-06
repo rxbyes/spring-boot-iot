@@ -2372,6 +2372,9 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
 }
 
 function handleSearch() {
+  if (quickSearchKeyword.value.trim() || searchForm.keyword.trim()) {
+    applyQuickSearchKeywordToFilters()
+  }
   searchForm.deviceId = searchForm.deviceId.trim()
   searchForm.keyword = searchForm.keyword.trim()
   searchForm.productKey = searchForm.productKey.trim()

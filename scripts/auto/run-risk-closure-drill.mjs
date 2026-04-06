@@ -313,7 +313,7 @@ async function createFreshRiskPoint(baseUrl, token, organization, region, suffix
       regionId: region.id,
       responsibleUser: 1,
       responsiblePhone: '13800000000',
-      riskLevel: 'warning',
+      riskPointLevel: 'level_1',
       status: 0,
       tenantId: 1
     }

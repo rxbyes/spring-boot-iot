@@ -552,6 +552,7 @@ export interface DeviceMetricOption {
   identifier: string;
   name: string;
   dataType?: string | null;
+  riskMetricId?: IdType | null;
 }
 
 export interface DeviceProperty {
