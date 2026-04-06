@@ -1,138 +1,144 @@
 package com.ghlzm.iot.alarm.service.impl;
 
-import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
-import com.ghlzm.iot.alarm.entity.RiskPoint;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
+import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
-import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
-import org.junit.jupiter.api.Test;
-
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class RiskGovernanceServiceImplTest {
 
+    @Mock
+    private DeviceMapper deviceMapper;
+
+    @Mock
+    private RiskPointMapper riskPointMapper;
+
+    @Mock
+    private RiskPointDeviceMapper riskPointDeviceMapper;
+
+    @Mock
+    private RuleDefinitionMapper ruleDefinitionMapper;
+
+    @Mock
+    private RiskMetricCatalogMapper riskMetricCatalogMapper;
+
+    @Mock
+    private ProductModelMapper productModelMapper;
+
     @Test
-    void listMissingBindingsShouldReturnDevicesWithTelemetryButNoRiskPointBinding() {
-        DeviceMapper deviceMapper = mock(DeviceMapper.class);
-        RiskPointMapper riskPointMapper = mock(RiskPointMapper.class);
-        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
-        RuleDefinitionMapper ruleDefinitionMapper = mock(RuleDefinitionMapper.class);
+    void pageMetricCatalogsShouldReturnProductScopedRows() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
                 riskPointMapper,
                 riskPointDeviceMapper,
-                ruleDefinitionMapper
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper
         );
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(1001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricCode("RM_1001_VALUE");
+        catalog.setRiskMetricName("裂缝监测值");
+        catalog.setEnabled(1);
+        catalog.setTrendEnabled(1);
+        catalog.setGisEnabled(1);
+        catalog.setInsightEnabled(1);
+        catalog.setAnalyticsEnabled(1);
+        catalog.setUpdateTime(LocalDateTime.of(2026, 4, 6, 10, 30));
+        when(riskMetricCatalogMapper.selectPage(any(), any())).thenReturn(new Page<RiskMetricCatalog>(1L, 10L, 1L)
+                .setRecords(List.of(catalog)));
+
+        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, 1L, 10L);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("value", page.getRecords().get(0).getContractIdentifier());
+        assertEquals("RM_1001_VALUE", page.getRecords().get(0).getRiskMetricCode());
+    }
+
+    @Test
+    void getCoverageOverviewShouldAggregateContractMetricBindingAndRuleCoverage() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper
+        );
+
+        ProductModel value = new ProductModel();
+        value.setId(3001L);
+        value.setProductId(1001L);
+        value.setModelType("property");
+        value.setIdentifier("value");
+        ProductModel sensorState = new ProductModel();
+        sensorState.setId(3002L);
+        sensorState.setProductId(1001L);
+        sensorState.setModelType("property");
+        sensorState.setIdentifier("sensor_state");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+
+        RiskMetricCatalog metricValue = new RiskMetricCatalog();
+        metricValue.setId(9101L);
+        metricValue.setProductId(1001L);
+        metricValue.setContractIdentifier("value");
+        metricValue.setEnabled(1);
+        RiskMetricCatalog metricX = new RiskMetricCatalog();
+        metricX.setId(9102L);
+        metricX.setProductId(1001L);
+        metricX.setContractIdentifier("gpsTotalX");
+        metricX.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(metricValue, metricX));
 
         Device device = new Device();
-        device.setId(3002L);
-        device.setDeviceCode("demo-device-01");
-        device.setDeviceName("演示设备");
-        device.setLastReportTime(LocalDateTime.of(2026, 4, 2, 11, 0, 0));
-
-        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        device.setId(8001L);
+        device.setProductId(1001L);
         when(deviceMapper.selectList(any())).thenReturn(List.of(device));
 
-        PageResult<RiskGovernanceGapItemVO> result = service.listMissingBindings(new RiskGovernanceGapQuery());
-
-        assertEquals(1L, result.getTotal());
-        assertEquals("demo-device-01", result.getRecords().get(0).getDeviceCode());
-        assertEquals("MISSING_BINDING", result.getRecords().get(0).getIssueType());
-    }
-
-    @Test
-    void listMissingPoliciesShouldReturnBindingsWithoutEnabledRuleDefinitions() {
-        DeviceMapper deviceMapper = mock(DeviceMapper.class);
-        RiskPointMapper riskPointMapper = mock(RiskPointMapper.class);
-        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
-        RuleDefinitionMapper ruleDefinitionMapper = mock(RuleDefinitionMapper.class);
-        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
-                deviceMapper,
-                riskPointMapper,
-                riskPointDeviceMapper,
-                ruleDefinitionMapper
-        );
-
         RiskPointDevice binding = new RiskPointDevice();
-        binding.setRiskPointId(8001L);
-        binding.setDeviceId(3002L);
-        binding.setDeviceCode("demo-device-01");
-        binding.setDeviceName("演示设备");
-        binding.setMetricIdentifier("dispsX");
-        binding.setMetricName("顺滑动方向累计变形量");
-        binding.setDeleted(0);
-
-        RiskPoint riskPoint = new RiskPoint();
-        riskPoint.setId(8001L);
-        riskPoint.setRiskPointName("K79+620边坡");
-
-        RuleDefinition otherMetricRule = new RuleDefinition();
-        otherMetricRule.setMetricIdentifier("dispsY");
-        otherMetricRule.setStatus(0);
-        otherMetricRule.setDeleted(0);
-
-        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
-        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
-        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(otherMetricRule));
-
-        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(new RiskGovernanceGapQuery());
-
-        assertEquals(1L, result.getTotal());
-        assertEquals("MISSING_POLICY", result.getRecords().get(0).getIssueType());
-        assertEquals("K79+620边坡", result.getRecords().get(0).getRiskPointName());
-        assertEquals("dispsX", result.getRecords().get(0).getMetricIdentifier());
-    }
-
-    @Test
-    void listMissingPoliciesShouldTreatRiskMetricIdMatchAsConfiguredPolicy() {
-        DeviceMapper deviceMapper = mock(DeviceMapper.class);
-        RiskPointMapper riskPointMapper = mock(RiskPointMapper.class);
-        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
-        RuleDefinitionMapper ruleDefinitionMapper = mock(RuleDefinitionMapper.class);
-        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
-                deviceMapper,
-                riskPointMapper,
-                riskPointDeviceMapper,
-                ruleDefinitionMapper
-        );
-
-        RiskPointDevice binding = new RiskPointDevice();
-        binding.setRiskPointId(8001L);
-        binding.setDeviceId(3002L);
-        binding.setDeviceCode("demo-device-01");
-        binding.setDeviceName("演示设备");
+        binding.setDeviceId(8001L);
+        binding.setRiskMetricId(9101L);
         binding.setMetricIdentifier("value");
-        binding.setMetricName("裂缝监测值");
-        binding.setRiskMetricId(7001L);
-        binding.setDeleted(0);
-
-        RiskPoint riskPoint = new RiskPoint();
-        riskPoint.setId(8001L);
-        riskPoint.setRiskPointName("K79+620边坡");
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
 
         RuleDefinition rule = new RuleDefinition();
-        rule.setRiskMetricId(7001L);
+        rule.setId(6001L);
+        rule.setRiskMetricId(9101L);
+        rule.setMetricIdentifier("value");
         rule.setStatus(0);
-        rule.setDeleted(0);
-
-        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
-        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
 
-        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(new RiskGovernanceGapQuery());
+        RiskGovernanceCoverageOverviewVO overview = service.getCoverageOverview(1001L);
 
-        assertEquals(0L, result.getTotal());
+        assertEquals(1001L, overview.getProductId());
+        assertEquals(2L, overview.getContractPropertyCount());
+        assertEquals(2L, overview.getPublishedRiskMetricCount());
+        assertEquals(1L, overview.getBoundRiskMetricCount());
+        assertEquals(1L, overview.getRuleCoveredRiskMetricCount());
+        assertEquals(100.0, overview.getRuleCoverageRate());
     }
 }
