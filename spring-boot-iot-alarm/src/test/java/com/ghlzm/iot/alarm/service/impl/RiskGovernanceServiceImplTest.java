@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
@@ -17,6 +18,7 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -140,5 +142,63 @@ class RiskGovernanceServiceImplTest {
         assertEquals(1L, overview.getBoundRiskMetricCount());
         assertEquals(1L, overview.getRuleCoveredRiskMetricCount());
         assertEquals(100.0, overview.getRuleCoverageRate());
+    }
+
+    @Test
+    void listMissingPolicyAlertSignalsShouldAggregateByRiskMetricIdOrIdentifierAndSkipCoveredMetrics() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper
+        );
+
+        RiskPointDevice coveredA = binding(8001L, 5001L, 9101L, "value", "裂缝监测值");
+        RiskPointDevice coveredB = binding(8002L, 5002L, 9101L, "value", "裂缝监测值");
+        RiskPointDevice missingByIdA = binding(8101L, 5101L, 9201L, "gpsTotalZ", "Z向累计位移");
+        RiskPointDevice missingByIdB = binding(8102L, 5102L, 9201L, "gpsTotalZ", "Z向累计位移");
+        RiskPointDevice missingByIdentifierA = binding(8201L, 5201L, null, "gpsTotalX", "X向累计位移");
+        RiskPointDevice missingByIdentifierB = binding(8202L, 5202L, null, "gpsTotalX", "X向累计位移");
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
+                coveredA,
+                coveredB,
+                missingByIdA,
+                missingByIdB,
+                missingByIdentifierA,
+                missingByIdentifierB
+        ));
+
+        RuleDefinition coveredRule = new RuleDefinition();
+        coveredRule.setId(6001L);
+        coveredRule.setStatus(0);
+        coveredRule.setRiskMetricId(9101L);
+        coveredRule.setMetricIdentifier("value");
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(coveredRule));
+
+        List<RiskGovernanceService.MissingPolicyAlertSignal> signals = service.listMissingPolicyAlertSignals();
+
+        assertEquals(2, signals.size());
+        Map<String, RiskGovernanceService.MissingPolicyAlertSignal> signalsByKey = signals.stream()
+                .collect(java.util.stream.Collectors.toMap(RiskGovernanceService.MissingPolicyAlertSignal::dimensionKey, value -> value));
+        assertEquals(2L, signalsByKey.get("risk_metric_id:9201").bindingCount());
+        assertEquals(2L, signalsByKey.get("risk_metric_id:9201").riskPointCount());
+        assertEquals(2L, signalsByKey.get("metric_identifier:gpstotalx").bindingCount());
+        assertEquals(2L, signalsByKey.get("metric_identifier:gpstotalx").riskPointCount());
+    }
+
+    private RiskPointDevice binding(Long deviceId,
+                                    Long riskPointId,
+                                    Long riskMetricId,
+                                    String metricIdentifier,
+                                    String metricName) {
+        RiskPointDevice value = new RiskPointDevice();
+        value.setDeviceId(deviceId);
+        value.setRiskPointId(riskPointId);
+        value.setRiskMetricId(riskMetricId);
+        value.setMetricIdentifier(metricIdentifier);
+        value.setMetricName(metricName);
+        return value;
     }
 }

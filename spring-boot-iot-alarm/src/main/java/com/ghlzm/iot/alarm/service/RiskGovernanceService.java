@@ -5,6 +5,7 @@ import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
+import java.util.List;
 
 /**
  * 风险治理缺口服务。
@@ -15,9 +16,20 @@ public interface RiskGovernanceService {
 
     PageResult<RiskGovernanceGapItemVO> listMissingPolicies(RiskGovernanceGapQuery query);
 
+    List<MissingPolicyAlertSignal> listMissingPolicyAlertSignals();
+
     PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long pageNum, Long pageSize);
 
     RiskMetricCatalogItemVO getMetricCatalog(Long id);
 
     RiskGovernanceCoverageOverviewVO getCoverageOverview(Long productId);
+
+    record MissingPolicyAlertSignal(String dimensionKey,
+                                    String dimensionLabel,
+                                    Long riskMetricId,
+                                    String metricIdentifier,
+                                    String metricName,
+                                    long bindingCount,
+                                    long riskPointCount) {
+    }
 }

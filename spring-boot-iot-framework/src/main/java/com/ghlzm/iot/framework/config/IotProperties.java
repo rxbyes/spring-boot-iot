@@ -368,6 +368,7 @@ public class IotProperties {
             private MqttDisconnect mqttDisconnect = new MqttDisconnect();
             private FailureStage failureStage = new FailureStage();
             private InAppBridge inAppBridge = new InAppBridge();
+            private RiskGovernanceMissingPolicy riskGovernanceMissingPolicy = new RiskGovernanceMissingPolicy();
 
             @Data
             public static class SystemError {
@@ -393,6 +394,12 @@ public class IotProperties {
             public static class InAppBridge {
                 private Boolean enabled = Boolean.TRUE;
                 private Integer windowMinutes = 10;
+                private Integer threshold = 3;
+            }
+
+            @Data
+            public static class RiskGovernanceMissingPolicy {
+                private Boolean enabled = Boolean.TRUE;
                 private Integer threshold = 3;
             }
         }

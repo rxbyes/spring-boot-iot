@@ -25,8 +25,9 @@ import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -87,9 +88,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     public PageResult<RiskGovernanceGapItemVO> listMissingPolicies(RiskGovernanceGapQuery query) {
         long pageNum = normalizePageNum(query);
         long pageSize = normalizePageSize(query);
-        List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
-                .eq(RiskPointDevice::getDeleted, 0)
-                .eq(query.getRiskPointId() != null, RiskPointDevice::getRiskPointId, query.getRiskPointId()));
+        List<RiskPointDevice> bindings = listMissingPolicyBindings(query);
         if (bindings.isEmpty()) {
             return PageResult.empty(pageNum, pageSize);
         }
@@ -100,22 +99,42 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         .in(!riskPointIds.isEmpty(), RiskPoint::getId, riskPointIds))
                 .stream()
                 .collect(Collectors.toMap(RiskPoint::getId, Function.identity(), (left, right) -> left));
-        List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
-                        .eq(RuleDefinition::getDeleted, 0)
-                        .eq(RuleDefinition::getStatus, 0));
-        Map<String, List<RuleDefinition>> enabledRulesByMetric = enabledRules.stream()
-                .filter(rule -> StringUtils.hasText(rule.getMetricIdentifier()))
-                .collect(Collectors.groupingBy(RuleDefinition::getMetricIdentifier));
-        Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
-                .filter(rule -> rule.getRiskMetricId() != null)
-                .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
-
         List<RiskGovernanceGapItemVO> items = bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
-                .filter(binding -> matchesDeviceCode(binding, query))
                 .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId())))
                 .toList();
         return toPage(items, pageNum, pageSize);
+    }
+
+    @Override
+    public List<MissingPolicyAlertSignal> listMissingPolicyAlertSignals() {
+        List<RiskPointDevice> bindings = listMissingPolicyBindings(null);
+        if (bindings.isEmpty()) {
+            return List.of();
+        }
+        Map<String, MissingPolicyAlertAccumulator> accumulators = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            String dimensionKey = toMissingPolicyDimensionKey(binding);
+            if (!StringUtils.hasText(dimensionKey)) {
+                continue;
+            }
+            MissingPolicyAlertAccumulator accumulator = accumulators.computeIfAbsent(
+                    dimensionKey,
+                    key -> new MissingPolicyAlertAccumulator(
+                            key,
+                            toMissingPolicyDimensionLabel(binding),
+                            binding.getRiskMetricId(),
+                            normalizeMetricIdentifier(binding.getMetricIdentifier()),
+                            normalizeMetricName(binding.getMetricName())
+                    )
+            );
+            accumulator.add(binding);
+        }
+        return accumulators.values().stream()
+                .map(MissingPolicyAlertAccumulator::toSignal)
+                .sorted(Comparator.comparingLong(MissingPolicyAlertSignal::bindingCount)
+                        .reversed()
+                        .thenComparing(MissingPolicyAlertSignal::dimensionKey))
+                .toList();
     }
 
     @Override
@@ -237,7 +256,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             return true;
         }
         return StringUtils.hasText(binding.getMetricIdentifier())
-                && enabledRulesByMetric.containsKey(binding.getMetricIdentifier());
+                && enabledRulesByMetric.containsKey(binding.getMetricIdentifier().trim());
     }
 
     private RiskGovernanceGapItemVO toMissingBindingItem(Device device) {
@@ -336,6 +355,63 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return Math.min(100D, (numerator * 100D) / denominator);
     }
 
+    private List<RiskPointDevice> listMissingPolicyBindings(RiskGovernanceGapQuery query) {
+        Long riskPointId = query == null ? null : query.getRiskPointId();
+        List<RiskPointDevice> bindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getDeleted, 0)
+                .eq(riskPointId != null, RiskPointDevice::getRiskPointId, riskPointId));
+        if (bindings.isEmpty()) {
+            return List.of();
+        }
+        List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
+                .eq(RuleDefinition::getDeleted, 0)
+                .eq(RuleDefinition::getStatus, 0));
+        Map<String, List<RuleDefinition>> enabledRulesByMetric = enabledRules.stream()
+                .filter(rule -> StringUtils.hasText(rule.getMetricIdentifier()))
+                .collect(Collectors.groupingBy(rule -> rule.getMetricIdentifier().trim()));
+        Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
+                .filter(rule -> rule.getRiskMetricId() != null)
+                .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
+        return bindings.stream()
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
+                .filter(binding -> matchesDeviceCode(binding, query))
+                .toList();
+    }
+
+    private String toMissingPolicyDimensionKey(RiskPointDevice binding) {
+        if (binding == null) {
+            return null;
+        }
+        if (binding.getRiskMetricId() != null) {
+            return "risk_metric_id:" + binding.getRiskMetricId();
+        }
+        if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            return "metric_identifier:" + binding.getMetricIdentifier().trim().toLowerCase();
+        }
+        return null;
+    }
+
+    private String toMissingPolicyDimensionLabel(RiskPointDevice binding) {
+        if (binding == null) {
+            return "unknown";
+        }
+        if (binding.getRiskMetricId() != null) {
+            return "riskMetricId=" + binding.getRiskMetricId();
+        }
+        if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            return "metricIdentifier=" + binding.getMetricIdentifier().trim();
+        }
+        return "unknown";
+    }
+
+    private String normalizeMetricIdentifier(String metricIdentifier) {
+        return StringUtils.hasText(metricIdentifier) ? metricIdentifier.trim() : null;
+    }
+
+    private String normalizeMetricName(String metricName) {
+        return StringUtils.hasText(metricName) ? metricName.trim() : null;
+    }
+
     private long normalizePageNum(RiskGovernanceGapQuery query) {
         return query == null || query.getPageNum() == null || query.getPageNum() < 1 ? 1L : query.getPageNum();
     }
@@ -351,5 +427,46 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         int fromIndex = (int) Math.min((pageNum - 1) * pageSize, items.size());
         int toIndex = (int) Math.min(fromIndex + pageSize, items.size());
         return PageResult.of((long) items.size(), pageNum, pageSize, items.subList(fromIndex, toIndex));
+    }
+
+    private static final class MissingPolicyAlertAccumulator {
+        private final String dimensionKey;
+        private final String dimensionLabel;
+        private final Long riskMetricId;
+        private final String metricIdentifier;
+        private final String metricName;
+        private long bindingCount;
+        private final Set<Long> riskPointIds = new LinkedHashSet<>();
+
+        private MissingPolicyAlertAccumulator(String dimensionKey,
+                                             String dimensionLabel,
+                                             Long riskMetricId,
+                                             String metricIdentifier,
+                                             String metricName) {
+            this.dimensionKey = dimensionKey;
+            this.dimensionLabel = dimensionLabel;
+            this.riskMetricId = riskMetricId;
+            this.metricIdentifier = metricIdentifier;
+            this.metricName = metricName;
+        }
+
+        private void add(RiskPointDevice binding) {
+            bindingCount++;
+            if (binding != null && binding.getRiskPointId() != null) {
+                riskPointIds.add(binding.getRiskPointId());
+            }
+        }
+
+        private MissingPolicyAlertSignal toSignal() {
+            return new MissingPolicyAlertSignal(
+                    dimensionKey,
+                    dimensionLabel,
+                    riskMetricId,
+                    metricIdentifier,
+                    metricName,
+                    bindingCount,
+                    riskPointIds.size()
+            );
+        }
     }
 }

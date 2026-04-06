@@ -1,5 +1,6 @@
 package com.ghlzm.iot.admin.observability.alerting;
 
+import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.message.mqtt.MqttConsumerRuntimeState;
@@ -46,6 +47,8 @@ class ObservabilityAlertingServiceTest {
     @Mock
     private InAppMessageBridgeAlertQueryService inAppMessageBridgeAlertQueryService;
     @Mock
+    private RiskGovernanceService riskGovernanceService;
+    @Mock
     private MqttMessageConsumer mqttMessageConsumer;
     @Mock
     private MqttConsumerRuntimeState mqttConsumerRuntimeState;
@@ -71,6 +74,7 @@ class ObservabilityAlertingServiceTest {
                 auditLogService,
                 deviceAccessErrorLogService,
                 inAppMessageBridgeAlertQueryService,
+                riskGovernanceService,
                 mqttMessageConsumer,
                 mqttConsumerRuntimeState,
                 observabilityAlertNotificationService,
@@ -179,6 +183,43 @@ class ObservabilityAlertingServiceTest {
         assertEquals(3L, trigger.observedValue());
         assertEquals(3L, trigger.threshold());
         assertEquals(10, trigger.windowMinutes());
+    }
+
+    @Test
+    void shouldTriggerRiskGovernanceMissingPolicyBurstAlert() {
+        stubDispatchAlert();
+        stubCooldownAcquired();
+        iotProperties.getObservability().getAlerting().getRiskGovernanceMissingPolicy().setThreshold(2);
+        when(riskGovernanceService.listMissingPolicyAlertSignals()).thenReturn(List.of(
+                new RiskGovernanceService.MissingPolicyAlertSignal(
+                        "risk_metric_id:9102",
+                        "riskMetricId=9102",
+                        9102L,
+                        "gpsTotalX",
+                        "X向累计位移",
+                        3L,
+                        3L
+                ),
+                new RiskGovernanceService.MissingPolicyAlertSignal(
+                        "metric_identifier:gpstotaly",
+                        "metricIdentifier=gpsTotalY",
+                        null,
+                        "gpsTotalY",
+                        "Y向累计位移",
+                        1L,
+                        1L
+                )
+        ));
+
+        service.evaluateAlerts();
+
+        ArgumentCaptor<ObservabilityAlertTrigger> captor = ArgumentCaptor.forClass(ObservabilityAlertTrigger.class);
+        verify(observabilityAlertNotificationService).dispatchAlert(captor.capture());
+        ObservabilityAlertTrigger trigger = captor.getValue();
+        assertEquals("risk-governance-missing-policy-burst", trigger.ruleType());
+        assertEquals("risk_metric_id:9102", trigger.dimensionKey());
+        assertEquals(3L, trigger.observedValue());
+        assertEquals(2L, trigger.threshold());
     }
 
     @Test
