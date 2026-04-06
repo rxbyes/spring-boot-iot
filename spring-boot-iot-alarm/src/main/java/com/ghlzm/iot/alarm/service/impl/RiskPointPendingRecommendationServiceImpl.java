@@ -5,6 +5,7 @@ import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
@@ -83,6 +84,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
     private final RiskMetricCatalogService riskMetricCatalogService;
+    private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
     private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -99,6 +101,26 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
                 devicePropertyMapper,
                 deviceMessageLogMapper,
                 pendingPromotionMapper,
+                null,
+                null
+        );
+    }
+
+    public RiskPointPendingRecommendationServiceImpl(RiskPointPendingBindingService pendingBindingService,
+                                                     DeviceService deviceService,
+                                                     ProductModelMapper productModelMapper,
+                                                     DevicePropertyMapper devicePropertyMapper,
+                                                     DeviceMessageLogMapper deviceMessageLogMapper,
+                                                     RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
+                                                     RiskMetricCatalogService riskMetricCatalogService) {
+        this(
+                pendingBindingService,
+                deviceService,
+                productModelMapper,
+                devicePropertyMapper,
+                deviceMessageLogMapper,
+                pendingPromotionMapper,
+                riskMetricCatalogService,
                 null
         );
     }
@@ -110,7 +132,8 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
                                                      DevicePropertyMapper devicePropertyMapper,
                                                      DeviceMessageLogMapper deviceMessageLogMapper,
                                                      RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
-                                                     RiskMetricCatalogService riskMetricCatalogService) {
+                                                     RiskMetricCatalogService riskMetricCatalogService,
+                                                     RiskMetricCatalogPublishRule riskMetricCatalogPublishRule) {
         this.pendingBindingService = pendingBindingService;
         this.deviceService = deviceService;
         this.productModelMapper = productModelMapper;
@@ -118,6 +141,9 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.pendingPromotionMapper = pendingPromotionMapper;
         this.riskMetricCatalogService = riskMetricCatalogService;
+        this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule == null
+                ? new DefaultRiskMetricCatalogPublishRule()
+                : riskMetricCatalogPublishRule;
     }
 
     @Override
@@ -174,7 +200,11 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         if (riskMetricCatalogService == null || device == null || device.getProductId() == null || productModels == null || productModels.isEmpty()) {
             return;
         }
-        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), productModels, Set.of("value"));
+        Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(device, productModels);
+        if (riskEnabledIdentifiers.isEmpty()) {
+            return;
+        }
+        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), productModels, riskEnabledIdentifiers);
     }
 
     private void mergeProductModelEvidence(Map<String, CandidateAccumulator> candidateMap, List<ProductModel> productModels) {
