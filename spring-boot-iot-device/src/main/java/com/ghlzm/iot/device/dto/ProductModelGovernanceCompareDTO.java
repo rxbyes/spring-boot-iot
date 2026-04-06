@@ -4,54 +4,32 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * 产品物模型双证据治理 compare 请求体。
+ * 产品物模型契约字段 compare 请求体。
  */
 @Data
 public class ProductModelGovernanceCompareDTO {
 
-    private String governanceMode;
-
-    private String normativePresetCode;
-
-    private List<String> selectedNormativeIdentifiers;
-
     private ManualExtractInput manualExtract;
-
-    private List<ManualDraftItem> manualDraftItems;
-
-    private Boolean includeRuntimeCandidates;
 
     @Data
     public static class ManualExtractInput {
 
         private String sampleType;
 
+        private String deviceStructure;
+
         private String samplePayload;
 
-        private String sourceDeviceCode;
+        private String parentDeviceCode;
 
-        private String extractMode;
+        private List<RelationMappingInput> relationMappings;
     }
 
     @Data
-    public static class ManualDraftItem {
+    public static class RelationMappingInput {
 
-        private String modelType;
+        private String logicalChannelCode;
 
-        private String identifier;
-
-        private String modelName;
-
-        private String dataType;
-
-        private String specsJson;
-
-        private String eventType;
-
-        private String serviceInputJson;
-
-        private String serviceOutputJson;
-
-        private String description;
+        private String childDeviceCode;
     }
 }

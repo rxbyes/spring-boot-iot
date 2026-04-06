@@ -12,12 +12,12 @@
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
+            <!-- 快速搜索：支持产品名称、产品 Key、厂商关键词搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
                 v-model="quickSearchKeyword"
-                placeholder="快速搜索（产品名称、厂商）"
+                placeholder="快速搜索（产品名称、产品 Key、厂商）"
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuickSearch"
@@ -323,11 +323,7 @@
       <template #devices>
         <ProductDeviceListWorkspace
           v-if="businessWorkbenchLoadedViews.devices && businessWorkbenchProduct"
-          :product="businessWorkbenchProduct"
           :devices="deviceListData"
-          :total-devices="deviceListTotal"
-          :online-devices="deviceListOnlineCount"
-          :offline-devices="deviceListOfflineCount"
           :loading="devicesLoading && deviceListData.length === 0 && !deviceListErrorMessage"
           :error-message="deviceListErrorMessage"
           :empty="!devicesLoading && !deviceListErrorMessage && deviceListTotal === 0"
@@ -483,6 +479,7 @@ import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWo
 import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
 import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import { productApi } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -727,7 +724,7 @@ const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()
   if (productName) {
-    tags.push({ key: 'productName', label: `产品名称：${productName}` })
+    tags.push({ key: 'productName', label: `快速搜索：${productName}` })
   }
   if (appliedFilters.nodeType !== undefined) {
     tags.push({ key: 'nodeType', label: `节点类型：${getNodeTypeText(appliedFilters.nodeType)}` })
@@ -1210,7 +1207,7 @@ function matchesCurrentFilters(product: Product) {
   })
 }
 
-// 快速搜索：支持产品名称、厂商关键词搜索
+// 快速搜索：支持产品名称、产品 Key、厂商关键词搜索
 function handleQuickSearch() {
   const keyword = searchForm.productName.trim()
   if (!keyword) {
@@ -1497,7 +1494,9 @@ async function loadProductPage(options: { silent?: boolean; force?: boolean; sil
       listRefreshMessage.value = '最新数据校验失败，当前先展示已有结果。'
     } else {
       clearListRefreshState()
-      ElMessage.error('获取产品分页失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '获取产品分页失败'))
+      }
     }
   } finally {
     if (requestId === latestListRequestId) {

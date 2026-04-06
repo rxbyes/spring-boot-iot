@@ -103,6 +103,7 @@ import { LineChart, BarChart, PieChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
 import { ElMessage } from 'element-plus'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import {
   getRiskTrendAnalysis,
   getAlarmStatistics,
@@ -219,7 +220,9 @@ const fetchData = async () => {
       deviceHealthStatistics.value = deviceRes.data || {}
     }
   } catch (error) {
-    ElMessage.error('获取数据失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '获取数据失败'))
+    }
   } finally {
     loading.value = false
   }

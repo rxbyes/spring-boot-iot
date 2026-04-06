@@ -15,23 +15,44 @@
     <section class="product-business-workbench__header">
       <div class="product-business-workbench__journal-head">
         <div class="product-business-workbench__journal-masthead">
-          <div class="product-business-workbench__title-column">
-            <span class="product-business-workbench__journal-kicker">产品经营页</span>
-            <h3 class="product-business-workbench__journal-title">{{ productHeadline }}</h3>
-            <p class="product-business-workbench__journal-summary">{{ statusStatement }}</p>
-          </div>
-
-          <div class="product-business-workbench__scale-column">
-            <div class="product-business-workbench__scale-panel">
-              <span class="product-business-workbench__scale-label">核心规模</span>
-              <strong class="product-business-workbench__scale-value">{{ scaleValueText }}</strong>
-              <span class="product-business-workbench__scale-caption">{{ scaleCaption }}</span>
+          <article class="product-business-workbench__hero-card" data-testid="product-overview-card">
+            <div class="product-business-workbench__title-column">
+              <span class="product-business-workbench__journal-kicker">产品经营页</span>
+              <h3 class="product-business-workbench__journal-title">{{ productHeadline }}</h3>
+              <p class="product-business-workbench__journal-summary">
+                统一维护产品档案、关联设备和契约字段，当前工作台已收口到同一套正式治理路径。
+              </p>
             </div>
-          </div>
+          </article>
+
+          <article class="product-business-workbench__metric-card" data-testid="related-device-card">
+            <span class="product-business-workbench__metric-label">关联设备</span>
+            <strong class="product-business-workbench__metric-value">{{ totalDevicesText }}</strong>
+          </article>
         </div>
 
-        <div class="product-business-workbench__meta-line">
-          <span class="product-business-workbench__meta-copy">{{ contractStatement }}</span>
+        <div class="product-business-workbench__identity-row" role="list" aria-label="产品身份信息">
+          <span class="product-business-workbench__identity-item product-business-workbench__identity-item--key" role="listitem">
+            <span class="product-business-workbench__identity-label product-business-workbench__copy-label">产品Key</span>
+            <span
+              class="product-business-workbench__identity-value product-business-workbench__identity-value--key product-business-workbench__copy-value"
+              data-testid="product-key-hero"
+            >
+              {{ productKeyText }}
+            </span>
+          </span>
+          <span class="product-business-workbench__identity-item" role="listitem">
+            <span class="product-business-workbench__identity-label product-business-workbench__copy-label">接入协议</span>
+            <span class="product-business-workbench__identity-value product-business-workbench__identity-value--detail product-business-workbench__copy-value">{{ protocolText }}</span>
+          </span>
+          <span class="product-business-workbench__identity-item" role="listitem">
+            <span class="product-business-workbench__identity-label product-business-workbench__copy-label">节点类型</span>
+            <span class="product-business-workbench__identity-value product-business-workbench__identity-value--detail product-business-workbench__copy-value">{{ nodeTypeText }}</span>
+          </span>
+          <span class="product-business-workbench__identity-item" role="listitem">
+            <span class="product-business-workbench__identity-label product-business-workbench__copy-label">数据格式</span>
+            <span class="product-business-workbench__identity-value product-business-workbench__identity-value--detail product-business-workbench__copy-value">{{ dataFormatText }}</span>
+          </span>
         </div>
 
         <div class="product-business-workbench__tab-strip">
@@ -137,6 +158,10 @@ const productHeadline = computed(() => {
   const text = formatText(props.product?.productName || props.product?.productKey)
   return text === '--' ? '未命名产品' : text
 })
+const totalDevices = computed(() => {
+  const count = Number(props.product?.deviceCount ?? 0)
+  return Number.isFinite(count) && count > 0 ? count : 0
+})
 const nodeTypeText = computed(() => {
   if (props.product?.nodeType === 1) {
     return '直连设备'
@@ -147,52 +172,23 @@ const nodeTypeText = computed(() => {
   return '--'
 })
 const totalDevicesText = computed(() => {
-  const count = Number(props.product?.deviceCount ?? 0)
-  return Number.isFinite(count) && count > 0 ? String(count) : '--'
+  return `${totalDevices.value} 台`
 })
-const scaleCaption = computed(() => (props.product?.status === 0 ? '历史关联设备总量' : '关联设备总量'))
-const statusStatement = computed(() => {
-  if (!props.product) {
-    return '选择产品后查看产品总览、关联设备与契约字段。'
-  }
-
-  if (props.product.status === 0) {
-    return '当前产品已停用，建议先核对档案与接入契约。'
-  }
-
-  const totalDevices = Number(props.product.deviceCount ?? 0)
-  const onlineDevices = Number(props.product.onlineDeviceCount ?? 0)
-  if (totalDevices <= 0) {
-    return '产品档案已建立，等待首批设备接入。'
-  }
-
-  const onlineCoverage = Math.round((onlineDevices / totalDevices) * 100)
-  if (onlineCoverage > 0) {
-    return '当前已有运行设备，可继续核对在线覆盖与契约字段。'
-  }
-  return '当前已有设备接入，建议补齐在线基线与契约字段。'
-})
-const contractStatement = computed(
-  () =>
-    `产品key：${productKeyText.value}｜接入协议：${protocolText.value}｜节点类型：${nodeTypeText.value}｜数据格式：${dataFormatText.value}`
-)
-const scaleValueText = computed(() => totalDevicesText.value)
 </script>
 
 <style scoped>
 .product-business-workbench__header {
-  padding: 1.8rem 2rem 1.26rem;
+  padding: 1.26rem 1.4rem 0.9rem;
   border-bottom: 1px solid var(--panel-border);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 22rem),
-    linear-gradient(180deg, color-mix(in srgb, var(--brand-light) 42%, white), rgba(255, 255, 255, 0.98) 54%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 5%, transparent), transparent 20rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-light) 30%, white), rgba(255, 255, 255, 0.99) 58%);
 }
 
 .product-business-workbench__journal-head,
 .product-business-workbench__journal-masthead,
 .product-business-workbench__title-column,
 .product-business-workbench__header-action-slot,
-.product-business-workbench__scale-panel,
 .product-business-workbench__view,
 .product-business-workbench__view-shell {
   display: grid;
@@ -203,17 +199,29 @@ const scaleValueText = computed(() => totalDevicesText.value)
 }
 
 .product-business-workbench__journal-head {
-  gap: 0.95rem;
+  gap: 0.78rem;
 }
 
 .product-business-workbench__journal-masthead {
-  grid-template-columns: minmax(0, 1.2fr) minmax(11rem, 0.8fr);
-  gap: 1.8rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 15rem);
+  gap: 0.72rem;
+  align-items: stretch;
+}
+
+.product-business-workbench__hero-card,
+.product-business-workbench__metric-card {
+  border: 1px solid color-mix(in srgb, var(--panel-border) 84%, white);
+  border-radius: 0.88rem;
+  background: rgba(255, 255, 255, 0.92);
+  height: 100%;
+}
+
+.product-business-workbench__hero-card {
+  padding: 0.88rem 0.94rem;
 }
 
 .product-business-workbench__title-column {
-  gap: 0.54rem;
+  gap: 0.42rem;
 }
 
 .product-business-workbench__journal-kicker {
@@ -230,84 +238,108 @@ const scaleValueText = computed(() => totalDevicesText.value)
   margin: 0;
   color: var(--text-heading);
   font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: clamp(2.3rem, 3.1vw, 3.15rem);
+  font-size: clamp(1.52rem, 2.5vw, 2.06rem);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.16;
   letter-spacing: 0.01em;
 }
 
 .product-business-workbench__journal-summary {
   margin: 0;
-  max-width: 38rem;
+  max-width: 33rem;
   color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.74;
+  font-size: 0.84rem;
+  line-height: 1.52;
 }
 
-.product-business-workbench__scale-column {
-  display: flex;
-  justify-content: flex-end;
+.product-business-workbench__metric-card {
+  gap: 0.22rem;
+  padding: 0.82rem 0.94rem;
+  display: grid;
+  align-content: center;
 }
 
-.product-business-workbench__scale-panel {
-  gap: 0.18rem;
-  min-width: 11rem;
-  padding: 0.12rem 0 0.12rem 1.4rem;
-  border-left: 1px solid var(--panel-border);
-  text-align: right;
-}
-
-.product-business-workbench__scale-label,
-.product-business-workbench__scale-caption,
-.product-business-workbench__meta-line {
+.product-business-workbench__metric-label,
+.product-business-workbench__identity-row {
   color: var(--text-secondary);
 }
 
-.product-business-workbench__scale-label {
-  font-size: 0.76rem;
+.product-business-workbench__copy-label {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.product-business-workbench__copy-value {
+  font-size: 1.1rem;
+  line-height: 1.34;
+}
+
+.product-business-workbench__metric-label {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.product-business-workbench__scale-value {
+.product-business-workbench__metric-value {
   color: var(--text-heading);
   font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: clamp(2.2rem, 3vw, 3rem);
+  font-size: clamp(1.7rem, 2.4vw, 2.1rem);
   line-height: 1;
 }
 
-.product-business-workbench__scale-caption {
-  font-size: 0.82rem;
-  line-height: 1.6;
+.product-business-workbench__identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) repeat(3, minmax(0, 1fr));
+  gap: 0.56rem;
 }
 
-.product-business-workbench__meta-line {
-  padding-top: 0.72rem;
-  border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  font-size: 0.78rem;
-  line-height: 1.7;
+.product-business-workbench__identity-item {
+  display: grid;
+  gap: 0.08rem;
+  padding: 0.42rem 0.56rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--brand-light) 26%, white);
 }
 
-.product-business-workbench__meta-copy {
-  display: block;
-  color: var(--text-secondary);
+.product-business-workbench__identity-item--key {
+  min-width: 0;
+}
+
+.product-business-workbench__identity-label {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.product-business-workbench__identity-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.product-business-workbench__identity-value--key {
+  color: var(--text-heading);
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+}
+
+.product-business-workbench__identity-value--detail {
+  font-size: 1.02rem;
+  line-height: 1.34;
 }
 
 .product-business-workbench__tab-strip {
-  padding-top: 0.78rem;
+  padding-top: 0.22rem;
   border-top: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
 }
 
 .product-business-workbench__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.92rem 1.5rem;
+  gap: 0.46rem 0.56rem;
 }
 
 .product-business-workbench__tab {
   position: relative;
-  padding: 0 0 0.58rem;
+  padding: 0.28rem 0.68rem;
   border: 0;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -318,27 +350,29 @@ const scaleValueText = computed(() => totalDevicesText.value)
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 1px;
+  bottom: -0.2rem;
+  height: 2px;
+  border-radius: var(--radius-pill);
   background: transparent;
 }
 
 .product-business-workbench__tab--active {
-  color: var(--brand);
+  color: color-mix(in srgb, var(--brand) 76%, var(--text-heading));
+  background: color-mix(in srgb, var(--brand-light) 18%, white);
 }
 
 .product-business-workbench__tab--active::after {
-  background: color-mix(in srgb, var(--brand) 72%, var(--text-heading));
+  background: color-mix(in srgb, var(--brand) 34%, transparent);
 }
 
 .product-business-workbench__tab-label {
-  font-size: 0.96rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.34;
 }
 
 .product-business-workbench__view-shell {
-  padding: 1.48rem 2rem 2rem;
+  padding: 1.12rem 1.4rem 1.4rem;
 }
 
 .product-business-workbench__view {
@@ -348,26 +382,21 @@ const scaleValueText = computed(() => totalDevicesText.value)
 @media (max-width: 900px) {
   .product-business-workbench__header,
   .product-business-workbench__view-shell {
-    padding-right: 1.2rem;
-    padding-left: 1.2rem;
+    padding-right: 0.92rem;
+    padding-left: 0.92rem;
   }
 
   .product-business-workbench__journal-masthead {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.56rem;
   }
 
-  .product-business-workbench__scale-column {
-    justify-content: flex-start;
+  .product-business-workbench__identity-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .product-business-workbench__scale-panel {
-    min-width: 0;
-    padding-left: 0;
-    border-left: 0;
-    border-top: 1px solid var(--panel-border);
-    padding-top: 0.88rem;
-    text-align: left;
+  .product-business-workbench__identity-item--key {
+    grid-column: 1 / -1;
   }
 }
 </style>

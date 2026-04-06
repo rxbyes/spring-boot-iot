@@ -4,11 +4,12 @@
     :size="size"
     direction="rtl"
     :destroy-on-close="destroyOnClose"
-    class="standard-detail-drawer"
+    :class="['standard-detail-drawer', { 'standard-detail-drawer--header-hidden': hideHeader }]"
     @close="emit('update:modelValue', false)"
   >
     <template #header>
       <div
+        v-if="!hideHeader"
         :class="[
           'detail-drawer__header',
           { 'detail-drawer__header--title-inline': tagLayout === 'title-inline' }
@@ -85,6 +86,7 @@ const props = withDefaults(
     errorMessage?: string;
     empty?: boolean;
     emptyText?: string;
+    hideHeader?: boolean;
     tags?: Array<{
       label: string;
       type?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
@@ -101,6 +103,7 @@ const props = withDefaults(
     errorMessage: '',
     empty: false,
     emptyText: '暂无详情数据',
+    hideHeader: false,
     tags: () => [],
     tagLayout: 'aside'
   }
@@ -142,6 +145,16 @@ const hasHeaderAside = computed(() => hasHeaderActions.value || (props.tagLayout
 .standard-detail-drawer :deep(.el-drawer__footer) {
   padding: 0;
   background: transparent;
+}
+
+.standard-detail-drawer--header-hidden :deep(.el-drawer__header) {
+  display: none;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.standard-detail-drawer--header-hidden :deep(.el-drawer__body) {
+  padding-top: 28px;
 }
 
 .detail-drawer__header {

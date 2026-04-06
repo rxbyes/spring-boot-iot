@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineComponent, h, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
+import { ElMessage } from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import ProductWorkbenchView from '@/views/ProductWorkbenchView.vue'
 
 const {
@@ -217,13 +219,11 @@ const ProductModelDesignerWorkspaceStub = defineComponent({
 
 const ProductDeviceListWorkspaceStub = defineComponent({
   name: 'ProductDeviceListWorkspace',
-  props: ['product', 'devices', 'totalDevices', 'onlineDevices', 'offlineDevices'],
+  props: ['devices', 'loading', 'errorMessage', 'empty', 'devicesLoading'],
   template: `
     <section class="product-device-list-workspace-stub">
-      <span>{{ product?.productKey }}</span>
-      <span>{{ totalDevices }}</span>
-      <span>{{ onlineDevices }}</span>
-      <span>{{ offlineDevices }}</span>
+      <span class="product-device-list-workspace-stub__count">{{ devices?.length ?? 0 }}</span>
+      <span class="product-device-list-workspace-stub__loading">{{ loading ? 'loading' : 'ready' }}</span>
     </section>
   `
 })
@@ -297,20 +297,6 @@ const ElTableColumnStub = defineComponent({
   `
 })
 
-const ProductModelDesignerDrawerStub = defineComponent({
-  name: 'ProductModelDesignerDrawer',
-  props: ['modelValue', 'product'],
-  template: `
-    <section v-if="modelValue" class="product-model-designer-drawer-stub">
-      <h2>基于真实上报提炼产品契约</h2>
-      <h3>属性模型</h3>
-      <h3>事件模型</h3>
-      <h3>服务模型</h3>
-      <p>暂无物模型</p>
-    </section>
-  `
-})
-
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -351,7 +337,6 @@ function mountView() {
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
         StandardTableToolbar: StandardTableToolbarStub,
-        ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
         ProductBusinessWorkbenchDrawer: ProductBusinessWorkbenchDrawerStub,
         ProductDetailWorkbench: ProductDetailWorkbenchStub,
         ProductModelDesignerWorkspace: ProductModelDesignerWorkspaceStub,
@@ -400,6 +385,9 @@ describe('ProductWorkbenchView', () => {
     mockUpdateProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockDeleteProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
     installSessionStorageMock()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
   })
 
   it('renders the product page inside the shared governance shell without the legacy eyebrow tier', async () => {
@@ -460,6 +448,33 @@ describe('ProductWorkbenchView', () => {
 
     expect(rowActions.some((component) => component.props('variant') === 'card')).toBe(true)
     expect(rowActions.some((component) => component.props('variant') === 'table')).toBe(true)
+  })
+
+  it('shows the shared system busy copy when product page loading returns 500', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageProducts.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', false, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).toHaveBeenCalledWith('系统繁忙，请稍后重试！')
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalledWith('获取产品分页失败')
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not show a second toast when the product page request error is already handled', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageProducts.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+
+    errorSpy.mockRestore()
   })
 
   it('opens the unified business workbench from the single direct entry with overview as the default view', async () => {
@@ -682,8 +697,24 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(wrapper.findComponent(DeviceListDrawerStub).exists()).toBe(false)
-    expect(wrapper.findComponent(ProductModelDesignerDrawerStub).exists()).toBe(false)
     expect(wrapper.findComponent(StandardDetailDrawerStub).exists()).toBe(false)
+  })
+
+  it('labels the applied quick-search chip as quick search instead of product name', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).appliedFilters.productName = 'demo-product'
+    await nextTick()
+
+    expect((wrapper.vm as any).activeFilterTags[0].label).toBe('快速搜索：demo-product')
+  })
+
+  it('advertises product key support in the quick-search placeholder copy', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/ProductWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain('快速搜索（产品名称、产品 Key、厂商）')
   })
 
   it('uses the shared list surface and mobile-card grammar', () => {

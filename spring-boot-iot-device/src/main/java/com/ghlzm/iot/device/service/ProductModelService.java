@@ -1,16 +1,12 @@
 package com.ghlzm.iot.device.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
-import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.util.List;
 
@@ -30,27 +26,12 @@ public interface ProductModelService extends IService<ProductModel> {
     ProductModelVO createModel(Long productId, ProductModelUpsertDTO dto);
 
     /**
-     * 基于真实上报数据提炼物模型候选。
-     */
-    ProductModelCandidateResultVO listModelCandidates(Long productId);
-
-    /**
-     * 基于单设备样本手动提炼物模型候选。
-     */
-    ProductModelCandidateResultVO manualExtractModelCandidates(Long productId, ProductModelManualExtractDTO dto);
-
-    /**
-     * 确认候选并写入正式物模型。
-     */
-    ProductModelCandidateSummaryVO confirmModelCandidates(Long productId, ProductModelCandidateConfirmDTO dto);
-
-    /**
      * 更新物模型。
      */
     ProductModelVO updateModel(Long productId, Long modelId, ProductModelUpsertDTO dto);
 
     /**
-     * 构建双证据治理 compare 结果。
+     * 基于手动样本构建契约字段 compare 结果。
      */
     default ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         throw new UnsupportedOperationException("compareGovernance 尚未实现");

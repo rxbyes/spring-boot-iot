@@ -1,16 +1,12 @@
 package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
-import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
-import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -42,23 +38,6 @@ public class ProductModelController {
     @PostMapping("/api/device/product/{productId}/models")
     public R<ProductModelVO> add(@PathVariable Long productId, @RequestBody @Valid ProductModelUpsertDTO dto) {
         return R.ok(productModelService.createModel(productId, dto));
-    }
-
-    @GetMapping("/api/device/product/{productId}/model-candidates")
-    public R<ProductModelCandidateResultVO> listCandidates(@PathVariable Long productId) {
-        return R.ok(productModelService.listModelCandidates(productId));
-    }
-
-    @PostMapping("/api/device/product/{productId}/model-candidates/manual-extract")
-    public R<ProductModelCandidateResultVO> manualExtract(@PathVariable Long productId,
-                                                          @RequestBody @Valid ProductModelManualExtractDTO dto) {
-        return R.ok(productModelService.manualExtractModelCandidates(productId, dto));
-    }
-
-    @PostMapping("/api/device/product/{productId}/model-candidates/confirm")
-    public R<ProductModelCandidateSummaryVO> confirmCandidates(@PathVariable Long productId,
-                                                               @RequestBody ProductModelCandidateConfirmDTO dto) {
-        return R.ok(productModelService.confirmModelCandidates(productId, dto));
     }
 
     @PostMapping("/api/device/product/{productId}/model-governance/compare")

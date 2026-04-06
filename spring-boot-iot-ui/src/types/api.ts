@@ -408,28 +408,21 @@ export interface ProductModelGovernanceCompareResult {
 
 export interface ProductModelGovernanceManualExtractPayload {
   sampleType: ProductModelManualSampleType;
+  deviceStructure: ProductModelGovernanceDeviceStructure;
   samplePayload: string;
+  parentDeviceCode?: string | null;
+  relationMappings?: ProductModelGovernanceRelationMappingPayload[] | null;
 }
 
-export interface ProductModelGovernanceManualDraftItem {
-  modelType: ProductModelType;
-  identifier: string;
-  modelName: string;
-  dataType?: string | null;
-  specsJson?: string | null;
-  eventType?: string | null;
-  serviceInputJson?: string | null;
-  serviceOutputJson?: string | null;
-  description?: string | null;
+export type ProductModelGovernanceDeviceStructure = 'single' | 'composite';
+
+export interface ProductModelGovernanceRelationMappingPayload {
+  logicalChannelCode: string;
+  childDeviceCode: string;
 }
 
 export interface ProductModelGovernanceComparePayload {
-  governanceMode?: 'normative' | 'generic' | null;
-  normativePresetCode?: string | null;
-  selectedNormativeIdentifiers?: string[] | null;
   manualExtract?: ProductModelGovernanceManualExtractPayload;
-  manualDraftItems?: ProductModelGovernanceManualDraftItem[];
-  includeRuntimeCandidates?: boolean;
 }
 
 export interface ProductModelGovernanceApplyItem {
@@ -489,12 +482,7 @@ export interface ProductModelCandidateConfirmPayload {
   items: ProductModelCandidateConfirmItem[];
 }
 
-export type ProductModelManualSampleType = 'business' | 'status' | 'other';
-
-export interface ProductModelManualExtractPayload {
-  sampleType: ProductModelManualSampleType;
-  samplePayload: string;
-}
+export type ProductModelManualSampleType = 'business' | 'status';
 
 export interface Device {
   id?: IdType | null;
@@ -736,6 +724,33 @@ export interface DeviceReplaceResult {
   targetDeviceId: IdType;
   targetDeviceCode: string;
   targetDeviceName: string;
+}
+
+export interface DeviceRelation {
+  id?: IdType | null;
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  childProductId?: IdType | null;
+  childProductKey?: string | null;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface DeviceRelationUpsertPayload {
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
 }
 
 export interface HttpReportPayload {

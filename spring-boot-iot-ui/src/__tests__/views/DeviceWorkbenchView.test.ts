@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineComponent, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
+import { ElMessage } from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import DeviceWorkbenchView from '@/views/DeviceWorkbenchView.vue'
 
 const { mockRoute, mockRouter, mockPageDevices } = vi.hoisted(() => ({
@@ -151,13 +153,14 @@ const ElFormItemStub = defineComponent({
 
 const ElInputStub = defineComponent({
   name: 'ElInput',
-  props: ['modelValue', 'id'],
+  props: ['modelValue', 'id', 'placeholder'],
   emits: ['update:modelValue', 'clear'],
   template: `
     <input
       :id="id"
       class="el-input-stub"
       :value="modelValue"
+      :placeholder="placeholder"
       @input="$emit('update:modelValue', $event.target && $event.target.value)"
     />
   `
@@ -183,20 +186,29 @@ const StandardActionMenuStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['eyebrow', 'title', 'subtitle', 'tags', 'tagLayout'],
+  props: {
+    eyebrow: String,
+    title: String,
+    subtitle: String,
+    tags: Array,
+    tagLayout: String,
+    hideHeader: Boolean
+  },
   template: `
     <section class="device-detail-drawer-stub">
-      <p v-if="eyebrow">{{ eyebrow }}</p>
-      <h3>{{ title }}</h3>
-      <p>{{ subtitle }}</p>
-      <div class="device-detail-drawer-stub__tags">
-        <span
-          v-for="tag in tags || []"
-          :key="tag.label"
-          class="device-detail-drawer-stub__tag"
-        >
-          {{ tag.label }}
-        </span>
+      <div v-if="!hideHeader" class="device-detail-drawer-stub__header">
+        <p v-if="eyebrow">{{ eyebrow }}</p>
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+        <div class="device-detail-drawer-stub__tags">
+          <span
+            v-for="tag in tags || []"
+            :key="tag.label"
+            class="device-detail-drawer-stub__tag"
+          >
+            {{ tag.label }}
+          </span>
+        </div>
       </div>
       <slot />
       <slot name="footer" />
@@ -301,6 +313,9 @@ describe('DeviceWorkbenchView', () => {
       }
     })
     installSessionStorageMock()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
   })
 
   it('renders the quick-search workbench without missing template bindings', async () => {
@@ -344,34 +359,45 @@ describe('DeviceWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
   })
 
-  it('locks the detail drawer title and status tags into the same inline header contract', async () => {
+  it('shows the shared system busy copy when device page loading returns 500', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageDevices.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', false, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).toHaveBeenCalledWith('系统繁忙，请稍后重试！')
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalledWith('获取设备分页失败')
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not show a second toast when the device page request error is already handled', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageDevices.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('keeps the quick-search box as a single entry while expanding its match scope to product fields', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    ;(wrapper.vm as any).detailData = {
-      id: 1,
-      deviceName: '北坡监测终端',
-      deviceCode: 'device-001',
-      registrationStatus: 1,
-      onlineStatus: 1,
-      activateStatus: 1,
-      deviceStatus: 1
-    }
-    await nextTick()
-
-    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
-
-    expect(detailDrawer.props('tagLayout')).toBe('title-inline')
-    expect(((detailDrawer.props('tags') as Array<{ label: string }>) || []).map((tag) => tag.label)).toEqual([
-      '已登记',
-      '在线',
-      '已激活',
-      '启用'
-    ])
+    const quickSearch = wrapper.get('#quick-search')
+    expect(quickSearch.attributes('placeholder')).toBe('快速搜索（设备编码、设备名称、产品 Key、产品名称）')
+    expect(wrapper.text()).not.toContain('设备编码：')
+    expect(wrapper.text()).not.toContain('产品 Key：')
   })
 
-  it('keeps the drawer shell thin and uses the new workbench subtitle copy', async () => {
+  it('restores the device detail drawer title and description while keeping the simplified workbench body', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
@@ -385,15 +411,13 @@ describe('DeviceWorkbenchView', () => {
     await nextTick()
 
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
-    expect(detailDrawer.props('subtitle')).toBe('统一查看资产判断、部署台账、运行台账与建档补充。')
-
-    ;(wrapper.vm as any).detailData = {
-      deviceCode: 'temp-device-001',
-      registrationStatus: 0
-    }
-    await nextTick()
-
-    expect(detailDrawer.props('subtitle')).toBe('当前设备仍未登记，详情按失败来源和最近载荷组织。')
+    expect(detailDrawer.props('hideHeader')).toBe(false)
+    expect(String(detailDrawer.props('title'))).toBe('北坡监测终端')
+    expect(String(detailDrawer.props('subtitle'))).toBe('统一查看资产判断、部署台账、运行台账与建档补充。')
+    expect(((detailDrawer.props('tags') as Array<unknown>) || [])).toHaveLength(0)
+    expect(detailDrawer.text()).toContain('北坡监测终端')
+    expect(detailDrawer.text()).toContain('统一查看资产判断、部署台账、运行台账与建档补充。')
+    expect(detailDrawer.text()).not.toContain('已登记')
   })
 
   it('keeps the device toolbar focused by collapsing secondary actions into a more-actions menu', async () => {
@@ -533,7 +557,9 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
     expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
-    expect(source).toContain('tag-layout="title-inline"')
+    expect(source).toContain('formatDeviceReportTime')
+    expect(source).not.toContain('tag-layout="title-inline"')
+    expect(source).not.toContain(':tags="detailTags"')
     expect(source).not.toContain('<h3>资产概览</h3>')
     expect(source).not.toContain('<h3>资产档案</h3>')
     expect(source).not.toContain('<h3>拓扑关系</h3>')

@@ -1,6 +1,21 @@
 <template>
   <section class="product-model-governance-compare-table">
-    <div class="product-model-governance-compare-table__tabs" role="tablist" aria-label="物模型对比类型">
+    <div class="product-model-governance-compare-table__tabs" role="tablist" aria-label="待处理字段分组">
+      <button
+        v-for="group in groupOptions"
+        :key="group.key"
+        :data-testid="`governance-group-${group.key}`"
+        type="button"
+        class="product-model-governance-compare-table__tab"
+        :class="{ 'product-model-governance-compare-table__tab--active': activeGroup === group.key }"
+        @click="activeGroup = group.key"
+      >
+        <span>{{ group.label }}</span>
+        <strong>{{ rowsByGroup(group.key).length }}</strong>
+      </button>
+    </div>
+
+    <div class="product-model-governance-compare-table__type-tabs" role="tablist" aria-label="字段类型筛选">
       <button
         v-for="option in typeOptions"
         :key="option.value"
@@ -24,66 +39,52 @@
       >
         <header class="product-model-governance-compare-table__row-header">
           <div class="product-model-governance-compare-table__row-heading">
-            <strong>{{ row.identifier }}</strong>
-            <span>{{ statusLabel(row.compareStatus) }}</span>
-          </div>
-          <div class="product-model-governance-compare-table__row-side">
-            <div class="product-model-governance-compare-table__action-copy">
-              <span>建议动作</span>
-              <strong>{{ row.suggestedAction || '继续观察' }}</strong>
-            </div>
-            <div class="product-model-governance-compare-table__action-copy">
-              <span>当前决策</span>
-              <strong>{{ currentDecisionLabel(row) }}</strong>
+            <span class="product-model-governance-compare-table__row-kicker">识别结果</span>
+            <strong>{{ rowDisplayName(row) }}</strong>
+            <div class="product-model-governance-compare-table__row-meta">
+              <span>identifier: {{ row.identifier }}</span>
+              <span>类型: {{ rowTypeLabel(row) }}</span>
+              <span>{{ rowDataHint(row) }}</span>
             </div>
           </div>
         </header>
 
-        <div class="product-model-governance-compare-table__evidence-grid">
-          <section class="product-model-governance-compare-table__evidence-card">
-            <span>规范证据</span>
-            <strong>{{ evidenceTitle(row.manualCandidate) }}</strong>
-            <p>{{ evidenceSummary(row.manualCandidate) }}</p>
-            <div v-if="evidenceNotes(row.manualCandidate).length" class="product-model-governance-compare-table__evidence-notes">
-              <small
-                v-for="note in evidenceNotes(row.manualCandidate)"
-                :key="note"
-              >
-                {{ note }}
-              </small>
-            </div>
-          </section>
-          <section class="product-model-governance-compare-table__evidence-card">
-            <span>报文证据</span>
-            <strong>{{ evidenceTitle(row.runtimeCandidate) }}</strong>
-            <p>{{ evidenceSummary(row.runtimeCandidate) }}</p>
-            <div v-if="evidenceNotes(row.runtimeCandidate).length" class="product-model-governance-compare-table__evidence-notes">
-              <small
-                v-for="note in evidenceNotes(row.runtimeCandidate)"
-                :key="note"
-              >
-                {{ note }}
-              </small>
-            </div>
-          </section>
-          <section class="product-model-governance-compare-table__evidence-card">
-            <span>正式模型</span>
-            <strong>{{ evidenceTitle(row.formalModel) }}</strong>
-            <p>{{ evidenceSummary(row.formalModel) }}</p>
-            <div v-if="evidenceNotes(row.formalModel).length" class="product-model-governance-compare-table__evidence-notes">
-              <small
-                v-for="note in evidenceNotes(row.formalModel)"
-                :key="note"
-              >
-                {{ note }}
-              </small>
-            </div>
-          </section>
+        <div class="product-model-governance-compare-table__evidence-summary">
+          <div class="product-model-governance-compare-table__sample-card">
+            <span>样例值</span>
+            <strong>{{ rowSampleValue(row) }}</strong>
+          </div>
+          <div class="product-model-governance-compare-table__baseline-card">
+            <span>正式字段：</span>
+            <strong>{{ formalBaselineLabel(row) }}</strong>
+          </div>
+          <div class="product-model-governance-compare-table__source-chips">
+            <span
+              v-for="chip in sourceChips(row)"
+              :key="chip"
+              class="product-model-governance-compare-table__source-chip"
+            >
+              {{ chip }}
+            </span>
+          </div>
         </div>
 
-        <div v-if="row.riskFlags?.length" class="product-model-governance-compare-table__risk-flags">
+        <p v-if="rowStatusSummary(row)" class="product-model-governance-compare-table__row-reason">
+          {{ rowStatusSummary(row) }}
+        </p>
+
+        <div v-if="templateSummaryParts(row).length" class="product-model-governance-compare-table__template-summary">
+          <small
+            v-for="part in templateSummaryParts(row)"
+            :key="part"
+          >
+            {{ part }}
+          </small>
+        </div>
+
+        <div v-if="visibleRiskFlags(row).length" class="product-model-governance-compare-table__risk-flags">
           <span
-            v-for="flag in row.riskFlags"
+            v-for="flag in visibleRiskFlags(row)"
             :key="flag"
             class="product-model-governance-compare-table__risk-flag"
           >
@@ -114,17 +115,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type {
   ProductModelGovernanceCompareRow,
   ProductModelGovernanceDecision,
   ProductModelGovernanceEvidence,
-  ProductModelGovernanceCompareStatus,
   ProductModelType
 } from '@/types/api'
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
+type GovernanceGroupKey = 'direct' | 'review' | 'observe' | 'conflict'
+type GovernanceTypeFilter = 'all' | ProductModelType
 
 const props = withDefaults(defineProps<{
   rows: ProductModelGovernanceCompareRow[]
@@ -137,17 +139,41 @@ const emit = defineEmits<{
   (event: 'change-decision', payload: { key: string; decision: GovernanceDecisionUi }): void
 }>()
 
-const typeOptions: Array<{ label: string; value: ProductModelType }> = [
+const groupOptions: Array<{ label: string; key: GovernanceGroupKey }> = [
+  { label: '可直接生效', key: 'direct' },
+  { label: '待确认', key: 'review' },
+  { label: '继续观察', key: 'observe' },
+  { label: '存在差异', key: 'conflict' }
+]
+
+const typeOptions: Array<{ label: string; value: GovernanceTypeFilter }> = [
+  { label: '全部', value: 'all' },
   { label: '属性', value: 'property' },
   { label: '事件', value: 'event' },
   { label: '服务', value: 'service' }
 ]
 
-const activeType = ref<ProductModelType>('property')
+const activeGroup = ref<GovernanceGroupKey>('direct')
+const activeType = ref<GovernanceTypeFilter>('all')
 
-const activeRows = computed(() => rowsByType(activeType.value))
+const activeRows = computed(() =>
+  rowsByGroup(activeGroup.value).filter((row) => activeType.value === 'all' || row.modelType === activeType.value)
+)
 
-function rowsByType(type: ProductModelType) {
+watch(
+  () => props.rows,
+  () => {
+    if (!rowsByGroup(activeGroup.value).length) {
+      activeGroup.value = firstAvailableGroup()
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+function rowsByType(type: GovernanceTypeFilter) {
+  if (type === 'all') {
+    return props.rows
+  }
   return props.rows.filter((row) => row.modelType === type)
 }
 
@@ -155,78 +181,85 @@ function rowKey(row: ProductModelGovernanceCompareRow) {
   return `${row.modelType}:${row.identifier}`
 }
 
-function statusLabel(status: ProductModelGovernanceCompareStatus) {
-  return {
-    double_aligned: '双证据一致',
-    manual_only: '仅手动命中',
-    runtime_only: '自动证据独有',
-    formal_exists: '正式模型已存在',
-    suspected_conflict: '疑似冲突',
-    evidence_insufficient: '证据不足'
-  }[status] ?? status
+function rowsByGroup(group: GovernanceGroupKey) {
+  return props.rows.filter((row) => resolveGroup(row) === group)
 }
 
 function riskLabel(flag: string) {
   return {
-    definition_mismatch: '定义不一致',
-    needs_review: '需人工核对',
-    formal_baseline: '正式基线已存在',
-    manual_missing: '缺少手动证据',
-    runtime_missing: '缺少自动证据',
+    definition_mismatch: '与现有字段存在差异',
+    needs_review: '需要确认',
+    formal_baseline: '正式契约已存在',
+    manual_missing: '等待更多上报样本',
+    runtime_missing: '等待运行数据补充',
     suspected_match: '存在疑似同义项'
   }[flag] ?? flag
 }
 
-function evidenceTitle(evidence?: ProductModelGovernanceEvidence | null) {
-  return evidence?.modelName || '暂无'
+function rowDisplayName(row: ProductModelGovernanceCompareRow) {
+  return row.manualCandidate?.modelName
+    || row.runtimeCandidate?.modelName
+    || row.formalModel?.modelName
+    || row.identifier
 }
 
-function evidenceSummary(evidence?: ProductModelGovernanceEvidence | null) {
-  if (!evidence) {
-    return '当前侧暂无可用证据。'
-  }
-  const typePart = evidence.dataType || evidence.eventType || formatServiceSummary(evidence)
-  const meta = [
-    evidence.unit,
-    evidence.monitorTypeCode,
-    evidence.sourceTables?.length ? evidence.sourceTables.join(' / ') : null
-  ].filter(Boolean)
-  return [typePart, ...meta].filter(Boolean).join(' · ') || '当前侧已识别到证据。'
+function rowTypeLabel(row: ProductModelGovernanceCompareRow) {
+  return {
+    property: '属性',
+    event: '事件',
+    service: '服务'
+  }[row.modelType] ?? row.modelType
 }
 
-function evidenceNotes(evidence?: ProductModelGovernanceEvidence | null) {
-  if (!evidence) {
-    return []
+function rowDataHint(row: ProductModelGovernanceCompareRow) {
+  const source = row.manualCandidate ?? row.runtimeCandidate ?? row.formalModel
+  const dataHint = source?.dataType || source?.eventType || (source ? formatServiceSummary(source) : '')
+  return dataHint ? `数据类型: ${dataHint}` : '数据类型: 待确认'
+}
+
+function rowSampleValue(row: ProductModelGovernanceCompareRow) {
+  const source = row.manualCandidate ?? row.runtimeCandidate ?? row.formalModel
+  if (!source) {
+    return '待上报后显示'
   }
-  const protocolTemplateEvidence = evidence.protocolTemplateEvidence
-  return [
-    evidence.normativeSource,
-    evidence.rawIdentifiers?.length ? evidence.rawIdentifiers.join(' / ') : null,
-    protocolTemplateEvidence?.templateCodes?.length
-      ? `模板来源：${protocolTemplateEvidence.templateCodes.join(' / ')}`
-      : null,
-    protocolTemplateEvidence?.logicalChannelCodes?.length
-      ? `逻辑通道：${protocolTemplateEvidence.logicalChannelCodes.join(' / ')}`
-      : null,
-    protocolTemplateEvidence?.childDeviceCodes?.length
-      ? `子设备样本：${protocolTemplateEvidence.childDeviceCodes.join(' / ')}`
-      : null,
-    protocolTemplateEvidence?.canonicalizationStrategies?.length
-      ? `规范策略：${protocolTemplateEvidence.canonicalizationStrategies.join(' / ')}`
-      : null,
-    protocolTemplateEvidence?.statusMirrorApplied === true
-      ? '状态镜像：已镜像'
-      : null,
-    protocolTemplateEvidence?.statusMirrorApplied === false
-      ? '状态镜像：无'
-      : null,
-    protocolTemplateEvidence?.parentRemovalKeys?.length
-      ? `父字段剔除：${protocolTemplateEvidence.parentRemovalKeys.join(' / ')}`
-      : null,
-    protocolTemplateEvidence?.decodeFailureCount
-      ? `模板重解码失败 ${protocolTemplateEvidence.decodeFailureCount} 次`
-      : null
-  ].filter((item): item is string => Boolean(item))
+  const protocolSummary = source.protocolTemplateEvidence?.logicalChannelCodes?.[0]
+  if (protocolSummary) {
+    return protocolSummary
+  }
+  return source.unit || source.monitorTypeCode || '待上报后显示'
+}
+
+function sourceChips(row: ProductModelGovernanceCompareRow) {
+  return Array.from(new Set([
+    sourceChipLabel(row.manualCandidate),
+    sourceChipLabel(row.runtimeCandidate),
+    row.formalModel ? '正式模型已存在' : null
+  ].filter((item): item is string => Boolean(item))))
+}
+
+function sourceChipLabel(evidence?: ProductModelGovernanceEvidence | null) {
+  if (!evidence) {
+    return null
+  }
+  if (evidence.protocolTemplateEvidence) {
+    return '来自父设备归一'
+  }
+  if (evidence.evidenceOrigin === 'sample_json' || evidence.sourceTables?.includes('manual_sample')) {
+    return '来自上报样本'
+  }
+  if (evidence.evidenceOrigin === 'manual_draft' || evidence.sourceTables?.includes('manual_draft')) {
+    return '来自手工补充'
+  }
+  if (evidence.evidenceOrigin === 'formal' || evidence.sourceTables?.includes('iot_product_model')) {
+    return '正式模型已存在'
+  }
+  if (evidence.evidenceOrigin === 'normative') {
+    return '来自规范预设'
+  }
+  if (evidence.evidenceOrigin === 'runtime' || evidence.sourceTables?.some((table) => table.startsWith('iot_'))) {
+    return '来自运行数据'
+  }
+  return '来自识别结果'
 }
 
 function formatServiceSummary(evidence: ProductModelGovernanceEvidence) {
@@ -236,6 +269,76 @@ function formatServiceSummary(evidence: ProductModelGovernanceEvidence) {
   if (hasInput) return '仅定义输入'
   if (hasOutput) return '仅定义输出'
   return ''
+}
+
+function resolveGroup(row: ProductModelGovernanceCompareRow): GovernanceGroupKey {
+  if (row.compareStatus === 'suspected_conflict') {
+    return 'conflict'
+  }
+  if (row.compareStatus === 'formal_exists') {
+    return 'review'
+  }
+  if (
+    row.compareStatus === 'manual_only'
+    || row.compareStatus === 'runtime_only'
+    || row.compareStatus === 'evidence_insufficient'
+    || row.riskFlags?.includes('manual_missing')
+    || row.riskFlags?.includes('runtime_missing')
+    || row.riskFlags?.includes('runtime_low_evidence')
+  ) {
+    return 'observe'
+  }
+  return 'direct'
+}
+
+function firstAvailableGroup() {
+  return groupOptions.find((group) => rowsByGroup(group.key).length > 0)?.key ?? 'direct'
+}
+
+function rowStatusSummary(row: ProductModelGovernanceCompareRow) {
+  if (row.compareStatus === 'suspected_conflict' || row.riskFlags?.includes('definition_mismatch')) {
+    return '与现有字段有差异，请确认后再生效'
+  }
+  if (row.compareStatus === 'formal_exists' || row.riskFlags?.includes('formal_baseline')) {
+    return '正式模型已存在，可按需纳入修订'
+  }
+  if (
+    row.compareStatus === 'manual_only'
+    || row.compareStatus === 'runtime_only'
+    || row.compareStatus === 'evidence_insufficient'
+    || row.riskFlags?.includes('manual_missing')
+    || row.riskFlags?.includes('runtime_missing')
+    || row.riskFlags?.includes('runtime_low_evidence')
+  ) {
+    return '证据还不够，先继续观察'
+  }
+  return '当前字段可直接确认生效'
+}
+
+function formalBaselineLabel(row: ProductModelGovernanceCompareRow) {
+  return row.formalModel?.modelId ? '已存在' : '暂无'
+}
+
+function templateSummaryParts(row: ProductModelGovernanceCompareRow) {
+  const protocolTemplateEvidence = row.runtimeCandidate?.protocolTemplateEvidence
+  if (!protocolTemplateEvidence) {
+    return []
+  }
+  return [
+    protocolTemplateEvidence.templateCodes?.length
+      ? friendlyTemplateName(protocolTemplateEvidence.templateCodes[0])
+      : null,
+    protocolTemplateEvidence.childDeviceCodes?.length
+      ? protocolTemplateEvidence.childDeviceCodes.join(' / ')
+      : null,
+    protocolTemplateEvidence.canonicalizationStrategies?.length
+      ? protocolTemplateEvidence.canonicalizationStrategies.join(' / ')
+      : null
+  ].filter((item): item is string => Boolean(item))
+}
+
+function visibleRiskFlags(row: ProductModelGovernanceCompareRow) {
+  return (row.riskFlags ?? []).filter((flag) => flag !== 'formal_baseline')
 }
 
 function availableDecisions(row: ProductModelGovernanceCompareRow) {
@@ -261,7 +364,7 @@ function availableDecisions(row: ProductModelGovernanceCompareRow) {
       ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
     case 'suspected_conflict':
       return [
-        { label: '人工裁决', value: 'review' },
+        { label: '待确认', value: 'review' },
         { label: row.formalModel?.modelId ? '纳入修订' : '纳入新增', value: row.formalModel?.modelId ? 'update' : 'create' },
         { label: '忽略', value: 'ignore' }
       ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
@@ -283,47 +386,56 @@ function currentDecision(row: ProductModelGovernanceCompareRow) {
   return props.decisionState[rowKey(row)]
 }
 
-function currentDecisionLabel(row: ProductModelGovernanceCompareRow) {
-  const decision = currentDecision(row)
-  if (!decision) {
-    return '未选择'
-  }
-  return {
-    create: '纳入新增',
-    update: '纳入修订',
-    observe: '继续观察',
-    review: '人工裁决',
-    ignore: '忽略'
-  }[decision] ?? decision
-}
-
 function emitDecision(row: ProductModelGovernanceCompareRow, decision: GovernanceDecisionUi) {
   emit('change-decision', { key: rowKey(row), decision })
+}
+
+function friendlyTemplateName(templateCode?: string | null) {
+  switch (templateCode) {
+    case 'crack_child_template':
+      return '裂缝模板'
+    case 'deep_displacement_child_template':
+      return '深部位移模板'
+    default:
+      return templateCode || '模板'
+  }
 }
 </script>
 
 <style scoped>
 .product-model-governance-compare-table,
 .product-model-governance-compare-table__tabs,
+.product-model-governance-compare-table__type-tabs,
 .product-model-governance-compare-table__list,
 .product-model-governance-compare-table__row,
-.product-model-governance-compare-table__evidence-grid {
+.product-model-governance-compare-table__row-heading,
+.product-model-governance-compare-table__row-meta,
+.product-model-governance-compare-table__evidence-summary,
+.product-model-governance-compare-table__sample-card,
+.product-model-governance-compare-table__baseline-card,
+.product-model-governance-compare-table__source-chips,
+.product-model-governance-compare-table__template-summary {
   display: grid;
 }
 
 .product-model-governance-compare-table {
-  gap: 1rem;
+  gap: 0.88rem;
 }
 
 .product-model-governance-compare-table__tabs {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.56rem;
+}
+
+.product-model-governance-compare-table__type-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.56rem;
 }
 
 .product-model-governance-compare-table__tab,
 .product-model-governance-compare-table__decision-button {
   border: 1px solid var(--panel-border);
-  border-radius: 1rem;
+  border-radius: 0.92rem;
   background: #fff;
   color: var(--text-secondary);
   cursor: pointer;
@@ -334,14 +446,14 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
   display: grid;
   gap: 0.22rem;
   justify-items: start;
-  padding: 0.9rem 1rem;
+  padding: 0.72rem 0.84rem;
   text-align: left;
 }
 
 .product-model-governance-compare-table__tab strong,
 .product-model-governance-compare-table__row-heading strong,
-.product-model-governance-compare-table__action-copy strong,
-.product-model-governance-compare-table__evidence-card strong {
+.product-model-governance-compare-table__sample-card strong,
+.product-model-governance-compare-table__baseline-card strong {
   color: var(--text-heading);
 }
 
@@ -354,14 +466,14 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
 }
 
 .product-model-governance-compare-table__list {
-  gap: 0.88rem;
+  gap: 0.72rem;
 }
 
 .product-model-governance-compare-table__row {
-  gap: 0.88rem;
-  padding: 1rem;
+  gap: 0.72rem;
+  padding: 0.9rem;
   border: 1px solid var(--panel-border);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 253, 0.98));
 }
 
@@ -375,60 +487,96 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
   justify-content: space-between;
 }
 
-.product-model-governance-compare-table__row-side,
 .product-model-governance-compare-table__row-heading,
-.product-model-governance-compare-table__action-copy,
-.product-model-governance-compare-table__evidence-card {
-  display: grid;
+.product-model-governance-compare-table__row-meta,
+.product-model-governance-compare-table__sample-card,
+.product-model-governance-compare-table__baseline-card,
+.product-model-governance-compare-table__source-chips,
+.product-model-governance-compare-table__template-summary {
   gap: 0.22rem;
 }
 
-.product-model-governance-compare-table__row-side {
-  justify-items: end;
-}
-
-.product-model-governance-compare-table__row-heading span,
-.product-model-governance-compare-table__action-copy span,
-.product-model-governance-compare-table__evidence-card span,
-.product-model-governance-compare-table__risk-flag {
-  color: var(--text-caption);
-  font-size: 0.82rem;
-}
-
-.product-model-governance-compare-table__evidence-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.product-model-governance-compare-table__evidence-card {
-  min-height: 7rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.96rem;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid color-mix(in srgb, var(--panel-border) 78%, #fff);
-}
-
-.product-model-governance-compare-table__evidence-card p {
+.product-model-governance-compare-table__row-reason {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
-.product-model-governance-compare-table__evidence-notes {
-  display: grid;
-  gap: 0.18rem;
+.product-model-governance-compare-table__row-heading span,
+.product-model-governance-compare-table__risk-flag,
+.product-model-governance-compare-table__source-chip,
+.product-model-governance-compare-table__sample-card span,
+.product-model-governance-compare-table__baseline-card span,
+.product-model-governance-compare-table__template-summary small {
+  color: var(--text-caption);
+  font-size: 0.82rem;
 }
 
-.product-model-governance-compare-table__evidence-notes small {
-  color: var(--text-caption);
-  line-height: 1.5;
+.product-model-governance-compare-table__row-kicker {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.product-model-governance-compare-table__row-meta {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, max-content));
+  gap: 0.36rem 0.72rem;
+}
+
+.product-model-governance-compare-table__evidence-summary {
+  grid-template-columns: minmax(0, 11rem) minmax(0, 11rem) minmax(0, 1fr);
+  gap: 0.64rem;
+  align-items: start;
+}
+
+.product-model-governance-compare-table__sample-card,
+.product-model-governance-compare-table__baseline-card,
+.product-model-governance-compare-table__source-chips {
+  padding: 0.74rem 0.84rem;
+  border-radius: 0.88rem;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 78%, #fff);
+}
+
+.product-model-governance-compare-table__baseline-card {
+  align-content: center;
+}
+
+.product-model-governance-compare-table__source-chips {
+  grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
+  gap: 0.42rem;
+}
+
+.product-model-governance-compare-table__source-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.78rem;
+  padding: 0.2rem 0.64rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-light) 38%, #fff);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.product-model-governance-compare-table__template-summary {
+  grid-template-columns: repeat(auto-fit, minmax(6rem, max-content));
+  gap: 0.42rem;
+}
+
+.product-model-governance-compare-table__template-summary small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.72rem;
+  padding: 0.18rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-secondary);
 }
 
 .product-model-governance-compare-table__risk-flag {
   display: inline-flex;
   align-items: center;
-  min-height: 1.9rem;
-  padding: 0.2rem 0.7rem;
+  min-height: 1.76rem;
+  padding: 0.18rem 0.62rem;
   border-radius: 999px;
   background: rgba(249, 115, 22, 0.1);
   color: #c2410c;
@@ -439,7 +587,7 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
 }
 
 .product-model-governance-compare-table__decision-button {
-  padding: 0.5rem 0.9rem;
+  padding: 0.42rem 0.82rem;
 }
 
 .product-model-governance-compare-table__empty {
@@ -452,12 +600,9 @@ function emitDecision(row: ProductModelGovernanceCompareRow, decision: Governanc
 
 @media (max-width: 960px) {
   .product-model-governance-compare-table__tabs,
-  .product-model-governance-compare-table__evidence-grid {
+  .product-model-governance-compare-table__type-tabs,
+  .product-model-governance-compare-table__evidence-summary {
     grid-template-columns: 1fr;
-  }
-
-  .product-model-governance-compare-table__row-side {
-    justify-items: start;
   }
 }
 </style>

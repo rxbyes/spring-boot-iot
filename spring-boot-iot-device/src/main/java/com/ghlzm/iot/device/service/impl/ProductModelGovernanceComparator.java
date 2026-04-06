@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 产品物模型双证据治理对比器。
+ * 产品物模型治理对比器。
  */
 public class ProductModelGovernanceComparator {
 
@@ -99,7 +99,7 @@ public class ProductModelGovernanceComparator {
             return STATUS_DOUBLE_ALIGNED;
         }
         if (manual != null) {
-            return STATUS_MANUAL_ONLY;
+            return Boolean.TRUE.equals(manual.getNeedsReview()) ? STATUS_MANUAL_ONLY : STATUS_DOUBLE_ALIGNED;
         }
         if (runtime != null) {
             return STATUS_RUNTIME_ONLY;
@@ -186,9 +186,7 @@ public class ProductModelGovernanceComparator {
         if (manual == null) {
             riskFlags.add("manual_missing");
         }
-        if (runtime == null) {
-            riskFlags.add("runtime_missing");
-        } else if (isWeakRuntimeEvidence(runtime)) {
+        if (isWeakRuntimeEvidence(runtime)) {
             riskFlags.add("runtime_low_evidence");
         }
         if (suspectedMatches != null && !suspectedMatches.isEmpty()) {

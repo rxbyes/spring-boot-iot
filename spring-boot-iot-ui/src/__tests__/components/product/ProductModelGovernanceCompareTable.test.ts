@@ -56,12 +56,14 @@ function mountTable() {
             modelType: 'service',
             identifier: 'reboot',
             modelName: '重启设备',
-            sourceTables: ['manual_draft']
+            evidenceOrigin: 'sample_json',
+            sourceTables: ['manual_sample']
           },
           runtimeCandidate: {
             modelType: 'service',
             identifier: 'reboot',
             modelName: '重启服务',
+            evidenceOrigin: 'runtime',
             sourceTables: ['iot_command_record']
           }
         }
@@ -76,34 +78,41 @@ function mountTable() {
 }
 
 describe('ProductModelGovernanceCompareTable', () => {
-  it('switches across property event and service rows while rendering status and suggested actions', async () => {
+  it('groups rows by simple customer decisions and renders compact result cards', async () => {
     const wrapper = mountTable()
 
-    expect(wrapper.text()).toContain('S1_ZT_1.signal_4g')
-    expect(wrapper.text()).toContain('自动证据独有')
+    expect(wrapper.text()).toContain('可直接生效')
+    expect(wrapper.text()).toContain('待确认')
     expect(wrapper.text()).toContain('继续观察')
-    expect(wrapper.get('[data-testid="governance-decision-property:S1_ZT_1.signal_4g-observe"]').text()).toBe('继续观察')
-    expect(wrapper.get('[data-testid="governance-decision-property:S1_ZT_1.signal_4g-ignore"]').text()).toBe('忽略')
-    expect(wrapper.text()).not.toContain('alarmRaised')
-
-    await wrapper.get('[data-testid="governance-type-event"]').trigger('click')
-    expect(wrapper.text()).toContain('alarmRaised')
-    expect(wrapper.text()).toContain('疑似冲突')
-    expect(wrapper.text()).toContain('人工裁决')
-    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-review"]').text()).toBe('人工裁决')
-    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-ignore"]').text()).toBe('忽略')
-
-    await wrapper.get('[data-testid="governance-type-service"]').trigger('click')
+    expect(wrapper.text()).toContain('存在差异')
+    expect(wrapper.text()).toContain('识别结果')
+    expect(wrapper.text()).toContain('样例值')
+    expect(wrapper.text()).toContain('正式字段：暂无')
+    expect(wrapper.text()).toContain('identifier:')
+    expect(wrapper.text()).toContain('类型:')
+    expect(wrapper.text()).toContain('来自上报样本')
     expect(wrapper.text()).toContain('reboot')
-    expect(wrapper.text()).toContain('双证据一致')
-    expect(wrapper.text()).toContain('纳入新增')
-    expect(wrapper.get('[data-testid="governance-decision-service:reboot-observe"]').text()).toBe('继续观察')
+    expect(wrapper.text()).not.toContain('建议人工确认')
+    expect(wrapper.text()).not.toContain('S1_ZT_1.signal_4g')
+
+    await wrapper.get('[data-testid="governance-group-observe"]').trigger('click')
+    expect(wrapper.text()).toContain('S1_ZT_1.signal_4g')
+    expect(wrapper.text()).toContain('来自运行数据')
+    expect(wrapper.text()).toContain('证据还不够，先继续观察')
+    expect(wrapper.get('[data-testid="governance-decision-property:S1_ZT_1.signal_4g-observe"]').text()).toBe('继续观察')
+
+    await wrapper.get('[data-testid="governance-group-conflict"]').trigger('click')
+    expect(wrapper.text()).toContain('alarmRaised')
+    expect(wrapper.text()).toContain('正式模型已存在')
+    expect(wrapper.text()).toContain('正式字段：已存在')
+    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-review"]').text()).toBe('待确认')
+    expect(wrapper.get('[data-testid="governance-decision-event:alarmRaised-ignore"]').text()).toBe('忽略')
   })
 
   it('emits explicit governance decisions for compare rows', async () => {
     const wrapper = mountTable()
 
-    await wrapper.get('[data-testid="governance-type-event"]').trigger('click')
+    await wrapper.get('[data-testid="governance-group-conflict"]').trigger('click')
     await wrapper.get('[data-testid="governance-decision-event:alarmRaised-review"]').trigger('click')
 
     expect(wrapper.emitted('change-decision')).toEqual([
@@ -111,25 +120,24 @@ describe('ProductModelGovernanceCompareTable', () => {
     ])
   })
 
-  it('renders normative evidence labels and raw identifiers in the compare row', () => {
+  it('renders short source labels instead of the old evidence headings', () => {
     const wrapper = mount(ProductModelGovernanceCompareTable, {
       props: {
         rows: [
           {
             modelType: 'property',
             identifier: 'L1_QJ_1.X',
-            compareStatus: 'double_aligned',
-            suggestedAction: '纳入新增',
-            riskFlags: [],
+            compareStatus: 'formal_exists',
+            suggestedAction: '纳入修订',
+            riskFlags: ['formal_baseline'],
             suspectedMatches: [],
             manualCandidate: {
               modelType: 'property',
               identifier: 'L1_QJ_1.X',
               modelName: '倾角测点 X 轴倾角',
-              evidenceOrigin: 'normative',
+              evidenceOrigin: 'sample_json',
               unit: '°',
-              normativeSource: '表 B.1',
-              rawIdentifiers: ['X', 'angleX']
+              sourceTables: ['manual_sample']
             },
             runtimeCandidate: {
               modelType: 'property',
@@ -137,18 +145,31 @@ describe('ProductModelGovernanceCompareTable', () => {
               modelName: '倾角测点 X 轴倾角',
               evidenceOrigin: 'runtime',
               sourceTables: ['iot_device_property']
+            },
+            formalModel: {
+              modelId: '1001',
+              modelType: 'property',
+              identifier: 'L1_QJ_1.X',
+              modelName: '倾角测点 X 轴倾角',
+              evidenceOrigin: 'formal',
+              sourceTables: ['iot_product_model']
             }
           }
         ]
       }
     })
 
-    expect(wrapper.text()).toContain('规范证据')
-    expect(wrapper.text()).toContain('表 B.1')
-    expect(wrapper.text()).toContain('X / angleX')
+    expect(wrapper.text()).toContain('来自上报样本')
+    expect(wrapper.text()).toContain('来自运行数据')
+    expect(wrapper.text()).toContain('正式模型已存在')
+    expect(wrapper.text()).toContain('正式字段：已存在')
+    expect(wrapper.text()).toContain('正式模型已存在，可按需纳入修订')
+    expect(wrapper.text()).not.toContain('规范依据')
+    expect(wrapper.text()).not.toContain('运行依据')
+    expect(wrapper.text()).not.toContain('当前正式契约')
   })
 
-  it('renders protocol template evidence details in the runtime evidence card', () => {
+  it('renders short parent-child source chips when protocol template evidence is present', () => {
     const wrapper = mount(ProductModelGovernanceCompareTable, {
       props: {
         rows: [
@@ -178,14 +199,13 @@ describe('ProductModelGovernanceCompareTable', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('crack_child_template')
+    expect(wrapper.text()).toContain('来自父设备归一')
+    expect(wrapper.text()).toContain('裂缝模板')
     expect(wrapper.text()).toContain('202018143')
-    expect(wrapper.text()).toContain('LF_VALUE')
-    expect(wrapper.text()).toContain('状态镜像')
-    expect(wrapper.text()).toContain('L1_LF_1')
+    expect(wrapper.text()).not.toContain('查看技术依据')
   })
 
-  it('keeps the runtime evidence card unchanged when protocol template evidence is absent', () => {
+  it('keeps source chips simple when protocol template evidence is absent', () => {
     const wrapper = mount(ProductModelGovernanceCompareTable, {
       props: {
         rows: [
@@ -208,11 +228,7 @@ describe('ProductModelGovernanceCompareTable', () => {
       }
     })
 
-    expect(wrapper.text()).not.toContain('模板来源：')
-    expect(wrapper.text()).not.toContain('逻辑通道：')
-    expect(wrapper.text()).not.toContain('子设备样本：')
-    expect(wrapper.text()).not.toContain('规范策略：')
-    expect(wrapper.text()).not.toContain('状态镜像：')
-    expect(wrapper.text()).not.toContain('父字段剔除：')
+    expect(wrapper.text()).not.toContain('来自父设备归一')
+    expect(wrapper.text()).not.toContain('查看技术依据')
   })
 })

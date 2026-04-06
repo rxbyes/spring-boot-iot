@@ -4,41 +4,26 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
-import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
-import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
-import com.ghlzm.iot.device.entity.CommandRecord;
-import com.ghlzm.iot.device.entity.Device;
-import com.ghlzm.iot.device.entity.DeviceMessageLog;
-import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
-import com.ghlzm.iot.device.mapper.CommandRecordMapper;
-import com.ghlzm.iot.device.mapper.DeviceMapper;
-import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
-import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
-import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
 import com.ghlzm.iot.device.service.ProductModelService;
-import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceAppliedItemVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
-import com.ghlzm.iot.device.vo.ProductModelGovernanceEvidenceVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelProtocolTemplateEvidenceVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
-import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -71,17 +56,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String STATUS_NEEDS_REVIEW = "needs_review";
     private static final String EXTRACTION_MODE_RUNTIME = "runtime";
     private static final String EXTRACTION_MODE_MANUAL = "manual";
-    private static final String MANUAL_EXTRACT_MODE_DIRECT = "direct";
-    private static final String MANUAL_EXTRACT_MODE_RELATION_CHILD = "relation_child";
     private static final String PARENT_SENSOR_STATE_PREFIX = "S1_ZT_1.sensor_state.";
     private static final String SAMPLE_TYPE_BUSINESS = "business";
     private static final String SAMPLE_TYPE_STATUS = "status";
-    private static final String SAMPLE_TYPE_OTHER = "other";
-    private static final int EXTRACTION_WINDOW_DAYS = 30;
-    private static final Pattern EVENT_TOPIC_PATTERN = Pattern.compile("/event/([^/]+)/?");
+    private static final String DEVICE_STRUCTURE_SINGLE = "single";
+    private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
-    private static final Set<String> PROPERTY_LOG_TYPES = Set.of("property", "status");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of(
             "properties",
             "property",
@@ -172,34 +153,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
-    private final DeviceMapper deviceMapper;
-    private final DevicePropertyMapper devicePropertyMapper;
-    private final DeviceMessageLogMapper deviceMessageLogMapper;
-    private final CommandRecordMapper commandRecordMapper;
-    private final DeviceRelationService deviceRelationService;
     private final ProductModelGovernanceComparator governanceComparator = new ProductModelGovernanceComparator();
     private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
-    private final ProductModelNormativePresetRegistry normativePresetRegistry = new ProductModelNormativePresetRegistry();
-    private final ProductModelProtocolTemplateEvidenceResolver protocolTemplateEvidenceResolver;
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
-                                   DeviceMapper deviceMapper,
-                                   DevicePropertyMapper devicePropertyMapper,
-                                   DeviceMessageLogMapper deviceMessageLogMapper,
-                                   CommandRecordMapper commandRecordMapper,
-                                   DeviceRelationService deviceRelationService,
-                                   ProtocolAdapterRegistry protocolAdapterRegistry,
                                    ProductModelGovernanceReceiptStore governanceReceiptStore) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
-        this.deviceMapper = deviceMapper;
-        this.devicePropertyMapper = devicePropertyMapper;
-        this.deviceMessageLogMapper = deviceMessageLogMapper;
-        this.commandRecordMapper = commandRecordMapper;
-        this.deviceRelationService = deviceRelationService;
-        this.protocolTemplateEvidenceResolver = new ProductModelProtocolTemplateEvidenceResolver(protocolAdapterRegistry);
         this.governanceReceiptStore = governanceReceiptStore;
     }
 
@@ -231,77 +193,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     @Override
-    public ProductModelCandidateResultVO listModelCandidates(Long productId) {
-        Product product = getRequiredProduct(productId);
-        List<ProductModel> existingModels = listActiveModels(productId);
-        Set<String> existingIdentifiers = toIdentifierSet(existingModels.stream().map(ProductModel::getIdentifier).toList());
-        List<Device> devices = listActiveDevices(productId);
-        List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
-        List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
-
-        RelationGovernanceContext relationContext = buildRelationGovernanceContext(devices);
-        PropertyEvidenceBundle propertyBundle = collectPropertyCandidates(devices, properties, logs, existingIdentifiers, relationContext);
-        EventEvidenceBundle eventBundle = collectEventCandidates(logs, existingIdentifiers);
-        ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, existingIdentifiers);
-        return buildCandidateResult(
-                productId,
-                existingModels.size(),
-                propertyBundle,
-                eventBundle,
-                serviceBundle,
-                EXTRACTION_MODE_RUNTIME,
-                null,
-                null,
-                0
-        );
-    }
-
-    @Override
-    public ProductModelCandidateResultVO manualExtractModelCandidates(Long productId, ProductModelManualExtractDTO dto) {
+    public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
-        Set<String> existingIdentifiers = toIdentifierSet(existingModels.stream().map(ProductModel::getIdentifier).toList());
-        ManualSampleSnapshot snapshot = parseManualSample(productId, dto);
-        PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, existingIdentifiers);
-        EventEvidenceBundle eventBundle = new EventEvidenceBundle(
-                List.of(),
-                0,
-                "手动提炼当前仅生成属性候选，事件请在正式模型中人工补充。"
-        );
-        ServiceEvidenceBundle serviceBundle = new ServiceEvidenceBundle(
-                List.of(),
-                0,
-                "手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。"
-        );
-        return buildCandidateResult(
-                productId,
-                existingModels.size(),
-                propertyBundle,
-                eventBundle,
-                serviceBundle,
-                EXTRACTION_MODE_MANUAL,
-                snapshot.sampleType(),
-                snapshot.deviceCode(),
-                snapshot.ignoredFieldCount()
-        );
-    }
-
-    @Override
-    public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
-        Product product = getRequiredProduct(productId);
-        List<ProductModel> existingModels = listActiveModels(productId);
-        String normalizedNormativePresetCode = isNormativeMode(dto)
-                ? normalizeAndValidateNormativePresetCode(product, dto)
-                : null;
-        ProductModelCandidateResultVO manualResult = isNormativeMode(dto)
-                ? buildNormativeGovernanceCandidates(productId, existingModels.size(), dto, normalizedNormativePresetCode)
-                : buildManualGovernanceCandidates(productId, existingModels.size(), dto);
-        ProductModelCandidateResultVO runtimeResult = shouldLoadRuntimeCandidates(dto)
-                ? buildRuntimeGovernanceCandidates(productId, product, existingModels.size(), dto, normalizedNormativePresetCode)
-                : emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
+        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(productId, existingModels.size(), dto);
+        ProductModelCandidateResultVO runtimeResult = emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         ProductModelGovernanceCompareVO compareResult =
                 governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
-        governanceReceiptStore.replaceProtocolTemplateEvidence(productId, collectCompareProtocolTemplateEvidence(compareResult));
+        governanceReceiptStore.replaceProtocolTemplateEvidence(productId, Map.of());
         return compareResult;
     }
 
@@ -335,60 +234,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         result.setLastAppliedAt(LocalDateTime.now());
         result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
         return result;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ProductModelCandidateSummaryVO confirmModelCandidates(Long productId, ProductModelCandidateConfirmDTO dto) {
-        getRequiredProduct(productId);
-        List<ProductModel> existingModels = listActiveModels(productId);
-        Set<String> existingIdentifiers = toIdentifierSet(existingModels.stream().map(ProductModel::getIdentifier).toList());
-        int nextSortNo = existingModels.stream()
-                .map(ProductModel::getSortNo)
-                .filter(value -> value != null)
-                .max(Integer::compareTo)
-                .orElse(0) + 10;
-
-        int createdCount = 0;
-        int skippedCount = 0;
-        int conflictCount = 0;
-        List<ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem> items =
-                dto == null || dto.getItems() == null ? List.of() : dto.getItems();
-        for (ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem item : items) {
-            String identifier = normalizeRequired(item.getIdentifier(), "物模型标识");
-            if (existingIdentifiers.contains(identifier)) {
-                skippedCount++;
-                conflictCount++;
-                continue;
-            }
-
-            ProductModelUpsertDTO upsertDTO = toUpsertDTO(item, nextSortNo);
-            String modelType = normalizeModelType(upsertDTO.getModelType());
-            validateByModelType(modelType, upsertDTO);
-
-            ProductModel model = new ProductModel();
-            model.setProductId(productId);
-            applyEditableFields(model, modelType, identifier, upsertDTO);
-            productModelMapper.insert(model);
-            existingIdentifiers.add(identifier);
-            createdCount++;
-            nextSortNo = (model.getSortNo() == null ? nextSortNo : model.getSortNo()) + 10;
-        }
-
-        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
-        summary.setPropertyEvidenceCount(0);
-        summary.setPropertyCandidateCount(0);
-        summary.setEventEvidenceCount(0);
-        summary.setEventCandidateCount(0);
-        summary.setServiceEvidenceCount(0);
-        summary.setServiceCandidateCount(0);
-        summary.setNeedsReviewCount(0);
-        summary.setExistingModelCount(existingModels.size());
-        summary.setCreatedCount(createdCount);
-        summary.setSkippedCount(skippedCount);
-        summary.setConflictCount(conflictCount);
-        summary.setLastExtractedAt(LocalDateTime.now());
-        return summary;
     }
 
     @Override
@@ -440,37 +285,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         );
     }
 
-    private List<Device> listActiveDevices(Long productId) {
-        return deviceMapper.selectList(
-                new LambdaQueryWrapper<Device>()
-                        .eq(Device::getProductId, productId)
-                        .eq(Device::getDeleted, 0)
-        );
-    }
-
-    private List<DeviceProperty> listDeviceProperties(Collection<Long> deviceIds) {
-        if (deviceIds == null || deviceIds.isEmpty()) {
-            return List.of();
-        }
-        return devicePropertyMapper.selectList(
-                new LambdaQueryWrapper<DeviceProperty>()
-                        .in(DeviceProperty::getDeviceId, deviceIds)
-                        .orderByDesc(DeviceProperty::getReportTime)
-                        .orderByDesc(DeviceProperty::getUpdateTime)
-        );
-    }
-
-    private List<DeviceMessageLog> listRecentMessageLogs(Long productId) {
-        LocalDateTime windowStart = LocalDateTime.now().minusDays(EXTRACTION_WINDOW_DAYS);
-        return deviceMessageLogMapper.selectList(
-                new LambdaQueryWrapper<DeviceMessageLog>()
-                        .eq(DeviceMessageLog::getProductId, productId)
-                        .ge(DeviceMessageLog::getCreateTime, windowStart)
-                        .orderByDesc(DeviceMessageLog::getReportTime)
-                        .orderByDesc(DeviceMessageLog::getCreateTime)
-        );
-    }
-
     private ProductModelCandidateResultVO buildCandidateResult(Long productId,
                                                                int existingModelCount,
                                                                PropertyEvidenceBundle propertyBundle,
@@ -514,105 +328,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private ProductModelCandidateResultVO buildManualGovernanceCandidates(Long productId,
                                                                           int existingModelCount,
                                                                           ProductModelGovernanceCompareDTO dto) {
-        ProductModelCandidateResultVO result = dto != null && dto.getManualExtract() != null
-                ? manualExtractGovernanceCandidates(productId, existingModelCount, dto.getManualExtract())
-                : emptyCandidateResult(productId, existingModelCount, EXTRACTION_MODE_MANUAL);
-        mergeManualDraftItems(result, dto == null ? List.of() : dto.getManualDraftItems());
+        if (dto == null || dto.getManualExtract() == null) {
+            throw new BizException("请先提供上报样本");
+        }
+        ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(productId, existingModelCount, dto.getManualExtract());
         refreshCandidateSummary(result, existingModelCount);
         return result;
-    }
-
-    private ProductModelCandidateResultVO buildNormativeGovernanceCandidates(Long productId,
-                                                                             int existingModelCount,
-                                                                             ProductModelGovernanceCompareDTO dto,
-                                                                             String normalizedNormativePresetCode) {
-        List<ProductModelGovernanceEvidenceVO> definitions = normativePresetRegistry.buildPropertyPreset(
-                normalizedNormativePresetCode,
-                dto == null ? null : dto.getSelectedNormativeIdentifiers()
-        );
-        List<ProductModelCandidateVO> propertyCandidates = definitions.stream()
-                .map(this::toNormativeCandidate)
-                .toList();
-        ProductModelCandidateResultVO result = buildCandidateResult(
-                productId,
-                existingModelCount,
-                new PropertyEvidenceBundle(propertyCandidates, propertyCandidates.size(), countNeedsReview(propertyCandidates)),
-                new EventEvidenceBundle(List.of(), 0, "规范模式首批不治理事件"),
-                new ServiceEvidenceBundle(List.of(), 0, "规范模式首批不治理服务"),
-                EXTRACTION_MODE_MANUAL,
-                ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE,
-                null,
-                0
-        );
-        mergeManualDraftItems(result, dto == null ? List.of() : dto.getManualDraftItems());
-        refreshCandidateSummary(result, existingModelCount);
-        return result;
-    }
-
-    private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Long productId,
-                                                                           Product product,
-                                                                           int existingModelCount,
-                                                                           ProductModelGovernanceCompareDTO dto,
-                                                                           String normalizedNormativePresetCode) {
-        List<Device> devices = listActiveDevices(productId);
-        List<DeviceProperty> properties = listDeviceProperties(devices.stream().map(Device::getId).toList());
-        List<DeviceMessageLog> logs = listRecentMessageLogs(productId);
-
-        RelationGovernanceContext relationContext = buildRelationGovernanceContext(devices);
-        PropertyEvidenceBundle runtimePropertyBundle = collectPropertyCandidates(devices, properties, logs, Set.of(), relationContext);
-        List<ProductModelCandidateVO> propertyCandidates = remapRuntimePropertiesByPreset(
-                runtimePropertyBundle.candidates(),
-                dto,
-                normalizedNormativePresetCode
-        );
-        attachProtocolTemplateEvidence(product, devices, properties, logs, propertyCandidates);
-        PropertyEvidenceBundle propertyBundle = new PropertyEvidenceBundle(
-                propertyCandidates,
-                runtimePropertyBundle.evidenceCount(),
-                countNeedsReview(propertyCandidates)
-        );
-        EventEvidenceBundle eventBundle = collectEventCandidates(logs, Set.of());
-        ServiceEvidenceBundle serviceBundle = collectServiceCandidates(product, Set.of());
-        return buildCandidateResult(
-                productId,
-                existingModelCount,
-                propertyBundle,
-                eventBundle,
-                serviceBundle,
-                EXTRACTION_MODE_RUNTIME,
-                null,
-                null,
-                0
-        );
-    }
-
-    private void attachProtocolTemplateEvidence(Product product,
-                                                List<Device> devices,
-                                                List<DeviceProperty> properties,
-                                                List<DeviceMessageLog> logs,
-                                                List<ProductModelCandidateVO> propertyCandidates) {
-        protocolTemplateEvidenceResolver.attach(product, devices, properties, logs, propertyCandidates);
-    }
-
-    private Map<String, ProductModelProtocolTemplateEvidenceVO> collectCompareProtocolTemplateEvidence(
-            ProductModelGovernanceCompareVO compareResult) {
-        if (compareResult == null || compareResult.getCompareRows() == null || compareResult.getCompareRows().isEmpty()) {
-            return Map.of();
-        }
-        Map<String, ProductModelProtocolTemplateEvidenceVO> evidenceByIdentifier = new LinkedHashMap<>();
-        for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
-            if (row == null || row.getRuntimeCandidate() == null || row.getRuntimeCandidate().getProtocolTemplateEvidence() == null) {
-                continue;
-            }
-            String identifier = normalizeOptional(row.getIdentifier());
-            if (identifier == null) {
-                identifier = normalizeOptional(row.getRuntimeCandidate().getIdentifier());
-            }
-            if (identifier != null) {
-                evidenceByIdentifier.put(identifier, row.getRuntimeCandidate().getProtocolTemplateEvidence());
-            }
-        }
-        return evidenceByIdentifier;
     }
 
     private List<ProductModelGovernanceAppliedItemVO> buildGovernanceAppliedItems(Long productId,
@@ -642,7 +363,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Long productId,
                                                                             int existingModelCount,
                                                                             ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
-        ManualSampleSnapshot snapshot = parseManualSample(productId, toManualExtractDTO(manualExtract));
+        ManualSampleSnapshot snapshot = parseManualSample(productId, manualExtract);
         PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, Set.of());
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
@@ -667,24 +388,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         );
     }
 
-    private ProductModelManualExtractDTO toManualExtractDTO(ProductModelGovernanceCompareDTO.ManualExtractInput input) {
-        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
-        dto.setSampleType(input.getSampleType());
-        dto.setSamplePayload(input.getSamplePayload());
-        dto.setSourceDeviceCode(input.getSourceDeviceCode());
-        dto.setExtractMode(input.getExtractMode());
-        return dto;
-    }
-
-    private boolean isNormativeMode(ProductModelGovernanceCompareDTO dto) {
-        return dto != null
-                && ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE.equalsIgnoreCase(normalizeOptional(dto.getGovernanceMode()));
-    }
-
-    private boolean shouldLoadRuntimeCandidates(ProductModelGovernanceCompareDTO dto) {
-        return dto == null || dto.getIncludeRuntimeCandidates() == null || dto.getIncludeRuntimeCandidates();
-    }
-
     private ProductModelCandidateResultVO emptyCandidateResult(Long productId, int existingModelCount, String extractionMode) {
         return buildCandidateResult(
                 productId,
@@ -697,311 +400,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 null,
                 0
         );
-    }
-
-    private void mergeManualDraftItems(ProductModelCandidateResultVO result,
-                                       List<ProductModelGovernanceCompareDTO.ManualDraftItem> items) {
-        if (result == null || items == null || items.isEmpty()) {
-            return;
-        }
-        Map<String, ProductModelCandidateVO> propertyMap = toCandidateMap(result.getPropertyCandidates());
-        Map<String, ProductModelCandidateVO> eventMap = toCandidateMap(result.getEventCandidates());
-        Map<String, ProductModelCandidateVO> serviceMap = toCandidateMap(result.getServiceCandidates());
-        for (ProductModelGovernanceCompareDTO.ManualDraftItem item : items) {
-            ProductModelCandidateVO candidate = toManualDraftCandidate(item);
-            Map<String, ProductModelCandidateVO> targetMap = resolveCandidateMap(propertyMap, eventMap, serviceMap, candidate.getModelType());
-            String key = governanceCandidateKey(candidate.getModelType(), candidate.getIdentifier());
-            ProductModelCandidateVO existing = targetMap.get(key);
-            targetMap.put(key, existing == null ? candidate : mergeManualCandidate(existing, candidate));
-        }
-        result.setPropertyCandidates(sortGovernanceCandidates(propertyMap.values()));
-        result.setEventCandidates(sortGovernanceCandidates(eventMap.values()));
-        result.setServiceCandidates(sortGovernanceCandidates(serviceMap.values()));
-    }
-
-    private Map<String, ProductModelCandidateVO> resolveCandidateMap(Map<String, ProductModelCandidateVO> propertyMap,
-                                                                     Map<String, ProductModelCandidateVO> eventMap,
-                                                                     Map<String, ProductModelCandidateVO> serviceMap,
-                                                                     String modelType) {
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return eventMap;
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return serviceMap;
-        }
-        return propertyMap;
-    }
-
-    private Map<String, ProductModelCandidateVO> toCandidateMap(List<ProductModelCandidateVO> candidates) {
-        Map<String, ProductModelCandidateVO> map = new LinkedHashMap<>();
-        for (ProductModelCandidateVO candidate : candidates == null ? List.<ProductModelCandidateVO>of() : candidates) {
-            map.put(governanceCandidateKey(candidate.getModelType(), candidate.getIdentifier()), candidate);
-        }
-        return map;
-    }
-
-    private List<ProductModelCandidateVO> remapRuntimePropertiesByPreset(List<ProductModelCandidateVO> runtimeCandidates,
-                                                                         ProductModelGovernanceCompareDTO dto,
-                                                                         String normalizedNormativePresetCode) {
-        if (!isNormativeMode(dto) || normalizedNormativePresetCode == null) {
-            return runtimeCandidates;
-        }
-        Map<String, ProductModelCandidateVO> remapped = new LinkedHashMap<>();
-        for (ProductModelCandidateVO candidate : runtimeCandidates) {
-            ProductModelCandidateVO normalizedCandidate = normativePresetRegistry
-                    .findNormativeIdentifier(normalizedNormativePresetCode, candidate.getIdentifier())
-                    .map(identifier -> applyNormativeIdentifier(candidate, identifier, normalizedNormativePresetCode))
-                    .orElse(candidate);
-            String key = governanceCandidateKey(normalizedCandidate.getModelType(), normalizedCandidate.getIdentifier());
-            ProductModelCandidateVO existing = remapped.get(key);
-            remapped.put(key, existing == null ? normalizedCandidate : mergeManualCandidate(existing, normalizedCandidate));
-        }
-        return sortGovernanceCandidates(remapped.values());
-    }
-
-    private String normalizeAndValidateNormativePresetCode(Product product, ProductModelGovernanceCompareDTO dto) {
-        String normalizedPresetCode = normalizeRequired(
-                dto == null ? null : normalizeOptional(dto.getNormativePresetCode()),
-                "规范预设编码"
-        ).toLowerCase(Locale.ROOT);
-        if (!normativePresetRegistry.isPresetApplicable(
-                normalizedPresetCode,
-                product == null ? null : product.getProductKey(),
-                product == null ? null : product.getProductName())) {
-            throw new BizException("当前产品不适用规范预设: " + normalizedPresetCode);
-        }
-        return normalizedPresetCode;
-    }
-
-    private String governanceCandidateKey(String modelType, String identifier) {
-        return normalizeModelType(modelType) + "::" + normalizeRequired(identifier, "物模型标识");
-    }
-
-    private List<ProductModelCandidateVO> sortGovernanceCandidates(Collection<ProductModelCandidateVO> candidates) {
-        return candidates.stream()
-                .sorted(Comparator
-                        .comparing(ProductModelCandidateVO::getNeedsReview, Comparator.nullsLast(Boolean::compareTo))
-                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
-                        .thenComparing(ProductModelCandidateVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
-                .toList();
-    }
-
-    private ProductModelCandidateVO mergeManualCandidate(ProductModelCandidateVO existing, ProductModelCandidateVO overlay) {
-        ProductModelCandidateVO merged = new ProductModelCandidateVO();
-        merged.setModelType(existing.getModelType());
-        merged.setIdentifier(existing.getIdentifier());
-        merged.setModelName(firstNonNull(overlay.getModelName(), existing.getModelName()));
-        merged.setDataType(firstNonNull(overlay.getDataType(), existing.getDataType()));
-        merged.setSpecsJson(firstNonNull(overlay.getSpecsJson(), existing.getSpecsJson()));
-        merged.setEventType(firstNonNull(overlay.getEventType(), existing.getEventType()));
-        merged.setServiceInputJson(firstNonNull(overlay.getServiceInputJson(), existing.getServiceInputJson()));
-        merged.setServiceOutputJson(firstNonNull(overlay.getServiceOutputJson(), existing.getServiceOutputJson()));
-        merged.setSortNo(firstNonNull(overlay.getSortNo(), existing.getSortNo()));
-        merged.setRequiredFlag(firstNonNull(overlay.getRequiredFlag(), existing.getRequiredFlag()));
-        merged.setDescription(firstNonNull(overlay.getDescription(), existing.getDescription()));
-        merged.setGroupKey(firstNonNull(overlay.getGroupKey(), existing.getGroupKey()));
-        merged.setEvidenceOrigin(firstNonNull(overlay.getEvidenceOrigin(), existing.getEvidenceOrigin()));
-        merged.setUnit(firstNonNull(overlay.getUnit(), existing.getUnit()));
-        merged.setNormativeSource(firstNonNull(overlay.getNormativeSource(), existing.getNormativeSource()));
-        merged.setRawIdentifiers(mergeStringList(existing.getRawIdentifiers(), overlay.getRawIdentifiers()));
-        merged.setMonitorContentCode(firstNonNull(overlay.getMonitorContentCode(), existing.getMonitorContentCode()));
-        merged.setMonitorTypeCode(firstNonNull(overlay.getMonitorTypeCode(), existing.getMonitorTypeCode()));
-        merged.setSensorCode(firstNonNull(overlay.getSensorCode(), existing.getSensorCode()));
-        merged.setConfidence(firstNonNull(overlay.getConfidence(), existing.getConfidence()));
-        merged.setNeedsReview(Boolean.TRUE.equals(existing.getNeedsReview()) || Boolean.TRUE.equals(overlay.getNeedsReview()));
-        merged.setCandidateStatus(Boolean.TRUE.equals(merged.getNeedsReview()) ? STATUS_NEEDS_REVIEW : STATUS_READY);
-        merged.setReviewReason(firstNonNull(overlay.getReviewReason(), existing.getReviewReason()));
-        merged.setEvidenceCount(firstNonNull(existing.getEvidenceCount(), 0) + firstNonNull(overlay.getEvidenceCount(), 0));
-        merged.setMessageEvidenceCount(firstNonNull(existing.getMessageEvidenceCount(), 0)
-                + firstNonNull(overlay.getMessageEvidenceCount(), 0));
-        merged.setLastReportTime(resolveLaterTime(existing.getLastReportTime(), overlay.getLastReportTime()));
-        LinkedHashSet<String> sources = new LinkedHashSet<>();
-        if (existing.getSourceTables() != null) {
-            sources.addAll(existing.getSourceTables());
-        }
-        if (overlay.getSourceTables() != null) {
-            sources.addAll(overlay.getSourceTables());
-        }
-        merged.setSourceTables(new ArrayList<>(sources));
-        merged.setProtocolTemplateEvidence(firstNonNull(overlay.getProtocolTemplateEvidence(), existing.getProtocolTemplateEvidence()));
-        return merged;
-    }
-
-    private ProductModelCandidateVO toNormativeCandidate(ProductModelGovernanceEvidenceVO definition) {
-        String identifier = normalizeRequired(definition.getIdentifier(), "物模型标识");
-        String groupKey = classifyPropertyGroup(identifier);
-        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
-        candidate.setModelType(firstNonNull(definition.getModelType(), MODEL_TYPE_PROPERTY));
-        candidate.setIdentifier(identifier);
-        candidate.setModelName(definition.getModelName());
-        candidate.setDataType(definition.getDataType());
-        candidate.setSpecsJson(definition.getSpecsJson());
-        candidate.setSortNo(firstNonNull(definition.getSortNo(), defaultSortNo(groupKey)));
-        candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), 0));
-        candidate.setDescription(firstNonNull(definition.getDescription(), "来源于规范字段预设，待与真实报文证据核对后再进入正式契约。"));
-        candidate.setGroupKey(groupKey);
-        candidate.setEvidenceOrigin(ProductModelNormativePresetRegistry.GOVERNANCE_MODE_NORMATIVE);
-        candidate.setUnit(definition.getUnit());
-        candidate.setNormativeSource(definition.getNormativeSource());
-        candidate.setRawIdentifiers(definition.getRawIdentifiers());
-        candidate.setMonitorContentCode(definition.getMonitorContentCode());
-        candidate.setMonitorTypeCode(definition.getMonitorTypeCode());
-        candidate.setSensorCode(definition.getSensorCode());
-        candidate.setConfidence(0.99D);
-        candidate.setNeedsReview(Boolean.FALSE);
-        candidate.setCandidateStatus(STATUS_READY);
-        candidate.setReviewReason(null);
-        candidate.setEvidenceCount(1);
-        candidate.setMessageEvidenceCount(0);
-        candidate.setSourceTables(List.of("normative_preset"));
-        return candidate;
-    }
-
-    private ProductModelCandidateVO applyNormativeIdentifier(ProductModelCandidateVO runtimeCandidate,
-                                                             String normativeIdentifier,
-                                                             String presetCode) {
-        ProductModelGovernanceEvidenceVO definition = normativePresetRegistry.findPropertyDefinition(presetCode, normativeIdentifier)
-                .orElseThrow(() -> new BizException("规范字段不存在: " + normativeIdentifier));
-        String groupKey = classifyPropertyGroup(normativeIdentifier);
-        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
-        candidate.setModelType(runtimeCandidate.getModelType());
-        candidate.setIdentifier(normativeIdentifier);
-        candidate.setModelName(firstNonNull(definition.getModelName(), runtimeCandidate.getModelName()));
-        candidate.setDataType(firstNonNull(definition.getDataType(), runtimeCandidate.getDataType()));
-        candidate.setSpecsJson(firstNonNull(definition.getSpecsJson(), runtimeCandidate.getSpecsJson()));
-        candidate.setSortNo(firstNonNull(definition.getSortNo(), runtimeCandidate.getSortNo()));
-        candidate.setRequiredFlag(firstNonNull(definition.getRequiredFlag(), runtimeCandidate.getRequiredFlag()));
-        candidate.setDescription(firstNonNull(definition.getDescription(), runtimeCandidate.getDescription()));
-        candidate.setGroupKey(groupKey);
-        candidate.setEvidenceOrigin("runtime");
-        candidate.setUnit(definition.getUnit());
-        candidate.setRawIdentifiers(runtimeCandidate.getIdentifier().equals(normativeIdentifier)
-                ? runtimeCandidate.getRawIdentifiers()
-                : mergeStringList(runtimeCandidate.getRawIdentifiers(), List.of(runtimeCandidate.getIdentifier())));
-        candidate.setMonitorContentCode(definition.getMonitorContentCode());
-        candidate.setMonitorTypeCode(definition.getMonitorTypeCode());
-        candidate.setSensorCode(definition.getSensorCode());
-        boolean hasMessageEvidence = firstNonNull(runtimeCandidate.getMessageEvidenceCount(), 0) > 0;
-        candidate.setConfidence(adjustPropertyConfidenceForEvidenceThreshold(
-                resolveConfidence(groupKey, false, hasMessageEvidence),
-                runtimeCandidate.getEvidenceCount(),
-                runtimeCandidate.getMessageEvidenceCount(),
-                false
-        ));
-        candidate.setNeedsReview(Boolean.FALSE);
-        candidate.setCandidateStatus(STATUS_READY);
-        candidate.setReviewReason(null);
-        candidate.setEvidenceCount(runtimeCandidate.getEvidenceCount());
-        candidate.setMessageEvidenceCount(runtimeCandidate.getMessageEvidenceCount());
-        candidate.setLastReportTime(runtimeCandidate.getLastReportTime());
-        candidate.setSourceTables(runtimeCandidate.getSourceTables() == null
-                ? List.of()
-                : new ArrayList<>(runtimeCandidate.getSourceTables()));
-        candidate.setProtocolTemplateEvidence(runtimeCandidate.getProtocolTemplateEvidence());
-        return candidate;
-    }
-
-    private ProductModelCandidateVO toManualDraftCandidate(ProductModelGovernanceCompareDTO.ManualDraftItem item) {
-        String modelType = normalizeModelType(normalizeOptional(item.getModelType()) == null ? MODEL_TYPE_PROPERTY : item.getModelType());
-        String identifier = normalizeRequired(item.getIdentifier(), "物模型标识");
-        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
-        candidate.setModelType(modelType);
-        candidate.setIdentifier(identifier);
-        candidate.setModelName(resolveManualDraftModelName(modelType, identifier, item.getModelName()));
-        candidate.setDataType(MODEL_TYPE_PROPERTY.equals(modelType)
-                ? normalizeOptional(item.getDataType())
-                : null);
-        candidate.setSpecsJson(MODEL_TYPE_PROPERTY.equals(modelType)
-                ? validateJsonField(item.getSpecsJson(), "specsJson")
-                : null);
-        candidate.setEventType(MODEL_TYPE_EVENT.equals(modelType) ? normalizeOptional(item.getEventType()) : null);
-        candidate.setServiceInputJson(MODEL_TYPE_SERVICE.equals(modelType)
-                ? validateJsonField(item.getServiceInputJson(), "serviceInputJson")
-                : null);
-        candidate.setServiceOutputJson(MODEL_TYPE_SERVICE.equals(modelType)
-                ? validateJsonField(item.getServiceOutputJson(), "serviceOutputJson")
-                : null);
-        candidate.setSortNo(resolveManualDraftSortNo(modelType, identifier));
-        candidate.setRequiredFlag(0);
-        candidate.setDescription(resolveManualDraftDescription(modelType, identifier, item.getDescription()));
-        candidate.setGroupKey(resolveManualDraftGroupKey(modelType, identifier));
-        candidate.setEvidenceOrigin("manual_draft");
-        boolean needsReview = MODEL_TYPE_PROPERTY.equals(modelType)
-                && (isSuspiciousIdentifier(identifier) || "unknown".equals(candidate.getGroupKey()));
-        candidate.setConfidence(resolveManualDraftConfidence(modelType, candidate.getGroupKey(), needsReview));
-        candidate.setNeedsReview(needsReview);
-        candidate.setCandidateStatus(needsReview ? STATUS_NEEDS_REVIEW : STATUS_READY);
-        candidate.setReviewReason(needsReview ? "命名需人工归一后再入正式契约" : null);
-        candidate.setEvidenceCount(1);
-        candidate.setMessageEvidenceCount(0);
-        candidate.setLastReportTime(LocalDateTime.now());
-        candidate.setSourceTables(new ArrayList<>(List.of("manual_draft")));
-        return candidate;
-    }
-
-    private String resolveManualDraftModelName(String modelType, String identifier, String modelName) {
-        String normalizedName = normalizeOptional(modelName);
-        if (normalizedName != null) {
-            return normalizedName;
-        }
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return suggestEventName(identifier);
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return suggestServiceName(identifier);
-        }
-        String groupKey = classifyPropertyGroup(identifier);
-        return suggestPropertyModelName(identifier, null, groupKey);
-    }
-
-    private Integer resolveManualDraftSortNo(String modelType, String identifier) {
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return 410;
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return 510;
-        }
-        return defaultSortNo(classifyPropertyGroup(identifier));
-    }
-
-    private String resolveManualDraftDescription(String modelType, String identifier, String description) {
-        String normalizedDescription = normalizeOptional(description);
-        if (normalizedDescription != null) {
-            return normalizedDescription;
-        }
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return "来源于人工补录候选，建议与真实事件证据对照后再纳入正式契约。";
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return "来源于人工补录候选，建议补齐服务入参与回执结构后再纳入正式契约。";
-        }
-        return buildPropertyDescription(
-                identifier,
-                suggestPropertyModelName(identifier, null, classifyPropertyGroup(identifier)),
-                classifyPropertyGroup(identifier),
-                isSuspiciousIdentifier(identifier) || "unknown".equals(classifyPropertyGroup(identifier)),
-                EXTRACTION_MODE_MANUAL
-        );
-    }
-
-    private String resolveManualDraftGroupKey(String modelType, String identifier) {
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return "event";
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return "service";
-        }
-        return classifyPropertyGroup(identifier);
-    }
-
-    private Double resolveManualDraftConfidence(String modelType, String groupKey, boolean needsReview) {
-        if (MODEL_TYPE_EVENT.equals(modelType)) {
-            return 0.78D;
-        }
-        if (MODEL_TYPE_SERVICE.equals(modelType)) {
-            return 0.74D;
-        }
-        return resolveConfidence(groupKey, needsReview, false);
     }
 
     private void refreshCandidateSummary(ProductModelCandidateResultVO result, int existingModelCount) {
@@ -1041,27 +439,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .filter(value -> value != null)
                 .mapToInt(Integer::intValue)
                 .sum();
-    }
-
-    private List<String> mergeStringList(List<String> first, List<String> second) {
-        LinkedHashSet<String> merged = new LinkedHashSet<>();
-        if (first != null) {
-            merged.addAll(first);
-        }
-        if (second != null) {
-            merged.addAll(second);
-        }
-        return merged.isEmpty() ? null : new ArrayList<>(merged);
-    }
-
-    private LocalDateTime resolveLaterTime(LocalDateTime first, LocalDateTime second) {
-        if (first == null) {
-            return second;
-        }
-        if (second == null) {
-            return first;
-        }
-        return second.isAfter(first) ? second : first;
     }
 
     private <T> T firstNonNull(T preferred, T fallback) {
@@ -1124,14 +501,19 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
     }
 
-    private ManualSampleSnapshot parseManualSample(Long productId, ProductModelManualExtractDTO dto) {
-        ManualSampleSnapshot rawSnapshot = parseManualSampleRaw(dto);
-        return applyRelationAwareManualSnapshot(productId, dto, rawSnapshot);
+    private ManualSampleSnapshot parseManualSample(Long productId,
+                                                   ProductModelGovernanceCompareDTO.ManualExtractInput input) {
+        String deviceStructure = normalizeDeviceStructure(input == null ? null : input.getDeviceStructure());
+        ManualSampleSnapshot rawSnapshot = parseManualSampleRaw(input);
+        if (DEVICE_STRUCTURE_SINGLE.equals(deviceStructure)) {
+            return rawSnapshot;
+        }
+        return applyCompositeManualSnapshot(input, rawSnapshot);
     }
 
-    private ManualSampleSnapshot parseManualSampleRaw(ProductModelManualExtractDTO dto) {
-        String sampleType = normalizeSampleType(dto == null ? null : dto.getSampleType());
-        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(dto == null ? null : dto.getSamplePayload()));
+    private ManualSampleSnapshot parseManualSampleRaw(ProductModelGovernanceCompareDTO.ManualExtractInput input) {
+        String sampleType = normalizeSampleType(input == null ? null : input.getSampleType());
+        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(input == null ? null : input.getSamplePayload()));
         if (normalizedPayload == null) {
             throw new BizException("样本报文不能为空");
         }
@@ -1156,55 +538,76 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
     }
 
-    private ManualSampleSnapshot applyRelationAwareManualSnapshot(Long productId,
-                                                                 ProductModelManualExtractDTO dto,
-                                                                 ManualSampleSnapshot rawSnapshot) {
-        String effectiveSourceDeviceCode = normalizeOptional(dto == null ? null : dto.getSourceDeviceCode());
-        if (effectiveSourceDeviceCode == null) {
-            effectiveSourceDeviceCode = rawSnapshot.deviceCode();
+    private ManualSampleSnapshot applyCompositeManualSnapshot(ProductModelGovernanceCompareDTO.ManualExtractInput input,
+                                                             ManualSampleSnapshot rawSnapshot) {
+        String parentDeviceCode = normalizeRequired(input == null ? null : input.getParentDeviceCode(), "父设备编码");
+        if (!parentDeviceCode.equals(rawSnapshot.deviceCode())) {
+            throw new BizException("父设备编码与样本根设备不一致");
         }
-        List<DeviceRelationRule> relationRules = listRelationRulesByParentDeviceCode(effectiveSourceDeviceCode);
-        if (relationRules.isEmpty()) {
-            return new ManualSampleSnapshot(
-                    effectiveSourceDeviceCode,
-                    rawSnapshot.sampleType(),
-                    rawSnapshot.leaves(),
-                    rawSnapshot.ignoredFieldCount()
-            );
+        List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings = normalizeRelationMappings(input);
+        List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
+        for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
+            String canonicalIdentifier = canonicalizeCompositeIdentifier(leaf.identifier(), rawSnapshot.sampleType(), relationMappings);
+            if (canonicalIdentifier == null) {
+                continue;
+            }
+            canonicalLeaves.add(new ManualLeafEvidence(canonicalIdentifier, leaf.sampleValue(), leaf.valueType()));
         }
-
-        String extractMode = normalizeManualExtractMode(dto == null ? null : dto.getExtractMode());
-        if (MANUAL_EXTRACT_MODE_RELATION_CHILD.equals(extractMode)) {
-            List<ManualLeafEvidence> canonicalLeaves = canonicalizeRelationChildLeaves(productId, rawSnapshot.leaves(), relationRules);
-            return new ManualSampleSnapshot(
-                    effectiveSourceDeviceCode,
-                    rawSnapshot.sampleType(),
-                    canonicalLeaves,
-                    rawSnapshot.ignoredFieldCount()
-            );
-        }
-
-        List<ManualLeafEvidence> filteredLeaves = rawSnapshot.leaves().stream()
-                .filter(evidence -> !isChildOwnedIdentifier(evidence.identifier(), relationRules))
-                .toList();
         return new ManualSampleSnapshot(
-                effectiveSourceDeviceCode,
+                parentDeviceCode,
                 rawSnapshot.sampleType(),
-                filteredLeaves,
-                rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - filteredLeaves.size())
+                canonicalLeaves,
+                rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - canonicalLeaves.size())
         );
     }
 
-    private String normalizeManualExtractMode(String extractMode) {
-        String normalized = normalizeOptional(extractMode);
-        if (normalized == null) {
-            return MANUAL_EXTRACT_MODE_DIRECT;
+    private List<ProductModelGovernanceCompareDTO.RelationMappingInput> normalizeRelationMappings(
+            ProductModelGovernanceCompareDTO.ManualExtractInput input) {
+        List<ProductModelGovernanceCompareDTO.RelationMappingInput> sourceItems =
+                input == null || input.getRelationMappings() == null ? List.of() : input.getRelationMappings();
+        Map<String, ProductModelGovernanceCompareDTO.RelationMappingInput> normalized = new LinkedHashMap<>();
+        for (ProductModelGovernanceCompareDTO.RelationMappingInput item : sourceItems) {
+            String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
+            String childDeviceCode = normalizeOptional(item == null ? null : item.getChildDeviceCode());
+            if (logicalChannelCode == null || childDeviceCode == null) {
+                continue;
+            }
+            ProductModelGovernanceCompareDTO.RelationMappingInput normalizedItem =
+                    new ProductModelGovernanceCompareDTO.RelationMappingInput();
+            normalizedItem.setLogicalChannelCode(logicalChannelCode);
+            normalizedItem.setChildDeviceCode(childDeviceCode);
+            normalized.put(logicalChannelCode, normalizedItem);
         }
-        String lowered = normalized.toLowerCase(Locale.ROOT);
-        if (!Set.of(MANUAL_EXTRACT_MODE_DIRECT, MANUAL_EXTRACT_MODE_RELATION_CHILD).contains(lowered)) {
-            throw new BizException("提炼模式不支持: " + extractMode);
+        if (normalized.isEmpty()) {
+            throw new BizException("复合设备模式下至少需要 1 条映射关系");
         }
-        return lowered;
+        return List.copyOf(normalized.values());
+    }
+
+    private String canonicalizeCompositeIdentifier(String identifier,
+                                                   String sampleType,
+                                                   List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings) {
+        String normalizedIdentifier = normalizeOptional(identifier);
+        if (normalizedIdentifier == null || relationMappings == null || relationMappings.isEmpty()) {
+            return null;
+        }
+        for (ProductModelGovernanceCompareDTO.RelationMappingInput item : relationMappings) {
+            String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
+            if (logicalChannelCode == null) {
+                continue;
+            }
+            if (SAMPLE_TYPE_STATUS.equals(sampleType)) {
+                if (normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)) {
+                    return "sensor_state";
+                }
+                continue;
+            }
+            if (normalizedIdentifier.equals(logicalChannelCode)
+                    || normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+                return "value";
+            }
+        }
+        return null;
     }
 
     private void collectManualLeafValues(JsonNode node,
@@ -1249,8 +652,16 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private String normalizeSampleType(String sampleType) {
         String normalized = normalizeRequired(sampleType, "样本类型").toLowerCase(Locale.ROOT);
-        if (!Set.of(SAMPLE_TYPE_BUSINESS, SAMPLE_TYPE_STATUS, SAMPLE_TYPE_OTHER).contains(normalized)) {
+        if (!Set.of(SAMPLE_TYPE_BUSINESS, SAMPLE_TYPE_STATUS).contains(normalized)) {
             throw new BizException("样本类型不支持: " + normalized);
+        }
+        return normalized;
+    }
+
+    private String normalizeDeviceStructure(String deviceStructure) {
+        String normalized = normalizeRequired(deviceStructure, "设备结构").toLowerCase(Locale.ROOT);
+        if (!Set.of(DEVICE_STRUCTURE_SINGLE, DEVICE_STRUCTURE_COMPOSITE).contains(normalized)) {
+            throw new BizException("设备结构不支持: " + normalized);
         }
         return normalized;
     }
@@ -1278,256 +689,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return null;
     }
 
-    private PropertyEvidenceBundle collectPropertyCandidates(List<Device> devices,
-                                                             List<DeviceProperty> properties,
-                                                             List<DeviceMessageLog> logs,
-                                                             Set<String> existingIdentifiers,
-                                                             RelationGovernanceContext relationContext) {
-        Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
-        int evidenceCount = 0;
-        for (DeviceProperty property : properties) {
-            String rawIdentifier = normalizeOptional(property.getIdentifier());
-            ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
-                    propertyCandidateFilter.normalizeIdentifier(rawIdentifier);
-            String identifier = normalizeOptional(normalizedIdentifier.identifier());
-            if (rawIdentifier == null
-                    || identifier == null
-                    || existingIdentifiers.contains(identifier)
-                    || shouldFilterRuntimeIdentifier(rawIdentifier, resolveRuntimeRules(relationContext, property.getDeviceId(), null))) {
-                continue;
-            }
-            evidenceCount++;
-            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
-                    .acceptProperty(property, normalizedIdentifier.rawIdentifiers());
-        }
-
-        for (DeviceMessageLog log : logs) {
-            if (!isPropertyLog(log)) {
-                continue;
-            }
-            Map<String, String> extracted = extractPropertyLeaves(log.getPayload());
-            for (Map.Entry<String, String> entry : extracted.entrySet()) {
-                String rawIdentifier = normalizeOptional(entry.getKey());
-                ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
-                        propertyCandidateFilter.normalizeIdentifier(rawIdentifier);
-                String identifier = normalizeOptional(normalizedIdentifier.identifier());
-                if (rawIdentifier == null
-                        || identifier == null
-                        || existingIdentifiers.contains(identifier)
-                        || shouldFilterRuntimeIdentifier(rawIdentifier, resolveRuntimeRules(relationContext, null, log.getDeviceCode()))) {
-                    continue;
-                }
-                accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
-                        .acceptLog(resolveLogTime(log), entry.getValue(), normalizedIdentifier.rawIdentifiers());
-            }
-        }
-
-        List<ProductModelCandidateVO> candidates = accumulators.values().stream()
-                .map(this::toPropertyCandidate)
-                .sorted(Comparator
-                        .comparing(ProductModelCandidateVO::getNeedsReview)
-                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
-                        .thenComparing(ProductModelCandidateVO::getIdentifier))
-                .toList();
-        return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
-    }
-
-    private RelationGovernanceContext buildRelationGovernanceContext(List<Device> devices) {
-        Map<Long, String> deviceCodeById = new LinkedHashMap<>();
-        Map<String, List<DeviceRelationRule>> rulesByParentDeviceCode = new LinkedHashMap<>();
-        if (devices == null || devices.isEmpty()) {
-            return new RelationGovernanceContext(deviceCodeById, rulesByParentDeviceCode);
-        }
-        for (Device device : devices) {
-            if (device == null || device.getId() == null) {
-                continue;
-            }
-            String deviceCode = normalizeOptional(device.getDeviceCode());
-            if (deviceCode == null) {
-                continue;
-            }
-            deviceCodeById.put(device.getId(), deviceCode);
-            List<DeviceRelationRule> rules = listRelationRulesByParentDeviceCode(deviceCode);
-            if (!rules.isEmpty()) {
-                rulesByParentDeviceCode.put(deviceCode, rules);
-            }
-        }
-        return new RelationGovernanceContext(deviceCodeById, rulesByParentDeviceCode);
-    }
-
-    private List<DeviceRelationRule> listRelationRulesByParentDeviceCode(String parentDeviceCode) {
-        if (deviceRelationService == null) {
-            return List.of();
-        }
-        List<DeviceRelationRule> rules = deviceRelationService.listEnabledRulesByParentDeviceCode(parentDeviceCode);
-        return rules == null ? List.of() : rules;
-    }
-
-    private List<DeviceRelationRule> resolveRuntimeRules(RelationGovernanceContext relationContext,
-                                                         Long deviceId,
-                                                         String deviceCode) {
-        if (relationContext == null || relationContext.rulesByParentDeviceCode().isEmpty()) {
-            return List.of();
-        }
-        String resolvedDeviceCode = normalizeOptional(deviceCode);
-        if (resolvedDeviceCode == null && deviceId != null) {
-            resolvedDeviceCode = relationContext.deviceCodeById().get(deviceId);
-        }
-        if (resolvedDeviceCode == null) {
-            return List.of();
-        }
-        List<DeviceRelationRule> rules = relationContext.rulesByParentDeviceCode().get(resolvedDeviceCode);
-        return rules == null ? List.of() : rules;
-    }
-
-    private boolean shouldFilterRuntimeIdentifier(String identifier, List<DeviceRelationRule> rules) {
-        return isChildOwnedIdentifier(identifier, rules);
-    }
-
-    private boolean isChildOwnedIdentifier(String identifier, List<DeviceRelationRule> rules) {
-        String normalizedIdentifier = normalizeOptional(identifier);
-        if (normalizedIdentifier == null || rules == null || rules.isEmpty()) {
-            return false;
-        }
-        for (DeviceRelationRule rule : rules) {
-            String logicalChannelCode = normalizeOptional(rule == null ? null : rule.getLogicalChannelCode());
-            if (logicalChannelCode == null) {
-                continue;
-            }
-            if (normalizedIdentifier.equals(logicalChannelCode) || normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private List<ManualLeafEvidence> canonicalizeRelationChildLeaves(Long productId,
-                                                                     List<ManualLeafEvidence> leaves,
-                                                                     List<DeviceRelationRule> rules) {
-        if (leaves == null || leaves.isEmpty() || rules == null || rules.isEmpty()) {
-            return List.of();
-        }
-        List<DeviceRelationRule> matchedRules = rules.stream()
-                .filter(rule -> rule != null && productId != null && productId.equals(rule.getChildProductId()))
-                .toList();
-        if (matchedRules.isEmpty()) {
-            return List.of();
-        }
-        List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
-        for (ManualLeafEvidence leaf : leaves) {
-            if (leaf == null) {
-                continue;
-            }
-            for (DeviceRelationRule rule : matchedRules) {
-                String canonicalIdentifier = canonicalizeRelationChildIdentifier(leaf.identifier(), rule);
-                if (canonicalIdentifier == null) {
-                    continue;
-                }
-                canonicalLeaves.add(new ManualLeafEvidence(canonicalIdentifier, leaf.sampleValue(), leaf.valueType()));
-                break;
-            }
-        }
-        return canonicalLeaves;
-    }
-
-    private String canonicalizeRelationChildIdentifier(String identifier, DeviceRelationRule rule) {
-        String normalizedIdentifier = normalizeOptional(identifier);
-        String logicalChannelCode = normalizeOptional(rule == null ? null : rule.getLogicalChannelCode());
-        if (normalizedIdentifier == null || logicalChannelCode == null) {
-            return null;
-        }
-        if (normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)
-                && "SENSOR_STATE".equalsIgnoreCase(normalizeOptional(rule.getStatusMirrorStrategy()))) {
-            return "sensor_state";
-        }
-        if (normalizedIdentifier.equals(logicalChannelCode)) {
-            return resolveCanonicalChildIdentifier(null, rule);
-        }
-        String logicalPrefix = logicalChannelCode + ".";
-        if (!normalizedIdentifier.startsWith(logicalPrefix)) {
-            return null;
-        }
-        String childField = normalizedIdentifier.substring(logicalPrefix.length());
-        return resolveCanonicalChildIdentifier(childField, rule);
-    }
-
-    private String resolveCanonicalChildIdentifier(String childField, DeviceRelationRule rule) {
-        String strategy = normalizeOptional(rule == null ? null : rule.getCanonicalizationStrategy());
-        if ("LF_VALUE".equalsIgnoreCase(strategy)) {
-            return "value";
-        }
-        return normalizeOptional(childField);
-    }
-
-    private EventEvidenceBundle collectEventCandidates(List<DeviceMessageLog> logs, Set<String> existingIdentifiers) {
-        Map<String, EventAccumulator> accumulators = new LinkedHashMap<>();
-        int evidenceCount = 0;
-        for (DeviceMessageLog log : logs) {
-            if (!isEventLog(log)) {
-                continue;
-            }
-            evidenceCount++;
-            String identifier = extractEventIdentifier(log);
-            if (!StringUtils.hasText(identifier) || existingIdentifiers.contains(identifier)) {
-                continue;
-            }
-            accumulators.computeIfAbsent(identifier, EventAccumulator::new).accept(resolveLogTime(log));
-        }
-
-        List<ProductModelCandidateVO> candidates = accumulators.values().stream()
-                .map(this::toEventCandidate)
-                .sorted(Comparator.comparing(ProductModelCandidateVO::getIdentifier))
-                .toList();
-        String hint = candidates.isEmpty()
-                ? "暂无真实事件证据，当前产品最近 30 天未发现稳定事件上报。"
-                : null;
-        return new EventEvidenceBundle(candidates, evidenceCount, hint);
-    }
-
-    private ServiceEvidenceBundle collectServiceCandidates(Product product, Set<String> existingIdentifiers) {
-        try {
-            List<CommandRecord> records = commandRecordMapper.selectList(
-                    new LambdaQueryWrapper<CommandRecord>()
-                            .eq(CommandRecord::getProductKey, product.getProductKey())
-                            .orderByDesc(CommandRecord::getSendTime)
-            );
-            Map<String, ServiceAccumulator> accumulators = new LinkedHashMap<>();
-            int evidenceCount = 0;
-            for (CommandRecord record : records) {
-                evidenceCount++;
-                String commandType = normalizeOptional(record.getCommandType());
-                String serviceIdentifier = normalizeOptional(record.getServiceIdentifier());
-                if (!StringUtils.hasText(commandType)
-                        || MODEL_TYPE_PROPERTY.equalsIgnoreCase(commandType)
-                        || !StringUtils.hasText(serviceIdentifier)
-                        || existingIdentifiers.contains(serviceIdentifier)) {
-                    continue;
-                }
-                accumulators.computeIfAbsent(serviceIdentifier, ServiceAccumulator::new).accept(record);
-            }
-
-            List<ProductModelCandidateVO> candidates = accumulators.values().stream()
-                    .map(this::toServiceCandidate)
-                    .sorted(Comparator.comparing(ProductModelCandidateVO::getIdentifier))
-                    .toList();
-            String hint = candidates.isEmpty()
-                    ? "暂无稳定服务命令证据，当前真实库仍以属性下发为主，暂不自动生成服务模型。"
-                    : null;
-            return new ServiceEvidenceBundle(candidates, evidenceCount, hint);
-        } catch (Exception ex) {
-            return new ServiceEvidenceBundle(
-                    List.of(),
-                    0,
-                    "当前真实库 iot_command_record 字段仍未完全对齐服务标识，暂不自动生成服务模型。"
-            );
-        }
-    }
-
     private ProductModelCandidateVO toPropertyCandidate(PropertyAccumulator accumulator) {
         String groupKey = classifyPropertyGroup(accumulator.identifier);
-        boolean manualOtherSample = SAMPLE_TYPE_OTHER.equals(accumulator.sampleType);
-        boolean needsReview = manualOtherSample
-                || isSuspiciousIdentifier(accumulator.identifier)
+        boolean needsReview = isSuspiciousIdentifier(accumulator.identifier)
                 || "unknown".equals(groupKey);
         String modelName = suggestPropertyModelName(accumulator.identifier, accumulator.propertyName, groupKey);
         String description = buildPropertyDescription(
@@ -1547,7 +711,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setRequiredFlag(0);
         candidate.setDescription(description);
         candidate.setGroupKey(groupKey);
-        candidate.setEvidenceOrigin("runtime");
+        candidate.setEvidenceOrigin(accumulator.sampleType == null ? "runtime" : "sample_json");
         candidate.setRawIdentifiers(accumulator.rawIdentifiers.isEmpty() ? null : List.copyOf(accumulator.rawIdentifiers));
         boolean hasMessageEvidence = accumulator.messageEvidenceCount > 0;
         candidate.setConfidence(adjustPropertyConfidenceForEvidenceThreshold(
@@ -1564,139 +728,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setLastReportTime(accumulator.lastReportTime);
         candidate.setSourceTables(new ArrayList<>(accumulator.sourceTables));
         return candidate;
-    }
-
-    private ProductModelCandidateVO toEventCandidate(EventAccumulator accumulator) {
-        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
-        candidate.setModelType(MODEL_TYPE_EVENT);
-        candidate.setIdentifier(accumulator.identifier);
-        candidate.setModelName(suggestEventName(accumulator.identifier));
-        candidate.setEventType("info");
-        candidate.setSortNo(410);
-        candidate.setRequiredFlag(0);
-        candidate.setDescription("来源于真实事件上报，建议在补齐事件级别与处理语义后再写入正式契约。");
-        candidate.setGroupKey("event");
-        candidate.setEvidenceOrigin("runtime");
-        candidate.setConfidence(0.55D);
-        candidate.setNeedsReview(Boolean.TRUE);
-        candidate.setCandidateStatus(STATUS_NEEDS_REVIEW);
-        candidate.setReviewReason("当前事件命名和级别语义仍需人工确认");
-        candidate.setEvidenceCount(accumulator.evidenceCount);
-        candidate.setMessageEvidenceCount(accumulator.evidenceCount);
-        candidate.setLastReportTime(accumulator.lastReportTime);
-        candidate.setSourceTables(List.of("iot_device_message_log"));
-        return candidate;
-    }
-
-    private ProductModelCandidateVO toServiceCandidate(ServiceAccumulator accumulator) {
-        ProductModelCandidateVO candidate = new ProductModelCandidateVO();
-        candidate.setModelType(MODEL_TYPE_SERVICE);
-        candidate.setIdentifier(accumulator.identifier);
-        candidate.setModelName(suggestServiceName(accumulator.identifier));
-        candidate.setServiceInputJson("[]");
-        candidate.setServiceOutputJson("[]");
-        candidate.setSortNo(510);
-        candidate.setRequiredFlag(0);
-        candidate.setDescription("来源于真实命令记录，但当前入参与回执字段尚不稳定，建议人工确认后再写入正式契约。");
-        candidate.setGroupKey("service");
-        candidate.setEvidenceOrigin("runtime");
-        candidate.setConfidence(0.45D);
-        candidate.setNeedsReview(Boolean.TRUE);
-        candidate.setCandidateStatus(STATUS_NEEDS_REVIEW);
-        candidate.setReviewReason("服务标识和入参结构仍需人工确认");
-        candidate.setEvidenceCount(accumulator.evidenceCount);
-        candidate.setMessageEvidenceCount(0);
-        candidate.setLastReportTime(accumulator.lastReportTime);
-        candidate.setSourceTables(List.of("iot_command_record"));
-        return candidate;
-    }
-
-    private Map<String, String> extractPropertyLeaves(String payload) {
-        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(payload));
-        if (normalizedPayload == null) {
-            return Map.of();
-        }
-        try {
-            JsonNode root = objectMapper.readTree(normalizedPayload);
-            Map<String, String> extracted = new LinkedHashMap<>();
-            collectLeafValues(root, "", extracted, true);
-            return extracted;
-        } catch (Exception ex) {
-            return Map.of();
-        }
-    }
-
-    private void collectLeafValues(JsonNode node, String prefix, Map<String, String> extracted, boolean rootLevel) {
-        if (node == null || node.isNull()) {
-            return;
-        }
-        if (node.isValueNode()) {
-            if (StringUtils.hasText(prefix)) {
-                extracted.put(prefix, node.asText());
-            }
-            return;
-        }
-        if (node.isArray()) {
-            return;
-        }
-        if (!(node instanceof ObjectNode objectNode)) {
-            return;
-        }
-        objectNode.properties().forEach(entry -> {
-            String fieldName = normalizeOptional(entry.getKey());
-            if (fieldName == null) {
-                return;
-            }
-            String normalizedFieldName = fieldName.toLowerCase(Locale.ROOT);
-            if (rootLevel && IGNORED_ROOT_KEYS.contains(normalizedFieldName)) {
-                return;
-            }
-            boolean unwrapRoot = rootLevel && ROOT_WRAPPER_KEYS.contains(normalizedFieldName);
-            String nextPrefix = unwrapRoot ? "" : appendIdentifier(prefix, fieldName);
-            collectLeafValues(entry.getValue(), nextPrefix, extracted, false);
-        });
-    }
-
-    private boolean isPropertyLog(DeviceMessageLog log) {
-        String messageType = normalizeOptional(log.getMessageType());
-        return messageType != null && PROPERTY_LOG_TYPES.contains(messageType.toLowerCase(Locale.ROOT));
-    }
-
-    private boolean isEventLog(DeviceMessageLog log) {
-        String messageType = normalizeOptional(log.getMessageType());
-        if (messageType != null && MODEL_TYPE_EVENT.equalsIgnoreCase(messageType)) {
-            return true;
-        }
-        String topic = normalizeOptional(log.getTopic());
-        return topic != null && topic.contains("/event/");
-    }
-
-    private String extractEventIdentifier(DeviceMessageLog log) {
-        String topic = normalizeOptional(log.getTopic());
-        if (topic != null) {
-            Matcher matcher = EVENT_TOPIC_PATTERN.matcher(topic);
-            if (matcher.find()) {
-                return matcher.group(1);
-            }
-        }
-
-        String normalizedPayload = normalizeOptional(JsonPayloadUtils.normalizeJsonDocument(log.getPayload()));
-        if (normalizedPayload == null) {
-            return null;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(normalizedPayload);
-            String[] keys = {"event", "eventType", "identifier", "name"};
-            for (String key : keys) {
-                JsonNode value = root.get(key);
-                if (value != null && value.isValueNode() && StringUtils.hasText(value.asText())) {
-                    return value.asText().trim();
-                }
-            }
-        } catch (Exception ex) {
-            return null;
-        }
-        return null;
     }
 
     private void ensureIdentifierUnique(Long productId, String identifier, Long excludeId) {
@@ -1744,22 +775,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         model.setEventType(null);
         model.setServiceInputJson(validateJsonField(dto.getServiceInputJson(), "serviceInputJson"));
         model.setServiceOutputJson(validateJsonField(dto.getServiceOutputJson(), "serviceOutputJson"));
-    }
-
-    private ProductModelUpsertDTO toUpsertDTO(ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem item, int nextSortNo) {
-        ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
-        dto.setModelType(normalizeOptional(item.getModelType()) == null ? MODEL_TYPE_PROPERTY : item.getModelType());
-        dto.setIdentifier(item.getIdentifier());
-        dto.setModelName(item.getModelName());
-        dto.setDataType(item.getDataType());
-        dto.setSpecsJson(item.getSpecsJson());
-        dto.setEventType(item.getEventType());
-        dto.setServiceInputJson(item.getServiceInputJson());
-        dto.setServiceOutputJson(item.getServiceOutputJson());
-        dto.setSortNo(item.getSortNo() == null ? nextSortNo : item.getSortNo());
-        dto.setRequiredFlag(item.getRequiredFlag() == null ? 0 : item.getRequiredFlag());
-        dto.setDescription(item.getDescription());
-        return dto;
     }
 
     private void validateByModelType(String modelType, ProductModelUpsertDTO dto) {
@@ -1830,17 +845,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
-    }
-
-    private Set<String> toIdentifierSet(List<String> identifiers) {
-        Set<String> normalized = new LinkedHashSet<>();
-        for (String identifier : identifiers) {
-            String value = normalizeOptional(identifier);
-            if (value != null) {
-                normalized.add(value);
-            }
-        }
-        return normalized;
     }
 
     private int countNeedsReview(List<ProductModelCandidateVO> candidates) {
@@ -1965,11 +969,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                             String groupKey,
                                             boolean needsReview,
                                             String sampleType) {
-        if (SAMPLE_TYPE_OTHER.equals(sampleType)) {
-            return "来源于手动录入的其他数据样本，当前字段 "
-                    + identifier
-                    + " 默认按待人工确认处理，确认归类后再写入正式契约。";
-        }
         if (sampleType != null) {
             if ("telemetry".equals(groupKey)) {
                 return "来源于手动录入样本，归属测点属性，反映 " + modelName + " 的核心监测值，建议确认后写入正式产品契约。";
@@ -2001,9 +1000,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private String resolvePropertyReviewReason(boolean needsReview, String sampleType) {
         if (!needsReview) {
             return null;
-        }
-        if (SAMPLE_TYPE_OTHER.equals(sampleType)) {
-            return "来源类别为其他数据，默认需人工确认后再入正式契约";
         }
         return "命名需人工归一后再入正式契约";
     }
@@ -2086,18 +1082,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return prefix + "." + fieldName;
     }
 
-    private LocalDateTime resolveLogTime(DeviceMessageLog log) {
-        return log.getReportTime() != null ? log.getReportTime() : log.getCreateTime();
-    }
-
-    private String suggestEventName(String identifier) {
-        return identifier + "事件";
-    }
-
-    private String suggestServiceName(String identifier) {
-        return identifier + "服务";
-    }
-
     private ProductModelVO toVO(ProductModel model) {
         ProductModelVO vo = new ProductModelVO();
         vo.setId(model.getId());
@@ -2125,10 +1109,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private record ServiceEvidenceBundle(List<ProductModelCandidateVO> candidates, int evidenceCount, String hint) {
-    }
-
-    private record RelationGovernanceContext(Map<Long, String> deviceCodeById,
-                                             Map<String, List<DeviceRelationRule>> rulesByParentDeviceCode) {
     }
 
     private record ManualSampleSnapshot(String deviceCode,
@@ -2175,32 +1155,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
         private PropertyAccumulator(String identifier) {
             this.identifier = identifier;
-        }
-
-        private void acceptProperty(DeviceProperty property, List<String> observedRawIdentifiers) {
-            evidenceCount++;
-            sourceTables.add("iot_device_property");
-            appendRawIdentifiers(observedRawIdentifiers);
-            if (normalizeText(property.getPropertyName()) != null) {
-                propertyName = normalizeText(property.getPropertyName());
-            }
-            if (normalizeText(property.getValueType()) != null) {
-                valueType = normalizeText(property.getValueType());
-            }
-            if (normalizeText(property.getPropertyValue()) != null) {
-                sampleValue = normalizeText(property.getPropertyValue());
-            }
-            updateLastReportTime(property.getReportTime() != null ? property.getReportTime() : property.getUpdateTime());
-        }
-
-        private void acceptLog(LocalDateTime logTime, String sampleValue, List<String> observedRawIdentifiers) {
-            messageEvidenceCount++;
-            sourceTables.add("iot_device_message_log");
-            appendRawIdentifiers(observedRawIdentifiers);
-            if (normalizeText(sampleValue) != null) {
-                this.sampleValue = normalizeText(sampleValue);
-            }
-            updateLastReportTime(logTime);
         }
 
         private void acceptManualSample(String sampleType,
@@ -2260,40 +1214,6 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             }
             int index = identifier.lastIndexOf('.');
             return index >= 0 ? identifier.substring(index + 1) : identifier;
-        }
-    }
-
-    private static final class EventAccumulator {
-        private final String identifier;
-        private int evidenceCount;
-        private LocalDateTime lastReportTime;
-
-        private EventAccumulator(String identifier) {
-            this.identifier = identifier;
-        }
-
-        private void accept(LocalDateTime reportTime) {
-            evidenceCount++;
-            if (lastReportTime == null || (reportTime != null && reportTime.isAfter(lastReportTime))) {
-                lastReportTime = reportTime;
-            }
-        }
-    }
-
-    private static final class ServiceAccumulator {
-        private final String identifier;
-        private int evidenceCount;
-        private LocalDateTime lastReportTime;
-
-        private ServiceAccumulator(String identifier) {
-            this.identifier = identifier;
-        }
-
-        private void accept(CommandRecord record) {
-            evidenceCount++;
-            if (lastReportTime == null || (record.getSendTime() != null && record.getSendTime().isAfter(lastReportTime))) {
-                lastReportTime = record.getSendTime();
-            }
         }
     }
 }

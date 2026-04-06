@@ -74,7 +74,9 @@ public interface DeviceService extends IService<Device> {
      * 分页查询设备台账。
      */
     PageResult<DevicePageVO> pageDevices(Long deviceId,
+                                         String keyword,
                                          String productKey,
+                                         String productName,
                                          String deviceCode,
                                          String deviceName,
                                          Integer onlineStatus,
@@ -89,7 +91,9 @@ public interface DeviceService extends IService<Device> {
      */
     PageResult<DevicePageVO> pageDevices(Long currentUserId,
                                          Long deviceId,
+                                         String keyword,
                                          String productKey,
+                                         String productName,
                                          String deviceCode,
                                          String deviceName,
                                          Integer onlineStatus,

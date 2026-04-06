@@ -142,25 +142,16 @@ export interface ProductModelGovernanceSummary {
 }
 
 export interface ProductModelGovernanceComparePayload {
-  governanceMode?: 'normative' | 'generic' | null;
-  normativePresetCode?: string | null;
-  selectedNormativeIdentifiers?: string[] | null;
   manualExtract?: {
-    sampleType: 'business' | 'status' | 'other';
+    sampleType: 'business' | 'status';
+    deviceStructure: 'single' | 'composite';
     samplePayload: string;
+    parentDeviceCode?: string | null;
+    relationMappings?: Array<{
+      logicalChannelCode: string;
+      childDeviceCode: string;
+    }> | null;
   };
-  manualDraftItems?: Array<{
-    modelType: 'property' | 'event' | 'service';
-    identifier: string;
-    modelName: string;
-    dataType?: string | null;
-    specsJson?: string | null;
-    eventType?: string | null;
-    serviceInputJson?: string | null;
-    serviceOutputJson?: string | null;
-    description?: string | null;
-  }>;
-  includeRuntimeCandidates?: boolean;
 }
 
 export interface ProductModelGovernanceCompareResult {
@@ -199,6 +190,33 @@ export interface ProductModelGovernanceApplyResult {
   skippedCount?: number | null;
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
+}
+
+export interface DeviceRelation {
+  id?: number | string | null;
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  childProductId?: number | string | null;
+  childProductKey?: string | null;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface DeviceRelationUpsertPayload {
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
 }
 
 /**

@@ -545,6 +545,7 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue';
 import RiskPointDetailDrawer from '@/components/riskPoint/RiskPointDetailDrawer.vue';
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
@@ -1001,7 +1002,9 @@ const loadMetricOptions = async (deviceId: string | number) => {
     }
   } catch (error) {
     console.error('加载测点选项失败', error);
-    ElMessage.error('加载测点列表失败');
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '加载测点列表失败'));
+    }
   }
 };
 

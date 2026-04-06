@@ -57,6 +57,34 @@ describe('StandardDetailDrawer', () => {
     expect(wrapper.find('.detail-submit').exists()).toBe(true)
   })
 
+  it('supports hiding the whole masthead when a detail drawer should start directly from body content', () => {
+    const wrapper = mount(StandardDetailDrawer, {
+      props: {
+        modelValue: true,
+        title: '设备详情',
+        subtitle: '这一整块刊头应被移除',
+        tags: [{ label: '在线', type: 'success' }],
+        hideHeader: true
+      },
+      slots: {
+        default: '<div class="detail-body">body</div>'
+      },
+      global: {
+        stubs: {
+          'el-drawer': DrawerStub,
+          'el-tag': {
+            props: ['type', 'effect'],
+            template: '<span class="el-tag-stub"><slot /></span>'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.find('.detail-drawer__header').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('设备详情')
+    expect(wrapper.text()).not.toContain('在线')
+  })
+
   it('keeps the drawer footer empty when no footer slot exists', () => {
     const wrapper = mount(StandardDetailDrawer, {
       props: {

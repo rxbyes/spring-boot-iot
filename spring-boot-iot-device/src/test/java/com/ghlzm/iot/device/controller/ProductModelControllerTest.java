@@ -1,16 +1,12 @@
 package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
-import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
-import com.ghlzm.iot.device.dto.ProductModelManualExtractDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,51 +78,6 @@ class ProductModelControllerTest {
 
         assertNull(response.getData());
         verify(productModelService).deleteModel(1001L, 2001L);
-    }
-
-    @Test
-    void listCandidatesShouldDelegateToService() {
-        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
-        result.setProductId(1001L);
-        when(productModelService.listModelCandidates(1001L)).thenReturn(result);
-
-        R<ProductModelCandidateResultVO> response = controller.listCandidates(1001L);
-
-        assertEquals(1001L, response.getData().getProductId());
-        verify(productModelService).listModelCandidates(1001L);
-    }
-
-    @Test
-    void confirmCandidatesShouldDelegateToService() {
-        ProductModelCandidateConfirmDTO dto = new ProductModelCandidateConfirmDTO();
-        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
-        summary.setCreatedCount(1);
-        when(productModelService.confirmModelCandidates(1001L, dto)).thenReturn(summary);
-
-        R<ProductModelCandidateSummaryVO> response = controller.confirmCandidates(1001L, dto);
-
-        assertEquals(1, response.getData().getCreatedCount());
-        verify(productModelService).confirmModelCandidates(1001L, dto);
-    }
-
-    @Test
-    void manualExtractShouldDelegateToService() {
-        ProductModelManualExtractDTO dto = new ProductModelManualExtractDTO();
-        dto.setSampleType("business");
-        dto.setSamplePayload("{\"SK11\":{\"L1_QJ_1\":{\"2026-03-31T04:05:55.000Z\":{\"X\":-0.0376}}}}");
-        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
-        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
-        summary.setExtractionMode("manual");
-        summary.setSampleType("business");
-        summary.setSampleDeviceCode("SK11");
-        result.setProductId(1001L);
-        result.setSummary(summary);
-        when(productModelService.manualExtractModelCandidates(1001L, dto)).thenReturn(result);
-
-        R<ProductModelCandidateResultVO> response = controller.manualExtract(1001L, dto);
-
-        assertEquals("SK11", response.getData().getSummary().getSampleDeviceCode());
-        verify(productModelService).manualExtractModelCandidates(1001L, dto);
     }
 
     @Test

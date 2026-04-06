@@ -6,6 +6,7 @@ import {
   listAutomationResultEvidence,
   pageAutomationResults
 } from '@/api/automationResults';
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { ElMessage } from '@/utils/message';
 import type {
@@ -213,12 +214,12 @@ export function useAutomationRegistryWorkbench() {
       if (!options.silent) {
         ElMessage.success('已载入历史运行结果');
       }
-    } catch {
+    } catch (error) {
       selectedLedgerRunDetail.value = null;
       clearEvidenceState();
       selectedLedgerRunErrorMessage.value = '历史运行详情加载失败，请检查后台结果接口或日志目录。';
-      if (!options.silent) {
-        ElMessage.error('载入历史运行结果失败');
+      if (!options.silent && !isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '载入历史运行结果失败'));
       }
     }
   }

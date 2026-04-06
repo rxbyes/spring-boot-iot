@@ -12,12 +12,12 @@
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持设备编码、设备名称关键词搜索 -->
+            <!-- 快速搜索：支持设备编码、设备名称、产品 Key、产品名称关键词搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
                 v-model="quickSearchKeyword"
-                placeholder="快速搜索（设备编码、设备名称）"
+                placeholder="快速搜索（设备编码、设备名称、产品 Key、产品名称）"
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuickSearch"
@@ -243,7 +243,9 @@
                   </div>
                   <div class="device-mobile-card__field">
                     <span class="standard-mobile-record-card__field-label">最近上报</span>
-                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.lastReportTime) }}</strong>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime) }}
+                    </strong>
                   </div>
                   <div class="device-mobile-card__field device-mobile-card__field--full">
                     <span class="standard-mobile-record-card__field-label">部署位置</span>
@@ -292,7 +294,9 @@
             </el-table-column>
             <StandardTableTextColumn prop="firmwareVersion" label="固件版本" :width="130" />
             <StandardTableTextColumn prop="lastReportTime" label="最近上报" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+              <template #default="{ row }">
+                {{ formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime) }}
+              </template>
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="address" label="部署位置" :min-width="180" />
             <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
@@ -345,8 +349,6 @@
       v-model="detailVisible"
       :title="detailTitle"
       :subtitle="detailSubtitle"
-      tag-layout="title-inline"
-      :tags="detailTags"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
       :empty="!detailData"
@@ -606,6 +608,7 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { accessErrorApi } from '@/api/accessError'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -656,12 +659,14 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatDeviceReportTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 interface DeviceSearchForm {
   deviceId: string
+  keyword: string
   productKey: string
+  productName: string
   deviceCode: string
   deviceName: string
   onlineStatus: number | undefined
@@ -771,7 +776,9 @@ let suppressFormDirtyTracking = false
 
 const searchForm = reactive<DeviceSearchForm>({
   deviceId: '',
+  keyword: '',
   productKey: '',
+  productName: '',
   deviceCode: '',
   deviceName: '',
   onlineStatus: undefined,
@@ -781,7 +788,9 @@ const searchForm = reactive<DeviceSearchForm>({
 })
 const appliedFilters = reactive<DeviceSearchForm>({
   deviceId: '',
+  keyword: '',
   productKey: '',
+  productName: '',
   deviceCode: '',
   deviceName: '',
   onlineStatus: undefined,
@@ -932,16 +941,21 @@ const activeFilterTags = computed(() => {
   if (deviceId) {
     tags.push({ key: 'deviceId', label: `设备 ID：${deviceId}` })
   }
+  const keyword = appliedFilters.keyword.trim()
   const productKey = appliedFilters.productKey.trim()
-  if (productKey) {
+  if (productKey && !keyword) {
     tags.push({ key: 'productKey', label: `产品 Key：${productKey}` })
   }
+  const productName = appliedFilters.productName.trim()
+  if (productName && !keyword) {
+    tags.push({ key: 'productName', label: `产品名称：${productName}` })
+  }
   const deviceCode = appliedFilters.deviceCode.trim()
-  if (deviceCode) {
+  if (deviceCode && !keyword) {
     tags.push({ key: 'deviceCode', label: `设备编码：${deviceCode}` })
   }
   const deviceName = appliedFilters.deviceName.trim()
-  if (deviceName) {
+  if (deviceName && !keyword) {
     tags.push({ key: 'deviceName', label: `设备名称：${deviceName}` })
   }
   if (appliedFilters.onlineStatus !== undefined) {
@@ -958,7 +972,7 @@ const activeFilterTags = computed(() => {
   }
   return tags
 })
-const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
+const hasAppliedFilters = computed(() => Boolean(appliedFilters.keyword.trim()) || activeFilterTags.value.length > 0)
 const emptyStateTitle = computed(() => {
   if (hasAppliedFilters.value) {
     return '没有符合条件的设备'
@@ -975,24 +989,6 @@ const emptyStateDescription = computed(() =>
       ? '当前还没有命中未登记上报名单，可先切回全部或已登记视图继续排查。'
       : '当前还没有设备资产，先新增设备或批量导入，再继续做台账维护和状态核查。'
 )
-
-const detailTags = computed(() => {
-  if (!detailData.value) {
-    return []
-  }
-  if (!detailIsRegistered.value) {
-    return [
-      { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'warning' as const },
-      { label: getSourceTypeText(detailData.value.assetSourceType), type: 'info' as const }
-    ]
-  }
-  return [
-    { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'success' as const },
-    { label: getOnlineStatusText(detailData.value.onlineStatus), type: detailData.value.onlineStatus === 1 ? 'success' : 'info' as const },
-    { label: getActivateStatusText(detailData.value.activateStatus), type: detailData.value.activateStatus === 1 ? 'success' : 'warning' as const },
-    { label: getDeviceStatusText(detailData.value.deviceStatus), type: detailData.value.deviceStatus === 1 ? 'success' : 'danger' as const }
-  ]
-})
 
 const formRules: FormRules<DeviceFormState> = {
   productKey: [{ required: true, message: '请选择产品', trigger: 'change' }],
@@ -1037,7 +1033,11 @@ const exportColumns: CsvColumn<Device>[] = [
   { key: 'firmwareVersion', label: '固件版本' },
   { key: 'ipAddress', label: 'IP 地址' },
   { key: 'address', label: '部署位置' },
-  { key: 'lastReportTime', label: '最近上报', formatter: (value) => formatDateTime(String(value || '')) },
+  {
+    key: 'lastReportTime',
+    label: '最近上报',
+    formatter: (_value, row) => formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime)
+  },
   { key: 'createTime', label: '创建时间', formatter: (value) => formatDateTime(String(value || '')) }
 ]
 
@@ -1266,32 +1266,22 @@ function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilt
   return keys.reduce((count, key) => count + (hasFilledFilter(filters, key) ? 1 : 0), 0)
 }
 
-function isLikelyDeviceCodeKeyword(keyword: string) {
-  return /^[A-Za-z0-9:_-]+$/.test(keyword)
-}
-
-// 快速搜索只有一个输入框，这里把关键词映射回真实的设备编码 / 设备名称筛选字段。
 function applyQuickSearchKeywordToFilters() {
   const keyword = quickSearchKeyword.value.trim()
+  searchForm.keyword = keyword
+  searchForm.productKey = ''
+  searchForm.productName = ''
+  searchForm.deviceCode = ''
+  searchForm.deviceName = ''
   if (!keyword) {
-    searchForm.deviceCode = ''
-    searchForm.deviceName = ''
     return ''
-  }
-
-  if (isLikelyDeviceCodeKeyword(keyword)) {
-    searchForm.deviceCode = keyword
-    searchForm.deviceName = ''
-  } else {
-    searchForm.deviceName = keyword
-    searchForm.deviceCode = ''
   }
 
   return keyword
 }
 
 function syncQuickSearchKeywordFromFilters() {
-  quickSearchKeyword.value = searchForm.deviceCode || searchForm.deviceName
+  quickSearchKeyword.value = searchForm.keyword.trim()
 }
 
 function resetFormData(source?: Partial<Device>) {
@@ -1331,7 +1321,9 @@ function clearSelection() {
 function matchesCurrentFilters(device: Device) {
   return matchesDeviceFilters(device, {
     deviceId: appliedFilters.deviceId,
+    keyword: appliedFilters.keyword,
     productKey: appliedFilters.productKey,
+    productName: appliedFilters.productName,
     deviceCode: appliedFilters.deviceCode,
     deviceName: appliedFilters.deviceName,
     onlineStatus: appliedFilters.onlineStatus,
@@ -1482,7 +1474,9 @@ function handleToolbarAction(command: string | number | object) {
 
 function syncAppliedFilters() {
   appliedFilters.deviceId = searchForm.deviceId.trim()
+  appliedFilters.keyword = searchForm.keyword.trim()
   appliedFilters.productKey = searchForm.productKey.trim()
+  appliedFilters.productName = searchForm.productName.trim()
   appliedFilters.deviceCode = searchForm.deviceCode.trim()
   appliedFilters.deviceName = searchForm.deviceName.trim()
   appliedFilters.onlineStatus = searchForm.onlineStatus
@@ -1492,8 +1486,11 @@ function syncAppliedFilters() {
 }
 
 function clearSearchForm() {
+  quickSearchKeyword.value = ''
   searchForm.deviceId = ''
+  searchForm.keyword = ''
   searchForm.productKey = ''
+  searchForm.productName = ''
   searchForm.deviceCode = ''
   searchForm.deviceName = ''
   searchForm.onlineStatus = undefined
@@ -1540,7 +1537,9 @@ async function syncTableSelection() {
 
 function applyRouteQueryToFilters() {
   searchForm.deviceId = typeof route.query.deviceId === 'string' ? route.query.deviceId.trim() : ''
+  searchForm.keyword = typeof route.query.keyword === 'string' ? route.query.keyword.trim() : ''
   searchForm.productKey = typeof route.query.productKey === 'string' ? route.query.productKey.trim() : ''
+  searchForm.productName = typeof route.query.productName === 'string' ? route.query.productName.trim() : ''
   searchForm.deviceCode = typeof route.query.deviceCode === 'string' ? route.query.deviceCode.trim() : ''
   searchForm.deviceName = typeof route.query.deviceName === 'string' ? route.query.deviceName.trim() : ''
   syncQuickSearchKeywordFromFilters()
@@ -1580,7 +1579,19 @@ function normalizeQueryValue(value: unknown) {
 
 function assignListQueryValue(
   query: Record<string, unknown>,
-  key: 'deviceId' | 'productKey' | 'deviceCode' | 'deviceName' | 'onlineStatus' | 'activateStatus' | 'deviceStatus' | 'registrationStatus' | 'pageNum' | 'pageSize',
+  key:
+    | 'deviceId'
+    | 'keyword'
+    | 'productKey'
+    | 'productName'
+    | 'deviceCode'
+    | 'deviceName'
+    | 'onlineStatus'
+    | 'activateStatus'
+    | 'deviceStatus'
+    | 'registrationStatus'
+    | 'pageNum'
+    | 'pageSize',
   value: string | number | undefined
 ) {
   if (value === undefined || value === '') {
@@ -1593,7 +1604,9 @@ function assignListQueryValue(
 function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
   return (
     normalizeQueryValue(route.query.deviceId) === normalizeQueryValue(nextQuery.deviceId) &&
+    normalizeQueryValue(route.query.keyword) === normalizeQueryValue(nextQuery.keyword) &&
     normalizeQueryValue(route.query.productKey) === normalizeQueryValue(nextQuery.productKey) &&
+    normalizeQueryValue(route.query.productName) === normalizeQueryValue(nextQuery.productName) &&
     normalizeQueryValue(route.query.deviceCode) === normalizeQueryValue(nextQuery.deviceCode) &&
     normalizeQueryValue(route.query.deviceName) === normalizeQueryValue(nextQuery.deviceName) &&
     normalizeQueryValue(route.query.onlineStatus) === normalizeQueryValue(nextQuery.onlineStatus) &&
@@ -1608,12 +1621,16 @@ function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
 async function syncListRouteQuery(options: DevicePageLoadOptions = {}) {
   const nextQuery: Record<string, unknown> = { ...route.query }
   const trimmedDeviceId = searchForm.deviceId.trim()
+  const trimmedKeyword = searchForm.keyword.trim()
   const trimmedProductKey = searchForm.productKey.trim()
+  const trimmedProductName = searchForm.productName.trim()
   const trimmedDeviceCode = searchForm.deviceCode.trim()
   const trimmedDeviceName = searchForm.deviceName.trim()
 
   assignListQueryValue(nextQuery, 'deviceId', trimmedDeviceId || undefined)
+  assignListQueryValue(nextQuery, 'keyword', trimmedKeyword || undefined)
   assignListQueryValue(nextQuery, 'productKey', trimmedProductKey || undefined)
+  assignListQueryValue(nextQuery, 'productName', trimmedProductName || undefined)
   assignListQueryValue(nextQuery, 'deviceCode', trimmedDeviceCode || undefined)
   assignListQueryValue(nextQuery, 'deviceName', trimmedDeviceName || undefined)
   assignListQueryValue(nextQuery, 'onlineStatus', searchForm.onlineStatus)
@@ -1655,7 +1672,9 @@ async function loadProducts() {
       ElMessage.error(res.msg || '加载产品列表失败')
     } catch (error) {
       console.error('加载产品列表失败', error)
-      ElMessage.error('加载产品列表失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '加载产品列表失败'))
+      }
     } finally {
       productLoading.value = false
       productLoadPromise = null
@@ -1684,7 +1703,9 @@ async function loadDeviceOptions() {
       ElMessage.error(res.msg || '加载父设备选项失败')
     } catch (error) {
       console.error('加载父设备选项失败', error)
-      ElMessage.error('加载父设备选项失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '加载父设备选项失败'))
+      }
     } finally {
       deviceOptionsLoading.value = false
       deviceOptionLoadPromise = null
@@ -1701,7 +1722,9 @@ function clearDeviceOptionCache() {
 function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
   return {
     deviceId: searchForm.deviceId.trim(),
+    keyword: searchForm.keyword.trim(),
     productKey: searchForm.productKey.trim(),
+    productName: searchForm.productName.trim(),
     deviceCode: searchForm.deviceCode.trim(),
     deviceName: searchForm.deviceName.trim(),
     onlineStatus: searchForm.onlineStatus,
@@ -1994,7 +2017,9 @@ async function prefetchNextDevicePage(query: DevicePageQuerySnapshot, total: num
     const res = await deviceApi.pageDevices(
       {
         deviceId: nextQuery.deviceId || undefined,
+        keyword: nextQuery.keyword || undefined,
         productKey: nextQuery.productKey || undefined,
+        productName: nextQuery.productName || undefined,
         deviceCode: nextQuery.deviceCode || undefined,
         deviceName: nextQuery.deviceName || undefined,
         onlineStatus: nextQuery.onlineStatus,
@@ -2064,7 +2089,9 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
     const res = await deviceApi.pageDevices(
       {
         deviceId: query.deviceId || undefined,
+        keyword: query.keyword || undefined,
         productKey: query.productKey || undefined,
+        productName: query.productName || undefined,
         deviceCode: query.deviceCode || undefined,
         deviceName: query.deviceName || undefined,
         onlineStatus: query.onlineStatus,
@@ -2099,7 +2126,9 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
       listRefreshMessage.value = '最新数据校验失败，当前先展示已有结果。'
     } else {
       clearListRefreshState()
-      ElMessage.error('获取设备分页失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '获取设备分页失败'))
+      }
     }
   } finally {
     if (requestId === latestListRequestId) {
@@ -2344,7 +2373,9 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
 
 function handleSearch() {
   searchForm.deviceId = searchForm.deviceId.trim()
+  searchForm.keyword = searchForm.keyword.trim()
   searchForm.productKey = searchForm.productKey.trim()
+  searchForm.productName = searchForm.productName.trim()
   searchForm.deviceCode = searchForm.deviceCode.trim()
   searchForm.deviceName = searchForm.deviceName.trim()
   resetPage()
@@ -2362,8 +2393,13 @@ function handleReset() {
 function removeAppliedFilter(key: DeviceFilterKey) {
   if (key === 'deviceId') {
     searchForm.deviceId = ''
+  } else if (key === 'keyword') {
+    searchForm.keyword = ''
+    quickSearchKeyword.value = ''
   } else if (key === 'productKey') {
     searchForm.productKey = ''
+  } else if (key === 'productName') {
+    searchForm.productName = ''
   } else if (key === 'deviceCode') {
     searchForm.deviceCode = ''
   } else if (key === 'deviceName') {
@@ -2395,6 +2431,9 @@ function handleQuickSearch() {
 
 function handleClearQuickSearch() {
   quickSearchKeyword.value = ''
+  searchForm.keyword = ''
+  searchForm.productKey = ''
+  searchForm.productName = ''
   searchForm.deviceCode = ''
   searchForm.deviceName = ''
   resetPage()
@@ -2540,7 +2579,9 @@ async function handleOpenReplaceLegacy(row: Device) {
     ElMessage.error(res.msg || '加载待更换设备失败')
   } catch (error) {
     console.error('加载待更换设备失败', error)
-    ElMessage.error('加载待更换设备失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '加载待更换设备失败'))
+    }
   }
 }
 
@@ -2718,7 +2759,9 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
     ElMessage.warning(`批量导入完成，成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`)
   } catch (error) {
     console.error('批量导入设备失败', error)
-    ElMessage.error('批量导入设备失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '批量导入设备失败'))
+    }
   } finally {
     batchImportSubmitting.value = false
   }
@@ -2775,7 +2818,9 @@ async function handleReplaceSubmit(payload: DeviceReplacePayload) {
       return
     }
     console.error('设备更换失败', error)
-    ElMessage.error('设备更换失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '设备更换失败'))
+    }
   } finally {
     replaceSubmitting.value = false
   }
@@ -2860,7 +2905,9 @@ watch(
   () =>
     [
       route.query.deviceId,
+      route.query.keyword,
       route.query.productKey,
+      route.query.productName,
       route.query.deviceCode,
       route.query.deviceName,
       route.query.onlineStatus,

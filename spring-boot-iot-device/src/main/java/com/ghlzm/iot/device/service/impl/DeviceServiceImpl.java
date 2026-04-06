@@ -172,7 +172,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     @Override
     public PageResult<DevicePageVO> pageDevices(Long deviceId,
+                                                String keyword,
                                                 String productKey,
+                                                String productName,
                                                 String deviceCode,
                                                 String deviceName,
                                                 Integer onlineStatus,
@@ -183,7 +185,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                 Long pageSize) {
         return pageDevices(null,
                 deviceId,
+                keyword,
                 productKey,
+                productName,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -197,7 +201,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     public PageResult<DevicePageVO> pageDevices(Long currentUserId,
                                                 Long deviceId,
+                                                String keyword,
                                                 String productKey,
+                                                String productName,
                                                 String deviceCode,
                                                 String deviceName,
                                                 Integer onlineStatus,
@@ -209,12 +215,24 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         Page<Device> page = PageQueryUtils.buildPage(pageNum, pageSize);
         long current = page.getCurrent();
         long size = page.getSize();
+        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
+            return pageUnregisteredDevices(currentUserId, deviceId, keyword, productKey, productName, deviceCode, deviceName,
+                    onlineStatus, activateStatus, deviceStatus, current, size);
+        }
+
+        boolean hasExplicitProductFilter = StringUtils.hasText(productKey) || StringUtils.hasText(productName);
+        List<Long> filteredProductIds = resolveFilteredProductIds(currentUserId, productKey, productName);
+        List<Long> keywordMatchedProductIds = resolveKeywordMatchedProductIds(currentUserId, keyword);
 
         if (Integer.valueOf(REGISTERED_STATUS).equals(registrationStatus)) {
-            List<Long> filteredProductIds = resolveFilteredProductIds(currentUserId, productKey);
+            if (hasExplicitProductFilter && CollectionUtils.isEmpty(filteredProductIds)) {
+                return PageResult.empty(current, size);
+            }
             return pageRegisteredDevices(currentUserId,
                     deviceId,
+                    keyword,
                     filteredProductIds,
+                    keywordMatchedProductIds,
                     deviceCode,
                     deviceName,
                     onlineStatus,
@@ -224,16 +242,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                     size);
         }
 
-        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
-            return pageUnregisteredDevices(currentUserId, deviceId, productKey, deviceCode, deviceName,
-                    onlineStatus, activateStatus, deviceStatus, current, size);
-        }
-
-        List<Long> filteredProductIds = resolveFilteredProductIds(currentUserId, productKey);
         return pageCombinedDevices(currentUserId,
                 deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 productKey,
+                productName,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -715,7 +730,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private LambdaQueryWrapper<Device> buildDeviceQueryWrapper(Long currentUserId,
                                                                Long deviceId,
+                                                               String keyword,
                                                                List<Long> filteredProductIds,
+                                                               List<Long> keywordMatchedProductIds,
                                                                String deviceCode,
                                                                String deviceName,
                                                                Integer onlineStatus,
@@ -728,6 +745,17 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
         if (!CollectionUtils.isEmpty(filteredProductIds)) {
             wrapper.in(Device::getProductId, filteredProductIds);
+        }
+        String normalizedKeyword = normalizeOptionalText(keyword);
+        if (StringUtils.hasText(normalizedKeyword)) {
+            wrapper.and(condition -> {
+                condition.like(Device::getDeviceCode, normalizedKeyword)
+                        .or()
+                        .like(Device::getDeviceName, normalizedKeyword);
+                if (!CollectionUtils.isEmpty(keywordMatchedProductIds)) {
+                    condition.or().in(Device::getProductId, keywordMatchedProductIds);
+                }
+            });
         }
         if (StringUtils.hasText(deviceCode)) {
             wrapper.like(Device::getDeviceCode, deviceCode.trim());
@@ -748,15 +776,36 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return wrapper;
     }
 
-    private List<Long> resolveFilteredProductIds(Long currentUserId, String productKey) {
-        if (!StringUtils.hasText(productKey)) {
+    private List<Long> resolveFilteredProductIds(Long currentUserId, String productKey, String productName) {
+        String normalizedProductKey = normalizeOptionalText(productKey);
+        String normalizedProductName = normalizeOptionalText(productName);
+        if (!StringUtils.hasText(normalizedProductKey) && !StringUtils.hasText(normalizedProductName)) {
             return null;
         }
         Long tenantId = resolveScopedTenantId(currentUserId);
         return productService.lambdaQuery()
                 .eq(tenantId != null, Product::getTenantId, tenantId)
-                .like(Product::getProductKey, productKey.trim())
+                .like(StringUtils.hasText(normalizedProductKey), Product::getProductKey, normalizedProductKey)
+                .like(StringUtils.hasText(normalizedProductName), Product::getProductName, normalizedProductName)
                 .eq(Product::getDeleted, 0)
+                .list()
+                .stream()
+                .map(Product::getId)
+                .toList();
+    }
+
+    private List<Long> resolveKeywordMatchedProductIds(Long currentUserId, String keyword) {
+        String normalizedKeyword = normalizeOptionalText(keyword);
+        if (!StringUtils.hasText(normalizedKeyword)) {
+            return null;
+        }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        return productService.lambdaQuery()
+                .eq(tenantId != null, Product::getTenantId, tenantId)
+                .eq(Product::getDeleted, 0)
+                .and(wrapper -> wrapper.like(Product::getProductKey, normalizedKeyword)
+                        .or()
+                        .like(Product::getProductName, normalizedKeyword))
                 .list()
                 .stream()
                 .map(Product::getId)
@@ -847,7 +896,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private PageResult<DevicePageVO> pageRegisteredDevices(Long currentUserId,
                                                            Long deviceId,
+                                                           String keyword,
                                                            List<Long> filteredProductIds,
+                                                           List<Long> keywordMatchedProductIds,
                                                            String deviceCode,
                                                            String deviceName,
                                                            Integer onlineStatus,
@@ -863,7 +914,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         Page<Device> result = page(page, buildDeviceQueryWrapper(
                 currentUserId,
                 deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -876,7 +929,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private PageResult<DevicePageVO> pageUnregisteredDevices(Long currentUserId,
                                                              Long deviceId,
+                                                             String keyword,
                                                              String productKey,
+                                                             String productName,
                                                              String deviceCode,
                                                              String deviceName,
                                                              Integer onlineStatus,
@@ -894,21 +949,34 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         long offset = Math.max(pageNum - 1, 0L) * pageSize;
         Long tenantId = resolveScopedTenantId(currentUserId);
         long total = tenantId == null
-                ? unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode))
-                : unregisteredDeviceRosterService.countByFilters(tenantId, normalizeOptionalText(productKey), normalizeOptionalText(deviceCode));
+                ? unregisteredDeviceRosterService.countByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode))
+                : unregisteredDeviceRosterService.countByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode));
         if (total <= 0L) {
             return PageResult.empty(pageNum, pageSize);
         }
         List<DevicePageVO> records = tenantId == null
                 ? unregisteredDeviceRosterService.listByFilters(
+                normalizeOptionalText(keyword),
                 normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
                 normalizeOptionalText(deviceCode),
                 offset,
                 pageSize
         )
                 : unregisteredDeviceRosterService.listByFilters(
                 tenantId,
+                normalizeOptionalText(keyword),
                 normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
                 normalizeOptionalText(deviceCode),
                 offset,
                 pageSize
@@ -918,8 +986,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     private PageResult<DevicePageVO> pageCombinedDevices(Long currentUserId,
                                                          Long deviceId,
+                                                         String keyword,
                                                          List<Long> filteredProductIds,
+                                                         List<Long> keywordMatchedProductIds,
                                                          String productKey,
+                                                         String productName,
                                                          String deviceCode,
                                                          String deviceName,
                                                          Integer onlineStatus,
@@ -928,7 +999,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                          long pageNum,
                                                          long pageSize) {
         long registeredTotal = countRegisteredDevices(currentUserId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 deviceId,
                 deviceCode,
                 deviceName,
@@ -939,8 +1012,17 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         long unregisteredTotal = !hasOrganizationRestrictedScope(currentUserId)
                 && canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
                 ? (tenantId == null
-                ? unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode))
-                : unregisteredDeviceRosterService.countByFilters(tenantId, normalizeOptionalText(productKey), normalizeOptionalText(deviceCode)))
+                ? unregisteredDeviceRosterService.countByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode))
+                : unregisteredDeviceRosterService.countByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode)))
                 : 0L;
         long total = registeredTotal + unregisteredTotal;
         if (total <= 0L) {
@@ -952,7 +1034,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (offset < registeredTotal) {
             PageResult<DevicePageVO> registeredPage = pageRegisteredDevices(currentUserId,
                     deviceId,
+                    keyword,
                     filteredProductIds,
+                    keywordMatchedProductIds,
                     deviceCode,
                     deviceName,
                     onlineStatus,
@@ -968,14 +1052,18 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
             long unregisteredOffset = Math.max(0L, offset - registeredTotal);
             records.addAll(tenantId == null
                     ? unregisteredDeviceRosterService.listByFilters(
+                    normalizeOptionalText(keyword),
                     normalizeOptionalText(productKey),
+                    normalizeOptionalText(productName),
                     normalizeOptionalText(deviceCode),
                     unregisteredOffset,
                     remaining
             )
                     : unregisteredDeviceRosterService.listByFilters(
                     tenantId,
+                    normalizeOptionalText(keyword),
                     normalizeOptionalText(productKey),
+                    normalizeOptionalText(productName),
                     normalizeOptionalText(deviceCode),
                     unregisteredOffset,
                     remaining
@@ -985,7 +1073,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     private long countRegisteredDevices(Long currentUserId,
+                                        String keyword,
                                         List<Long> filteredProductIds,
+                                        List<Long> keywordMatchedProductIds,
                                         Long deviceId,
                                         String deviceCode,
                                         String deviceName,
@@ -998,7 +1088,9 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return count(buildDeviceQueryWrapper(
                 currentUserId,
                 deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 deviceCode,
                 deviceName,
                 onlineStatus,

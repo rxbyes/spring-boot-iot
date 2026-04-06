@@ -1,30 +1,36 @@
 <template>
   <div class="product-detail-workbench">
-    <section class="product-detail-workbench__lead-sheet" data-testid="product-detail-lead-sheet">
-      <section class="product-detail-workbench__scale-ledger" data-testid="product-detail-scale-ledger">
-        <article
-          v-for="metric in scaleMetrics"
-          :key="metric.key"
-          class="product-detail-workbench__scale-note"
-        >
-          <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
-        </article>
-      </section>
+    <section class="product-detail-workbench__metrics-row" data-testid="product-detail-metrics-row">
+      <article
+        v-for="metric in scaleMetrics"
+        :key="metric.key"
+        class="product-detail-workbench__metric-card"
+      >
+        <span class="product-detail-workbench__copy-label">{{ metric.label }}</span>
+        <strong class="product-detail-workbench__copy-value">{{ metric.value }}</strong>
+      </article>
     </section>
 
-    <section class="product-detail-workbench__archive-sheet" data-testid="product-detail-archive-sheet">
-      <header class="product-detail-workbench__section-head">
-        <strong class="product-detail-workbench__section-title">档案摘要</strong>
+    <section class="product-detail-workbench__archive-card" data-testid="product-detail-archive-card">
+      <header class="product-detail-workbench__archive-header">
+        <strong class="product-detail-workbench__archive-title product-detail-workbench__copy-label">档案摘要</strong>
       </header>
-      <div class="product-detail-workbench__archive-list">
+      <div class="product-detail-workbench__archive-grid">
         <article
           v-for="item in archiveSummaryItems"
           :key="item.key"
-          class="product-detail-workbench__archive-note"
+          class="product-detail-workbench__archive-item"
+          :class="{
+            'product-detail-workbench__archive-item--description': item.key === 'description'
+          }"
         >
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
+          <span class="product-detail-workbench__copy-label">{{ item.label }}</span>
+          <strong
+            class="product-detail-workbench__copy-value product-detail-workbench__copy-value--body"
+            :data-testid="item.key === 'description' ? 'product-detail-archive-description' : undefined"
+          >
+            {{ item.value }}
+          </strong>
         </article>
       </div>
     </section>
@@ -101,103 +107,109 @@ const archiveSummaryItems = computed(() => [
 
 <style scoped>
 .product-detail-workbench,
-.product-detail-workbench__scale-ledger,
-.product-detail-workbench__archive-sheet,
-.product-detail-workbench__archive-list {
+.product-detail-workbench__metrics-row,
+.product-detail-workbench__archive-card,
+.product-detail-workbench__archive-grid,
+.product-detail-workbench__metric-card,
+.product-detail-workbench__archive-item {
   display: grid;
 }
 
 .product-detail-workbench {
-  gap: 1.45rem;
+  gap: 0.88rem;
 }
 
-.product-detail-workbench__lead-sheet {
-  padding-top: 0.88rem;
-  border-top: 1px solid var(--panel-border-strong);
+.product-detail-workbench__metrics-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.88rem;
 }
 
-.product-detail-workbench__scale-note span,
-.product-detail-workbench__archive-note span {
+.product-detail-workbench__metric-card,
+.product-detail-workbench__archive-card {
+  border: 1px solid color-mix(in srgb, var(--brand) 9%, var(--panel-border));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--brand-light) 16%, white) 0%,
+    rgba(255, 255, 255, 0.98) 100%
+  );
+  box-shadow: 0 8px 20px -20px color-mix(in srgb, var(--brand) 42%, transparent);
+}
+
+.product-detail-workbench__metric-card {
+  gap: 0.34rem;
+  min-width: 0;
+  padding: 0.78rem 0.9rem;
+}
+
+.product-detail-workbench__copy-label {
   color: var(--text-secondary);
   font-size: 0.8rem;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-.product-detail-workbench__scale-ledger {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-}
-
-.product-detail-workbench__scale-note {
-  display: grid;
-  gap: 0.36rem;
-  min-width: 0;
-  padding: 0.38rem 1rem 0.72rem 0;
-  border-right: 1px solid var(--panel-border);
-}
-
-.product-detail-workbench__scale-note strong,
-.product-detail-workbench__section-title,
-.product-detail-workbench__archive-note strong {
+.product-detail-workbench__copy-value {
   color: var(--text-heading);
   font-size: 1.1rem;
   line-height: 1.34;
 }
 
-.product-detail-workbench__archive-sheet {
-  gap: 0.72rem;
-  padding-top: 0.86rem;
-  border-top: 1px solid var(--panel-border-strong);
+.product-detail-workbench__copy-value--body {
+  font-size: 1.02rem;
 }
 
-.product-detail-workbench__section-head {
+.product-detail-workbench__archive-card {
+  gap: 0.72rem;
+  padding: 0.86rem 0.9rem;
+}
+
+.product-detail-workbench__archive-header {
   display: grid;
   justify-items: start;
 }
 
-.product-detail-workbench__section-title {
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: 1.08rem;
+.product-detail-workbench__archive-title {
+  font-weight: 600;
 }
 
-.product-detail-workbench__archive-note {
-  display: grid;
-  gap: 0.26rem;
+.product-detail-workbench__archive-grid {
+  grid-template-columns: repeat(2, minmax(180px, max-content)) minmax(220px, 1fr);
+  gap: 0.72rem;
+  align-items: center;
+}
+
+.product-detail-workbench__archive-item {
+  gap: 0.2rem;
   min-width: 0;
-  padding: 0.82rem 1rem 0.82rem 0;
-  border-right: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
 }
 
-.product-detail-workbench__archive-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+.product-detail-workbench__archive-item--description {
+  justify-self: stretch;
+}
+
+.product-detail-workbench__archive-item--description strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1024px) {
-  .product-detail-workbench__scale-note {
-    padding-right: 0.82rem;
+  .product-detail-workbench__archive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .product-detail-workbench__archive-list {
-    grid-template-columns: 1fr;
-  }
-
-  .product-detail-workbench__archive-note {
-    padding-right: 0;
-    border-right: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
+  .product-detail-workbench__archive-item--description {
+    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 720px) {
-  .product-detail-workbench__scale-ledger {
+  .product-detail-workbench__metrics-row,
+  .product-detail-workbench__archive-grid {
     grid-template-columns: 1fr;
   }
 
-  .product-detail-workbench__scale-note {
-    padding-right: 0;
-    border-right: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
+  .product-detail-workbench__archive-item--description {
+    grid-column: auto;
   }
 }
 </style>

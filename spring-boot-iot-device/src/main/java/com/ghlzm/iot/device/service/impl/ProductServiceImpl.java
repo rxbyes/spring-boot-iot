@@ -198,7 +198,12 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             wrapper.like(Product::getProductKey, productKey.trim());
         }
         if (StringUtils.hasText(productName)) {
-            wrapper.like(Product::getProductName, productName.trim());
+            String trimmedKeyword = productName.trim();
+            wrapper.and(query -> query.like(Product::getProductName, trimmedKeyword)
+                    .or()
+                    .like(Product::getProductKey, trimmedKeyword)
+                    .or()
+                    .like(Product::getManufacturer, trimmedKeyword));
         }
         if (StringUtils.hasText(protocolCode)) {
             wrapper.like(Product::getProtocolCode, protocolCode.trim());

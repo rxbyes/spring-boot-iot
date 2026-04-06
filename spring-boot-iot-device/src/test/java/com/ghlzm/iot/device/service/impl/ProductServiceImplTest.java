@@ -1,6 +1,8 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,9 +20,12 @@ import com.ghlzm.iot.device.vo.ProductPageVO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -46,6 +51,12 @@ class ProductServiceImplTest {
     private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Product.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -172,6 +183,37 @@ class ProductServiceImplTest {
         verify(deviceMapper).selectProductStats(any());
         verify(deviceMapper, never()).selectProductActivityStat(any(), any(), any(), any());
         verifyNoInteractions(deviceOnlineSessionService);
+    }
+
+    @Test
+    void pageProductsShouldApplyQuickSearchAcrossProductNameKeyAndManufacturer() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("accept-http-product-01");
+        product.setProductName("压力泵监测产品");
+        product.setManufacturer("GHLZM");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        Page<Product> page = new Page<>(1, 10);
+        page.setCurrent(1L);
+        page.setSize(10L);
+        page.setTotal(1L);
+        page.setRecords(List.of(product));
+        doReturn(page).when(productService).page(any(Page.class), any(LambdaQueryWrapper.class));
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of());
+
+        productService.pageProducts(null, "accept-http", null, null, null, 1L, 10L);
+
+        ArgumentCaptor<LambdaQueryWrapper<Product>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(productService).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+
+        assertTrue(sqlSegment.contains("product_name"));
+        assertTrue(sqlSegment.contains("product_key"));
+        assertTrue(sqlSegment.contains("manufacturer"));
+        assertTrue(sqlSegment.contains("OR"));
     }
 
     @Test

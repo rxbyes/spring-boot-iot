@@ -1,32 +1,8 @@
 <template>
   <div class="device-detail-workbench">
-    <section class="device-detail-workbench__hero" data-testid="device-detail-hero">
-      <div class="device-detail-workbench__hero-body">
-        <p class="device-detail-workbench__hero-eyebrow">{{ heroEyebrow }}</p>
-        <h3 class="device-detail-workbench__hero-title">{{ heroTitle }}</h3>
-        <p class="device-detail-workbench__hero-message">{{ heroMessage }}</p>
-      </div>
-
-      <div class="device-detail-workbench__hero-tags">
-        <span
-          v-for="tag in heroTags"
-          :key="tag.key"
-          :class="[
-            'device-detail-workbench__hero-tag',
-            `device-detail-workbench__hero-tag--${tag.tone}`
-          ]"
-        >
-          {{ tag.label }}
-        </span>
-      </div>
-    </section>
-
     <section class="device-detail-workbench__stage" data-testid="device-detail-summary-stage">
       <div class="device-detail-workbench__stage-header">
-        <div>
-          <h3>资产状态与接入概况</h3>
-          <p>{{ summaryMessage }}</p>
-        </div>
+        <h3>资产状态与接入概况</h3>
       </div>
 
       <div class="device-detail-workbench__summary-grid">
@@ -51,10 +27,7 @@
         <div class="device-detail-workbench__overview-pair">
           <article class="device-detail-workbench__overview-panel">
             <div class="device-detail-workbench__stage-header">
-              <div>
-                <h3>资产概览</h3>
-                <p>先确认资产身份、产品归属与部署位置。</p>
-              </div>
+              <h3>资产概览</h3>
             </div>
 
             <div class="device-detail-workbench__ledger-grid">
@@ -74,10 +47,7 @@
 
           <article class="device-detail-workbench__overview-panel">
             <div class="device-detail-workbench__stage-header">
-              <div>
-                <h3>运行概览</h3>
-                <p>先确认最近在线、离线、上报和更新时间。</p>
-              </div>
+              <h3>运行概览</h3>
             </div>
 
             <div class="device-detail-workbench__ledger-grid">
@@ -103,10 +73,7 @@
         data-testid="device-detail-identity-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>身份与部署台账</h3>
-            <p>长字段跨列展示，避免设备主档继续挤成等宽小卡墙。</p>
-          </div>
+          <h3>身份与部署台账</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -130,10 +97,7 @@
         data-testid="device-detail-runtime-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>运行与认证台账</h3>
-            <p>先看时间节奏，再核对接入凭据，保持同一层台账阅读顺序。</p>
-          </div>
+          <h3>运行与认证台账</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -157,10 +121,7 @@
         data-testid="device-detail-support-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>关系与建档补充</h3>
-            <p>后置关系字段和补建主档线索，但继续复用同一套台账语法。</p>
-          </div>
+          <h3>关系与建档补充</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -184,10 +145,7 @@
         data-testid="device-detail-metadata-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>扩展元数据快照</h3>
-            <p>保留结构化补充信息，作为安静的后置快照区。</p>
-          </div>
+          <h3>扩展元数据快照</h3>
         </div>
 
         <pre class="device-detail-workbench__code-block">{{ metadataPreview }}</pre>
@@ -201,10 +159,7 @@
         data-testid="device-detail-source-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>来源档案与失败摘要</h3>
-            <p>把来源主键、协议上下文和失败摘要放在同一层，方便补档与排障。</p>
-          </div>
+          <h3>来源档案与失败摘要</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -228,10 +183,7 @@
         data-testid="device-detail-payload-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <div>
-            <h3>最近载荷</h3>
-            <p>保留最近一次原始报文，便于回查协议映射和补建设备主档。</p>
-          </div>
+          <h3>最近载荷</h3>
         </div>
 
         <pre class="device-detail-workbench__code-block">{{ payloadPreview }}</pre>
@@ -244,7 +196,7 @@
 import { computed } from 'vue'
 
 import type { Device } from '@/types/api'
-import { formatDateTime, prettyJson } from '@/utils/format'
+import { formatDateTime, formatDeviceReportTime, prettyJson } from '@/utils/format'
 
 type SummaryCard = {
   key: string
@@ -258,12 +210,6 @@ type LedgerItem = {
   label: string
   value: string
   wide?: boolean
-}
-
-type HeroTag = {
-  key: string
-  label: string
-  tone: 'success' | 'warning' | 'muted'
 }
 
 const emptyDetailValue = '--'
@@ -354,58 +300,6 @@ function maskSecret(value?: string | null) {
   return `${value.slice(0, 2)}****${value.slice(-2)}`
 }
 
-const heroEyebrow = computed(() => (isRegistered.value ? '设备资产详情' : '未登记设备详情'))
-const heroTitle = computed(() => device.value.deviceName || device.value.deviceCode || '设备详情')
-const heroMessage = computed(() =>
-  isRegistered.value
-    ? '资产信息完整，可继续核对部署、运行与认证台账。'
-    : '当前仍是未登记上报，优先确认失败阶段与来源记录。'
-)
-
-const heroTags = computed<HeroTag[]>(() =>
-  isRegistered.value
-    ? [
-        {
-          key: 'registration',
-          label: getRegistrationStatusText(device.value.registrationStatus),
-          tone: 'success'
-        },
-        {
-          key: 'online',
-          label: getOnlineStatusText(device.value.onlineStatus),
-          tone: device.value.onlineStatus === 1 ? 'success' : 'muted'
-        },
-        {
-          key: 'activate',
-          label: getActivateStatusText(device.value.activateStatus),
-          tone: device.value.activateStatus === 1 ? 'success' : 'warning'
-        },
-        {
-          key: 'deviceStatus',
-          label: getDeviceStatusText(device.value.deviceStatus),
-          tone: device.value.deviceStatus === 1 ? 'success' : 'warning'
-        }
-      ]
-    : [
-        {
-          key: 'registration',
-          label: getRegistrationStatusText(device.value.registrationStatus),
-          tone: 'warning'
-        },
-        {
-          key: 'source',
-          label: getSourceTypeText(device.value.assetSourceType),
-          tone: 'muted'
-        }
-      ]
-)
-
-const summaryMessage = computed(() =>
-  isRegistered.value
-    ? '先完成当前状态判断，再进入完整台账核对。'
-    : '先确认失败判断和最近上报，再决定是否补建设备主档。'
-)
-
 const summaryCards = computed<SummaryCard[]>(() =>
   isRegistered.value
     ? [
@@ -444,7 +338,7 @@ const summaryCards = computed<SummaryCard[]>(() =>
         {
           key: 'lastReportTime',
           label: '最近上报',
-          value: formatDateTime(device.value.lastReportTime),
+          value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
           hint: '定位最近一次上报'
         },
         {
@@ -473,7 +367,12 @@ const assetOverviewItems = computed<LedgerItem[]>(() => [
 const runtimeOverviewItems = computed<LedgerItem[]>(() => [
   { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime), wide: true },
   { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime), wide: true },
-  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime), wide: true },
+  {
+    key: 'lastReportTime',
+    label: '最近上报',
+    value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
+    wide: true
+  },
   { key: 'updateTime', label: '更新时间', value: formatDateTime(device.value.updateTime), wide: true }
 ])
 
@@ -493,7 +392,12 @@ const identityItems = computed<LedgerItem[]>(() => [
 const runtimeItems = computed<LedgerItem[]>(() => [
   { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime), wide: true },
   { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime), wide: true },
-  { key: 'lastReportTime', label: '最近上报', value: formatDateTime(device.value.lastReportTime), wide: true },
+  {
+    key: 'lastReportTime',
+    label: '最近上报',
+    value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
+    wide: true
+  },
   { key: 'createTime', label: '创建时间', value: formatDateTime(device.value.createTime) },
   { key: 'updateTime', label: '更新时间', value: formatDateTime(device.value.updateTime) },
   { key: 'clientId', label: 'Client ID', value: toDisplayText(device.value.clientId) },
@@ -549,7 +453,6 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   gap: 1rem;
 }
 
-.device-detail-workbench__hero,
 .device-detail-workbench__stage,
 .device-detail-workbench__overview-panel {
   display: grid;
@@ -561,80 +464,9 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   box-shadow: var(--shadow-inset-highlight-78);
 }
 
-.device-detail-workbench__hero {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  background:
-    linear-gradient(135deg, rgba(247, 250, 255, 0.98), rgba(255, 255, 255, 0.94)),
-    rgba(255, 255, 255, 0.94);
-}
-
 .device-detail-workbench__stage--subtle,
 .device-detail-workbench__overview-panel {
   background: rgba(255, 255, 255, 0.9);
-}
-
-.device-detail-workbench__hero-body {
-  display: grid;
-  gap: 0.32rem;
-}
-
-.device-detail-workbench__hero-eyebrow {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
-.device-detail-workbench__hero-title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 20px;
-  line-height: 1.35;
-}
-
-.device-detail-workbench__hero-message {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.device-detail-workbench__hero-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.device-detail-workbench__hero-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.device-detail-workbench__hero-tag--success {
-  border-color: rgba(35, 140, 81, 0.16);
-  background: rgba(35, 140, 81, 0.1);
-  color: #2f6e46;
-}
-
-.device-detail-workbench__hero-tag--warning {
-  border-color: rgba(177, 92, 29, 0.16);
-  background: rgba(177, 92, 29, 0.1);
-  color: #8b4c1c;
-}
-
-.device-detail-workbench__hero-tag--muted {
-  border-color: rgba(78, 94, 117, 0.14);
-  background: rgba(78, 94, 117, 0.08);
-  color: #536074;
 }
 
 .device-detail-workbench__stage-header h3 {
@@ -642,13 +474,6 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   color: var(--text-heading);
   font-size: 16px;
   line-height: 1.4;
-}
-
-.device-detail-workbench__stage-header p {
-  margin: 0.35rem 0 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.65;
 }
 
 .device-detail-workbench__summary-grid {
@@ -737,14 +562,6 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
 }
 
 @media (max-width: 960px) {
-  .device-detail-workbench__hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .device-detail-workbench__hero-tags {
-    justify-content: flex-start;
-  }
-
   .device-detail-workbench__summary-grid,
   .device-detail-workbench__overview-pair,
   .device-detail-workbench__ledger-grid {

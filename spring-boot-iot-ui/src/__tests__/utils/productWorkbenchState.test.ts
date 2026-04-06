@@ -52,7 +52,7 @@ describe('productWorkbenchState', () => {
     expect(getProductRowKey(null)).toBe('')
   })
 
-  it('matches product filters by keyword, nodeType and status', () => {
+  it('matches quick-search filters across product name, product key, manufacturer, nodeType and status', () => {
     const product = createProduct({ productName: '压力泵监测产品', nodeType: 2, status: 0 })
 
     expect(
@@ -65,11 +65,19 @@ describe('productWorkbenchState', () => {
 
     expect(
       matchesProductFilters(product, {
-        productName: '温度',
+        productName: 'accept-http-product',
         nodeType: 2,
         status: 0
       })
-    ).toBe(false)
+    ).toBe(true)
+
+    expect(
+      matchesProductFilters(product, {
+        productName: 'ghlzm',
+        nodeType: 2,
+        status: 0
+      })
+    ).toBe(true)
 
     expect(
       matchesProductFilters(product, {

@@ -4,9 +4,9 @@
     <div v-else-if="errorMessage" class="device-state device-state--error">{{ errorMessage }}</div>
     <div v-else-if="empty" class="device-state">{{ emptyText }}</div>
     <div v-else class="device-workspace__content">
-      <section class="device-workspace__registry-sheet">
+      <section class="device-workspace__registry-sheet device-workspace__registry-card">
         <header class="device-workspace__registry-heading">
-          <strong>设备清册</strong>
+          <strong>设备清单</strong>
         </header>
 
         <div class="device-workspace__table-shell">
@@ -16,7 +16,6 @@
             border
             stripe
             empty-text="当前产品还没有关联设备"
-            class="device-drawer__table"
           >
             <el-table-column prop="deviceName" label="设备名称" min-width="140" show-overflow-tooltip />
             <el-table-column prop="deviceCode" label="设备编码" min-width="160" show-overflow-tooltip />
@@ -66,17 +65,13 @@
 import { toRefs } from 'vue'
 
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
-import type { Device, Product } from '@/types/api'
+import type { Device } from '@/types/api'
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
-    product?: Product | null
     devices: Device[]
-    totalDevices: number
-    onlineDevices: number
-    offlineDevices: number
     loading?: boolean
     loadingText?: string
     errorMessage?: string
@@ -85,7 +80,6 @@ const props = withDefaults(
     devicesLoading?: boolean
   }>(),
   {
-    product: null,
     loading: false,
     loadingText: '正在加载设备...',
     errorMessage: '',
@@ -144,14 +138,20 @@ function handleViewDevice(device: Device) {
   color: color-mix(in srgb, var(--danger) 78%, var(--text-secondary));
   border-color: color-mix(in srgb, var(--danger) 20%, var(--panel-border));
 }
-.device-workspace__registry-heading strong {
-  color: var(--text-heading);
-}
 
 .device-workspace__registry-sheet {
   gap: 0.88rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--panel-border-strong);
+}
+
+.device-workspace__registry-card {
+  padding: 0.86rem 0.92rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--brand-light) 14%, white) 0%,
+    rgba(255, 255, 255, 0.98) 100%
+  );
+  box-shadow: 0 8px 20px -20px color-mix(in srgb, var(--brand) 40%, transparent);
 }
 
 .device-workspace__registry-heading {
@@ -160,14 +160,14 @@ function handleViewDevice(device: Device) {
 }
 
 .device-workspace__registry-heading strong {
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: 1.08rem;
-  line-height: 1.4;
+  color: var(--text-heading);
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 .device-workspace__table-shell {
   overflow: hidden;
-  border: 1px solid var(--panel-border);
+  border: 1px solid color-mix(in srgb, var(--brand) 7%, var(--panel-border));
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand-light) 10%, white));
 }
 

@@ -6,27 +6,31 @@ import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesi
 
 const {
   mockListProductModels,
-  mockListProductModelCandidates
+  mockCompareProductModelGovernance,
+  mockApplyProductModelGovernance,
+  mockListDeviceRelations
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
-  mockListProductModelCandidates: vi.fn()
+  mockCompareProductModelGovernance: vi.fn(),
+  mockApplyProductModelGovernance: vi.fn(),
+  mockListDeviceRelations: vi.fn()
 }))
 
 vi.mock('@/api/product', () => ({
   productApi: {
     listProductModels: mockListProductModels,
-    listProductModelCandidates: mockListProductModelCandidates,
-    manualExtractProductModelCandidates: vi.fn(),
-    confirmProductModelCandidates: vi.fn(),
+    compareProductModelGovernance: mockCompareProductModelGovernance,
+    applyProductModelGovernance: mockApplyProductModelGovernance,
     addProductModel: vi.fn(),
     updateProductModel: vi.fn(),
     deleteProductModel: vi.fn()
   }
 }))
 
-vi.mock('@/utils/confirm', () => ({
-  confirmDelete: vi.fn(),
-  isConfirmCancelled: vi.fn(() => false)
+vi.mock('@/api/device', () => ({
+  deviceApi: {
+    listDeviceRelations: mockListDeviceRelations
+  }
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -39,18 +43,6 @@ vi.mock('element-plus', async (importOriginal) => {
       warning: vi.fn()
     }
   }
-})
-
-const StandardFormDrawerStub = defineComponent({
-  name: 'StandardFormDrawer',
-  props: ['modelValue', 'title', 'subtitle'],
-  emits: ['update:modelValue', 'close'],
-  template: `
-    <section v-if="modelValue" class="standard-form-drawer-stub">
-      <slot />
-      <slot name="footer" />
-    </section>
-  `
 })
 
 const StandardButtonStub = defineComponent({
@@ -69,85 +61,57 @@ const StandardButtonStub = defineComponent({
   `
 })
 
-const StandardDrawerFooterStub = defineComponent({
-  name: 'StandardDrawerFooter',
-  template: '<footer class="standard-drawer-footer-stub"><slot /></footer>'
-})
-
-const ProductModelDesignerDrawerStub = defineComponent({
-  name: 'ProductModelDesignerDrawer',
-  props: ['modelValue', 'product'],
-  template: '<section class="product-model-designer-drawer-stub" />'
-})
-
-const StandardActionLinkStub = defineComponent({
-  name: 'StandardActionLink',
-  emits: ['click'],
-  template: '<button type="button" class="standard-action-link-stub" @click="$emit(\'click\')"><slot /></button>'
-})
-
-const StandardRowActionsStub = defineComponent({
-  name: 'StandardRowActions',
-  template: '<div class="standard-row-actions-stub"><slot /></div>'
-})
-
-const ElTagStub = defineComponent({
-  name: 'ElTag',
-  template: '<span class="el-tag-stub"><slot /></span>'
-})
-
-const ElCheckboxStub = defineComponent({
-  name: 'ElCheckbox',
-  props: ['modelValue', 'disabled'],
-  emits: ['update:modelValue', 'change'],
-  template: `
-    <input
-      class="el-checkbox-stub"
-      type="checkbox"
-      :checked="Boolean(modelValue)"
-      :disabled="Boolean(disabled)"
-      @change="$emit('update:modelValue', $event.target.checked); $emit('change', $event.target.checked)"
-    />
-  `
+const CompareTableStub = defineComponent({
+  name: 'ProductModelGovernanceCompareTable',
+  props: ['rows', 'decisionState'],
+  emits: ['change-decision'],
+  setup(props, { emit }) {
+    return () =>
+      h('section', { class: 'compare-table-stub' }, [
+        h('span', `rows:${props.rows?.length ?? 0}`),
+        h(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'compare-table-stub-select',
+            onClick: () => emit('change-decision', { key: 'property:value', decision: 'create' })
+          },
+          'select'
+        )
+      ])
+  }
 })
 
 const ElInputStub = defineComponent({
   name: 'ElInput',
-  props: ['modelValue', 'type'],
-  emits: ['update:modelValue'],
+  props: ['modelValue', 'type', 'rows', 'placeholder'],
+  emits: ['update:modelValue', 'blur'],
   template: `
     <textarea
       v-if="type === 'textarea'"
       class="el-input-stub el-input-stub--textarea"
       :value="modelValue"
+      :placeholder="placeholder"
       @input="$emit('update:modelValue', $event.target.value)"
+      @blur="$emit('blur')"
     />
     <input
       v-else
       class="el-input-stub"
       :value="modelValue"
+      :placeholder="placeholder"
       @input="$emit('update:modelValue', $event.target.value)"
+      @blur="$emit('blur')"
     />
   `
-})
-
-const ElFormStub = defineComponent({
-  name: 'ElForm',
-  setup(_, { slots, expose }) {
-    expose({
-      validate: () => Promise.resolve(true),
-      clearValidate: () => undefined
-    })
-    return () => h('form', { class: 'el-form-stub' }, slots.default?.())
-  }
 })
 
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function candidateResult() {
-  return undefined
+function findApplyButton(wrapper: ReturnType<typeof mountWorkspace>) {
+  return wrapper.findAll('button').find((button) => button.text().includes('确认并生效'))
 }
 
 function mountWorkspace(productOverrides?: Partial<{
@@ -156,149 +120,222 @@ function mountWorkspace(productOverrides?: Partial<{
   productName: string
   protocolCode: string
   nodeType: number
-}>) {
+  deviceCount: number
+}>){
   return mount(ProductModelDesignerWorkspace, {
     props: {
       product: {
         id: 1001,
-        productKey: 'south-survey-multi-detector-v1',
-        productName: '南方测绘多维检测仪',
+        productKey: 'south-crack-sensor-v1',
+        productName: '南方裂缝传感器',
         protocolCode: 'mqtt-json',
         nodeType: 1,
+        deviceCount: 3,
         ...productOverrides
       }
     },
+    attachTo: document.body,
     global: {
       stubs: {
-        StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
-        StandardDrawerFooter: StandardDrawerFooterStub,
-        ProductModelDesignerDrawer: ProductModelDesignerDrawerStub,
-        StandardActionLink: StandardActionLinkStub,
-        StandardRowActions: StandardRowActionsStub,
-        ElTag: ElTagStub,
-        ElCheckbox: ElCheckboxStub,
+        ProductModelGovernanceCompareTable: CompareTableStub,
         ElInput: ElInputStub,
-        ElForm: ElFormStub,
-        ElFormItem: true,
-        ElSelect: true,
-        ElOption: true,
-        ElSwitch: true,
-        ElInputNumber: true
+        ElTag: true
       }
     }
   })
 }
 
-function findButtonByText(wrapper: ReturnType<typeof mountWorkspace>, text: string) {
-  return wrapper.findAll('button').find((button) => button.text().includes(text))
-}
-
 describe('ProductModelDesignerWorkspace', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
-    mockListProductModelCandidates.mockReset()
+    mockCompareProductModelGovernance.mockReset()
+    mockApplyProductModelGovernance.mockReset()
+    mockListDeviceRelations.mockReset()
+
     mockListProductModels.mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: []
-    })
-  })
-
-  it('loads concise normative-first governance guidance in the journal workspace', async () => {
-    const wrapper = mountWorkspace()
-    await flushPromises()
-    await nextTick()
-
-    expect(mockListProductModelCandidates).not.toHaveBeenCalled()
-    expect(wrapper.find('.product-model-designer__hero-stage').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__brief-head').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__exhibit-head').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__journal-head').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__header').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__headline').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__journal-title').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__journal-summary').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__journal-summary').text()).not.toContain('当前判断')
-    expect(wrapper.find('.product-model-designer__header-meta').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__curation-strip').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__journal-ruler').exists()).toBe(true)
-    expect(wrapper.findAll('.product-model-designer__journal-ruler-item')).toHaveLength(3)
-    expect(wrapper.find('.product-model-designer__workspace-shell').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__governance-sheet').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__candidate-stage').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__candidate-nav').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__flow-strip').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__curation-board').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__governance-steps').exists()).toBe(true)
-    expect(wrapper.findAll('.product-model-designer__governance-step')).toHaveLength(3)
-    expect(wrapper.find('.product-model-designer__candidate-body-meta').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__candidate-rail').exists()).toBe(false)
-    expect(wrapper.find('.product-model-designer__curation-flow').exists()).toBe(false)
-    expect(wrapper.findAll('.product-model-designer__curation-item')).toHaveLength(0)
-    expect(wrapper.find('.product-model-designer__candidate-card').exists()).toBe(false)
-    expect(wrapper.text()).toContain('规范证据优先')
-    expect(wrapper.text()).toContain('报文验证')
-    expect(wrapper.text()).toContain('倾角 / 加速度 / 裂缝一体机')
-    expect(wrapper.text()).toContain('样本 JSON 仅作辅助核对')
-    expect(wrapper.text()).toContain('证据比对')
-    expect(wrapper.text()).toContain('契约字段')
-    expect(wrapper.text()).toContain('进入双证据治理')
-    expect(wrapper.text()).not.toContain('手动提炼')
-    expect(wrapper.text()).not.toContain('物模型治理')
-    expect(wrapper.text()).not.toContain('样本 JSON 继续保留为辅助核对工具')
-  })
-
-  it('renders formal mode cards from the same embedded workspace', async () => {
-    mockListProductModels.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: [
         {
           id: 2001,
           modelType: 'property',
-          identifier: 'temperature',
-          modelName: '温度',
-          dataType: 'decimal',
-          specsJson: '{\"unit\":\"℃\"}',
-          sortNo: 10,
-          requiredFlag: 1,
-          description: '设备温度正式契约'
+          identifier: 'value',
+          modelName: '裂缝值',
+          dataType: 'double',
+          description: '正式字段'
         }
       ]
     })
+    mockCompareProductModelGovernance.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        summary: {},
+        compareRows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'double_aligned',
+            suggestedAction: '纳入新增',
+            riskFlags: [],
+            suspectedMatches: [],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '裂缝值',
+              dataType: 'double'
+            }
+          }
+        ]
+      }
+    })
+    mockApplyProductModelGovernance.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        createdCount: 1,
+        updatedCount: 0,
+        skippedCount: 0
+      }
+    })
+    mockListDeviceRelations.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          parentDeviceCode: 'SK00EA0D1307986',
+          logicalChannelCode: 'L1_LF_1',
+          childDeviceCode: '202018143',
+          relationType: 'collector_child',
+          canonicalizationStrategy: 'LF_VALUE',
+          statusMirrorStrategy: 'SENSOR_STATE'
+        }
+      ]
+    })
+  })
+
+  it('renders the approved single-page contract-field flow and removes drawer-era copy', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('样本输入')
+    expect(wrapper.text()).toContain('识别结果')
+    expect(wrapper.text()).toContain('本次生效')
+    expect(wrapper.text()).toContain('当前已生效字段')
+    expect(wrapper.text()).toContain('样本类型')
+    expect(wrapper.text()).toContain('设备结构')
+    expect(wrapper.text()).toContain('业务数据')
+    expect(wrapper.text()).toContain('状态数据')
+    expect(wrapper.text()).toContain('单台设备')
+    expect(wrapper.text()).toContain('复合设备')
+    expect(wrapper.text()).toContain('提取契约字段')
+    expect(wrapper.find('[data-testid="contract-field-sample-input"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('自动提炼')
+    expect(wrapper.text()).not.toContain('父设备样本归一到子产品')
+  })
+
+  it('loads existing device relations and exposes manual mapping rows in composite mode', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+
+    const parentInput = wrapper.get('[data-testid="composite-parent-device-code"]')
+    await parentInput.setValue('SK00EA0D1307986')
+    await wrapper.findAll('button').find((button) => button.text().includes('读取已有关系'))?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockListDeviceRelations).toHaveBeenCalledWith('SK00EA0D1307986')
+    const logicalInput = wrapper.get('[data-testid="relation-logical-L1_LF_1-202018143"]')
+    const childInput = wrapper.get('[data-testid="relation-child-L1_LF_1-202018143"]')
+    expect((logicalInput.element as HTMLInputElement).value).toBe('L1_LF_1')
+    expect((childInput.element as HTMLInputElement).value).toBe('202018143')
+  })
+
+  it('submits the new manual compare payload and keeps apply on the same page', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
+      manualExtract: {
+        sampleType: 'business',
+        deviceStructure: 'single',
+        samplePayload: '{\n  "device-001": {\n    "temperature": {\n      "2026-04-05T20:14:06.000Z": 26.5\n    }\n  }\n}'
+      }
+    })
+
+    expect(wrapper.text()).toContain('已选 1 项，确认后将写入正式字段')
+    expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.findAll('button').find((button) => button.text().includes('确认并生效'))?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockApplyProductModelGovernance).toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('本次新增生效')
+  })
+
+  it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+
+    const applyButton = findApplyButton(wrapper)
+    expect(applyButton).toBeTruthy()
+    await applyButton?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    const refreshedApplyButton = findApplyButton(wrapper)
+    expect(mockApplyProductModelGovernance).toHaveBeenCalledTimes(1)
+    expect(refreshedApplyButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('keeps the workspace visible when apply fails instead of switching to the load failure notice', async () => {
+    mockApplyProductModelGovernance.mockReset()
+    mockApplyProductModelGovernance.mockRejectedValue(new Error('系统繁忙，请稍后重试！'))
 
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
 
-    await findButtonByText(wrapper, '正式字段')!.trigger('click')
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.product-model-designer__formal-overview').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__journal-ruler').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__formal-sheet').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__formal-stage-copy').exists()).toBe(true)
-    expect(wrapper.find('.product-model-designer__formal-intro').text()).toContain('正式字段')
-    expect(wrapper.text()).toContain('统一维护产品正式字段')
-    expect(wrapper.text()).toContain('温度')
-    expect(wrapper.text()).toContain('设备温度正式契约')
-    expect(wrapper.text()).not.toContain('正式模型')
-    expect(wrapper.find('.product-model-designer__header-meta').exists()).toBe(false)
-    expect(mockListProductModelCandidates).not.toHaveBeenCalled()
-  })
-
-  it('shows generic governance guidance in the workspace for warning products without preset applicability', async () => {
-    const wrapper = mountWorkspace({
-      productKey: 'zhd-warning-sound-light-alarm-v1',
-      productName: '中海达 预警型 声光报警器'
-    })
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.text()).toContain('通用双证据治理')
-    expect(wrapper.text()).toContain('暂无适用规范预设')
-    expect(wrapper.text()).not.toContain('倾角 / 加速度 / 裂缝一体机')
+    expect(wrapper.text()).toContain('样本输入')
+    expect(wrapper.text()).toContain('本次生效')
+    expect(wrapper.text()).not.toContain('加载失败')
   })
 })

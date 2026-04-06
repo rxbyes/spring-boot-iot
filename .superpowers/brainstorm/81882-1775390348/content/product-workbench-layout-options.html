@@ -1,0 +1,232 @@
+<style>
+  .option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .shot {
+    border: 1px solid #d9e2ef;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 18px;
+    min-height: 460px;
+    display: grid;
+    gap: 16px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .hero-title {
+    font-size: 34px;
+    line-height: 1.18;
+    color: #1e3557;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .hero-copy {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.6;
+    color: #5a6f8f;
+  }
+
+  .device-card {
+    border: 1px solid #d9e2ef;
+    border-radius: 18px;
+    background: #fff;
+    padding: 16px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .device-card strong {
+    font-size: 42px;
+    line-height: 1;
+    color: #1e3557;
+  }
+
+  .meta-line {
+    padding: 14px 0 0;
+    border-top: 1px solid #d9e2ef;
+    font-size: 17px;
+    line-height: 1.6;
+    color: #5a6f8f;
+  }
+
+  .tabs-line {
+    display: flex;
+    gap: 24px;
+    padding-top: 8px;
+    border-top: 1px solid #d9e2ef;
+    color: #4a6283;
+    font-size: 18px;
+  }
+
+  .tabs-line .active {
+    color: #1e3557;
+    font-weight: 700;
+  }
+
+  .cards-a {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .cards-b {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .metric-card,
+  .archive-card {
+    border: 1px solid #d9e2ef;
+    border-radius: 18px;
+    background: #fff;
+    padding: 16px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .metric-card strong,
+  .archive-card strong {
+    color: #1e3557;
+  }
+
+  .metric-card strong {
+    font-size: 28px;
+  }
+
+  .archive-card {
+    grid-column: 1 / -1;
+  }
+
+  .archive-grid {
+    display: grid;
+    grid-template-columns: 140px 160px minmax(0, 1fr);
+    gap: 14px;
+    color: #5a6f8f;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .archive-grid strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 16px;
+    line-height: 1.5;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .equal-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .caption {
+    font-size: 13px;
+    color: #7084a1;
+  }
+
+  @media (max-width: 1100px) {
+    .option-grid,
+    .hero,
+    .cards-a,
+    .cards-b,
+    .equal-cards,
+    .archive-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>产品经营工作台收口方向</h2>
+<p class="subtitle">已按你的要求去掉契约状态、下一步建议、橘色强调线和不对称分隔，只保留右侧关联设备卡。</p>
+
+<div class="options option-grid">
+  <div class="option" data-choice="balanced" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>方案 A1（推荐）</h3>
+      <p>头部只留关联设备，下面是 3 张经营指标卡 + 1 张更宽的档案摘要卡，信息层次最稳。</p>
+      <div class="shot">
+        <div class="hero">
+          <div>
+            <div class="caption">产品经营页</div>
+            <h4 class="hero-title">南方测绘 采集型 遥测终端</h4>
+            <p class="hero-copy">当前已有运行设备，可继续补齐并核对契约字段。</p>
+          </div>
+          <div class="device-card">
+            <span class="caption">关联设备</span>
+            <strong>9 台</strong>
+            <span class="caption">当前已有 7 台运行设备可供核对。</span>
+          </div>
+        </div>
+        <div class="meta-line">产品Key：nf-collect-rtu-v1 ｜ 接入协议：mqtt-json ｜ 节点类型：直连设备 ｜ 数据格式：JSON</div>
+        <div class="tabs-line">
+          <span class="active">产品总览</span>
+          <span>关联设备</span>
+          <span>契约字段</span>
+        </div>
+        <div class="cards-a">
+          <div class="metric-card"><span class="caption">在线覆盖</span><strong>78%</strong></div>
+          <div class="metric-card"><span class="caption">30 日活跃</span><strong>8</strong></div>
+          <div class="metric-card"><span class="caption">平均在线</span><strong>25 分钟</strong></div>
+          <div class="archive-card">
+            <span class="caption">档案摘要</span>
+            <div class="archive-grid">
+              <div><span class="caption">厂商</span><strong>南方测绘</strong></div>
+              <div><span class="caption">最近更新</span><strong>2026/03/31 14:02:58</strong></div>
+              <div><span class="caption">补充说明</span><strong>采集型遥测终端设备，协议 mqtt-json，直接接入。长内容允许自然换行，不再把空白浪费在横向分隔线上。</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="compact-grid" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>方案 A2</h3>
+      <p>头部同样只留关联设备，但把总览全部做成 4 张等权卡，更整齐，也更像运营看板。</p>
+      <div class="shot">
+        <div class="hero">
+          <div>
+            <div class="caption">产品经营页</div>
+            <h4 class="hero-title">南方测绘 采集型 遥测终端</h4>
+            <p class="hero-copy">当前已有运行设备，可继续补齐并核对契约字段。</p>
+          </div>
+          <div class="device-card">
+            <span class="caption">关联设备</span>
+            <strong>9 台</strong>
+            <span class="caption">当前已有 7 台运行设备可供核对。</span>
+          </div>
+        </div>
+        <div class="meta-line">产品Key：nf-collect-rtu-v1 ｜ 接入协议：mqtt-json ｜ 节点类型：直连设备 ｜ 数据格式：JSON</div>
+        <div class="tabs-line">
+          <span class="active">产品总览</span>
+          <span>关联设备</span>
+          <span>契约字段</span>
+        </div>
+        <div class="equal-cards">
+          <div class="metric-card"><span class="caption">在线覆盖</span><strong>78%</strong></div>
+          <div class="metric-card"><span class="caption">30 日活跃</span><strong>8</strong></div>
+          <div class="metric-card"><span class="caption">平均在线</span><strong>25 分钟</strong></div>
+          <div class="metric-card">
+            <span class="caption">档案摘要</span>
+            <strong style="font-size:16px; line-height:1.55;">南方测绘 / 2026/03/31 14:02:58 / 采集型遥测终端设备，协议 mqtt-json，直接接入。</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

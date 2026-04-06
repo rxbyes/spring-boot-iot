@@ -260,11 +260,13 @@ class DeviceServiceImplTest {
         unregisteredB.setDeviceName("未登记设备");
         unregisteredB.setRegistrationStatus(0);
 
-        when(unregisteredDeviceRosterService.countByFilters(null, null)).thenReturn(2L);
-        when(unregisteredDeviceRosterService.listByFilters(null, null, 0L, 8L))
+        when(unregisteredDeviceRosterService.countByFilters(null, null, null, null)).thenReturn(2L);
+        when(unregisteredDeviceRosterService.listByFilters(null, null, null, null, 0L, 8L))
                 .thenReturn(List.of(unregisteredA, unregisteredB));
 
         PageResult<DevicePageVO> result = deviceService.pageDevices(
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -295,15 +297,17 @@ class DeviceServiceImplTest {
         unregisteredRow.setDeviceName("未登记设备");
         unregisteredRow.setRegistrationStatus(0);
 
-        when(unregisteredDeviceRosterService.countByFilters("shadow-product", "shadow-device"))
+        when(unregisteredDeviceRosterService.countByFilters("shadow-device", "shadow-product", "北坡监测产品", null))
                 .thenReturn(1L);
-        when(unregisteredDeviceRosterService.listByFilters("shadow-product", "shadow-device", 0L, 10L))
+        when(unregisteredDeviceRosterService.listByFilters("shadow-device", "shadow-product", "北坡监测产品", null, 0L, 10L))
                 .thenReturn(List.of(unregisteredRow));
 
         PageResult<DevicePageVO> result = deviceService.pageDevices(
                 null,
-                "shadow-product",
                 "shadow-device",
+                "shadow-product",
+                "北坡监测产品",
+                null,
                 null,
                 null,
                 null,
@@ -335,6 +339,8 @@ class DeviceServiceImplTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 1L,
                 10L
         );
@@ -354,6 +360,8 @@ class DeviceServiceImplTest {
 
         deviceService.pageDevices(
                 99L,
+                null,
+                null,
                 null,
                 null,
                 null,

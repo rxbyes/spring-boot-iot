@@ -4,6 +4,8 @@ const NAIVE_DATE_TIME_PATTERN =
   /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/;
 const MESSAGE_TRACE_SHIFT_MS = 8 * 60 * 60 * 1000;
 const MESSAGE_TRACE_SHIFT_TOLERANCE_MS = 30 * 60 * 1000;
+const DEVICE_REPORT_SHIFT_MS = 8 * 60 * 60 * 1000;
+const DEVICE_REPORT_SHIFT_TOLERANCE_MS = 30 * 60 * 1000;
 
 export function formatDateTime(value?: string | null): string {
   if (!value) {
@@ -50,6 +52,25 @@ export function formatMessageTraceReportTime(reportTime?: string | null, createT
   }
 
   return formatDateTime(reportTime || createTime);
+}
+
+export function formatDeviceReportTime(reportTime?: string | null, updateTime?: string | null, createTime?: string | null): string {
+  const reportDate = parseDateTimeValue(reportTime);
+  const referenceDates = [parseDateTimeValue(updateTime), parseDateTimeValue(createTime)].filter(
+    (value): value is Date => Boolean(value)
+  );
+
+  if (
+    reportDate &&
+    referenceDates.some((referenceDate) => {
+      const diffMs = referenceDate.getTime() - reportDate.getTime();
+      return Math.abs(diffMs - DEVICE_REPORT_SHIFT_MS) <= DEVICE_REPORT_SHIFT_TOLERANCE_MS;
+    })
+  ) {
+    return formatLocalDateTime(new Date(reportDate.getTime() + DEVICE_REPORT_SHIFT_MS));
+  }
+
+  return formatDateTime(reportTime || updateTime || createTime);
 }
 
 export function prettyJson(value: unknown): string {

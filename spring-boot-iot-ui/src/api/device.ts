@@ -9,6 +9,8 @@ import type {
   DeviceFirmwareAggregate,
   DeviceMessageLog,
   MessageFlowSubmitResult,
+  DeviceRelation,
+  DeviceRelationUpsertPayload,
   DeviceOption,
   DeviceProperty,
   DeviceReplacePayload,
@@ -20,7 +22,9 @@ import type {
 
 export interface DevicePageQueryParams {
   deviceId?: IdType
+  keyword?: string
   productKey?: string
+  productName?: string
   deviceCode?: string
   deviceName?: string
   onlineStatus?: number
@@ -143,6 +147,20 @@ export function getDeviceFirmwareAggregates(deviceCode: string): Promise<ApiEnve
   return request<DeviceFirmwareAggregate[]>(`/api/device/${deviceCode}/firmware-aggregates`)
 }
 
+export function listDeviceRelations(parentDeviceCode: string): Promise<ApiEnvelope<DeviceRelation[]>> {
+  const query = buildQuery({ parentDeviceCode })
+  return request<DeviceRelation[]>(`/api/device/relations${query ? `?${query}` : ''}`, {
+    method: 'GET'
+  })
+}
+
+export function createDeviceRelation(payload: DeviceRelationUpsertPayload): Promise<ApiEnvelope<DeviceRelation>> {
+  return request<DeviceRelation>('/api/device/relations', {
+    method: 'POST',
+    body: payload
+  })
+}
+
 export const deviceApi = {
   addDevice,
   getDeviceById,
@@ -158,5 +176,7 @@ export const deviceApi = {
   getDeviceMessageLogs,
   reportByHttp,
   getDeviceFileSnapshots,
-  getDeviceFirmwareAggregates
+  getDeviceFirmwareAggregates,
+  listDeviceRelations,
+  createDeviceRelation
 }

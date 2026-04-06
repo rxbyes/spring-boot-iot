@@ -10,10 +10,6 @@ import type {
   ProductModelGovernanceApplyResult,
   ProductModelGovernanceComparePayload,
   ProductModelGovernanceCompareResult,
-  ProductModelCandidateConfirmPayload,
-  ProductModelManualExtractPayload,
-  ProductModelCandidateResult,
-  ProductModelCandidateSummary,
   ProductModel,
   ProductModelUpsertPayload
 } from '../types/api';
@@ -106,39 +102,6 @@ export const productApi = {
    */
   listProductModels(productId: IdType) {
     return request<ProductModel[]>(`/api/device/product/${productId}/models`);
-  },
-
-  /**
-   * 提炼指定产品的物模型候选
-   */
-  listProductModelCandidates(productId: IdType): Promise<ApiEnvelope<ProductModelCandidateResult>> {
-    return request<ProductModelCandidateResult>(`/api/device/product/${productId}/model-candidates`);
-  },
-
-  /**
-   * 基于手动输入的单设备样本提炼物模型候选
-   */
-  manualExtractProductModelCandidates(
-    productId: IdType,
-    payload: ProductModelManualExtractPayload
-  ): Promise<ApiEnvelope<ProductModelCandidateResult>> {
-    return request<ProductModelCandidateResult>(`/api/device/product/${productId}/model-candidates/manual-extract`, {
-      method: 'POST',
-      body: payload
-    })
-  },
-
-  /**
-   * 确认候选并写入正式物模型
-   */
-  confirmProductModelCandidates(
-    productId: IdType,
-    payload: ProductModelCandidateConfirmPayload
-  ): Promise<ApiEnvelope<ProductModelCandidateSummary>> {
-    return request<ProductModelCandidateSummary>(`/api/device/product/${productId}/model-candidates/confirm`, {
-      method: 'POST',
-      body: payload
-    });
   },
 
   /**

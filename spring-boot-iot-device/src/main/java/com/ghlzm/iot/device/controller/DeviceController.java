@@ -62,7 +62,9 @@ public class DeviceController {
 
     @GetMapping("/api/device/page")
     public R<PageResult<DevicePageVO>> page(@RequestParam(required = false) Long deviceId,
+                                            @RequestParam(required = false) String keyword,
                                             @RequestParam(required = false) String productKey,
+                                            @RequestParam(required = false) String productName,
                                             @RequestParam(required = false) String deviceCode,
                                             @RequestParam(required = false) String deviceName,
                                             @RequestParam(required = false) Integer onlineStatus,
@@ -75,7 +77,9 @@ public class DeviceController {
         return R.ok(deviceService.pageDevices(
                 requireCurrentUserId(authentication),
                 deviceId,
+                keyword,
                 productKey,
+                productName,
                 deviceCode,
                 deviceName,
                 onlineStatus,

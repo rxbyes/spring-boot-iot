@@ -78,6 +78,8 @@ describe('DeviceDetailWorkbench', () => {
       }
     })
 
+    expect(wrapper.find('[data-testid="device-detail-hero"]').exists()).toBe(false)
+    expect(wrapper.findAll('.device-detail-workbench__stage-header p')).toHaveLength(0)
     expect(wrapper.find('[data-testid="device-detail-section-archive"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('产品归属')
     expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('在线状态')
@@ -120,6 +122,8 @@ describe('DeviceDetailWorkbench', () => {
       }
     })
 
+    expect(wrapper.find('[data-testid="device-detail-hero"]').exists()).toBe(false)
+    expect(wrapper.findAll('.device-detail-workbench__stage-header p')).toHaveLength(0)
     expect(wrapper.find('[data-testid="device-detail-section-archive"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('登记状态')
     expect(wrapper.get('[data-testid="device-detail-summary-stage"]').text()).toContain('最近上报')
@@ -147,6 +151,9 @@ describe('DeviceDetailWorkbench', () => {
     expect(source).not.toContain('device-detail-section-archive')
     expect(source).not.toContain('device-detail-section-topology')
     expect(source).not.toContain('device-detail-section-status')
+    expect(source).not.toContain('device-detail-workbench__hero')
+    expect(source).not.toContain('先确认资产身份、产品归属与部署位置。')
+    expect(source).not.toContain('保留最近一次原始报文，便于回查协议映射和补建设备主档。')
   })
 
   it('hides registered sections whose fields are all empty', () => {
