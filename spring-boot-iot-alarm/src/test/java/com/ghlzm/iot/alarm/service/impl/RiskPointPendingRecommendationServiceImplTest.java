@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
@@ -245,6 +246,33 @@ class RiskPointPendingRecommendationServiceImplTest {
         assertEquals(1, result.getCandidates().size());
         assertEquals(7001L, result.getCandidates().get(0).getRiskMetricId());
         verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(org.mockito.ArgumentMatchers.eq(2001L), any(), org.mockito.ArgumentMatchers.eq(java.util.Set.of("value")));
+    }
+
+    @Test
+    void getCandidatesShouldPublishGnssRiskMetricsForCatalogGovernance() {
+        Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("北斗GNSS位移计-L1");
+        fixture.pending.setDeviceName("北斗GNSS位移计-L1");
+        fixture.pending.setRiskPointName("K79+620 GNSS监测点");
+
+        ProductModel gpsInitial = fixture.productModel("gpsInitial", "初始位移", "double", 1);
+        ProductModel gpsTotalX = fixture.productModel("gpsTotalX", "X向累计位移", "double", 2);
+        ProductModel gpsTotalY = fixture.productModel("gpsTotalY", "Y向累计位移", "double", 3);
+        ProductModel gpsTotalZ = fixture.productModel("gpsTotalZ", "Z向累计位移", "double", 4);
+        DeviceProperty latestGpsTotalX = fixture.deviceProperty("gpsTotalX", "X向累计位移", "10.86", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(gpsInitial, gpsTotalX, gpsTotalY, gpsTotalZ));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(latestGpsTotalX));
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+
+        fixture.service.getCandidates(9001L, 1001L);
+
+        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
+                org.mockito.ArgumentMatchers.eq(2001L),
+                any(),
+                org.mockito.ArgumentMatchers.eq(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"))
+        );
     }
 
     private static final class Fixture {
