@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 风险指标目录实体。
+ * Risk metric catalog entity.
  */
 @Data
 @TableName("risk_metric_catalog")
@@ -27,6 +27,16 @@ public class RiskMetricCatalog {
     private String riskMetricCode;
 
     private String riskMetricName;
+
+    private String sourceScenarioCode;
+
+    private String metricUnit;
+
+    private String metricDimension;
+
+    private String thresholdType;
+
+    private String semanticDirection;
 
     private String thresholdDirection;
 

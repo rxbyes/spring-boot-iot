@@ -33,6 +33,15 @@
           >
             {{ entryActionText }}
           </StandardButton>
+          <StandardButton
+            action="delete"
+            data-testid="contract-field-rollback-submit"
+            :loading="rollbackLoading"
+            :disabled="!canRollbackCurrentBatch"
+            @click="handleRollbackCurrentBatch"
+          >
+            鍥炴粴鏈€鏂板彂甯?
+          </StandardButton>
         </div>
 
         <div class="product-model-designer__summary-grid">
@@ -241,6 +250,14 @@
 
         <div class="product-model-designer__apply-footer">
           <p>{{ footerSummaryText }}</p>
+          <label class="product-model-designer__input-field product-model-designer__approver-field">
+            <span>澶嶆牳浜虹敤鎴稩D</span>
+            <ElInput
+              v-model="governanceApproverId"
+              data-testid="governance-approver-id"
+              placeholder="鍙戝竷/鍥炴粴鍏抽敭鍔ㄤ綔闇€瑕佸～鍐欏鏍镐汉ID"
+            />
+          </label>
           <StandardButton
             action="confirm"
             :loading="applyLoading"
@@ -250,6 +267,14 @@
             确认并生效
           </StandardButton>
         </div>
+
+        <p
+          v-if="rollbackResult"
+          class="product-model-designer__input-error"
+          data-testid="contract-field-rollback-receipt"
+        >
+          宸插洖婊氭壒娆?{{ rollbackResult.rolledBackBatchId }}锛屾仮澶嶅瓧娈?{{ rollbackResult.restoredFieldCount ?? 0 }} 椤?
+        </p>
 
         <div
           v-if="applyResult"
@@ -330,7 +355,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import StandardButton from '@/components/StandardButton.vue'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
 import { deviceApi } from '@/api/device'
-import { productApi } from '@/api/product'
+import { productApi, type ProductContractReleaseRollbackResult } from '@/api/product'
 import type {
   Product,
   ProductModel,
@@ -382,12 +407,16 @@ const emptyDescriptionMap: Record<ProductModelType, string> = {
 const loading = ref(false)
 const compareLoading = ref(false)
 const applyLoading = ref(false)
+const rollbackLoading = ref(false)
 const relationLoading = ref(false)
 const loadErrorMessage = ref('')
 const samplePayloadError = ref('')
 const models = ref<ProductModel[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
+const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
+const governanceApproverId = ref('')
+const latestReleaseBatchId = ref<string | number | null>(null)
 const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
 const sampleType = ref<SampleType>('business')
 const deviceStructure = ref<DeviceStructure>('single')
@@ -413,6 +442,9 @@ const selectedApplyEntries = computed(() =>
     }))
 )
 const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => selectedApplyEntries.value.map((entry) => entry.item))
+const canRollbackCurrentBatch = computed(() =>
+  Boolean(latestReleaseBatchId.value) && !applyLoading.value && !rollbackLoading.value
+)
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
 const footerSummaryText = computed(() => {
   if (selectedApplyItems.value.length) {
@@ -475,10 +507,15 @@ async function loadModels(productId: string | number) {
   loading.value = true
   loadErrorMessage.value = ''
   try {
-    const response = await productApi.listProductModels(productId)
-    models.value = response.data ?? []
+    const [modelResponse, releaseResponse] = await Promise.all([
+      productApi.listProductModels(productId),
+      productApi.pageProductContractReleaseBatches(productId, { pageNum: 1, pageSize: 1 })
+    ])
+    models.value = modelResponse.data ?? []
+    latestReleaseBatchId.value = releaseResponse.data?.records?.[0]?.id ?? null
   } catch (error) {
     models.value = []
+    latestReleaseBatchId.value = null
     loadErrorMessage.value = error instanceof Error ? error.message : '加载产品物模型失败'
   } finally {
     loading.value = false
@@ -597,6 +634,7 @@ async function handleCompare() {
   }
   compareLoading.value = true
   applyResult.value = null
+  rollbackResult.value = null
   try {
     const response = await productApi.compareProductModelGovernance(props.product.id, {
       manualExtract: {
@@ -667,12 +705,19 @@ async function handleApply() {
   if (!props.product?.id || !selectedApplyItems.value.length) {
     return
   }
+  const approverUserId = resolveApproverUserId()
+  if (!approverUserId) {
+    return
+  }
   applyLoading.value = true
   try {
     const response = await productApi.applyProductModelGovernance(props.product.id, {
       items: selectedApplyItems.value
+    }, {
+      approverUserId
     })
     applyResult.value = response.data ?? null
+    rollbackResult.value = null
     compareResult.value = null
     decisionState.value = {}
     ElMessage.success('契约字段已生效')
@@ -682,6 +727,44 @@ async function handleApply() {
   } finally {
     applyLoading.value = false
   }
+}
+
+async function handleRollbackCurrentBatch() {
+  if (!props.product?.id || !latestReleaseBatchId.value) {
+    ElMessage.warning('褰撳墠娌℃湁鍙洖婊氱殑鍙戝竷鎵规')
+    return
+  }
+  const approverUserId = resolveApproverUserId()
+  if (!approverUserId) {
+    return
+  }
+  rollbackLoading.value = true
+  try {
+    const response = await productApi.rollbackProductContractReleaseBatch(latestReleaseBatchId.value, approverUserId)
+    rollbackResult.value = response.data ?? null
+    applyResult.value = null
+    compareResult.value = null
+    decisionState.value = {}
+    ElMessage.success('鍚堝悓鍙戝竷鎵规宸插洖婊?')
+    await loadModels(props.product.id)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '鍚堝悓鍙戝竷鍥炴粴澶辫触')
+  } finally {
+    rollbackLoading.value = false
+  }
+}
+
+function resolveApproverUserId() {
+  const normalized = governanceApproverId.value.trim()
+  if (!normalized) {
+    ElMessage.warning('璇峰厛杈撳叆澶嶆牳浜虹敤鎴稩D')
+    return null
+  }
+  if (!/^\d+$/.test(normalized)) {
+    ElMessage.warning('澶嶆牳浜虹敤鎴稩D蹇呴』涓烘鏁?')
+    return null
+  }
+  return normalized
 }
 
 function compareStatusLabel(status: ProductModelGovernanceCompareRow['compareStatus']) {
@@ -727,7 +810,10 @@ function applyEvidenceSummary(row: ProductModelGovernanceCompareRow) {
 function resetSession() {
   compareResult.value = null
   applyResult.value = null
+  rollbackResult.value = null
   decisionState.value = {}
+  governanceApproverId.value = ''
+  latestReleaseBatchId.value = null
   sampleType.value = 'business'
   deviceStructure.value = 'single'
   samplePayload.value = ''
@@ -984,7 +1070,7 @@ function resetSession() {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-end;
   padding-top: 0.2rem;
 }
 
@@ -992,6 +1078,10 @@ function resetSession() {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.56;
+}
+
+.product-model-designer__approver-field {
+  min-width: min(24rem, 100%);
 }
 
 .product-model-designer__formal-tabs {

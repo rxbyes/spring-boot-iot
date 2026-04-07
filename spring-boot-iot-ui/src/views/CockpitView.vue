@@ -270,24 +270,30 @@ const rolePresets: RolePreset[] = [
     kpis: [
       { label: '治理完成率', value: '--', badge: { label: '治理产品 / 总产品', tone: 'brand' } },
       { label: '风险指标绑定覆盖率', value: '--', badge: { label: '目录指标 -> 风险点绑定', tone: 'success' } },
-      { label: '策略覆盖率', value: '--', badge: { label: '绑定测点 -> 阈值策略', tone: 'warning' } },
-      { label: '治理积压总量', value: '--', badge: { label: '待处理任务', tone: 'muted' } }
+      { label: '联动预案覆盖率', value: '--', badge: { label: '绑定测点 -> 联动 + 预案', tone: 'warning' } },
+      { label: '平均接入耗时', value: '--', badge: { label: '建档到首发合同', tone: 'muted' } }
     ],
     focusDimensions: [
       { title: '已治理产品', value: '--', description: '至少进入发布批次或风险指标目录的产品。', trend: '待同步', trendTone: 'stable' },
-      { title: '待发布合同', value: '--', description: '产品已接入但尚未形成正式合同发布。', trend: '待同步', trendTone: 'stable' },
-      { title: '已绑定风险指标', value: '--', description: '目录指标中已完成风险点绑定的指标数量。', trend: '待同步', trendTone: 'stable' },
+      { title: '平均接入耗时', value: '--', description: '新产品从建档到首个合同发布的平均耗时。', trend: '待同步', trendTone: 'stable' },
+      { title: '卡点分布', value: '--', description: '按六类治理任务统计的主要卡点占比。', trend: '待同步', trendTone: 'stable' },
       { title: '待运营复盘', value: '--', description: '按风险指标维度汇总的缺策略复盘事项。', trend: '待同步', trendTone: 'stable' }
     ],
     queues: [
       { label: '待治理产品', value: '--', hint: '尚未进入治理主链路', percent: 0, tag: '治理', tone: 'warning' },
+      { label: '待发布合同', value: '--', hint: '样本已治理但未形成正式合同', percent: 0, tag: '发布', tone: 'warning' },
       { label: '待绑定风险点', value: '--', hint: '设备已上报但未绑定风险对象', percent: 0, tag: '纳管', tone: 'danger' },
-      { label: '待补阈值策略', value: '--', hint: '风险点已绑定但缺策略覆盖', percent: 0, tag: '策略', tone: 'brand' }
+      { label: '待补阈值策略', value: '--', hint: '风险点已绑定但缺阈值策略覆盖', percent: 0, tag: '策略', tone: 'brand' },
+      { label: '待补联动预案', value: '--', hint: '联动编排/应急预案覆盖不足', percent: 0, tag: '编排', tone: 'brand' },
+      { label: '待运营复盘', value: '--', hint: '风险指标维度复盘未收口', percent: 0, tag: '复盘', tone: 'warning' }
     ],
     todos: [
       { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '处理待治理产品', detail: '优先补齐治理积压产品的契约发布与目录发布。', actionLabel: '进入产品定义中心', tone: 'warning', path: '/products' },
-      { id: 'mg-2', priority: 'P2', window: '今日', title: '收口风险绑定缺口', detail: '推进已上报设备完成风险点绑定，进入正式纳管。', actionLabel: '进入风险对象中心', tone: 'danger', path: '/risk-point' },
-      { id: 'mg-3', priority: 'P2', window: '本周', title: '补齐策略与复盘事项', detail: '逐项处理缺阈值策略与待复盘风险指标。', actionLabel: '进入阈值策略', tone: 'brand', path: '/rule-definition' }
+      { id: 'mg-2', priority: 'P1', window: '今日例会前', title: '推进待发布合同', detail: '优先让已完成样本治理的产品进入正式发布批次。', actionLabel: '进入产品定义中心', tone: 'warning', path: '/products' },
+      { id: 'mg-3', priority: 'P1', window: '今日', title: '收口风险绑定缺口', detail: '推进已上报设备完成风险点绑定，进入正式纳管。', actionLabel: '进入风险对象中心', tone: 'danger', path: '/risk-point' },
+      { id: 'mg-4', priority: 'P2', window: '今日', title: '补齐阈值策略', detail: '优先处理已绑定风险点但尚未配置阈值策略的指标。', actionLabel: '进入阈值策略', tone: 'brand', path: '/rule-definition' },
+      { id: 'mg-5', priority: 'P2', window: '本周', title: '补齐联动与预案', detail: '联动规则和应急预案都需覆盖到已纳管指标。', actionLabel: '进入联动编排', tone: 'brand', path: '/linkage-rule' },
+      { id: 'mg-6', priority: 'P2', window: '本周', title: '完成运营复盘', detail: '按 releaseBatch/trace 维度复盘缺策略事项并闭环。', actionLabel: '进入应急预案库', tone: 'warning', path: '/emergency-plan' }
     ]
   },
   {
@@ -409,6 +415,13 @@ function formatInteger(value?: number | null) {
   return String(Math.round(value));
 }
 
+function formatDurationHours(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '--';
+  }
+  return `${value.toFixed(1)} 小时`;
+}
+
 function formatDateYmd(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
@@ -481,15 +494,55 @@ function applyLiveMetrics(payload: {
       const pendingProductGovernanceCount = Number(governanceOverview.pendingProductGovernanceCount ?? 0);
       const pendingContractReleaseCount = Number(governanceOverview.pendingContractReleaseCount ?? 0);
       const pendingRiskBindingCount = Number(governanceOverview.pendingRiskBindingCount ?? 0);
-      const pendingPolicyCount = Number(governanceOverview.pendingPolicyCount ?? 0);
+      const pendingThresholdPolicyCount = Number(governanceOverview.pendingThresholdPolicyCount ?? governanceOverview.pendingPolicyCount ?? 0);
+      const pendingLinkageCount = Number(governanceOverview.pendingLinkageCount ?? 0);
+      const pendingEmergencyPlanCount = Number(governanceOverview.pendingEmergencyPlanCount ?? 0);
+      const pendingLinkagePlanCount = Number(
+        governanceOverview.pendingLinkagePlanCount ?? (pendingLinkageCount + pendingEmergencyPlanCount)
+      );
       const pendingReplayCount = Number(governanceOverview.pendingReplayCount ?? 0);
       const publishedRiskMetricCount = Number(governanceOverview.publishedRiskMetricCount ?? 0);
       const boundRiskMetricCount = Number(governanceOverview.boundRiskMetricCount ?? 0);
       const ruleCoveredRiskMetricCount = Number(governanceOverview.ruleCoveredRiskMetricCount ?? 0);
       const governanceCompletionRate = Number(governanceOverview.governanceCompletionRate ?? 0);
       const metricBindingCoverageRate = Number(governanceOverview.metricBindingCoverageRate ?? 0);
-      const policyCoverageRate = Number(governanceOverview.policyCoverageRate ?? 0);
-      const backlogTotal = pendingProductGovernanceCount + pendingContractReleaseCount + pendingRiskBindingCount + pendingPolicyCount + pendingReplayCount;
+      const linkagePlanCoverageRate = Number(governanceOverview.linkagePlanCoverageRate ?? 0);
+      const averageOnboardingDurationHours = Number(governanceOverview.averageOnboardingDurationHours ?? 0);
+      const backlogTotal = pendingProductGovernanceCount
+        + pendingContractReleaseCount
+        + pendingRiskBindingCount
+        + pendingThresholdPolicyCount
+        + pendingLinkagePlanCount
+        + pendingReplayCount;
+      const bottleneckBase = backlogTotal > 0 ? backlogTotal : 1;
+      const bottleneckPendingProductGovernanceRate = Number(
+        governanceOverview.bottleneckPendingProductGovernanceRate ?? ((pendingProductGovernanceCount * 100) / bottleneckBase)
+      );
+      const bottleneckPendingContractReleaseRate = Number(
+        governanceOverview.bottleneckPendingContractReleaseRate ?? ((pendingContractReleaseCount * 100) / bottleneckBase)
+      );
+      const bottleneckPendingRiskBindingRate = Number(
+        governanceOverview.bottleneckPendingRiskBindingRate ?? ((pendingRiskBindingCount * 100) / bottleneckBase)
+      );
+      const bottleneckPendingThresholdPolicyRate = Number(
+        governanceOverview.bottleneckPendingThresholdPolicyRate ?? ((pendingThresholdPolicyCount * 100) / bottleneckBase)
+      );
+      const bottleneckPendingLinkagePlanRate = Number(
+        governanceOverview.bottleneckPendingLinkagePlanRate ?? ((pendingLinkagePlanCount * 100) / bottleneckBase)
+      );
+      const bottleneckPendingReplayRate = Number(
+        governanceOverview.bottleneckPendingReplayRate ?? ((pendingReplayCount * 100) / bottleneckBase)
+      );
+      const bottleneckEntries = [
+        { label: '待治理产品', count: pendingProductGovernanceCount, rate: bottleneckPendingProductGovernanceRate },
+        { label: '待发布合同', count: pendingContractReleaseCount, rate: bottleneckPendingContractReleaseRate },
+        { label: '待绑定风险点', count: pendingRiskBindingCount, rate: bottleneckPendingRiskBindingRate },
+        { label: '待补阈值策略', count: pendingThresholdPolicyCount, rate: bottleneckPendingThresholdPolicyRate },
+        { label: '待补联动预案', count: pendingLinkagePlanCount, rate: bottleneckPendingLinkagePlanRate },
+        { label: '待运营复盘', count: pendingReplayCount, rate: bottleneckPendingReplayRate }
+      ].sort((left, right) => right.rate - left.rate || right.count - left.count);
+      const dominantBottleneck = bottleneckEntries[0] || null;
+      const secondBottleneck = bottleneckEntries[1] || null;
 
       manager.kpis[0].value = formatPercent(governanceCompletionRate, 1);
       manager.kpis[0].badge = {
@@ -501,61 +554,76 @@ function applyLiveMetrics(payload: {
         label: `${formatInteger(boundRiskMetricCount)} / ${formatInteger(publishedRiskMetricCount)} 指标`,
         tone: metricBindingCoverageRate >= 70 ? 'success' : 'warning'
       };
-      manager.kpis[2].value = formatPercent(policyCoverageRate, 1);
+      manager.kpis[2].value = formatPercent(linkagePlanCoverageRate, 1);
       manager.kpis[2].badge = {
-        label: `${formatInteger(ruleCoveredRiskMetricCount)} / ${formatInteger(boundRiskMetricCount)} 策略`,
-        tone: policyCoverageRate >= 70 ? 'success' : 'warning'
+        label: `待补联动预案 ${formatInteger(pendingLinkagePlanCount)} 项`,
+        tone: linkagePlanCoverageRate >= 70 ? 'success' : 'warning'
       };
-      manager.kpis[3].value = formatInteger(backlogTotal);
-      manager.kpis[3].badge = { label: `复盘 ${formatInteger(pendingReplayCount)} 项`, tone: backlogTotal > 0 ? 'warning' : 'success' };
+      manager.kpis[3].value = formatDurationHours(averageOnboardingDurationHours);
+      manager.kpis[3].badge = {
+        label: `已发布 ${formatInteger(releasedProductCount)} 个产品`,
+        tone: averageOnboardingDurationHours > 72 ? 'warning' : 'success'
+      };
 
       manager.focusDimensions[0].value = `${formatInteger(governedProductCount)} / ${formatInteger(totalProductCount)}`;
       manager.focusDimensions[0].description = '已进入合同发布或风险指标目录的产品规模。';
       manager.focusDimensions[0].trend = formatPercent(governanceCompletionRate, 1);
       manager.focusDimensions[0].trendTone = governanceCompletionRate >= 80 ? 'up' : 'down';
 
-      manager.focusDimensions[1].value = formatInteger(pendingContractReleaseCount);
-      manager.focusDimensions[1].description = '产品仍处于样本治理阶段，尚未形成正式合同批次。';
-      manager.focusDimensions[1].trend = `已发布 ${formatInteger(releasedProductCount)}`;
-      manager.focusDimensions[1].trendTone = pendingContractReleaseCount > 0 ? 'down' : 'up';
+      manager.focusDimensions[1].value = formatDurationHours(averageOnboardingDurationHours);
+      manager.focusDimensions[1].description = '新产品从建档到首个合同发布的平均耗时。';
+      manager.focusDimensions[1].trend = `待发布合同 ${formatInteger(pendingContractReleaseCount)} 个`;
+      manager.focusDimensions[1].trendTone = averageOnboardingDurationHours > 72 ? 'down' : 'up';
 
-      manager.focusDimensions[2].value = `${formatInteger(boundRiskMetricCount)} / ${formatInteger(publishedRiskMetricCount)}`;
-      manager.focusDimensions[2].description = '目录指标进入风险点绑定后的纳管进度。';
-      manager.focusDimensions[2].trend = formatPercent(metricBindingCoverageRate, 1);
-      manager.focusDimensions[2].trendTone = metricBindingCoverageRate >= 70 ? 'up' : 'down';
+      manager.focusDimensions[2].value = dominantBottleneck
+        ? `${dominantBottleneck.label} ${formatPercent(dominantBottleneck.rate, 1)}`
+        : '--';
+      manager.focusDimensions[2].description = '按六类任务聚合的主卡点分布。';
+      manager.focusDimensions[2].trend = secondBottleneck
+        ? `${secondBottleneck.label} ${formatPercent(secondBottleneck.rate, 1)}`
+        : '无显著次级卡点';
+      manager.focusDimensions[2].trendTone = (dominantBottleneck?.count ?? 0) > 0 ? 'down' : 'stable';
 
       manager.focusDimensions[3].value = formatInteger(pendingReplayCount);
       manager.focusDimensions[3].description = '按风险指标维度聚合出的待复盘事项。';
-      manager.focusDimensions[3].trend = `待补策略 ${formatInteger(pendingPolicyCount)}`;
+      manager.focusDimensions[3].trend = `待补阈值 ${formatInteger(pendingThresholdPolicyCount)} / 联动预案 ${formatInteger(pendingLinkagePlanCount)}`;
       manager.focusDimensions[3].trendTone = pendingReplayCount > 0 ? 'down' : 'stable';
 
-      const productBacklogPercent = totalProductCount > 0
-        ? Math.min(100, Math.round((pendingProductGovernanceCount * 100) / totalProductCount))
-        : 0;
-      const bindingBacklogPercent = publishedRiskMetricCount > 0
-        ? Math.min(100, Math.round((pendingRiskBindingCount * 100) / publishedRiskMetricCount))
-        : 0;
-      const policyBacklogPercent = boundRiskMetricCount > 0
-        ? Math.min(100, Math.round((pendingPolicyCount * 100) / boundRiskMetricCount))
-        : 0;
-
       manager.queues[0].value = formatInteger(pendingProductGovernanceCount);
-      manager.queues[0].hint = `待发布合同 ${formatInteger(pendingContractReleaseCount)}`;
-      manager.queues[0].percent = productBacklogPercent;
+      manager.queues[0].hint = '尚未进入治理主链路';
+      manager.queues[0].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingProductGovernanceRate)));
       manager.queues[0].tag = pendingProductGovernanceCount > 0 ? '待治理' : '已收口';
       manager.queues[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
 
-      manager.queues[1].value = formatInteger(pendingRiskBindingCount);
-      manager.queues[1].hint = '设备已上报但未完成风险点绑定';
-      manager.queues[1].percent = bindingBacklogPercent;
-      manager.queues[1].tag = pendingRiskBindingCount > 0 ? '待纳管' : '已收口';
-      manager.queues[1].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
+      manager.queues[1].value = formatInteger(pendingContractReleaseCount);
+      manager.queues[1].hint = '样本已治理但未形成正式合同';
+      manager.queues[1].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingContractReleaseRate)));
+      manager.queues[1].tag = pendingContractReleaseCount > 0 ? '待发布' : '已收口';
+      manager.queues[1].tone = pendingContractReleaseCount > 0 ? 'warning' : 'muted';
 
-      manager.queues[2].value = formatInteger(pendingPolicyCount);
-      manager.queues[2].hint = `待复盘事项 ${formatInteger(pendingReplayCount)}`;
-      manager.queues[2].percent = policyBacklogPercent;
-      manager.queues[2].tag = pendingPolicyCount > 0 ? '待策略' : '已收口';
-      manager.queues[2].tone = pendingPolicyCount > 0 ? 'brand' : 'muted';
+      manager.queues[2].value = formatInteger(pendingRiskBindingCount);
+      manager.queues[2].hint = '设备已上报但未完成风险点绑定';
+      manager.queues[2].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingRiskBindingRate)));
+      manager.queues[2].tag = pendingRiskBindingCount > 0 ? '待纳管' : '已收口';
+      manager.queues[2].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
+
+      manager.queues[3].value = formatInteger(pendingThresholdPolicyCount);
+      manager.queues[3].hint = `已覆盖 ${formatInteger(ruleCoveredRiskMetricCount)} / ${formatInteger(boundRiskMetricCount)} 指标`;
+      manager.queues[3].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingThresholdPolicyRate)));
+      manager.queues[3].tag = pendingThresholdPolicyCount > 0 ? '待策略' : '已收口';
+      manager.queues[3].tone = pendingThresholdPolicyCount > 0 ? 'brand' : 'muted';
+
+      manager.queues[4].value = formatInteger(pendingLinkagePlanCount);
+      manager.queues[4].hint = `联动 ${formatInteger(pendingLinkageCount)} / 预案 ${formatInteger(pendingEmergencyPlanCount)}`;
+      manager.queues[4].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingLinkagePlanRate)));
+      manager.queues[4].tag = pendingLinkagePlanCount > 0 ? '待编排' : '已收口';
+      manager.queues[4].tone = pendingLinkagePlanCount > 0 ? 'brand' : 'muted';
+
+      manager.queues[5].value = formatInteger(pendingReplayCount);
+      manager.queues[5].hint = '按 releaseBatchId/traceId 聚合复盘';
+      manager.queues[5].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingReplayRate)));
+      manager.queues[5].tag = pendingReplayCount > 0 ? '待复盘' : '已收口';
+      manager.queues[5].tone = pendingReplayCount > 0 ? 'warning' : 'muted';
 
       manager.todos[0].title = pendingProductGovernanceCount > 0
         ? `处理 ${formatInteger(pendingProductGovernanceCount)} 个待治理产品`
@@ -565,21 +633,45 @@ function applyLiveMetrics(payload: {
         : '当前无待发布合同，建议抽查最新发布批次。';
       manager.todos[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
 
-      manager.todos[1].title = pendingRiskBindingCount > 0
+      manager.todos[1].title = pendingContractReleaseCount > 0
+        ? `推进 ${formatInteger(pendingContractReleaseCount)} 个待发布合同`
+        : '维持合同发布节奏';
+      manager.todos[1].detail = averageOnboardingDurationHours > 72
+        ? `平均接入耗时 ${formatDurationHours(averageOnboardingDurationHours)}，建议优先打通发布卡点。`
+        : '平均接入耗时处于可控区间，建议继续固化发布模板。';
+      manager.todos[1].tone = pendingContractReleaseCount > 0 ? 'warning' : 'muted';
+
+      manager.todos[2].title = pendingRiskBindingCount > 0
         ? `收口 ${formatInteger(pendingRiskBindingCount)} 个待绑定风险点`
         : '复核风险绑定链路';
-      manager.todos[1].detail = pendingRiskBindingCount > 0
+      manager.todos[2].detail = pendingRiskBindingCount > 0
         ? '优先处理已有上报但未纳管设备，缩短闭环断点。'
         : '当前无待绑定设备，建议复核新接入设备抽样。';
-      manager.todos[1].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
+      manager.todos[2].tone = pendingRiskBindingCount > 0 ? 'danger' : 'muted';
 
-      manager.todos[2].title = pendingPolicyCount > 0
-        ? `补齐 ${formatInteger(pendingPolicyCount)} 个待补阈值策略`
+      manager.todos[3].title = pendingThresholdPolicyCount > 0
+        ? `补齐 ${formatInteger(pendingThresholdPolicyCount)} 个待补阈值策略`
         : '维持策略覆盖基线';
-      manager.todos[2].detail = pendingReplayCount > 0
-        ? `仍有 ${formatInteger(pendingReplayCount)} 个复盘事项需要收口。`
-        : '当前无待复盘事项，建议定期复验策略有效性。';
-      manager.todos[2].tone = pendingPolicyCount > 0 ? 'brand' : 'muted';
+      manager.todos[3].detail = pendingThresholdPolicyCount > 0
+        ? `当前策略覆盖 ${formatInteger(ruleCoveredRiskMetricCount)} / ${formatInteger(boundRiskMetricCount)}，需优先补齐高风险指标。`
+        : '阈值策略已收口，建议持续做命中质量复验。';
+      manager.todos[3].tone = pendingThresholdPolicyCount > 0 ? 'brand' : 'muted';
+
+      manager.todos[4].title = pendingLinkagePlanCount > 0
+        ? `补齐 ${formatInteger(pendingLinkagePlanCount)} 项联动预案`
+        : '维持联动预案覆盖基线';
+      manager.todos[4].detail = pendingLinkagePlanCount > 0
+        ? `联动缺口 ${formatInteger(pendingLinkageCount)}，预案缺口 ${formatInteger(pendingEmergencyPlanCount)}。`
+        : '联动与预案覆盖已收口，建议按场景轮训演练。';
+      manager.todos[4].tone = pendingLinkagePlanCount > 0 ? 'brand' : 'muted';
+
+      manager.todos[5].title = pendingReplayCount > 0
+        ? `收口 ${formatInteger(pendingReplayCount)} 个待运营复盘`
+        : '维持运营复盘节奏';
+      manager.todos[5].detail = pendingReplayCount > 0
+        ? '按 traceId/deviceCode/productKey/releaseBatchId 复核闭环链路。'
+        : '当前无待复盘事项，建议保留周度抽样复验。';
+      manager.todos[5].tone = pendingReplayCount > 0 ? 'warning' : 'muted';
     } else {
       manager.kpis[0].value = '--';
       manager.kpis[1].value = '--';

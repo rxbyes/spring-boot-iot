@@ -31,6 +31,11 @@ export interface RiskMetricCatalogItem {
   contractIdentifier?: string | null;
   riskMetricCode?: string | null;
   riskMetricName?: string | null;
+  sourceScenarioCode?: string | null;
+  metricUnit?: string | null;
+  metricDimension?: string | null;
+  thresholdType?: string | null;
+  semanticDirection?: string | null;
   thresholdDirection?: string | null;
   trendEnabled?: number | null;
   gisEnabled?: number | null;
@@ -63,10 +68,25 @@ export interface RiskGovernanceDashboardOverview {
   ruleCoveredRiskMetricCount?: number | null;
   pendingRiskBindingCount?: number | null;
   pendingPolicyCount?: number | null;
+  pendingThresholdPolicyCount?: number | null;
+  pendingLinkageCount?: number | null;
+  pendingEmergencyPlanCount?: number | null;
+  pendingLinkagePlanCount?: number | null;
   pendingReplayCount?: number | null;
   governanceCompletionRate?: number | null;
   metricBindingCoverageRate?: number | null;
   policyCoverageRate?: number | null;
+  thresholdPolicyCoverageRate?: number | null;
+  linkageCoverageRate?: number | null;
+  emergencyPlanCoverageRate?: number | null;
+  linkagePlanCoverageRate?: number | null;
+  averageOnboardingDurationHours?: number | null;
+  bottleneckPendingProductGovernanceRate?: number | null;
+  bottleneckPendingContractReleaseRate?: number | null;
+  bottleneckPendingRiskBindingRate?: number | null;
+  bottleneckPendingThresholdPolicyRate?: number | null;
+  bottleneckPendingLinkagePlanRate?: number | null;
+  bottleneckPendingReplayRate?: number | null;
 }
 
 export function listMissingBindings(

@@ -149,12 +149,14 @@ class RiskGovernanceControllerTest {
         Authentication authentication = authentication(1001L);
         RiskGovernanceReplayVO replay = new RiskGovernanceReplayVO();
         replay.setTraceId("trace-001");
+        replay.setReleaseBatchId(7001L);
         replay.setMatchedMessageCount(3L);
-        when(opsService.replay(1001L, "trace-001", null, null)).thenReturn(replay);
+        when(opsService.replay(1001L, "trace-001", null, null, 7001L)).thenReturn(replay);
 
-        R<RiskGovernanceReplayVO> response = controller.replay("trace-001", null, null, authentication);
+        R<RiskGovernanceReplayVO> response = controller.replay("trace-001", null, null, 7001L, authentication);
 
         assertEquals("trace-001", response.getData().getTraceId());
+        assertEquals(7001L, response.getData().getReleaseBatchId());
         assertEquals(3L, response.getData().getMatchedMessageCount());
     }
 

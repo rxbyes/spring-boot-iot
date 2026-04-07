@@ -1,6 +1,9 @@
 package com.ghlzm.iot.admin.observability.alerting;
 
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
+import com.ghlzm.iot.alarm.service.RiskGovernanceOpsService;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.message.mqtt.MqttConsumerRuntimeState;
@@ -49,6 +52,8 @@ class ObservabilityAlertingServiceTest {
     @Mock
     private RiskGovernanceService riskGovernanceService;
     @Mock
+    private RiskGovernanceOpsService riskGovernanceOpsService;
+    @Mock
     private MqttMessageConsumer mqttMessageConsumer;
     @Mock
     private MqttConsumerRuntimeState mqttConsumerRuntimeState;
@@ -70,11 +75,13 @@ class ObservabilityAlertingServiceTest {
         lenient().when(auditLogService.countSystemErrorsSince(any())).thenReturn(0L);
         lenient().when(deviceAccessErrorLogService.listFailureStageCountsSince(any())).thenReturn(List.of());
         lenient().when(inAppMessageBridgeAlertQueryService.listFailedAttemptCountsSince(any())).thenReturn(List.of());
+        lenient().when(riskGovernanceOpsService.pageOpsAlerts(null, null, 1L, 500L)).thenReturn(PageResult.empty(1L, 500L));
         service = new ObservabilityAlertingService(
                 auditLogService,
                 deviceAccessErrorLogService,
                 inAppMessageBridgeAlertQueryService,
                 riskGovernanceService,
+                riskGovernanceOpsService,
                 mqttMessageConsumer,
                 mqttConsumerRuntimeState,
                 observabilityAlertNotificationService,
@@ -218,6 +225,34 @@ class ObservabilityAlertingServiceTest {
         ObservabilityAlertTrigger trigger = captor.getValue();
         assertEquals("risk-governance-missing-policy-burst", trigger.ruleType());
         assertEquals("risk_metric_id:9102", trigger.dimensionKey());
+        assertEquals(3L, trigger.observedValue());
+        assertEquals(2L, trigger.threshold());
+    }
+
+    @Test
+    void shouldTriggerRiskGovernanceFieldDriftOpsAlert() {
+        stubDispatchAlert();
+        stubCooldownAcquired();
+        iotProperties.getObservability().getAlerting().getRiskGovernanceOpsAlerts().setEnabled(true);
+        iotProperties.getObservability().getAlerting().getRiskGovernanceOpsAlerts().setFieldDriftThreshold(2);
+        RiskGovernanceOpsAlertItemVO alertItem = new RiskGovernanceOpsAlertItemVO();
+        alertItem.setAlertType("FIELD_DRIFT");
+        alertItem.setAlertLabel("字段漂移告警");
+        alertItem.setProductId(1001L);
+        alertItem.setProductKey("phase1-crack-product");
+        alertItem.setProductName("裂缝产品");
+        alertItem.setAffectedCount(3L);
+        alertItem.setSampleIdentifier("value");
+        alertItem.setSampleDetail("raw=value_old");
+        when(riskGovernanceOpsService.pageOpsAlerts(null, null, 1L, 500L))
+                .thenReturn(PageResult.of(1L, 1L, 500L, List.of(alertItem)));
+
+        service.evaluateAlerts();
+
+        ArgumentCaptor<ObservabilityAlertTrigger> captor = ArgumentCaptor.forClass(ObservabilityAlertTrigger.class);
+        verify(observabilityAlertNotificationService).dispatchAlert(captor.capture());
+        ObservabilityAlertTrigger trigger = captor.getValue();
+        assertEquals("risk-governance-field-drift-burst", trigger.ruleType());
         assertEquals(3L, trigger.observedValue());
         assertEquals(2L, trigger.threshold());
     }

@@ -66,13 +66,19 @@ class ProductContractReleaseControllerTest {
         Authentication authentication = authentication(10001L);
         ProductContractReleaseRollbackResultVO result = new ProductContractReleaseRollbackResultVO();
         result.setRolledBackBatchId(7001L);
-        result.setRollbackMode("LOGICAL_BATCH_ROLLBACK");
+        result.setRollbackMode("SNAPSHOT_FIELD_RESTORE");
         when(productContractReleaseService.rollbackLatestBatch(7001L, 10001L)).thenReturn(result);
 
-        R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, authentication);
+        R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, 20002L, authentication);
 
         assertEquals(7001L, response.getData().getRolledBackBatchId());
-        verify(permissionGuard).requireAnyPermission(10001L, "契约发布回滚", "iot:products:update");
+        verify(permissionGuard).requireDualControl(
+                10001L,
+                20002L,
+                "契约发布回滚",
+                "iot:product-contract:rollback",
+                "iot:product-contract:approve"
+        );
         verify(productContractReleaseService).rollbackLatestBatch(7001L, 10001L);
     }
 

@@ -6,21 +6,27 @@ import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesi
 
 const {
   mockListProductModels,
+  mockPageProductContractReleaseBatches,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
+  mockRollbackProductContractReleaseBatch,
   mockListDeviceRelations
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
+  mockPageProductContractReleaseBatches: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
+  mockRollbackProductContractReleaseBatch: vi.fn(),
   mockListDeviceRelations: vi.fn()
 }))
 
 vi.mock('@/api/product', () => ({
   productApi: {
     listProductModels: mockListProductModels,
+    pageProductContractReleaseBatches: mockPageProductContractReleaseBatches,
     compareProductModelGovernance: mockCompareProductModelGovernance,
     applyProductModelGovernance: mockApplyProductModelGovernance,
+    rollbackProductContractReleaseBatch: mockRollbackProductContractReleaseBatch,
     addProductModel: vi.fn(),
     updateProductModel: vi.fn(),
     deleteProductModel: vi.fn()
@@ -149,8 +155,10 @@ function mountWorkspace(productOverrides?: Partial<{
 describe('ProductModelDesignerWorkspace', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
+    mockPageProductContractReleaseBatches.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
+    mockRollbackProductContractReleaseBatch.mockReset()
     mockListDeviceRelations.mockReset()
 
     mockListProductModels.mockResolvedValue({
@@ -166,6 +174,16 @@ describe('ProductModelDesignerWorkspace', () => {
           description: '正式字段'
         }
       ]
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 1,
+        records: [{ id: 99001 }]
+      }
     })
     mockCompareProductModelGovernance.mockResolvedValue({
       code: 200,
@@ -199,6 +217,14 @@ describe('ProductModelDesignerWorkspace', () => {
         updatedCount: 0,
         skippedCount: 0,
         releaseBatchId: 99001
+      }
+    })
+    mockRollbackProductContractReleaseBatch.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        rolledBackBatchId: 99001,
+        restoredFieldCount: 1
       }
     })
     mockListDeviceRelations.mockResolvedValue({
@@ -283,15 +309,52 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await wrapper.findAll('button').find((button) => button.text().includes('确认并生效'))?.trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(mockApplyProductModelGovernance).toHaveBeenCalled()
+    expect(mockApplyProductModelGovernance).toHaveBeenCalledWith(
+      1001,
+      { items: expect.any(Array) },
+      { approverUserId: '2002' }
+    )
     expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('本次新增生效')
     expect(wrapper.text()).toContain('发布批次')
     expect(wrapper.text()).toContain('99001')
+  })
+
+  it('blocks apply when governance approver id is missing', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockApplyProductModelGovernance).not.toHaveBeenCalled()
+  })
+
+  it('sends rollback request with governance approver id', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await wrapper.get('[data-testid="contract-field-rollback-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockRollbackProductContractReleaseBatch).toHaveBeenCalledWith(99001, '2002')
   })
 
   it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {
@@ -306,6 +369,7 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
 
     const applyButton = findApplyButton(wrapper)
     expect(applyButton).toBeTruthy()
@@ -333,6 +397,7 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()

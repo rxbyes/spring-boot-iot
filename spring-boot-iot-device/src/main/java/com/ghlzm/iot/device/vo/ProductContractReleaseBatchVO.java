@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 契约发布批次读模型。
+ * Contract release batch read model.
  */
 @Data
 public class ProductContractReleaseBatchVO {
@@ -22,4 +22,8 @@ public class ProductContractReleaseBatchVO {
     private Long createBy;
 
     private LocalDateTime createTime;
+
+    private Long rollbackBy;
+
+    private LocalDateTime rollbackTime;
 }

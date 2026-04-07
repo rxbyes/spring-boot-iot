@@ -56,14 +56,18 @@ class ProductModelControllerTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("property");
         dto.setIdentifier("temperature");
-        dto.setModelName("温度");
+        dto.setModelName("temperature");
         Authentication authentication = authentication(1001L);
         when(productModelService.createModel(1001L, dto)).thenReturn(modelVO(2001L, "temperature", 10));
 
         R<ProductModelVO> response = controller.add(1001L, dto, authentication);
 
         assertEquals("temperature", response.getData().getIdentifier());
-        verify(permissionGuard).requireAnyPermission(1001L, "产品契约维护", "iot:products:update");
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).createModel(1001L, dto);
     }
 
@@ -72,14 +76,18 @@ class ProductModelControllerTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("property");
         dto.setIdentifier("temperature");
-        dto.setModelName("温度");
+        dto.setModelName("temperature");
         Authentication authentication = authentication(1001L);
         when(productModelService.updateModel(1001L, 2001L, dto)).thenReturn(modelVO(2001L, "temperature", 10));
 
         R<ProductModelVO> response = controller.update(1001L, 2001L, dto, authentication);
 
         assertEquals(2001L, response.getData().getId());
-        verify(permissionGuard).requireAnyPermission(1001L, "产品契约维护", "iot:products:update");
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).updateModel(1001L, 2001L, dto);
     }
 
@@ -90,7 +98,11 @@ class ProductModelControllerTest {
         R<Void> response = controller.delete(1001L, 2001L, authentication);
 
         assertNull(response.getData());
-        verify(permissionGuard).requireAnyPermission(1001L, "产品契约维护", "iot:products:update");
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).deleteModel(1001L, 2001L);
     }
 
@@ -99,7 +111,7 @@ class ProductModelControllerTest {
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
         ProductModelGovernanceCompareVO result = new ProductModelGovernanceCompareVO();
         result.setProductId(1001L);
-        result.setCompareRows(List.of(compareRow("value", "value", "裂缝监测值", true)));
+        result.setCompareRows(List.of(compareRow("value", "value", "Crack value", true)));
         Authentication authentication = authentication(1001L);
         when(productModelService.compareGovernance(1001L, dto)).thenReturn(result);
 
@@ -108,7 +120,11 @@ class ProductModelControllerTest {
         assertEquals(1001L, response.getData().getProductId());
         assertEquals("value", response.getData().getCompareRows().get(0).getNormativeIdentifier());
         assertEquals(true, response.getData().getCompareRows().get(0).getRiskReady());
-        verify(permissionGuard).requireAnyPermission(1001L, "产品契约治理", "iot:products:update");
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约治理",
+                "iot:product-contract:govern"
+        );
         verify(productModelService).compareGovernance(1001L, dto);
     }
 
@@ -119,14 +135,25 @@ class ProductModelControllerTest {
         result.setCreatedCount(1);
         result.setReleaseBatchId(12345L);
         Authentication authentication = authentication(1001L);
-        when(productModelService.applyGovernance(1001L, dto)).thenReturn(result);
+        when(productModelService.applyGovernance(1001L, dto, 1001L)).thenReturn(result);
 
-        R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, authentication);
+        R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
         assertEquals(1, response.getData().getCreatedCount());
         assertEquals(12345L, response.getData().getReleaseBatchId());
-        verify(permissionGuard).requireAnyPermission(1001L, "产品契约发布", "iot:products:update");
-        verify(productModelService).applyGovernance(1001L, dto);
+        verify(permissionGuard).requireDualControl(
+                1001L,
+                2002L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve"
+        );
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "风险指标标注",
+                "risk:metric-catalog:tag"
+        );
+        verify(productModelService).applyGovernance(1001L, dto, 1001L);
     }
 
     private Authentication authentication(Long userId) {

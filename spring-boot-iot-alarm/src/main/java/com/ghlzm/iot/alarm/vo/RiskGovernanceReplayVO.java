@@ -20,6 +20,10 @@ public class RiskGovernanceReplayVO {
 
     private String productKey;
 
+    private Long releaseBatchId;
+
+    private String releaseScenarioCode;
+
     private Long matchedMessageCount;
 
     private Long matchedAccessErrorCount;

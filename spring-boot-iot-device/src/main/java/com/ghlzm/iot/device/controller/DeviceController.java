@@ -6,6 +6,8 @@ import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchDeleteDTO;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
+import com.ghlzm.iot.device.dto.DeviceSecretRotateDTO;
+import com.ghlzm.iot.device.service.DeviceSecretCustodyService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
@@ -13,6 +15,7 @@ import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
+import com.ghlzm.iot.device.vo.DeviceSecretRotateResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,9 +38,12 @@ import java.util.List;
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final DeviceSecretCustodyService deviceSecretCustodyService;
 
-    public DeviceController(DeviceService deviceService) {
+    public DeviceController(DeviceService deviceService,
+                            DeviceSecretCustodyService deviceSecretCustodyService) {
         this.deviceService = deviceService;
+        this.deviceSecretCustodyService = deviceSecretCustodyService;
     }
 
     @PostMapping("/api/device/add")
@@ -101,6 +108,19 @@ public class DeviceController {
                                             @RequestBody @Valid DeviceReplaceDTO dto,
                                             Authentication authentication) {
         return R.ok(deviceService.replaceDevice(requireCurrentUserId(authentication), id, dto));
+    }
+
+    @PostMapping("/api/device/{id}/secret-rotate")
+    public R<DeviceSecretRotateResultVO> rotateSecret(@PathVariable("id") Long id,
+                                                      @RequestBody @Valid DeviceSecretRotateDTO dto,
+                                                      @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                      Authentication authentication) {
+        return R.ok(deviceSecretCustodyService.rotateDeviceSecret(
+                requireCurrentUserId(authentication),
+                id,
+                approverUserId,
+                dto
+        ));
     }
 
     @DeleteMapping("/api/device/{id}")

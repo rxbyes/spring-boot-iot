@@ -11,9 +11,11 @@ import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +52,9 @@ class RiskGovernanceOpsServiceImplTest {
     private ProductMapper productMapper;
 
     @Mock
+    private ProductContractReleaseBatchMapper releaseBatchMapper;
+
+    @Mock
     private DeviceMessageService deviceMessageService;
 
     @Mock
@@ -64,6 +70,7 @@ class RiskGovernanceOpsServiceImplTest {
                 productModelMapper,
                 riskMetricCatalogMapper,
                 productMapper,
+                releaseBatchMapper,
                 deviceMessageService,
                 deviceAccessErrorLogService,
                 riskGovernanceService
@@ -103,6 +110,7 @@ class RiskGovernanceOpsServiceImplTest {
                 productModelMapper,
                 riskMetricCatalogMapper,
                 productMapper,
+                releaseBatchMapper,
                 deviceMessageService,
                 deviceAccessErrorLogService,
                 riskGovernanceService
@@ -141,11 +149,64 @@ class RiskGovernanceOpsServiceImplTest {
         when(riskGovernanceService.listMissingPolicies(any(RiskGovernanceGapQuery.class)))
                 .thenReturn(PageResult.empty(1L, 10L));
 
-        RiskGovernanceReplayVO replay = service.replay(1001L, "trace-001", null, null);
+        RiskGovernanceReplayVO replay = service.replay(1001L, "trace-001", null, null, null);
 
         assertEquals("trace-001", replay.getTraceId());
         assertEquals(1L, replay.getMatchedMessageCount());
         assertEquals(1L, replay.getMatchedAccessErrorCount());
         assertEquals("trace-001", replay.getLatestMessageDetail().getTraceId());
+    }
+
+    @Test
+    void replayShouldSupportReleaseBatchDimensionAndResolveProductContext() {
+        RiskGovernanceOpsServiceImpl service = new RiskGovernanceOpsServiceImpl(
+                vendorMetricEvidenceMapper,
+                productModelMapper,
+                riskMetricCatalogMapper,
+                productMapper,
+                releaseBatchMapper,
+                deviceMessageService,
+                deviceAccessErrorLogService,
+                riskGovernanceService
+        );
+        ProductContractReleaseBatch batch = new ProductContractReleaseBatch();
+        batch.setId(7001L);
+        batch.setProductId(1001L);
+        batch.setScenarioCode("phase1-crack");
+        batch.setCreateTime(LocalDateTime.of(2026, 4, 7, 10, 30));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("phase1-crack-product");
+        when(releaseBatchMapper.selectById(7001L)).thenReturn(batch);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+
+        when(deviceMessageService.pageMessageTraceLogs(
+                argThat(currentUserId -> currentUserId != null && currentUserId.equals(1001L)),
+                argThat(query -> query != null
+                        && "phase1-crack-product".equals(query.getProductKey())
+                        && query.getTraceId() == null
+                        && query.getDeviceCode() == null),
+                argThat(pageNum -> pageNum != null && pageNum == 1),
+                argThat(pageSize -> pageSize != null && pageSize == 20)
+        )).thenReturn(PageResult.empty(1L, 20L));
+
+        when(deviceAccessErrorLogService.pageLogs(
+                argThat(currentUserId -> currentUserId != null && currentUserId.equals(1001L)),
+                argThat(query -> query != null
+                        && "phase1-crack-product".equals(query.getProductKey())
+                        && query.getTraceId() == null
+                        && query.getDeviceCode() == null),
+                argThat(pageNum -> pageNum != null && pageNum == 1),
+                argThat(pageSize -> pageSize != null && pageSize == 10)
+        )).thenReturn(PageResult.empty(1L, 10L));
+
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
+
+        RiskGovernanceReplayVO replay = service.replay(1001L, null, null, null, 7001L);
+
+        assertEquals(7001L, replay.getReleaseBatchId());
+        assertEquals("phase1-crack", replay.getReleaseScenarioCode());
+        assertEquals("phase1-crack-product", replay.getProductKey());
     }
 }

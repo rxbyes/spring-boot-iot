@@ -61,4 +61,58 @@ class GovernancePermissionGuardTest {
                 "risk:rule-definition:write"
         ));
     }
+
+    @Test
+    void requireDualControlShouldPassWhenOperatorAndApproverAreSeparated() {
+        GovernancePermissionGuard guard = new GovernancePermissionGuard(permissionService);
+        UserAuthContextVO operator = new UserAuthContextVO();
+        operator.setPermissions(List.of("iot:product-contract:release"));
+        UserAuthContextVO approver = new UserAuthContextVO();
+        approver.setPermissions(List.of("iot:product-contract:approve"));
+        when(permissionService.getUserAuthContext(1001L)).thenReturn(operator);
+        when(permissionService.getUserAuthContext(2001L)).thenReturn(approver);
+
+        assertDoesNotThrow(() -> guard.requireDualControl(
+                1001L,
+                2001L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve",
+                "iot:products:update"
+        ));
+    }
+
+    @Test
+    void requireDualControlShouldRejectSameOperatorAndApprover() {
+        GovernancePermissionGuard guard = new GovernancePermissionGuard(permissionService);
+
+        assertThrows(BizException.class, () -> guard.requireDualControl(
+                1001L,
+                1001L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve",
+                "iot:products:update"
+        ));
+    }
+
+    @Test
+    void requireDualControlShouldRejectApproverWithoutPermission() {
+        GovernancePermissionGuard guard = new GovernancePermissionGuard(permissionService);
+        UserAuthContextVO operator = new UserAuthContextVO();
+        operator.setPermissions(List.of("iot:product-contract:release"));
+        UserAuthContextVO approver = new UserAuthContextVO();
+        approver.setPermissions(List.of("iot:normative-library:write"));
+        when(permissionService.getUserAuthContext(1001L)).thenReturn(operator);
+        when(permissionService.getUserAuthContext(2001L)).thenReturn(approver);
+
+        assertThrows(BizException.class, () -> guard.requireDualControl(
+                1001L,
+                2001L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve",
+                "iot:products:update"
+        ));
+    }
 }

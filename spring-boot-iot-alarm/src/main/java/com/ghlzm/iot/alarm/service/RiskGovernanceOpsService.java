@@ -17,5 +17,6 @@ public interface RiskGovernanceOpsService {
     RiskGovernanceReplayVO replay(Long currentUserId,
                                   String traceId,
                                   String deviceCode,
-                                  String productKey);
+                                  String productKey,
+                                  Long releaseBatchId);
 }

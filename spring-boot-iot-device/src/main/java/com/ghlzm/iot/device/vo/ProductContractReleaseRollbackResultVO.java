@@ -1,11 +1,10 @@
 package com.ghlzm.iot.device.vo;
 
+import java.time.LocalDateTime;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 /**
- * 契约发布回滚结果。
+ * Contract release rollback result.
  */
 @Data
 public class ProductContractReleaseRollbackResultVO {
@@ -19,6 +18,8 @@ public class ProductContractReleaseRollbackResultVO {
     private String releaseSource;
 
     private Integer releasedFieldCount;
+
+    private Integer restoredFieldCount;
 
     private String rollbackMode;
 

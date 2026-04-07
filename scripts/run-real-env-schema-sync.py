@@ -149,10 +149,27 @@ CREATE TABLE IF NOT EXISTS iot_product_contract_release_batch (
     released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数',
     create_by BIGINT DEFAULT NULL COMMENT '创建人',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rollback_by BIGINT DEFAULT NULL COMMENT '回滚执行人',
+    rollback_time DATETIME DEFAULT NULL COMMENT '回滚时间',
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     KEY idx_product_contract_release_product_time (product_id, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布批次表'
+""",
+    "iot_product_contract_release_snapshot": """
+CREATE TABLE IF NOT EXISTS iot_product_contract_release_snapshot (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    batch_id BIGINT NOT NULL COMMENT '发布批次ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照阶段',
+    snapshot_json JSON NOT NULL COMMENT '快照载荷',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布快照表'
 """,
     "iot_device_access_error_log": """
 CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
@@ -312,6 +329,11 @@ CREATE TABLE IF NOT EXISTS risk_metric_catalog (
     contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',
     risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',
     risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',
+    source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT '来源场景编码',
+    metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标单位',
+    metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',
+    threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
+    semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
     threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',
     trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持趋势分析',
     gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于GIS',
@@ -376,6 +398,10 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
     "iot_device_access_error_log": [
         ("contract_snapshot", "LONGTEXT DEFAULT NULL COMMENT 'contract snapshot'"),
     ],
+    "iot_product_contract_release_batch": [
+        ("rollback_by", "BIGINT DEFAULT NULL COMMENT 'rollback operator user id'"),
+        ("rollback_time", "DATETIME DEFAULT NULL COMMENT 'rollback time'"),
+    ],
     "iot_command_record": [
         ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
         ("product_key", "VARCHAR(64) DEFAULT NULL COMMENT 'product key'"),
@@ -411,6 +437,13 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
         ("current_risk_level", "VARCHAR(16) DEFAULT NULL COMMENT 'current risk level'"),
         ("create_by", "BIGINT DEFAULT NULL COMMENT 'creator'"),
         ("update_by", "BIGINT DEFAULT NULL COMMENT 'updater'"),
+    ],
+    "risk_metric_catalog": [
+        ("source_scenario_code", "VARCHAR(64) DEFAULT NULL COMMENT 'source scenario code'"),
+        ("metric_unit", "VARCHAR(32) DEFAULT NULL COMMENT 'metric unit'"),
+        ("metric_dimension", "VARCHAR(64) DEFAULT NULL COMMENT 'metric dimension'"),
+        ("threshold_type", "VARCHAR(32) DEFAULT NULL COMMENT 'threshold type'"),
+        ("semantic_direction", "VARCHAR(32) DEFAULT NULL COMMENT 'semantic direction'"),
     ],
     "risk_point_device": [
         ("risk_metric_id", "BIGINT DEFAULT NULL COMMENT '风险指标ID'"),

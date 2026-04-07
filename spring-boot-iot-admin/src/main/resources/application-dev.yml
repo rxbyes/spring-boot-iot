@@ -80,6 +80,8 @@ logging:
     mybatis.sql.com.ghlzm.iot.system.mapper.RegionMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.device.mapper.DeviceMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.ProductModelMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.DevicePropertyMapper.selectList: OFF
 
 iot:
   security:
@@ -94,7 +96,7 @@ iot:
       - http://192.168.*:*
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
-#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+    #    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
     broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
     # 默认共享 clientId 会在运行时追加主机/PID 后缀；如需固定值，请显式设置为自定义非默认值。
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
@@ -192,9 +194,9 @@ iot:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
       mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
     diagnostic:
-#      用于承接慢 SQL 摘要
+      #      用于承接慢 SQL 摘要
       sql-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_SQL_FILE_ENABLED:true}
-#      用于承接慢 HTTP / 慢 MQTT 摘要
+      #      用于承接慢 HTTP / 慢 MQTT 摘要
       access-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_ACCESS_FILE_ENABLED:true}
     performance:
       slow-sql-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_SQL_THRESHOLD_MS:500}
@@ -228,6 +230,11 @@ iot:
       risk-governance-missing-policy:
         enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_ENABLED:true}
         threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_THRESHOLD:3}
+      risk-governance-ops-alerts:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_ENABLED:true}
+        field-drift-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_FIELD_DRIFT_THRESHOLD:1}
+        contract-diff-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_CONTRACT_DIFF_THRESHOLD:1}
+        missing-risk-metric-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_MISSING_RISK_METRIC_THRESHOLD:1}
 
   ota:
     enabled: false

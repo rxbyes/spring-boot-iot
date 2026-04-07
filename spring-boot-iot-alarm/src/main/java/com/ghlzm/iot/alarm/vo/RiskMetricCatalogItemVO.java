@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 风险指标目录读模型。
+ * Risk metric catalog read model.
  */
 @Data
 public class RiskMetricCatalogItemVO {
@@ -20,6 +20,16 @@ public class RiskMetricCatalogItemVO {
     private String riskMetricCode;
 
     private String riskMetricName;
+
+    private String sourceScenarioCode;
+
+    private String metricUnit;
+
+    private String metricDimension;
+
+    private String thresholdType;
+
+    private String semanticDirection;
 
     private String thresholdDirection;
 

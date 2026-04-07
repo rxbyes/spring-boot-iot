@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * Product contract release batch.
+ * Snapshot row for product contract release batch.
  */
 @Data
-@TableName("iot_product_contract_release_batch")
-public class ProductContractReleaseBatch {
+@TableName("iot_product_contract_release_snapshot")
+public class ProductContractReleaseSnapshot {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
@@ -22,23 +22,19 @@ public class ProductContractReleaseBatch {
     @TableField(fill = FieldFill.INSERT)
     private Long tenantId;
 
+    private Long batchId;
+
     private Long productId;
 
-    private String scenarioCode;
+    private String snapshotStage;
 
-    private String releaseSource;
-
-    private Integer releasedFieldCount;
+    private String snapshotJson;
 
     @TableField(fill = FieldFill.INSERT)
     private Long createBy;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
-
-    private Long rollbackBy;
-
-    private LocalDateTime rollbackTime;
 
     @TableLogic
     @TableField(fill = FieldFill.INSERT)

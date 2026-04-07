@@ -5,11 +5,17 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 
 /**
- * 契约发布批次服务。
+ * Contract release batch service.
  */
 public interface ProductContractReleaseService {
 
     Long createBatch(Long productId, String scenarioCode, String releaseSource, int releasedFieldCount, Long operatorId);
+
+    void saveBatchSnapshot(Long batchId,
+                           Long productId,
+                           String snapshotStage,
+                           String snapshotJson,
+                           Long operatorId);
 
     PageResult<ProductContractReleaseBatchVO> pageBatches(Long productId, Long pageNum, Long pageSize);
 

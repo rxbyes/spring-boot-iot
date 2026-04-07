@@ -13,11 +13,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 产品契约发布批次控制器。
+ * Product contract release batch controller.
  */
 @RestController
 public class ProductContractReleaseController {
@@ -45,12 +46,15 @@ public class ProductContractReleaseController {
 
     @PostMapping("/api/device/product/contract-release-batches/{batchId}/rollback")
     public R<ProductContractReleaseRollbackResultVO> rollbackBatch(@PathVariable Long batchId,
+                                                                   @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
                                                                    Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        permissionGuard.requireDualControl(
                 currentUserId,
+                approverUserId,
                 "契约发布回滚",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK,
+                GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
         return R.ok(productContractReleaseService.rollbackLatestBatch(batchId, currentUserId));
     }

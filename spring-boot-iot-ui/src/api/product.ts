@@ -34,6 +34,18 @@ export interface ProductContractReleaseBatch {
   createTime?: string | null
 }
 
+export interface ProductContractReleaseRollbackResult {
+  rolledBackBatchId?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  restoredFieldCount?: number | null
+  rollbackMode?: string | null
+  rollbackLimitations?: string | null
+  rollbackTime?: string | null
+}
+
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
@@ -44,6 +56,15 @@ function buildQuery(params: Record<string, unknown>) {
     }
   })
   return query.toString()
+}
+
+function buildGovernanceApproverHeaders(approverUserId?: IdType | null): HeadersInit | undefined {
+  if (approverUserId === undefined || approverUserId === null || approverUserId === '') {
+    return undefined
+  }
+  return {
+    'X-Governance-Approver-Id': String(approverUserId)
+  }
 }
 
 /**
@@ -132,11 +153,13 @@ export const productApi = {
    */
   applyProductModelGovernance(
     productId: IdType,
-    payload: ProductModelGovernanceApplyPayload
+    payload: ProductModelGovernanceApplyPayload,
+    options: { approverUserId?: IdType | null } = {}
   ): Promise<ApiEnvelope<ProductModelGovernanceApplyResult>> {
     return request<ProductModelGovernanceApplyResult>(`/api/device/product/${productId}/model-governance/apply`, {
       method: 'POST',
-      body: payload
+      body: payload,
+      headers: buildGovernanceApproverHeaders(options.approverUserId)
     });
   },
 
@@ -153,6 +176,19 @@ export const productApi = {
 
   getProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseBatch>> {
     return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
+  },
+
+  rollbackProductContractReleaseBatch(
+    batchId: IdType,
+    approverUserId?: IdType | null
+  ): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
+    return request<ProductContractReleaseRollbackResult>(
+      `/api/device/product/contract-release-batches/${batchId}/rollback`,
+      {
+        method: 'POST',
+        headers: buildGovernanceApproverHeaders(approverUserId)
+      }
+    )
   },
 
   /**

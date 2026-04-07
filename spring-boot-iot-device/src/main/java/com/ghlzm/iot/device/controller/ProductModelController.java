@@ -6,25 +6,26 @@ import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
-import com.ghlzm.iot.framework.security.JwtUserPrincipal;
-import com.ghlzm.iot.system.security.GovernancePermissionCodes;
-import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
-import org.springframework.security.core.Authentication;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 产品物模型控制器，仅负责产品维度物模型请求的收发。
+ * Product model controller.
  */
 @RestController
 public class ProductModelController {
@@ -47,10 +48,11 @@ public class ProductModelController {
     public R<ProductModelVO> add(@PathVariable Long productId,
                                  @RequestBody @Valid ProductModelUpsertDTO dto,
                                  Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
         permissionGuard.requireAnyPermission(
-                requireCurrentUserId(authentication),
+                currentUserId,
                 "产品契约维护",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.NORMATIVE_LIBRARY_WRITE
         );
         return R.ok(productModelService.createModel(productId, dto));
     }
@@ -59,24 +61,34 @@ public class ProductModelController {
     public R<ProductModelGovernanceCompareVO> compareGovernance(@PathVariable Long productId,
                                                                 @RequestBody ProductModelGovernanceCompareDTO dto,
                                                                 Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
         permissionGuard.requireAnyPermission(
-                requireCurrentUserId(authentication),
+                currentUserId,
                 "产品契约治理",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
         );
         return R.ok(productModelService.compareGovernance(productId, dto));
     }
 
     @PostMapping("/api/device/product/{productId}/model-governance/apply")
     public R<ProductModelGovernanceApplyResultVO> applyGovernance(@PathVariable Long productId,
-                                                                  @RequestBody ProductModelGovernanceApplyDTO dto,
-                                                                  Authentication authentication) {
-        permissionGuard.requireAnyPermission(
-                requireCurrentUserId(authentication),
+                                                                   @RequestBody ProductModelGovernanceApplyDTO dto,
+                                                                   @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                                   Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                approverUserId,
                 "产品契约发布",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.PRODUCT_CONTRACT_RELEASE,
+                GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
-        return R.ok(productModelService.applyGovernance(productId, dto));
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "风险指标标注",
+                GovernancePermissionCodes.RISK_METRIC_CATALOG_TAG
+        );
+        return R.ok(productModelService.applyGovernance(productId, dto, currentUserId));
     }
 
     @PutMapping("/api/device/product/{productId}/models/{modelId}")
@@ -84,10 +96,11 @@ public class ProductModelController {
                                     @PathVariable Long modelId,
                                     @RequestBody @Valid ProductModelUpsertDTO dto,
                                     Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
         permissionGuard.requireAnyPermission(
-                requireCurrentUserId(authentication),
+                currentUserId,
                 "产品契约维护",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.NORMATIVE_LIBRARY_WRITE
         );
         return R.ok(productModelService.updateModel(productId, modelId, dto));
     }
@@ -96,10 +109,11 @@ public class ProductModelController {
     public R<Void> delete(@PathVariable Long productId,
                           @PathVariable Long modelId,
                           Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
         permissionGuard.requireAnyPermission(
-                requireCurrentUserId(authentication),
+                currentUserId,
                 "产品契约维护",
-                GovernancePermissionCodes.PRODUCT_CONTRACT_WRITE
+                GovernancePermissionCodes.NORMATIVE_LIBRARY_WRITE
         );
         productModelService.deleteModel(productId, modelId);
         return R.ok();
