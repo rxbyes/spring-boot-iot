@@ -171,6 +171,30 @@ CREATE TABLE IF NOT EXISTS iot_product_contract_release_snapshot (
     KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布快照表'
 """,
+    "iot_device_secret_rotation_log": """
+CREATE TABLE IF NOT EXISTS iot_device_secret_rotation_log (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品key',
+    rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',
+    reason VARCHAR(500) DEFAULT NULL COMMENT '轮换原因',
+    previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '旧密钥摘要',
+    current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '新密钥摘要',
+    rotated_by BIGINT NOT NULL COMMENT '执行人',
+    approved_by BIGINT NOT NULL COMMENT '复核人',
+    rotate_time DATETIME NOT NULL COMMENT '轮换时间',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_device_rotation_device_time (device_id, rotate_time),
+    KEY idx_device_rotation_batch (rotation_batch_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备密钥轮换日志表'
+""",
     "iot_device_access_error_log": """
 CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
     id BIGINT NOT NULL COMMENT 'pk',

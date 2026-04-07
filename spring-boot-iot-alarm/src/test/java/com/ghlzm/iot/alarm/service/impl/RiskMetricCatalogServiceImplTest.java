@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.spi.KeywordRiskMetricScenarioResolver;
 import com.ghlzm.iot.alarm.service.spi.RiskMetricScenarioResolver;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
@@ -64,7 +65,7 @@ class RiskMetricCatalogServiceImplTest {
 
         service.publishFromReleasedContracts(1001L, List.of(releasedValue, releasedSensorState), Set.of("value"));
 
-        verify(riskMetricCatalogMapper).insert(argThat(row ->
+        verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
                 Long.valueOf(1001L).equals(row.getProductId())
                         && "value".equals(row.getContractIdentifier())
                         && "Crack value".equals(row.getRiskMetricName())
@@ -77,7 +78,7 @@ class RiskMetricCatalogServiceImplTest {
                         && Integer.valueOf(1).equals(row.getEnabled())
         ));
         verify(riskMetricCatalogMapper, never()).insert(argThat(
-                row -> "sensor_state".equals(row.getContractIdentifier())
+                (RiskMetricCatalog row) -> "sensor_state".equals(row.getContractIdentifier())
         ));
     }
 
@@ -113,13 +114,13 @@ class RiskMetricCatalogServiceImplTest {
         service.publishFromReleasedContracts(3003L, List.of(gpsInitial, gpsTotalX), Set.of("gpsTotalX"));
 
         verify(riskMetricCatalogMapper).insert(argThat(
-                row -> "gpsTotalX".equals(row.getContractIdentifier())
+                (RiskMetricCatalog row) -> "gpsTotalX".equals(row.getContractIdentifier())
                         && "GNSS total X".equals(row.getRiskMetricName())
                         && "phase2-gnss".equals(row.getSourceScenarioCode())
                         && "absolute".equals(row.getThresholdType())
         ));
         verify(riskMetricCatalogMapper, never()).insert(argThat(
-                row -> "gpsInitial".equals(row.getContractIdentifier())
+                (RiskMetricCatalog row) -> "gpsInitial".equals(row.getContractIdentifier())
         ));
     }
 
@@ -151,7 +152,7 @@ class RiskMetricCatalogServiceImplTest {
 
         verify(normativeMetricDefinitionService).listByScenario("custom-scene");
         verify(normativeMetricDefinitionService, never()).listByScenario("phase2-gnss");
-        verify(riskMetricCatalogMapper).insert(argThat(row ->
+        verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
                 "custom-scene".equals(row.getSourceScenarioCode())
                         && "ratio".equals(row.getThresholdType())
                         && "cm".equals(row.getMetricUnit())
