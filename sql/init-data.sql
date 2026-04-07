@@ -147,9 +147,6 @@ INSERT INTO sys_menu (
     (93002004, 1, 93000004, '闃堝€肩瓥鐣?, 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"闃堝€艰鍒欑淮鎶や笌瑙﹀彂鏉′欢娌荤悊"}', 32, 1, 1, '/rule-definition', 'risk:rule-definition', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002005, 1, 93000004, '鑱斿姩缂栨帓', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"瑙﹀彂鏉′欢涓庤仈鍔ㄥ姩浣滅紪鎺?}', 33, 1, 1, '/linkage-rule', 'risk:linkage-rule', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002006, 1, 93000004, '搴旀€ラ妗堝簱', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"棰勬缁存姢銆佹楠ょ紪鎺掍笌鍝嶅簲鍗忓悓"}', 34, 1, 1, '/emergency-plan', 'risk:emergency-plan', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002041, 1, 93002004, '缁存姢闃堝€肩瓥鐣?, 'risk:rule-definition:write', '', '', '', '{"caption":"闃堝€肩瓥鐣ユ柊澧炪€佺紪杈戙€佸垹闄ゆ寜閽潈闄?}', 3241, 2, 2, '', 'risk:rule-definition:write', 3241, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002042, 1, 93002005, '缁存姢鑱斿姩缂栨帓', 'risk:linkage-rule:write', '', '', '', '{"caption":"鑱斿姩缂栨帓鏂板銆佺紪杈戙€佸垹闄ゆ寜閽潈闄?}', 3341, 2, 2, '', 'risk:linkage-rule:write', 3341, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002043, 1, 93002006, '缁存姢搴旀€ラ妗?, 'risk:emergency-plan:write', '', '', '', '{"caption":"搴旀€ラ妗堟柊澧炪€佺紪杈戙€佸垹闄ゆ寜閽潈闄?}', 3441, 2, 2, '', 'risk:emergency-plan:write', 3441, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003001, 1, 93000003, '缁勭粐鏋舵瀯', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"缁勭粐鏍戠淮鎶や笌璐ｄ换涓讳綋绠＄悊"}', 41, 1, 1, '/organization', 'system:organization', 41, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003002, 1, 93000003, '璐﹀彿涓績', 'system:user', '/user', 'UserView', 'user', '{"caption":"璐﹀彿缁存姢銆佺姸鎬佺鐞嗕笌瀵嗙爜閲嶇疆"}', 42, 1, 1, '/user', 'system:user', 42, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -219,6 +216,26 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = VALUES(deleted);
 
+-- 清理历史粗粒度治理写权限残留（兼容已执行旧种子脚本的环境）
+UPDATE sys_role_menu rm
+JOIN sys_menu m ON m.id = rm.menu_id
+SET rm.deleted = 1,
+    rm.update_by = 1,
+    rm.update_time = NOW()
+WHERE m.tenant_id = 1
+  AND m.menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
+  AND rm.deleted = 0;
+
+UPDATE sys_menu
+SET deleted = 1,
+    visible = 0,
+    status = 0,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
+  AND deleted = 0;
+
 DELETE FROM sys_role_menu
 WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
 
@@ -251,9 +268,6 @@ VALUES
     (96010030, 1, @role_management_id, 93002004, 1, NOW(), 1, NOW(), 0),
     (96010031, 1, @role_management_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010032, 1, @role_management_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010145, 1, @role_management_id, 93002041, 1, NOW(), 1, NOW(), 0),
-    (96010146, 1, @role_management_id, 93002042, 1, NOW(), 1, NOW(), 0),
-    (96010147, 1, @role_management_id, 93002043, 1, NOW(), 1, NOW(), 0),
     (96010033, 1, @role_management_id, 93000003, 1, NOW(), 1, NOW(), 0),
     (96010034, 1, @role_management_id, 93003001, 1, NOW(), 1, NOW(), 0),
     (96010035, 1, @role_management_id, 93003002, 1, NOW(), 1, NOW(), 0),
@@ -306,7 +320,6 @@ VALUES
     (96010073, 1, @role_ops_id, 93000004, 1, NOW(), 1, NOW(), 0),
     (96010074, 1, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
     (96010075, 1, @role_ops_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010148, 1, @role_ops_id, 93002041, 1, NOW(), 1, NOW(), 0),
     (96010076, 1, @role_ops_id, 93001101, 1, NOW(), 1, NOW(), 0),
     (96010077, 1, @role_ops_id, 93001102, 1, NOW(), 1, NOW(), 0),
     (96010078, 1, @role_ops_id, 93001103, 1, NOW(), 1, NOW(), 0),
@@ -336,9 +349,6 @@ VALUES
     (96010106, 1, @role_developer_id, 93002004, 1, NOW(), 1, NOW(), 0),
     (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010149, 1, @role_developer_id, 93002041, 1, NOW(), 1, NOW(), 0),
-    (96010150, 1, @role_developer_id, 93002042, 1, NOW(), 1, NOW(), 0),
-    (96010151, 1, @role_developer_id, 93002043, 1, NOW(), 1, NOW(), 0),
     (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
     (96010144, 1, @role_developer_id, 93003020, 1, NOW(), 1, NOW(), 0),
     (96010136, 1, @role_developer_id, 93003015, 1, NOW(), 1, NOW(), 0),

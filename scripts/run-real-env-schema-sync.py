@@ -1051,6 +1051,48 @@ def ensure_menu_compat(cur: pymysql.cursors.Cursor, db: str) -> None:
         cur.execute("UPDATE sys_menu SET type = menu_type WHERE type IS NULL")
 
 
+def ensure_legacy_governance_write_permissions(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "sys_menu") or not table_exists(cur, db, "sys_role_menu"):
+        return
+    if not column_exists(cur, db, "sys_menu", "menu_code"):
+        return
+    if not all(
+        column_exists(cur, db, "sys_role_menu", column) for column in ("menu_id", "deleted", "update_by", "update_time")
+    ):
+        return
+    if not all(column_exists(cur, db, "sys_menu", column) for column in ("id", "deleted", "update_by", "update_time")):
+        return
+
+    legacy_codes = "', '".join(
+        (
+            "risk:rule-definition:write",
+            "risk:linkage-rule:write",
+            "risk:emergency-plan:write",
+        )
+    )
+    cur.execute(
+        f"""
+        UPDATE sys_role_menu rm
+        INNER JOIN sys_menu m ON m.id = rm.menu_id
+        SET rm.deleted = 1,
+            rm.update_by = 1,
+            rm.update_time = NOW()
+        WHERE m.menu_code IN ('{legacy_codes}')
+          AND rm.deleted = 0
+        """
+    )
+    cur.execute(
+        f"""
+        UPDATE sys_menu
+        SET deleted = 1,
+            update_by = 1,
+            update_time = NOW()
+        WHERE menu_code IN ('{legacy_codes}')
+          AND deleted = 0
+        """
+    )
+
+
 def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
     for table, specs in INDEXES_TO_ADD.items():
         if not table_exists(cur, db, table):
@@ -1208,6 +1250,8 @@ def main() -> int:
 
                 ensure_menu_compat(cur, args.db)
                 print("[menu] sys_menu legacy columns aligned")
+                ensure_legacy_governance_write_permissions(cur, args.db)
+                print("[menu] legacy governance write permissions cleaned")
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

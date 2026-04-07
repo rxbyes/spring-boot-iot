@@ -67,6 +67,8 @@ class FakeCursor:
     def fetchone(self):
         if "FROM information_schema.TABLES" in self._last_sql:
             return (1,)
+        if "FROM information_schema.COLUMNS" in self._last_sql:
+            return (1,)
         if "SELECT COUNT(1) FROM `sys_dict_item`" in self._last_sql:
             return (0,)
         if "SELECT COALESCE(MAX(id), 0) + 1 FROM `sys_dict_item`" in self._last_sql:
@@ -164,6 +166,24 @@ class MigrateLevelValuesTest(unittest.TestCase):
         self.assertIn("WHEN 'warning' THEN 'orange'", risk_point_risk_level_updates[0])
         self.assertEqual(len(emergency_plan_risk_level_updates), 1)
         self.assertIn("WHEN 'critical' THEN 'red'", emergency_plan_risk_level_updates[0])
+
+
+class LegacyGovernancePermissionCleanupTest(unittest.TestCase):
+    def test_cleanup_marks_legacy_governance_write_permissions_deleted(self):
+        cursor = FakeCursor()
+
+        schema_sync.ensure_legacy_governance_write_permissions(cursor, "rm_iot")
+
+        update_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith("UPDATE")]
+        self.assertEqual(len(update_sql), 2)
+        self.assertIn("UPDATE sys_role_menu rm", update_sql[0])
+        self.assertIn("UPDATE sys_menu", update_sql[1])
+        self.assertIn("risk:rule-definition:write", update_sql[0])
+        self.assertIn("risk:linkage-rule:write", update_sql[0])
+        self.assertIn("risk:emergency-plan:write", update_sql[0])
+        self.assertIn("risk:rule-definition:write", update_sql[1])
+        self.assertIn("risk:linkage-rule:write", update_sql[1])
+        self.assertIn("risk:emergency-plan:write", update_sql[1])
 
 
 if __name__ == "__main__":
