@@ -9,6 +9,7 @@ import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
+import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -169,6 +170,49 @@ class ProductContractReleaseServiceImplTest {
 
         assertThrows(BizException.class, () -> service.rollbackLatestBatch(7000L, 10001L));
         verify(releaseBatchMapper, never()).updateById(any(ProductContractReleaseBatch.class));
+    }
+
+    @Test
+    void analyzeBatchImpactShouldReturnAddedRemovedAndUpdatedItems() {
+        ProductContractReleaseServiceImpl service = new ProductContractReleaseServiceImpl(
+                releaseBatchMapper,
+                releaseSnapshotMapper,
+                productModelMapper
+        );
+        ProductContractReleaseBatch target = batch(7001L, 1001L, "phase1-crack", "manual_compare_apply", 3);
+        ProductContractReleaseSnapshot before = new ProductContractReleaseSnapshot();
+        before.setId(8101L);
+        before.setBatchId(7001L);
+        before.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_BEFORE_APPLY);
+        before.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"temp","modelName":"温度","dataType":"double","sortNo":1,"requiredFlag":0},
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(旧)","dataType":"double","sortNo":2,"requiredFlag":1}
+                ]
+                """);
+        ProductContractReleaseSnapshot after = new ProductContractReleaseSnapshot();
+        after.setId(8102L);
+        after.setBatchId(7001L);
+        after.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_AFTER_APPLY);
+        after.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(新)","dataType":"double","sortNo":2,"requiredFlag":1},
+                  {"modelType":"property","identifier":"humidity","modelName":"湿度","dataType":"double","sortNo":3,"requiredFlag":0}
+                ]
+                """);
+        when(releaseBatchMapper.selectById(7001L)).thenReturn(target);
+        when(releaseSnapshotMapper.selectList(any())).thenReturn(List.of(before), List.of(after));
+
+        ProductContractReleaseImpactVO impact = service.analyzeBatchImpact(7001L);
+
+        assertEquals(7001L, impact.getBatchId());
+        assertEquals(2, impact.getTotalBeforeCount());
+        assertEquals(2, impact.getTotalAfterCount());
+        assertEquals(1, impact.getAddedCount());
+        assertEquals(1, impact.getRemovedCount());
+        assertEquals(1, impact.getChangedCount());
+        assertEquals(0, impact.getUnchangedCount());
+        assertEquals(3, impact.getImpactItems().size());
     }
 
     private ProductContractReleaseBatch batch(Long id,

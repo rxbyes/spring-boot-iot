@@ -371,6 +371,48 @@ CREATE TABLE IF NOT EXISTS risk_metric_catalog (
     UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标目录表'
 """,
+    "sys_governance_approval_order": """
+CREATE TABLE IF NOT EXISTS sys_governance_approval_order (
+    id BIGINT NOT NULL COMMENT 'approval order id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    action_code VARCHAR(64) NOT NULL COMMENT 'approval action code',
+    action_name VARCHAR(128) DEFAULT NULL COMMENT 'approval action name',
+    subject_type VARCHAR(64) DEFAULT NULL COMMENT 'approval subject type',
+    subject_id BIGINT DEFAULT NULL COMMENT 'approval subject id',
+    status VARCHAR(32) NOT NULL COMMENT 'approval status',
+    operator_user_id BIGINT NOT NULL COMMENT 'operator user id',
+    approver_user_id BIGINT NOT NULL COMMENT 'approver user id',
+    payload_json LONGTEXT DEFAULT NULL COMMENT 'approval payload',
+    approval_comment VARCHAR(500) DEFAULT NULL COMMENT 'approval comment',
+    approved_time DATETIME DEFAULT NULL COMMENT 'approved time',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),
+    KEY idx_governance_approval_order_status_time (status, create_time, deleted),
+    KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval order'
+""",
+    "sys_governance_approval_transition": """
+CREATE TABLE IF NOT EXISTS sys_governance_approval_transition (
+    id BIGINT NOT NULL COMMENT 'approval transition id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    order_id BIGINT NOT NULL COMMENT 'approval order id',
+    from_status VARCHAR(32) DEFAULT NULL COMMENT 'from status',
+    to_status VARCHAR(32) NOT NULL COMMENT 'to status',
+    actor_user_id BIGINT NOT NULL COMMENT 'actor user id',
+    transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'transition comment',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
+    KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition'
+""",
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -1093,6 +1135,194 @@ def ensure_legacy_governance_write_permissions(cur: pymysql.cursors.Cursor, db: 
     )
 
 
+def ensure_governance_fine_grained_permissions(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "sys_menu") or not table_exists(cur, db, "sys_role") or not table_exists(cur, db, "sys_role_menu"):
+        return
+
+    required_menu_columns = (
+        "id",
+        "tenant_id",
+        "parent_id",
+        "menu_name",
+        "menu_code",
+        "path",
+        "component",
+        "icon",
+        "meta_json",
+        "sort",
+        "type",
+        "menu_type",
+        "route_path",
+        "permission",
+        "sort_no",
+        "visible",
+        "status",
+        "create_by",
+        "create_time",
+        "update_by",
+        "update_time",
+        "deleted",
+    )
+    required_role_columns = ("id", "tenant_id", "role_code", "deleted")
+    required_role_menu_columns = ("id", "tenant_id", "role_id", "menu_id", "create_by", "create_time", "update_by", "update_time", "deleted")
+    if not all(column_exists(cur, db, "sys_menu", column) for column in required_menu_columns):
+        print("[skip] governance permission seeds: sys_menu columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_role", column) for column in required_role_columns):
+        print("[skip] governance permission seeds: sys_role columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_role_menu", column) for column in required_role_menu_columns):
+        print("[skip] governance permission seeds: sys_role_menu columns missing")
+        return
+
+    menu_seeds = (
+        {
+            "preferred_id": 93001029,
+            "parent_id": 93001001,
+            "menu_name": "规范库复核",
+            "menu_code": "iot:normative-library:approve",
+            "permission": "iot:normative-library:approve",
+            "meta_json": '{"caption":"规范库关键写动作复核授权"}',
+            "sort_no": 1129,
+            "role_codes": ("MANAGEMENT_STAFF",),
+        },
+        {
+            "preferred_id": 93002051,
+            "parent_id": 93002003,
+            "menu_name": "风险指标复核",
+            "menu_code": "risk:metric-catalog:approve",
+            "permission": "risk:metric-catalog:approve",
+            "meta_json": '{"caption":"风险指标标注关键写动作双人复核"}',
+            "sort_no": 3145,
+            "role_codes": ("MANAGEMENT_STAFF", "OPS_STAFF"),
+        },
+    )
+
+    for seed in menu_seeds:
+        cur.execute(
+            """
+            SELECT id
+            FROM sys_menu
+            WHERE tenant_id = 1
+              AND menu_code = %s
+            ORDER BY deleted ASC, id ASC
+            LIMIT 1
+            """,
+            (seed["menu_code"],),
+        )
+        existing_menu = cur.fetchone()
+        menu_id = int(existing_menu[0]) if existing_menu else next_preferred_id(cur, "sys_menu", int(seed["preferred_id"]))
+        if existing_menu:
+            cur.execute(
+                """
+                UPDATE sys_menu
+                SET parent_id = %s,
+                    menu_name = %s,
+                    path = '',
+                    component = '',
+                    icon = '',
+                    meta_json = %s,
+                    sort = %s,
+                    type = 2,
+                    menu_type = 2,
+                    route_path = '',
+                    permission = %s,
+                    sort_no = %s,
+                    visible = 1,
+                    status = 1,
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE id = %s
+                """,
+                (
+                    int(seed["parent_id"]),
+                    seed["menu_name"],
+                    seed["meta_json"],
+                    int(seed["sort_no"]),
+                    seed["permission"],
+                    int(seed["sort_no"]),
+                    menu_id,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO sys_menu (
+                    id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json,
+                    sort, type, menu_type, route_path, permission, sort_no, visible, status,
+                    create_by, create_time, update_by, update_time, deleted
+                ) VALUES (
+                    %s, 1, %s, %s, %s, '', '', '', %s,
+                    %s, 2, 2, '', %s, %s, 1, 1,
+                    1, NOW(), 1, NOW(), 0
+                )
+                """,
+                (
+                    menu_id,
+                    int(seed["parent_id"]),
+                    seed["menu_name"],
+                    seed["menu_code"],
+                    seed["meta_json"],
+                    int(seed["sort_no"]),
+                    seed["permission"],
+                    int(seed["sort_no"]),
+                ),
+            )
+
+        for role_code in seed["role_codes"]:
+            cur.execute(
+                """
+                SELECT id
+                FROM sys_role
+                WHERE tenant_id = 1
+                  AND role_code = %s
+                  AND deleted = 0
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (role_code,),
+            )
+            role_row = cur.fetchone()
+            if role_row is None:
+                continue
+            role_id = int(role_row[0])
+            cur.execute(
+                """
+                SELECT id
+                FROM sys_role_menu
+                WHERE tenant_id = 1
+                  AND role_id = %s
+                  AND menu_id = %s
+                ORDER BY deleted ASC, id ASC
+                LIMIT 1
+                """,
+                (role_id, menu_id),
+            )
+            existing_binding = cur.fetchone()
+            if existing_binding:
+                cur.execute(
+                    """
+                    UPDATE sys_role_menu
+                    SET deleted = 0,
+                        update_by = 1,
+                        update_time = NOW()
+                    WHERE id = %s
+                    """,
+                    (int(existing_binding[0]),),
+                )
+            else:
+                binding_id = next_table_id(cur, "sys_role_menu")
+                cur.execute(
+                    """
+                    INSERT INTO sys_role_menu (
+                        id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted
+                    ) VALUES (%s, 1, %s, %s, 1, NOW(), 1, NOW(), 0)
+                    """,
+                    (binding_id, role_id, menu_id),
+                )
+
+
 def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
     for table, specs in INDEXES_TO_ADD.items():
         if not table_exists(cur, db, table):
@@ -1252,6 +1482,8 @@ def main() -> int:
                 print("[menu] sys_menu legacy columns aligned")
                 ensure_legacy_governance_write_permissions(cur, args.db)
                 print("[menu] legacy governance write permissions cleaned")
+                ensure_governance_fine_grained_permissions(cur, args.db)
+                print("[menu] governance fine-grained permission seeds aligned")
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

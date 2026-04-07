@@ -391,7 +391,9 @@ INSERT INTO sys_menu (
     (93001026, 1, 93001001, '密钥托管查看', 'iot:secret-custody:view', '', '', '', '{"caption":"查看密钥托管与轮换记录"}', 1126, 2, 2, '', 'iot:secret-custody:view', 1126, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001027, 1, 93001001, '密钥轮换执行', 'iot:secret-custody:rotate', '', '', '', '{"caption":"执行设备密钥轮换"}', 1127, 2, 2, '', 'iot:secret-custody:rotate', 1127, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001028, 1, 93001001, '密钥轮换复核', 'iot:secret-custody:approve', '', '', '', '{"caption":"关键密钥轮换动作双人复核"}', 1128, 2, 2, '', 'iot:secret-custody:approve', 1128, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001029, 1, 93001001, '规范库复核', 'iot:normative-library:approve', '', '', '', '{"caption":"规范库关键写动作复核授权"}', 1129, 2, 2, '', 'iot:normative-library:approve', 1129, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002046, 1, 93002004, '阈值策略复核', 'risk:rule-definition:approve', '', '', '', '{"caption":"阈值策略关键写操作双人复核"}', 3246, 2, 2, '', 'risk:rule-definition:approve', 3246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002047, 1, 93002005, '联动编排执行', 'risk:linkage-rule:edit', '', '', '', '{"caption":"新增/更新/删除联动规则"}', 3347, 2, 2, '', 'risk:linkage-rule:edit', 3347, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -416,6 +418,7 @@ INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_ti
 SELECT (@extra_role_menu_id := @extra_role_menu_id + 1), 1, role_scope.role_id, role_scope.menu_id, 1, NOW(), 1, NOW(), 0
 FROM (
     SELECT @role_management_id AS role_id, 93001021 AS menu_id
+    UNION ALL SELECT @role_management_id, 93001029
     UNION ALL SELECT @role_management_id, 93001022
     UNION ALL SELECT @role_management_id, 93001023
     UNION ALL SELECT @role_management_id, 93001024
@@ -424,6 +427,7 @@ FROM (
     UNION ALL SELECT @role_management_id, 93001027
     UNION ALL SELECT @role_management_id, 93001028
     UNION ALL SELECT @role_management_id, 93002044
+    UNION ALL SELECT @role_management_id, 93002051
     UNION ALL SELECT @role_management_id, 93002045
     UNION ALL SELECT @role_management_id, 93002046
     UNION ALL SELECT @role_management_id, 93002047
@@ -438,6 +442,7 @@ FROM (
     UNION ALL SELECT @role_ops_id, 93001027
     UNION ALL SELECT @role_ops_id, 93001028
     UNION ALL SELECT @role_ops_id, 93002044
+    UNION ALL SELECT @role_ops_id, 93002051
     UNION ALL SELECT @role_ops_id, 93002045
     UNION ALL SELECT @role_ops_id, 93002046
     UNION ALL SELECT @role_ops_id, 93002047

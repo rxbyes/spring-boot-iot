@@ -10,6 +10,8 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
@@ -30,13 +32,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class ProductModelController {
 
+    private static final String ACTION_PRODUCT_CONTRACT_RELEASE_APPLY = "PRODUCT_CONTRACT_RELEASE_APPLY";
+
     private final ProductModelService productModelService;
     private final GovernancePermissionGuard permissionGuard;
+    private final GovernanceApprovalService governanceApprovalService;
 
     public ProductModelController(ProductModelService productModelService,
-                                  GovernancePermissionGuard permissionGuard) {
+                                  GovernancePermissionGuard permissionGuard,
+                                  GovernanceApprovalService governanceApprovalService) {
         this.productModelService = productModelService;
         this.permissionGuard = permissionGuard;
+        this.governanceApprovalService = governanceApprovalService;
     }
 
     @GetMapping("/api/device/product/{productId}/models")
@@ -88,7 +95,25 @@ public class ProductModelController {
                 "风险指标标注",
                 GovernancePermissionCodes.RISK_METRIC_CATALOG_TAG
         );
-        return R.ok(productModelService.applyGovernance(productId, dto, currentUserId));
+        permissionGuard.requireAnyPermission(
+                approverUserId,
+                "风险指标标注复核",
+                GovernancePermissionCodes.RISK_METRIC_CATALOG_APPROVE,
+                GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
+        );
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(productId, dto, currentUserId);
+        Long approvalOrderId = governanceApprovalService.recordApprovedAction(new GovernanceApprovalActionCommand(
+                ACTION_PRODUCT_CONTRACT_RELEASE_APPLY,
+                "product contract release apply",
+                "PRODUCT",
+                productId,
+                currentUserId,
+                approverUserId,
+                buildApplyPayload(productId, result),
+                null
+        ));
+        result.setApprovalOrderId(approvalOrderId);
+        return R.ok(result);
     }
 
     @PutMapping("/api/device/product/{productId}/models/{modelId}")
@@ -124,5 +149,10 @@ public class ProductModelController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private String buildApplyPayload(Long productId, ProductModelGovernanceApplyResultVO result) {
+        Long releaseBatchId = result == null ? null : result.getReleaseBatchId();
+        return "{\"productId\":" + productId + ",\"releaseBatchId\":" + releaseBatchId + "}";
     }
 }

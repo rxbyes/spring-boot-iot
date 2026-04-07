@@ -4,8 +4,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
+import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +20,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,11 +33,14 @@ class ProductContractReleaseControllerTest {
     @Mock
     private GovernancePermissionGuard permissionGuard;
 
+    @Mock
+    private GovernanceApprovalService governanceApprovalService;
+
     private ProductContractReleaseController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductContractReleaseController(productContractReleaseService, permissionGuard);
+        controller = new ProductContractReleaseController(productContractReleaseService, permissionGuard, governanceApprovalService);
     }
 
     @Test
@@ -62,16 +68,34 @@ class ProductContractReleaseControllerTest {
     }
 
     @Test
+    void analyzeBatchImpactShouldDelegateToService() {
+        ProductContractReleaseImpactVO impact = new ProductContractReleaseImpactVO();
+        impact.setBatchId(7001L);
+        impact.setAddedCount(1);
+        impact.setRemovedCount(1);
+        impact.setChangedCount(2);
+        when(productContractReleaseService.analyzeBatchImpact(7001L)).thenReturn(impact);
+
+        R<ProductContractReleaseImpactVO> response = controller.analyzeBatchImpact(7001L);
+
+        assertEquals(7001L, response.getData().getBatchId());
+        assertEquals(1, response.getData().getAddedCount());
+        verify(productContractReleaseService).analyzeBatchImpact(7001L);
+    }
+
+    @Test
     void rollbackBatchShouldRequirePermissionAndDelegateToService() {
         Authentication authentication = authentication(10001L);
         ProductContractReleaseRollbackResultVO result = new ProductContractReleaseRollbackResultVO();
         result.setRolledBackBatchId(7001L);
         result.setRollbackMode("SNAPSHOT_FIELD_RESTORE");
         when(productContractReleaseService.rollbackLatestBatch(7001L, 10001L)).thenReturn(result);
+        when(governanceApprovalService.recordApprovedAction(any())).thenReturn(99001L);
 
         R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, 20002L, authentication);
 
         assertEquals(7001L, response.getData().getRolledBackBatchId());
+        assertEquals(99001L, response.getData().getApprovalOrderId());
         verify(permissionGuard).requireDualControl(
                 10001L,
                 20002L,
@@ -79,6 +103,7 @@ class ProductContractReleaseControllerTest {
                 "iot:product-contract:rollback",
                 "iot:product-contract:approve"
         );
+        verify(governanceApprovalService).recordApprovedAction(any());
         verify(productContractReleaseService).rollbackLatestBatch(7001L, 10001L);
     }
 

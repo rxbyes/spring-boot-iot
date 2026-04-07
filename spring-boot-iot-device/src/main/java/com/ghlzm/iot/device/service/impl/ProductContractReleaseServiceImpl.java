@@ -13,6 +13,7 @@ import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
+import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,6 +106,64 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
             throw new BizException("契约发布批次不存在: " + batchId);
         }
         return toVO(batch);
+    }
+
+    @Override
+    public ProductContractReleaseImpactVO analyzeBatchImpact(Long batchId) {
+        ProductContractReleaseBatch batch = releaseBatchMapper.selectById(batchId);
+        if (batch == null) {
+            throw new BizException("契约发布批次不存在: " + batchId);
+        }
+        ProductContractReleaseSnapshot beforeSnapshot = loadBatchSnapshot(batchId, SNAPSHOT_STAGE_BEFORE_APPLY);
+        ProductContractReleaseSnapshot afterSnapshot = loadBatchSnapshot(batchId, SNAPSHOT_STAGE_AFTER_APPLY);
+        Map<String, ReleaseModelSnapshotItem> beforeByKey = toSnapshotMap(parseSnapshotItems(beforeSnapshot.getSnapshotJson()));
+        Map<String, ReleaseModelSnapshotItem> afterByKey = toSnapshotMap(parseSnapshotItems(afterSnapshot.getSnapshotJson()));
+        Set<String> orderedKeys = new LinkedHashSet<>();
+        orderedKeys.addAll(beforeByKey.keySet());
+        orderedKeys.addAll(afterByKey.keySet());
+
+        int addedCount = 0;
+        int removedCount = 0;
+        int changedCount = 0;
+        int unchangedCount = 0;
+        List<ProductContractReleaseImpactVO.ImpactItem> impactItems = new ArrayList<>();
+        for (String key : orderedKeys) {
+            ReleaseModelSnapshotItem before = beforeByKey.get(key);
+            ReleaseModelSnapshotItem after = afterByKey.get(key);
+            if (before == null && after != null) {
+                addedCount++;
+                impactItems.add(toImpactItem("ADDED", after.modelType(), after.identifier(), List.of()));
+                continue;
+            }
+            if (before != null && after == null) {
+                removedCount++;
+                impactItems.add(toImpactItem("REMOVED", before.modelType(), before.identifier(), List.of()));
+                continue;
+            }
+            List<String> changedFields = resolveChangedFields(before, after);
+            if (changedFields.isEmpty()) {
+                unchangedCount++;
+            } else {
+                changedCount++;
+                impactItems.add(toImpactItem("UPDATED", before.modelType(), before.identifier(), changedFields));
+            }
+        }
+
+        ProductContractReleaseImpactVO impact = new ProductContractReleaseImpactVO();
+        impact.setBatchId(batch.getId());
+        impact.setProductId(batch.getProductId());
+        impact.setScenarioCode(batch.getScenarioCode());
+        impact.setReleaseSource(batch.getReleaseSource());
+        impact.setReleasedFieldCount(batch.getReleasedFieldCount());
+        impact.setTotalBeforeCount(beforeByKey.size());
+        impact.setTotalAfterCount(afterByKey.size());
+        impact.setAddedCount(addedCount);
+        impact.setRemovedCount(removedCount);
+        impact.setChangedCount(changedCount);
+        impact.setUnchangedCount(unchangedCount);
+        impact.setComparedAt(LocalDateTime.now());
+        impact.setImpactItems(impactItems);
+        return impact;
     }
 
     @Override
@@ -272,6 +332,55 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
             return null;
         }
         return normalizedModelType + "#" + normalizedIdentifier;
+    }
+
+    private Map<String, ReleaseModelSnapshotItem> toSnapshotMap(List<ReleaseModelSnapshotItem> items) {
+        Map<String, ReleaseModelSnapshotItem> map = new LinkedHashMap<>();
+        if (items == null || items.isEmpty()) {
+            return map;
+        }
+        for (ReleaseModelSnapshotItem item : items) {
+            String key = buildModelKey(item.modelType(), item.identifier());
+            if (StringUtils.hasText(key) && !map.containsKey(key)) {
+                map.put(key, item);
+            }
+        }
+        return map;
+    }
+
+    private ProductContractReleaseImpactVO.ImpactItem toImpactItem(String changeType,
+                                                                    String modelType,
+                                                                    String identifier,
+                                                                    List<String> changedFields) {
+        ProductContractReleaseImpactVO.ImpactItem item = new ProductContractReleaseImpactVO.ImpactItem();
+        item.setChangeType(changeType);
+        item.setModelType(normalize(modelType));
+        item.setIdentifier(normalize(identifier));
+        item.setChangedFields(changedFields == null ? List.of() : changedFields);
+        return item;
+    }
+
+    private List<String> resolveChangedFields(ReleaseModelSnapshotItem before, ReleaseModelSnapshotItem after) {
+        if (before == null || after == null) {
+            return List.of();
+        }
+        List<String> changed = new ArrayList<>();
+        addChangedField(changed, "modelName", normalize(before.modelName()), normalize(after.modelName()));
+        addChangedField(changed, "dataType", normalize(before.dataType()), normalize(after.dataType()));
+        addChangedField(changed, "specsJson", normalize(before.specsJson()), normalize(after.specsJson()));
+        addChangedField(changed, "eventType", normalize(before.eventType()), normalize(after.eventType()));
+        addChangedField(changed, "serviceInputJson", normalize(before.serviceInputJson()), normalize(after.serviceInputJson()));
+        addChangedField(changed, "serviceOutputJson", normalize(before.serviceOutputJson()), normalize(after.serviceOutputJson()));
+        addChangedField(changed, "sortNo", before.sortNo(), after.sortNo());
+        addChangedField(changed, "requiredFlag", before.requiredFlag(), after.requiredFlag());
+        addChangedField(changed, "description", normalize(before.description()), normalize(after.description()));
+        return changed;
+    }
+
+    private void addChangedField(List<String> changedFields, String fieldName, Object before, Object after) {
+        if (!Objects.equals(before, after)) {
+            changedFields.add(fieldName);
+        }
     }
 
     private Long normalizeOperatorId(Long operatorId) {

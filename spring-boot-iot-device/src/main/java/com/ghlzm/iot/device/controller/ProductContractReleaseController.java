@@ -5,8 +5,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
+import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import org.springframework.security.core.Authentication;
@@ -23,13 +26,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class ProductContractReleaseController {
 
+    private static final String ACTION_PRODUCT_CONTRACT_ROLLBACK = "PRODUCT_CONTRACT_ROLLBACK";
+
     private final ProductContractReleaseService productContractReleaseService;
     private final GovernancePermissionGuard permissionGuard;
+    private final GovernanceApprovalService governanceApprovalService;
 
     public ProductContractReleaseController(ProductContractReleaseService productContractReleaseService,
-                                            GovernancePermissionGuard permissionGuard) {
+                                            GovernancePermissionGuard permissionGuard,
+                                            GovernanceApprovalService governanceApprovalService) {
         this.productContractReleaseService = productContractReleaseService;
         this.permissionGuard = permissionGuard;
+        this.governanceApprovalService = governanceApprovalService;
     }
 
     @GetMapping("/api/device/product/{productId}/contract-release-batches")
@@ -44,6 +52,11 @@ public class ProductContractReleaseController {
         return R.ok(productContractReleaseService.getBatch(batchId));
     }
 
+    @GetMapping("/api/device/product/contract-release-batches/{batchId}/impact")
+    public R<ProductContractReleaseImpactVO> analyzeBatchImpact(@PathVariable Long batchId) {
+        return R.ok(productContractReleaseService.analyzeBatchImpact(batchId));
+    }
+
     @PostMapping("/api/device/product/contract-release-batches/{batchId}/rollback")
     public R<ProductContractReleaseRollbackResultVO> rollbackBatch(@PathVariable Long batchId,
                                                                    @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
@@ -56,7 +69,19 @@ public class ProductContractReleaseController {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK,
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
-        return R.ok(productContractReleaseService.rollbackLatestBatch(batchId, currentUserId));
+        ProductContractReleaseRollbackResultVO result = productContractReleaseService.rollbackLatestBatch(batchId, currentUserId);
+        Long approvalOrderId = governanceApprovalService.recordApprovedAction(new GovernanceApprovalActionCommand(
+                ACTION_PRODUCT_CONTRACT_ROLLBACK,
+                "product contract rollback",
+                "RELEASE_BATCH",
+                batchId,
+                currentUserId,
+                approverUserId,
+                buildRollbackPayload(result),
+                null
+        ));
+        result.setApprovalOrderId(approvalOrderId);
+        return R.ok(result);
     }
 
     private Long requireCurrentUserId(Authentication authentication) {
@@ -64,5 +89,11 @@ public class ProductContractReleaseController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private String buildRollbackPayload(ProductContractReleaseRollbackResultVO result) {
+        Long rolledBackBatchId = result == null ? null : result.getRolledBackBatchId();
+        Long productId = result == null ? null : result.getProductId();
+        return "{\"rolledBackBatchId\":" + rolledBackBatchId + ",\"productId\":" + productId + "}";
     }
 }

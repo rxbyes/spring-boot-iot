@@ -36,6 +36,8 @@ DROP TABLE IF EXISTS iot_normative_metric_definition;
 DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
 
+DROP TABLE IF EXISTS sys_governance_approval_transition;
+DROP TABLE IF EXISTS sys_governance_approval_order;
 DROP TABLE IF EXISTS sys_audit_log;
 DROP TABLE IF EXISTS sys_help_document;
 DROP TABLE IF EXISTS sys_in_app_message_bridge_attempt_log;
@@ -440,6 +442,46 @@ CREATE TABLE sys_audit_log (
     KEY idx_audit_deleted_type_time (deleted, operation_type, operation_time, create_time, id),
     KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='瀹¤鏃ュ織琛?;
+
+CREATE TABLE sys_governance_approval_order (
+    id BIGINT NOT NULL COMMENT 'Approval order ID',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    action_code VARCHAR(64) NOT NULL COMMENT 'Approval action code',
+    action_name VARCHAR(128) DEFAULT NULL COMMENT 'Approval action name',
+    subject_type VARCHAR(64) DEFAULT NULL COMMENT 'Approval subject type',
+    subject_id BIGINT DEFAULT NULL COMMENT 'Approval subject id',
+    status VARCHAR(32) NOT NULL COMMENT 'Approval status',
+    operator_user_id BIGINT NOT NULL COMMENT 'Operator user id',
+    approver_user_id BIGINT NOT NULL COMMENT 'Approver user id',
+    payload_json LONGTEXT DEFAULT NULL COMMENT 'Approval payload',
+    approval_comment VARCHAR(500) DEFAULT NULL COMMENT 'Approval comment',
+    approved_time DATETIME DEFAULT NULL COMMENT 'Approval time',
+    create_by BIGINT DEFAULT NULL COMMENT 'Creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+    update_by BIGINT DEFAULT NULL COMMENT 'Updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Updated time',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'Deleted flag',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),
+    KEY idx_governance_approval_order_status_time (status, create_time, deleted),
+    KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Governance approval order';
+
+CREATE TABLE sys_governance_approval_transition (
+    id BIGINT NOT NULL COMMENT 'Approval transition id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    order_id BIGINT NOT NULL COMMENT 'Approval order id',
+    from_status VARCHAR(32) DEFAULT NULL COMMENT 'From status',
+    to_status VARCHAR(32) NOT NULL COMMENT 'To status',
+    actor_user_id BIGINT NOT NULL COMMENT 'Transition actor user id',
+    transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'Transition comment',
+    create_by BIGINT DEFAULT NULL COMMENT 'Creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Created time',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'Deleted flag',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
+    KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Governance approval transition';
 
 -- =========================
 -- 2) IoT device domain

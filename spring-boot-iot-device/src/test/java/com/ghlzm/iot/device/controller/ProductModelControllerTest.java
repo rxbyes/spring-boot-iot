@@ -9,6 +9,7 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,11 +35,14 @@ class ProductModelControllerTest {
     @Mock
     private GovernancePermissionGuard permissionGuard;
 
+    @Mock
+    private GovernanceApprovalService governanceApprovalService;
+
     private ProductModelController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductModelController(productModelService, permissionGuard);
+        controller = new ProductModelController(productModelService, permissionGuard, governanceApprovalService);
     }
 
     @Test
@@ -136,11 +141,13 @@ class ProductModelControllerTest {
         result.setReleaseBatchId(12345L);
         Authentication authentication = authentication(1001L);
         when(productModelService.applyGovernance(1001L, dto, 1001L)).thenReturn(result);
+        when(governanceApprovalService.recordApprovedAction(any())).thenReturn(88001L);
 
         R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
         assertEquals(1, response.getData().getCreatedCount());
         assertEquals(12345L, response.getData().getReleaseBatchId());
+        assertEquals(88001L, response.getData().getApprovalOrderId());
         verify(permissionGuard).requireDualControl(
                 1001L,
                 2002L,
@@ -153,6 +160,13 @@ class ProductModelControllerTest {
                 "风险指标标注",
                 "risk:metric-catalog:tag"
         );
+        verify(permissionGuard).requireAnyPermission(
+                2002L,
+                "风险指标标注复核",
+                "risk:metric-catalog:approve",
+                "iot:product-contract:approve"
+        );
+        verify(governanceApprovalService).recordApprovedAction(any());
         verify(productModelService).applyGovernance(1001L, dto, 1001L);
     }
 

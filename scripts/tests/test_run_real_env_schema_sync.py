@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 
 SCRIPT_PATH = pathlib.Path(__file__).resolve().parents[1] / "run-real-env-schema-sync.py"
@@ -53,6 +54,16 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", create_sql)
         self.assertIn("idx_relation_parent_code", create_sql)
         self.assertIn("idx_relation_child_code", create_sql)
+
+    def test_create_table_sql_covers_governance_approval_tables(self):
+        order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
+        transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
+        self.assertIsNotNone(order_sql)
+        self.assertIsNotNone(transition_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
+        self.assertIn("idx_governance_approval_order_subject", order_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
+        self.assertIn("idx_governance_approval_transition_order", transition_sql)
 
 
 class FakeCursor:
@@ -184,6 +195,66 @@ class LegacyGovernancePermissionCleanupTest(unittest.TestCase):
         self.assertIn("risk:rule-definition:write", update_sql[1])
         self.assertIn("risk:linkage-rule:write", update_sql[1])
         self.assertIn("risk:emergency-plan:write", update_sql[1])
+
+
+class GovernanceFineGrainedPermissionSeedCursor:
+    def __init__(self):
+        self.executed = []
+        self._last_sql = ""
+        self._last_params = None
+        self.next_role_menu_id = 97000000
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self._last_params = params
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "SELECT id" in self._last_sql and "FROM sys_menu" in self._last_sql and "menu_code = %s" in self._last_sql:
+            code = self._last_params[0]
+            if code == "iot:normative-library:approve":
+                return None
+            if code == "risk:metric-catalog:approve":
+                return (93002051,)
+            return None
+        if "SELECT COUNT(1) FROM `sys_menu` WHERE id = %s" in self._last_sql:
+            return (0,)
+        if "SELECT id" in self._last_sql and "FROM sys_role" in self._last_sql and "role_code = %s" in self._last_sql:
+            role_code = self._last_params[0]
+            role_map = {
+                "MANAGEMENT_STAFF": (92000002,),
+                "OPS_STAFF": (92000003,),
+            }
+            return role_map.get(role_code)
+        if "SELECT id" in self._last_sql and "FROM sys_role_menu" in self._last_sql:
+            return None
+        if "SELECT COALESCE(MAX(id), 0) + 1 FROM `sys_role_menu`" in self._last_sql:
+            self.next_role_menu_id += 1
+            return (self.next_role_menu_id,)
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+    def fetchall(self):
+        raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
+
+
+class GovernanceFineGrainedPermissionSeedTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_permission_menus_and_role_bindings(self, _mock_table_exists, _mock_column_exists):
+        cursor = GovernanceFineGrainedPermissionSeedCursor()
+
+        schema_sync.ensure_governance_fine_grained_permissions(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO sys_menu", combined_sql)
+        self.assertIn("UPDATE sys_menu", combined_sql)
+        self.assertIn("INSERT INTO sys_role_menu", combined_sql)
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("iot:normative-library:approve", params_text)
+        self.assertIn("risk:metric-catalog:approve", params_text)
+        self.assertIn("MANAGEMENT_STAFF", params_text)
+        self.assertIn("OPS_STAFF", params_text)
 
 
 if __name__ == "__main__":

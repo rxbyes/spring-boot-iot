@@ -26,4 +26,6 @@ public class ProductContractReleaseRollbackResultVO {
     private String rollbackLimitations;
 
     private LocalDateTime rollbackTime;
+
+    private Long approvalOrderId;
 }
