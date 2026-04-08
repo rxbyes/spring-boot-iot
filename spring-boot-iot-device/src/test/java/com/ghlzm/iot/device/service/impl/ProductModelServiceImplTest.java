@@ -423,7 +423,13 @@ class ProductModelServiceImplTest {
     void applyGovernanceShouldReturnReleaseBatchIdAfterPublishingFormalFields() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "瑁傜紳鐩戞祴浜у搧"));
         when(productModelMapper.selectOne(any())).thenReturn(null);
-        when(productContractReleaseService.createBatch(1001L, "phase1-crack", "manual_compare_apply", 1, 10001L))
+        when(productContractReleaseService.createBatch(
+                eq(1001L),
+                eq("phase1-crack"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L)
+        ))
                 .thenReturn(12345L);
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
@@ -439,7 +445,13 @@ class ProductModelServiceImplTest {
     void applyGovernanceShouldReturnGnssReleaseBatchIdAfterPublishingFormalFields() {
         when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "gnss-monitor"));
         when(productModelMapper.selectOne(any())).thenReturn(null);
-        when(productContractReleaseService.createBatch(3003L, "phase2-gnss", "manual_compare_apply", 1, 10001L))
+        when(productContractReleaseService.createBatch(
+                eq(3003L),
+                eq("phase2-gnss"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L)
+        ))
                 .thenReturn(22345L);
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
@@ -574,4 +586,3 @@ class ProductModelServiceImplTest {
         return definition;
     }
 }
-

@@ -40,7 +40,7 @@ class ProductContractReleaseServiceImplTest {
     private ProductModelMapper productModelMapper;
 
     @Test
-    void createBatchShouldPersistProductVersionMetadata() {
+    void createBatchShouldPersistCurrentReleaseBatchFields() {
         ProductContractReleaseServiceImpl service = new ProductContractReleaseServiceImpl(
                 releaseBatchMapper,
                 releaseSnapshotMapper,
