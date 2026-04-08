@@ -90,12 +90,20 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         linkage_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_linkage_binding"])
         plan_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_emergency_plan_binding"])
         self.assertEqual(
+            linkage_index_sql["uk_risk_metric_linkage_active"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+        )
+        self.assertEqual(
             linkage_index_sql["idx_risk_metric_linkage_rule"],
             "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
         )
         self.assertEqual(
             linkage_index_sql["idx_risk_metric_linkage_metric"],
             "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["uk_risk_metric_plan_active"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
         )
         self.assertEqual(
             plan_index_sql["idx_risk_metric_plan_rule"],
@@ -296,6 +304,98 @@ class GovernanceFineGrainedPermissionSeedTest(unittest.TestCase):
         self.assertIn("risk:metric-catalog:approve", params_text)
         self.assertIn("MANAGEMENT_STAFF", params_text)
         self.assertIn("OPS_STAFF", params_text)
+
+
+class EnsureIndexesCursor:
+    def __init__(self):
+        self.executed = []
+        self._last_sql = ""
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "risk_metric_linkage_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
+            return None
+        if "risk_metric_emergency_plan_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
+            return None
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+
+class EnsureIndexesBehaviorTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_ensure_indexes_executes_binding_index_ddl_when_missing(self, _mock_table_exists):
+        cursor = EnsureIndexesCursor()
+
+        missing_binding_indexes = {
+            ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"),
+            ("risk_metric_linkage_binding", "idx_risk_metric_linkage_rule"),
+            ("risk_metric_linkage_binding", "idx_risk_metric_linkage_metric"),
+            ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"),
+            ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_rule"),
+            ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"),
+        }
+
+        def fake_index_exists(_cur, _db, table, index):
+            return (table, index) not in missing_binding_indexes
+
+        with mock.patch.object(schema_sync, "index_exists", side_effect=fake_index_exists):
+            schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_ensure_indexes_raises_when_unique_index_has_duplicate_rows(self, _mock_table_exists):
+        cursor = EnsureIndexesCursor()
+
+        def fake_index_exists(_cur, _db, table, index):
+            return not (table == "risk_metric_linkage_binding" and index == "uk_risk_metric_linkage_active")
+
+        original_fetchone = cursor.fetchone
+
+        def fetchone_with_duplicate():
+            if "risk_metric_linkage_binding" in cursor._last_sql and "HAVING COUNT(1) > 1" in cursor._last_sql:
+                return (1,)
+            return original_fetchone()
+
+        cursor.fetchone = fetchone_with_duplicate
+
+        with mock.patch.object(schema_sync, "index_exists", side_effect=fake_index_exists):
+            with self.assertRaises(RuntimeError) as cm:
+                schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        self.assertIn("risk_metric_linkage_binding.uk_risk_metric_linkage_active", str(cm.exception))
+        self.assertIn("duplicate rows must be cleaned before schema sync can continue", str(cm.exception))
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertNotIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
 
 
 if __name__ == "__main__":

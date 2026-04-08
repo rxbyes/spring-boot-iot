@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-04-08
+> 更新时间：2026-04-09
 
 ## 项目简介
 
@@ -62,7 +62,7 @@
 
 - 唯一验收基线：`spring-boot-iot-admin/src/main/resources/application-dev.yml`
 - 可通过环境变量覆盖数据库、Redis、MQTT、TDengine 和可观测配置
-- `application-dev.yml` 与 `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`；`application-test.yml` 保持 `mysql`
+- `application-dev.yml` 与 `application-prod.yml` 当前默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`、`iot.telemetry.read-routing.history-source=v2`；`application-test.yml` 保持 `mysql`
 - 当前主库 Hikari 连接池不再依赖框架默认值；如共享环境再次出现 `HikariPool-1 - Connection is not available`，优先检查 `IOT_MYSQL_HIKARI_*` 覆盖值、慢 SQL 摘要与 `/actuator/metrics/hikaricp.connections.*`
 - Redis 当前同时承担 `message-flow` 时间线短期留存和 MQTT consumer 领导权租约；若 Redis 不可用，本轮链路时间线 / MQTT 集群单消费者验收都视为环境阻塞，不回退到仅控制台日志模式
 - 不允许回退到旧 H2 验收 profile、独立 H2 schema 脚本或 H2-only 验收路径

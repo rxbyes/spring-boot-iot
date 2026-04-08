@@ -20,6 +20,8 @@ import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBucketPoint;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * 时序查询服务实现。
@@ -40,6 +43,7 @@ import java.util.Objects;
 @Service
 public class TelemetryQueryServiceImpl implements TelemetryQueryService {
 
+    private static final Logger log = LoggerFactory.getLogger(TelemetryQueryServiceImpl.class);
     private static final int HISTORY_BATCH_SIZE = 10_000;
     private static final String FILL_POLICY_ZERO = "ZERO";
     private static final DateTimeFormatter BUCKET_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -205,16 +209,49 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                                      List<String> identifiers) {
         String historySource = telemetryReadRouter.historySource();
         boolean primaryV2 = historySource != null && historySource.startsWith("v2");
-        List<TelemetryV2Point> primary = primaryV2
-                ? readV2History(device, product, metadataMap, identifiers)
-                : readLegacyHistory(device, product, metadataMap, mappingMap);
-        if (!telemetryReadRouter.isLegacyReadFallbackEnabled()) {
+        boolean fallbackEnabled = telemetryReadRouter.isLegacyReadFallbackEnabled();
+        List<TelemetryV2Point> primary = readHistoryRoute(
+                device == null ? null : device.getId(),
+                primaryV2 ? "v2" : "legacy",
+                fallbackEnabled,
+                "继续尝试回退链路",
+                () -> primaryV2
+                        ? readV2History(device, product, metadataMap, identifiers)
+                        : readLegacyHistory(device, product, metadataMap, mappingMap)
+        );
+        if (!fallbackEnabled) {
             return primary;
         }
-        List<TelemetryV2Point> secondary = primaryV2
-                ? readLegacyHistory(device, product, metadataMap, mappingMap)
-                : readV2History(device, product, metadataMap, identifiers);
+        List<TelemetryV2Point> secondary = readHistoryRoute(
+                device == null ? null : device.getId(),
+                primaryV2 ? "legacy" : "v2",
+                true,
+                "保留主链路结果",
+                () -> primaryV2
+                        ? readLegacyHistory(device, product, metadataMap, mappingMap)
+                        : readV2History(device, product, metadataMap, identifiers)
+        );
         return mergeHistoryPoints(primary, secondary);
+    }
+
+    private List<TelemetryV2Point> readHistoryRoute(Long deviceId,
+                                                    String source,
+                                                    boolean continueOnError,
+                                                    String fallbackAction,
+                                                    Supplier<List<TelemetryV2Point>> reader) {
+        try {
+            return safeHistoryPoints(reader.get());
+        } catch (Exception ex) {
+            if (!continueOnError) {
+                throw ex;
+            }
+            log.warn("读取 telemetry 历史链路失败，{}。source={}, deviceId={}, error={}",
+                    fallbackAction,
+                    source,
+                    deviceId,
+                    ex.getMessage());
+            return List.of();
+        }
     }
 
     private List<TelemetryV2Point> readV2History(Device device,
@@ -228,16 +265,23 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 identifiers,
                 HISTORY_BATCH_SIZE
         );
-        if (!normalizedTelemetryHistoryReader.hasHistory(device == null ? null : device.getId())) {
+        try {
+            if (!normalizedTelemetryHistoryReader.hasHistory(device == null ? null : device.getId())) {
+                return rawHistory == null ? List.of() : rawHistory;
+            }
+            List<TelemetryV2Point> normalizedHistory = normalizedTelemetryHistoryReader.listHistory(
+                    device,
+                    product,
+                    metadataMap,
+                    HISTORY_BATCH_SIZE
+            );
+            return mergeHistoryPoints(rawHistory, normalizedHistory);
+        } catch (Exception ex) {
+            log.warn("读取 TDengine 兼容表历史失败，回退 telemetry v2 raw 历史, deviceId={}, error={}",
+                    device == null ? null : device.getId(),
+                    ex.getMessage());
             return rawHistory == null ? List.of() : rawHistory;
         }
-        List<TelemetryV2Point> normalizedHistory = normalizedTelemetryHistoryReader.listHistory(
-                device,
-                product,
-                metadataMap,
-                HISTORY_BATCH_SIZE
-        );
-        return mergeHistoryPoints(rawHistory, normalizedHistory);
     }
 
     private List<TelemetryV2Point> readLegacyHistory(Device device,

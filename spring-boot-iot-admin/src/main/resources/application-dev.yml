@@ -141,7 +141,7 @@ iot:
       retry-enabled: ${IOT_TELEMETRY_LEGACY_MIRROR_RETRY_ENABLED:false}
     read-routing:
       latest-source: ${IOT_TELEMETRY_READ_LATEST_SOURCE:v2}
-      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:legacy}
+      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:v2}
       aggregate-source: ${IOT_TELEMETRY_READ_AGGREGATE_SOURCE:v2-aggregate}
       legacy-read-fallback-enabled: ${IOT_TELEMETRY_LEGACY_READ_FALLBACK_ENABLED:true}
     tenant-routing:

@@ -203,6 +203,39 @@ class TelemetryQueryServiceImplTest {
     }
 
     @Test
+    void getHistoryBatchShouldFallbackToV2HistoryWhenLegacyPrimaryReadFails() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata measureMetadata = metadata("泥水位高程", "double");
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("legacy");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(true);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L4_NW_1", measureMetadata
+        ));
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(legacyTelemetryHistoryReader.listHistory(eq(device), eq(product), anyMap(), anyMap(), anyInt()))
+                .thenThrow(new RuntimeException("legacy stable unavailable"));
+        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")), anyInt()))
+                .thenReturn(List.of(
+                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0))
+                ));
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        assertEquals(true, result.getPoints().get(0).getBuckets().stream().anyMatch(item -> item.getValue() == 2.6D));
+    }
+
+    @Test
     void shouldReadV2LatestBeforeLegacyFallback() {
         Device device = buildDevice();
         Product product = buildProduct();

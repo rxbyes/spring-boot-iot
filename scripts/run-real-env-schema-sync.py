@@ -699,6 +699,10 @@ INDEXES_TO_ADD: IndexSpecMap = {
     ],
     "risk_metric_linkage_binding": [
         (
+            "uk_risk_metric_linkage_active",
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+        ),
+        (
             "idx_risk_metric_linkage_rule",
             "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
         ),
@@ -709,6 +713,10 @@ INDEXES_TO_ADD: IndexSpecMap = {
     ],
     "risk_metric_emergency_plan_binding": [
         (
+            "uk_risk_metric_plan_active",
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+        ),
+        (
             "idx_risk_metric_plan_rule",
             "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
         ),
@@ -717,6 +725,21 @@ INDEXES_TO_ADD: IndexSpecMap = {
             "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
         ),
     ],
+}
+
+UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
+    ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"): (
+        "tenant_id",
+        "risk_metric_id",
+        "linkage_rule_id",
+        "deleted",
+    ),
+    ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"): (
+        "tenant_id",
+        "risk_metric_id",
+        "emergency_plan_id",
+        "deleted",
+    ),
 }
 
 
@@ -1456,8 +1479,30 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
         for index_name, ddl in specs:
             if index_exists(cur, db, table, index_name):
                 continue
+            unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
+            if unique_columns and has_duplicate_unique_key_rows(cur, table, unique_columns):
+                raise RuntimeError(
+                    f"Cannot add unique index {table}.{index_name}: duplicate rows detected; "
+                    "duplicate rows must be cleaned before schema sync can continue."
+                )
             cur.execute(ddl)
             print(f"[index] {table}.{index_name} added")
+
+
+def has_duplicate_unique_key_rows(
+    cur: pymysql.cursors.Cursor, table: str, unique_columns: Tuple[str, ...]
+) -> bool:
+    group_columns = ", ".join(f"`{column}`" for column in unique_columns)
+    cur.execute(
+        f"""
+        SELECT 1
+        FROM `{table}`
+        GROUP BY {group_columns}
+        HAVING COUNT(1) > 1
+        LIMIT 1
+        """
+    )
+    return cur.fetchone() is not None
 
 
 def find_multi_risk_point_conflicts(cur: pymysql.cursors.Cursor, db: str) -> List[Tuple[int, str, str, str]]:
