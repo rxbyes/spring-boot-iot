@@ -59,12 +59,18 @@ class ProductContractReleaseControllerTest {
 
     @Test
     void getBatchShouldDelegateToService() {
-        when(productContractReleaseService.getBatch(7001L))
-                .thenReturn(batchVO(7001L, "phase1-crack", "manual_compare_apply", 3));
+        ProductContractReleaseBatchVO batch = batchVO(7001L, "phase1-crack", "manual_compare_apply", 3);
+        batch.setApprovalOrderId(88001L);
+        batch.setReleaseReason("首次合同发布");
+        batch.setReleaseStatus("RELEASED");
+        when(productContractReleaseService.getBatch(7001L)).thenReturn(batch);
 
         R<ProductContractReleaseBatchVO> response = controller.getBatch(7001L);
 
         assertEquals("phase1-crack", response.getData().getScenarioCode());
+        assertEquals(88001L, response.getData().getApprovalOrderId());
+        assertEquals("首次合同发布", response.getData().getReleaseReason());
+        assertEquals("RELEASED", response.getData().getReleaseStatus());
         verify(productContractReleaseService).getBatch(7001L);
     }
 

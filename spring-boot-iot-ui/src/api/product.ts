@@ -32,6 +32,9 @@ export interface ProductContractReleaseBatch {
   releasedFieldCount?: number | null
   createBy?: IdType | null
   createTime?: string | null
+  approvalOrderId?: IdType | null
+  releaseReason?: string | null
+  releaseStatus?: string | null
 }
 
 export interface ProductContractReleaseRollbackResult {

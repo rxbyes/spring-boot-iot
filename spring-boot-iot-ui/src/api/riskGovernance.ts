@@ -28,9 +28,14 @@ export interface RiskMetricCatalogItem {
   id?: IdType | null;
   productId?: IdType | null;
   productModelId?: IdType | null;
+  releaseBatchId?: IdType | null;
   contractIdentifier?: string | null;
+  normativeIdentifier?: string | null;
   riskMetricCode?: string | null;
   riskMetricName?: string | null;
+  riskCategory?: string | null;
+  metricRole?: string | null;
+  lifecycleStatus?: string | null;
   sourceScenarioCode?: string | null;
   metricUnit?: string | null;
   metricDimension?: string | null;

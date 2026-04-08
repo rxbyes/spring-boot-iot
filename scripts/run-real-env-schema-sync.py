@@ -147,6 +147,31 @@ CREATE TABLE IF NOT EXISTS iot_vendor_metric_evidence (
     KEY idx_vendor_metric_product_seen (product_id, last_seen_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段证据表'
 """,
+    "iot_vendor_metric_mapping_rule": """
+CREATE TABLE IF NOT EXISTS iot_vendor_metric_mapping_rule (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scope_type VARCHAR(32) NOT NULL COMMENT 'PRODUCT/PROTOCOL/SCENARIO',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+    scenario_code VARCHAR(64) DEFAULT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',
+    normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',
+    target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',
+    status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+    version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段映射规则表'
+""",
     "iot_product_contract_release_batch": """
 CREATE TABLE IF NOT EXISTS iot_product_contract_release_batch (
     id BIGINT NOT NULL COMMENT '主键',

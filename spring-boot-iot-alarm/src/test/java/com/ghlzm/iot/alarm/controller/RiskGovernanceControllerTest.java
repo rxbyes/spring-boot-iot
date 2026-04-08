@@ -83,11 +83,21 @@ class RiskGovernanceControllerTest {
         RiskMetricCatalogItemVO item = new RiskMetricCatalogItemVO();
         item.setId(9101L);
         item.setRiskMetricCode("RM_1001_VALUE");
+        item.setReleaseBatchId(7001L);
+        item.setNormativeIdentifier("value");
+        item.setRiskCategory("CRACK");
+        item.setMetricRole("PRIMARY");
+        item.setLifecycleStatus("ACTIVE");
         when(service.getMetricCatalog(9101L)).thenReturn(item);
 
         R<RiskMetricCatalogItemVO> response = controller.getMetricCatalog(9101L);
 
         assertEquals("RM_1001_VALUE", response.getData().getRiskMetricCode());
+        assertEquals(7001L, response.getData().getReleaseBatchId());
+        assertEquals("value", response.getData().getNormativeIdentifier());
+        assertEquals("CRACK", response.getData().getRiskCategory());
+        assertEquals("PRIMARY", response.getData().getMetricRole());
+        assertEquals("ACTIVE", response.getData().getLifecycleStatus());
     }
 
     @Test
