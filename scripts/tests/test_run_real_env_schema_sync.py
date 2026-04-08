@@ -65,6 +65,13 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
         self.assertIn("idx_governance_approval_transition_order", transition_sql)
 
+    def test_product_metadata_json_column_is_declared_for_schema_sync(self):
+        self.assertIn("iot_product", schema_sync.COLUMNS_TO_ADD)
+        self.assertIn(
+            ("metadata_json", "JSON DEFAULT NULL COMMENT '产品扩展元数据'"),
+            schema_sync.COLUMNS_TO_ADD["iot_product"],
+        )
+
 
 class FakeCursor:
     def __init__(self):

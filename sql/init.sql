@@ -497,6 +497,7 @@ CREATE TABLE iot_product (
     data_format VARCHAR(32) NOT NULL DEFAULT 'JSON' COMMENT '数据格式',
     manufacturer VARCHAR(128) DEFAULT NULL COMMENT '厂商',
     description VARCHAR(500) DEFAULT NULL COMMENT '描述',
+    metadata_json JSON DEFAULT NULL COMMENT '产品扩展元数据',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',
     remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
     create_by BIGINT DEFAULT NULL,

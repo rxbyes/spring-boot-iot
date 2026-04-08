@@ -185,6 +185,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setDataFormat(resolveOptionalText(dto.getDataFormat(), "JSON"));
         product.setManufacturer(resolveOptionalText(dto.getManufacturer(), null));
         product.setDescription(resolveOptionalText(dto.getDescription(), null));
+        product.setMetadataJson(resolveOptionalText(dto.getMetadataJson(), null));
         product.setStatus(resolveProductStatus(dto.getStatus()));
     }
 
@@ -328,6 +329,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         detail.setDataFormat(product.getDataFormat());
         detail.setManufacturer(product.getManufacturer());
         detail.setDescription(product.getDescription());
+        detail.setMetadataJson(product.getMetadataJson());
         detail.setStatus(product.getStatus());
         detail.setDeviceCount(resolveDeviceCount(stat));
         detail.setOnlineDeviceCount(resolveOnlineDeviceCount(stat));

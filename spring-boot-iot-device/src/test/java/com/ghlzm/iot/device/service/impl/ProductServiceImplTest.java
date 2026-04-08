@@ -152,6 +152,25 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void getDetailByIdShouldExposeMetadataJsonInDetailVo() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("muddy-water-product");
+        product.setProductName("泥水位监测产品");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        product.setMetadataJson("{\"objectInsight\":{\"customMetrics\":[]}}");
+        doReturn(product).when(productService).getRequiredById(1001L);
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of());
+        when(deviceMapper.selectProductActivityStat(any(), any(), any(), any())).thenReturn(new ProductActivityStatRow());
+
+        ProductDetailVO detail = productService.getDetailById(1001L);
+
+        assertEquals(product.getMetadataJson(), detail.getMetadataJson());
+    }
+
+    @Test
     void pageProductsShouldMapAggregatedStatsIntoRows() {
         Product product = new Product();
         product.setId(1001L);

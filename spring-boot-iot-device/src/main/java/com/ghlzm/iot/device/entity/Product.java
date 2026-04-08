@@ -29,6 +29,7 @@ public class Product extends BaseEntity {
     private String dataFormat;
     private String manufacturer;
     private String description;
+    private String metadataJson;
     private Integer status;
 
     @TableField(exist = false)

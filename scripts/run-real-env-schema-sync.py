@@ -457,6 +457,9 @@ FROM iot_device_message_log
 
 
 COLUMNS_TO_ADD: ColumnSpecMap = {
+    "iot_product": [
+        ("metadata_json", "JSON DEFAULT NULL COMMENT '产品扩展元数据'"),
+    ],
     "iot_device": [
         ("org_id", "BIGINT DEFAULT NULL COMMENT 'organization id' AFTER `tenant_id`"),
         ("org_name", "VARCHAR(128) DEFAULT NULL COMMENT 'organization name' AFTER `org_id`"),
