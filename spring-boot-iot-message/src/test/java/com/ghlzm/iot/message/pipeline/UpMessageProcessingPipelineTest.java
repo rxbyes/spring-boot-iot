@@ -398,6 +398,27 @@ class UpMessageProcessingPipelineTest {
     }
 
     @Test
+    void processShouldAttachFailureMetadataWhenDeviceContractFails() {
+        UpMessageProcessingRequest request = buildMqttRequest("$dp", "plain-text");
+        RawDeviceMessage rawDeviceMessage = buildRawMessage("$dp", "legacy", "demo-device-01", "demo-product");
+        DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "$dp");
+        RuntimeException failure = new RuntimeException("Unknown column 'metadata_json' in 'field list'");
+
+        when(mqttTopicRouter.toRawMessage(anyString(), any(MqttMessage.class))).thenReturn(rawDeviceMessage);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(upMessage);
+        when(deviceContractStageHandler.resolve(any())).thenThrow(failure);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> pipeline.process(request));
+
+        assertEquals(failure, thrown);
+        MessagePipelineFailureMetadata metadata = MessagePipelineFailureMetadata.find(thrown).orElseThrow();
+        assertEquals("device_contract", metadata.getFailureStage());
+        assertEquals("demo-device-01", metadata.resolveRawDeviceMessage().getDeviceCode());
+        assertEquals("demo-product", metadata.resolveRawDeviceMessage().getProductKey());
+    }
+
+    @Test
     void processShouldAppendChildPayloadStepsForChildMessages() {
         UpMessageProcessingRequest request = buildHttpRequest();
         DeviceUpMessage parentMessage = buildUpMessage("gateway-device", "demo-product", "property", "/message/http/report");

@@ -740,6 +740,26 @@ class DeviceMessageServiceImplTest {
     }
 
     @Test
+    void recordDispatchFailureTraceShouldPersistWhenProductLookupFails() {
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-003");
+        rawDeviceMessage.setDeviceCode("demo-device-03");
+        rawDeviceMessage.setProductKey("demo-product");
+
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(productMapper.selectOne(any())).thenThrow(new RuntimeException("Unknown column 'metadata_json' in 'field list'"));
+
+        deviceMessageService.recordDispatchFailureTrace("$dp", "{\"body\":1}".getBytes(StandardCharsets.UTF_8), rawDeviceMessage);
+
+        ArgumentCaptor<DeviceMessageLog> logCaptor = ArgumentCaptor.forClass(DeviceMessageLog.class);
+        verify(deviceMessageLogMapper).insert(logCaptor.capture());
+        assertEquals("trace-demo-003", logCaptor.getValue().getTraceId());
+        assertEquals("demo-device-03", logCaptor.getValue().getDeviceCode());
+        assertEquals("demo-product", logCaptor.getValue().getProductKey());
+        assertEquals("dispatch_failed", logCaptor.getValue().getMessageType());
+    }
+
+    @Test
     void handleUpMessageShouldThrowWhenProductDisabled() {
         Device device = new Device();
         device.setId(2005L);
