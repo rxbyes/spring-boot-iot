@@ -5,15 +5,16 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
+import com.ghlzm.iot.device.governance.ProductContractGovernanceApprovalPayloads;
 import com.ghlzm.iot.device.service.ProductModelService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
-import com.ghlzm.iot.system.service.GovernanceApprovalService;
-import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -31,8 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 public class ProductModelController {
-
-    private static final String ACTION_PRODUCT_CONTRACT_RELEASE_APPLY = "PRODUCT_CONTRACT_RELEASE_APPLY";
 
     private final ProductModelService productModelService;
     private final GovernancePermissionGuard permissionGuard;
@@ -79,9 +78,9 @@ public class ProductModelController {
 
     @PostMapping("/api/device/product/{productId}/model-governance/apply")
     public R<ProductModelGovernanceApplyResultVO> applyGovernance(@PathVariable Long productId,
-                                                                   @RequestBody ProductModelGovernanceApplyDTO dto,
-                                                                   @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
-                                                                   Authentication authentication) {
+                                                                  @RequestBody ProductModelGovernanceApplyDTO dto,
+                                                                  @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                                  Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
         permissionGuard.requireDualControl(
                 currentUserId,
@@ -101,19 +100,18 @@ public class ProductModelController {
                 GovernancePermissionCodes.RISK_METRIC_CATALOG_APPROVE,
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
-        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(productId, dto, currentUserId);
-        Long approvalOrderId = governanceApprovalService.recordApprovedAction(new GovernanceApprovalActionCommand(
-                ACTION_PRODUCT_CONTRACT_RELEASE_APPLY,
+
+        Long approvalOrderId = governanceApprovalService.submitAction(new GovernanceApprovalActionCommand(
+                ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_RELEASE_APPLY,
                 "product contract release apply",
                 "PRODUCT",
                 productId,
                 currentUserId,
                 approverUserId,
-                buildApplyPayload(productId, result),
+                ProductContractGovernanceApprovalPayloads.writeApplyPayload(productId, dto),
                 null
         ));
-        result.setApprovalOrderId(approvalOrderId);
-        return R.ok(result);
+        return R.ok(ProductContractGovernanceApprovalPayloads.buildPendingApplyResult(approvalOrderId, dto));
     }
 
     @PutMapping("/api/device/product/{productId}/models/{modelId}")
@@ -149,10 +147,5 @@ public class ProductModelController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
-    }
-
-    private String buildApplyPayload(Long productId, ProductModelGovernanceApplyResultVO result) {
-        Long releaseBatchId = result == null ? null : result.getReleaseBatchId();
-        return "{\"productId\":" + productId + ",\"releaseBatchId\":" + releaseBatchId + "}";
     }
 }

@@ -3,6 +3,8 @@ package com.ghlzm.iot.telemetry.controller;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.telemetry.service.TelemetryHistoryMigrationService;
 import com.ghlzm.iot.telemetry.service.TelemetryQueryService;
+import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchRequest;
+import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchResponse;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryMigrationRequest;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryMigrationResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +36,11 @@ public class TelemetryController {
     @GetMapping("/api/telemetry/latest")
     public R<Map<String, Object>> latest(@RequestParam("deviceId") Long deviceId) {
         return R.ok(telemetryQueryService.getLatest(deviceId));
+    }
+
+    @PostMapping("/api/telemetry/history/batch")
+    public R<TelemetryHistoryBatchResponse> historyBatch(@RequestBody TelemetryHistoryBatchRequest request) {
+        return R.ok(telemetryQueryService.getHistoryBatch(request));
     }
 
     @PostMapping("/api/telemetry/migrate-history")

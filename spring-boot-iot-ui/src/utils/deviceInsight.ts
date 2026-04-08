@@ -73,7 +73,7 @@ export function resolveInsightObjectType(source: Partial<RiskMonitoringDetail>):
 export function getInsightObjectTypeLabel(type: InsightObjectType) {
   switch (type) {
     case 'detect':
-      return '检测型';
+      return '监测型';
     case 'warning':
       return '预警型';
     case 'collect':

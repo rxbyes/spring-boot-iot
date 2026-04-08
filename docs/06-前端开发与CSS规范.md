@@ -150,8 +150,8 @@
 - `实时监测台`、`GIS态势图`、`告警运营台`、`事件协同台` 这类运营工作台，当前也统一收口为单一 `StandardWorkbenchPanel` 主工作台；首屏摘要优先下沉到 `notices`、`StandardTableToolbar.meta-items` 或正文分区，不再回退到独立 Hero 概况卡 + 筛选卡 + 列表卡的三段式堆叠。
 - `风险对象中心`、`阈值策略`、`联动编排`、`应急预案库` 当前也统一收口为单一 `StandardWorkbenchPanel` 主工作台；新增主操作优先上收至 `header-actions`，原首屏指标并入共享工具条元信息，不再保留独立 Hero 概况卡或“双首屏”结构。
 - 风险策略域抽屉不得再使用 `Risk Platform Form` 这类英文 eyebrow；抽屉层级应只通过中文标题、副标题和区块标题表达。
-- `/insight` 的 `对象洞察台` 当前统一采用“单一 `StandardWorkbenchPanel` + `StandardListFilterHeader` + `StandardInlineState` + 正文内容分区”语法；相关页面联动动作统一下沉到正文卡片或行内操作，不再保留英文 hero 眉标、首屏大按钮组或第二张概况 Hero 卡。页面语义必须以 `/api/risk-monitoring/realtime/{bindingId}` 为主口径，风险等级、在线状态、监测对象档案、测点和趋势图都不得再由前端基于设备属性或消息日志自行推导；入口规则固定为“`bindingId` 优先，`deviceCode` 只作回退”，仅有 `bindingId` 时不得再回落示例设备或旧 query 中的 stale `deviceCode`。当设备未命中绑定时，只允许退化为设备上报分析视图，不允许把整页内容清空。
-- `/insight` 当前固定只保留“4 个概览指标 + `基础档案` / `研判依据` / `属性趋势预览` / `关键监测指标` / `设备属性快照` / `风险分析草稿`”结构；`当前建议动作`、`一线建议`、`运维建议`、`研发建议` 与独立“消息日志与审计回看”卡不得回流。设备属性和消息日志接口只作为风险监测详情的补充信息源，不再承担主风险判级来源。
+- `/insight` 的 `对象洞察台` 当前统一采用“单一 `StandardWorkbenchPanel` + `StandardListFilterHeader` + `StandardInlineState` + 正文内容分区”语法，但页面主语义已收口为“单设备对象洞察台”。直开 `/insight` 时搜索框必须为空且不自动请求；从 `设备资产中心` 跳转进入时只携带 `deviceCode`，页面据此自动加载单设备画像。
+- `/insight` 当前正文固定采用 `设备画像`、`基础档案信息（设备基础档案 / 风险上下文档案）`、`核心指标`、`属性趋势预览`、`综合分析`、`系统自定义参数`、`设备属性快照` 结构；趋势图主数据必须来自 `POST /api/telemetry/history/batch`，按 `监测数据 / 状态数据` 双分组展示折线图，并统一支持 `近一天 / 近一周 / 近一月 / 近一季度 / 近一年` 五档时间维度。缺失桶由后端补 `0`，前端不得再用消息日志拼趋势或向客户暴露 `L4_NW_1`、`S1_ZT_1.sensor_state.L4_NW_1` 这类内部标识。
 - `接入智维`、`风险运营`、`风险策略`、`质量工场` 下的主工作台页，当前统一通过 `StandardPageShell + StandardWorkbenchPanel` 对齐平台治理的字距、标题节奏和导航到首卡片的垂直留白；`/device-access`、`/reporting`、`/message-trace`、`/file-debug`、`/system-log`、`/insight`、`/report-analysis` 这类页级入口也已纳入同一规则，页面根节点不得再声明私有 `padding / background / border / box-shadow` 来制造第二层壳。
 - `自动化工场` 这类非列表型工程工作台，若正文仍由多个 `PanelCard`、编排器或结果面板组成，也必须把首屏标题与说明收口到同一 `StandardWorkbenchPanel` 头部；不得再保留独立 Hero 页头抬高导航到主卡片的间距。
 - `接入智维` 六个核心页在完成两层结构收口后，第二轮视觉精修继续保持当前系统主配色不变；现代化优先通过标题层级、筛选密度、工具条轻重、表头亮度和操作列节奏实现，不得为单页引入新的综合色或私有主题。

@@ -2,20 +2,18 @@ import { defineComponent } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getDeviceByCode, getDeviceMessageLogs, getDeviceProperties } from '@/api/iot';
-import { listMissingBindings, listMissingPolicies } from '@/api/riskGovernance';
+import { getTelemetryHistoryBatch } from '@/api/telemetry';
+import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
 import { getRiskMonitoringDetail, getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
   mockRoute: {
-    query: {
-      deviceCode: 'demo-device-01'
-    } as Record<string, unknown>
+    query: {} as Record<string, unknown>
   },
   mockRouter: {
     push: vi.fn(),
-    replace: vi.fn()
+    replace: vi.fn().mockResolvedValue(undefined)
   }
 }));
 
@@ -29,15 +27,16 @@ vi.mock('@/api/iot', () => ({
     code: 200,
     msg: 'success',
     data: {
-      deviceCode: 'demo-device-01',
-      deviceName: '演示设备',
+      id: 2001,
+      deviceCode: 'SK00EB0D1308313',
+      deviceName: '泥水位监测设备',
+      productName: '宏观现象监测设备泥水位',
       onlineStatus: 1,
       protocolCode: 'mqtt-json',
-      lastOnlineTime: '2026-03-28 10:00:00',
-      lastOfflineTime: null,
-      lastReportTime: '2026-03-28 10:05:00',
+      lastOnlineTime: '2026-04-08 10:00:00',
+      lastReportTime: '2026-04-08 10:05:00',
       firmwareVersion: '1.0.0',
-      address: '测试区域'
+      address: '测试沟道'
     }
   }),
   getDeviceProperties: vi.fn().mockResolvedValue({
@@ -45,27 +44,64 @@ vi.mock('@/api/iot', () => ({
     msg: 'success',
     data: [
       {
-        identifier: 'temperature',
-        propertyName: '温度',
-        propertyValue: '23.5',
+        identifier: 'L4_NW_1',
+        propertyName: '泥水位高程',
+        propertyValue: '2.60',
         valueType: 'double',
-        updateTime: '2026-03-28 10:05:00'
+        updateTime: '2026-04-08 10:05:00'
+      },
+      {
+        identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+        propertyName: '传感器在线状态',
+        propertyValue: '1',
+        valueType: 'int',
+        updateTime: '2026-04-08 10:05:00'
+      },
+      {
+        identifier: 'S1_ZT_1.battery_dump_energy',
+        propertyName: '剩余电量',
+        propertyValue: '86',
+        valueType: 'int',
+        updateTime: '2026-04-08 10:05:00'
       }
     ]
   }),
   getDeviceMessageLogs: vi.fn().mockResolvedValue({
     code: 200,
     msg: 'success',
-    data: [
-      {
-        id: 1,
-        messageType: 'PROPERTY_REPORT',
-        topic: '/demo/topic',
-        traceId: 'trace-001',
-        payload: '{"properties":{"temperature":23.5}}',
-        reportTime: '2026-03-28 10:05:00'
-      }
-    ]
+    data: []
+  })
+}));
+
+vi.mock('@/api/telemetry', () => ({
+  getTelemetryHistoryBatch: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      deviceId: 2001,
+      rangeCode: '7d',
+      bucket: 'day',
+      points: [
+        {
+          identifier: 'L4_NW_1',
+          displayName: '泥水位高程',
+          seriesType: 'measure',
+          buckets: [{ time: '2026-04-07 00:00:00', value: 2.6, filled: false }]
+        },
+        {
+          identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+          displayName: '传感器在线状态',
+          seriesType: 'status',
+          buckets: [{ time: '2026-04-07 00:00:00', value: 1, filled: false }]
+        },
+        {
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          displayName: '剩余电量',
+          seriesType: 'status',
+          buckets: [{ time: '2026-04-07 00:00:00', value: 86, filled: false }]
+        }
+      ]
+    }
   })
 }));
 
@@ -74,31 +110,20 @@ vi.mock('@/api/riskMonitoring', () => ({
     code: 200,
     msg: 'success',
     data: {
-      total: 2,
+      total: 1,
       pageNum: 1,
       pageSize: 10,
       records: [
         {
-          bindingId: 11,
-          deviceCode: 'demo-device-01',
-          deviceName: '演示设备',
-          riskPointName: '北坡位移监测点',
-          riskLevel: 'INFO',
-          metricIdentifier: 'displacementX',
-          metricName: '位移 X',
-          onlineStatus: 1,
-          latestReportTime: '2026-04-01 08:00:00'
-        },
-        {
           bindingId: 22,
-          deviceCode: 'demo-device-01',
-          deviceName: '演示设备',
-          riskPointName: '北坡预警点',
+          deviceCode: 'SK00EB0D1308313',
+          deviceName: '泥水位监测设备',
+          riskPointName: '泥石流沟道风险点',
           riskLevel: 'WARNING',
-          metricIdentifier: 'warningLightState',
-          metricName: '预警灯状态',
+          metricIdentifier: 'L4_NW_1',
+          metricName: '泥水位高程',
           onlineStatus: 1,
-          latestReportTime: '2026-04-01 09:00:00'
+          latestReportTime: '2026-04-08 10:05:00'
         }
       ]
     }
@@ -110,28 +135,20 @@ vi.mock('@/api/riskMonitoring', () => ({
       bindingId: 22,
       riskPointId: 2,
       riskPointCode: 'RP-022',
-      riskPointName: '北坡预警点',
+      riskPointName: '泥石流沟道风险点',
       riskLevel: 'WARNING',
-      deviceId: 1,
-      deviceCode: 'demo-device-01',
-      deviceName: '演示设备',
-      productName: '边坡预警终端',
-      metricIdentifier: 'warningLightState',
-      metricName: '预警灯状态',
-      currentValue: '1',
-      unit: '',
-      valueType: 'int',
+      deviceId: 2001,
+      deviceCode: 'SK00EB0D1308313',
+      deviceName: '泥水位监测设备',
+      productName: '宏观现象监测设备泥水位',
+      metricIdentifier: 'L4_NW_1',
+      metricName: '泥水位高程',
+      currentValue: '2.60',
       monitorStatus: 'ALARM',
       onlineStatus: 1,
-      latestReportTime: '2026-04-01 09:00:00',
+      latestReportTime: '2026-04-08 10:05:00',
       regionName: '北坡区',
-      address: '北坡 1 号点',
-      activeAlarmCount: 2,
-      recentEventCount: 1,
-      trendPoints: [
-        { reportTime: '2026-04-01 08:00:00', value: '0', numericValue: 0 },
-        { reportTime: '2026-04-01 09:00:00', value: '1', numericValue: 1 }
-      ]
+      address: '测试沟道'
     }
   })
 }));
@@ -140,22 +157,12 @@ vi.mock('@/api/riskGovernance', () => ({
   listMissingBindings: vi.fn().mockResolvedValue({
     code: 200,
     msg: 'success',
-    data: {
-      total: 0,
-      pageNum: 1,
-      pageSize: 5,
-      records: []
-    }
+    data: { total: 0, pageNum: 1, pageSize: 5, records: [] }
   }),
   listMissingPolicies: vi.fn().mockResolvedValue({
     code: 200,
     msg: 'success',
-    data: {
-      total: 0,
-      pageNum: 1,
-      pageSize: 5,
-      records: []
-    }
+    data: { total: 0, pageNum: 1, pageSize: 5, records: [] }
   })
 }));
 
@@ -178,7 +185,6 @@ vi.mock('element-plus', async (importOriginal) => {
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: {
-    eyebrow: String,
     title: String,
     description: String,
     showFilters: Boolean,
@@ -186,7 +192,6 @@ const StandardWorkbenchPanelStub = defineComponent({
   },
   template: `
     <section class="device-insight-workbench-stub">
-      <p v-if="eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div><slot name="filters" /></div>
@@ -209,10 +214,9 @@ const StandardPageShellStub = defineComponent({
 
 const PanelCardStub = defineComponent({
   name: 'PanelCard',
-  props: ['eyebrow', 'title', 'description'],
+  props: ['title', 'description'],
   template: `
     <section class="panel-card-stub">
-      <p v-if="eyebrow">{{ eyebrow }}</p>
       <h3 v-if="title">{{ title }}</h3>
       <p v-if="description">{{ description }}</p>
       <slot />
@@ -220,33 +224,16 @@ const PanelCardStub = defineComponent({
   `
 });
 
-const StandardTableTextColumnStub = defineComponent({
-  name: 'StandardTableTextColumn',
-  props: ['label'],
-  template: `
-    <div class="standard-table-text-column-stub">
-      <span>{{ label }}</span>
-      <slot
-        :row="{
-          identifier: 'temperature',
-          propertyName: '温度',
-          propertyValue: '23.5',
-          valueType: 'double',
-          updateTime: '2026-03-28 10:05:00',
-          reportTime: '2026-03-28 10:05:00',
-          messageType: 'PROPERTY_REPORT',
-          topic: '/demo/topic',
-          traceId: 'trace-001',
-          payload: '{&quot;temperature&quot;:23.5}'
-        }"
-      />
-    </div>
-  `
-});
-
 const TrendPanelStub = defineComponent({
   name: 'TrendPanelStub',
-  template: '<section class="trend-panel-stub">属性趋势预览</section>'
+  props: ['groups', 'rangeCode'],
+  template: `
+    <section class="trend-panel-stub">
+      <div>属性趋势预览</div>
+      <div>{{ rangeCode }}</div>
+      <div v-for="group in groups" :key="group.title">{{ group.title }}</div>
+    </section>
+  `
 });
 
 function flushPromises() {
@@ -265,9 +252,8 @@ function mountView() {
         StandardButton: true,
         MetricCard: true,
         PanelCard: PanelCardStub,
-        PropertyTrendPanel: TrendPanelStub,
         RiskInsightTrendPanel: TrendPanelStub,
-        StandardTableTextColumn: StandardTableTextColumnStub,
+        StandardTableTextColumn: true,
         'el-form-item': true,
         'el-input': true,
         'el-tag': true,
@@ -285,259 +271,49 @@ function mountView() {
 describe('DeviceInsightView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRoute.query = {
-      deviceCode: 'demo-device-01'
-    };
+    mockRoute.query = {};
   });
 
-  it('renders risk-monitoring-first insight content and removes legacy action cards', async () => {
+  it('keeps direct-open insight idle until user inputs device code', async () => {
     const wrapper = mountView();
 
     await flushPromises();
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.findAll('.device-insight-workbench-stub')).toHaveLength(1);
+    expect(getDeviceByCode).not.toHaveBeenCalled();
+    expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('请输入设备编码后开始综合分析');
+  });
+
+  it('auto-loads single-device insight when device workbench passes deviceCode', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getDeviceByCode).toHaveBeenCalledWith('SK00EB0D1308313');
+    expect(getRiskMonitoringList).toHaveBeenCalledWith(expect.objectContaining({
+      deviceCode: 'SK00EB0D1308313'
+    }));
+    expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
+    expect(getDeviceProperties).toHaveBeenCalledWith('SK00EB0D1308313');
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 2001,
+      rangeCode: '7d',
+      fillPolicy: 'ZERO'
+    }));
     expect(wrapper.text()).toContain('对象洞察台');
-    expect(wrapper.text()).toContain('基础档案');
-    expect(wrapper.text()).toContain('研判依据');
+    expect(wrapper.text()).toContain('基础档案信息');
+    expect(wrapper.text()).toContain('设备基础档案');
+    expect(wrapper.text()).toContain('风险上下文档案');
+    expect(wrapper.text()).toContain('核心指标');
+    expect(wrapper.text()).toContain('泥水位高程');
+    expect(wrapper.text()).toContain('传感器在线状态');
+    expect(wrapper.text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('属性趋势预览');
-    expect(wrapper.text()).toContain('关键监测指标');
-    expect(wrapper.text()).toContain('风险分析草稿');
-    expect(wrapper.text()).toContain('设备属性快照');
-    expect(wrapper.text()).toContain('北坡预警点');
-    expect(wrapper.text()).not.toContain('当前建议动作');
-    expect(wrapper.text()).not.toContain('一线建议');
-    expect(wrapper.text()).not.toContain('运维建议');
-    expect(wrapper.text()).not.toContain('研发建议');
-    expect(wrapper.text()).not.toContain('消息日志与审计回看');
-  });
-
-  it('shows binding switcher when one device hits multiple monitoring bindings', async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain('监测对象切换');
-  });
-
-  it('falls back to device report analysis when the device is not bound to risk monitoring', async () => {
-    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 0,
-        pageNum: 1,
-        pageSize: 10,
-        records: []
-      }
-    });
-    vi.mocked(listMissingBindings).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 1,
-        pageNum: 1,
-        pageSize: 5,
-        records: [
-          {
-            issueType: 'MISSING_BINDING',
-            issueLabel: '待纳入风险对象',
-            deviceId: 1,
-            deviceCode: 'demo-device-01',
-            deviceName: '演示设备',
-            lastReportTime: '2026-04-01 09:00:00'
-          }
-        ]
-      }
-    });
-
-    const wrapper = mountView();
-
-    await flushPromises();
-
-    expect(getDeviceByCode).toHaveBeenCalledWith('demo-device-01');
-    expect(getDeviceProperties).toHaveBeenCalledWith('demo-device-01');
-    expect(getDeviceMessageLogs).toHaveBeenCalledWith('demo-device-01');
-    expect(wrapper.text()).toContain('演示设备');
-    expect(wrapper.text()).toContain('温度');
-    expect(wrapper.text()).toContain('当前设备未纳入风险监测绑定');
-    expect(wrapper.text()).toContain('治理缺口');
-    expect(wrapper.text()).toContain('待纳入风险对象');
-    expect(listMissingBindings).toHaveBeenCalledWith({
-      deviceCode: 'demo-device-01',
-      pageNum: 1,
-      pageSize: 5
-    });
-  });
-
-  it('shows policy governance gaps when the current device is bound but still lacks threshold rules', async () => {
-    vi.mocked(listMissingPolicies).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 1,
-        pageNum: 1,
-        pageSize: 5,
-        records: [
-          {
-            issueType: 'MISSING_POLICY',
-            issueLabel: '待配置阈值策略',
-            deviceId: 1,
-            deviceCode: 'demo-device-01',
-            deviceName: '演示设备',
-            riskPointId: 2,
-            riskPointName: '北坡预警点',
-            metricIdentifier: 'warningLightState',
-            metricName: '预警灯状态'
-          }
-        ]
-      }
-    });
-
-    const wrapper = mountView();
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain('待配置阈值策略');
-    expect(wrapper.text()).toContain('预警灯状态');
-    expect(listMissingPolicies).toHaveBeenCalledWith({
-      deviceCode: 'demo-device-01',
-      pageNum: 1,
-      pageSize: 5
-    });
-  });
-
-  it('loads binding-first insight without inventing demo-device-01 when only bindingId is provided', async () => {
-    mockRoute.query = {
-      bindingId: '22'
-    };
-
-    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        bindingId: 22,
-        riskPointId: 2,
-        riskPointCode: 'RP-022',
-        riskPointName: '二号风险点',
-        riskLevel: 'WARNING',
-        deviceId: 88,
-        deviceCode: 'binding-device-22',
-        deviceName: '绑定设备 22',
-        productName: '绑定产品',
-        metricIdentifier: 'warningLightState',
-        metricName: '预警灯状态',
-        currentValue: '1',
-        unit: '',
-        valueType: 'int',
-        monitorStatus: 'ALARM',
-        onlineStatus: 1,
-        latestReportTime: '2026-04-01 09:00:00'
-      }
-    });
-    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 1,
-        pageNum: 1,
-        pageSize: 50,
-        records: [
-          {
-            bindingId: 22,
-            deviceCode: 'binding-device-22',
-            deviceName: '绑定设备 22',
-            riskPointName: '二号风险点',
-            riskLevel: 'WARNING',
-            metricIdentifier: 'warningLightState',
-            metricName: '预警灯状态',
-            onlineStatus: 1,
-            latestReportTime: '2026-04-01 09:00:00'
-          }
-        ]
-      }
-    });
-
-    mountView();
-    await flushPromises();
-
-    expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
-    expect(vi.mocked(getRiskMonitoringList).mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        deviceCode: 'binding-device-22',
-        pageNum: 1,
-        pageSize: 50
-      })
-    );
-    expect(getDeviceByCode).toHaveBeenCalledWith('binding-device-22');
-    expect(getDeviceProperties).toHaveBeenCalledWith('binding-device-22');
-    expect(getDeviceMessageLogs).toHaveBeenCalledWith('binding-device-22');
-  });
-
-  it('keeps bindingId as the primary key even when the route also carries a stale deviceCode', async () => {
-    mockRoute.query = {
-      bindingId: '22',
-      deviceCode: 'stale-device-01'
-    };
-
-    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        bindingId: 22,
-        riskPointId: 2,
-        riskPointCode: 'RP-022',
-        riskPointName: '二号风险点',
-        riskLevel: 'WARNING',
-        deviceId: 99,
-        deviceCode: 'binding-device-22',
-        deviceName: '绑定设备 22',
-        productName: '绑定产品',
-        metricIdentifier: 'warningLightState',
-        metricName: '预警灯状态',
-        currentValue: '1',
-        unit: '',
-        valueType: 'int',
-        monitorStatus: 'ALARM',
-        onlineStatus: 1,
-        latestReportTime: '2026-04-01 09:00:00'
-      }
-    });
-    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 1,
-        pageNum: 1,
-        pageSize: 50,
-        records: [
-          {
-            bindingId: 22,
-            deviceCode: 'binding-device-22',
-            deviceName: '绑定设备 22',
-            riskPointName: '二号风险点',
-            riskLevel: 'WARNING',
-            metricIdentifier: 'warningLightState',
-            metricName: '预警灯状态',
-            onlineStatus: 1,
-            latestReportTime: '2026-04-01 09:00:00'
-          }
-        ]
-      }
-    });
-
-    mountView();
-    await flushPromises();
-
-    expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
-    expect(vi.mocked(getRiskMonitoringList).mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        deviceCode: 'binding-device-22'
-      })
-    );
-    expect(getDeviceByCode).toHaveBeenCalledWith('binding-device-22');
-    expect(getDeviceProperties).toHaveBeenCalledWith('binding-device-22');
-    expect(getDeviceMessageLogs).toHaveBeenCalledWith('binding-device-22');
-    expect(getDeviceByCode).not.toHaveBeenCalledWith('stale-device-01');
+    expect(wrapper.text()).not.toContain('L4_NW_1');
   });
 });

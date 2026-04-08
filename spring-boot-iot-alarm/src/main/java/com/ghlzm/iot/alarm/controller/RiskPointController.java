@@ -82,13 +82,20 @@ public class RiskPointController {
        */
       @GetMapping("/list")
       public R<List<RiskPoint>> listRiskPoints(
+                  @RequestParam(required = false) String keyword,
                   @RequestParam(required = false) String riskPointCode,
                   @RequestParam(required = false) String riskPointLevel,
                   @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
                   @RequestParam(required = false) Integer status,
                   Authentication authentication) {
+            String normalizedKeyword = StringUtils.hasText(keyword) ? keyword : riskPointCode;
             String normalizedRiskPointLevel = StringUtils.hasText(riskPointLevel) ? riskPointLevel : legacyRiskLevel;
-            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(requireCurrentUserId(authentication), riskPointCode, normalizedRiskPointLevel, status);
+            List<RiskPoint> riskPoints = riskPointService.listRiskPoints(
+                    requireCurrentUserId(authentication),
+                    normalizedKeyword,
+                    normalizedRiskPointLevel,
+                    status
+            );
             return R.ok(riskPoints);
       }
 
@@ -97,6 +104,7 @@ public class RiskPointController {
        */
       @GetMapping("/page")
       public R<PageResult<RiskPoint>> pageRiskPoints(
+                  @RequestParam(required = false) String keyword,
                   @RequestParam(required = false) String riskPointCode,
                   @RequestParam(required = false) String riskPointLevel,
                   @RequestParam(required = false, name = "riskLevel") String legacyRiskLevel,
@@ -104,8 +112,16 @@ public class RiskPointController {
                   @RequestParam(defaultValue = "1") Long pageNum,
                   @RequestParam(defaultValue = "10") Long pageSize,
                   Authentication authentication) {
+            String normalizedKeyword = StringUtils.hasText(keyword) ? keyword : riskPointCode;
             String normalizedRiskPointLevel = StringUtils.hasText(riskPointLevel) ? riskPointLevel : legacyRiskLevel;
-            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(requireCurrentUserId(authentication), riskPointCode, normalizedRiskPointLevel, status, pageNum, pageSize);
+            PageResult<RiskPoint> page = riskPointService.pageRiskPoints(
+                    requireCurrentUserId(authentication),
+                    normalizedKeyword,
+                    normalizedRiskPointLevel,
+                    status,
+                    pageNum,
+                    pageSize
+            );
             return R.ok(page);
       }
 

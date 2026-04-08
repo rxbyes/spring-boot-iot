@@ -457,6 +457,9 @@ export interface ProductModelGovernanceApplyResult {
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
   releaseBatchId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null;
+  executionPending?: boolean | null;
   appliedItems?: ProductModelGovernanceAppliedItem[] | null;
 }
 
@@ -467,6 +470,43 @@ export interface ProductModelGovernanceAppliedItem {
   templateCodes?: string[] | null;
   canonicalizationStrategies?: string[] | null;
   childDeviceCodes?: string[] | null;
+}
+
+export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface GovernanceApprovalOrder {
+  id: IdType;
+  actionCode?: string | null;
+  actionName?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: IdType | null;
+  approverUserId?: IdType | null;
+  payloadJson?: string | null;
+  approvalComment?: string | null;
+  approvedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceApprovalTransition {
+  id?: IdType | null;
+  fromStatus?: GovernanceApprovalStatus | null;
+  toStatus?: GovernanceApprovalStatus | null;
+  actorUserId?: IdType | null;
+  transitionComment?: string | null;
+  createTime?: string | null;
+}
+
+export interface GovernanceApprovalOrderDetail {
+  order?: GovernanceApprovalOrder | null;
+  transitions?: GovernanceApprovalTransition[] | null;
+}
+
+export interface GovernanceApprovalResubmitPayload {
+  approverUserId: IdType;
+  comment?: string | null;
 }
 
 export interface ProductModelCandidateConfirmItem {

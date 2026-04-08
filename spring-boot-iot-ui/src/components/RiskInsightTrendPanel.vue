@@ -11,37 +11,46 @@
       </article>
     </div>
 
-    <div v-if="activeSeries.length" ref="chartRef" class="trend-chart" aria-label="风险监测趋势图" />
+    <div v-if="activeGroups.length" class="trend-groups">
+      <section v-for="group in activeGroups" :key="group.key" class="trend-group">
+        <header class="trend-group__header">
+          <div>
+            <strong>{{ group.title }}</strong>
+            <p>{{ group.description || getGroupDescription(group.key) }}</p>
+          </div>
+        </header>
+
+        <div class="trend-group__legend">
+          <span v-for="series in group.series" :key="series.displayName" class="trend-group__legend-item">
+            {{ series.displayName }}
+          </span>
+        </div>
+
+        <div :ref="(element) => registerChartRef(group.key, element)" class="trend-group__chart" />
+
+        <div class="trend-group__notes">
+          <article v-for="series in group.series" :key="`${group.key}-${series.displayName}`" class="trend-group__note">
+            <strong>{{ series.displayName }}</strong>
+            <span>{{ buildSeriesLatestText(series) }}</span>
+          </article>
+        </div>
+      </section>
+    </div>
     <div v-else class="empty-state">{{ emptyMessage }}</div>
   </PanelCard>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue';
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
-import type { RiskMonitoringDetail } from '@/api/riskMonitoring';
-import type { DeviceMessageLog } from '@/types/api';
-import type { InsightObjectType } from '@/utils/deviceInsight';
-import { getInsightObjectTypeLabel } from '@/utils/deviceInsight';
-import { formatDateTime, parseJsonSafely } from '@/utils/format';
+import type { InsightRangeCode } from '@/api/telemetry';
 import PanelCard from './PanelCard.vue';
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
-
-interface TrendSeriesPoint {
-  time: string;
-  value: number;
-  rawValue: string;
-}
-
-interface TrendSeries {
-  name: string;
-  points: TrendSeriesPoint[];
-}
 
 interface TrendSummaryCard {
   label: string;
@@ -49,193 +58,150 @@ interface TrendSummaryCard {
   hint: string;
 }
 
-const props = defineProps<{
-  detail: RiskMonitoringDetail | null;
-  logs: DeviceMessageLog[];
-  objectType: InsightObjectType;
-}>();
+interface TrendBucketPoint {
+  time: string;
+  value: number;
+  filled?: boolean;
+}
 
-const chartRef = ref<HTMLDivElement | null>(null);
-let chartInstance: ReturnType<typeof echarts.init> | null = null;
+interface TrendSeries {
+  identifier?: string;
+  displayName: string;
+  seriesType?: 'measure' | 'status' | 'event' | string;
+  buckets: TrendBucketPoint[];
+}
+
+interface TrendGroup {
+  key: string;
+  title: string;
+  description?: string;
+  series: TrendSeries[];
+}
+
+const props = withDefaults(defineProps<{
+  rangeCode?: InsightRangeCode;
+  groups?: TrendGroup[];
+  summary?: TrendSummaryCard[];
+  emptyMessage?: string;
+}>(), {
+  rangeCode: '7d',
+  groups: () => [],
+  summary: () => [],
+  emptyMessage: '暂无趋势数据'
+});
+
+const chartRefs = new Map<string, HTMLDivElement>();
+const chartInstances = new Map<string, ReturnType<typeof echarts.init>>();
 let resizeObserver: ResizeObserver | null = null;
 
-const riskPoints = computed(() =>
-  props.detail?.trendPoints?.filter(
-    (item) => typeof item.numericValue === 'number' && Number.isFinite(item.numericValue)
-  ) ?? []
+const activeGroups = computed(() =>
+  (props.groups ?? []).filter((group) => Array.isArray(group.series) && group.series.length > 0)
 );
 
-const fallbackSeries = computed<TrendSeries[]>(() => {
-  const buckets = new Map<string, TrendSeriesPoint[]>();
-  const orderedLogs = [...props.logs].sort((left, right) => {
-    const leftTime = new Date(left.reportTime || left.createTime || 0).getTime();
-    const rightTime = new Date(right.reportTime || right.createTime || 0).getTime();
-    return leftTime - rightTime;
-  });
+const summaryCards = computed(() => props.summary ?? []);
 
-  for (const log of orderedLogs) {
-    const parsed = parseJsonSafely<Record<string, unknown>>(log.payload || '');
-    if (!parsed || typeof parsed !== 'object') {
-      continue;
-    }
+const panelDescription = computed(() => `按${getRangeLabel(props.rangeCode)}展示设备监测数据与状态数据折线趋势，缺失桶已按 0 补齐。`);
 
-    const numericFields = extractNumericFields(parsed);
-    if (!Object.keys(numericFields).length) {
-      continue;
-    }
-
-    const time = formatDateTime(log.reportTime || log.createTime);
-    for (const [key, value] of Object.entries(numericFields)) {
-      const current = buckets.get(key) ?? [];
-      current.push({
-        time,
-        value,
-        rawValue: String(value)
-      });
-      buckets.set(key, current);
-    }
-  }
-
-  return [...buckets.entries()]
-    .filter(([, points]) => points.length >= 2)
-    .slice(0, 4)
-    .map(([name, points]) => ({
-      name,
-      points
-    }));
-});
-
-const activeSeries = computed<TrendSeries[]>(() => {
-  if (riskPoints.value.length) {
-    return [{
-      name: props.detail?.metricName || props.detail?.metricIdentifier || '监测趋势',
-      points: riskPoints.value.map((item) => ({
-        time: formatDateTime(item.reportTime),
-        value: item.numericValue as number,
-        rawValue: item.value || String(item.numericValue ?? '--')
-      }))
-    }];
-  }
-
-  return fallbackSeries.value;
-});
-
-const objectTypeLabel = computed(() => getInsightObjectTypeLabel(props.objectType));
-
-const summaryCards = computed<TrendSummaryCard[]>(() => {
-  if (props.detail) {
-    const values = riskPoints.value.map((item) => item.numericValue as number);
-    const latestValue = riskPoints.value[riskPoints.value.length - 1]?.value || props.detail.currentValue || '--';
-    const rangeText = values.length ? `${Math.min(...values)} / ${Math.max(...values)}` : '--';
-    return [
-      {
-        label: '对象类型',
-        value: objectTypeLabel.value,
-        hint: '当前绑定测点'
-      },
-      {
-        label: '测点名称',
-        value: props.detail.metricName || props.detail.metricIdentifier || '--',
-        hint: props.detail.metricIdentifier || '--'
-      },
-      {
-        label: '最新值',
-        value: latestValue,
-        hint: `最小 / 最大 ${rangeText}`
-      },
-      {
-        label: '近 24h 点数',
-        value: String(riskPoints.value.length),
-        hint: props.detail.latestReportTime ? `最新上报 ${formatDateTime(props.detail.latestReportTime)}` : '暂无最近上报时间'
-      }
-    ];
-  }
-
-  return activeSeries.value.map((item, index) => {
-    const values = item.points.map((point) => point.value);
-    return {
-      label: index === 0 ? '设备上报趋势' : item.name,
-      value: item.points[item.points.length - 1]?.rawValue || '--',
-      hint: index === 0 ? `${item.name} · ${Math.min(...values)} ~ ${Math.max(...values)}` : `${Math.min(...values)} ~ ${Math.max(...values)}`
-    };
-  });
-});
-
-const panelDescription = computed(
-  () => props.detail
-    ? `折线预览按${objectTypeLabel.value}对象口径展示当前绑定测点最近 24 小时的趋势。`
-    : '设备上报趋势按最近消息中的数值属性展示，便于在未绑定风险监测时继续做综合分析。'
-);
-
-const emptyMessage = computed(() => {
-  if (!props.detail) {
-    return '当前设备未纳入风险监测绑定，且最近消息中未提取到可绘制的数值属性趋势。';
-  }
-
-  return riskPoints.value.length ? '趋势点不足 2 个，当前仅展示最近测点值。' : '暂无趋势点。';
-});
-
-watch(activeSeries, async () => {
+watch(activeGroups, async () => {
   await nextTick();
-  renderChart();
+  renderAllCharts();
 }, { deep: true });
 
 onMounted(async () => {
   await nextTick();
-  renderChart();
-
-  if (chartRef.value && typeof ResizeObserver !== 'undefined') {
+  renderAllCharts();
+  if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
-      chartInstance?.resize();
+      chartInstances.forEach((instance) => instance.resize());
     });
-    resizeObserver.observe(chartRef.value);
+    observeCharts();
   }
 });
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
-  chartInstance?.dispose();
-  chartInstance = null;
+  chartInstances.forEach((instance) => instance.dispose());
+  chartInstances.clear();
+  chartRefs.clear();
 });
 
-function renderChart() {
-  if (!chartRef.value || !activeSeries.value.length) {
-    chartInstance?.dispose();
-    chartInstance = null;
+function registerChartRef(key: string, element: Element | null) {
+  if (element instanceof HTMLDivElement) {
+    chartRefs.set(key, element);
+    if (resizeObserver) {
+      resizeObserver.observe(element);
+    }
+    return;
+  }
+  const previous = chartRefs.get(key);
+  if (previous && resizeObserver) {
+    resizeObserver.unobserve(previous);
+  }
+  chartRefs.delete(key);
+}
+
+function observeCharts() {
+  if (!resizeObserver) {
+    return;
+  }
+  chartRefs.forEach((element) => resizeObserver?.observe(element));
+}
+
+function renderAllCharts() {
+  const activeKeys = new Set(activeGroups.value.map((group) => group.key));
+  chartInstances.forEach((instance, key) => {
+    if (!activeKeys.has(key)) {
+      instance.dispose();
+      chartInstances.delete(key);
+    }
+  });
+  activeGroups.value.forEach((group) => renderGroupChart(group));
+  observeCharts();
+}
+
+function renderGroupChart(group: TrendGroup) {
+  const container = chartRefs.get(group.key);
+  if (!container) {
     return;
   }
 
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value);
+  const axisLabels = collectAxisLabels(group);
+  if (!axisLabels.length) {
+    return;
   }
 
-  const axisLabels = Array.from(new Set(
-    activeSeries.value.flatMap((series) => series.points.map((point) => point.time))
-  ));
+  let chart = chartInstances.get(group.key);
+  if (!chart) {
+    chart = echarts.init(container);
+    chartInstances.set(group.key, chart);
+  }
 
-  chartInstance.setOption({
-    animationDuration: 360,
-    color: ['#ff7a1a', '#1e80ff', '#f5b440', '#13b38b'],
+  chart.setOption({
+    animationDuration: 300,
+    color: group.key === 'measure'
+      ? ['#1f6feb', '#4da3ff', '#13b38b']
+      : ['#ff7a1a', '#f5b440', '#6a8dff'],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.96)',
-      borderColor: 'rgba(55, 78, 112, 0.2)',
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      borderColor: 'rgba(49, 72, 104, 0.18)',
       textStyle: {
         color: '#1f2a3d'
-      }
+      },
+      formatter: (params: Array<Record<string, unknown>>) => formatTooltip(params)
     },
     legend: {
       top: 0,
-      data: activeSeries.value.map((series) => series.name),
+      data: group.series.map((series) => series.displayName),
       textStyle: {
         color: '#5a6d85'
       }
     },
     grid: {
-      top: 40,
-      right: 12,
+      top: 42,
+      right: 18,
       bottom: 24,
-      left: 18,
+      left: 16,
       containLabel: true
     },
     xAxis: {
@@ -259,24 +225,24 @@ function renderChart() {
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.14)'
+          color: 'rgba(67, 98, 148, 0.12)'
         }
       }
     },
-    series: activeSeries.value.map((series) => ({
-      name: series.name,
+    series: group.series.map((series) => ({
+      name: series.displayName,
       type: 'line',
-      smooth: true,
+      smooth: false,
       showSymbol: false,
       lineStyle: {
         width: 3
       },
-      areaStyle: {
-        opacity: 0.08
-      },
       data: axisLabels.map((time) => {
-        const matchedPoint = series.points.find((point) => point.time === time);
-        return matchedPoint ? matchedPoint.value : null;
+        const bucket = series.buckets.find((item) => item.time === time);
+        return {
+          value: bucket?.value ?? 0,
+          filled: bucket?.filled ?? true
+        };
       })
     }))
   }, {
@@ -284,28 +250,56 @@ function renderChart() {
   });
 }
 
-function extractNumericFields(source: Record<string, unknown>) {
-  const candidates = [
-    source.properties,
-    source.telemetry,
-    source.data,
-    source
-  ];
-  const numericFields: Record<string, number> = {};
+function collectAxisLabels(group: TrendGroup) {
+  return Array.from(new Set(group.series.flatMap((series) => series.buckets.map((bucket) => bucket.time))));
+}
 
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-      continue;
-    }
-
-    for (const [key, value] of Object.entries(candidate)) {
-      if (typeof value === 'number' && Number.isFinite(value) && !(key in numericFields)) {
-        numericFields[key] = value;
-      }
-    }
+function formatTooltip(params: Array<Record<string, unknown>>) {
+  if (!Array.isArray(params) || !params.length) {
+    return '';
   }
+  const axisValue = String(params[0]?.axisValue ?? '');
+  const lines = params.map((item) => {
+    const marker = String(item.marker ?? '');
+    const seriesName = String(item.seriesName ?? '');
+    const data = item.data as { value?: number; filled?: boolean } | undefined;
+    const value = data?.value ?? 0;
+    const suffix = data?.filled ? '（补零补齐）' : '';
+    return `${marker}${seriesName}：${value}${suffix}`;
+  });
+  return [axisValue, ...lines].join('<br/>');
+}
 
-  return numericFields;
+function buildSeriesLatestText(series: TrendSeries) {
+  const latestBucket = [...series.buckets].reverse().find((bucket) => bucket && bucket.time);
+  if (!latestBucket) {
+    return '当前范围暂无有效数据';
+  }
+  return latestBucket.filled
+    ? `最近桶值 ${latestBucket.value}（补零补齐）`
+    : `最近桶值 ${latestBucket.value}`;
+}
+
+function getGroupDescription(groupKey: string) {
+  return groupKey === 'measure'
+    ? '展示设备本体的监测值折线变化。'
+    : '展示设备在线状态、电量等状态值折线变化。';
+}
+
+function getRangeLabel(rangeCode?: InsightRangeCode) {
+  switch (rangeCode) {
+    case '1d':
+      return '近一天';
+    case '30d':
+      return '近一月';
+    case '90d':
+      return '近一季度';
+    case '365d':
+      return '近一年';
+    case '7d':
+    default:
+      return '近一周';
+  }
 }
 </script>
 
@@ -317,9 +311,9 @@ function extractNumericFields(source: Record<string, unknown>) {
   margin-bottom: 1rem;
 }
 
-.trend-summary__item {
-  display: grid;
-  gap: 0.3rem;
+.trend-summary__item,
+.trend-group,
+.trend-group__note {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
@@ -327,24 +321,73 @@ function extractNumericFields(source: Record<string, unknown>) {
   box-shadow: var(--shadow-sm);
 }
 
+.trend-summary__item {
+  display: grid;
+  gap: 0.3rem;
+}
+
 .trend-summary__item span,
-.trend-summary__item small {
+.trend-summary__item small,
+.trend-group__header p,
+.trend-group__legend-item,
+.trend-group__note span {
   color: var(--text-tertiary);
 }
 
-.trend-summary__item strong {
+.trend-summary__item strong,
+.trend-group__header strong,
+.trend-group__note strong {
   color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: 1.2rem;
 }
 
-.trend-chart {
-  height: 24rem;
+.trend-summary__item strong {
+  font-size: 1.2rem;
+  font-family: var(--font-display);
+}
+
+.trend-groups {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trend-group {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.trend-group__header p {
+  margin: 0.35rem 0 0;
+  line-height: 1.6;
+}
+
+.trend-group__legend,
+.trend-group__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.trend-group__legend-item {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 8%, white);
+}
+
+.trend-group__chart {
   width: 100%;
+  height: 20rem;
+}
+
+.trend-group__note {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 10rem;
 }
 
 @media (max-width: 1024px) {
-  .trend-summary {
+  .trend-summary,
+  .trend-groups {
     grid-template-columns: 1fr;
   }
 }

@@ -10,6 +10,8 @@ const {
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
   mockRollbackProductContractReleaseBatch,
+  mockGetGovernanceApprovalOrderDetail,
+  mockResubmitGovernanceApprovalOrder,
   mockListDeviceRelations
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
@@ -17,6 +19,8 @@ const {
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
   mockRollbackProductContractReleaseBatch: vi.fn(),
+  mockGetGovernanceApprovalOrderDetail: vi.fn(),
+  mockResubmitGovernanceApprovalOrder: vi.fn(),
   mockListDeviceRelations: vi.fn()
 }))
 
@@ -36,6 +40,13 @@ vi.mock('@/api/product', () => ({
 vi.mock('@/api/device', () => ({
   deviceApi: {
     listDeviceRelations: mockListDeviceRelations
+  }
+}))
+
+vi.mock('@/api/governanceApproval', () => ({
+  governanceApprovalApi: {
+    getOrderDetail: mockGetGovernanceApprovalOrderDetail,
+    resubmitOrder: mockResubmitGovernanceApprovalOrder
   }
 }))
 
@@ -117,7 +128,7 @@ function flushPromises() {
 }
 
 function findApplyButton(wrapper: ReturnType<typeof mountWorkspace>) {
-  return wrapper.findAll('button').find((button) => button.text().includes('确认并生效'))
+  return wrapper.findAll('button').find((button) => button.text().includes('确认并提交审批'))
 }
 
 function mountWorkspace(productOverrides?: Partial<{
@@ -159,6 +170,8 @@ describe('ProductModelDesignerWorkspace', () => {
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
     mockRollbackProductContractReleaseBatch.mockReset()
+    mockGetGovernanceApprovalOrderDetail.mockReset()
+    mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
 
     mockListProductModels.mockResolvedValue({
@@ -216,16 +229,60 @@ describe('ProductModelDesignerWorkspace', () => {
         createdCount: 1,
         updatedCount: 0,
         skippedCount: 0,
-        releaseBatchId: 99001
+        approvalOrderId: 88001,
+        approvalStatus: 'PENDING',
+        executionPending: true
       }
     })
     mockRollbackProductContractReleaseBatch.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: {
-        rolledBackBatchId: 99001,
-        restoredFieldCount: 1
+        targetBatchId: 99001,
+        approvalOrderId: 88002,
+        approvalStatus: 'PENDING',
+        executionPending: true
       }
+    })
+    mockGetGovernanceApprovalOrderDetail.mockImplementation(async (orderId: number) => ({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          id: orderId,
+          actionCode: orderId === 88002 ? 'PRODUCT_CONTRACT_ROLLBACK' : 'PRODUCT_CONTRACT_RELEASE_APPLY',
+          actionName: orderId === 88002 ? '合同回滚' : '合同发布',
+          subjectType: 'PRODUCT',
+          subjectId: 1001,
+          status: 'PENDING',
+          operatorUserId: 1001,
+          approverUserId: 2002,
+          payloadJson: JSON.stringify({
+            version: 1,
+            request: orderId === 88002 ? { batchId: 99001 } : { productId: 1001, items: [] },
+            execution: null
+          }),
+          approvalComment: null,
+          approvedTime: null,
+          createTime: '2026-04-08 10:00:00',
+          updateTime: '2026-04-08 10:00:00'
+        },
+        transitions: [
+          {
+            id: 1,
+            fromStatus: null,
+            toStatus: 'PENDING',
+            actorUserId: 1001,
+            transitionComment: 'submit',
+            createTime: '2026-04-08 10:00:00'
+          }
+        ]
+      }
+    }))
+    mockResubmitGovernanceApprovalOrder.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
     })
     mockListDeviceRelations.mockResolvedValue({
       code: 200,
@@ -304,13 +361,13 @@ describe('ProductModelDesignerWorkspace', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('已选 1 项，确认后将写入正式字段')
+    expect(wrapper.text()).toContain('已选 1 项，确认后将提交审批')
     expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
     await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
-    await wrapper.findAll('button').find((button) => button.text().includes('确认并生效'))?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text().includes('确认并提交审批'))?.trigger('click')
     await flushPromises()
     await nextTick()
 
@@ -320,9 +377,271 @@ describe('ProductModelDesignerWorkspace', () => {
       { approverUserId: '2002' }
     )
     expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('本次新增生效')
+    expect(wrapper.text()).toContain('本次申请新增')
+    expect(wrapper.text()).toContain('审批单')
+    expect(wrapper.text()).toContain('88001')
+  })
+
+  it('loads apply approval detail and shows pending approval status after submit', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetGovernanceApprovalOrderDetail).toHaveBeenCalledWith(88001)
+    expect(wrapper.text()).toContain('审批状态')
+    expect(wrapper.text()).toContain('待审批')
+  })
+
+  it('shows the executed release batch after approval detail reports approved', async () => {
+    mockGetGovernanceApprovalOrderDetail.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          id: 88001,
+          actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+          actionName: '合同发布',
+          subjectType: 'PRODUCT',
+          subjectId: 1001,
+          status: 'APPROVED',
+          operatorUserId: 1001,
+          approverUserId: 2002,
+          payloadJson: JSON.stringify({
+            version: 1,
+            request: { productId: 1001, items: [] },
+            execution: {
+              executedAt: '2026-04-08T10:05:00',
+              result: {
+                createdCount: 1,
+                updatedCount: 0,
+                skippedCount: 0,
+                releaseBatchId: 99009
+              }
+            }
+          }),
+          approvalComment: '审批通过',
+          approvedTime: '2026-04-08 10:05:00',
+          createTime: '2026-04-08 10:00:00',
+          updateTime: '2026-04-08 10:05:00'
+        },
+        transitions: []
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('已通过')
     expect(wrapper.text()).toContain('发布批次')
-    expect(wrapper.text()).toContain('99001')
+    expect(wrapper.text()).toContain('99009')
+  })
+
+  it('shows rejected approval comment after loading approval detail', async () => {
+    mockGetGovernanceApprovalOrderDetail.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          id: 88001,
+          actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+          actionName: '合同发布',
+          subjectType: 'PRODUCT',
+          subjectId: 1001,
+          status: 'REJECTED',
+          operatorUserId: 1001,
+          approverUserId: 2002,
+          payloadJson: JSON.stringify({
+            version: 1,
+            request: { productId: 1001, items: [] },
+            execution: null
+          }),
+          approvalComment: '字段单位缺失',
+          approvedTime: null,
+          createTime: '2026-04-08 10:00:00',
+          updateTime: '2026-04-08 10:03:00'
+        },
+        transitions: []
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('已驳回')
+    expect(wrapper.text()).toContain('字段单位缺失')
+  })
+
+  it('resubmits the rejected apply approval order with a new approver', async () => {
+    mockGetGovernanceApprovalOrderDetail
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          order: {
+            id: 88001,
+            actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+            actionName: '合同发布',
+            subjectType: 'PRODUCT',
+            subjectId: 1001,
+            status: 'REJECTED',
+            operatorUserId: 1001,
+            approverUserId: 2002,
+            payloadJson: JSON.stringify({
+              version: 1,
+              request: { productId: 1001, items: [] },
+              execution: null
+            }),
+            approvalComment: '字段单位缺失',
+            approvedTime: null,
+            createTime: '2026-04-08 10:00:00',
+            updateTime: '2026-04-08 10:03:00'
+          },
+          transitions: []
+        }
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        msg: 'success',
+        data: {
+          order: {
+            id: 88001,
+            actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+            actionName: '合同发布',
+            subjectType: 'PRODUCT',
+            subjectId: 1001,
+            status: 'PENDING',
+            operatorUserId: 1001,
+            approverUserId: 3003,
+            payloadJson: JSON.stringify({
+              version: 1,
+              request: { productId: 1001, items: [] },
+              execution: null
+            }),
+            approvalComment: '重新指定复核人',
+            approvedTime: null,
+            createTime: '2026-04-08 10:00:00',
+            updateTime: '2026-04-08 10:06:00'
+          },
+          transitions: []
+        }
+      })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('3003')
+    await wrapper.findAll('button').find((button) => button.text().includes('原单重提'))?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockResubmitGovernanceApprovalOrder).toHaveBeenCalledWith(88001, {
+      approverUserId: '3003'
+    })
+    expect(wrapper.text()).toContain('待审批')
+  })
+
+  it('clears rejected approval receipt so the user can create a new approval order', async () => {
+    mockGetGovernanceApprovalOrderDetail.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          id: 88001,
+          actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+          actionName: '合同发布',
+          subjectType: 'PRODUCT',
+          subjectId: 1001,
+          status: 'REJECTED',
+          operatorUserId: 1001,
+          approverUserId: 2002,
+          payloadJson: JSON.stringify({
+            version: 1,
+            request: { productId: 1001, items: [] },
+            execution: null
+          }),
+          approvalComment: '字段单位缺失',
+          approvedTime: null,
+          createTime: '2026-04-08 10:00:00',
+          updateTime: '2026-04-08 10:03:00'
+        },
+        transitions: []
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
+    await findApplyButton(wrapper)?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('修改内容后新建审批'))?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="contract-field-apply-approval-status"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('样本输入')
   })
 
   it('blocks apply when governance approver id is missing', async () => {
@@ -355,6 +674,8 @@ describe('ProductModelDesignerWorkspace', () => {
     await nextTick()
 
     expect(mockRollbackProductContractReleaseBatch).toHaveBeenCalledWith(99001, '2002')
+    expect(wrapper.text()).toContain('回滚审批已提交')
+    expect(wrapper.text()).toContain('88002')
   })
 
   it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {

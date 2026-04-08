@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.auto;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.framework.config.IotProperties;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 
@@ -13,11 +14,17 @@ public class RiskPolicyDecision {
     public static final String SOURCE_RULE_DEFINITION = "RULE_DEFINITION";
     public static final String SOURCE_AUTO_CLOSURE = "AUTO_CLOSURE";
 
+    @Getter
     private final String source;
+    @Getter
     private final Long ruleId;
+    @Getter
     private final String ruleName;
+    @Getter
     private final String thresholdText;
+    @Getter
     private final Integer duration;
+    @Getter
     private final AutoClosureSeverity severity;
     private final boolean createEvent;
 
@@ -94,30 +101,6 @@ public class RiskPolicyDecision {
 
     private static String toPlainString(BigDecimal value) {
         return value == null ? "0" : value.stripTrailingZeros().toPlainString();
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public Long getRuleId() {
-        return ruleId;
-    }
-
-    public String getRuleName() {
-        return ruleName;
-    }
-
-    public String getThresholdText() {
-        return thresholdText;
-    }
-
-    public Integer getDuration() {
-        return duration;
-    }
-
-    public AutoClosureSeverity getSeverity() {
-        return severity;
     }
 
     public String getAlarmLevel() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { pickPrimaryBinding, resolveInsightObjectType } from '@/utils/deviceInsight';
+import { getInsightObjectTypeLabel, pickPrimaryBinding, resolveInsightObjectType } from '@/utils/deviceInsight';
 
 describe('deviceInsight utils', () => {
   it('prefers latest report time when selecting a primary binding', () => {
@@ -59,5 +59,9 @@ describe('deviceInsight utils', () => {
         productName: '雨量采集终端'
       })
     ).toBe('collect');
+  });
+
+  it('uses customer-facing monitoring label for detect devices', () => {
+    expect(getInsightObjectTypeLabel('detect')).toBe('监测型');
   });
 });

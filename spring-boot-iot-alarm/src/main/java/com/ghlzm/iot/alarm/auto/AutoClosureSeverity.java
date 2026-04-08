@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.auto;
 
 import com.ghlzm.iot.framework.config.IotProperties;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 
@@ -13,12 +14,17 @@ public enum AutoClosureSeverity {
     ORANGE("orange", "橙", "orange", "orange", true, true, 2),
     RED("red", "红", "red", "red", true, true, 3);
 
+    @Getter
     private final String colorCode;
+    @Getter
     private final String colorLabel;
+    @Getter
     private final String alarmLevel;
+    @Getter
     private final String riskPointLevel;
     private final boolean createAlarm;
     private final boolean createEvent;
+    @Getter
     private final int priority;
 
     AutoClosureSeverity(String colorCode,
@@ -57,22 +63,6 @@ public enum AutoClosureSeverity {
         return BLUE;
     }
 
-    public String getColorCode() {
-        return colorCode;
-    }
-
-    public String getColorLabel() {
-        return colorLabel;
-    }
-
-    public String getAlarmLevel() {
-        return alarmLevel;
-    }
-
-    public String getRiskPointLevel() {
-        return riskPointLevel;
-    }
-
     public boolean shouldCreateAlarm() {
         return createAlarm;
     }
@@ -81,7 +71,4 @@ public enum AutoClosureSeverity {
         return createEvent;
     }
 
-    public int getPriority() {
-        return priority;
-    }
 }

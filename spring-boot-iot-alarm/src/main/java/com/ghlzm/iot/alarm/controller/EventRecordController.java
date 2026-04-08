@@ -47,7 +47,7 @@ public class EventRecordController {
      * 根据ID查询事件记录
      */
     @GetMapping("/{id}")
-    public R<EventRecord> getById(@PathVariable("id") Long id) {
+    public R<EventRecord> getById(@PathVariable Long id) {
         return R.ok(eventRecordService.getRequiredById(id));
     }
 
@@ -68,7 +68,7 @@ public class EventRecordController {
      */
     @PostMapping("/{id}/close")
     public R<Void> close(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestParam("closeUser") Long closeUser,
             @RequestParam("closeReason") String closeReason) {
         eventRecordService.closeEvent(id, closeUser, closeReason);
@@ -80,7 +80,7 @@ public class EventRecordController {
      */
     @PostMapping("/{eventId}/feedback")
     public R<Void> updateFeedback(
-            @PathVariable("eventId") Long eventId,
+            @PathVariable Long eventId,
             @RequestParam("feedback") String feedback) {
         eventRecordService.updateFeedback(eventId, feedback);
         return R.ok();
@@ -101,7 +101,7 @@ public class EventRecordController {
      */
     @PostMapping("/work-orders/{id}/receive")
     public R<Void> receiveWorkOrder(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestParam("receiveUser") Long receiveUser) {
         eventWorkOrderService.receiveWorkOrder(id, receiveUser);
         return R.ok();
@@ -112,7 +112,7 @@ public class EventRecordController {
      */
     @PostMapping("/work-orders/{id}/start")
     public R<Void> startProcessing(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestParam("receiveUser") Long receiveUser) {
         eventWorkOrderService.startProcessing(id, receiveUser);
         return R.ok();
@@ -123,7 +123,7 @@ public class EventRecordController {
      */
     @PostMapping("/work-orders/{id}/complete")
     public R<Void> completeProcessing(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestParam("feedback") String feedback,
             @RequestParam(required = false) String photos) {
         eventWorkOrderService.completeProcessing(id, feedback, photos);

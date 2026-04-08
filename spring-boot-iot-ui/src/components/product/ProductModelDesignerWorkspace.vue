@@ -40,7 +40,7 @@
             :disabled="!canRollbackCurrentBatch"
             @click="handleRollbackCurrentBatch"
           >
-            鍥炴粴鏈€鏂板彂甯?
+            提交回滚审批
           </StandardButton>
         </div>
 
@@ -251,11 +251,11 @@
         <div class="product-model-designer__apply-footer">
           <p>{{ footerSummaryText }}</p>
           <label class="product-model-designer__input-field product-model-designer__approver-field">
-            <span>澶嶆牳浜虹敤鎴稩D</span>
+            <span>复核人用户 ID</span>
             <ElInput
               v-model="governanceApproverId"
               data-testid="governance-approver-id"
-              placeholder="鍙戝竷/鍥炴粴鍏抽敭鍔ㄤ綔闇€瑕佸～鍐欏鏍镐汉ID"
+              placeholder="发布或回滚关键动作都需要填写复核人 ID"
             />
           </label>
           <StandardButton
@@ -264,17 +264,72 @@
             :disabled="!selectedApplyItems.length"
             @click="handleApply"
           >
-            确认并生效
+            确认并提交审批
           </StandardButton>
         </div>
 
-        <p
+        <div
           v-if="rollbackResult"
-          class="product-model-designer__input-error"
-          data-testid="contract-field-rollback-receipt"
+          class="product-model-designer__approval-inline"
         >
-          宸插洖婊氭壒娆?{{ rollbackResult.rolledBackBatchId }}锛屾仮澶嶅瓧娈?{{ rollbackResult.restoredFieldCount ?? 0 }} 椤?
-        </p>
+          <p
+            class="product-model-designer__input-error"
+            data-testid="contract-field-rollback-receipt"
+          >
+            {{ rollbackReceiptText }}
+          </p>
+          <div class="product-model-designer__approval-actions">
+            <StandardButton
+              v-if="rollbackApprovalOrderId"
+              action="query"
+              :loading="rollbackApprovalLoading"
+              @click="refreshRollbackApprovalDetail"
+            >
+              刷新审批状态
+            </StandardButton>
+            <StandardButton
+              v-if="canResubmitRollbackApproval"
+              action="confirm"
+              :loading="rollbackResubmitLoading"
+              data-testid="contract-field-rollback-resubmit"
+              @click="handleResubmitRollbackApproval"
+            >
+              原单重提
+            </StandardButton>
+          </div>
+        </div>
+
+        <div
+          v-if="rollbackResult"
+          class="product-model-designer__receipt"
+          data-testid="contract-field-rollback-status"
+        >
+          <article class="product-model-designer__summary-card">
+            <span>审批状态</span>
+            <strong>{{ approvalStatusLabel(rollbackReceiptStatus) }}</strong>
+          </article>
+          <article
+            v-if="rollbackApprovalOrderId"
+            class="product-model-designer__summary-card"
+          >
+            <span>审批单</span>
+            <strong>{{ rollbackApprovalOrderId }}</strong>
+          </article>
+          <article
+            v-if="rollbackApprovalComment"
+            class="product-model-designer__summary-card"
+          >
+            <span>审批意见</span>
+            <strong>{{ rollbackApprovalComment }}</strong>
+          </article>
+          <article
+            v-if="rollbackExecutionTimeText"
+            class="product-model-designer__summary-card"
+          >
+            <span>执行时间</span>
+            <strong>{{ rollbackExecutionTimeText }}</strong>
+          </article>
+        </div>
 
         <div
           v-if="applyResult"
@@ -282,25 +337,93 @@
           data-testid="contract-field-apply-receipt"
         >
           <article class="product-model-designer__summary-card">
-            <span>本次新增生效</span>
-            <strong>{{ applyResult.createdCount ?? 0 }}</strong>
+            <span>{{ applyCreatedLabel }}</span>
+            <strong>{{ applyReceiptCounts.created }}</strong>
           </article>
           <article class="product-model-designer__summary-card">
-            <span>本次修订生效</span>
-            <strong>{{ applyResult.updatedCount ?? 0 }}</strong>
+            <span>{{ applyUpdatedLabel }}</span>
+            <strong>{{ applyReceiptCounts.updated }}</strong>
           </article>
           <article class="product-model-designer__summary-card">
-            <span>本次暂不生效</span>
-            <strong>{{ applyResult.skippedCount ?? 0 }}</strong>
+            <span>{{ applySkippedLabel }}</span>
+            <strong>{{ applyReceiptCounts.skipped }}</strong>
           </article>
           <article
-            v-if="applyResult.releaseBatchId"
+            v-if="applyReceiptIdentifierValue"
             class="product-model-designer__summary-card"
           >
-            <span>发布批次</span>
-            <strong>{{ applyResult.releaseBatchId }}</strong>
+            <span>{{ applyReceiptIdentifierLabel }}</span>
+            <strong>{{ applyReceiptIdentifierValue }}</strong>
           </article>
         </div>
+
+        <section
+          v-if="applyResult"
+          class="product-model-designer__approval-stage"
+          data-testid="contract-field-apply-approval-status"
+        >
+          <div class="product-model-designer__approval-head">
+            <div>
+              <strong>审批跟踪</strong>
+              <p>{{ applyApprovalSummaryText }}</p>
+            </div>
+            <div class="product-model-designer__approval-actions">
+              <StandardButton
+                v-if="applyApprovalOrderId"
+                action="query"
+                :loading="applyApprovalLoading"
+                @click="refreshApplyApprovalDetail"
+              >
+                刷新审批状态
+              </StandardButton>
+              <StandardButton
+                v-if="canResubmitApplyApproval"
+                action="confirm"
+                :loading="applyResubmitLoading"
+                data-testid="contract-field-apply-resubmit"
+                @click="handleResubmitApplyApproval"
+              >
+                原单重提
+              </StandardButton>
+              <StandardButton
+                v-if="applyReceiptStatus === 'REJECTED'"
+                action="query"
+                data-testid="contract-field-apply-reset"
+                @click="prepareNewApplyApproval"
+              >
+                修改内容后新建审批
+              </StandardButton>
+            </div>
+          </div>
+
+          <div class="product-model-designer__receipt">
+            <article class="product-model-designer__summary-card">
+              <span>审批状态</span>
+              <strong>{{ approvalStatusLabel(applyReceiptStatus) }}</strong>
+            </article>
+            <article
+              v-if="applyApprovalOrderId"
+              class="product-model-designer__summary-card"
+            >
+              <span>审批单</span>
+              <strong>{{ applyApprovalOrderId }}</strong>
+            </article>
+            <article
+              v-if="applyApprovalComment"
+              class="product-model-designer__summary-card"
+            >
+              <span>审批意见</span>
+              <strong>{{ applyApprovalComment }}</strong>
+            </article>
+            <article
+              v-if="applyExecutionTimeText"
+              class="product-model-designer__summary-card"
+            >
+              <span>执行时间</span>
+              <strong>{{ applyExecutionTimeText }}</strong>
+            </article>
+          </div>
+        </section>
       </section>
 
       <section class="product-model-designer__stage">
@@ -355,8 +478,12 @@ import { computed, nextTick, ref, watch } from 'vue'
 import StandardButton from '@/components/StandardButton.vue'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
 import { deviceApi } from '@/api/device'
+import { governanceApprovalApi } from '@/api/governanceApproval'
 import { productApi, type ProductContractReleaseRollbackResult } from '@/api/product'
 import type {
+  GovernanceApprovalOrderDetail,
+  GovernanceApprovalStatus,
+  IdType,
   Product,
   ProductModel,
   ProductModelGovernanceApplyItem,
@@ -376,6 +503,17 @@ interface RelationMappingRow {
   key: string
   logicalChannelCode: string
   childDeviceCode: string
+}
+
+interface GovernanceApprovalPayloadExecution<TResult> {
+  executedAt?: string | null
+  result?: TResult | null
+}
+
+interface GovernanceApprovalPayload<TResult, TRequest = unknown> {
+  version?: number | null
+  request?: TRequest | null
+  execution?: GovernanceApprovalPayloadExecution<TResult> | null
 }
 
 const props = defineProps<{
@@ -415,6 +553,8 @@ const models = ref<ProductModel[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
+const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
+const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const governanceApproverId = ref('')
 const latestReleaseBatchId = ref<string | number | null>(null)
 const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
@@ -425,6 +565,10 @@ const parentDeviceCode = ref('')
 const relationMappings = ref<RelationMappingRow[]>([createRelationRow()])
 const activeType = ref<ProductModelType>('property')
 const sampleStageRef = ref<HTMLElement | null>(null)
+const applyApprovalLoading = ref(false)
+const rollbackApprovalLoading = ref(false)
+const applyResubmitLoading = ref(false)
+const rollbackResubmitLoading = ref(false)
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
@@ -443,17 +587,118 @@ const selectedApplyEntries = computed(() =>
 )
 const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => selectedApplyEntries.value.map((entry) => entry.item))
 const canRollbackCurrentBatch = computed(() =>
-  Boolean(latestReleaseBatchId.value) && !applyLoading.value && !rollbackLoading.value
+  Boolean(latestReleaseBatchId.value) && !applyLoading.value && !rollbackLoading.value && !rollbackApprovalLoading.value
 )
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
 const footerSummaryText = computed(() => {
   if (selectedApplyItems.value.length) {
-    return `已选 ${selectedApplyItems.value.length} 项，确认后将写入正式字段`
+    return `已选 ${selectedApplyItems.value.length} 项，确认后将提交审批`
   }
   if (compareRows.value.length) {
     return `已识别 ${compareRows.value.length} 个字段，请选择需要生效的项`
   }
   return '贴上报数据后，系统会提取契约字段'
+})
+const applyApprovalOrderId = computed<IdType | null>(() =>
+  applyApprovalDetail.value?.order?.id ?? applyResult.value?.approvalOrderId ?? null
+)
+const rollbackApprovalOrderId = computed<IdType | null>(() =>
+  rollbackApprovalDetail.value?.order?.id ?? rollbackResult.value?.approvalOrderId ?? null
+)
+const applyReceiptStatus = computed<GovernanceApprovalStatus | null>(() =>
+  applyApprovalDetail.value?.order?.status ?? applyResult.value?.approvalStatus ?? null
+)
+const rollbackReceiptStatus = computed<GovernanceApprovalStatus | null>(() =>
+  rollbackApprovalDetail.value?.order?.status ?? rollbackResult.value?.approvalStatus ?? null
+)
+const applyApprovalPayload = computed(() =>
+  parseApprovalPayload<ProductModelGovernanceApplyResult>(applyApprovalDetail.value?.order?.payloadJson)
+)
+const rollbackApprovalPayload = computed(() =>
+  parseApprovalPayload<ProductContractReleaseRollbackResult>(rollbackApprovalDetail.value?.order?.payloadJson)
+)
+const applyExecutedResult = computed(() => applyApprovalPayload.value?.execution?.result ?? null)
+const rollbackExecutedResult = computed(() => rollbackApprovalPayload.value?.execution?.result ?? null)
+const applyExecutionCompleted = computed(() =>
+  applyReceiptStatus.value === 'APPROVED' && Boolean(applyExecutedResult.value)
+)
+const rollbackExecutionCompleted = computed(() =>
+  rollbackReceiptStatus.value === 'APPROVED' && Boolean(rollbackExecutedResult.value)
+)
+const applyReceiptCounts = computed(() => ({
+  created: applyExecutedResult.value?.createdCount ?? applyResult.value?.createdCount ?? 0,
+  updated: applyExecutedResult.value?.updatedCount ?? applyResult.value?.updatedCount ?? 0,
+  skipped: applyExecutedResult.value?.skippedCount ?? applyResult.value?.skippedCount ?? 0
+}))
+const applyCreatedLabel = computed(() => (applyExecutionCompleted.value ? '本次新增生效' : '本次申请新增'))
+const applyUpdatedLabel = computed(() => (applyExecutionCompleted.value ? '本次修订生效' : '本次申请修订'))
+const applySkippedLabel = computed(() => (applyExecutionCompleted.value ? '本次暂不生效' : '本次申请暂不生效'))
+const applyReceiptIdentifierLabel = computed(() =>
+  applyExecutionCompleted.value && applyExecutedResult.value?.releaseBatchId !== undefined && applyExecutedResult.value?.releaseBatchId !== null
+    ? '发布批次'
+    : '审批单'
+)
+const applyReceiptIdentifierValue = computed(() => {
+  if (!applyResult.value && !applyApprovalOrderId.value) {
+    return null
+  }
+  return applyReceiptIdentifierLabel.value === '发布批次'
+    ? (applyExecutedResult.value?.releaseBatchId ?? applyResult.value?.releaseBatchId ?? null)
+    : applyApprovalOrderId.value
+})
+const applyApprovalComment = computed(() =>
+  resolveApprovalComment(applyApprovalDetail.value, applyReceiptStatus.value)
+)
+const rollbackApprovalComment = computed(() =>
+  resolveApprovalComment(rollbackApprovalDetail.value, rollbackReceiptStatus.value)
+)
+const canResubmitApplyApproval = computed(() =>
+  applyReceiptStatus.value === 'REJECTED' && Boolean(applyApprovalOrderId.value) && !applyResubmitLoading.value
+)
+const canResubmitRollbackApproval = computed(() =>
+  rollbackReceiptStatus.value === 'REJECTED' && Boolean(rollbackApprovalOrderId.value) && !rollbackResubmitLoading.value
+)
+const applyExecutionTimeText = computed(() => applyApprovalPayload.value?.execution?.executedAt ?? null)
+const rollbackExecutionTimeText = computed(() =>
+  rollbackApprovalPayload.value?.execution?.executedAt ?? rollbackExecutedResult.value?.rollbackTime ?? null
+)
+const applyApprovalSummaryText = computed(() => {
+  const approvalOrderId = applyApprovalOrderId.value
+  switch (applyReceiptStatus.value) {
+    case 'APPROVED':
+      return applyExecutedResult.value?.releaseBatchId !== undefined && applyExecutedResult.value?.releaseBatchId !== null
+        ? `审批通过后已生成发布批次 ${applyExecutedResult.value.releaseBatchId}`
+        : `审批单 ${approvalOrderId ?? '--'} 已通过`
+    case 'REJECTED':
+      return `审批单 ${approvalOrderId ?? '--'} 已驳回，可修正后重新提交`
+    case 'CANCELLED':
+      return `审批单 ${approvalOrderId ?? '--'} 已撤销`
+    case 'PENDING':
+      return `审批单 ${approvalOrderId ?? '--'} 已提交，待复核人处理`
+    default:
+      return '审批单已提交，等待状态同步'
+  }
+})
+const rollbackReceiptText = computed(() => {
+  if (!rollbackResult.value) {
+    return ''
+  }
+  const targetBatchId = rollbackExecutedResult.value?.targetBatchId
+    ?? rollbackResult.value.targetBatchId
+    ?? rollbackResult.value.rolledBackBatchId
+    ?? '--'
+  if (rollbackExecutionCompleted.value) {
+    return `回滚审批已通过，已回滚批次 ${rollbackExecutedResult.value?.rolledBackBatchId ?? targetBatchId}，恢复字段 ${rollbackExecutedResult.value?.restoredFieldCount ?? 0} 项`
+  }
+  if (rollbackReceiptStatus.value === 'REJECTED') {
+    return rollbackApprovalComment.value
+      ? `批次 ${targetBatchId} 的回滚审批已驳回：${rollbackApprovalComment.value}`
+      : `批次 ${targetBatchId} 的回滚审批已驳回`
+  }
+  if (rollbackReceiptStatus.value === 'CANCELLED') {
+    return `批次 ${targetBatchId} 的回滚审批已撤销`
+  }
+  return `批次 ${targetBatchId} 的回滚审批已提交，审批单 ${rollbackApprovalOrderId.value ?? '--'}`
 })
 const samplePayloadPlaceholder = computed(() =>
   deviceStructure.value === 'composite'
@@ -522,10 +767,115 @@ async function loadModels(productId: string | number) {
   }
 }
 
+async function loadApprovalOrderDetail(
+  orderId: IdType | null | undefined,
+  target: 'apply' | 'rollback',
+  options: { silent?: boolean } = {}
+) {
+  if (orderId === undefined || orderId === null || orderId === '') {
+    return
+  }
+  const loadingRef = target === 'apply' ? applyApprovalLoading : rollbackApprovalLoading
+  const detailRef = target === 'apply' ? applyApprovalDetail : rollbackApprovalDetail
+  loadingRef.value = true
+  try {
+    const response = await governanceApprovalApi.getOrderDetail(orderId)
+    detailRef.value = response.data ?? null
+  } catch (error) {
+    if (options.silent) {
+      ElMessage.warning('审批单已提交，但审批状态暂时读取失败，请稍后刷新')
+    } else {
+      ElMessage.error(error instanceof Error ? error.message : '读取审批状态失败')
+    }
+  } finally {
+    loadingRef.value = false
+  }
+}
+
+async function refreshApplyApprovalDetail() {
+  await loadApprovalOrderDetail(applyApprovalOrderId.value, 'apply')
+}
+
+async function refreshRollbackApprovalDetail() {
+  await loadApprovalOrderDetail(rollbackApprovalOrderId.value, 'rollback')
+}
+
+async function handleResubmitApplyApproval() {
+  if (!applyApprovalOrderId.value || !canResubmitApplyApproval.value) {
+    return
+  }
+  const approverUserId = resolveApproverUserId()
+  if (!approverUserId) {
+    return
+  }
+  applyResubmitLoading.value = true
+  try {
+    await governanceApprovalApi.resubmitOrder(applyApprovalOrderId.value, {
+      approverUserId
+    })
+    if (applyResult.value) {
+      applyResult.value = {
+        ...applyResult.value,
+        approvalStatus: 'PENDING',
+        executionPending: true
+      }
+    }
+    applyApprovalDetail.value = null
+    ElMessage.success('审批单已重新提交')
+    await loadApprovalOrderDetail(applyApprovalOrderId.value, 'apply')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '原审批单重提失败')
+  } finally {
+    applyResubmitLoading.value = false
+  }
+}
+
+async function handleResubmitRollbackApproval() {
+  if (!rollbackApprovalOrderId.value || !canResubmitRollbackApproval.value) {
+    return
+  }
+  const approverUserId = resolveApproverUserId()
+  if (!approverUserId) {
+    return
+  }
+  rollbackResubmitLoading.value = true
+  try {
+    await governanceApprovalApi.resubmitOrder(rollbackApprovalOrderId.value, {
+      approverUserId
+    })
+    if (rollbackResult.value) {
+      rollbackResult.value = {
+        ...rollbackResult.value,
+        approvalStatus: 'PENDING',
+        executionPending: true
+      }
+    }
+    rollbackApprovalDetail.value = null
+    ElMessage.success('回滚审批单已重新提交')
+    await loadApprovalOrderDetail(rollbackApprovalOrderId.value, 'rollback')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '回滚审批单重提失败')
+  } finally {
+    rollbackResubmitLoading.value = false
+  }
+}
+
+function prepareNewApplyApproval() {
+  applyResult.value = null
+  applyApprovalDetail.value = null
+  applyApprovalLoading.value = false
+  applyResubmitLoading.value = false
+  ElMessage.success('已退出当前审批回执，请重新提取字段后提交新审批')
+  focusSampleStage()
+}
+
 function focusSampleStage() {
   nextTick(() => {
-    sampleStageRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    const field = sampleStageRef.value?.querySelector('textarea, input') as HTMLElement | null
+    const stage = sampleStageRef.value
+    if (stage && typeof stage.scrollIntoView === 'function') {
+      stage.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    const field = stage?.querySelector('textarea, input') as HTMLElement | null
     field?.focus?.()
   })
 }
@@ -635,6 +985,8 @@ async function handleCompare() {
   compareLoading.value = true
   applyResult.value = null
   rollbackResult.value = null
+  applyApprovalDetail.value = null
+  rollbackApprovalDetail.value = null
   try {
     const response = await productApi.compareProductModelGovernance(props.product.id, {
       manualExtract: {
@@ -720,10 +1072,13 @@ async function handleApply() {
     rollbackResult.value = null
     compareResult.value = null
     decisionState.value = {}
-    ElMessage.success('契约字段已生效')
+    applyApprovalDetail.value = null
+    rollbackApprovalDetail.value = null
+    ElMessage.success('契约字段审批已提交')
+    await loadApprovalOrderDetail(response.data?.approvalOrderId ?? null, 'apply', { silent: true })
     await loadModels(props.product.id)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '契约字段生效失败')
+    ElMessage.error(error instanceof Error ? error.message : '契约字段审批提交失败')
   } finally {
     applyLoading.value = false
   }
@@ -731,7 +1086,7 @@ async function handleApply() {
 
 async function handleRollbackCurrentBatch() {
   if (!props.product?.id || !latestReleaseBatchId.value) {
-    ElMessage.warning('褰撳墠娌℃湁鍙洖婊氱殑鍙戝竷鎵规')
+    ElMessage.warning('当前没有可回滚的发布批次')
     return
   }
   const approverUserId = resolveApproverUserId()
@@ -745,10 +1100,13 @@ async function handleRollbackCurrentBatch() {
     applyResult.value = null
     compareResult.value = null
     decisionState.value = {}
-    ElMessage.success('鍚堝悓鍙戝竷鎵规宸插洖婊?')
+    applyApprovalDetail.value = null
+    rollbackApprovalDetail.value = null
+    ElMessage.success('合同回滚审批已提交')
+    await loadApprovalOrderDetail(response.data?.approvalOrderId ?? null, 'rollback', { silent: true })
     await loadModels(props.product.id)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '鍚堝悓鍙戝竷鍥炴粴澶辫触')
+    ElMessage.error(error instanceof Error ? error.message : '合同回滚审批提交失败')
   } finally {
     rollbackLoading.value = false
   }
@@ -757,14 +1115,23 @@ async function handleRollbackCurrentBatch() {
 function resolveApproverUserId() {
   const normalized = governanceApproverId.value.trim()
   if (!normalized) {
-    ElMessage.warning('璇峰厛杈撳叆澶嶆牳浜虹敤鎴稩D')
+    ElMessage.warning('请先输入复核人用户 ID')
     return null
   }
   if (!/^\d+$/.test(normalized)) {
-    ElMessage.warning('澶嶆牳浜虹敤鎴稩D蹇呴』涓烘鏁?')
+    ElMessage.warning('复核人用户 ID 必须为正整数')
     return null
   }
   return normalized
+}
+
+function approvalStatusLabel(status: GovernanceApprovalStatus | null | undefined) {
+  return {
+    PENDING: '待审批',
+    APPROVED: '已通过',
+    REJECTED: '已驳回',
+    CANCELLED: '已撤销'
+  }[status ?? ''] ?? '--'
 }
 
 function compareStatusLabel(status: ProductModelGovernanceCompareRow['compareStatus']) {
@@ -807,10 +1174,40 @@ function applyEvidenceSummary(row: ProductModelGovernanceCompareRow) {
     .join(' · ')
 }
 
+function parseApprovalPayload<TResult>(payloadJson?: string | null): GovernanceApprovalPayload<TResult> | null {
+  if (!payloadJson?.trim()) {
+    return null
+  }
+  try {
+    return JSON.parse(payloadJson) as GovernanceApprovalPayload<TResult>
+  } catch {
+    return null
+  }
+}
+
+function resolveApprovalComment(
+  detail: GovernanceApprovalOrderDetail | null,
+  status: GovernanceApprovalStatus | null
+) {
+  if (!detail || !status || status === 'PENDING') {
+    return ''
+  }
+  const transition = [...(detail.transitions ?? [])]
+    .reverse()
+    .find((item) => item?.toStatus === status && item.transitionComment?.trim() && item.transitionComment !== 'submit')
+  return transition?.transitionComment?.trim() || detail.order?.approvalComment?.trim() || ''
+}
+
 function resetSession() {
   compareResult.value = null
   applyResult.value = null
   rollbackResult.value = null
+  applyApprovalDetail.value = null
+  rollbackApprovalDetail.value = null
+  applyApprovalLoading.value = false
+  rollbackApprovalLoading.value = false
+  applyResubmitLoading.value = false
+  rollbackResubmitLoading.value = false
   decisionState.value = {}
   governanceApproverId.value = ''
   latestReleaseBatchId.value = null
@@ -828,6 +1225,7 @@ function resetSession() {
 .product-model-designer__summary-sheet,
 .product-model-designer__summary-grid,
 .product-model-designer__stage,
+.product-model-designer__approval-stage,
 .product-model-designer__sample-toolbar,
 .product-model-designer__choice-group,
 .product-model-designer__relation-stage,
@@ -846,7 +1244,8 @@ function resetSession() {
 }
 
 .product-model-designer__summary-sheet,
-.product-model-designer__stage {
+.product-model-designer__stage,
+.product-model-designer__approval-stage {
   gap: 0.92rem;
   padding: 0.96rem 1rem;
   border: 1px solid var(--panel-border);
@@ -953,6 +1352,22 @@ function resetSession() {
   justify-content: space-between;
   gap: 1rem;
   align-items: start;
+}
+
+.product-model-designer__approval-head,
+.product-model-designer__approval-inline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.product-model-designer__approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .product-model-designer__sample-toolbar {
@@ -1114,6 +1529,8 @@ function resetSession() {
 }
 
 @media (max-width: 720px) {
+  .product-model-designer__approval-head,
+  .product-model-designer__approval-inline,
   .product-model-designer__relation-head,
   .product-model-designer__apply-footer,
   .product-model-designer__stage-head,
@@ -1126,6 +1543,10 @@ function resetSession() {
   .product-model-designer__choice-group,
   .product-model-designer__relation-row {
     grid-template-columns: 1fr;
+  }
+
+  .product-model-designer__approval-actions {
+    justify-content: flex-start;
   }
 }
 </style>

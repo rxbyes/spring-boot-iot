@@ -193,24 +193,23 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       }
 
       @Override
-      public List<RiskPoint> listRiskPoints(String riskPointCode, String riskPointLevel, Integer status) {
-            return listRiskPoints(null, riskPointCode, riskPointLevel, status);
+      public List<RiskPoint> listRiskPoints(String keyword, String riskPointLevel, Integer status) {
+            return listRiskPoints(null, keyword, riskPointLevel, status);
       }
 
       @Override
-      public List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status) {
-            return normalizeRiskPoints(list(buildRiskPointWrapper(currentUserId, riskPointCode, riskPointLevel, status)));
+      public List<RiskPoint> listRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status) {
+            return normalizeRiskPoints(queryRiskPoints(currentUserId, keyword, riskPointLevel, status));
       }
 
       @Override
-      public PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
-            return pageRiskPoints(null, riskPointCode, riskPointLevel, status, pageNum, pageSize);
+      public PageResult<RiskPoint> pageRiskPoints(String keyword, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
+            return pageRiskPoints(null, keyword, riskPointLevel, status, pageNum, pageSize);
       }
 
       @Override
-      public PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
-            Page<RiskPoint> page = new Page<>(pageNum, pageSize);
-            Page<RiskPoint> result = page(page, buildRiskPointWrapper(currentUserId, riskPointCode, riskPointLevel, status));
+      public PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
+            Page<RiskPoint> result = queryRiskPointPage(currentUserId, keyword, riskPointLevel, status, pageNum, pageSize);
             return PageResult.of(result.getTotal(), pageNum, pageSize, normalizeRiskPoints(result.getRecords()));
       }
 
@@ -405,11 +404,54 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             }
       }
 
-      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status) {
+      private List<RiskPoint> queryRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status) {
+            String normalizedKeyword = normalizeKeyword(keyword);
+            if (!StringUtils.hasText(normalizedKeyword)) {
+                  return list(buildRiskPointWrapper(currentUserId, null, riskPointLevel, status, false));
+            }
+            List<RiskPoint> exactMatches = list(buildRiskPointWrapper(currentUserId, normalizedKeyword, riskPointLevel, status, true));
+            if (!exactMatches.isEmpty()) {
+                  return exactMatches;
+            }
+            return list(buildRiskPointWrapper(currentUserId, normalizedKeyword, riskPointLevel, status, false));
+      }
+
+      private Page<RiskPoint> queryRiskPointPage(Long currentUserId, String keyword, String riskPointLevel, Integer status, Long pageNum, Long pageSize) {
+            String normalizedKeyword = normalizeKeyword(keyword);
+            if (!StringUtils.hasText(normalizedKeyword)) {
+                  return page(new Page<>(pageNum, pageSize), buildRiskPointWrapper(currentUserId, null, riskPointLevel, status, false));
+            }
+            Page<RiskPoint> exactPage = page(new Page<>(pageNum, pageSize), buildRiskPointWrapper(currentUserId, normalizedKeyword, riskPointLevel, status, true));
+            if (!exactPage.getRecords().isEmpty()) {
+                  return exactPage;
+            }
+            return page(new Page<>(pageNum, pageSize), buildRiskPointWrapper(currentUserId, normalizedKeyword, riskPointLevel, status, false));
+      }
+
+      private String normalizeKeyword(String keyword) {
+            return StringUtils.hasText(keyword) ? keyword.trim() : null;
+      }
+
+      private LambdaQueryWrapper<RiskPoint> buildRiskPointWrapper(Long currentUserId, String keyword, String riskPointLevel, Integer status, boolean exactKeyword) {
             LambdaQueryWrapper<RiskPoint> wrapper = new LambdaQueryWrapper<>();
             applyRiskPointScope(wrapper, currentUserId);
-            if (riskPointCode != null && !riskPointCode.isEmpty()) {
-                  wrapper.like(RiskPoint::getRiskPointCode, riskPointCode);
+            if (StringUtils.hasText(keyword)) {
+                  String normalizedKeyword = keyword.trim();
+                  wrapper.and(query -> {
+                        if (exactKeyword) {
+                              query.eq(RiskPoint::getRiskPointCode, normalizedKeyword)
+                                      .or()
+                                      .eq(RiskPoint::getRiskPointName, normalizedKeyword)
+                                      .or()
+                                      .eq(RiskPoint::getRegionName, normalizedKeyword);
+                        } else {
+                              query.like(RiskPoint::getRiskPointCode, normalizedKeyword)
+                                      .or()
+                                      .like(RiskPoint::getRiskPointName, normalizedKeyword)
+                                      .or()
+                                      .like(RiskPoint::getRegionName, normalizedKeyword);
+                        }
+                  });
             }
             if (riskPointLevel != null && !riskPointLevel.isEmpty()) {
                   wrapper.in(RiskPoint::getRiskPointLevel, buildRiskPointLevelQueryValues(riskPointLevel));

@@ -134,7 +134,10 @@ const ElSelectStub = defineComponent({
       if (value === '') {
         return ''
       }
-      return /^-?\d+$/.test(value) ? Number(value) : value
+      if (/^-?\d+$/.test(value) && Math.abs(Number(value)) <= Number.MAX_SAFE_INTEGER) {
+        return Number(value)
+      }
+      return value
     }
   },
   template: `
@@ -334,7 +337,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
-    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith(2002)
+    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2002')
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: 1,
       deviceId: 2002,
@@ -343,6 +346,60 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       metricName: 'Y向倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('keeps unsafe long ids as strings when loading metrics and submitting bindings', async () => {
+    mockListBindingGroups.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListBindableDevices.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: '2041364367361843202',
+          deviceCode: 'DEV-LONG-01',
+          deviceName: '长整型设备',
+          productId: '2041364367361843203',
+          orgId: '7101',
+          orgName: '北坡监测站'
+        }
+      ]
+    })
+    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          identifier: 'tiltY',
+          name: 'Y向倾角',
+          type: 'property',
+          riskMetricId: '2041364367361843204'
+        }
+      ]
+    })
+
+    const wrapper = mountDrawer({
+      riskPointId: '2041364367361843201'
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2041364367361843202')
+    await flushPromises()
+    await wrapper.get('[data-testid="binding-add-metric"]').setValue('tiltY')
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2041364367361843202')
+    expect(mockBindDevice).toHaveBeenCalledWith({
+      riskPointId: '2041364367361843201',
+      deviceId: '2041364367361843202',
+      riskMetricId: '2041364367361843204',
+      metricIdentifier: 'tiltY',
+      metricName: 'Y向倾角'
+    })
   })
 
   it('filters already bound metrics out of the add-metric selector for the same device', async () => {
@@ -406,7 +463,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await wrapper.get('[data-testid="binding-replace-submit-9001"]').trigger('click')
     await flushPromises()
 
-    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith(2001)
+    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2001')
     expect(mockReplaceBinding).toHaveBeenCalledWith(9001, {
       riskMetricId: 6104,
       metricIdentifier: 'tiltZ',

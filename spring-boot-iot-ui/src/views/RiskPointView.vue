@@ -18,7 +18,12 @@
         <StandardListFilterHeader :model="filters">
           <template #primary>
             <el-form-item>
-              <el-input v-model="filters.riskPointCode" placeholder="风险点编号" clearable @keyup.enter="handleSearch" />
+              <el-input
+                v-model="filters.keyword"
+                placeholder="快速搜索（风险点名称 / 风险点编号 / 所属区域）"
+                clearable
+                @keyup.enter="handleSearch"
+              />
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskPointLevel" placeholder="风险点等级" clearable>
@@ -387,7 +392,7 @@
       v-model="riskPointDetailVisible"
       :risk-point-id="detailRiskPoint?.id"
       :initial-risk-point="detailRiskPoint"
-      :initial-summary="detailRiskPoint ? bindingSummaryMap[Number(detailRiskPoint.id)] || null : null"
+      :initial-summary="detailRiskPoint ? bindingSummaryMap[getIdKey(detailRiskPoint.id)] || null : null"
       @close="handleRiskPointDetailClose"
       @edit="handleEditFromDetail"
       @maintain-binding="handleMaintainBindingFromDetail"
@@ -434,7 +439,7 @@
               :key="String(item.id)"
               type="button"
               class="risk-point-pending-list__item"
-              :class="{ 'is-active': Number(item.id) === pendingPromotionForm.pendingId }"
+              :class="{ 'is-active': getIdKey(item.id) === getIdKey(pendingPromotionForm.pendingId) }"
               @click="handleSelectPendingRow(item)"
             >
               <strong>{{ item.deviceCode || '--' }}</strong>
@@ -547,6 +552,7 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue';
 import RiskPointDetailDrawer from '@/components/riskPoint/RiskPointDetailDrawer.vue';
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
+import { usePermissionStore } from '@/stores/permission';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
@@ -557,7 +563,7 @@ import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
 import { getDeviceMetricOptions } from '@/api/iot';
-import type { DeviceMetricOption, DeviceOption } from '@/types/api';
+import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, normalizeRiskLevel } from '@/utils/riskLevel';
@@ -601,6 +607,7 @@ type TreeResolveFn = (data: RegionTreeOption[]) => void;
 type RiskPointRowActionCommand = 'detail' | 'edit' | 'maintain-binding' | 'pending-promotion' | 'delete';
 
 const PROMOTABLE_PENDING_STATUSES = new Set(['PENDING_METRIC_GOVERNANCE', 'PARTIALLY_PROMOTED']);
+const permissionStore = usePermissionStore();
 
 const loading = ref(false);
 const formVisible = ref(false);
@@ -609,7 +616,7 @@ const riskPointDetailVisible = ref(false);
 const bindingMaintenanceVisible = ref(false);
 const pendingPromotionVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
-const bindingSummaryMap = ref<Record<number, RiskPointBindingSummary>>({});
+const bindingSummaryMap = ref<Record<string, RiskPointBindingSummary>>({});
 const organizationOptions = ref<Organization[]>([]);
 const regionOptions = ref<RegionTreeOption[]>([]);
 const regionOptionCache = ref<RegionTreeOption[]>([]);
@@ -638,12 +645,12 @@ const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
 });
 
 const filters = reactive({
-  riskPointCode: '',
+  keyword: '',
   riskPointLevel: '',
   status: '' as '' | number
 });
 const appliedFilters = reactive({
-  riskPointCode: '',
+  keyword: '',
   riskPointLevel: '',
   status: '' as '' | number
 });
@@ -653,20 +660,20 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useS
 const formRef = ref();
 const formTitle = computed(() => (form.id ? '编辑风险点' : '新增风险点'));
 const form = reactive({
-  id: undefined as number | undefined,
+  id: undefined as IdType | undefined,
   riskPointCode: '',
   riskPointName: '',
-  orgId: '' as '' | number,
+  orgId: '' as '' | IdType,
   orgName: '',
-  regionId: '' as '' | number,
+  regionId: '' as '' | IdType,
   regionName: '',
-  responsibleUser: '' as '' | number,
+  responsibleUser: '' as '' | IdType,
   responsiblePhone: '',
   riskPointLevel: '',
   description: '',
   status: 0,
-  createBy: undefined as number | undefined,
-  updateBy: undefined as number | undefined
+  createBy: undefined as IdType | undefined,
+  updateBy: undefined as IdType | undefined
 });
 
 const rules = {
@@ -677,17 +684,17 @@ const rules = {
 };
 
 const bindForm = reactive({
-  riskPointId: 0,
+  riskPointId: '' as '' | IdType,
   riskPointName: '',
-  deviceId: 0,
+  deviceId: '' as '' | IdType,
   deviceCode: '',
   deviceName: '',
   metricIdentifier: '',
   metricName: ''
 });
 const pendingPromotionForm = reactive({
-  riskPointId: undefined as number | undefined,
-  pendingId: undefined as number | undefined,
+  riskPointId: undefined as IdType | undefined,
+  pendingId: undefined as IdType | undefined,
   selectedMetrics: [] as Array<{ riskMetricId?: IdType | null; metricIdentifier: string; metricName: string }>,
   completePending: true,
   promotionNote: ''
@@ -695,10 +702,25 @@ const pendingPromotionForm = reactive({
 const submitLoading = ref(false);
 const riskPointAdvice = '优先核查一级风险点和红色态势对象';
 const missingBindingTotal = ref(0);
-const knownUsers = reactive<Record<number, User>>({});
+const knownUsers = reactive<Record<string, User>>({});
 const regionRootsLoaded = ref(false);
 const regionRootsLoading = ref(false);
 let latestListRequestId = 0;
+
+const getIdKey = (value?: IdType | null) => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+  return String(value);
+};
+
+const isSameId = (left?: IdType | null, right?: IdType | null) => {
+  const leftKey = getIdKey(left);
+  if (!leftKey) {
+    return false;
+  }
+  return leftKey === getIdKey(right);
+};
 
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
 const redCount = computed(() =>
@@ -711,7 +733,7 @@ const bindingMaintenanceSummary = computed(() => {
   if (!bindingMaintenanceRiskPoint.value?.id) {
     return null;
   }
-  return bindingSummaryMap.value[Number(bindingMaintenanceRiskPoint.value.id)] || null;
+  return bindingSummaryMap.value[getIdKey(bindingMaintenanceRiskPoint.value.id)] || null;
 });
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的风险点' : '还没有风险对象'));
 const emptyStateDescription = computed(() =>
@@ -720,7 +742,7 @@ const emptyStateDescription = computed(() =>
     : '当前还没有风险对象记录，先新增风险点，再继续设备绑定和策略治理。'
 );
 const selectedOrganization = computed(() =>
-  form.orgId === '' ? null : findOrganizationById(organizationOptions.value, Number(form.orgId))
+  form.orgId === '' ? null : findOrganizationById(organizationOptions.value, form.orgId)
 );
 const regionTreeProps = {
   label: 'regionName',
@@ -741,21 +763,42 @@ const responsibleUserPlaceholder = computed(() => {
   return '请选择负责人';
 });
 
+const showRiskPointRequestError = (error: unknown, fallbackMessage: string) => {
+  if (isHandledRequestError(error)) {
+    return;
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage));
+};
+
+const logRiskPointRequestError = (context: string, error: unknown) => {
+  if (isHandledRequestError(error)) {
+    return;
+  }
+  console.error(context, error);
+};
+
 const loadOrganizationOptions = async () => {
   try {
     const res = await listOrganizationTree();
     if (res.code === 200) {
       organizationOptions.value = (res.data || []).filter((item) => item.status === 1);
+      if (formVisible.value) {
+        upsertOrganizationOption({
+          id: form.orgId || undefined,
+          orgName: form.orgName,
+          phone: form.responsiblePhone
+        });
+      }
     }
   } catch (error) {
-    console.error('加载组织树失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载组织树失败');
+    logRiskPointRequestError('加载组织树失败', error);
+    showRiskPointRequestError(error, '加载组织树失败');
   }
 };
 
-const findOrganizationById = (nodes: Organization[], targetId: number): Organization | null => {
+const findOrganizationById = (nodes: Organization[], targetId: IdType): Organization | null => {
   for (const node of nodes) {
-    if (Number(node.id) === targetId) {
+    if (isSameId(node.id, targetId)) {
       return node;
     }
     const childMatch = node.children?.length ? findOrganizationById(node.children, targetId) : null;
@@ -766,9 +809,9 @@ const findOrganizationById = (nodes: Organization[], targetId: number): Organiza
   return null;
 };
 
-const findRegionById = <T extends { id?: Region['id']; children?: T[] }>(nodes: T[], targetId: number): T | null => {
+const findRegionById = <T extends { id?: Region['id']; children?: T[] }>(nodes: T[], targetId: IdType): T | null => {
   for (const node of nodes) {
-    if (Number(node.id) === targetId) {
+    if (isSameId(node.id, targetId)) {
       return node;
     }
     const childMatch = node.children?.length ? findRegionById(node.children, targetId) : null;
@@ -790,6 +833,40 @@ const toRegionTreeOption = (region: Partial<Region> & { id: Region['id']; region
   };
 };
 
+const upsertOrganizationOption = (organization?: Partial<Organization> | null) => {
+  if (!organization?.id || !organization.orgName) {
+    return;
+  }
+  if (findOrganizationById(organizationOptions.value, organization.id)) {
+    return;
+  }
+  organizationOptions.value = [
+    ...organizationOptions.value,
+    {
+      id: organization.id,
+      tenantId: organization.tenantId ?? '',
+      parentId: organization.parentId ?? '',
+      orgName: organization.orgName,
+      orgCode: organization.orgCode || '',
+      orgType: organization.orgType || 'dept',
+      leaderUserId: organization.leaderUserId,
+      leaderName: organization.leaderName || '',
+      phone: organization.phone || '',
+      email: organization.email || '',
+      status: organization.status ?? 1,
+      sortNo: organization.sortNo ?? 0,
+      remark: organization.remark || '',
+      createBy: (organization.createBy as number) ?? 0,
+      createTime: organization.createTime || '',
+      updateBy: (organization.updateBy as number) ?? 0,
+      updateTime: organization.updateTime || '',
+      deleted: organization.deleted ?? 0,
+      children: organization.children,
+      hasChildren: organization.hasChildren
+    }
+  ];
+};
+
 const upsertRegionCache = (region?: Partial<Region> | null) => {
   if (!region?.id || !region.regionName) {
     return;
@@ -801,7 +878,7 @@ const upsertRegionCache = (region?: Partial<Region> | null) => {
     hasChildren: region.hasChildren,
     status: region.status
   });
-  const existingIndex = regionOptionCache.value.findIndex((item) => Number(item.id) === Number(region.id));
+  const existingIndex = regionOptionCache.value.findIndex((item) => isSameId(item.id, region.id));
   if (existingIndex >= 0) {
     regionOptionCache.value.splice(existingIndex, 1, {
       ...regionOptionCache.value[existingIndex],
@@ -826,8 +903,8 @@ const ensureRegionRootsLoaded = async () => {
       regionRootsLoaded.value = true;
     }
   } catch (error) {
-    console.error('加载区域根节点失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载区域根节点失败');
+    logRiskPointRequestError('加载区域根节点失败', error);
+    showRiskPointRequestError(error, '加载区域根节点失败');
   } finally {
     regionRootsLoading.value = false;
   }
@@ -853,30 +930,31 @@ const loadRegionNode = async (node: LazyRegionTreeNode, resolve: TreeResolveFn) 
     }
     resolve(children);
   } catch (error) {
-    console.error('加载区域子节点失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载区域子节点失败');
+    logRiskPointRequestError('加载区域子节点失败', error);
+    showRiskPointRequestError(error, '加载区域子节点失败');
     resolve([]);
   }
 };
 
 const upsertKnownUser = (user?: User | null) => {
-  if (!user?.id) {
+  const userKey = getIdKey(user?.id);
+  if (!userKey) {
     return;
   }
-  knownUsers[Number(user.id)] = user;
+  knownUsers[userKey] = user as User;
 };
 
 const setResponsibleUserOptions = (users: Array<User | null | undefined>) => {
-  const seenIds = new Set<number>();
+  const seenIds = new Set<string>();
   userOptions.value = users.filter((user): user is User => {
-    if (!user?.id) {
+    const userKey = getIdKey(user?.id);
+    if (!userKey) {
       return false;
     }
-    const userId = Number(user.id);
-    if (seenIds.has(userId)) {
+    if (seenIds.has(userKey)) {
       return false;
     }
-    seenIds.add(userId);
+    seenIds.add(userKey);
     upsertKnownUser(user);
     return true;
   });
@@ -897,11 +975,12 @@ const buildOrganizationLeaderFallback = (organization: Organization): User | nul
   return fallbackUser;
 };
 
-const fetchUserById = async (userId?: number) => {
-  if (!userId) {
+const fetchUserById = async (userId?: IdType) => {
+  const userKey = getIdKey(userId);
+  if (!userKey) {
     return null;
   }
-  const cachedUser = knownUsers[userId];
+  const cachedUser = knownUsers[userKey];
   if (cachedUser) {
     return cachedUser;
   }
@@ -912,9 +991,27 @@ const fetchUserById = async (userId?: number) => {
       return res.data;
     }
   } catch (error) {
-    console.error('加载用户详情失败', error);
+    logRiskPointRequestError('加载用户详情失败', error);
   }
   return null;
+};
+
+const buildCurrentEditableUserFallback = async () => {
+  const currentUserInfo = permissionStore.userInfo;
+  if (!currentUserInfo?.id) {
+    return null;
+  }
+  const fallbackUser: User = {
+    id: currentUserInfo.id,
+    orgId: currentUserInfo.orgId,
+    orgName: currentUserInfo.orgName,
+    username: currentUserInfo.username || currentUserInfo.displayName || String(currentUserInfo.id),
+    realName: currentUserInfo.realName || currentUserInfo.displayName || currentUserInfo.username || String(currentUserInfo.id),
+    phone: currentUserInfo.phone || '',
+    status: 1
+  };
+  upsertKnownUser(fallbackUser);
+  return fallbackUser;
 };
 
 const loadResponsibleOptionsByOrganization = async (preserveSelection = false) => {
@@ -932,17 +1029,19 @@ const loadResponsibleOptionsByOrganization = async (preserveSelection = false) =
   userOptionsLoading.value = true;
   try {
     const nextUsers: User[] = [];
-    const leaderUserId = organization.leaderUserId ? Number(organization.leaderUserId) : undefined;
-    let leaderUser = await fetchUserById(leaderUserId);
-    if (!leaderUser) {
-      leaderUser = buildOrganizationLeaderFallback(organization);
+    let defaultResponsibleUser = await fetchUserById(organization.leaderUserId);
+    if (!defaultResponsibleUser) {
+      defaultResponsibleUser = buildOrganizationLeaderFallback(organization);
     }
-    if (leaderUser) {
-      nextUsers.push(leaderUser);
+    if (!defaultResponsibleUser) {
+      defaultResponsibleUser = await buildCurrentEditableUserFallback();
+    }
+    if (defaultResponsibleUser) {
+      nextUsers.push(defaultResponsibleUser);
     }
     if (preserveSelection && form.responsibleUser) {
-      const currentUserId = Number(form.responsibleUser);
-      if (!leaderUser || Number(leaderUser.id) !== currentUserId) {
+      const currentUserId = form.responsibleUser;
+      if (!defaultResponsibleUser || !isSameId(defaultResponsibleUser.id, currentUserId)) {
         const currentUser = await fetchUserById(currentUserId);
         if (currentUser) {
           nextUsers.push(currentUser);
@@ -952,20 +1051,20 @@ const loadResponsibleOptionsByOrganization = async (preserveSelection = false) =
     setResponsibleUserOptions(nextUsers);
 
     if (preserveSelection && form.responsibleUser) {
-      const selectedUserId = Number(form.responsibleUser);
-      if (userOptions.value.some((user) => Number(user.id) === selectedUserId)) {
+      const selectedUserKey = getIdKey(form.responsibleUser);
+      if (userOptions.value.some((user) => getIdKey(user.id) === selectedUserKey)) {
         return;
       }
     }
 
-    if (leaderUser?.id) {
-      form.responsibleUser = Number(leaderUser.id);
-      form.responsiblePhone = leaderUser.phone || organization.phone || '';
+    if (defaultResponsibleUser?.id) {
+      form.responsibleUser = defaultResponsibleUser.id;
+      form.responsiblePhone = defaultResponsibleUser.phone || organization.phone || permissionStore.userInfo?.phone || '';
       return;
     }
 
     form.responsibleUser = '';
-    form.responsiblePhone = organization.phone || '';
+    form.responsiblePhone = organization.phone || permissionStore.userInfo?.phone || '';
   } finally {
     userOptionsLoading.value = false;
   }
@@ -978,8 +1077,8 @@ const loadRiskPointLevelOptions = async () => {
       form.riskPointLevel = riskPointLevelOptions.value[0]?.value || '';
     }
   } catch (error) {
-    console.error('加载风险点等级字典失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载风险点等级字典失败');
+    logRiskPointRequestError('加载风险点等级字典失败', error);
+    showRiskPointRequestError(error, '加载风险点等级字典失败');
   }
 };
 
@@ -990,8 +1089,8 @@ const loadBindableDeviceOptions = async (riskPointId: string | number) => {
       deviceList.value = res.data || [];
     }
   } catch (error) {
-    console.error('加载可绑定设备失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载可绑定设备失败');
+    logRiskPointRequestError('加载可绑定设备失败', error);
+    showRiskPointRequestError(error, '加载可绑定设备失败');
   }
 };
 
@@ -1002,10 +1101,8 @@ const loadMetricOptions = async (deviceId: string | number) => {
       metricList.value = res.data || [];
     }
   } catch (error) {
-    console.error('加载测点选项失败', error);
-    if (!isHandledRequestError(error)) {
-      ElMessage.error(resolveRequestErrorMessage(error, '加载测点列表失败'));
-    }
+    logRiskPointRequestError('加载测点选项失败', error);
+    showRiskPointRequestError(error, '加载测点列表失败');
   }
 };
 
@@ -1022,7 +1119,7 @@ const getResponsibleUserText = (row: Partial<RiskPoint>) => {
   if (row.responsibleUserName) {
     return row.responsibleUserName;
   }
-  const matchedUser = knownUsers[Number(row.responsibleUser)];
+  const matchedUser = knownUsers[getIdKey(row.responsibleUser)];
   return matchedUser?.realName || matchedUser?.username || String(row.responsibleUser);
 };
 
@@ -1057,12 +1154,12 @@ const {
   form: filters,
   applied: appliedFilters,
   fields: [
-    { key: 'riskPointCode', label: '风险点编号' },
+    { key: 'keyword', label: '快速搜索' },
     { key: 'riskPointLevel', label: (value) => `风险点等级：${getRiskPointLevelText(String(value || ''))}` },
     { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
   ],
   defaults: {
-    riskPointCode: '',
+    keyword: '',
     riskPointLevel: '',
     status: '' as '' | number
   }
@@ -1072,8 +1169,8 @@ const loadBindingSummaries = async (rows: RiskPoint[], requestId = latestListReq
   const riskPointIds = Array.from(
     new Set(
       rows
-        .map((item) => Number(item.id))
-        .filter((item) => Number.isFinite(item) && item > 0)
+        .map((item) => getIdKey(item.id))
+        .filter(Boolean)
     )
   );
   if (riskPointIds.length === 0) {
@@ -1092,18 +1189,18 @@ const loadBindingSummaries = async (rows: RiskPoint[], requestId = latestListReq
       bindingSummaryMap.value = {};
       return;
     }
-    bindingSummaryMap.value = (res.data || []).reduce<Record<number, RiskPointBindingSummary>>((acc, item) => {
+    bindingSummaryMap.value = (res.data || []).reduce<Record<string, RiskPointBindingSummary>>((acc, item) => {
       if (!item?.riskPointId) {
         return acc;
       }
-      acc[Number(item.riskPointId)] = item;
+      acc[getIdKey(item.riskPointId)] = item;
       return acc;
     }, {});
   } catch (error) {
+    logRiskPointRequestError('加载风险点绑定概览失败', error);
     if (requestId === latestListRequestId) {
       bindingSummaryMap.value = {};
     }
-    console.error('加载风险点绑定概览失败', error);
   }
 };
 
@@ -1113,7 +1210,7 @@ const loadRiskPointList = async () => {
   try {
     const [listResult, backlogResult] = await Promise.allSettled([
       pageRiskPointList({
-        riskPointCode: appliedFilters.riskPointCode || undefined,
+        keyword: appliedFilters.keyword || undefined,
         riskPointLevel: appliedFilters.riskPointLevel || undefined,
         status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
         pageNum: pagination.pageNum,
@@ -1128,7 +1225,7 @@ const loadRiskPointList = async () => {
       return;
     }
 
-    if (listResult.status === 'fulfilled' && listResult.value.code === 200) {
+    if (listResult.status === 'fulfilled' && listResult.value?.code === 200) {
       riskPointList.value = applyPageResult(listResult.value.data);
       await loadBindingSummaries(riskPointList.value, requestId);
       riskPointList.value.forEach((item) => {
@@ -1148,7 +1245,7 @@ const loadRiskPointList = async () => {
       bindingSummaryMap.value = {};
     }
 
-    if (backlogResult.status === 'fulfilled' && backlogResult.value.code === 200) {
+    if (backlogResult.status === 'fulfilled' && backlogResult.value?.code === 200) {
       missingBindingItems.value = backlogResult.value.data.records ?? [];
       missingBindingTotal.value = backlogResult.value.data.total ?? 0;
     } else {
@@ -1159,8 +1256,8 @@ const loadRiskPointList = async () => {
     if (requestId !== latestListRequestId) {
       return;
     }
-    console.error('查询风险点列表失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '查询风险点列表失败');
+    logRiskPointRequestError('查询风险点列表失败', error);
+    showRiskPointRequestError(error, '查询风险点列表失败');
   } finally {
     if (requestId === latestListRequestId) {
       loading.value = false;
@@ -1176,7 +1273,7 @@ const handleSearch = () => {
 };
 
 const handleReset = () => {
-  filters.riskPointCode = '';
+  filters.keyword = '';
   filters.riskPointLevel = '';
   filters.status = '';
   syncAppliedFilters();
@@ -1316,9 +1413,9 @@ const resetRiskPointForm = () => {
 };
 
 const resetBindForm = () => {
-  bindForm.riskPointId = 0;
+  bindForm.riskPointId = '';
   bindForm.riskPointName = '';
-  bindForm.deviceId = 0;
+  bindForm.deviceId = '';
   bindForm.deviceCode = '';
   bindForm.deviceName = '';
   bindForm.metricIdentifier = '';
@@ -1348,17 +1445,24 @@ const handleEdit = async (row: RiskPoint) => {
   form.id = row.id;
   form.riskPointCode = row.riskPointCode;
   form.riskPointName = row.riskPointName;
-  form.orgId = row.orgId ? Number(row.orgId) : '';
+  form.orgId = row.orgId || '';
   form.orgName = row.orgName || '';
-  form.regionId = row.regionId ? Number(row.regionId) : '';
+  form.regionId = row.regionId || '';
   form.regionName = row.regionName || '';
-  form.responsibleUser = row.responsibleUser ? Number(row.responsibleUser) : '';
+  form.responsibleUser = row.responsibleUser || '';
   form.responsiblePhone = row.responsiblePhone;
   form.riskPointLevel = row.riskPointLevel || '';
   form.description = row.description || '';
   form.status = row.status;
   form.createBy = row.createBy;
   form.updateBy = row.updateBy;
+  upsertOrganizationOption({
+    id: row.orgId,
+    orgName: row.orgName,
+    leaderUserId: row.responsibleUser,
+    leaderName: row.responsibleUserName || '',
+    phone: row.responsiblePhone
+  });
   upsertRegionCache({
     id: row.regionId,
     regionName: row.regionName,
@@ -1390,8 +1494,8 @@ const handleDelete = async (row: RiskPoint) => {
     if (isConfirmCancelled(error)) {
       return;
     }
-    console.error('删除风险点失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '删除风险点失败');
+    logRiskPointRequestError('删除风险点失败', error);
+    showRiskPointRequestError(error, '删除风险点失败');
   }
 };
 
@@ -1399,17 +1503,21 @@ const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
     await formRef.value.validate();
+  } catch {
+    return;
+  }
+  try {
     submitLoading.value = true;
-    const selectedOrganization = findOrganizationById(organizationOptions.value, Number(form.orgId));
-    const selectedRegion = findRegionById(regionOptions.value, Number(form.regionId))
-      || findRegionById(regionOptionCache.value, Number(form.regionId));
+    const selectedOrganization = form.orgId === '' ? null : findOrganizationById(organizationOptions.value, form.orgId);
+    const selectedRegion = form.regionId === '' ? null : findRegionById(regionOptions.value, form.regionId)
+      || (form.regionId === '' ? null : findRegionById(regionOptionCache.value, form.regionId));
     form.orgName = selectedOrganization?.orgName || '';
     form.regionName = selectedRegion?.regionName || form.regionName || '';
     const payload = {
       ...form,
-      orgId: form.orgId === '' ? undefined : Number(form.orgId),
-      regionId: form.regionId === '' ? undefined : Number(form.regionId),
-      responsibleUser: form.responsibleUser === '' ? undefined : Number(form.responsibleUser)
+      orgId: form.orgId === '' ? undefined : form.orgId,
+      regionId: form.regionId === '' ? undefined : form.regionId,
+      responsibleUser: form.responsibleUser === '' ? undefined : form.responsibleUser
     };
     const res = form.id ? await updateRiskPoint(payload) : await addRiskPoint(payload);
     if (res.code === 200) {
@@ -1418,8 +1526,8 @@ const handleSubmit = async () => {
       void loadRiskPointList();
     }
   } catch (error) {
-    console.error('提交表单失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '提交风险点失败');
+    logRiskPointRequestError('提交表单失败', error);
+    showRiskPointRequestError(error, '提交风险点失败');
   } finally {
     submitLoading.value = false;
   }
@@ -1427,7 +1535,7 @@ const handleSubmit = async () => {
 
 const handleBindDevice = async (row: RiskPoint) => {
   resetBindForm();
-  bindForm.riskPointId = Number(row.id);
+  bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
   await loadBindableDeviceOptions(bindForm.riskPointId);
   bindDeviceVisible.value = true;
@@ -1435,13 +1543,13 @@ const handleBindDevice = async (row: RiskPoint) => {
 
 const handleOpenPendingPromotion = async (row: RiskPoint) => {
   resetPendingPromotionState();
-  pendingPromotionForm.riskPointId = Number(row.id);
+  pendingPromotionForm.riskPointId = row.id;
   pendingPromotionVisible.value = true;
   await loadPendingBindings();
 };
 
 const loadPendingBindings = async () => {
-  if (!pendingPromotionForm.riskPointId) {
+  if (!getIdKey(pendingPromotionForm.riskPointId)) {
     pendingBindings.value = [];
     pendingCandidates.value = [];
     pendingHistory.value = [];
@@ -1462,10 +1570,10 @@ const loadPendingBindings = async () => {
     }
     pendingBindings.value = res.data.records || [];
     const selectedPending = pendingBindings.value.find((item) =>
-      Number(item.id) === pendingPromotionForm.pendingId && isPromotablePending(item)
+      getIdKey(item.id) === getIdKey(pendingPromotionForm.pendingId) && isPromotablePending(item)
     ) || pendingBindings.value.find((item) => isPromotablePending(item));
     if (!selectedPending) {
-      pendingPromotionForm.pendingId = pendingBindings.value[0] ? Number(pendingBindings.value[0].id) : undefined;
+      pendingPromotionForm.pendingId = pendingBindings.value[0]?.id;
       pendingPromotionForm.selectedMetrics = [];
       pendingCandidates.value = [];
       pendingHistory.value = [];
@@ -1473,15 +1581,15 @@ const loadPendingBindings = async () => {
     }
     await handleSelectPendingRow(selectedPending);
   } catch (error) {
-    console.error('加载待治理记录失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载待治理记录失败');
+    logRiskPointRequestError('加载待治理记录失败', error);
+    showRiskPointRequestError(error, '加载待治理记录失败');
   } finally {
     pendingLoading.value = false;
   }
 };
 
 const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
-  pendingPromotionForm.pendingId = Number(pending.id);
+  pendingPromotionForm.pendingId = pending.id;
   pendingPromotionForm.selectedMetrics = [];
   if (!isPromotablePending(pending)) {
     pendingCandidates.value = [];
@@ -1498,8 +1606,8 @@ const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
     pendingCandidates.value = res.data.candidates || [];
     pendingHistory.value = res.data.promotionHistory || res.data.history || [];
   } catch (error) {
-    console.error('加载待治理候选失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '加载待治理候选失败');
+    logRiskPointRequestError('加载待治理候选失败', error);
+    showRiskPointRequestError(error, '加载待治理候选失败');
   }
 };
 
@@ -1544,8 +1652,8 @@ const handlePendingPromotionSubmit = async () => {
       void loadRiskPointList();
     }
   } catch (error) {
-    console.error('提交待治理转正失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '提交待治理转正失败');
+    logRiskPointRequestError('提交待治理转正失败', error);
+    showRiskPointRequestError(error, '提交待治理转正失败');
   } finally {
     submitLoading.value = false;
   }
@@ -1579,8 +1687,8 @@ const handleBindSubmit = async () => {
       void loadRiskPointList();
     }
   } catch (error) {
-    console.error('绑定设备失败', error);
-    ElMessage.error(error instanceof Error ? error.message : '绑定设备失败');
+    logRiskPointRequestError('绑定设备失败', error);
+    showRiskPointRequestError(error, '绑定设备失败');
   } finally {
     submitLoading.value = false;
   }
@@ -1615,10 +1723,9 @@ watch(
     if (!formVisible.value || !responsibleUser) {
       return;
     }
-    const userId = Number(responsibleUser);
-    const matchedUser = userOptions.value.find((item) => Number(item.id) === userId)
-      || knownUsers[userId]
-      || await fetchUserById(userId);
+    const matchedUser = userOptions.value.find((item) => isSameId(item.id, responsibleUser))
+      || knownUsers[getIdKey(responsibleUser)]
+      || await fetchUserById(responsibleUser);
     if (!matchedUser) {
       return;
     }
@@ -1635,7 +1742,7 @@ watch(
     bindForm.metricIdentifier = '';
     bindForm.metricName = '';
     metricList.value = [];
-    if (!deviceId) {
+    if (!getIdKey(deviceId)) {
       return;
     }
     const selectedDevice = deviceList.value.find((device) => String(device.id) === String(deviceId));

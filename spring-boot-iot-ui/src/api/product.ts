@@ -35,6 +35,7 @@ export interface ProductContractReleaseBatch {
 }
 
 export interface ProductContractReleaseRollbackResult {
+  targetBatchId?: IdType | null
   rolledBackBatchId?: IdType | null
   productId?: IdType | null
   scenarioCode?: string | null
@@ -44,6 +45,9 @@ export interface ProductContractReleaseRollbackResult {
   rollbackMode?: string | null
   rollbackLimitations?: string | null
   rollbackTime?: string | null
+  approvalOrderId?: IdType | null
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null
+  executionPending?: boolean | null
 }
 
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>

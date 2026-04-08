@@ -195,6 +195,46 @@ export interface ProductModelGovernanceApplyResult {
   conflictCount?: number | null;
   lastAppliedAt?: string | null;
   releaseBatchId?: string | number | null;
+  approvalOrderId?: string | number | null;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null;
+  executionPending?: boolean | null;
+}
+
+export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface GovernanceApprovalOrder {
+  id: string | number;
+  actionCode?: string | null;
+  actionName?: string | null;
+  subjectType?: string | null;
+  subjectId?: string | number | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: string | number | null;
+  approverUserId?: string | number | null;
+  payloadJson?: string | null;
+  approvalComment?: string | null;
+  approvedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceApprovalTransition {
+  id?: string | number | null;
+  fromStatus?: GovernanceApprovalStatus | null;
+  toStatus?: GovernanceApprovalStatus | null;
+  actorUserId?: string | number | null;
+  transitionComment?: string | null;
+  createTime?: string | null;
+}
+
+export interface GovernanceApprovalOrderDetail {
+  order?: GovernanceApprovalOrder | null;
+  transitions?: GovernanceApprovalTransition[] | null;
+}
+
+export interface GovernanceApprovalResubmitPayload {
+  approverUserId: string | number;
+  comment?: string | null;
 }
 
 export interface DeviceRelation {

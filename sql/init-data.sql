@@ -1,17 +1,17 @@
-﻿USE rm_iot;
+USE rm_iot;
 
--- 鐪熷疄鍩虹鏁版嵁锛堝彲閲嶅鎵ц锛?
--- 鍓嶇疆锛氬凡鎵ц鏈€鏂?sql/init.sql銆?
+-- 真实基础数据（可重复执行）
+-- 前置：已执行最新 sql/init.sql。
 
 SET NAMES utf8mb4;
 
 -- =========================
--- 1) 绉熸埛/鐢ㄦ埛/瑙掕壊鍩虹鏁版嵁
+-- 1) 租户/用户/角色基础数据
 -- =========================
 INSERT INTO sys_tenant (
     id, tenant_name, tenant_code, contact_name, contact_phone, contact_email, status, remark, create_time, update_time, deleted
 ) VALUES (
-    1, '榛樿绉熸埛', 'default', '骞冲彴绠＄悊鍛?, '13800000000', 'admin@ghlzm.com', 1, '鐪熷疄鐜鍩虹绉熸埛', NOW(), NOW(), 0
+    1, '默认租户', 'default', '平台管理员', '13800000000', 'admin@ghlzm.com', 1, '真实环境基础租户', NOW(), NOW(), 0
 )
 ON DUPLICATE KEY UPDATE
     tenant_name = VALUES(tenant_name),
@@ -26,11 +26,11 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO sys_role (
     id, tenant_id, role_name, role_code, description, data_scope_type, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (92000001, 1, '涓氬姟浜哄憳', 'BUSINESS_STAFF', '璐熻矗椋庨櫓鐩戞祴銆佸憡璀︾爺鍒ゃ€佷簨浠跺缃笌涓氬姟澶嶇洏銆?, 'SELF', 1, 1, NOW(), 1, NOW(), 0),
-    (92000002, 1, '绠＄悊浜哄憳', 'MANAGEMENT_STAFF', '璐熻矗涓氬姟缁熺銆佽鍒欏鎵广€佺郴缁熸不鐞嗕笌杩愯惀绠＄悊銆?, 'ORG_AND_CHILDREN', 1, 1, NOW(), 1, NOW(), 0),
-    (92000003, 1, '杩愮淮浜哄憳', 'OPS_STAFF', '璐熻矗璁惧鎺ュ叆銆佽仈璋冩帓闅溿€佽繍琛岀淮鎶や笌闂闂幆銆?, 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
-    (92000004, 1, '寮€鍙戜汉鍛?, 'DEVELOPER_STAFF', '璐熻矗鍗忚鑱旇皟銆佽鍒欏紑鍙戙€佺己闄峰畾浣嶄笌鍔熻兘楠岃瘉銆?, 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
-    (92000005, 1, '瓒呯骇绠＄悊鍛?, 'SUPER_ADMIN', '鎷ユ湁鍏ㄩ儴鑿滃崟涓庢搷浣滄潈闄愩€?, 'ALL', 1, 1, NOW(), 1, NOW(), 0)
+    (92000001, 1, '业务人员', 'BUSINESS_STAFF', '负责风险监测、告警研判、事件处置与业务复盘。', 'SELF', 1, 1, NOW(), 1, NOW(), 0),
+    (92000002, 1, '管理人员', 'MANAGEMENT_STAFF', '负责业务统筹、规则审批、系统治理与运营管理。', 'ORG_AND_CHILDREN', 1, 1, NOW(), 1, NOW(), 0),
+    (92000003, 1, '运维人员', 'OPS_STAFF', '负责设备接入、联调排障、运行维护与问题闭环。', 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
+    (92000004, 1, '开发人员', 'DEVELOPER_STAFF', '负责协议联调、规则开发、缺陷定位与功能验证。', 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
+    (92000005, 1, '超级管理员', 'SUPER_ADMIN', '拥有全部菜单与操作权限。', 'ALL', 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     role_name = VALUES(role_name),
     description = VALUES(description),
@@ -40,26 +40,26 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
--- 鍒濆鍖栨紨绀鸿处鍙烽粯璁ゅ瘑鐮侊細123456锛圔Crypt锛?
+-- 初始化演示账号默认密码：123456（BCrypt）
 INSERT INTO sys_user (
     id, tenant_id, org_id, username, password, nickname, real_name, phone, email, status, is_admin,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
     (1, 1, 7101, 'admin', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-     '骞冲彴鎬绘帶瀹?, '瓒呯骇绠＄悊鍛?, '13800000000', 'admin@ghlzm.com', 1, 1,
-     '瓒呯骇绠＄悊鍛樻紨绀鸿处鍙凤紝榛樿鏌ョ湅骞冲彴娌荤悊涓庡叏閲忚彍鍗曘€?, 1, NOW(), 1, NOW(), 0),
+     '平台总控官', '超级管理员', '13800000000', 'admin@ghlzm.com', 1, 1,
+     '超级管理员演示账号，默认查看平台治理与全量菜单。', 1, NOW(), 1, NOW(), 0),
     (2, 1, 7102, 'biz_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-     '椋庨櫓杩愯惀涓撳憳', '涓氬姟婕旂ず璐﹀彿', '13800000001', 'biz_demo@ghlzm.com', 1, 0,
-     '涓氬姟浜哄憳婕旂ず璐﹀彿锛岄粯璁よ繘鍏ラ闄╄繍钀ュ伐浣滃彴銆?, 1, NOW(), 1, NOW(), 0),
+     '风险运营专员', '业务演示账号', '13800000001', 'biz_demo@ghlzm.com', 1, 0,
+     '业务人员演示账号，默认进入风险运营工作台。', 1, NOW(), 1, NOW(), 0),
     (3, 1, 7101, 'manager_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-     '杩愯惀绠＄悊璐熻矗浜?, '绠＄悊婕旂ず璐﹀彿', '13800000002', 'manager_demo@ghlzm.com', 1, 0,
-     '绠＄悊浜哄憳婕旂ず璐﹀彿锛岄粯璁よ繘鍏ラ闄╄繍钀ュ苟瑕嗙洊椋庨櫓绛栫暐銆佸钩鍙版不鐞嗐€?, 1, NOW(), 1, NOW(), 0),
+     '运营管理负责人', '管理演示账号', '13800000002', 'manager_demo@ghlzm.com', 1, 0,
+     '管理人员演示账号，默认进入风险运营并覆盖风险策略、平台治理。', 1, NOW(), 1, NOW(), 0),
     (4, 1, 7101, 'ops_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-     '鎺ュ叆杩愮淮宸ョ▼甯?, '杩愮淮婕旂ず璐﹀彿', '13800000003', 'ops_demo@ghlzm.com', 1, 0,
-     '杩愮淮浜哄憳婕旂ず璐﹀彿锛岄粯璁よ繘鍏ユ帴鍏ユ櫤缁村伐浣滃彴銆?, 1, NOW(), 1, NOW(), 0),
+     '接入运维工程师', '运维演示账号', '13800000003', 'ops_demo@ghlzm.com', 1, 0,
+     '运维人员演示账号，默认进入接入智维工作台。', 1, NOW(), 1, NOW(), 0),
     (5, 1, 7101, 'dev_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
-     '骞冲彴寮€鍙戝伐绋嬪笀', '寮€鍙戞紨绀鸿处鍙?, '13800000004', 'dev_demo@ghlzm.com', 1, 0,
-     '寮€鍙戜汉鍛樻紨绀鸿处鍙凤紝榛樿杩涘叆鎺ュ叆鏅虹淮骞跺紑鏀捐川閲忓伐鍦恒€?, 1, NOW(), 1, NOW(), 0)
+     '平台开发工程师', '开发演示账号', '13800000004', 'dev_demo@ghlzm.com', 1, 0,
+     '开发人员演示账号，默认进入接入智维并开放质量工场。', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_id = VALUES(org_id),
     nickname = VALUES(nickname),
@@ -123,79 +123,79 @@ INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
     route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (93000001, 1, 0, '鎺ュ叆鏅虹淮', 'iot-access', '', 'Layout', 'connection', '{"description":"璧勪骇銆侀摼璺笌寮傚父瑙傛祴","menuTitle":"鎺ュ叆鏅虹淮","menuHint":"瑕嗙洊浜у搧瀹氫箟銆佽澶囪祫浜с€侀摼璺獙璇併€佸紓甯歌娴嬩笌鏁版嵁鏍￠獙銆?}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000002, 1, 0, '椋庨櫓杩愯惀', 'risk-ops', '', 'Layout', 'warning', '{"description":"鎬佸娍銆佸憡璀︿笌鍗忓悓闂幆","menuTitle":"椋庨櫓杩愯惀","menuHint":"瑕嗙洊瀹炴椂鐩戞祴銆佸憡璀﹁繍钀ャ€佷簨浠跺崗鍚屻€佸璞℃礊瀵熶笌杩愯惀澶嶇洏銆?}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000004, 1, 0, '椋庨櫓绛栫暐', 'risk-config', '', 'Layout', 'operation', '{"description":"瀵硅薄銆侀槇鍊间笌鑱斿姩閰嶇疆","menuTitle":"椋庨櫓绛栫暐","menuHint":"瑕嗙洊椋庨櫓瀵硅薄銆侀槇鍊肩瓥鐣ャ€佽仈鍔ㄧ紪鎺掍笌搴旀€ラ妗堝簱銆?}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000003, 1, 0, '骞冲彴娌荤悊', 'system-governance', '', 'Layout', 'setting', '{"description":"缁勭粐銆佹潈闄愪笌瀹¤娌荤悊","menuTitle":"骞冲彴娌荤悊","menuHint":"瑕嗙洊缁勭粐銆佽处鍙枫€佽鑹层€佸鑸€佸尯鍩熴€佸瓧鍏搞€侀€氱煡銆佸府鍔╀笌瀹¤涓績銆?}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '璐ㄩ噺宸ュ満', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"鐮斿彂宸ュ満銆佹墽琛岀粍缁囦笌缁撴灉鍩虹嚎","menuTitle":"璐ㄩ噺宸ュ満","menuHint":"瑕嗙洊鐮斿彂璧勪骇缂栨帓銆佹墽琛岀粍缁囦笌缁撴灉鍩虹嚎娌荤悊銆?}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000001, 1, 0, '接入智维', 'iot-access', '', 'Layout', 'connection', '{"description":"资产、链路与异常观测","menuTitle":"接入智维","menuHint":"覆盖产品定义、设备资产、链路验证、异常观测与数据校验。"}', 10, 0, 0, '', 'iot-access', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001001, 1, 93000001, '浜у搧瀹氫箟涓績', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"浜у搧鍙拌处銆佸崗璁熀绾夸笌搴撳瓨褰掑睘"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001002, 1, 93000001, '璁惧璧勪骇涓績', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"璁惧寤烘。銆佸湪绾跨姸鎬佷笌璧勪骇杩愮淮"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001003, 1, 93000001, '閾捐矾楠岃瘉涓績', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 涓婃姤妯℃嫙銆乸ayload 鍥炴斁涓庤仈璋?}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001006, 1, 93000001, '寮傚父瑙傛祴鍙?, 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"鐮斿彂娴嬭瘯瀹氫綅绯荤粺寮傚父涓庢帴鍏ラ棶棰?}', 14, 1, 1, '/system-log', 'iot:system-log', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001007, 1, 93000001, '閾捐矾杩借釜鍙?, 'iot:message-trace', '/message-trace', 'MessageTraceView', 'tickets', '{"caption":"鎸?TraceId銆佽澶囩紪鐮佷笌 Topic 鎺掓煡璁惧鎺ュ叆閾捐矾"}', 15, 1, 1, '/message-trace', 'iot:message-trace', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001005, 1, 93000001, '鏁版嵁鏍￠獙鍙?, 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"鏂囦欢蹇収涓庡浐浠惰仛鍚堢粨鏋滄牳楠?}', 16, 1, 1, '/file-debug', 'iot:file-debug', 16, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001006, 1, 93000001, '异常观测台', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 14, 1, 1, '/system-log', 'iot:system-log', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001007, 1, 93000001, '链路追踪台', 'iot:message-trace', '/message-trace', 'MessageTraceView', 'tickets', '{"caption":"按 TraceId、设备编码与 Topic 排查设备接入链路"}', 15, 1, 1, '/message-trace', 'iot:message-trace', 15, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001005, 1, 93000001, '数据校验台', 'iot:file-debug', '/file-debug', 'FilePayloadDebugView', 'document', '{"caption":"文件快照与固件聚合结果核验"}', 16, 1, 1, '/file-debug', 'iot:file-debug', 16, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93002008, 1, 93000002, '瀹炴椂鐩戞祴鍙?, 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"椋庨櫓鐩戞祴鍒楄〃銆佺瓫閫変笌璇︽儏鎶藉眽"}', 21, 1, 1, '/risk-monitoring', 'risk:monitoring', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002009, 1, 93000002, 'GIS鎬佸娍鍥?, 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"鐐逛綅鎬佸娍銆佹湭瀹氫綅椋庨櫓鐐逛笌鍦板浘鑱斿姩"}', 22, 1, 1, '/risk-monitoring-gis', 'risk:monitoring-gis', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002001, 1, 93000002, '鍛婅杩愯惀鍙?, 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"鍛婅鍒楄〃銆佺‘璁ゃ€佹姂鍒朵笌鍏抽棴"}', 23, 1, 1, '/alarm-center', 'risk:alarm', 23, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002002, 1, 93000002, '浜嬩欢鍗忓悓鍙?, 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"宸ュ崟娲惧彂銆佸缃弽棣堜笌浜嬩欢闂幆"}', 24, 1, 1, '/event-disposal', 'risk:event', 24, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001004, 1, 93000002, '瀵硅薄娲炲療鍙?, 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"璁惧灞炴€с€佹秷鎭棩蹇椾笌椋庨櫓鐮斿垽绾跨储"}', 25, 1, 1, '/insight', 'iot:insight', 25, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002007, 1, 93000002, '杩愯惀鍒嗘瀽涓績', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"椋庨櫓瓒嬪娍銆佸憡璀︾粺璁′笌璁惧鍋ュ悍澶嶇洏"}', 26, 1, 1, '/report-analysis', 'risk:report', 26, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002008, 1, 93000002, '实时监测台', 'risk:monitoring', '/risk-monitoring', 'RealTimeMonitoringView', 'monitor', '{"caption":"风险监测列表、筛选与详情抽屉"}', 21, 1, 1, '/risk-monitoring', 'risk:monitoring', 21, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002009, 1, 93000002, 'GIS态势图', 'risk:monitoring-gis', '/risk-monitoring-gis', 'RiskGisView', 'map-location', '{"caption":"点位态势、未定位风险点与地图联动"}', 22, 1, 1, '/risk-monitoring-gis', 'risk:monitoring-gis', 22, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002001, 1, 93000002, '告警运营台', 'risk:alarm', '/alarm-center', 'AlarmCenterView', 'bell', '{"caption":"告警列表、确认、抑制与关闭"}', 23, 1, 1, '/alarm-center', 'risk:alarm', 23, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002002, 1, 93000002, '事件协同台', 'risk:event', '/event-disposal', 'EventDisposalView', 'flag', '{"caption":"工单派发、处置反馈与事件闭环"}', 24, 1, 1, '/event-disposal', 'risk:event', 24, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001004, 1, 93000002, '对象洞察台', 'iot:insight', '/insight', 'DeviceInsightView', 'data-analysis', '{"caption":"设备属性、消息日志与风险研判线索"}', 25, 1, 1, '/insight', 'iot:insight', 25, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002007, 1, 93000002, '运营分析中心', 'risk:report', '/report-analysis', 'ReportAnalysisView', 'trend-charts', '{"caption":"风险趋势、告警统计与设备健康复盘"}', 26, 1, 1, '/report-analysis', 'risk:report', 26, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93002003, 1, 93000004, '椋庨櫓瀵硅薄涓績', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"椋庨櫓瀵硅薄寤烘。銆佽澶囩粦瀹氫笌绛夌骇娌荤悊"}', 31, 1, 1, '/risk-point', 'risk:point', 31, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002004, 1, 93000004, '闃堝€肩瓥鐣?, 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"闃堝€艰鍒欑淮鎶や笌瑙﹀彂鏉′欢娌荤悊"}', 32, 1, 1, '/rule-definition', 'risk:rule-definition', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002005, 1, 93000004, '鑱斿姩缂栨帓', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"瑙﹀彂鏉′欢涓庤仈鍔ㄥ姩浣滅紪鎺?}', 33, 1, 1, '/linkage-rule', 'risk:linkage-rule', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93002006, 1, 93000004, '搴旀€ラ妗堝簱', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"棰勬缁存姢銆佹楠ょ紪鎺掍笌鍝嶅簲鍗忓悓"}', 34, 1, 1, '/emergency-plan', 'risk:emergency-plan', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002003, 1, 93000004, '风险对象中心', 'risk:point', '/risk-point', 'RiskPointView', 'location', '{"caption":"风险对象建档、设备绑定与等级治理"}', 31, 1, 1, '/risk-point', 'risk:point', 31, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002004, 1, 93000004, '阈值策略', 'risk:rule-definition', '/rule-definition', 'RuleDefinitionView', 'set-up', '{"caption":"阈值规则维护与触发条件治理"}', 32, 1, 1, '/rule-definition', 'risk:rule-definition', 32, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002005, 1, 93000004, '联动编排', 'risk:linkage-rule', '/linkage-rule', 'LinkageRuleView', 'operation', '{"caption":"触发条件与联动动作编排"}', 33, 1, 1, '/linkage-rule', 'risk:linkage-rule', 33, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002006, 1, 93000004, '应急预案库', 'risk:emergency-plan', '/emergency-plan', 'EmergencyPlanView', 'tickets', '{"caption":"预案维护、步骤编排与响应协同"}', 34, 1, 1, '/emergency-plan', 'risk:emergency-plan', 34, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003001, 1, 93000003, '缁勭粐鏋舵瀯', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"缁勭粐鏍戠淮鎶や笌璐ｄ换涓讳綋绠＄悊"}', 41, 1, 1, '/organization', 'system:organization', 41, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003002, 1, 93000003, '璐﹀彿涓績', 'system:user', '/user', 'UserView', 'user', '{"caption":"璐﹀彿缁存姢銆佺姸鎬佺鐞嗕笌瀵嗙爜閲嶇疆"}', 42, 1, 1, '/user', 'system:user', 42, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003003, 1, 93000003, '瑙掕壊鏉冮檺', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"瑙掕壊缁存姢涓庤彍鍗曟巿鏉冪鐞?}', 43, 1, 1, '/role', 'system:role', 43, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003008, 1, 93000003, '瀵艰埅缂栨帓', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"鑿滃崟鏍戠粨鏋勪笌椤甸潰鏉冮檺椤圭淮鎶?}', 44, 1, 1, '/menu', 'system:menu', 44, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003004, 1, 93000003, '鍖哄煙鐗堝浘', 'system:region', '/region', 'RegionView', 'place', '{"caption":"鍖哄煙鏍戜笌涓氬姟鍖哄煙褰掑睘缁存姢"}', 45, 1, 1, '/region', 'system:region', 45, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003005, 1, 93000003, '鏁版嵁瀛楀吀', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"瀛楀吀绫诲瀷涓庡瓧鍏搁」閰嶇疆"}', 46, 1, 1, '/dict', 'system:dict', 46, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003006, 1, 93000003, '閫氱煡缂栨帓', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"閫氱煡娓犻亾閰嶇疆銆佸惎鍋滀笌娴嬭瘯"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003010, 1, 93000003, '绔欏唴娑堟伅', 'system:in-app-message', '/in-app-message', 'InAppMessageView', 'bell', '{"caption":"閫氱煡涓績绔欏唴娑堟伅鐨勫垎绫汇€佽寖鍥翠笌鏃堕棿绐楀彛缂栨帓"}', 48, 1, 1, '/in-app-message', 'system:in-app-message', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003011, 1, 93000003, '甯姪鏂囨。', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"甯姪涓績涓氬姟绫汇€佹妧鏈被鍜?FAQ 璧勬枡缂栨帓"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '瀹¤涓績', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"瀹㈡埛涓庢不鐞嗕晶涓氬姟鎿嶄綔瀹¤"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003001, 1, 93000003, '组织架构', 'system:organization', '/organization', 'OrganizationView', 'office-building', '{"caption":"组织树维护与责任主体管理"}', 41, 1, 1, '/organization', 'system:organization', 41, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003002, 1, 93000003, '账号中心', 'system:user', '/user', 'UserView', 'user', '{"caption":"账号维护、状态管理与密码重置"}', 42, 1, 1, '/user', 'system:user', 42, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003003, 1, 93000003, '角色权限', 'system:role', '/role', 'RoleView', 'avatar', '{"caption":"角色维护与菜单授权管理"}', 43, 1, 1, '/role', 'system:role', 43, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003008, 1, 93000003, '导航编排', 'system:menu', '/menu', 'MenuView', 'menu', '{"caption":"菜单树结构与页面权限项维护"}', 44, 1, 1, '/menu', 'system:menu', 44, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003004, 1, 93000003, '区域版图', 'system:region', '/region', 'RegionView', 'place', '{"caption":"区域树与业务区域归属维护"}', 45, 1, 1, '/region', 'system:region', 45, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003005, 1, 93000003, '数据字典', 'system:dict', '/dict', 'DictView', 'collection', '{"caption":"字典类型与字典项配置"}', 46, 1, 1, '/dict', 'system:dict', 46, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003006, 1, 93000003, '通知编排', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003010, 1, 93000003, '站内消息', 'system:in-app-message', '/in-app-message', 'InAppMessageView', 'bell', '{"caption":"通知中心站内消息的分类、范围与时间窗口编排"}', 48, 1, 1, '/in-app-message', 'system:in-app-message', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003020, 1, 93000005, '涓氬姟楠屾敹鍙?, 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"鎸変氦浠樻竻鍗曡繍琛岄缃笟鍔￠獙鏀跺寘"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003015, 1, 93000005, '鐮斿彂宸ュ満', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"鐮斿彂鑷姩鍖栬祫浜х紪鎺掍富鍏ュ彛"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003016, 1, 93000005, '椤甸潰鐩樼偣鍙?, 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"椤甸潰娓呭崟銆佽鐩栫己鍙ｄ笌浜哄伐琛ュ綍"}', 53, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003017, 1, 93000005, '鍦烘櫙妯℃澘鍙?, 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"娌夋穩椤甸潰鍐掔儫銆佽〃鍗曟彁浜や笌鍒楄〃璇︽儏妯℃澘"}', 54, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003018, 1, 93000005, '璁″垝缂栨帓鍙?, 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"缁存姢鍦烘櫙椤哄簭銆佹楠ゃ€佹柇瑷€涓庡鍏ュ鍑?}', 55, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003019, 1, 93000005, '浜や粯鎵撳寘鍙?, 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"鏁寸悊鎵ц寤鸿銆佸熀绾胯鏄庝笌楠屾敹澶囨敞"}', 56, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003013, 1, 93000005, '鎵ц涓績', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"鐩爣鐜銆佸懡浠ら瑙堜笌缁熶竴楠屾敹娉ㄥ唽琛?}', 57, 1, 1, '/automation-execution', 'system:automation-execution', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003014, 1, 93000005, '缁撴灉涓庡熀绾夸腑蹇?, 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"杩愯缁撴灉瀵煎叆銆佸け璐ュ鐩樹笌璐ㄩ噺寤鸿"}', 58, 1, 1, '/automation-results', 'system:automation-results', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003012, 1, 93000005, '鑷姩鍖栬祫浜т腑蹇冿紙鍏煎鍏ュ彛锛?, 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"鍏煎鏃у叆鍙ｏ紝绗竴杞洿鎺ヨ惤鍒扮爺鍙戝伐鍦烘€昏"}', 59, 1, 1, '/automation-assets', 'system:automation-assets', 59, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003009, 1, 93000005, '鑷姩鍖栧伐鍦猴紙鍏煎鍏ュ彛锛?, 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"鍏煎鏃у叆鍙ｏ紝绗竴杞洿鎺ヨ惤鍒扮爺鍙戝伐鍦烘€昏"}', 60, 1, 1, '/automation-test', 'system:automation-test', 60, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001011, 1, 93001001, '鏂板浜у搧', 'iot:products:add', '', '', '', '{"caption":"浜у搧瀹氫箟涓績鏂板浜у搧鎸夐挳鏉冮檺"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001012, 1, 93001001, '缂栬緫浜у搧', 'iot:products:update', '', '', '', '{"caption":"浜у搧瀹氫箟涓績缂栬緫浜у搧鎸夐挳鏉冮檺"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001013, 1, 93001001, '鍒犻櫎浜у搧', 'iot:products:delete', '', '', '', '{"caption":"浜у搧瀹氫箟涓績鍒犻櫎浜у搧鎸夐挳鏉冮檺"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001014, 1, 93001001, '瀵煎嚭浜у搧', 'iot:products:export', '', '', '', '{"caption":"浜у搧瀹氫箟涓績瀵煎嚭浜у搧鎸夐挳鏉冮檺"}', 1104, 2, 2, '', 'iot:products:export', 1104, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001101, 1, 93001002, '鏂板璁惧', 'iot:devices:add', '', '', '', '{"caption":"璁惧璧勪骇涓績鏂板璁惧鎸夐挳鏉冮檺"}', 1201, 2, 2, '', 'iot:devices:add', 1201, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001102, 1, 93001002, '缂栬緫璁惧', 'iot:devices:update', '', '', '', '{"caption":"璁惧璧勪骇涓績缂栬緫璁惧鎸夐挳鏉冮檺"}', 1202, 2, 2, '', 'iot:devices:update', 1202, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001103, 1, 93001002, '鍒犻櫎璁惧', 'iot:devices:delete', '', '', '', '{"caption":"璁惧璧勪骇涓績鍒犻櫎璁惧鎸夐挳鏉冮檺"}', 1203, 2, 2, '', 'iot:devices:delete', 1203, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001104, 1, 93001002, '瀵煎嚭璁惧', 'iot:devices:export', '', '', '', '{"caption":"璁惧璧勪骇涓績瀵煎嚭璁惧鎸夐挳鏉冮檺"}', 1204, 2, 2, '', 'iot:devices:export', 1204, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001105, 1, 93001002, '鎵归噺瀵煎叆璁惧', 'iot:devices:import', '', '', '', '{"caption":"璁惧璧勪骇涓績鎵归噺瀵煎叆璁惧鎸夐挳鏉冮檺"}', 1205, 2, 2, '', 'iot:devices:import', 1205, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001106, 1, 93001002, '鏇存崲璁惧', 'iot:devices:replace', '', '', '', '{"caption":"璁惧璧勪骇涓績鏇存崲璁惧鎸夐挳鏉冮檺"}', 1206, 2, 2, '', 'iot:devices:replace', 1206, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003020, 1, 93000005, '业务验收台', 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"按交付清单运行预置业务验收包"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003016, 1, 93000005, '页面盘点台', 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"页面清单、覆盖缺口与人工补录"}', 53, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003017, 1, 93000005, '场景模板台', 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"沉淀页面冒烟、表单提交与列表详情模板"}', 54, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003018, 1, 93000005, '计划编排台', 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"维护场景顺序、步骤、断言与导入导出"}', 55, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003019, 1, 93000005, '交付打包台', 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"整理执行建议、基线说明与验收备注"}', 56, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"目标环境、命令预览与统一验收注册表"}', 57, 1, 1, '/automation-execution', 'system:automation-execution', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 58, 1, 1, '/automation-results', 'system:automation-results', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003012, 1, 93000005, '自动化资产中心（兼容入口）', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 59, 1, 1, '/automation-assets', 'system:automation-assets', 59, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003009, 1, 93000005, '自动化工场（兼容入口）', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 60, 1, 1, '/automation-test', 'system:automation-test', 60, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001014, 1, 93001001, '导出产品', 'iot:products:export', '', '', '', '{"caption":"产品定义中心导出产品按钮权限"}', 1104, 2, 2, '', 'iot:products:export', 1104, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001101, 1, 93001002, '新增设备', 'iot:devices:add', '', '', '', '{"caption":"设备资产中心新增设备按钮权限"}', 1201, 2, 2, '', 'iot:devices:add', 1201, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001102, 1, 93001002, '编辑设备', 'iot:devices:update', '', '', '', '{"caption":"设备资产中心编辑设备按钮权限"}', 1202, 2, 2, '', 'iot:devices:update', 1202, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001103, 1, 93001002, '删除设备', 'iot:devices:delete', '', '', '', '{"caption":"设备资产中心删除设备按钮权限"}', 1203, 2, 2, '', 'iot:devices:delete', 1203, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001104, 1, 93001002, '导出设备', 'iot:devices:export', '', '', '', '{"caption":"设备资产中心导出设备按钮权限"}', 1204, 2, 2, '', 'iot:devices:export', 1204, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001105, 1, 93001002, '批量导入设备', 'iot:devices:import', '', '', '', '{"caption":"设备资产中心批量导入设备按钮权限"}', 1205, 2, 2, '', 'iot:devices:import', 1205, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001106, 1, 93001002, '更换设备', 'iot:devices:replace', '', '', '', '{"caption":"设备资产中心更换设备按钮权限"}', 1206, 2, 2, '', 'iot:devices:replace', 1206, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003101, 1, 93003002, '鏂板鐢ㄦ埛', 'system:user:add', '', '', '', '{"caption":"鏂板鐢ㄦ埛鎸夐挳鏉冮檺"}', 3201, 2, 2, '', 'system:user:add', 3201, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003102, 1, 93003002, '缂栬緫鐢ㄦ埛', 'system:user:update', '', '', '', '{"caption":"缂栬緫鐢ㄦ埛鎸夐挳鏉冮檺"}', 3202, 2, 2, '', 'system:user:update', 3202, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003103, 1, 93003002, '鍒犻櫎鐢ㄦ埛', 'system:user:delete', '', '', '', '{"caption":"鍒犻櫎鐢ㄦ埛鎸夐挳鏉冮檺"}', 3203, 2, 2, '', 'system:user:delete', 3203, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003104, 1, 93003002, '閲嶇疆瀵嗙爜', 'system:user:reset-password', '', '', '', '{"caption":"閲嶇疆瀵嗙爜鎸夐挳鏉冮檺"}', 3204, 2, 2, '', 'system:user:reset-password', 3204, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003201, 1, 93003003, '鏂板瑙掕壊', 'system:role:add', '', '', '', '{"caption":"鏂板瑙掕壊鎸夐挳鏉冮檺"}', 3301, 2, 2, '', 'system:role:add', 3301, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003202, 1, 93003003, '缂栬緫瑙掕壊', 'system:role:update', '', '', '', '{"caption":"缂栬緫瑙掕壊鎸夐挳鏉冮檺"}', 3302, 2, 2, '', 'system:role:update', 3302, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003203, 1, 93003003, '鍒犻櫎瑙掕壊', 'system:role:delete', '', '', '', '{"caption":"鍒犻櫎瑙掕壊鎸夐挳鏉冮檺"}', 3303, 2, 2, '', 'system:role:delete', 3303, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003301, 1, 93003008, '鏂板鑿滃崟', 'system:menu:add', '', '', '', '{"caption":"鏂板鑿滃崟鎸夐挳鏉冮檺"}', 3801, 2, 2, '', 'system:menu:add', 3801, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003302, 1, 93003008, '缂栬緫鑿滃崟', 'system:menu:update', '', '', '', '{"caption":"缂栬緫鑿滃崟鎸夐挳鏉冮檺"}', 3802, 2, 2, '', 'system:menu:update', 3802, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003303, 1, 93003008, '鍒犻櫎鑿滃崟', 'system:menu:delete', '', '', '', '{"caption":"鍒犻櫎鑿滃崟鎸夐挳鏉冮檺"}', 3803, 2, 2, '', 'system:menu:delete', 3803, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003401, 1, 93003010, '鏂板绔欏唴娑堟伅', 'system:in-app-message:add', '', '', '', '{"caption":"鏂板绔欏唴娑堟伅鎸夐挳鏉冮檺"}', 3901, 2, 2, '', 'system:in-app-message:add', 3901, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003402, 1, 93003010, '缂栬緫绔欏唴娑堟伅', 'system:in-app-message:update', '', '', '', '{"caption":"缂栬緫绔欏唴娑堟伅鎸夐挳鏉冮檺"}', 3902, 2, 2, '', 'system:in-app-message:update', 3902, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003403, 1, 93003010, '鍒犻櫎绔欏唴娑堟伅', 'system:in-app-message:delete', '', '', '', '{"caption":"鍒犻櫎绔欏唴娑堟伅鎸夐挳鏉冮檺"}', 3903, 2, 2, '', 'system:in-app-message:delete', 3903, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003501, 1, 93003011, '鏂板甯姪鏂囨。', 'system:help-doc:add', '', '', '', '{"caption":"鏂板甯姪鏂囨。鎸夐挳鏉冮檺"}', 4001, 2, 2, '', 'system:help-doc:add', 4001, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003502, 1, 93003011, '缂栬緫甯姪鏂囨。', 'system:help-doc:update', '', '', '', '{"caption":"缂栬緫甯姪鏂囨。鎸夐挳鏉冮檺"}', 4002, 2, 2, '', 'system:help-doc:update', 4002, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003503, 1, 93003011, '鍒犻櫎甯姪鏂囨。', 'system:help-doc:delete', '', '', '', '{"caption":"鍒犻櫎甯姪鏂囨。鎸夐挳鏉冮檺"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003101, 1, 93003002, '新增用户', 'system:user:add', '', '', '', '{"caption":"新增用户按钮权限"}', 3201, 2, 2, '', 'system:user:add', 3201, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003102, 1, 93003002, '编辑用户', 'system:user:update', '', '', '', '{"caption":"编辑用户按钮权限"}', 3202, 2, 2, '', 'system:user:update', 3202, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003103, 1, 93003002, '删除用户', 'system:user:delete', '', '', '', '{"caption":"删除用户按钮权限"}', 3203, 2, 2, '', 'system:user:delete', 3203, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003104, 1, 93003002, '重置密码', 'system:user:reset-password', '', '', '', '{"caption":"重置密码按钮权限"}', 3204, 2, 2, '', 'system:user:reset-password', 3204, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003201, 1, 93003003, '新增角色', 'system:role:add', '', '', '', '{"caption":"新增角色按钮权限"}', 3301, 2, 2, '', 'system:role:add', 3301, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003202, 1, 93003003, '编辑角色', 'system:role:update', '', '', '', '{"caption":"编辑角色按钮权限"}', 3302, 2, 2, '', 'system:role:update', 3302, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003203, 1, 93003003, '删除角色', 'system:role:delete', '', '', '', '{"caption":"删除角色按钮权限"}', 3303, 2, 2, '', 'system:role:delete', 3303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003301, 1, 93003008, '新增菜单', 'system:menu:add', '', '', '', '{"caption":"新增菜单按钮权限"}', 3801, 2, 2, '', 'system:menu:add', 3801, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003302, 1, 93003008, '编辑菜单', 'system:menu:update', '', '', '', '{"caption":"编辑菜单按钮权限"}', 3802, 2, 2, '', 'system:menu:update', 3802, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003303, 1, 93003008, '删除菜单', 'system:menu:delete', '', '', '', '{"caption":"删除菜单按钮权限"}', 3803, 2, 2, '', 'system:menu:delete', 3803, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003401, 1, 93003010, '新增站内消息', 'system:in-app-message:add', '', '', '', '{"caption":"新增站内消息按钮权限"}', 3901, 2, 2, '', 'system:in-app-message:add', 3901, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003402, 1, 93003010, '编辑站内消息', 'system:in-app-message:update', '', '', '', '{"caption":"编辑站内消息按钮权限"}', 3902, 2, 2, '', 'system:in-app-message:update', 3902, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003403, 1, 93003010, '删除站内消息', 'system:in-app-message:delete', '', '', '', '{"caption":"删除站内消息按钮权限"}', 3903, 2, 2, '', 'system:in-app-message:delete', 3903, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003501, 1, 93003011, '新增帮助文档', 'system:help-doc:add', '', '', '', '{"caption":"新增帮助文档按钮权限"}', 4001, 2, 2, '', 'system:help-doc:add', 4001, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003502, 1, 93003011, '编辑帮助文档', 'system:help-doc:update', '', '', '', '{"caption":"编辑帮助文档按钮权限"}', 4002, 2, 2, '', 'system:help-doc:update', 4002, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -216,7 +216,6 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = VALUES(deleted);
 
--- 清理历史粗粒度治理写权限残留（兼容已执行旧种子脚本的环境）
 UPDATE sys_role_menu rm
 JOIN sys_menu m ON m.id = rm.menu_id
 SET rm.deleted = 1,
@@ -378,6 +377,7 @@ FROM sys_menu m
 WHERE m.deleted = 0
   AND @role_super_admin_id IS NOT NULL
 ORDER BY m.sort, m.id;
+
 -- governance fine-grained permission seeds
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
@@ -469,16 +469,15 @@ WHERE role_scope.role_id IS NOT NULL
       AND rm.menu_id = role_scope.menu_id
       AND rm.deleted = 0
   );
-
 -- =========================
--- 2) IoT 浜у搧/璁惧/娑堟伅鍩虹嚎
+-- 2) IoT 产品/设备/消息基线
 -- =========================
 INSERT INTO iot_product (
     id, tenant_id, product_key, product_name, protocol_code, node_type, data_format,
     manufacturer, description, status, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (1001, 1, 'accept-http-product-01', '楠屾敹浜у搧-HTTP-01', 'mqtt-json', 1, 'JSON', 'GHLZM', 'HTTP 涓婚摼璺獙鏀朵骇鍝?, 1, '鐪熷疄鐜鍩虹嚎', 1, NOW(), 1, NOW(), 0),
-    (1002, 1, 'accept-mqtt-product-01', '楠屾敹浜у搧-MQTT-01', 'mqtt-json', 1, 'JSON', 'GHLZM', 'MQTT 涓婚摼璺獙鏀朵骇鍝?, 1, '鐪熷疄鐜鍩虹嚎', 1, NOW(), 1, NOW(), 0)
+    (1001, 1, 'accept-http-product-01', '验收产品-HTTP-01', 'mqtt-json', 1, 'JSON', 'GHLZM', 'HTTP 主链路验收产品', 1, '真实环境基线', 1, NOW(), 1, NOW(), 0),
+    (1002, 1, 'accept-mqtt-product-01', '验收产品-MQTT-01', 'mqtt-json', 1, 'JSON', 'GHLZM', 'MQTT 主链路验收产品', 1, '真实环境基线', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     product_name = VALUES(product_name),
     protocol_code = VALUES(protocol_code),
@@ -496,11 +495,11 @@ INSERT INTO iot_product_model (
     id, tenant_id, product_id, model_type, identifier, model_name, data_type, specs_json,
     sort_no, required_flag, description, create_time, update_time, deleted
 ) VALUES
-    (3001, 1, 1001, 'property', 'temperature', '娓╁害', 'double', JSON_OBJECT('unit', '鈩?, 'min', -40, 'max', 200), 1, 0, '娓╁害娴嬬偣', NOW(), NOW(), 0),
-    (3002, 1, 1001, 'property', 'humidity', '婀垮害', 'double', JSON_OBJECT('unit', '%', 'min', 0, 'max', 100), 2, 0, '婀垮害娴嬬偣', NOW(), NOW(), 0),
-    (3003, 1, 1001, 'property', 'pressure', '鍘嬪姏', 'double', JSON_OBJECT('unit', 'kPa', 'min', 80, 'max', 140), 3, 0, '鍘嬪姏娴嬬偣', NOW(), NOW(), 0),
-    (3004, 1, 1002, 'property', 'temperature', '娓╁害', 'double', JSON_OBJECT('unit', '鈩?, 'min', -40, 'max', 200), 1, 0, '娓╁害娴嬬偣', NOW(), NOW(), 0),
-    (3005, 1, 1002, 'property', 'vibration', '鎸姩', 'double', JSON_OBJECT('unit', 'mm/s', 'min', 0, 'max', 30), 2, 0, '鎸姩娴嬬偣', NOW(), NOW(), 0)
+    (3001, 1, 1001, 'property', 'temperature', '温度', 'double', JSON_OBJECT('unit', '℃', 'min', -40, 'max', 200), 1, 0, '温度测点', NOW(), NOW(), 0),
+    (3002, 1, 1001, 'property', 'humidity', '湿度', 'double', JSON_OBJECT('unit', '%', 'min', 0, 'max', 100), 2, 0, '湿度测点', NOW(), NOW(), 0),
+    (3003, 1, 1001, 'property', 'pressure', '压力', 'double', JSON_OBJECT('unit', 'kPa', 'min', 80, 'max', 140), 3, 0, '压力测点', NOW(), NOW(), 0),
+    (3004, 1, 1002, 'property', 'temperature', '温度', 'double', JSON_OBJECT('unit', '℃', 'min', -40, 'max', 200), 1, 0, '温度测点', NOW(), NOW(), 0),
+    (3005, 1, 1002, 'property', 'vibration', '振动', 'double', JSON_OBJECT('unit', 'mm/s', 'min', 0, 'max', 30), 2, 0, '振动测点', NOW(), NOW(), 0)
 ON DUPLICATE KEY UPDATE
     model_name = VALUES(model_name),
     data_type = VALUES(data_type),
@@ -515,13 +514,13 @@ INSERT INTO iot_normative_metric_definition (
     id, tenant_id, scenario_code, device_family, identifier, display_name, unit,
     precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled, metadata_json
 ) VALUES
-    (920001, 1, 'phase1-crack', 'CRACK', 'value', '瑁傜紳鐩戞祴鍊?, 'mm', 4, 'L1', 'LF', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '浼犳劅鍣ㄧ姸鎬?, NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state')),
-    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 鍘熷瑙傛祴鍩虹鏁版嵁', NULL, 0, 'L1', 'GP', 0, 0, JSON_OBJECT('usage', 'raw_observation')),
-    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 绱浣嶇Щ X', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 绱浣嶇Щ Y', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 绱浣嶇Щ Z', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '浼犳劅鍣ㄧ姸鎬?, NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state'))
+    (920001, 1, 'phase1-crack', 'CRACK', 'value', '裂缝监测值', 'mm', 4, 'L1', 'LF', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state')),
+    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0, JSON_OBJECT('usage', 'raw_observation')),
+    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state'))
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     unit = VALUES(unit),
@@ -539,12 +538,12 @@ INSERT INTO iot_device (
     ip_address, last_online_time, last_report_time, longitude, latitude, address, metadata_json,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (2001, 1, 7101, '骞冲彴杩愮淮涓績', 1001, '楠屾敹璁惧-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
-     'mqtt-json', 1, 1, 1, 1, '1.0.0', '10.10.1.11', DATE_SUB(NOW(), INTERVAL 10 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), 121.473700, 31.230400, '涓婃捣甯傞粍娴﹀尯涓北鍗楄矾', JSON_OBJECT('line', 'A', 'workshop', 'W1'),
-     'HTTP 閾捐矾楠屾敹璁惧', 1, NOW(), 1, NOW(), 0),
-    (2002, 1, 7102, '鍛婅澶勭疆缁?, 1002, '楠屾敹璁惧-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
-     'mqtt-json', 1, 1, 1, 1, '1.2.3', '10.10.1.12', DATE_SUB(NOW(), INTERVAL 8 MINUTE), DATE_SUB(NOW(), INTERVAL 1 MINUTE), 121.478900, 31.226600, '涓婃捣甯傞粍娴﹀尯浜烘皯璺?, JSON_OBJECT('line', 'B', 'workshop', 'W2'),
-     'MQTT 閾捐矾楠屾敹璁惧', 1, NOW(), 1, NOW(), 0)
+    (2001, 1, 7101, '平台运维中心', 1001, '验收设备-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
+     'mqtt-json', 1, 1, 1, 1, '1.0.0', '10.10.1.11', DATE_SUB(NOW(), INTERVAL 10 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), 121.473700, 31.230400, '上海市黄浦区中山南路', JSON_OBJECT('line', 'A', 'workshop', 'W1'),
+     'HTTP 链路验收设备', 1, NOW(), 1, NOW(), 0),
+    (2002, 1, 7102, '告警处置组', 1002, '验收设备-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
+     'mqtt-json', 1, 1, 1, 1, '1.2.3', '10.10.1.12', DATE_SUB(NOW(), INTERVAL 8 MINUTE), DATE_SUB(NOW(), INTERVAL 1 MINUTE), 121.478900, 31.226600, '上海市黄浦区人民路', JSON_OBJECT('line', 'B', 'workshop', 'W2'),
+     'MQTT 链路验收设备', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_id = VALUES(org_id),
     org_name = VALUES(org_name),
@@ -570,11 +569,11 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO iot_device_property (
     id, tenant_id, device_id, identifier, property_name, property_value, value_type, report_time, create_time, update_time
 ) VALUES
-    (4001, 1, 2001, 'temperature', '娓╁害', '26.5', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (4002, 1, 2001, 'humidity', '婀垮害', '68', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (4003, 1, 2001, 'pressure', '鍘嬪姏', '101.3', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (4004, 1, 2002, 'temperature', '娓╁害', '31.2', 'double', DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW()),
-    (4005, 1, 2002, 'vibration', '鎸姩', '5.6', 'double', DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW())
+    (4001, 1, 2001, 'temperature', '温度', '26.5', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (4002, 1, 2001, 'humidity', '湿度', '68', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (4003, 1, 2001, 'pressure', '压力', '101.3', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (4004, 1, 2002, 'temperature', '温度', '31.2', 'double', DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW()),
+    (4005, 1, 2002, 'vibration', '振动', '5.6', 'double', DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     property_name = VALUES(property_name),
     property_value = VALUES(property_value),
@@ -605,7 +604,7 @@ INSERT INTO iot_command_record (
      '/sys/accept-http-product-01/accept-http-device-01/thing/property/set', 'property', NULL,
      '{"switch":1,"targetTemperature":23.0}', '{"code":0,"msg":"ok"}', 1, 0, 'SUCCESS',
      DATE_SUB(NOW(), INTERVAL 3 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), DATE_ADD(NOW(), INTERVAL 2 MINUTE), NULL,
-     '楠屾敹涓嬭鎸囦护鏍蜂緥', 1, NOW(), 1, NOW(), 0)
+     '验收下行指令样例', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     request_payload = VALUES(request_payload),
     reply_payload = VALUES(reply_payload),
@@ -620,14 +619,14 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 -- =========================
--- 3) 绯荤粺绠＄悊鍩虹鏁版嵁
+-- 3) 系统管理基础数据
 -- =========================
 INSERT INTO sys_region (
     id, tenant_id, region_name, region_code, parent_id, region_type, longitude, latitude,
     status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7001, 1, '鍗庝笢绀鸿寖鍖?, 'EAST-DEMO', 0, 'province', 121.473700, 31.230400, 1, 1, '鐪熷疄鐜婕旂ず鍖哄煙', 1, NOW(), 1, NOW(), 0),
-    (7002, 1, '榛勬郸鍘傚尯', 'HP-PLANT', 7001, 'district', 121.478900, 31.226600, 1, 1, '椋庨櫓鐐规墍灞炲尯鍩?, 1, NOW(), 1, NOW(), 0)
+    (7001, 1, '华东示范区', 'EAST-DEMO', 0, 'province', 121.473700, 31.230400, 1, 1, '真实环境演示区域', 1, NOW(), 1, NOW(), 0),
+    (7002, 1, '黄浦厂区', 'HP-PLANT', 7001, 'district', 121.478900, 31.226600, 1, 1, '风险点所属区域', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     region_name = VALUES(region_name),
     parent_id = VALUES(parent_id),
@@ -645,40 +644,40 @@ INSERT INTO sys_region (
     id, tenant_id, region_name, region_code, parent_id, region_type, longitude, latitude,
     status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (62, 1, '鐢樿們鐪?, '62', 0, 'province', NULL, NULL, 1, 1, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6201, 1, '鍏板窞甯?, '6201', 62, 'city', NULL, NULL, 1, 11, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6202, 1, '鍢夊唱鍏冲競', '6202', 62, 'city', NULL, NULL, 1, 12, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6205, 1, '澶╂按甯?, '6205', 62, 'city', NULL, NULL, 1, 13, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6206, 1, '姝﹀▉甯?, '6206', 62, 'city', NULL, NULL, 1, 14, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6208, 1, '骞冲噳甯?, '6208', 62, 'city', NULL, NULL, 1, 15, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6210, 1, '搴嗛槼甯?, '6210', 62, 'city', NULL, NULL, 1, 16, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6211, 1, '瀹氳タ甯?, '6211', 62, 'city', NULL, NULL, 1, 17, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6212, 1, '闄囧崡甯?, '6212', 62, 'city', NULL, NULL, 1, 18, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (6229, 1, '涓村鍥炴棌鑷不宸?, '6229', 62, 'city', NULL, NULL, 1, 19, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620102, 1, '鍩庡叧鍖?, '620102', 6201, 'district', NULL, NULL, 1, 101, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620103, 1, '涓冮噷娌冲尯', '620103', 6201, 'district', NULL, NULL, 1, 102, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620104, 1, '瑗垮浐鍖?, '620104', 6201, 'district', NULL, NULL, 1, 103, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620111, 1, '绾㈠彜鍖?, '620111', 6201, 'district', NULL, NULL, 1, 104, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620121, 1, '姘哥櫥鍘?, '620121', 6201, 'district', NULL, NULL, 1, 105, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620122, 1, '鐨嬪叞鍘?, '620122', 6201, 'district', NULL, NULL, 1, 106, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620123, 1, '姒嗕腑鍘?, '620123', 6201, 'district', NULL, NULL, 1, 107, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620201101, 1, '宄硥闀?, '620201101', 6202, 'street', NULL, NULL, 1, 108, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620503, 1, '楹︾Н鍖?, '620503', 6205, 'district', NULL, NULL, 1, 109, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620522, 1, '绉﹀畨鍘?, '620522', 6205, 'district', NULL, NULL, 1, 110, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620602, 1, '鍑夊窞鍖?, '620602', 6206, 'district', NULL, NULL, 1, 111, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620622, 1, '鍙ゆ氮鍘?, '620622', 6206, 'district', NULL, NULL, 1, 112, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (620881, 1, '鍗庝涵甯?, '620881', 6208, 'district', NULL, NULL, 1, 113, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621021, 1, '搴嗗煄鍘?, '621021', 6210, 'district', NULL, NULL, 1, 114, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621026, 1, '瀹佸幙', '621026', 6210, 'district', NULL, NULL, 1, 115, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621102, 1, '瀹夊畾鍖?, '621102', 6211, 'district', NULL, NULL, 1, 116, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621123, 1, '娓簮鍘?, '621123', 6211, 'district', NULL, NULL, 1, 117, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621202, 1, '姝﹂兘鍖?, '621202', 6212, 'district', NULL, NULL, 1, 118, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621221, 1, '鎴愬幙', '621221', 6212, 'district', NULL, NULL, 1, 119, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621222, 1, '鏂囧幙', '621222', 6212, 'district', NULL, NULL, 1, 120, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (621225, 1, '瑗垮拰鍘?, '621225', 6212, 'district', NULL, NULL, 1, 121, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (622901, 1, '涓村甯?, '622901', 6229, 'district', NULL, NULL, 1, 122, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (622923, 1, '姘搁潠鍘?, '622923', 6229, 'district', NULL, NULL, 1, 123, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (622925, 1, '鍜屾斂鍘?, '622925', 6229, 'district', NULL, NULL, 1, 124, '楂橀€熷叕璺闄╃偣琛屾斂鍖哄垝鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0)
+    (62, 1, '甘肃省', '62', 0, 'province', NULL, NULL, 1, 1, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6201, 1, '兰州市', '6201', 62, 'city', NULL, NULL, 1, 11, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6202, 1, '嘉峪关市', '6202', 62, 'city', NULL, NULL, 1, 12, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6205, 1, '天水市', '6205', 62, 'city', NULL, NULL, 1, 13, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6206, 1, '武威市', '6206', 62, 'city', NULL, NULL, 1, 14, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6208, 1, '平凉市', '6208', 62, 'city', NULL, NULL, 1, 15, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6210, 1, '庆阳市', '6210', 62, 'city', NULL, NULL, 1, 16, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6211, 1, '定西市', '6211', 62, 'city', NULL, NULL, 1, 17, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6212, 1, '陇南市', '6212', 62, 'city', NULL, NULL, 1, 18, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6229, 1, '临夏回族自治州', '6229', 62, 'city', NULL, NULL, 1, 19, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620102, 1, '城关区', '620102', 6201, 'district', NULL, NULL, 1, 101, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620103, 1, '七里河区', '620103', 6201, 'district', NULL, NULL, 1, 102, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620104, 1, '西固区', '620104', 6201, 'district', NULL, NULL, 1, 103, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620111, 1, '红古区', '620111', 6201, 'district', NULL, NULL, 1, 104, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620121, 1, '永登县', '620121', 6201, 'district', NULL, NULL, 1, 105, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620122, 1, '皋兰县', '620122', 6201, 'district', NULL, NULL, 1, 106, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620123, 1, '榆中县', '620123', 6201, 'district', NULL, NULL, 1, 107, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620201101, 1, '峪泉镇', '620201101', 6202, 'street', NULL, NULL, 1, 108, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620503, 1, '麦积区', '620503', 6205, 'district', NULL, NULL, 1, 109, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620522, 1, '秦安县', '620522', 6205, 'district', NULL, NULL, 1, 110, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620602, 1, '凉州区', '620602', 6206, 'district', NULL, NULL, 1, 111, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620622, 1, '古浪县', '620622', 6206, 'district', NULL, NULL, 1, 112, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620881, 1, '华亭市', '620881', 6208, 'district', NULL, NULL, 1, 113, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621021, 1, '庆城县', '621021', 6210, 'district', NULL, NULL, 1, 114, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621026, 1, '宁县', '621026', 6210, 'district', NULL, NULL, 1, 115, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621102, 1, '安定区', '621102', 6211, 'district', NULL, NULL, 1, 116, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621123, 1, '渭源县', '621123', 6211, 'district', NULL, NULL, 1, 117, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621202, 1, '武都区', '621202', 6212, 'district', NULL, NULL, 1, 118, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621221, 1, '成县', '621221', 6212, 'district', NULL, NULL, 1, 119, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621222, 1, '文县', '621222', 6212, 'district', NULL, NULL, 1, 120, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621225, 1, '西和县', '621225', 6212, 'district', NULL, NULL, 1, 121, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622901, 1, '临夏市', '622901', 6229, 'district', NULL, NULL, 1, 122, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622923, 1, '永靖县', '622923', 6229, 'district', NULL, NULL, 1, 123, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622925, 1, '和政县', '622925', 6229, 'district', NULL, NULL, 1, 124, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     region_name = VALUES(region_name),
     parent_id = VALUES(parent_id),
@@ -696,8 +695,8 @@ INSERT INTO sys_organization (
     id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
     phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7101, 1, 0, '骞冲彴杩愮淮涓績', 'OPS-CENTER', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', 'ops@ghlzm.com', 1, 1, '杩愮淮涓績', 1, NOW(), 1, NOW(), 0),
-    (7102, 1, 7101, '鍛婅澶勭疆缁?, 'ALARM-TEAM', 'team', 1, '绯荤粺绠＄悊鍛?, '13800000000', 'alarm@ghlzm.com', 1, 2, '鍛婅浜嬩欢澶勭疆鍥㈤槦', 1, NOW(), 1, NOW(), 0)
+    (7101, 1, 0, '平台运维中心', 'OPS-CENTER', 'dept', 1, '系统管理员', '13800000000', 'ops@ghlzm.com', 1, 1, '运维中心', 1, NOW(), 1, NOW(), 0),
+    (7102, 1, 7101, '告警处置组', 'ALARM-TEAM', 'team', 1, '系统管理员', '13800000000', 'alarm@ghlzm.com', 1, 2, '告警事件处置团队', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_name = VALUES(org_name),
     parent_id = VALUES(parent_id),
@@ -717,16 +716,16 @@ INSERT INTO sys_organization (
     id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
     phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7111, 1, 0, '鎴愬幙鎵€', 'HW-ORG-CXS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 101, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7112, 1, 0, '鎴愭鎵€', 'HW-ORG-CWS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 102, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7113, 1, 0, '姝﹂兘鎵€', 'HW-ORG-WDS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 103, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7114, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 'HW-ORG-LZFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 104, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7115, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 'HW-ORG-LXFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 105, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7116, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 'HW-ORG-PLFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 106, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7117, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 'HW-ORG-WWFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 107, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7118, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 'HW-ORG-TSFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 108, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7119, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 'HW-ORG-DXFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 109, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0),
-    (7120, 1, 0, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘暒鐓屽垎鍏徃', 'HW-ORG-DHFGS', 'dept', 1, '绯荤粺绠＄悊鍛?, '13800000000', NULL, 1, 110, '楂橀€熷叕璺闄╃偣绠″吇鍗曚綅鏈€灏忓熀绾?, 1, NOW(), 1, NOW(), 0)
+    (7111, 1, 0, '成县所', 'HW-ORG-CXS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 101, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7112, 1, 0, '成武所', 'HW-ORG-CWS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 102, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7113, 1, 0, '武都所', 'HW-ORG-WDS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 103, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7114, 1, 0, '甘肃公航旅高速公路运营管理兰州分公司', 'HW-ORG-LZFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 104, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7115, 1, 0, '甘肃公航旅高速公路运营管理临夏分公司', 'HW-ORG-LXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 105, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7116, 1, 0, '甘肃公航旅高速公路运营管理平凉分公司', 'HW-ORG-PLFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 106, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7117, 1, 0, '甘肃公航旅高速公路运营管理武威分公司', 'HW-ORG-WWFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 107, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7118, 1, 0, '甘肃公航旅高速公路运营管理天水分公司', 'HW-ORG-TSFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 108, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7119, 1, 0, '甘肃公航旅高速公路运营管理定西分公司', 'HW-ORG-DXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 109, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7120, 1, 0, '甘肃公航旅高速公路运营管理敦煌分公司', 'HW-ORG-DHFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 110, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_name = VALUES(org_name),
     parent_id = VALUES(parent_id),
@@ -746,11 +745,11 @@ INSERT INTO sys_dict (
     id, tenant_id, dict_name, dict_code, dict_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7201, 1, '椋庨櫓鐐圭瓑绾?, 'risk_point_level', 'text', 1, 1, '椋庨櫓鐐规。妗堢瓑绾у瓧鍏?, 1, NOW(), 1, NOW(), 0),
-    (7202, 1, '鍛婅绛夌骇', 'alarm_level', 'text', 1, 2, '鍛婅绛夌骇鍥涜壊瀛楀吀', 1, NOW(), 1, NOW(), 0),
-    (7203, 1, '椋庨櫓鎬佸娍绛夌骇', 'risk_level', 'text', 1, 3, '杩愯鎬侀闄╅鑹插瓧鍏?, 1, NOW(), 1, NOW(), 0),
-    (7204, 1, '甯姪鏂囨。鍒嗙被', 'help_doc_category', 'text', 1, 4, '甯姪涓績鍒嗙被瀛楀吀', 1, NOW(), 1, NOW(), 0),
-    (7205, 1, '閫氱煡娓犻亾绫诲瀷', 'notification_channel_type', 'text', 1, 5, '閫氱煡娓犻亾绫诲瀷瀛楀吀', 1, NOW(), 1, NOW(), 0)
+    (7201, 1, '风险点等级', 'risk_point_level', 'text', 1, 1, '风险点档案等级字典', 1, NOW(), 1, NOW(), 0),
+    (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级四色字典', 1, NOW(), 1, NOW(), 0),
+    (7203, 1, '风险态势等级', 'risk_level', 'text', 1, 3, '运行态风险颜色字典', 1, NOW(), 1, NOW(), 0),
+    (7204, 1, '帮助文档分类', 'help_doc_category', 'text', 1, 4, '帮助中心分类字典', 1, NOW(), 1, NOW(), 0),
+    (7205, 1, '通知渠道类型', 'notification_channel_type', 'text', 1, 5, '通知渠道类型字典', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_name = VALUES(dict_name),
     dict_type = VALUES(dict_type),
@@ -774,26 +773,26 @@ INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7301, 1, 7201, '涓€绾ч闄╃偣', 'level_1', 'string', 1, 1, '椋庨櫓鐐圭瓑绾?涓€绾ч闄╃偣', 1, NOW(), 1, NOW(), 0),
-    (7302, 1, 7201, '浜岀骇椋庨櫓鐐?, 'level_2', 'string', 1, 2, '椋庨櫓鐐圭瓑绾?浜岀骇椋庨櫓鐐?, 1, NOW(), 1, NOW(), 0),
-    (7303, 1, 7201, '涓夌骇椋庨櫓鐐?, 'level_3', 'string', 1, 3, '椋庨櫓鐐圭瓑绾?涓夌骇椋庨櫓鐐?, 1, NOW(), 1, NOW(), 0),
-    (7304, 1, 7202, '绾㈣壊', 'red', 'string', 1, 1, '鍛婅绛夌骇-绾㈣壊', 1, NOW(), 1, NOW(), 0),
-    (7305, 1, 7202, '姗欒壊', 'orange', 'string', 1, 2, '鍛婅绛夌骇-姗欒壊', 1, NOW(), 1, NOW(), 0),
-    (7306, 1, 7202, '榛勮壊', 'yellow', 'string', 1, 3, '鍛婅绛夌骇-榛勮壊', 1, NOW(), 1, NOW(), 0),
-    (7307, 1, 7202, '钃濊壊', 'blue', 'string', 1, 4, '鍛婅绛夌骇-钃濊壊', 1, NOW(), 1, NOW(), 0),
-    (7308, 1, 7203, '绾㈣壊', 'red', 'string', 1, 1, '椋庨櫓鎬佸娍绛夌骇-绾㈣壊', 1, NOW(), 1, NOW(), 0),
-    (7309, 1, 7203, '姗欒壊', 'orange', 'string', 1, 2, '椋庨櫓鎬佸娍绛夌骇-姗欒壊', 1, NOW(), 1, NOW(), 0),
-    (7310, 1, 7203, '榛勮壊', 'yellow', 'string', 1, 3, '椋庨櫓鎬佸娍绛夌骇-榛勮壊', 1, NOW(), 1, NOW(), 0),
-    (7311, 1, 7203, '钃濊壊', 'blue', 'string', 1, 4, '椋庨櫓鎬佸娍绛夌骇-钃濊壊', 1, NOW(), 1, NOW(), 0),
-    (7312, 1, 7204, '涓氬姟绫?, 'business', 'string', 1, 1, '甯姪鏂囨。鍒嗙被-涓氬姟绫?, 1, NOW(), 1, NOW(), 0),
-    (7313, 1, 7204, '鎶€鏈被', 'technical', 'string', 1, 2, '甯姪鏂囨。鍒嗙被-鎶€鏈被', 1, NOW(), 1, NOW(), 0),
-    (7314, 1, 7204, '甯歌闂', 'faq', 'string', 1, 3, '甯姪鏂囨。鍒嗙被-甯歌闂', 1, NOW(), 1, NOW(), 0),
-    (7315, 1, 7205, '閭欢', 'email', 'string', 1, 1, '閫氱煡娓犻亾绫诲瀷-閭欢', 1, NOW(), 1, NOW(), 0),
-    (7316, 1, 7205, '鐭俊', 'sms', 'string', 1, 2, '閫氱煡娓犻亾绫诲瀷-鐭俊', 1, NOW(), 1, NOW(), 0),
-    (7317, 1, 7205, 'Webhook', 'webhook', 'string', 1, 3, '閫氱煡娓犻亾绫诲瀷-Webhook', 1, NOW(), 1, NOW(), 0),
-    (7318, 1, 7205, '寰俊', 'wechat', 'string', 1, 4, '閫氱煡娓犻亾绫诲瀷-寰俊', 1, NOW(), 1, NOW(), 0),
-    (7319, 1, 7205, '椋炰功', 'feishu', 'string', 1, 5, '閫氱煡娓犻亾绫诲瀷-椋炰功', 1, NOW(), 1, NOW(), 0),
-    (7320, 1, 7205, '閽夐拤', 'dingtalk', 'string', 1, 6, '閫氱煡娓犻亾绫诲瀷-閽夐拤', 1, NOW(), 1, NOW(), 0)
+    (7301, 1, 7201, '一级风险点', 'level_1', 'string', 1, 1, '风险点等级-一级风险点', 1, NOW(), 1, NOW(), 0),
+    (7302, 1, 7201, '二级风险点', 'level_2', 'string', 1, 2, '风险点等级-二级风险点', 1, NOW(), 1, NOW(), 0),
+    (7303, 1, 7201, '三级风险点', 'level_3', 'string', 1, 3, '风险点等级-三级风险点', 1, NOW(), 1, NOW(), 0),
+    (7304, 1, 7202, '红色', 'red', 'string', 1, 1, '告警等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7305, 1, 7202, '橙色', 'orange', 'string', 1, 2, '告警等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7306, 1, 7202, '黄色', 'yellow', 'string', 1, 3, '告警等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7307, 1, 7202, '蓝色', 'blue', 'string', 1, 4, '告警等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7308, 1, 7203, '红色', 'red', 'string', 1, 1, '风险态势等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7309, 1, 7203, '橙色', 'orange', 'string', 1, 2, '风险态势等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7310, 1, 7203, '黄色', 'yellow', 'string', 1, 3, '风险态势等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7311, 1, 7203, '蓝色', 'blue', 'string', 1, 4, '风险态势等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7312, 1, 7204, '业务类', 'business', 'string', 1, 1, '帮助文档分类-业务类', 1, NOW(), 1, NOW(), 0),
+    (7313, 1, 7204, '技术类', 'technical', 'string', 1, 2, '帮助文档分类-技术类', 1, NOW(), 1, NOW(), 0),
+    (7314, 1, 7204, '常见问题', 'faq', 'string', 1, 3, '帮助文档分类-常见问题', 1, NOW(), 1, NOW(), 0),
+    (7315, 1, 7205, '邮件', 'email', 'string', 1, 1, '通知渠道类型-邮件', 1, NOW(), 1, NOW(), 0),
+    (7316, 1, 7205, '短信', 'sms', 'string', 1, 2, '通知渠道类型-短信', 1, NOW(), 1, NOW(), 0),
+    (7317, 1, 7205, 'Webhook', 'webhook', 'string', 1, 3, '通知渠道类型-Webhook', 1, NOW(), 1, NOW(), 0),
+    (7318, 1, 7205, '微信', 'wechat', 'string', 1, 4, '通知渠道类型-微信', 1, NOW(), 1, NOW(), 0),
+    (7319, 1, 7205, '飞书', 'feishu', 'string', 1, 5, '通知渠道类型-飞书', 1, NOW(), 1, NOW(), 0),
+    (7320, 1, 7205, '钉钉', 'dingtalk', 'string', 1, 6, '通知渠道类型-钉钉', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_id = VALUES(dict_id),
     item_name = VALUES(item_name),
@@ -824,8 +823,8 @@ INSERT INTO sys_notification_channel (
     id, tenant_id, channel_name, channel_code, channel_type, config, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7401, 1, '閭欢閫氱煡', 'email-default', 'email', JSON_OBJECT('host', 'smtp.example.com', 'port', 465, 'from', 'iot-alert@ghlzm.com'), 1, 1, '榛樿閭欢閫氱煡', 1, NOW(), 1, NOW(), 0),
-    (7402, 1, 'Webhook閫氱煡', 'webhook-default', 'webhook', JSON_OBJECT('url', 'https://example.com/iot/webhook', 'headers', JSON_OBJECT('Authorization', 'Bearer demo-token'), 'scenes', JSON_ARRAY('system_error', 'observability_alert', 'in_app_unread_bridge'), 'timeoutMs', 3000, 'minIntervalSeconds', 300), 1, 2, '榛樿Webhook閫氱煡锛堝惈 system_error銆乷bservability_alert 涓庨珮浼樻湭璇绘ˉ鎺ュ満鏅級', 1, NOW(), 1, NOW(), 0)
+    (7401, 1, '邮件通知', 'email-default', 'email', JSON_OBJECT('host', 'smtp.example.com', 'port', 465, 'from', 'iot-alert@ghlzm.com'), 1, 1, '默认邮件通知', 1, NOW(), 1, NOW(), 0),
+    (7402, 1, 'Webhook通知', 'webhook-default', 'webhook', JSON_OBJECT('url', 'https://example.com/iot/webhook', 'headers', JSON_OBJECT('Authorization', 'Bearer demo-token'), 'scenes', JSON_ARRAY('system_error', 'observability_alert', 'in_app_unread_bridge'), 'timeoutMs', 3000, 'minIntervalSeconds', 300), 1, 2, '默认Webhook通知（含 system_error、observability_alert 与高优未读桥接场景）', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     channel_name = VALUES(channel_name),
     channel_type = VALUES(channel_type),
@@ -841,13 +840,13 @@ INSERT INTO sys_in_app_message (
     id, tenant_id, message_type, priority, title, summary, content, target_type, target_role_codes, target_user_ids,
     related_path, source_type, source_id, dedup_key, publish_time, expire_time, status, sort_no, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (760101, 1, 'system', 'critical', '绯荤粺缁存姢绐楀彛鎻愰啋', '浠婃櫄 23:00 灏嗘墽琛屾棩蹇楅摼璺淮鎶わ紝璇锋彁鍓嶅畬鎴愭帓闅滃鍑恒€?, '骞冲彴璁″垝鍦ㄤ粖鏅?23:00 鑷?23:30 鎵ц鏃ュ織閾捐矾缁存姢銆傜淮鎶ゆ湡闂撮€氱煡涓績銆佸璁′腑蹇冧笌寮傚父瑙傛祴鍙板彲鑳藉瓨鍦ㄧ煭鏃跺欢杩燂紝璇疯繍缁翠笌鐮斿彂鍚屼簨鎻愬墠瀵煎嚭蹇呰淇℃伅銆?, 'all', NULL, NULL,
+    (760101, 1, 'system', 'critical', '系统维护窗口提醒', '今晚 23:00 将执行日志链路维护，请提前完成排障导出。', '平台计划在今晚 23:00 至 23:30 执行日志链路维护。维护期间通知中心、审计中心与异常观测台可能存在短时延迟，请运维与研发同事提前导出必要信息。', 'all', NULL, NULL,
      '/system-log', 'manual', 'maintenance-20260321', MD5('manual|maintenance-20260321|all|system'), DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_ADD(NOW(), INTERVAL 7 DAY), 1, 1, 1, NOW(), 1, NOW(), 0),
-    (760102, 1, 'business', 'high', '椋庨櫓杩愯惀鏃ユ姤寰呯‘璁?, '璇蜂笟鍔′笌绠＄悊瑙掕壊鍦?18:00 鍓嶇‘璁や粖鏃ュ憡璀﹂棴鐜儏鍐点€?, '椋庨櫓杩愯惀鏃ユ姤宸茬敓鎴愶紝璇蜂紭鍏堟牳瀵逛粖鏃ュ憡璀︾‘璁ょ巼銆佷簨浠舵淳宸ョ姸鎬佸拰寰呭叧闂簨椤广€傚瀛樺湪璺ㄧ彮娆℃湭闂幆闂锛岃鍦ㄤ簨浠跺崗鍚屽彴琛ュ厖鍙嶉銆?, 'role', 'BUSINESS_STAFF,MANAGEMENT_STAFF', NULL,
+    (760102, 1, 'business', 'high', '风险运营日报待确认', '请业务与管理角色在 18:00 前确认今日告警闭环情况。', '风险运营日报已生成，请优先核对今日告警确认率、事件派工状态和待关闭事项。如存在跨班次未闭环问题，请在事件协同台补充反馈。', 'role', 'BUSINESS_STAFF,MANAGEMENT_STAFF', NULL,
      '/alarm-center', 'manual', 'risk-report-20260321', MD5('manual|risk-report-20260321|role:BUSINESS_STAFF,MANAGEMENT_STAFF|business'), DATE_SUB(NOW(), INTERVAL 6 HOUR), DATE_ADD(NOW(), INTERVAL 2 DAY), 1, 2, 1, NOW(), 1, NOW(), 0),
-    (760103, 1, 'error', 'high', '鎺ュ叆閾捐矾寮傚父鎺掓煡鎻愮ず', '妫€娴嬪埌鏈€杩?30 鍒嗛挓鍐呭瓨鍦?MQTT 鍒嗗彂澶辫触锛岃鐮斿彂鍜岃繍缁翠紭鍏堝鏍?TraceId銆?, '绯荤粺鍦ㄦ渶杩?30 鍒嗛挓鍐呮娴嬪埌 MQTT 鍒嗗彂澶辫触涓庤澶囦笉瀛樺湪寮傚父銆傝鍏堝湪寮傚父瑙傛祴鍙板畾浣?system_error锛屽啀鍒伴摼璺拷韪彴鎸?TraceId 澶嶆牳涓婁笅娓告棩蹇椼€?, 'role', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN', NULL,
+    (760103, 1, 'error', 'high', '接入链路异常排查提示', '检测到最近 30 分钟内存在 MQTT 分发失败，请研发和运维优先复核 TraceId。', '系统在最近 30 分钟内检测到 MQTT 分发失败与设备不存在异常。请先在异常观测台定位 system_error，再到链路追踪台按 TraceId 复核上下游日志。', 'role', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN', NULL,
      '/message-trace', 'system_error', 'mqtt-dispatch-failed', MD5('system_error|mqtt-dispatch-failed|role:OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN|error'), DATE_SUB(NOW(), INTERVAL 20 MINUTE), DATE_ADD(NOW(), INTERVAL 3 DAY), 1, 3, 1, NOW(), 1, NOW(), 0),
-    (760104, 1, 'business', 'medium', '閫氱煡缂栨帓閰嶇疆澶嶆牳', '绠＄悊鍛樿澶嶆牳榛樿 webhook 娓犻亾鏄惁浠嶆寚鍚戞湁鏁堝湴鍧€銆?, '杩戞湡宸茶ˉ榻愮郴缁熷紓甯镐笌瑙勫垯鍖栬繍缁村憡璀﹂€氱煡鑳藉姏锛岃绠＄悊鍛樺鏍搁粯璁?webhook 鍦板潃銆佽秴鏃舵椂闂翠笌 system_error / observability_alert 鍦烘櫙閰嶇疆锛岄伩鍏嶇湡瀹炵幆澧冨紓甯告棤浜烘帴鏀躲€?, 'user', NULL, '1',
+    (760104, 1, 'business', 'medium', '通知编排配置复核', '管理员请复核默认 webhook 渠道是否仍指向有效地址。', '近期已补齐系统异常与规则化运维告警通知能力，请管理员复核默认 webhook 地址、超时时间与 system_error / observability_alert 场景配置，避免真实环境异常无人接收。', 'user', NULL, '1',
      '/channel', 'governance', 'channel-review-admin', MD5('governance|channel-review-admin|user:1|business'), DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 5 DAY), 1, 4, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     message_type = VALUES(message_type),
@@ -894,31 +893,31 @@ INSERT INTO sys_help_document (
     id, tenant_id, doc_category, title, summary, content, keywords, related_paths, visible_role_codes,
     status, sort_no, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (760301, 1, 'business', '浜у搧涓庤澶囧缓妗ｆ寚鍗?, '闈㈠悜涓氬姟涓庣鐞嗚鑹茬殑浜у搧寤烘。銆佽澶囧缓妗ｅ拰鐖跺瓙鎷撴墤缁存姢鎸囧紩銆?, '閫傜敤瑙掕壊锛氫笟鍔′汉鍛樸€佺鐞嗕汉鍛樸€傞€傜敤椤甸潰锛氫骇鍝佸畾涔変腑蹇冦€佽澶囪祫浜т腑蹇冦€備娇鐢ㄥ満鏅細鏂拌澶囧叆搴撱€侀」鐩笂绾垮墠寤烘。銆佺埗瀛愯澶囧叧绯荤淮鎶ゃ€傛搷浣滄楠わ細1. 鍏堝湪浜у搧瀹氫箟涓績纭 productKey銆佸崗璁€佽妭鐐圭被鍨嬪拰鍘傚晢鍙ｅ緞銆?. 浜у搧鍚敤鍚庡啀鍦ㄨ澶囪祫浜т腑蹇冩柊澧炶澶囷紝骞堕€氳繃 productKey 缁ф壙鍗忚涓庤妭鐐圭被鍨嬨€?. 瀛樺湪缃戝叧鎴栫埗璁惧鏃讹紝鍚屾椂缁存姢 parentDeviceId 鎴?parentDeviceCode銆?. 闇€瑕佹壒閲忓鍏ユ椂锛屽厛鏍稿浜у搧鍚敤鐘舵€佸拰鐖惰澶囩紪鐮併€傜粨鏋滃垽鏂細浜у搧鍒楄〃鍙煡璇紝璁惧璇︽儏鑳界湅鍒颁骇鍝併€佺埗璁惧鍜屽叧鑱旂綉鍏充俊鎭紝寤烘。鍚庡彲缁х画涓婃姤涓庝笅鍙戙€傚父瑙侀棶棰橈細浜у搧鍋滅敤鍚庝笉鑳界户缁缓妗ｏ紱浜у搧鍒犻櫎鍓嶉渶鍏堟竻绌哄叧鑱斿簱瀛樿澶囥€傚欢浼搁槄璇伙細浜у搧涓庤澶囧瓧娈靛彛寰勩€佸缓妗ｉ『搴忋€佺埗瀛愭嫇鎵戠淮鎶よ鍒欍€?, '浜у搧,璁惧,寤烘。,鎷撴墤,productKey', '/products,/devices', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+    (760301, 1, 'business', '产品与设备建档指南', '面向业务与管理角色的产品建档、设备建档和父子拓扑维护指引。', '适用角色：业务人员、管理人员。适用页面：产品定义中心、设备资产中心。使用场景：新设备入库、项目上线前建档、父子设备关系维护。操作步骤：1. 先在产品定义中心确认 productKey、协议、节点类型和厂商口径。2. 产品启用后再在设备资产中心新增设备，并通过 productKey 继承协议与节点类型。3. 存在网关或父设备时，同时维护 parentDeviceId 或 parentDeviceCode。4. 需要批量导入时，先核对产品启用状态和父设备编码。结果判断：产品列表可查询，设备详情能看到产品、父设备和关联网关信息，建档后可继续上报与下发。常见问题：产品停用后不能继续建档；产品删除前需先清空关联库存设备。延伸阅读：产品与设备字段口径、建档顺序、父子拓扑维护规则。', '产品,设备,建档,拓扑,productKey', '/products,/devices', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
      1, 1, 1, NOW(), 1, NOW(), 0),
-    (760302, 1, 'business', '鍛婅纭銆佹姂鍒朵笌鍏抽棴鎿嶄綔', '闈㈠悜涓氬姟涓庣鐞嗚鑹茬殑鍛婅闂幆鎿嶄綔璇存槑銆?, '閫傜敤瑙掕壊锛氫笟鍔′汉鍛樸€佺鐞嗕汉鍛樸€傞€傜敤椤甸潰锛氬憡璀﹁繍钀ュ彴銆備娇鐢ㄥ満鏅細鏃ュ父鍛婅鐮斿垽銆佸€肩彮浜ゆ帴銆侀棴鐜鏍搞€傛搷浣滄楠わ細1. 鍏堝湪鍛婅鍒楄〃鎸夌瓑绾с€佺姸鎬佸拰鏃堕棿鑼冨洿绛涢€夌洰鏍囧憡璀︺€?. 纭寮傚父宸茶璇嗗埆鏃舵墽琛岀‘璁わ紝骞惰ˉ鍏呭缃鏄庛€?. 鏄庣‘鏃犻渶缁х画鎵撴壈鐨勫憡璀﹀彲鎵ц鎶戝埗銆?. 椋庨櫓宸叉秷闄や笖澶勭疆瀹屾垚鍚庡啀鎵ц鍏抽棴銆傜粨鏋滃垽鏂細鍛婅璇︽儏涓兘鐪嬪埌纭銆佹姂鍒舵垨鍏抽棴鍚庣殑鏈€鏂扮姸鎬佸拰澶勭疆鐥曡抗銆傚父瑙侀棶棰橈細鍏抽棴鍓嶅簲鍏堢‘璁ょ幇鍦烘垨鑱斿姩缁撴灉锛岄伩鍏嶆妸鏈鐞嗗畬鎴愮殑寮傚父鎻愬墠缁撴潫銆傚欢浼搁槄璇伙細鍛婅绛夌骇銆佷簨浠惰仈鍔ㄥ叧绯汇€佽繍钀ュ垎鏋愪腑蹇冮棴鐜粺璁″彛寰勩€?, '鍛婅,纭,鎶戝埗,鍏抽棴,闂幆', '/alarm-center', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+    (760302, 1, 'business', '告警确认、抑制与关闭操作', '面向业务与管理角色的告警闭环操作说明。', '适用角色：业务人员、管理人员。适用页面：告警运营台。使用场景：日常告警研判、值班交接、闭环复核。操作步骤：1. 先在告警列表按等级、状态和时间范围筛选目标告警。2. 确认异常已被识别时执行确认，并补充处置说明。3. 明确无需继续打扰的告警可执行抑制。4. 风险已消除且处置完成后再执行关闭。结果判断：告警详情中能看到确认、抑制或关闭后的最新状态和处置痕迹。常见问题：关闭前应先确认现场或联动结果，避免把未处理完成的异常提前结束。延伸阅读：告警等级、事件联动关系、运营分析中心闭环统计口径。', '告警,确认,抑制,关闭,闭环', '/alarm-center', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
      1, 2, 1, NOW(), 1, NOW(), 0),
-    (760303, 1, 'business', '浜嬩欢娲惧伐銆佹帴鏀躲€佸鐞嗐€佸畬缁撴祦绋?, '闈㈠悜涓氬姟涓庣鐞嗚鑹茬殑浜嬩欢鍗忓悓闂幆鎸囧紩銆?, '閫傜敤瑙掕壊锛氫笟鍔′汉鍛樸€佺鐞嗕汉鍛樸€傞€傜敤椤甸潰锛氫簨浠跺崗鍚屽彴銆備娇鐢ㄥ満鏅細鍛婅杞簨浠跺悗鐨勬淳宸ャ€佹帴鏀躲€佸鐞嗗拰瀹岀粨璺熻釜銆傛搷浣滄楠わ細1. 鍦ㄤ簨浠跺垪琛ㄧ‘璁や簨浠剁瓑绾с€佹潵婧愬拰寰呭姙鐘舵€併€?. 绠＄悊浜哄憳鍏堝畬鎴愭淳宸ワ紝鏄庣‘璐熻矗浜哄拰澶勭悊瑕佹眰銆?. 鎵ц浜哄憳渚濇瀹屾垚鎺ユ敹銆佸紑濮嬪鐞嗐€佸鐞嗗弽棣堝拰瀹屾垚銆?. 缁撴灉澶嶆牳閫氳繃鍚庡啀鍏抽棴浜嬩欢銆傜粨鏋滃垽鏂細浜嬩欢璇︽儏鍙湅鍒版淳宸ヨ褰曘€佸伐鍗曠姸鎬佸拰鍙嶉鐣欑棔锛岃繍钀ュ垎鏋愪腑蹇冨彲缁熻闂幆缁撴灉銆傚父瑙侀棶棰橈細鑻ュ鐞嗕腑鍙戠幇鏉′欢鍙樺寲锛屽簲鍏堣ˉ鍙嶉鍐嶈皟鏁存淳宸ワ紝涓嶈璺宠繃鐘舵€佹祦杞€傚欢浼搁槄璇伙細鍛婅鍒颁簨浠堕棴鐜€佸伐鍗曞鐞嗙姸鎬併€佷簨浠跺叧闂粺璁″彛寰勩€?, '浜嬩欢,娲惧伐,宸ュ崟,鎺ユ敹,瀹岀粨', '/event-disposal', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+    (760303, 1, 'business', '事件派工、接收、处理、完结流程', '面向业务与管理角色的事件协同闭环指引。', '适用角色：业务人员、管理人员。适用页面：事件协同台。使用场景：告警转事件后的派工、接收、处理和完结跟踪。操作步骤：1. 在事件列表确认事件等级、来源和待办状态。2. 管理人员先完成派工，明确负责人和处理要求。3. 执行人员依次完成接收、开始处理、处理反馈和完成。4. 结果复核通过后再关闭事件。结果判断：事件详情可看到派工记录、工单状态和反馈留痕，运营分析中心可统计闭环结果。常见问题：若处理中发现条件变化，应先补反馈再调整派工，不要跳过状态流转。延伸阅读：告警到事件闭环、工单处理状态、事件关闭统计口径。', '事件,派工,工单,接收,完结', '/event-disposal', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
      1, 3, 1, NOW(), 1, NOW(), 0),
-    (760304, 1, 'business', '椋庨櫓瀵硅薄銆侀槇鍊肩瓥鐣ャ€佽仈鍔ㄩ妗堥厤缃鏄?, '闈㈠悜涓氬姟涓庣鐞嗚鑹茬殑椋庨櫓绛栫暐缂栨帓璇存槑銆?, '閫傜敤瑙掕壊锛氫笟鍔′汉鍛樸€佺鐞嗕汉鍛樸€傞€傜敤椤甸潰锛氶闄╁璞′腑蹇冦€侀槇鍊肩瓥鐣ャ€佽仈鍔ㄧ紪鎺掋€佸簲鎬ラ妗堝簱銆備娇鐢ㄥ満鏅細鏂板椋庨櫓瀵硅薄銆侀厤缃憡璀﹂槇鍊笺€佸畾涔夎仈鍔ㄥ姩浣滃拰搴旀€ラ妗堛€傛搷浣滄楠わ細1. 鍏堝湪椋庨櫓瀵硅薄涓績瀹屾垚椋庨櫓鐐瑰拰璁惧娴嬬偣缁戝畾銆?. 鍐嶉厤缃槇鍊肩瓥鐣ワ紝鏄庣‘鎸囨爣銆佽〃杈惧紡鍜屽憡璀︾瓑绾с€?. 闇€瑕佽嚜鍔ㄥ缃椂锛岀户缁ˉ榻愯仈鍔ㄨ鍒欎笌搴旀€ラ妗堛€?. 涓婄嚎鍓嶇粨鍚堢湡瀹炶澶囨垨婕旂ず鏁版嵁楠岃瘉鍛戒腑鏁堟灉銆傜粨鏋滃垽鏂細椋庨櫓瀵硅薄銆佽鍒欍€佽仈鍔ㄥ拰棰勬閮藉彲鐙珛鏌ヨ锛屽懡涓粨鏋滀細鍦ㄥ憡璀︽垨浜嬩欢鐣欑棔涓綋鐜般€傚父瑙侀棶棰橈細鑻ヨ鑹叉殏鏃犲搴旇彍鍗曟潈闄愶紝甯姪涓績涓嶄細鎺ㄨ崘鏃犳潈璁块棶鐨勭瓥鐣ヨ祫鏂欍€傚欢浼搁槄璇伙細椋庨櫓鐐圭粦瀹氥€侀槇鍊艰鍒欍€佽仈鍔ㄨ鍒欍€佸簲鎬ラ妗堟帴鍙ｄ笌娴佺▼銆?, '椋庨櫓瀵硅薄,闃堝€?鑱斿姩,棰勬,绛栫暐', '/risk-point,/rule-definition,/linkage-rule,/emergency-plan', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+    (760304, 1, 'business', '风险对象、阈值策略、联动预案配置说明', '面向业务与管理角色的风险策略编排说明。', '适用角色：业务人员、管理人员。适用页面：风险对象中心、阈值策略、联动编排、应急预案库。使用场景：新增风险对象、配置告警阈值、定义联动动作和应急预案。操作步骤：1. 先在风险对象中心完成风险点和设备测点绑定。2. 再配置阈值策略，明确指标、表达式和告警等级。3. 需要自动处置时，继续补齐联动规则与应急预案。4. 上线前结合真实设备或演示数据验证命中效果。结果判断：风险对象、规则、联动和预案都可独立查询，命中结果会在告警或事件留痕中体现。常见问题：若角色暂无对应菜单权限，帮助中心不会推荐无权访问的策略资料。延伸阅读：风险点绑定、阈值规则、联动规则、应急预案接口与流程。', '风险对象,阈值,联动,预案,策略', '/risk-point,/rule-definition,/linkage-rule,/emergency-plan', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
      1, 4, 1, NOW(), 1, NOW(), 0),
-    (760305, 1, 'business', '杩愯惀鍒嗘瀽涓績鎸囨爣鏌ョ湅璇存槑', '闈㈠悜涓氬姟涓庣鐞嗚鑹茬殑鎶ヨ〃鏌ョ湅鎸囧紩銆?, '閫傜敤瑙掕壊锛氫笟鍔′汉鍛樸€佺鐞嗕汉鍛樸€傞€傜敤椤甸潰锛氳繍钀ュ垎鏋愪腑蹇冦€備娇鐢ㄥ満鏅細鏃ユ姤銆佸懆鎶ャ€侀棴鐜鐩樺拰绠＄悊澶嶆牳銆傛搷浣滄楠わ細1. 鎸夋椂闂磋寖鍥存煡鐪嬮闄╄秼鍔裤€佸憡璀︾粺璁°€佷簨浠堕棴鐜拰璁惧鍋ュ悍銆?. 瀵规瘮寮傚父娉㈠嘲涓庨棴鐜晥鐜囷紝瀹氫綅闇€瑕佽窡杩涚殑椋庨櫓鐐规垨宸ュ崟銆?. 蹇呰鏃跺洖鍒板憡璀﹁繍钀ュ彴鎴栦簨浠跺崗鍚屽彴缁х画鏍稿疄鏄庣粏銆傜粨鏋滃垽鏂細鑳藉湪鍚屼竴椤甸潰瀹屾垚瓒嬪娍瑙傚療銆佸憡璀︾粺璁″拰闂幆缁撴灉澶嶆牳锛屽苟涓庝笟鍔″缃〉闈㈠舰鎴愬線杩斻€傚父瑙侀棶棰橈細鎶ヨ〃鐢ㄤ簬杩愯惀澶嶇洏锛屼笉鏇夸唬鍘熷鍛婅鎴栦簨浠惰鎯呫€傚欢浼搁槄璇伙細椋庨櫓瓒嬪娍銆佸憡璀︾粺璁°€佷簨浠堕棴鐜€佽澶囧仴搴峰洓绫诲垎鏋愭帴鍙ｃ€?, '鎶ヨ〃,杩愯惀鍒嗘瀽,椋庨櫓瓒嬪娍,鍛婅缁熻,浜嬩欢闂幆', '/report-analysis', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
+    (760305, 1, 'business', '运营分析中心指标查看说明', '面向业务与管理角色的报表查看指引。', '适用角色：业务人员、管理人员。适用页面：运营分析中心。使用场景：日报、周报、闭环复盘和管理复核。操作步骤：1. 按时间范围查看风险趋势、告警统计、事件闭环和设备健康。2. 对比异常波峰与闭环效率，定位需要跟进的风险点或工单。3. 必要时回到告警运营台或事件协同台继续核实明细。结果判断：能在同一页面完成趋势观察、告警统计和闭环结果复核，并与业务处置页面形成往返。常见问题：报表用于运营复盘，不替代原始告警或事件详情。延伸阅读：风险趋势、告警统计、事件闭环、设备健康四类分析接口。', '报表,运营分析,风险趋势,告警统计,事件闭环', '/report-analysis', 'BUSINESS_STAFF,MANAGEMENT_STAFF',
      1, 5, 1, NOW(), 1, NOW(), 0),
-    (760306, 1, 'technical', 'HTTP 涓婃姤涓庨摼璺獙璇佷腑蹇冧娇鐢ㄨ鏄?, '闈㈠悜杩愮淮涓庣爺鍙戣鑹茬殑 HTTP 妯℃嫙涓婃姤涓庨摼璺獙璇佽祫鏂欍€?, '閫傜敤瑙掕壊锛氳繍缁翠汉鍛樸€佸紑鍙戜汉鍛樸€佽秴绾х鐞嗗憳銆傞€傜敤椤甸潰锛氶摼璺獙璇佷腑蹇冦€備娇鐢ㄥ満鏅細鑱旇皟 HTTP 涓婃姤銆侀獙璇佸崗璁В鐮併€佸鏍稿睘鎬у拰娑堟伅鏃ュ織鏄惁钀藉簱銆傛搷浣滄楠わ細1. 鍦ㄩ摼璺獙璇佷腑蹇冮€夋嫨鏄庢枃鎴栧瘑鏂囨ā寮忋€?. 鏄庢枃妯″紡鎸?C.1銆丆.2銆丆.3 缁勭粐姝ｆ枃锛屽瘑鏂囨ā寮忕洿鎺ヤ紶灏佸寘 JSON銆?. 鍙戦€佸悗绔嬪嵆鏌ョ湅灞炴€ф煡璇€佹秷鎭棩蹇楀拰璁惧鍦ㄧ嚎鐘舵€佹槸鍚﹀埛鏂般€?. 濡傚け璐ワ紝鍐嶇粨鍚?TraceId 鍒板紓甯歌娴嬪彴鍜岄摼璺拷韪彴缁х画鎺掓煡銆傜粨鏋滃垽鏂細鎺ュ彛杩斿洖鎴愬姛锛岃澶囧睘鎬с€佹秷鎭棩蹇楀拰鍦ㄧ嚎鐘舵€佸悓姝ユ洿鏂般€傚父瑙侀棶棰橈細鏄庢枃浜岃繘鍒舵ā鎷熻鎸夊崟瀛楄妭缂栫爜鍙戦€侊紝瀵嗘枃妯″紡鍒欑洿鎺ヤ紶鍘熷灏佸寘銆傚欢浼搁槄璇伙細HTTP 涓婃姤鍏ュ彛銆侀摼璺獙璇佷腑蹇冩槑鏂?瀵嗘枃妯″紡銆佸睘鎬т笌娑堟伅鏃ュ織鏌ヨ銆?, 'HTTP,閾捐矾楠岃瘉,涓婃姤,鏄庢枃,瀵嗘枃', '/reporting', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
+    (760306, 1, 'technical', 'HTTP 上报与链路验证中心使用说明', '面向运维与研发角色的 HTTP 模拟上报与链路验证资料。', '适用角色：运维人员、开发人员、超级管理员。适用页面：链路验证中心。使用场景：联调 HTTP 上报、验证协议解码、复核属性和消息日志是否落库。操作步骤：1. 在链路验证中心选择明文或密文模式。2. 明文模式按 C.1、C.2、C.3 组织正文，密文模式直接传封包 JSON。3. 发送后立即查看属性查询、消息日志和设备在线状态是否刷新。4. 如失败，再结合 TraceId 到异常观测台和链路追踪台继续排查。结果判断：接口返回成功，设备属性、消息日志和在线状态同步更新。常见问题：明文二进制模拟要按单字节编码发送，密文模式则直接传原始封包。延伸阅读：HTTP 上报入口、链路验证中心明文/密文模式、属性与消息日志查询。', 'HTTP,链路验证,上报,明文,密文', '/reporting', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
      1, 6, 1, NOW(), 1, NOW(), 0),
-    (760307, 1, 'technical', 'MQTT Topic 瑙勮寖涓?mqtt-json / $dp 鍏煎璇存槑', '闈㈠悜杩愮淮涓庣爺鍙戣鑹茬殑 MQTT 鎺ュ叆瑙勮寖璇存槑銆?, '閫傜敤瑙掕壊锛氳繍缁翠汉鍛樸€佸紑鍙戜汉鍛樸€佽秴绾х鐞嗗憳銆傞€傜敤椤甸潰锛氶摼璺獙璇佷腑蹇冦€侀摼璺拷韪彴銆備娇鐢ㄥ満鏅細鑱旇皟鏍囧噯 Topic銆佸吋瀹瑰巻鍙?`$dp`銆佸畾浣嶄笂琛屾姤鏂囨牸寮忎笉鍖归厤闂銆傛搷浣滄楠わ細1. 浼樺厛纭璁惧浣跨敤鏍囧噯 `/sys/{productKey}/{deviceCode}/thing/.../post` Topic 杩樻槸鍘嗗彶 `$dp`銆?. 鏍囧噯 Topic 鍦烘櫙鎸変骇鍝佸崗璁€夋嫨 `mqtt-json` 绛夐€傞厤鍣ㄣ€?. 鍘嗗彶 `$dp` 鍦烘櫙閲嶇偣鏍稿瑙ｅ瘑銆佹祴鐐规槧灏勫拰瀛愯澶囨媶鍒嗐€?. 鑻ヤ笅琛岄獙璇佸け璐ワ紝鍐嶅鏍哥洰鏍囦骇鍝佺姸鎬佸拰涓嬪彂 Topic銆傜粨鏋滃垽鏂細娑堟伅鍙姝ｇ‘瑙ｇ爜锛屽睘鎬у拰鏃ュ織鎸夌洰鏍囪澶囪惤搴擄紝蹇呰鏃舵敮鎸佷笅琛屾渶灏忓彂甯冦€傚父瑙侀棶棰橈細鍗忚銆乀opic銆乸roductKey 鍜?deviceCode 浠讳竴涓嶄竴鑷达紝閮藉彲鑳藉鑷磋澶囦笉瀛樺湪鎴栧垎鍙戝け璐ャ€傚欢浼搁槄璇伙細MQTT Topic 瑙勮寖銆乣mqtt-json` 瑙ｇ爜銆乣$dp` 鍘嗗彶鍏煎閾捐矾銆?, 'MQTT,Topic,mqtt-json,$dp,鍗忚', '/reporting,/message-trace', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
+    (760307, 1, 'technical', 'MQTT Topic 规范与 mqtt-json / $dp 兼容说明', '面向运维与研发角色的 MQTT 接入规范说明。', '适用角色：运维人员、开发人员、超级管理员。适用页面：链路验证中心、链路追踪台。使用场景：联调标准 Topic、兼容历史 `$dp`、定位上行报文格式不匹配问题。操作步骤：1. 优先确认设备使用标准 `/sys/{productKey}/{deviceCode}/thing/.../post` Topic 还是历史 `$dp`。2. 标准 Topic 场景按产品协议选择 `mqtt-json` 等适配器。3. 历史 `$dp` 场景重点核对解密、测点映射和子设备拆分。4. 若下行验证失败，再复核目标产品状态和下发 Topic。结果判断：消息可被正确解码，属性和日志按目标设备落库，必要时支持下行最小发布。常见问题：协议、Topic、productKey 和 deviceCode 任一不一致，都可能导致设备不存在或分发失败。延伸阅读：MQTT Topic 规范、`mqtt-json` 解码、`$dp` 历史兼容链路。', 'MQTT,Topic,mqtt-json,$dp,协议', '/reporting,/message-trace', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
      1, 7, 1, NOW(), 1, NOW(), 0),
-    (760308, 1, 'technical', 'TraceId銆侀摼璺拷韪彴銆佸紓甯歌娴嬪彴鎺掗殰璇存槑', '闈㈠悜杩愮淮涓庣爺鍙戣鑹茬殑缁熶竴鎺掗殰璺緞璇存槑銆?, '閫傜敤瑙掕壊锛氳繍缁翠汉鍛樸€佸紑鍙戜汉鍛樸€佽秴绾х鐞嗗憳銆傞€傜敤椤甸潰锛氶摼璺拷韪彴銆佸紓甯歌娴嬪彴銆備娇鐢ㄥ満鏅細鍑虹幇 MQTT 鍒嗗彂澶辫触銆佽澶囦笉瀛樺湪銆佸悗鍙板紓甯告垨鎺ュ彛鎶ラ敊鏃跺揩閫熶覆鑱斾笂涓嬫父閾捐矾銆傛搷浣滄楠わ細1. 鍏堣幏鍙栬姹傛垨鏃ュ織閲岀殑 TraceId銆?. 鍦ㄥ紓甯歌娴嬪彴鏌ョ湅鏄惁瀛樺湪 system_error 璁板綍銆?. 鍐嶅埌閾捐矾杩借釜鍙版寜 TraceId銆佽澶囩紪鐮併€佷骇鍝佹爣璇嗘垨 Topic 妫€绱㈡秷鎭棩蹇椼€?. 缁撳悎鎺ュ彛杩斿洖鍜岃澶囧睘鎬х粨鏋滅‘璁ゆ晠闅滆惤鐐广€傜粨鏋滃垽鏂細鑳藉鎶?HTTP銆丮QTT銆佺郴缁熷紓甯稿拰娑堟伅鏃ュ織涓叉垚鍚屼竴鏉℃帓闅滈摼璺€傚父瑙侀棶棰橈細娌℃湁 TraceId 鏃跺彲鍏堟寜璁惧缂栫爜鎴?Topic 缂╁皬鑼冨洿锛屽啀鍥炴函瀵瑰簲寮傚父璁板綍銆傚欢浼搁槄璇伙細X-Trace-Id銆乻ystem_error 瀹¤銆佹秷鎭拷韪笌娑堟伅鏃ュ織鏌ヨ銆?, 'TraceId,閾捐矾杩借釜,寮傚父瑙傛祴,system_error,鎺掗殰', '/message-trace,/system-log', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
+    (760308, 1, 'technical', 'TraceId、链路追踪台、异常观测台排障说明', '面向运维与研发角色的统一排障路径说明。', '适用角色：运维人员、开发人员、超级管理员。适用页面：链路追踪台、异常观测台。使用场景：出现 MQTT 分发失败、设备不存在、后台异常或接口报错时快速串联上下游链路。操作步骤：1. 先获取请求或日志里的 TraceId。2. 在异常观测台查看是否存在 system_error 记录。3. 再到链路追踪台按 TraceId、设备编码、产品标识或 Topic 检索消息日志。4. 结合接口返回和设备属性结果确认故障落点。结果判断：能够把 HTTP、MQTT、系统异常和消息日志串成同一条排障链路。常见问题：没有 TraceId 时可先按设备编码或 Topic 缩小范围，再回溯对应异常记录。延伸阅读：X-Trace-Id、system_error 审计、消息追踪与消息日志查询。', 'TraceId,链路追踪,异常观测,system_error,排障', '/message-trace,/system-log', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
      1, 8, 1, NOW(), 1, NOW(), 0),
-    (760309, 1, 'technical', '鐪熷疄鐜鍚姩銆佺幆澧冨彉閲忎笌渚濊禆妫€鏌ヨ鏄?, '闈㈠悜杩愮淮涓庣爺鍙戣鑹茬殑鐪熷疄鐜鍚姩鍓嶆鏌ユ竻鍗曘€?, '閫傜敤瑙掕壊锛氳繍缁翠汉鍛樸€佸紑鍙戜汉鍛樸€佽秴绾х鐞嗗憳銆傞€傜敤椤甸潰锛氶摼璺獙璇佷腑蹇冦€佸紓甯歌娴嬪彴銆備娇鐢ㄥ満鏅細鏈湴鑱旇皟銆佸叡浜幆澧冩帓闅溿€佸巻鍙插簱鍗囩骇鍚庡楠屻€傛搷浣滄楠わ細1. 鍏堢‘璁ゅ敮涓€鍚姩妯″潡浠嶄负 `spring-boot-iot-admin`銆?. 浠?`application-dev.yml` 涓哄熀绾挎鏌?MySQL銆丷edis銆乀Dengine銆丮QTT 绛変緷璧栨槸鍚﹀彲杈俱€?. 闇€瑕佽鐩栭粯璁ら厤缃椂锛屼紭鍏堜娇鐢ㄧ幆澧冨彉閲忋€?. 鍘嗗彶搴撹嫢缂哄皯绯荤粺鍐呭鑳藉姏鎴栨不鐞嗚彍鍗曪紝鍏堣ˉ榻愬搴斿垵濮嬪寲鎴栧崌绾ф暟鎹啀楠屾敹銆傜粨鏋滃垽鏂細鍚庣鑳芥寜 `dev` 閰嶇疆鍚姩锛屽墠绔彲姝ｅ父璁块棶 `/api/system/help-doc/**`銆乣/api/system/in-app-message/**` 鍜屼富瑕佷笟鍔℃帴鍙ｃ€傚父瑙侀棶棰橈細鐪熷疄鐜涓嶅彲鐢ㄦ椂鍙兘璁板綍涓虹幆澧冮樆濉烇紝涓嶈兘鍥為€€鍒版棫 H2 楠屾敹璺緞銆傚欢浼搁槄璇伙細杩愯鍩虹嚎銆佸叧閿幆澧冨彉閲忋€佸巻鍙插簱鍗囩骇涓庢帓闅滃叆鍙ｃ€?, '鍚姩,鐜鍙橀噺,渚濊禆妫€鏌?application-dev,楠屾敹', '/reporting,/system-log', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
+    (760309, 1, 'technical', '真实环境启动、环境变量与依赖检查说明', '面向运维与研发角色的真实环境启动前检查清单。', '适用角色：运维人员、开发人员、超级管理员。适用页面：链路验证中心、异常观测台。使用场景：本地联调、共享环境排障、历史库升级后复验。操作步骤：1. 先确认唯一启动模块仍为 `spring-boot-iot-admin`。2. 以 `application-dev.yml` 为基线检查 MySQL、Redis、TDengine、MQTT 等依赖是否可达。3. 需要覆盖默认配置时，优先使用环境变量。4. 历史库若缺少系统内容能力或治理菜单，先补齐对应初始化或升级数据再验收。结果判断：后端能按 `dev` 配置启动，前端可正常访问 `/api/system/help-doc/**`、`/api/system/in-app-message/**` 和主要业务接口。常见问题：真实环境不可用时只能记录为环境阻塞，不能回退到旧 H2 验收路径。延伸阅读：运行基线、关键环境变量、历史库升级与排障入口。', '启动,环境变量,依赖检查,application-dev,验收', '/reporting,/system-log', 'OPS_STAFF,DEVELOPER_STAFF,SUPER_ADMIN',
      1, 9, 1, NOW(), 1, NOW(), 0),
-    (760310, 1, 'faq', 'FAQ锛氫骇鍝佸拰璁惧鏈変粈涔堝尯鍒?, '缁熶竴瑙ｉ噴浜у搧銆佽澶囥€佺埗瀛愭嫇鎵戝拰寤烘。椤哄簭銆?, '閫傜敤瑙掕壊锛氭墍鏈夌櫥褰曠敤鎴枫€傞€傜敤椤甸潰锛氫骇鍝佸畾涔変腑蹇冦€佽澶囪祫浜т腑蹇冦€備娇鐢ㄥ満鏅細棣栨鎺ヨЕ璁惧寤烘。銆佽В閲婁骇鍝佹ā鏉垮拰鐜板満璧勪骇瀹炰緥鐨勫樊寮傘€傛搷浣滄楠わ細1. 鍏堟妸浜у搧鐞嗚В涓烘帴鍏ユā鏉裤€?. 鍐嶆妸璁惧鐞嗚В涓虹幇鍦鸿祫浜у疄渚嬨€?. 鏈夌埗瀛愭嫇鎵戞椂锛屾妸鍏崇郴缁存姢鍦ㄨ澶囦晶鑰屼笉鏄骇鍝佷晶銆傜粨鏋滃垽鏂細鑳藉鍖哄垎鍝簺淇℃伅灞炰簬浜у搧涓绘暟鎹紝鍝簺淇℃伅灞炰簬璁惧瀹炰緥淇℃伅銆傚父瑙侀棶棰橈細鍚屼竴椤圭洰涓嬪鍙板悓绫昏澶囬€氬父鍏辩敤涓€涓骇鍝侊紝涓嶅洜瀹夎浣嶇疆涓嶅悓閲嶅寤轰骇鍝併€傚欢浼搁槄璇伙細浜у搧涓庤澶囬€昏緫鍏崇郴銆佸瓧娈靛彛寰勩€佸缓妗ｉ『搴忋€?, '浜у搧,璁惧,FAQ,寤烘。,鎷撴墤', '/products,/devices', '',
+    (760310, 1, 'faq', 'FAQ：产品和设备有什么区别', '统一解释产品、设备、父子拓扑和建档顺序。', '适用角色：所有登录用户。适用页面：产品定义中心、设备资产中心。使用场景：首次接触设备建档、解释产品模板和现场资产实例的差异。操作步骤：1. 先把产品理解为接入模板。2. 再把设备理解为现场资产实例。3. 有父子拓扑时，把关系维护在设备侧而不是产品侧。结果判断：能够区分哪些信息属于产品主数据，哪些信息属于设备实例信息。常见问题：同一项目下多台同类设备通常共用一个产品，不因安装位置不同重复建产品。延伸阅读：产品与设备逻辑关系、字段口径、建档顺序。', '产品,设备,FAQ,建档,拓扑', '/products,/devices', '',
      1, 10, 1, NOW(), 1, NOW(), 0),
-    (760311, 1, 'faq', 'FAQ锛氫负浠€涔堟垜鐪嬩笉鍒版煇涓〉闈㈡垨甯姪鏂囨。', '璇存槑鑿滃崟鏉冮檺銆佽鑹茶寖鍥村拰甯姪璧勬枡杩囨护瑙勫垯銆?, '閫傜敤瑙掕壊锛氭墍鏈夌櫥褰曠敤鎴枫€傞€傜敤椤甸潰锛氶€氱敤銆備娇鐢ㄥ満鏅細褰撳墠璐﹀彿鑳界櫥褰曪紝浣嗙湅涓嶅埌鐩爣椤甸潰銆佹寜閽垨甯姪璧勬枡鏃躲€傛搷浣滄楠わ細1. 鍏堢‘璁ゅ綋鍓嶈处鍙疯鑹叉槸鍚﹀叿澶囩洰鏍囪彍鍗曟巿鏉冦€?. 鍐嶇‘璁ゅ府鍔╂枃妗ｆ槸鍚﹂厤缃簡鍙瑙掕壊鎴栧叧鑱旈〉闈㈣矾寰勩€?. 濡傛灉椤甸潰鏈韩鏃犳潈璁块棶锛屽府鍔╀腑蹇冧篃涓嶄細缁х画鎺ㄨ崘瀵瑰簲璧勬枡銆傜粨鏋滃垽鏂細瑙掕壊鍜岃彍鍗曟巿鏉冭ˉ榻愬悗锛岄〉闈㈠叆鍙ｅ拰甯姪璧勬枡浼氫竴璧锋仮澶嶅彲瑙併€傚父瑙侀棶棰橈細甯姪涓績鎸夋潈闄愯繃婊ゅ唴瀹癸紝鏁呮剰涓嶅睍绀衡€滅湅寰楀埌浣嗙偣涓嶈繘鍘烩€濈殑浼叆鍙ｃ€傚欢浼搁槄璇伙細瑙掕壊榛樿鑼冨洿銆佽彍鍗曟巿鏉冦€佸府鍔╂枃妗ｅ彲瑙佹€ц鍒欍€?, '鏉冮檺,瑙掕壊,鑿滃崟,甯姪鏂囨。,鍙鎬?, NULL, '',
+    (760311, 1, 'faq', 'FAQ：为什么我看不到某个页面或帮助文档', '说明菜单权限、角色范围和帮助资料过滤规则。', '适用角色：所有登录用户。适用页面：通用。使用场景：当前账号能登录，但看不到目标页面、按钮或帮助资料时。操作步骤：1. 先确认当前账号角色是否具备目标菜单授权。2. 再确认帮助文档是否配置了可见角色或关联页面路径。3. 如果页面本身无权访问，帮助中心也不会继续推荐对应资料。结果判断：角色和菜单授权补齐后，页面入口和帮助资料会一起恢复可见。常见问题：帮助中心按权限过滤内容，故意不展示“看得到但点不进去”的伪入口。延伸阅读：角色默认范围、菜单授权、帮助文档可见性规则。', '权限,角色,菜单,帮助文档,可见性', NULL, '',
      1, 11, 1, NOW(), 1, NOW(), 0),
-    (760312, 1, 'faq', 'FAQ锛氶€氱煡涓績涓庡府鍔╀腑蹇冩€庝箞鐢?, '璇存槑鍙充笂瑙掑３灞傚叆鍙ｇ殑鍒嗙被瑙勫垯鍜屼娇鐢ㄦ柟寮忋€?, '閫傜敤瑙掕壊锛氭墍鏈夌櫥褰曠敤鎴枫€傞€傜敤椤甸潰锛氶€氱敤銆備娇鐢ㄥ満鏅細棣栨浣跨敤澶撮儴澹冲眰鍏ュ彛鎴栭渶瑕佸揩閫熸煡鎵炬秷鎭€佸府鍔╄祫鏂欐椂銆傛搷浣滄楠わ細1. 鍦ㄥ彸涓婅鎵撳紑閫氱煡涓績鏌ョ湅绯荤粺浜嬩欢銆佷笟鍔′簨浠跺拰閿欒浜嬩欢銆?. 鍦ㄥ府鍔╀腑蹇冩煡鐪嬩笟鍔＄被銆佹妧鏈被鍜?FAQ 璧勬枡銆?. 闇€瑕佹洿澶氬唴瀹规椂锛岄€氳繃鈥滄煡鐪嬫洿澶氣€濊繘鍏ュ垪琛ㄦ娊灞夛紝鍐嶅仛鍒嗙被绛涢€夊拰鍏抽敭瀛楁悳绱€傜粨鏋滃垽鏂細鑳戒粠鎽樿闈㈡澘杩涘叆鍒楄〃鍜岃鎯咃紝骞惰烦杞埌鍏宠仈椤甸潰缁х画澶勭悊銆傚父瑙侀棶棰橈細甯姪涓績鍙睍绀哄綋鍓嶈处鍙风湡姝ｆ湁鏉冭闂殑璧勬枡锛岄€氱煡宸茶涔熼渶瑕佹樉寮忔搷浣溿€傚欢浼搁槄璇伙細澹冲眰鎽樿銆佸垪琛ㄦ娊灞夈€佽鎯呮娊灞変笌鏉冮檺杩囨护瑙勫垯銆?, '閫氱煡涓績,甯姪涓績,FAQ,澹冲眰,鎼滅储', NULL, '',
+    (760312, 1, 'faq', 'FAQ：通知中心与帮助中心怎么用', '说明右上角壳层入口的分类规则和使用方式。', '适用角色：所有登录用户。适用页面：通用。使用场景：首次使用头部壳层入口或需要快速查找消息、帮助资料时。操作步骤：1. 在右上角打开通知中心查看系统事件、业务事件和错误事件。2. 在帮助中心查看业务类、技术类和 FAQ 资料。3. 需要更多内容时，通过“查看更多”进入列表抽屉，再做分类筛选和关键字搜索。结果判断：能从摘要面板进入列表和详情，并跳转到关联页面继续处理。常见问题：帮助中心只展示当前账号真正有权访问的资料，通知已读也需要显式操作。延伸阅读：壳层摘要、列表抽屉、详情抽屉与权限过滤规则。', '通知中心,帮助中心,FAQ,壳层,搜索', NULL, '',
      1, 12, 1, NOW(), 1, NOW(), 0),
-    (760313, 1, 'faq', 'FAQ锛氫负浠€涔堜細鍑虹幇 401銆佹棤鏉冮檺鎴栫郴缁熷唴瀹圭己琛ㄦ彁绀?, '璇存槑甯歌璁よ瘉銆佹巿鏉冨拰鐜鍒濆鍖栭棶棰樼殑鎺掓煡鏂瑰悜銆?, '閫傜敤瑙掕壊锛氭墍鏈夌櫥褰曠敤鎴枫€傞€傜敤椤甸潰锛氶€氱敤銆備娇鐢ㄥ満鏅細鎺ュ彛杩斿洖 `401`銆侀〉闈㈡彁绀烘棤鏉冮檺锛屾垨绯荤粺鍐呭鎺ュ彛鎻愮ず缂哄皯渚濊禆鏁版嵁鏃躲€傛搷浣滄楠わ細1. `401` 鍦烘櫙鍏堥噸鏂扮櫥褰曞苟纭鍓嶇宸叉惡甯?Bearer token銆?. 鏃犳潈闄愬満鏅厛妫€鏌ヨ鑹层€佽彍鍗曞拰鎸夐挳鎺堟潈銆?. 绯荤粺鍐呭渚濊禆缂哄け鏃讹紝璇风鐞嗗憳琛ラ綈甯姪鏂囨。鍜岀珯鍐呮秷鎭墍闇€鐨勬暟鎹〃涓庡垵濮嬪寲鏁版嵁銆傜粨鏋滃垽鏂細璁よ瘉鎭㈠鍚庢帴鍙ｅ彲璁块棶锛屾巿鏉冭ˉ榻愬悗椤甸潰鍏ュ彛涓庢寜閽仮澶嶏紝绯荤粺鍐呭鍒濆鍖栧畬鎴愬悗甯姪涓績鍜岄€氱煡涓績鍙甯歌繑鍥炴暟鎹€傚父瑙侀棶棰橈細鐜闃诲瑕佹槑纭褰曚负鐜闂锛屼笉鑳界敤鏃ч獙鏀惰矾寰勬浛浠ｇ湡瀹炵幆澧冦€傚欢浼搁槄璇伙細閴存潈瑙勮寖銆佽彍鍗曟巿鏉冦€佺湡瀹炵幆澧冨垵濮嬪寲涓庡崌绾ц鏄庛€?, '401,鏃犳潈闄?绯荤粺鍐呭,鍒濆鍖?FAQ', NULL, '',
+    (760313, 1, 'faq', 'FAQ：为什么会出现 401、无权限或系统内容缺表提示', '说明常见认证、授权和环境初始化问题的排查方向。', '适用角色：所有登录用户。适用页面：通用。使用场景：接口返回 `401`、页面提示无权限，或系统内容接口提示缺少依赖数据时。操作步骤：1. `401` 场景先重新登录并确认前端已携带 Bearer token。2. 无权限场景先检查角色、菜单和按钮授权。3. 系统内容依赖缺失时，请管理员补齐帮助文档和站内消息所需的数据表与初始化数据。结果判断：认证恢复后接口可访问，授权补齐后页面入口与按钮恢复，系统内容初始化完成后帮助中心和通知中心可正常返回数据。常见问题：环境阻塞要明确记录为环境问题，不能用旧验收路径替代真实环境。延伸阅读：鉴权规范、菜单授权、真实环境初始化与升级说明。', '401,无权限,系统内容,初始化,FAQ', NULL, '',
      1, 13, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     doc_category = VALUES(doc_category),
@@ -950,14 +949,14 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 -- =========================
--- 4) 椋庨櫓骞冲彴锛堝憡璀?浜嬩欢/椋庨櫓鐐癸級
+-- 4) 风险平台（告警/事件/风险点）
 -- =========================
 INSERT INTO risk_point (
     id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
     risk_level, risk_type, location_text, longitude, latitude, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8001, 'RP-HP-001', '閿呯倝娓╁帇鐩戞祴鐐?, 7101, '骞冲彴杩愮淮涓績', 7002, '榛勬郸鍘傚尯', 1, '13800000000', 'red', 'GENERAL', NULL, NULL, NULL, '閿呯倝鍖洪珮娓╅珮鍘嬮闄╃洃娴?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8002, 'RP-HP-002', '鎸姩鐩戞祴鐐?, 7102, '鍛婅澶勭疆缁?, 7002, '榛勬郸鍘傚尯', 1, '13800000000', 'orange', 'GENERAL', NULL, NULL, NULL, '鍏抽敭璁惧鎸姩椋庨櫓鐩戞祴', 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'red', 'GENERAL', NULL, NULL, NULL, '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'orange', 'GENERAL', NULL, NULL, NULL, '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
     org_id = VALUES(org_id),
@@ -981,71 +980,71 @@ INSERT INTO risk_point (
     id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
     risk_level, risk_type, location_text, longitude, latitude, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8501, 'RP-HW-SLOPE-001', 'G7011鍗佸ぉ楂橀€烱595', 7111, '鎴愬幙鎵€', 621221, '鎴愬幙', 1, '13800000000', 'blue', 'SLOPE', 'SXK595+818-SX595+960', 105.65682, 33.698381, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8502, 'RP-HW-SLOPE-002', 'G22闈掑叞楂橀€熷钩瀹氭K1458+75', 7116, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 621026, '瀹佸幙', 1, '13800000000', 'blue', 'SLOPE', 'G22', 107.75108, 35.33165, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8503, 'RP-HW-SLOPE-003', 'G2012瀹氭楂橀€焁K450+182', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620622, '鍙ゆ氮鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8504, 'RP-HW-TUNNEL-001', 'G8513骞崇坏楂橀€熸垚姝︽SK384+870-SK384+920', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.09881, 33.469798, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8505, 'RP-HW-SLOPE-004', 'S38鐜嬪楂橀€烱14+650', 7115, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'S38', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8506, 'RP-HW-SLOPE-005', 'S32涓村ぇ楂橀€烱10+176-K10+560', 7115, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 622901, '涓村甯?, 1, '13800000000', 'blue', 'SLOPE', 'S32', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8507, 'RP-HW-SLOPE-006', 'G30杩為湇楂橀€熸爲寰愭K1740+300', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8508, 'RP-HW-SLOPE-007', 'G30杩為湇楂橀€熸煶蹇犳K1689+900-K1690+300', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8509, 'RP-HW-SLOPE-008', 'G6浜棌楂橀€熷垬鐧芥K1414+770-K1415+550', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8510, 'RP-HW-SLOPE-009', 'G75鍏版捣楂橀€熷叞涓存K14+325', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620103, '涓冮噷娌冲尯', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8511, 'RP-HW-SLOPE-010', 'G75鍏版捣楂橀€熷叞涓存K11+325', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620103, '涓冮噷娌冲尯', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8512, 'RP-HW-SLOPE-011', 'G75鍏版捣楂橀€熷叞涓存K14+149.5', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620103, '涓冮噷娌冲尯', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8513, 'RP-HW-BRIDGE-001', 'G6 浜棌楂橀€熷叞娴锋K1661+350', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620111, '绾㈠彜鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8514, 'RP-HW-SLOPE-012', 'G6浜棌楂橀€熺櫧鍏版K1548+810', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620122, '鐨嬪叞鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8515, 'RP-HW-SLOPE-013', 'G2201鍗楃粫鍩庨珮閫烱39+800', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620104, '瑗垮浐鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2201', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8516, 'RP-HW-SLOPE-014', 'G30杩為湇楂橀€熸煶蹇犳K1695+500锝濳1699+800', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620102, '鍩庡叧鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8517, 'RP-HW-BRIDGE-002', 'G568鍏版案涓€绾75+253', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 622923, '姘搁潠鍘?, 1, '13800000000', 'blue', 'BRIDGE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8518, 'RP-HW-BRIDGE-003', 'G3011鏌虫牸楂橀€烱74+830', 7120, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘暒鐓屽垎鍏徃', 620201101, '宄硥闀?, 1, '13800000000', 'blue', 'BRIDGE', 'G3011', 95.896419, 40.517818, 'G3011鏌虫牸楂橀€烱74+830', 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8519, 'RP-HW-SLOPE-015', 'G2012瀹氭楂橀€烻K394+700锝濻K394+900', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620602, '鍑夊窞鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8520, 'RP-HW-SLOPE-016', 'G2012瀹氭楂橀€烱393+170', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620602, '鍑夊窞鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8521, 'RP-HW-SLOPE-017', 'G2012瀹氭楂橀€烱413+446', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620602, '鍑夊窞鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8522, 'RP-HW-SLOPE-018', 'G2012瀹氭楂橀€烱400+315', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620602, '鍑夊窞鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8523, 'RP-HW-SLOPE-019', 'G2012瀹氭楂橀€烱392+410', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 620602, '鍑夊窞鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8524, 'RP-HW-SLOPE-020', 'G2012瀹氭楂橀€烱392+790', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8525, 'RP-HW-SLOPE-021', 'G2012瀹氭楂橀€烱479+665', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8526, 'RP-HW-SLOPE-022', 'G2012瀹氭楂橀€烱465+175', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8527, 'RP-HW-SLOPE-023', 'G2012瀹氭楂橀€烱462+995', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8528, 'RP-HW-SLOPE-024', 'G2012瀹氭楂橀€烱420+891', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8529, 'RP-HW-SLOPE-025', 'G2012瀹氭楂橀€烱437+982', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8530, 'RP-HW-SLOPE-026', 'G2012瀹氭楂橀€烻K450+182', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8531, 'RP-HW-SLOPE-027', 'G3017閲戞楂橀€烱67+050-K67+700', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8532, 'RP-HW-SLOPE-028', 'G3017閲戞楂橀€烱68+860-K69+100', 7117, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8533, 'RP-HW-BRIDGE-004', 'G22闈掑叞楂橀€熷穳鏌虫SK1856+400-500妗ユ', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 620123, '姒嗕腑鍘?, 1, '13800000000', 'blue', 'BRIDGE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8534, 'RP-HW-TUNNEL-002', 'G22闈掑叞楂橀€熷穳鏌虫SK1839+928闅ч亾', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 620123, '姒嗕腑鍘?, 1, '13800000000', 'blue', 'TUNNEL', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8535, 'RP-HW-SLOPE-029', 'G22闈掑叞楂橀€熷穳鏌虫K1858+250娌夐櫡', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 620123, '姒嗕腑鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8536, 'RP-HW-SLOPE-030', 'G22闈掑叞楂橀€熷穳鏌虫K1855+575娌夐櫡', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 620123, '姒嗕腑鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8537, 'RP-HW-TUNNEL-003', 'G22闈掑叞楂橀€熼浄瑗挎K1374+670-K1374+780', 7116, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 621021, '搴嗗煄鍘?, 1, '13800000000', 'blue', 'TUNNEL', 'G22', 107.70219, 35.904263, '妫氭礊璁捐鏍囧噯鍙楁帶浜庡簡鍩庨毀閬撹璁°€傞毀閬撹璁¤溅閫?0km/h锛屾寜鍒嗙寮忚璁★紝涓娿€佷笅琛岄棿璺濅负36m 宸﹀彸锛屾瘡骞呬负鍗曞悜鍙岃溅閬擄紝妫氭礊閲囩敤鍙樻埅闈㈡嫳闂ㄥ紡渚у锛屼晶澧欏唴杞粨鍗婂緞 5.43m锛屼晶澧欒窛鐢电紗妲介《闈㈤珮搴?3.1m锛岄噰鐢ㄩ挗绛嬫贩鍑濆湡鎵╁ぇ鍩虹锛屾í鍚戣 C25 閽㈢瓔娣峰嚌鍦熸敮鎾戞锛?m 闂磋窛璁句竴閬擄紝妯悜鏀拺姊佷笌渚у娣峰嚌鍦熶竴浣撴祰绛戝畬鎴愩€傛娲炴嫳椤堕噰鐢?I18 閽㈡嫳鏋朵负楠ㄦ灦锛岀旱鍚戦棿璺濅负 3.0m锛岄挗鎷?鏋朵笂娌跨旱鍚戦摵璁綶10 妲介挗锛屾Ы閽笌閽㈡嫳鏋剁剨鎺ワ紝椤堕儴閾鸿钃濊壊閬厜鏉匡紝閲囩敤铻烘爴涓庢Ы閽㈣繛鎺ャ€傛娲為珮濉柟璺熀涓嬭閽㈡尝绾圭娑碉紝灏嗘矡鍐呮眹姘存帓鑷充笅娓告矡璋枫€?         缁忚皟鏌ワ紝涓婁笅琛岀嚎妫氭礊鐥呭鎯呭喌鐩歌繎锛屼富瑕佺梾瀹充负妫氭礊鎷卞寮€瑁傘€佸眬閮ㄦ贩鍑濆湡鍓ヨ惤锛岃缂濇渶澶?瀹藉害杈?2.2cm锛屼釜鍒儴浣嶆嫳鍦堟暣浣撳墺钀斤紝鎷卞澶ч潰绉笚姘淬€佹硾纰变弗閲嶏紝娑傝鍓ヨ殌娉涚⒈涓ラ噸銆?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8538, 'RP-HW-SLOPE-031', 'G8513骞崇坏楂橀€熷钩澶╂YK54+925', 7116, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 620881, '鍗庝涵甯?, 1, '13800000000', 'blue', 'SLOPE', 'G8513', 106.58477, 35.17848, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8539, 'RP-HW-BRIDGE-005', 'G8513骞崇坏楂橀€熷钩澶╂K176+953', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620522, '绉﹀畨鍘?, 1, '13800000000', 'blue', 'BRIDGE', 'G8513', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8540, 'RP-HW-SLOPE-032', 'G30杩為湇楂橀€熷疂澶╂K1329+165', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13355, 34.35039, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8541, 'RP-HW-BRIDGE-006', 'G30杩為湇楂橀€熷疂澶╂K1306+742', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8542, 'RP-HW-BRIDGE-007', 'G30杩為湇楂橀€熷疂澶╂K1310+835', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.31153, 34.318538, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8543, 'RP-HW-BRIDGE-008', 'G30杩為湇楂橀€熷疂澶╂K1324+528', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.16548, 34.336527, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8544, 'RP-HW-BRIDGE-009', 'G30杩為湇楂橀€熷疂澶╂K1289+900', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.51702, 34.336102, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8545, 'RP-HW-TUNNEL-004', 'G8513骞崇坏楂橀€熸垚姝︽XK368+300-XK368+350', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.27762, 33.43379, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8546, 'RP-HW-TUNNEL-005', 'G8513骞崇坏楂橀€熸垚姝︽XK385+260-XK385+360', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.10659, 33.467689, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8547, 'RP-HW-BRIDGE-010', 'G8513骞崇坏楂橀€熸垚姝︽K396+935', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 105.01642, 33.488265, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8548, 'RP-HW-SLOPE-033', 'G75鍏版捣楂橀€熷叞涓存K22+200-K22+400婊戝潯', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620102, '鍩庡叧鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8549, 'RP-HW-SLOPE-034', 'G8513骞崇坏楂橀€熸垚姝︽K374+960姘存瘉', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.21959, 33.436574, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8550, 'RP-HW-SLOPE-035', 'G7011鍗佸ぉ楂橀€烱653+900', 7111, '鎴愬幙鎵€', 621225, '瑗垮拰鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8551, 'RP-HW-SLOPE-036', 'G568鍏版案涓€绾78+965-K79+140', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620102, '鍩庡叧鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8552, 'RP-HW-SLOPE-037', 'G7011鍗佸ぉ楂橀€烱646+945', 7111, '鎴愬幙鎵€', 621225, '瑗垮拰鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8553, 'RP-HW-SLOPE-038', 'G7011鍗佸ぉ楂橀€烱583+445婊戝潯', 7111, '鎴愬幙鎵€', 621221, '鎴愬幙', 1, '13800000000', 'blue', 'SLOPE', 'G7011', 105.77499, 33.741783, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8554, 'RP-HW-BRIDGE-011', 'G75 鍏版捣楂橀€熸缃愭K522+510姘存瘉', 7113, '姝﹂兘鎵€', 621222, '鏂囧幙', 1, '13800000000', 'blue', 'BRIDGE', 'G75', 105.41266, 32.762192, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8555, 'RP-HW-SLOPE-039', 'G6浜棌楂橀€熷叞娴锋K1652+225宕╁', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620104, '瑗垮浐鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.20301, 36.17702, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8556, 'RP-HW-SLOPE-040', 'G1816 涔岀帥楂橀€熷悍涓存K745+950-K745+990闅ч亾', 7115, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 622925, '鍜屾斂鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.32034, 35.452103, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8557, 'RP-HW-SLOPE-041', 'G1816涔岀帥楂橀€熷悍涓存K753+240姘存瘉', 7115, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 622925, '鍜屾斂鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.248, 35.481186, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8558, 'RP-HW-SLOPE-042', 'G22闈掑叞楂橀€熷钩瀹氭K1652+855姘存瘉', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 621102, '瀹夊畾鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G22', 105.78201, 35.546959, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8559, 'RP-HW-SLOPE-043', 'G8513骞崇坏楂橀€熸垚姝︽K333+520', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.46746, 33.639921, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8560, 'RP-HW-BRIDGE-012', 'G8513骞崇坏楂橀€熸垚姝︽K401+694', 7112, '鎴愭鎵€', 621202, '姝﹂兘鍖?, 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 104.95312, 33.462721, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8561, 'RP-HW-SLOPE-044', 'G30杩為湇楂橀€熷疂澶╂K1323+880娉ョ煶娴?, 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.16524, 34.336093, 'G30 杩為湇楂橀€熷疂楦¤嚦澶╂按娈典笅琛岀嚎 K1323+880 澶勶紝浣嶄簬鐢樿們鐪佸ぉ姘村競楹︾Н鍖哄厷宸濋晣銆備笅琛岀嚎宸︿晶涓庢偿鐭虫祦娌熷彛鍩烘湰鍛堟浜ゅ叧绯伙紝閲囩敤 2脳2m 娑垫礊瀵兼帓娉ョ煶娴併€?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8562, 'RP-HW-SLOPE-045', 'G6浜棌楂橀€烱1623+400婊戝潯', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620111, '绾㈠彜鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.8313, 36.066116, 'G6 浜棌楂橀€熷叕璺叞娴锋 K1623+300锝濳1623+400 娈靛彸渚ц竟鍧℃粦濉岋紝浣嶄簬鐢樿們鐪佸叞宸炲競瑗垮浐鍖烘渤鍙ｄ埂銆傞」鐩尯鍦板闄囪タ榛勫湡楂樺師鍚戦潚钘忛珮鍘熻繃搴﹀甫锛屼负榛勫湡宄佹娌熷鐩搁棿鍦拌矊锛屽北楂樺潯闄★紝娌熷绾垫í锛屽憟娌熻胺鍦板舰锛屾矡璋锋繁涓斿鍛堚€淰鈥濆瓧鈥淲鈥濆瓧鍨嬫柇闈紝鎬讳綋鍦扮牬纰庛€傚潯浣撴琚瀬涓虹█灏戯紝灞遍《澶氫负榛勫湡瑕嗙洊锛屼笅閮ㄥ绾㈡偿宀╁嚭闇层€?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8563, 'RP-HW-BRIDGE-013', 'G30杩為湇楂橀€?K1731+077', 7114, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 620121, '姘哥櫥鍘?, 1, '13800000000', 'blue', 'BRIDGE', 'G30', 103.59, 36.4, 'G30杩為湇楂橀€烱1731+077 鍖濋亾妗ワ紝浣嶄簬鐢樿們鐪佸叞宸炲競姘哥櫥鍘挎爲灞忛晣銆?椤圭洰鍖哄湴澶勯檱瑗块粍鍦熼珮鍘熷悜闈掕棌楂樺師杩囧害甯︼紝涓洪粍鍦熷硜姊佹矡澹戠浉闂村湴璨岋紝娌熷绾垫í锛屽憟娌熻胺鍦板舰锛屾矡璋锋繁涓斿鍛堚€淰鈥濆瓧鈥淲鈥濆瓧鍨嬫柇闈紝鎬讳綋鍦板舰鐮寸銆傚潯浣撴琚瀬涓虹█灏戯紝灞遍《澶氫负榛勫湡瑕嗙洊锛屼笅閮ㄥ绾㈡偿宀╁嚭闇层€?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8564, 'RP-HW-SLOPE-046', 'G30杩為湇楂橀€烱1328+500', 7118, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 620503, '楹︾Н鍖?, 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13379, 34.344941, 'G30 杩為湇楂橀€熷叕璺疂澶╂ SK1328+800~SK1328+950 娈靛彸渚т复娌宠矾鍫ゆ按姣?浣嶄簬鐢樿們鐪佸ぉ姘村競楹︾Н鍖哄厷宸濅埂銆?璺浣嶄簬涓や腑灞遍棿鐨勬案瀹佹渤(鍏氬窛娌?娌宠胺鍖猴紝娌冲簥杈冨紑闃旓紝涓哄北鍖哄父骞存€ф渤娴侊紝鍖哄唴鍦板舰璧蜂紡涓嶅ぇ锛屽湴闈㈡爣楂樹粙浜?1488.40~1595.10m锛屽厷宸濇渤涓ゅ哺灞变綋鍩哄博闇插ご杈冨锛?灞变綋鍧″害绾?48掳寰湴璨屽崟鍏冧负灞遍棿娌宠胺鍐叉椽绉強灞遍棿娲潯绉鍦拌矊銆?, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8565, 'RP-HW-SLOPE-047', 'G75 鍏版捣楂橀€烱134+738杈瑰潯', 7119, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 621123, '娓簮鍘?, 1, '13800000000', 'blue', 'SLOPE', 'G75', 103.79258, 36.087916, 'G75 鍏版捣楂橀€烱134+738 婊戝潯锛屼綅浜庣敇鑲冪渷瀹氳タ甯傛腑婧愬幙娓呮簮闀囷紝涓滃寳渚ф灉鍥潙鐢冲灞便€?灞辫剨璧板悜杩戜笢瑗垮悜锛屽湴璨屽睘浜庝綆灞变笜闄靛湴璨岋紝鏂滃潯楂樼▼鍦?2180~2330 涔嬮棿锛屽潯浣撲笅閮ㄥ钩鍧囧潯搴︾害 30掳锛屼腑閮ㄥ钩鍧囧潯搴︾害 8掳銆?, 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8501, 'RP-HW-SLOPE-001', 'G7011十天高速K595', 7111, '成县所', 621221, '成县', 1, '13800000000', 'blue', 'SLOPE', 'SXK595+818-SX595+960', 105.65682, 33.698381, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8502, 'RP-HW-SLOPE-002', 'G22青兰高速平定段K1458+75', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 621026, '宁县', 1, '13800000000', 'blue', 'SLOPE', 'G22', 107.75108, 35.33165, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8503, 'RP-HW-SLOPE-003', 'G2012定武高速XK450+182', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620622, '古浪县', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8504, 'RP-HW-TUNNEL-001', 'G8513平绵高速成武段SK384+870-SK384+920', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.09881, 33.469798, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8505, 'RP-HW-SLOPE-004', 'S38王夏高速K14+650', 7115, '甘肃公航旅高速公路运营管理临夏分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'S38', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8506, 'RP-HW-SLOPE-005', 'S32临大高速K10+176-K10+560', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622901, '临夏市', 1, '13800000000', 'blue', 'SLOPE', 'S32', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8507, 'RP-HW-SLOPE-006', 'G30连霍高速树徐段K1740+300', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8508, 'RP-HW-SLOPE-007', 'G30连霍高速柳忠段K1689+900-K1690+300', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8509, 'RP-HW-SLOPE-008', 'G6京藏高速刘白段K1414+770-K1415+550', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8510, 'RP-HW-SLOPE-009', 'G75兰海高速兰临段K14+325', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8511, 'RP-HW-SLOPE-010', 'G75兰海高速兰临段K11+325', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8512, 'RP-HW-SLOPE-011', 'G75兰海高速兰临段K14+149.5', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8513, 'RP-HW-BRIDGE-001', 'G6 京藏高速兰海段K1661+350', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620111, '红古区', 1, '13800000000', 'blue', 'BRIDGE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8514, 'RP-HW-SLOPE-012', 'G6京藏高速白兰段K1548+810', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620122, '皋兰县', 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8515, 'RP-HW-SLOPE-013', 'G2201南绕城高速K39+800', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620104, '西固区', 1, '13800000000', 'blue', 'SLOPE', 'G2201', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8516, 'RP-HW-SLOPE-014', 'G30连霍高速柳忠段K1695+500～K1699+800', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8517, 'RP-HW-BRIDGE-002', 'G568兰永一级K75+253', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 622923, '永靖县', 1, '13800000000', 'blue', 'BRIDGE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8518, 'RP-HW-BRIDGE-003', 'G3011柳格高速K74+830', 7120, '甘肃公航旅高速公路运营管理敦煌分公司', 620201101, '峪泉镇', 1, '13800000000', 'blue', 'BRIDGE', 'G3011', 95.896419, 40.517818, 'G3011柳格高速K74+830', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8519, 'RP-HW-SLOPE-015', 'G2012定武高速SK394+700～SK394+900', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8520, 'RP-HW-SLOPE-016', 'G2012定武高速K393+170', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8521, 'RP-HW-SLOPE-017', 'G2012定武高速K413+446', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8522, 'RP-HW-SLOPE-018', 'G2012定武高速K400+315', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8523, 'RP-HW-SLOPE-019', 'G2012定武高速K392+410', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8524, 'RP-HW-SLOPE-020', 'G2012定武高速K392+790', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8525, 'RP-HW-SLOPE-021', 'G2012定武高速K479+665', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8526, 'RP-HW-SLOPE-022', 'G2012定武高速K465+175', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8527, 'RP-HW-SLOPE-023', 'G2012定武高速K462+995', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8528, 'RP-HW-SLOPE-024', 'G2012定武高速K420+891', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8529, 'RP-HW-SLOPE-025', 'G2012定武高速K437+982', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8530, 'RP-HW-SLOPE-026', 'G2012定武高速SK450+182', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8531, 'RP-HW-SLOPE-027', 'G3017金武高速K67+050-K67+700', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8532, 'RP-HW-SLOPE-028', 'G3017金武高速K68+860-K69+100', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8533, 'RP-HW-BRIDGE-004', 'G22青兰高速巉柳段SK1856+400-500桥梁', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'BRIDGE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8534, 'RP-HW-TUNNEL-002', 'G22青兰高速巉柳段SK1839+928隧道', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'TUNNEL', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8535, 'RP-HW-SLOPE-029', 'G22青兰高速巉柳段K1858+250沉陷', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8536, 'RP-HW-SLOPE-030', 'G22青兰高速巉柳段K1855+575沉陷', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8537, 'RP-HW-TUNNEL-003', 'G22青兰高速雷西段K1374+670-K1374+780', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 621021, '庆城县', 1, '13800000000', 'blue', 'TUNNEL', 'G22', 107.70219, 35.904263, '棚洞设计标准受控于庆城隧道设计。隧道设计车速80km/h，按分离式设计，上、下行间距为36m 左右，每幅为单向双车道，棚洞采用变截面拱门式侧墙，侧墙内轮廓半径 5.43m，侧墙距电缆槽顶面高度 3.1m，采用钢筋混凝土扩大基础，横向设 C25 钢筋混凝土支撑梁，4m 间距设一道，横向支撑梁与侧墙混凝土一体浇筑完成。棚洞拱顶采用 I18 钢拱架为骨架，纵向间距为 3.0m，钢拱 架上沿纵向铺设[10 槽钢，槽钢与钢拱架焊接，顶部铺设蓝色遮光板，采用螺栓与槽钢连接。棚洞高填方路基下设钢波纹管涵，将沟内汇水排至下游沟谷。          经调查，上下行线棚洞病害情况相近，主要病害为棚洞拱墙开裂、局部混凝土剥落，裂缝最大 宽度达 2.2cm，个别部位拱圈整体剥落，拱墙大面积渗水、泛碱严重，涂装剥蚀泛碱严重。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8538, 'RP-HW-SLOPE-031', 'G8513平绵高速平天段YK54+925', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 620881, '华亭市', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 106.58477, 35.17848, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8539, 'RP-HW-BRIDGE-005', 'G8513平绵高速平天段K176+953', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620522, '秦安县', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8540, 'RP-HW-SLOPE-032', 'G30连霍高速宝天段K1329+165', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13355, 34.35039, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8541, 'RP-HW-BRIDGE-006', 'G30连霍高速宝天段K1306+742', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8542, 'RP-HW-BRIDGE-007', 'G30连霍高速宝天段K1310+835', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.31153, 34.318538, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8543, 'RP-HW-BRIDGE-008', 'G30连霍高速宝天段K1324+528', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.16548, 34.336527, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8544, 'RP-HW-BRIDGE-009', 'G30连霍高速宝天段K1289+900', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.51702, 34.336102, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8545, 'RP-HW-TUNNEL-004', 'G8513平绵高速成武段XK368+300-XK368+350', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.27762, 33.43379, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8546, 'RP-HW-TUNNEL-005', 'G8513平绵高速成武段XK385+260-XK385+360', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.10659, 33.467689, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8547, 'RP-HW-BRIDGE-010', 'G8513平绵高速成武段K396+935', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 105.01642, 33.488265, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8548, 'RP-HW-SLOPE-033', 'G75兰海高速兰临段K22+200-K22+400滑坡', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8549, 'RP-HW-SLOPE-034', 'G8513平绵高速成武段K374+960水毁', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.21959, 33.436574, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8550, 'RP-HW-SLOPE-035', 'G7011十天高速K653+900', 7111, '成县所', 621225, '西和县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8551, 'RP-HW-SLOPE-036', 'G568兰永一级K78+965-K79+140', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8552, 'RP-HW-SLOPE-037', 'G7011十天高速K646+945', 7111, '成县所', 621225, '西和县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8553, 'RP-HW-SLOPE-038', 'G7011十天高速K583+445滑坡', 7111, '成县所', 621221, '成县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', 105.77499, 33.741783, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8554, 'RP-HW-BRIDGE-011', 'G75 兰海高速武罐段K522+510水毁', 7113, '武都所', 621222, '文县', 1, '13800000000', 'blue', 'BRIDGE', 'G75', 105.41266, 32.762192, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8555, 'RP-HW-SLOPE-039', 'G6京藏高速兰海段K1652+225崩塌', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620104, '西固区', 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.20301, 36.17702, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8556, 'RP-HW-SLOPE-040', 'G1816 乌玛高速康临段K745+950-K745+990隧道', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622925, '和政县', 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.32034, 35.452103, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8557, 'RP-HW-SLOPE-041', 'G1816乌玛高速康临段K753+240水毁', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622925, '和政县', 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.248, 35.481186, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8558, 'RP-HW-SLOPE-042', 'G22青兰高速平定段K1652+855水毁', 7119, '甘肃公航旅高速公路运营管理定西分公司', 621102, '安定区', 1, '13800000000', 'blue', 'SLOPE', 'G22', 105.78201, 35.546959, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8559, 'RP-HW-SLOPE-043', 'G8513平绵高速成武段K333+520', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.46746, 33.639921, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8560, 'RP-HW-BRIDGE-012', 'G8513平绵高速成武段K401+694', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 104.95312, 33.462721, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8561, 'RP-HW-SLOPE-044', 'G30连霍高速宝天段K1323+880泥石流', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.16524, 34.336093, 'G30 连霍高速宝鸡至天水段下行线 K1323+880 处，位于甘肃省天水市麦积区党川镇。下行线左侧与泥石流沟口基本呈正交关系，采用 2×2m 涵洞导排泥石流。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8562, 'RP-HW-SLOPE-045', 'G6京藏高速K1623+400滑坡', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620111, '红古区', 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.8313, 36.066116, 'G6 京藏高速公路兰海段 K1623+300～K1623+400 段右侧边坡滑塌，位于甘肃省兰州市西固区河口乡。项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，山高坡陡，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8563, 'RP-HW-BRIDGE-013', 'G30连霍高速 K1731+077', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620121, '永登县', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 103.59, 36.4, 'G30连霍高速K1731+077 匝道桥，位于甘肃省兰州市永登县树屏镇。 项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地形破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8564, 'RP-HW-SLOPE-046', 'G30连霍高速K1328+500', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13379, 34.344941, 'G30 连霍高速公路宝天段 SK1328+800~SK1328+950 段右侧临河路堤水毁,位于甘肃省天水市麦积区党川乡。 路段位于两中山间的永宁河(党川河)河谷区，河床较开阔，为山区常年性河流，区内地形起伏不大，地面标高介于 1488.40~1595.10m，党川河两岸山体基岩露头较多， 山体坡度约 48°微地貌单元为山间河谷冲洪积及山间洪坡积裙地貌。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8565, 'RP-HW-SLOPE-047', 'G75 兰海高速K134+738边坡', 7119, '甘肃公航旅高速公路运营管理定西分公司', 621123, '渭源县', 1, '13800000000', 'blue', 'SLOPE', 'G75', 103.79258, 36.087916, 'G75 兰海高速K134+738 滑坡，位于甘肃省定西市渭源县清源镇，东北侧果园村申家山。 山脊走向近东西向，地貌属于低山丘陵地貌，斜坡高程在 2180~2330 之间，坡体下部平均坡度约 30°，中部平均坡度约 8°。', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
     org_id = VALUES(org_id),
@@ -1069,71 +1068,71 @@ INSERT INTO risk_point_highway_detail (
     id, risk_point_id, project_name, project_type, project_summary, route_code, route_name, road_level, project_risk_level,
     admin_region_code, admin_region_path_json, maintenance_org_name, source_row_no, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (9501, 8501, 'G7011鍗佸ぉ楂橀€烱595', '杈瑰潯', NULL, 'SXK595+818-SX595+960', '鍗佸ぉ', '楂橀€熷叕璺?, NULL, '621221', '["62","6212","621221"]', '鎴愬幙鎵€', 2, 1, 1, NOW(), 1, NOW(), 0),
-    (9502, 8502, 'G22闈掑叞楂橀€熷钩瀹氭K1458+75', '杈瑰潯', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '621026', '["62","6210","621026"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 3, 1, 1, NOW(), 1, NOW(), 0),
-    (9503, 8503, 'G2012瀹氭楂橀€焁K450+182', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620622', '["62","6206","620622"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 4, 1, 1, NOW(), 1, NOW(), 0),
-    (9504, 8504, 'G8513骞崇坏楂橀€熸垚姝︽SK384+870-SK384+920', '闅ч亾', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 5, 1, 1, NOW(), 1, NOW(), 0),
-    (9505, 8505, 'S38鐜嬪楂橀€烱14+650', '杈瑰潯', NULL, 'S38', '鐜嬪楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 6, 1, 1, NOW(), 1, NOW(), 0),
-    (9506, 8506, 'S32涓村ぇ楂橀€烱10+176-K10+560', '杈瑰潯', NULL, 'S32', '涓村ぇ楂橀€?, '楂橀€熷叕璺?, NULL, '622901', '["62","6229","622901"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 7, 1, 1, NOW(), 1, NOW(), 0),
-    (9507, 8507, 'G30杩為湇楂橀€熸爲寰愭K1740+300', '杈瑰潯', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 8, 1, 1, NOW(), 1, NOW(), 0),
-    (9508, 8508, 'G30杩為湇楂橀€熸煶蹇犳K1689+900-K1690+300', '杈瑰潯', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 9, 1, 1, NOW(), 1, NOW(), 0),
-    (9509, 8509, 'G6浜棌楂橀€熷垬鐧芥K1414+770-K1415+550', '杈瑰潯', NULL, 'G6', '浜棌楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 10, 1, 1, NOW(), 1, NOW(), 0),
-    (9510, 8510, 'G75鍏版捣楂橀€熷叞涓存K14+325', '杈瑰潯', NULL, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '620103', '["62","6201","620103"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 11, 1, 1, NOW(), 1, NOW(), 0),
-    (9511, 8511, 'G75鍏版捣楂橀€熷叞涓存K11+325', '杈瑰潯', NULL, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '620103', '["62","6201","620103"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 12, 1, 1, NOW(), 1, NOW(), 0),
-    (9512, 8512, 'G75鍏版捣楂橀€熷叞涓存K14+149.5', '杈瑰潯', NULL, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '620103', '["62","6201","620103"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 13, 1, 1, NOW(), 1, NOW(), 0),
-    (9513, 8513, 'G6 浜棌楂橀€熷叞娴锋K1661+350', '妗ユ', NULL, 'G6', '浜棌楂橀€?, '楂橀€熷叕璺?, NULL, '620111', '["62","6201","620111"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 14, 1, 1, NOW(), 1, NOW(), 0),
-    (9514, 8514, 'G6浜棌楂橀€熺櫧鍏版K1548+810', '杈瑰潯', NULL, 'G6', '浜棌楂橀€?, '楂橀€熷叕璺?, NULL, '620122', '["62","6201","620122"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 15, 1, 1, NOW(), 1, NOW(), 0),
-    (9515, 8515, 'G2201鍗楃粫鍩庨珮閫烱39+800', '杈瑰潯', NULL, 'G2201', '鍗楃粫鍩庨珮閫?, '楂橀€熷叕璺?, NULL, '620104', '["62","6201","620104"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 16, 1, 1, NOW(), 1, NOW(), 0),
-    (9516, 8516, 'G30杩為湇楂橀€熸煶蹇犳K1695+500锝濳1699+800', '杈瑰潯', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620102', '["62","6201","620102"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 17, 1, 1, NOW(), 1, NOW(), 0),
-    (9517, 8517, 'G568鍏版案涓€绾75+253', '妗ユ', NULL, 'G568', '鍏版案涓€绾?, '涓€绾у叕璺?, NULL, '622923', '["62","6229","622923"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 18, 1, 1, NOW(), 1, NOW(), 0),
-    (9518, 8518, 'G3011鏌虫牸楂橀€烱74+830', '妗ユ', 'G3011鏌虫牸楂橀€烱74+830', 'G3011', '鏌虫牸楂橀€?, '楂橀€熷叕璺?, NULL, '620201101', '["62","6202","620201101"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘暒鐓屽垎鍏徃', 19, 1, 1, NOW(), 1, NOW(), 0),
-    (9519, 8519, 'G2012瀹氭楂橀€烻K394+700锝濻K394+900', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620602', '["62","6206","620602"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 20, 1, 1, NOW(), 1, NOW(), 0),
-    (9520, 8520, 'G2012瀹氭楂橀€烱393+170', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620602', '["62","6206","620602"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 21, 1, 1, NOW(), 1, NOW(), 0),
-    (9521, 8521, 'G2012瀹氭楂橀€烱413+446', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620602', '["62","6206","620602"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 22, 1, 1, NOW(), 1, NOW(), 0),
-    (9522, 8522, 'G2012瀹氭楂橀€烱400+315', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620602', '["62","6206","620602"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 23, 1, 1, NOW(), 1, NOW(), 0),
-    (9523, 8523, 'G2012瀹氭楂橀€烱392+410', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, '620602', '["62","6206","620602"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 24, 1, 1, NOW(), 1, NOW(), 0),
-    (9524, 8524, 'G2012瀹氭楂橀€烱392+790', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 25, 1, 1, NOW(), 1, NOW(), 0),
-    (9525, 8525, 'G2012瀹氭楂橀€烱479+665', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 26, 1, 1, NOW(), 1, NOW(), 0),
-    (9526, 8526, 'G2012瀹氭楂橀€烱465+175', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 27, 1, 1, NOW(), 1, NOW(), 0),
-    (9527, 8527, 'G2012瀹氭楂橀€烱462+995', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 28, 1, 1, NOW(), 1, NOW(), 0),
-    (9528, 8528, 'G2012瀹氭楂橀€烱420+891', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 29, 1, 1, NOW(), 1, NOW(), 0),
-    (9529, 8529, 'G2012瀹氭楂橀€烱437+982', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 30, 1, 1, NOW(), 1, NOW(), 0),
-    (9530, 8530, 'G2012瀹氭楂橀€烻K450+182', '杈瑰潯', NULL, 'G2012', '瀹氭楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 31, 1, 1, NOW(), 1, NOW(), 0),
-    (9531, 8531, 'G3017閲戞楂橀€烱67+050-K67+700', '杈瑰潯', NULL, 'G3017', '閲戞楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 32, 1, 1, NOW(), 1, NOW(), 0),
-    (9532, 8532, 'G3017閲戞楂橀€烱68+860-K69+100', '杈瑰潯', NULL, 'G3017', '閲戞楂橀€?, '楂橀€熷叕璺?, NULL, NULL, NULL, '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗘濞佸垎鍏徃', 33, 1, 1, NOW(), 1, NOW(), 0),
-    (9533, 8533, 'G22闈掑叞楂橀€熷穳鏌虫SK1856+400-500妗ユ', '妗ユ', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '620123', '["62","6201","620123"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 34, 1, 1, NOW(), 1, NOW(), 0),
-    (9534, 8534, 'G22闈掑叞楂橀€熷穳鏌虫SK1839+928闅ч亾', '闅ч亾', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '620123', '["62","6201","620123"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 35, 1, 1, NOW(), 1, NOW(), 0),
-    (9535, 8535, 'G22闈掑叞楂橀€熷穳鏌虫K1858+250娌夐櫡', '杈瑰潯', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '620123', '["62","6201","620123"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 36, 1, 1, NOW(), 1, NOW(), 0),
-    (9536, 8536, 'G22闈掑叞楂橀€熷穳鏌虫K1855+575娌夐櫡', '杈瑰潯', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '620123', '["62","6201","620123"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 37, 1, 1, NOW(), 1, NOW(), 0),
-    (9537, 8537, 'G22闈掑叞楂橀€熼浄瑗挎K1374+670-K1374+780', '闅ч亾', '妫氭礊璁捐鏍囧噯鍙楁帶浜庡簡鍩庨毀閬撹璁°€傞毀閬撹璁¤溅閫?0km/h锛屾寜鍒嗙寮忚璁★紝涓娿€佷笅琛岄棿璺濅负36m 宸﹀彸锛屾瘡骞呬负鍗曞悜鍙岃溅閬擄紝妫氭礊閲囩敤鍙樻埅闈㈡嫳闂ㄥ紡渚у锛屼晶澧欏唴杞粨鍗婂緞 5.43m锛屼晶澧欒窛鐢电紗妲介《闈㈤珮搴?3.1m锛岄噰鐢ㄩ挗绛嬫贩鍑濆湡鎵╁ぇ鍩虹锛屾í鍚戣 C25 閽㈢瓔娣峰嚌鍦熸敮鎾戞锛?m 闂磋窛璁句竴閬擄紝妯悜鏀拺姊佷笌渚у娣峰嚌鍦熶竴浣撴祰绛戝畬鎴愩€傛娲炴嫳椤堕噰鐢?I18 閽㈡嫳鏋朵负楠ㄦ灦锛岀旱鍚戦棿璺濅负 3.0m锛岄挗鎷?鏋朵笂娌跨旱鍚戦摵璁綶10 妲介挗锛屾Ы閽笌閽㈡嫳鏋剁剨鎺ワ紝椤堕儴閾鸿钃濊壊閬厜鏉匡紝閲囩敤铻烘爴涓庢Ы閽㈣繛鎺ャ€傛娲為珮濉柟璺熀涓嬭閽㈡尝绾圭娑碉紝灏嗘矡鍐呮眹姘存帓鑷充笅娓告矡璋枫€?         缁忚皟鏌ワ紝涓婁笅琛岀嚎妫氭礊鐥呭鎯呭喌鐩歌繎锛屼富瑕佺梾瀹充负妫氭礊鎷卞寮€瑁傘€佸眬閮ㄦ贩鍑濆湡鍓ヨ惤锛岃缂濇渶澶?瀹藉害杈?2.2cm锛屼釜鍒儴浣嶆嫳鍦堟暣浣撳墺钀斤紝鎷卞澶ч潰绉笚姘淬€佹硾纰变弗閲嶏紝娑傝鍓ヨ殌娉涚⒈涓ラ噸銆?, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '621021', '["62","6210","621021"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 38, 1, 1, NOW(), 1, NOW(), 0),
-    (9538, 8538, 'G8513骞崇坏楂橀€熷钩澶╂YK54+925', '杈瑰潯', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '620881', '["62","6208","620881"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗钩鍑夊垎鍏徃', 39, 1, 1, NOW(), 1, NOW(), 0),
-    (9539, 8539, 'G8513骞崇坏楂橀€熷钩澶╂K176+953', '妗ユ', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '620522', '["62","6205","620522"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 40, 1, 1, NOW(), 1, NOW(), 0),
-    (9540, 8540, 'G30杩為湇楂橀€熷疂澶╂K1329+165', '杈瑰潯', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 41, 1, 1, NOW(), 1, NOW(), 0),
-    (9541, 8541, 'G30杩為湇楂橀€熷疂澶╂K1306+742', '妗ユ', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 42, 1, 1, NOW(), 1, NOW(), 0),
-    (9542, 8542, 'G30杩為湇楂橀€熷疂澶╂K1310+835', '妗ユ', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 43, 1, 1, NOW(), 1, NOW(), 0),
-    (9543, 8543, 'G30杩為湇楂橀€熷疂澶╂K1324+528', '妗ユ', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 44, 1, 1, NOW(), 1, NOW(), 0),
-    (9544, 8544, 'G30杩為湇楂橀€熷疂澶╂K1289+900', '妗ユ', NULL, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 45, 1, 1, NOW(), 1, NOW(), 0),
-    (9545, 8545, 'G8513骞崇坏楂橀€熸垚姝︽XK368+300-XK368+350', '闅ч亾', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 46, 1, 1, NOW(), 1, NOW(), 0),
-    (9546, 8546, 'G8513骞崇坏楂橀€熸垚姝︽XK385+260-XK385+360', '闅ч亾', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 47, 1, 1, NOW(), 1, NOW(), 0),
-    (9547, 8547, 'G8513骞崇坏楂橀€熸垚姝︽K396+935', '妗ユ', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 48, 1, 1, NOW(), 1, NOW(), 0),
-    (9548, 8548, 'G75鍏版捣楂橀€熷叞涓存K22+200-K22+400婊戝潯', '杈瑰潯', NULL, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '620102', '["62","6201","620102"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 49, 1, 1, NOW(), 1, NOW(), 0),
-    (9549, 8549, 'G8513骞崇坏楂橀€熸垚姝︽K374+960姘存瘉', '杈瑰潯', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 50, 1, 1, NOW(), 1, NOW(), 0),
-    (9550, 8550, 'G7011鍗佸ぉ楂橀€烱653+900', '杈瑰潯', NULL, 'G7011', '鍗佸ぉ楂橀€?, '楂橀€熷叕璺?, NULL, '621225', '["62","6212","621225"]', '鎴愬幙鎵€', 51, 1, 1, NOW(), 1, NOW(), 0),
-    (9551, 8551, 'G568鍏版案涓€绾78+965-K79+140', '杈瑰潯', NULL, 'G568', '鍏版案涓€绾?, '涓€绾у叕璺?, NULL, '620102', '["62","6201","620102"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 52, 1, 1, NOW(), 1, NOW(), 0),
-    (9552, 8552, 'G7011鍗佸ぉ楂橀€烱646+945', '杈瑰潯', NULL, 'G7011', '鍗佸ぉ楂橀€?, '楂橀€熷叕璺?, NULL, '621225', '["62","6212","621225"]', '鎴愬幙鎵€', 53, 1, 1, NOW(), 1, NOW(), 0),
-    (9553, 8553, 'G7011鍗佸ぉ楂橀€烱583+445婊戝潯', '杈瑰潯', NULL, 'G7011', '鍗佸ぉ楂橀€?, '楂橀€熷叕璺?, NULL, '621221', '["62","6212","621221"]', '鎴愬幙鎵€', 54, 1, 1, NOW(), 1, NOW(), 0),
-    (9554, 8554, 'G75 鍏版捣楂橀€熸缃愭K522+510姘存瘉', '妗ユ', NULL, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '621222', '["62","6212","621222"]', '姝﹂兘鎵€', 55, 1, 1, NOW(), 1, NOW(), 0),
-    (9555, 8555, 'G6浜棌楂橀€熷叞娴锋K1652+225宕╁', '杈瑰潯', NULL, 'G6', '浜棌楂橀€?, '涓€绾у叕璺?, NULL, '620104', '["62","6201","620104"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 56, 1, 1, NOW(), 1, NOW(), 0),
-    (9556, 8556, 'G1816 涔岀帥楂橀€熷悍涓存K745+950-K745+990闅ч亾', '杈瑰潯', NULL, 'G1816', '涔岀帥楂橀€?, '楂橀€熷叕璺?, NULL, '622925', '["62","6229","622925"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 57, 1, 1, NOW(), 1, NOW(), 0),
-    (9557, 8557, 'G1816涔岀帥楂橀€熷悍涓存K753+240姘存瘉', '杈瑰潯', NULL, 'G1816', '涔岀帥楂橀€?, '楂橀€熷叕璺?, NULL, '622925', '["62","6229","622925"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗕复澶忓垎鍏徃', 58, 1, 1, NOW(), 1, NOW(), 0),
-    (9558, 8558, 'G22闈掑叞楂橀€熷钩瀹氭K1652+855姘存瘉', '杈瑰潯', NULL, 'G22', '闈掑叞楂橀€?, '楂橀€熷叕璺?, NULL, '621102', '["62","6211","621102"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 59, 1, 1, NOW(), 1, NOW(), 0),
-    (9559, 8559, 'G8513骞崇坏楂橀€熸垚姝︽K333+520', '杈瑰潯', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 60, 1, 1, NOW(), 1, NOW(), 0),
-    (9560, 8560, 'G8513骞崇坏楂橀€熸垚姝︽K401+694', '妗ユ', NULL, 'G8513', '骞崇坏楂橀€?, '楂橀€熷叕璺?, NULL, '621202', '["62","6212","621202"]', '鎴愭鎵€', 61, 1, 1, NOW(), 1, NOW(), 0),
-    (9561, 8561, 'G30杩為湇楂橀€熷疂澶╂K1323+880娉ョ煶娴?, '杈瑰潯', 'G30 杩為湇楂橀€熷疂楦¤嚦澶╂按娈典笅琛岀嚎 K1323+880 澶勶紝浣嶄簬鐢樿們鐪佸ぉ姘村競楹︾Н鍖哄厷宸濋晣銆備笅琛岀嚎宸︿晶涓庢偿鐭虫祦娌熷彛鍩烘湰鍛堟浜ゅ叧绯伙紝閲囩敤 2脳2m 娑垫礊瀵兼帓娉ョ煶娴併€?, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 62, 1, 1, NOW(), 1, NOW(), 0),
-    (9562, 8562, 'G6浜棌楂橀€烱1623+400婊戝潯', '杈瑰潯', 'G6 浜棌楂橀€熷叕璺叞娴锋 K1623+300锝濳1623+400 娈靛彸渚ц竟鍧℃粦濉岋紝浣嶄簬鐢樿們鐪佸叞宸炲競瑗垮浐鍖烘渤鍙ｄ埂銆傞」鐩尯鍦板闄囪タ榛勫湡楂樺師鍚戦潚钘忛珮鍘熻繃搴﹀甫锛屼负榛勫湡宄佹娌熷鐩搁棿鍦拌矊锛屽北楂樺潯闄★紝娌熷绾垫í锛屽憟娌熻胺鍦板舰锛屾矡璋锋繁涓斿鍛堚€淰鈥濆瓧鈥淲鈥濆瓧鍨嬫柇闈紝鎬讳綋鍦扮牬纰庛€傚潯浣撴琚瀬涓虹█灏戯紝灞遍《澶氫负榛勫湡瑕嗙洊锛屼笅閮ㄥ绾㈡偿宀╁嚭闇层€?, 'G6', '浜棌楂橀€?, '楂橀€熷叕璺?, NULL, '620111', '["62","6201","620111"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 63, 1, 1, NOW(), 1, NOW(), 0),
-    (9563, 8563, 'G30杩為湇楂橀€?K1731+077', '妗ユ', 'G30杩為湇楂橀€烱1731+077 鍖濋亾妗ワ紝浣嶄簬鐢樿們鐪佸叞宸炲競姘哥櫥鍘挎爲灞忛晣銆?椤圭洰鍖哄湴澶勯檱瑗块粍鍦熼珮鍘熷悜闈掕棌楂樺師杩囧害甯︼紝涓洪粍鍦熷硜姊佹矡澹戠浉闂村湴璨岋紝娌熷绾垫í锛屽憟娌熻胺鍦板舰锛屾矡璋锋繁涓斿鍛堚€淰鈥濆瓧鈥淲鈥濆瓧鍨嬫柇闈紝鎬讳綋鍦板舰鐮寸銆傚潯浣撴琚瀬涓虹█灏戯紝灞遍《澶氫负榛勫湡瑕嗙洊锛屼笅閮ㄥ绾㈡偿宀╁嚭闇层€?, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620121', '["62","6201","620121"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗叞宸炲垎鍏徃', 64, 1, 1, NOW(), 1, NOW(), 0),
-    (9564, 8564, 'G30杩為湇楂橀€烱1328+500', '杈瑰潯', 'G30 杩為湇楂橀€熷叕璺疂澶╂ SK1328+800~SK1328+950 娈靛彸渚т复娌宠矾鍫ゆ按姣?浣嶄簬鐢樿們鐪佸ぉ姘村競楹︾Н鍖哄厷宸濅埂銆?璺浣嶄簬涓や腑灞遍棿鐨勬案瀹佹渤(鍏氬窛娌?娌宠胺鍖猴紝娌冲簥杈冨紑闃旓紝涓哄北鍖哄父骞存€ф渤娴侊紝鍖哄唴鍦板舰璧蜂紡涓嶅ぇ锛屽湴闈㈡爣楂樹粙浜?1488.40~1595.10m锛屽厷宸濇渤涓ゅ哺灞变綋鍩哄博闇插ご杈冨锛?灞变綋鍧″害绾?48掳寰湴璨屽崟鍏冧负灞遍棿娌宠胺鍐叉椽绉強灞遍棿娲潯绉鍦拌矊銆?, 'G30', '杩為湇楂橀€?, '楂橀€熷叕璺?, NULL, '620503', '["62","6205","620503"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗ぉ姘村垎鍏徃', 65, 1, 1, NOW(), 1, NOW(), 0),
-    (9565, 8565, 'G75 鍏版捣楂橀€烱134+738杈瑰潯', '杈瑰潯', 'G75 鍏版捣楂橀€烱134+738 婊戝潯锛屼綅浜庣敇鑲冪渷瀹氳タ甯傛腑婧愬幙娓呮簮闀囷紝涓滃寳渚ф灉鍥潙鐢冲灞便€?灞辫剨璧板悜杩戜笢瑗垮悜锛屽湴璨屽睘浜庝綆灞变笜闄靛湴璨岋紝鏂滃潯楂樼▼鍦?2180~2330 涔嬮棿锛屽潯浣撲笅閮ㄥ钩鍧囧潯搴︾害 30掳锛屼腑閮ㄥ钩鍧囧潯搴︾害 8掳銆?, 'G75', '鍏版捣楂橀€?, '楂橀€熷叕璺?, NULL, '621123', '["62","6211","621123"]', '鐢樿們鍏埅鏃呴珮閫熷叕璺繍钀ョ鐞嗗畾瑗垮垎鍏徃', 66, 1, 1, NOW(), 1, NOW(), 0)
+    (9501, 8501, 'G7011十天高速K595', '边坡', NULL, 'SXK595+818-SX595+960', '十天', '高速公路', NULL, '621221', '["62","6212","621221"]', '成县所', 2, 1, 1, NOW(), 1, NOW(), 0),
+    (9502, 8502, 'G22青兰高速平定段K1458+75', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '621026', '["62","6210","621026"]', '甘肃公航旅高速公路运营管理平凉分公司', 3, 1, 1, NOW(), 1, NOW(), 0),
+    (9503, 8503, 'G2012定武高速XK450+182', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620622', '["62","6206","620622"]', '甘肃公航旅高速公路运营管理武威分公司', 4, 1, 1, NOW(), 1, NOW(), 0),
+    (9504, 8504, 'G8513平绵高速成武段SK384+870-SK384+920', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 5, 1, 1, NOW(), 1, NOW(), 0),
+    (9505, 8505, 'S38王夏高速K14+650', '边坡', NULL, 'S38', '王夏高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理临夏分公司', 6, 1, 1, NOW(), 1, NOW(), 0),
+    (9506, 8506, 'S32临大高速K10+176-K10+560', '边坡', NULL, 'S32', '临大高速', '高速公路', NULL, '622901', '["62","6229","622901"]', '甘肃公航旅高速公路运营管理临夏分公司', 7, 1, 1, NOW(), 1, NOW(), 0),
+    (9507, 8507, 'G30连霍高速树徐段K1740+300', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 8, 1, 1, NOW(), 1, NOW(), 0),
+    (9508, 8508, 'G30连霍高速柳忠段K1689+900-K1690+300', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 9, 1, 1, NOW(), 1, NOW(), 0),
+    (9509, 8509, 'G6京藏高速刘白段K1414+770-K1415+550', '边坡', NULL, 'G6', '京藏高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 10, 1, 1, NOW(), 1, NOW(), 0),
+    (9510, 8510, 'G75兰海高速兰临段K14+325', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 11, 1, 1, NOW(), 1, NOW(), 0),
+    (9511, 8511, 'G75兰海高速兰临段K11+325', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 12, 1, 1, NOW(), 1, NOW(), 0),
+    (9512, 8512, 'G75兰海高速兰临段K14+149.5', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 13, 1, 1, NOW(), 1, NOW(), 0),
+    (9513, 8513, 'G6 京藏高速兰海段K1661+350', '桥梁', NULL, 'G6', '京藏高速', '高速公路', NULL, '620111', '["62","6201","620111"]', '甘肃公航旅高速公路运营管理兰州分公司', 14, 1, 1, NOW(), 1, NOW(), 0),
+    (9514, 8514, 'G6京藏高速白兰段K1548+810', '边坡', NULL, 'G6', '京藏高速', '高速公路', NULL, '620122', '["62","6201","620122"]', '甘肃公航旅高速公路运营管理兰州分公司', 15, 1, 1, NOW(), 1, NOW(), 0),
+    (9515, 8515, 'G2201南绕城高速K39+800', '边坡', NULL, 'G2201', '南绕城高速', '高速公路', NULL, '620104', '["62","6201","620104"]', '甘肃公航旅高速公路运营管理兰州分公司', 16, 1, 1, NOW(), 1, NOW(), 0),
+    (9516, 8516, 'G30连霍高速柳忠段K1695+500～K1699+800', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 17, 1, 1, NOW(), 1, NOW(), 0),
+    (9517, 8517, 'G568兰永一级K75+253', '桥梁', NULL, 'G568', '兰永一级', '一级公路', NULL, '622923', '["62","6229","622923"]', '甘肃公航旅高速公路运营管理兰州分公司', 18, 1, 1, NOW(), 1, NOW(), 0),
+    (9518, 8518, 'G3011柳格高速K74+830', '桥梁', 'G3011柳格高速K74+830', 'G3011', '柳格高速', '高速公路', NULL, '620201101', '["62","6202","620201101"]', '甘肃公航旅高速公路运营管理敦煌分公司', 19, 1, 1, NOW(), 1, NOW(), 0),
+    (9519, 8519, 'G2012定武高速SK394+700～SK394+900', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 20, 1, 1, NOW(), 1, NOW(), 0),
+    (9520, 8520, 'G2012定武高速K393+170', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 21, 1, 1, NOW(), 1, NOW(), 0),
+    (9521, 8521, 'G2012定武高速K413+446', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 22, 1, 1, NOW(), 1, NOW(), 0),
+    (9522, 8522, 'G2012定武高速K400+315', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 23, 1, 1, NOW(), 1, NOW(), 0),
+    (9523, 8523, 'G2012定武高速K392+410', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 24, 1, 1, NOW(), 1, NOW(), 0),
+    (9524, 8524, 'G2012定武高速K392+790', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 25, 1, 1, NOW(), 1, NOW(), 0),
+    (9525, 8525, 'G2012定武高速K479+665', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 26, 1, 1, NOW(), 1, NOW(), 0),
+    (9526, 8526, 'G2012定武高速K465+175', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 27, 1, 1, NOW(), 1, NOW(), 0),
+    (9527, 8527, 'G2012定武高速K462+995', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 28, 1, 1, NOW(), 1, NOW(), 0),
+    (9528, 8528, 'G2012定武高速K420+891', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 29, 1, 1, NOW(), 1, NOW(), 0),
+    (9529, 8529, 'G2012定武高速K437+982', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 30, 1, 1, NOW(), 1, NOW(), 0),
+    (9530, 8530, 'G2012定武高速SK450+182', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 31, 1, 1, NOW(), 1, NOW(), 0),
+    (9531, 8531, 'G3017金武高速K67+050-K67+700', '边坡', NULL, 'G3017', '金武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 32, 1, 1, NOW(), 1, NOW(), 0),
+    (9532, 8532, 'G3017金武高速K68+860-K69+100', '边坡', NULL, 'G3017', '金武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 33, 1, 1, NOW(), 1, NOW(), 0),
+    (9533, 8533, 'G22青兰高速巉柳段SK1856+400-500桥梁', '桥梁', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 34, 1, 1, NOW(), 1, NOW(), 0),
+    (9534, 8534, 'G22青兰高速巉柳段SK1839+928隧道', '隧道', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 35, 1, 1, NOW(), 1, NOW(), 0),
+    (9535, 8535, 'G22青兰高速巉柳段K1858+250沉陷', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 36, 1, 1, NOW(), 1, NOW(), 0),
+    (9536, 8536, 'G22青兰高速巉柳段K1855+575沉陷', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 37, 1, 1, NOW(), 1, NOW(), 0),
+    (9537, 8537, 'G22青兰高速雷西段K1374+670-K1374+780', '隧道', '棚洞设计标准受控于庆城隧道设计。隧道设计车速80km/h，按分离式设计，上、下行间距为36m 左右，每幅为单向双车道，棚洞采用变截面拱门式侧墙，侧墙内轮廓半径 5.43m，侧墙距电缆槽顶面高度 3.1m，采用钢筋混凝土扩大基础，横向设 C25 钢筋混凝土支撑梁，4m 间距设一道，横向支撑梁与侧墙混凝土一体浇筑完成。棚洞拱顶采用 I18 钢拱架为骨架，纵向间距为 3.0m，钢拱 架上沿纵向铺设[10 槽钢，槽钢与钢拱架焊接，顶部铺设蓝色遮光板，采用螺栓与槽钢连接。棚洞高填方路基下设钢波纹管涵，将沟内汇水排至下游沟谷。          经调查，上下行线棚洞病害情况相近，主要病害为棚洞拱墙开裂、局部混凝土剥落，裂缝最大 宽度达 2.2cm，个别部位拱圈整体剥落，拱墙大面积渗水、泛碱严重，涂装剥蚀泛碱严重。', 'G22', '青兰高速', '高速公路', NULL, '621021', '["62","6210","621021"]', '甘肃公航旅高速公路运营管理平凉分公司', 38, 1, 1, NOW(), 1, NOW(), 0),
+    (9538, 8538, 'G8513平绵高速平天段YK54+925', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '620881', '["62","6208","620881"]', '甘肃公航旅高速公路运营管理平凉分公司', 39, 1, 1, NOW(), 1, NOW(), 0),
+    (9539, 8539, 'G8513平绵高速平天段K176+953', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '620522', '["62","6205","620522"]', '甘肃公航旅高速公路运营管理天水分公司', 40, 1, 1, NOW(), 1, NOW(), 0),
+    (9540, 8540, 'G30连霍高速宝天段K1329+165', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 41, 1, 1, NOW(), 1, NOW(), 0),
+    (9541, 8541, 'G30连霍高速宝天段K1306+742', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 42, 1, 1, NOW(), 1, NOW(), 0),
+    (9542, 8542, 'G30连霍高速宝天段K1310+835', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 43, 1, 1, NOW(), 1, NOW(), 0),
+    (9543, 8543, 'G30连霍高速宝天段K1324+528', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 44, 1, 1, NOW(), 1, NOW(), 0),
+    (9544, 8544, 'G30连霍高速宝天段K1289+900', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 45, 1, 1, NOW(), 1, NOW(), 0),
+    (9545, 8545, 'G8513平绵高速成武段XK368+300-XK368+350', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 46, 1, 1, NOW(), 1, NOW(), 0),
+    (9546, 8546, 'G8513平绵高速成武段XK385+260-XK385+360', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 47, 1, 1, NOW(), 1, NOW(), 0),
+    (9547, 8547, 'G8513平绵高速成武段K396+935', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 48, 1, 1, NOW(), 1, NOW(), 0),
+    (9548, 8548, 'G75兰海高速兰临段K22+200-K22+400滑坡', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 49, 1, 1, NOW(), 1, NOW(), 0),
+    (9549, 8549, 'G8513平绵高速成武段K374+960水毁', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 50, 1, 1, NOW(), 1, NOW(), 0),
+    (9550, 8550, 'G7011十天高速K653+900', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621225', '["62","6212","621225"]', '成县所', 51, 1, 1, NOW(), 1, NOW(), 0),
+    (9551, 8551, 'G568兰永一级K78+965-K79+140', '边坡', NULL, 'G568', '兰永一级', '一级公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 52, 1, 1, NOW(), 1, NOW(), 0),
+    (9552, 8552, 'G7011十天高速K646+945', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621225', '["62","6212","621225"]', '成县所', 53, 1, 1, NOW(), 1, NOW(), 0),
+    (9553, 8553, 'G7011十天高速K583+445滑坡', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621221', '["62","6212","621221"]', '成县所', 54, 1, 1, NOW(), 1, NOW(), 0),
+    (9554, 8554, 'G75 兰海高速武罐段K522+510水毁', '桥梁', NULL, 'G75', '兰海高速', '高速公路', NULL, '621222', '["62","6212","621222"]', '武都所', 55, 1, 1, NOW(), 1, NOW(), 0),
+    (9555, 8555, 'G6京藏高速兰海段K1652+225崩塌', '边坡', NULL, 'G6', '京藏高速', '一级公路', NULL, '620104', '["62","6201","620104"]', '甘肃公航旅高速公路运营管理兰州分公司', 56, 1, 1, NOW(), 1, NOW(), 0),
+    (9556, 8556, 'G1816 乌玛高速康临段K745+950-K745+990隧道', '边坡', NULL, 'G1816', '乌玛高速', '高速公路', NULL, '622925', '["62","6229","622925"]', '甘肃公航旅高速公路运营管理临夏分公司', 57, 1, 1, NOW(), 1, NOW(), 0),
+    (9557, 8557, 'G1816乌玛高速康临段K753+240水毁', '边坡', NULL, 'G1816', '乌玛高速', '高速公路', NULL, '622925', '["62","6229","622925"]', '甘肃公航旅高速公路运营管理临夏分公司', 58, 1, 1, NOW(), 1, NOW(), 0),
+    (9558, 8558, 'G22青兰高速平定段K1652+855水毁', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '621102', '["62","6211","621102"]', '甘肃公航旅高速公路运营管理定西分公司', 59, 1, 1, NOW(), 1, NOW(), 0),
+    (9559, 8559, 'G8513平绵高速成武段K333+520', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 60, 1, 1, NOW(), 1, NOW(), 0),
+    (9560, 8560, 'G8513平绵高速成武段K401+694', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 61, 1, 1, NOW(), 1, NOW(), 0),
+    (9561, 8561, 'G30连霍高速宝天段K1323+880泥石流', '边坡', 'G30 连霍高速宝鸡至天水段下行线 K1323+880 处，位于甘肃省天水市麦积区党川镇。下行线左侧与泥石流沟口基本呈正交关系，采用 2×2m 涵洞导排泥石流。', 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 62, 1, 1, NOW(), 1, NOW(), 0),
+    (9562, 8562, 'G6京藏高速K1623+400滑坡', '边坡', 'G6 京藏高速公路兰海段 K1623+300～K1623+400 段右侧边坡滑塌，位于甘肃省兰州市西固区河口乡。项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，山高坡陡，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 'G6', '京藏高速', '高速公路', NULL, '620111', '["62","6201","620111"]', '甘肃公航旅高速公路运营管理兰州分公司', 63, 1, 1, NOW(), 1, NOW(), 0),
+    (9563, 8563, 'G30连霍高速 K1731+077', '桥梁', 'G30连霍高速K1731+077 匝道桥，位于甘肃省兰州市永登县树屏镇。 项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地形破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 'G30', '连霍高速', '高速公路', NULL, '620121', '["62","6201","620121"]', '甘肃公航旅高速公路运营管理兰州分公司', 64, 1, 1, NOW(), 1, NOW(), 0),
+    (9564, 8564, 'G30连霍高速K1328+500', '边坡', 'G30 连霍高速公路宝天段 SK1328+800~SK1328+950 段右侧临河路堤水毁,位于甘肃省天水市麦积区党川乡。 路段位于两中山间的永宁河(党川河)河谷区，河床较开阔，为山区常年性河流，区内地形起伏不大，地面标高介于 1488.40~1595.10m，党川河两岸山体基岩露头较多， 山体坡度约 48°微地貌单元为山间河谷冲洪积及山间洪坡积裙地貌。', 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 65, 1, 1, NOW(), 1, NOW(), 0),
+    (9565, 8565, 'G75 兰海高速K134+738边坡', '边坡', 'G75 兰海高速K134+738 滑坡，位于甘肃省定西市渭源县清源镇，东北侧果园村申家山。 山脊走向近东西向，地貌属于低山丘陵地貌，斜坡高程在 2180~2330 之间，坡体下部平均坡度约 30°，中部平均坡度约 8°。', 'G75', '兰海高速', '高速公路', NULL, '621123', '["62","6211","621123"]', '甘肃公航旅高速公路运营管理定西分公司', 66, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     project_name = VALUES(project_name),
     project_type = VALUES(project_type),
@@ -1154,9 +1153,9 @@ INSERT INTO risk_point_device (
     id, risk_point_id, device_id, device_code, device_name, metric_identifier, metric_name,
     default_threshold, threshold_unit, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8101, 8001, 2001, 'accept-http-device-01', '楠屾敹璁惧-HTTP-01', 'temperature', '娓╁害', '80', '鈩?, 1, 1, NOW(), 1, NOW(), 0),
-    (8102, 8001, 2001, 'accept-http-device-01', '楠屾敹璁惧-HTTP-01', 'pressure', '鍘嬪姏', '120', 'kPa', 1, 1, NOW(), 1, NOW(), 0),
-    (8103, 8002, 2002, 'accept-mqtt-device-01', '楠屾敹璁惧-MQTT-01', 'vibration', '鎸姩', '10', 'mm/s', 1, 1, NOW(), 1, NOW(), 0)
+    (8101, 8001, 2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '温度', '80', '℃', 1, 1, NOW(), 1, NOW(), 0),
+    (8102, 8001, 2001, 'accept-http-device-01', '验收设备-HTTP-01', 'pressure', '压力', '120', 'kPa', 1, 1, NOW(), 1, NOW(), 0),
+    (8103, 8002, 2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '振动', '10', 'mm/s', 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_id = VALUES(risk_point_id),
     device_id = VALUES(device_id),
@@ -1172,8 +1171,8 @@ INSERT INTO rule_definition (
     id, rule_name, metric_identifier, metric_name, expression, duration, alarm_level,
     notification_methods, convert_to_event, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8201, '閿呯倝娓╁害瓒呴檺', 'temperature', '娓╁害', 'value > 80', 60, 'red', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8202, '璁惧鎸姩瓒呴檺', 'vibration', '鎸姩', 'value > 10', 120, 'orange', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8201, '锅炉温度超限', 'temperature', '温度', 'value > 80', 60, 'red', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8202, '设备振动超限', 'vibration', '振动', 'value > 10', 120, 'orange', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     rule_name = VALUES(rule_name),
     metric_name = VALUES(metric_name),
@@ -1191,7 +1190,7 @@ INSERT INTO linkage_rule (
     id, rule_name, description, trigger_condition, action_list, status, tenant_id,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8301, '娓╁害瓒呴檺鑱斿姩瑙勫垯', '娓╁害瓒呴檺瑙﹀彂閫氱煡骞跺垱寤哄伐鍗?,
+    (8301, '温度超限联动规则', '温度超限触发通知并创建工单',
      JSON_OBJECT('metric', 'temperature', 'op', '>', 'threshold', 80),
      JSON_ARRAY(JSON_OBJECT('type', 'notify', 'channel', 'email-default'), JSON_OBJECT('type', 'createWorkOrder', 'priority', 'high')),
      0, 1, 1, NOW(), 1, NOW(), 0)
@@ -1209,9 +1208,9 @@ INSERT INTO emergency_plan (
     id, plan_name, alarm_level, risk_level, description, response_steps, contact_list, status, tenant_id,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8401, '閿呯倝瓒呮俯搴旀€ラ妗?, 'red', 'red', '閿呯倝鍖哄煙鍑虹幇瓒呮俯鍛婅鏃舵墽琛?,
-     JSON_ARRAY('纭鐜板満鐘舵€?, '杩滅▼闄嶈浇', '娲惧彂鐜板満宸ュ崟', '澶嶇洏鍏抽棴浜嬩欢'),
-     JSON_ARRAY(JSON_OBJECT('name', '鍊肩彮闀?, 'phone', '13800000000'), JSON_OBJECT('name', '瀹夊叏鍛?, 'phone', '13800000001')),
+    (8401, '锅炉超温应急预案', 'red', 'red', '锅炉区域出现超温告警时执行',
+     JSON_ARRAY('确认现场状态', '远程降载', '派发现场工单', '复盘关闭事件'),
+     JSON_ARRAY(JSON_OBJECT('name', '值班长', 'phone', '13800000000'), JSON_OBJECT('name', '安全员', 'phone', '13800000001')),
      0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     plan_name = VALUES(plan_name),
@@ -1232,16 +1231,16 @@ INSERT INTO iot_alarm_record (
     status, trigger_time, confirm_time, confirm_user, suppress_time, suppress_user, close_time, close_user,
     rule_id, rule_name, tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8501, 'ALARM-20260317001', '閿呯倝娓╁害瓒呴檺', 'threshold', 'red',
-     7002, '榛勬郸鍘傚尯', 8001, '閿呯倝娓╁帇鐩戞祴鐐?,
-     2001, 'accept-http-device-01', '楠屾敹璁惧-HTTP-01', 'temperature', '92.4', '80',
+    (8501, 'ALARM-20260317001', '锅炉温度超限', 'threshold', 'red',
+     7002, '黄浦厂区', 8001, '锅炉温压监测点',
+     2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4', '80',
      0, DATE_SUB(NOW(), INTERVAL 30 MINUTE), NULL, NULL, NULL, NULL, NULL, NULL,
-     8201, '閿呯倝娓╁害瓒呴檺', 1, '寰呯‘璁ゅ憡璀?, 1, NOW(), 1, NOW(), 0),
-    (8502, 'ALARM-20260317002', '璁惧鎸姩寮傚父', 'threshold', 'orange',
-     7002, '榛勬郸鍘傚尯', 8002, '鎸姩鐩戞祴鐐?,
-     2002, 'accept-mqtt-device-01', '楠屾敹璁惧-MQTT-01', 'vibration', '12.1', '10',
+     8201, '锅炉温度超限', 1, '待确认告警', 1, NOW(), 1, NOW(), 0),
+    (8502, 'ALARM-20260317002', '设备振动异常', 'threshold', 'orange',
+     7002, '黄浦厂区', 8002, '振动监测点',
+     2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1', '10',
      3, DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 45 MINUTE), 1, NULL, NULL, DATE_SUB(NOW(), INTERVAL 20 MINUTE), 1,
-     8202, '璁惧鎸姩瓒呴檺', 1, '宸查棴鐜憡璀?, 1, NOW(), 1, NOW(), 0)
+     8202, '设备振动超限', 1, '已闭环告警', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     alarm_title = VALUES(alarm_title),
     alarm_type = VALUES(alarm_type),
@@ -1279,18 +1278,18 @@ INSERT INTO iot_event_record (
     trigger_time, dispatch_time, dispatch_user, start_time, complete_time, close_time, close_user, close_reason, review_notes,
     tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8601, 'EVENT-20260317001', '閿呯倝瓒呮俯澶勭疆浜嬩欢', 8501, 'ALARM-20260317001', 'red', 'red',
-     7002, '榛勬郸鍘傚尯', 8001, '閿呯倝娓╁帇鐩戞祴鐐?,
-     2001, 'accept-http-device-01', '楠屾敹璁惧-HTTP-01', 'temperature', '92.4',
+    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'red', 'red',
+     7002, '黄浦厂区', 8001, '锅炉温压监测点',
+     2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4',
      2, 1, 'high', 15, 120,
-     DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL, NULL, NULL, NULL, '澶勭悊涓?,
-     1, '杩涜涓簨浠?, 1, NOW(), 1, NOW(), 0),
-    (8602, 'EVENT-20260317002', '鎸姩寮傚父澶嶇洏浜嬩欢', 8502, 'ALARM-20260317002', 'orange', 'orange',
-     7002, '榛勬郸鍘傚尯', 8002, '鎸姩鐩戞祴鐐?,
-     2002, 'accept-mqtt-device-01', '楠屾敹璁惧-MQTT-01', 'vibration', '12.1',
+     DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL, NULL, NULL, NULL, '处理中',
+     1, '进行中事件', 1, NOW(), 1, NOW(), 0),
+    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'orange', 'orange',
+     7002, '黄浦厂区', 8002, '振动监测点',
+     2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1',
      4, 1, 'medium', 30, 240,
-     DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 45 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 40 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), DATE_SUB(NOW(), INTERVAL 20 MINUTE), 1, '澶勭疆瀹屾垚鍏抽棴', '宸插畬鎴愬鐩?,
-     1, '宸查棴鐜簨浠?, 1, NOW(), 1, NOW(), 0)
+     DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 45 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 40 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), DATE_SUB(NOW(), INTERVAL 20 MINUTE), 1, '处置完成关闭', '已完成复盘',
+     1, '已闭环事件', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     event_title = VALUES(event_title),
     alarm_id = VALUES(alarm_id),
@@ -1332,10 +1331,10 @@ INSERT INTO iot_event_work_order (
 ) VALUES
     (8701, 8601, 'EVENT-20260317001', 'WO-20260317001', 'onsite',
      1, 1, DATE_SUB(NOW(), INTERVAL 24 MINUTE), DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL,
-     2, '宸插埌鍦烘帓鏌ワ紝鍑嗗闄嶈浇', JSON_ARRAY('https://example.com/img/wo-20260317001-1.jpg'), 1, '澶勭悊涓伐鍗?, 1, NOW(), 1, NOW(), 0),
+     2, '已到场排查，准备降载', JSON_ARRAY('https://example.com/img/wo-20260317001-1.jpg'), 1, '处理中工单', 1, NOW(), 1, NOW(), 0),
     (8702, 8602, 'EVENT-20260317002', 'WO-20260317002', 'inspection',
      1, 1, DATE_SUB(NOW(), INTERVAL 44 MINUTE), DATE_SUB(NOW(), INTERVAL 40 MINUTE), DATE_SUB(NOW(), INTERVAL 26 MINUTE),
-     3, '澶勭疆瀹屾垚锛岃澶囨仮澶嶇ǔ瀹?, JSON_ARRAY('https://example.com/img/wo-20260317002-1.jpg'), 1, '宸插畬鎴愬伐鍗?, 1, NOW(), 1, NOW(), 0)
+     3, '处置完成，设备恢复稳定', JSON_ARRAY('https://example.com/img/wo-20260317002-1.jpg'), 1, '已完成工单', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     event_id = VALUES(event_id),
     event_code = VALUES(event_code),
@@ -1370,24 +1369,23 @@ INSERT INTO `iot_product` (
     `update_by`,
     `deleted`
 ) VALUES
-      (202603192100560271, 1, 'zhd-warning-sound-light-alarm-v1', '涓捣杈?棰勮鍨?澹板厜鎶ヨ鍣?, 'mqtt-json', 1, 'JSON', '涓捣杈?, '棰勮鍨嬪０鍏夋姤璀﹁澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: hitarget_sound_light_alarm', NULL, NULL, 0),
-      (202603192100560270, 1, 'zjhy-warning-sound-light-alarm-v1', '娴欐睙鍗庢簮 棰勮鍨?澹板厜鎶ヨ鍣?, 'mqtt-json', 1, 'JSON', '娴欐睙鍗庢簮', '棰勮鍨嬪０鍏夋姤璀﹁澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: zjhy_sound_light_alarm', NULL, NULL, 0),
-      (202603192100560259, 1, 'nf-collect-rtu-v1', '鍗楁柟娴嬬粯 閲囬泦鍨?閬ユ祴缁堢', 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '閲囬泦鍨嬮仴娴嬬粓绔澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_rtu', NULL, NULL, 0),
-      (202603192100560258, 1, 'nf-monitor-laser-rangefinder-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?婵€鍏夋祴璺濅华', 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬫縺鍏夋祴璺濊澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_laser_rangefinder', NULL, NULL, 0),
-      (202603192100560257, 1, 'zhd-monitor-tiltmeter-v1', '涓捣杈?鐩戞祴鍨?鍊捐浠?, 'mqtt-json', 1, 'JSON', '涓捣杈?, '鐩戞祴鍨嬪€捐璁惧锛屽崗璁?mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: hitarget_tiltmeter', NULL, NULL, 0),
-      (202603192100560255, 1, 'nf-monitor-crack-meter-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?瑁傜紳璁?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬭缂濈洃娴嬭澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_crack_meter', NULL, NULL, 0),
-      (202603192100560254, 1, 'nf-monitor-mud-level-meter-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?娉ヤ綅璁?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬫偿浣嶇洃娴嬭澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_mud_level_meter', NULL, NULL, 0),
-      (202603192100560253, 1, 'nf-monitor-tipping-bucket-rain-gauge-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?缈绘枟寮忛洦閲忚', 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬬炕鏂楀紡闆ㄩ噺鐩戞祴璁惧锛屽崗璁?mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_rain_gauge', NULL, NULL, 0),
-      (202603192100560252, 1, 'zhd-monitor-multi-displacement-v1', '涓捣杈?鐩戞祴鍨?澶氱淮浣嶇Щ鐩戞祴浠?, 'mqtt-json', 1, 'JSON', '涓捣杈?, '鐩戞祴鍨嬪缁翠綅绉荤洃娴嬭澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: hitarget_multi_displacement', NULL, NULL, 0),
-      (202603192100560251, 1, 'nf-monitor-multi-displacement-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?澶氱淮浣嶇Щ鐩戞祴浠?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬪缁翠綅绉荤洃娴嬭澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_multi_displacement', NULL, NULL, 0),
-      (202603192100560250, 1, 'nf-monitor-deep-displacement-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?娣遍儴浣嶇Щ鐩戞祴浠?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨嬫繁閮ㄤ綅绉荤洃娴嬭澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_deep_displacement', NULL, NULL, 0),
-      (202603192100560249, 1, 'zhd-monitor-gnss-base-station-v1', '涓捣杈?鐩戞祴鍨?GNSS鍩哄噯绔?, 'mqtt-json', 1, 'JSON', '涓捣杈?, '鐩戞祴鍨?GNSS 鍩哄噯绔欒澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: hitarget_gnss_base_station', NULL, NULL, 0),
-      (202603192100560248, 1, 'nf-monitor-gnss-base-station-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?GNSS鍩哄噯绔?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨?GNSS 鍩哄噯绔欒澶囷紝鍗忚 mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_gnss_base_station', NULL, NULL, 0),
-      (202603192100560247, 1, 'zhd-monitor-gnss-monitor-v1', '涓捣杈?鐩戞祴鍨?GNSS浣嶇Щ鐩戞祴浠?, 'mqtt-json', 1, 'JSON', '涓捣杈?, '鐩戞祴鍨?GNSS 浣嶇Щ鐩戞祴璁惧锛屽崗璁?mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: hitarget_gnss_monitor', NULL, NULL, 0),
-      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '鍗楁柟娴嬬粯 鐩戞祴鍨?GNSS浣嶇Щ鐩戞祴浠?, 'mqtt-json', 1, 'JSON', '鍗楁柟娴嬬粯', '鐩戞祴鍨?GNSS 浣嶇Щ鐩戞祴璁惧锛屽崗璁?mqtt-json锛岀洿杩炴帴鍏?, 1, '鍘熷 productKey: south_gnss_monitor', NULL, NULL, 0);
+      (202603192100560271, 1, 'zhd-warning-sound-light-alarm-v1', '中海达 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '中海达', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_sound_light_alarm', NULL, NULL, 0),
+      (202603192100560270, 1, 'zjhy-warning-sound-light-alarm-v1', '浙江华源 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '浙江华源', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: zjhy_sound_light_alarm', NULL, NULL, 0),
+      (202603192100560259, 1, 'nf-collect-rtu-v1', '南方测绘 采集型 遥测终端', 'mqtt-json', 1, 'JSON', '南方测绘', '采集型遥测终端设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rtu', NULL, NULL, 0),
+      (202603192100560258, 1, 'nf-monitor-laser-rangefinder-v1', '南方测绘 监测型 激光测距仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型激光测距设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_laser_rangefinder', NULL, NULL, 0),
+      (202603192100560257, 1, 'zhd-monitor-tiltmeter-v1', '中海达 监测型 倾角仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型倾角设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_tiltmeter', NULL, NULL, 0),
+      (202603192100560255, 1, 'nf-monitor-crack-meter-v1', '南方测绘 监测型 裂缝计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型裂缝监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_crack_meter', NULL, NULL, 0),
+      (202603192100560254, 1, 'nf-monitor-mud-level-meter-v1', '南方测绘 监测型 泥位计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型泥位监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_mud_level_meter', NULL, NULL, 0),
+      (202603192100560253, 1, 'nf-monitor-tipping-bucket-rain-gauge-v1', '南方测绘 监测型 翻斗式雨量计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型翻斗式雨量监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rain_gauge', NULL, NULL, 0),
+      (202603192100560252, 1, 'zhd-monitor-multi-displacement-v1', '中海达 监测型 多维位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型多维位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_multi_displacement', NULL, NULL, 0),
+      (202603192100560251, 1, 'nf-monitor-multi-displacement-v1', '南方测绘 监测型 多维位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型多维位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_multi_displacement', NULL, NULL, 0),
+      (202603192100560250, 1, 'nf-monitor-deep-displacement-v1', '南方测绘 监测型 深部位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型深部位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_deep_displacement', NULL, NULL, 0),
+      (202603192100560249, 1, 'zhd-monitor-gnss-base-station-v1', '中海达 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_base_station', NULL, NULL, 0),
+      (202603192100560248, 1, 'nf-monitor-gnss-base-station-v1', '南方测绘 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_base_station', NULL, NULL, 0),
+      (202603192100560247, 1, 'zhd-monitor-gnss-monitor-v1', '中海达 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_monitor', NULL, NULL, 0),
+      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0);
 
--- 鏁版嵁灏辩华璇存槑
--- 1. IoT 涓婚摼璺細浜у搧/璁惧/鐗╂ā鍨?灞炴€?娑堟伅鏃ュ織
--- 2. 椋庨櫓骞冲彴锛氶闄╃偣銆佺粦瀹氥€佽鍒欍€佽仈鍔ㄣ€侀妗堛€佸憡璀︺€佷簨浠躲€佸伐鍗?
--- 3. 绯荤粺绠＄悊锛氱粍缁囥€佸尯鍩熴€佸瓧鍏搞€侀€氱煡娓犻亾銆佸璁℃棩蹇?
-
+-- 数据就绪说明
+-- 1. IoT 主链路：产品/设备/物模型/属性/消息日志
+-- 2. 风险平台：风险点、绑定、规则、联动、预案、告警、事件、工单
+-- 3. 系统管理：组织、区域、字典、通知渠道、审计日志

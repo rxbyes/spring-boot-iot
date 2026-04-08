@@ -15,7 +15,7 @@ export interface RiskPoint {
       orgName: string;
       regionId: IdType;
       regionName: string;
-      responsibleUser: number;
+      responsibleUser: IdType;
       responsibleUserName?: string;
       responsiblePhone: string;
       riskPointLevel?: string; // level_1-一级风险点, level_2-二级风险点, level_3-三级风险点
@@ -181,6 +181,7 @@ export interface RiskPointPendingPromotionResult {
 
 // 获取风险点列表
 export const getRiskPointList = (params?: {
+      keyword?: string;
       riskPointCode?: string;
       riskPointLevel?: string;
       riskLevel?: string;
@@ -193,6 +194,7 @@ export const getRiskPointList = (params?: {
 
 // 分页获取风险点列表
 export const pageRiskPointList = (params?: {
+      keyword?: string;
       riskPointCode?: string;
       riskPointLevel?: string;
       riskLevel?: string;
@@ -292,6 +294,7 @@ export const ignorePendingBinding = (pendingId: IdType, body: { ignoreNote?: str
 };
 
 function normalizeRiskPointQuery(params?: {
+      keyword?: string;
       riskPointCode?: string;
       riskPointLevel?: string;
       riskLevel?: string;
@@ -302,9 +305,10 @@ function normalizeRiskPointQuery(params?: {
       if (!params) {
             return params;
       }
-      const { riskPointLevel, riskLevel, ...rest } = params;
+      const { keyword, riskPointCode, riskPointLevel, riskLevel, ...rest } = params;
       return {
             ...rest,
+            keyword: keyword || riskPointCode || undefined,
             riskPointLevel: riskPointLevel || riskLevel || undefined
       };
 }

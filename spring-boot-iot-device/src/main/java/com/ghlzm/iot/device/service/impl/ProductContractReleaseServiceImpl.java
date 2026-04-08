@@ -202,6 +202,7 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         }
 
         ProductContractReleaseRollbackResultVO result = new ProductContractReleaseRollbackResultVO();
+        result.setTargetBatchId(target.getId());
         result.setRolledBackBatchId(target.getId());
         result.setProductId(target.getProductId());
         result.setScenarioCode(target.getScenarioCode());

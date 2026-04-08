@@ -1,4 +1,4 @@
-import { defineComponent, inject, nextTick, provide } from 'vue'
+import { computed, defineComponent, inject, nextTick, provide } from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -25,7 +25,11 @@ const {
   mockListUsers,
   mockGetUser,
   mockGetDictByCode,
-  mockListMissingBindings
+  mockListMissingBindings,
+  mockElMessageSuccess,
+  mockElMessageError,
+  mockElMessageWarning,
+  mockPermissionStore
 } = vi.hoisted(() => ({
   mockPageRiskPointList: vi.fn(),
   mockGetRiskPointById: vi.fn(),
@@ -47,7 +51,21 @@ const {
   mockListUsers: vi.fn(),
   mockGetUser: vi.fn(),
   mockGetDictByCode: vi.fn(),
-  mockListMissingBindings: vi.fn()
+  mockListMissingBindings: vi.fn(),
+  mockElMessageSuccess: vi.fn(),
+  mockElMessageError: vi.fn(),
+  mockElMessageWarning: vi.fn(),
+  mockPermissionStore: {
+    userInfo: {
+      id: 9001,
+      username: 'editor',
+      realName: '当前编辑人',
+      displayName: '当前编辑人',
+      phone: '13900000001',
+      orgId: 7101,
+      orgName: '平台运维中心'
+    }
+  }
 }))
 
 vi.mock('@/api/riskPoint', () => ({
@@ -100,10 +118,14 @@ vi.mock('@/utils/confirm', () => ({
 
 vi.mock('@/utils/message', () => ({
   ElMessage: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
+    success: mockElMessageSuccess,
+    error: mockElMessageError,
+    warning: mockElMessageWarning
   }
+}))
+
+vi.mock('@/stores/permission', () => ({
+  usePermissionStore: () => mockPermissionStore
 }))
 
 const StandardPageShellStub = defineComponent({
@@ -365,6 +387,52 @@ const ElSelectStub = defineComponent({
   template: '<div class="el-select-stub"><slot /></div>'
 })
 
+function findTreeOptionByValue(
+  nodes: Array<Record<string, unknown>>,
+  target: unknown,
+  childrenKey = 'children'
+): Record<string, unknown> | null {
+  for (const node of nodes) {
+    if (node.id === target) {
+      return node
+    }
+    const children = Array.isArray(node[childrenKey]) ? (node[childrenKey] as Array<Record<string, unknown>>) : []
+    const childMatch = children.length ? findTreeOptionByValue(children, target, childrenKey) : null
+    if (childMatch) {
+      return childMatch
+    }
+  }
+  return null
+}
+
+const ElTreeSelectStub = defineComponent({
+  name: 'ElTreeSelect',
+  props: ['modelValue', 'data', 'cacheData', 'props', 'placeholder'],
+  setup(props) {
+    const displayText = computed(() => {
+      const labelKey = props.props?.label || 'label'
+      const nodes = [
+        ...((props.data as Array<Record<string, unknown>> | undefined) || []),
+        ...((props.cacheData as Array<Record<string, unknown>> | undefined) || [])
+      ]
+      const matched = findTreeOptionByValue(nodes, props.modelValue)
+      if (matched && typeof matched[labelKey] === 'string') {
+        return matched[labelKey] as string
+      }
+      return props.modelValue === undefined || props.modelValue === null || props.modelValue === ''
+        ? ''
+        : String(props.modelValue)
+    })
+    return { displayText }
+  },
+  template: `
+    <div class="el-tree-select-stub">
+      <span class="el-tree-select-stub__value">{{ displayText }}</span>
+      <span v-if="placeholder" class="el-tree-select-stub__placeholder">{{ placeholder }}</span>
+    </div>
+  `
+})
+
 const ElOptionStub = defineComponent({
   name: 'ElOption',
   props: ['label', 'value'],
@@ -448,7 +516,7 @@ function mountView() {
         ElTag: true,
         ElRadioGroup: true,
         ElRadio: true,
-        ElTreeSelect: true,
+        ElTreeSelect: ElTreeSelectStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
       }
@@ -479,6 +547,18 @@ describe('RiskPointView', () => {
     mockGetUser.mockReset()
     mockGetDictByCode.mockReset()
     mockListMissingBindings.mockReset()
+    mockElMessageSuccess.mockReset()
+    mockElMessageError.mockReset()
+    mockElMessageWarning.mockReset()
+    mockPermissionStore.userInfo = {
+      id: 9001,
+      username: 'editor',
+      realName: '当前编辑人',
+      displayName: '当前编辑人',
+      phone: '13900000001',
+      orgId: 7101,
+      orgName: '平台运维中心'
+    }
     mockListOrganizationTree.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -508,7 +588,7 @@ describe('RiskPointView', () => {
       code: 200,
       msg: 'success',
       data: {
-        id: Number(id),
+        id,
         username: `user-${id}`,
         realName: `用户${id}`,
         phone: `1380000${String(id).slice(-4).padStart(4, '0')}`,
@@ -608,6 +688,43 @@ describe('RiskPointView', () => {
     const pagination = wrapper.findComponent(StandardPaginationStub)
     expect(pagination.props('pageSizes')).toEqual([10, 20, 50, 100])
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper')
+  })
+
+  it('submits quick-search keyword for risk point name, code and region lookup', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      filters: { keyword: string }
+      handleSearch: () => void
+      activeFilterTags: Array<{ key: string; label: string }>
+    }
+    vm.filters.keyword = '北坡'
+    vm.handleSearch()
+    await flushPromises()
+
+    expect(mockPageRiskPointList).toHaveBeenLastCalledWith({
+      keyword: '北坡',
+      riskPointLevel: undefined,
+      status: undefined,
+      pageNum: 1,
+      pageSize: 10
+    })
+    expect(vm.activeFilterTags[0]).toEqual({
+      key: 'keyword',
+      label: '快速搜索：北坡'
+    })
   })
 
   it('renders archive-grade and runtime-risk columns from the new risk point semantics', async () => {
@@ -731,6 +848,220 @@ describe('RiskPointView', () => {
     vm.form.responsiblePhone = '13900001111'
     await nextTick()
     expect(vm.form.responsiblePhone).toBe('13900001111')
+  })
+
+  it('falls back to the current login user when the selected organization has no leader user', async () => {
+    mockPermissionStore.userInfo = {
+      id: '1888000000000000001',
+      username: 'ops_editor',
+      realName: '当前运维',
+      displayName: '当前运维',
+      phone: '13912345678',
+      orgId: '7109',
+      orgName: '当前主机构'
+    }
+    mockListOrganizationTree.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: '1888000000000000101',
+          tenantId: 1,
+          parentId: 0,
+          orgName: '无管理员机构',
+          orgCode: 'ORG-NO-LEADER',
+          orgType: 'dept',
+          leaderUserId: undefined,
+          leaderName: '',
+          phone: '021-88990011',
+          email: 'noleader@example.com',
+          status: 1,
+          sortNo: 1,
+          remark: '',
+          createBy: 1,
+          createTime: '2026-04-01 08:00:00',
+          updateBy: 1,
+          updateTime: '2026-04-01 08:00:00',
+          deleted: 0,
+          children: []
+        }
+      ]
+    })
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      handleAdd: () => void
+      form: { orgId: string | number | ''; responsibleUser: string | number | ''; responsiblePhone: string }
+      userOptions: Array<{ id?: string | number; realName?: string; username: string }>
+    }
+    vm.handleAdd()
+    await nextTick()
+    vm.form.orgId = '1888000000000000101'
+    await flushPromises()
+
+    expect(vm.form.responsibleUser).toBe('1888000000000000001')
+    expect(vm.form.responsiblePhone).toBe('13912345678')
+    expect(vm.userOptions).toEqual([
+      expect.objectContaining({
+        id: '1888000000000000001',
+        realName: '当前运维'
+      })
+    ])
+  })
+
+  it('keeps organization and region names visible in edit mode and submits original string ids', async () => {
+    const riskPointRow = {
+      ...createRiskPointRow(),
+      id: '1999000000000000001',
+      orgId: '1888000000000000101',
+      orgName: '超长机构名称',
+      regionId: '1888000000000000202',
+      regionName: '超长区域名称',
+      responsibleUser: '1888000000000000303',
+      responsibleUserName: '长整型负责人'
+    }
+    mockListOrganizationTree.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: '1888000000000000101',
+          tenantId: 1,
+          parentId: 0,
+          orgName: '超长机构名称',
+          orgCode: 'LONG-ORG',
+          orgType: 'dept',
+          leaderUserId: '1888000000000000303',
+          leaderName: '长整型负责人',
+          phone: '021-88990022',
+          email: 'long-org@example.com',
+          status: 1,
+          sortNo: 1,
+          remark: '',
+          createBy: 1,
+          createTime: '2026-04-01 08:00:00',
+          updateBy: 1,
+          updateTime: '2026-04-01 08:00:00',
+          deleted: 0,
+          children: []
+        }
+      ]
+    })
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [riskPointRow]
+      }
+    })
+    mockUpdateRiskPoint.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: riskPointRow
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    await vm.handleEdit(riskPointRow)
+    await flushPromises()
+
+    const treeValues = wrapper.findAll('.el-tree-select-stub__value').map((node) => node.text())
+    expect(treeValues).toContain('超长机构名称')
+    expect(treeValues).toContain('超长区域名称')
+
+    vm.formRef = {
+      validate: vi.fn().mockResolvedValue(undefined),
+      clearValidate: vi.fn()
+    }
+    await vm.handleSubmit()
+
+    expect(mockUpdateRiskPoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: '1999000000000000001',
+        orgId: '1888000000000000101',
+        orgName: '超长机构名称',
+        regionId: '1888000000000000202',
+        regionName: '超长区域名称',
+        responsibleUser: '1888000000000000303'
+      })
+    )
+  })
+
+  it('does not emit a second local error toast when submit catches a handled request error', async () => {
+    const riskPointRow = createRiskPointRow()
+    mockListOrganizationTree.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 7101,
+          tenantId: 1,
+          parentId: 0,
+          orgName: '平台运维中心',
+          orgCode: 'OPS-CENTER',
+          orgType: 'dept',
+          leaderUserId: 101,
+          leaderName: '机构管理员',
+          phone: '021-66889900',
+          email: 'ops@example.com',
+          status: 1,
+          sortNo: 1,
+          remark: '',
+          createBy: 1,
+          createTime: '2026-04-01 08:00:00',
+          updateBy: 1,
+          updateTime: '2026-04-01 08:00:00',
+          deleted: 0,
+          children: []
+        }
+      ]
+    })
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [riskPointRow]
+      }
+    })
+    mockUpdateRiskPoint.mockRejectedValueOnce(Object.assign(new Error('系统繁忙，请稍后重试！'), {
+      handled: true,
+      status: 500
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    await vm.handleEdit(riskPointRow)
+    await flushPromises()
+    vm.formRef = {
+      validate: vi.fn().mockResolvedValue(undefined),
+      clearValidate: vi.fn()
+    }
+
+    await vm.handleSubmit()
+
+    expect(mockElMessageError).not.toHaveBeenCalled()
   })
 
   it('resolves responsible text from row data without relying on a preloaded global user list', async () => {
@@ -893,7 +1224,7 @@ describe('RiskPointView', () => {
     }
     const columnLabels = wrapper.findAll('.el-table-column-stub__label').map((node) => node.text())
 
-    expect(mockListBindingSummaries).toHaveBeenCalledWith([1])
+    expect(mockListBindingSummaries).toHaveBeenCalledWith(['1'])
     expect(columnLabels).not.toContain('绑定状态')
     expect(wrapper.text()).not.toContain('已绑定 / 待治理')
     expect(wrapper.text()).not.toContain('2 台设备 · 5 个测点')

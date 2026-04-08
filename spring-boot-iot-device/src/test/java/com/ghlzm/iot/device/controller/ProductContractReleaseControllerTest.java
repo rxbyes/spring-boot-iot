@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,27 +85,32 @@ class ProductContractReleaseControllerTest {
     }
 
     @Test
-    void rollbackBatchShouldRequirePermissionAndDelegateToService() {
+    void rollbackBatchShouldSubmitPendingApproval() {
         Authentication authentication = authentication(10001L);
-        ProductContractReleaseRollbackResultVO result = new ProductContractReleaseRollbackResultVO();
-        result.setRolledBackBatchId(7001L);
-        result.setRollbackMode("SNAPSHOT_FIELD_RESTORE");
-        when(productContractReleaseService.rollbackLatestBatch(7001L, 10001L)).thenReturn(result);
-        when(governanceApprovalService.recordApprovedAction(any())).thenReturn(99001L);
+        when(productContractReleaseService.getBatch(7001L))
+                .thenReturn(batchVO(7001L, "phase1-crack", "manual_compare_apply", 3));
+        when(governanceApprovalService.submitAction(any())).thenReturn(99001L);
 
         R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, 20002L, authentication);
 
-        assertEquals(7001L, response.getData().getRolledBackBatchId());
+        assertEquals(7001L, response.getData().getTargetBatchId());
+        assertEquals(1001L, response.getData().getProductId());
+        assertEquals("phase1-crack", response.getData().getScenarioCode());
+        assertEquals("manual_compare_apply", response.getData().getReleaseSource());
+        assertEquals(3, response.getData().getReleasedFieldCount());
         assertEquals(99001L, response.getData().getApprovalOrderId());
+        assertEquals("PENDING", response.getData().getApprovalStatus());
+        assertEquals(Boolean.TRUE, response.getData().getExecutionPending());
         verify(permissionGuard).requireDualControl(
                 10001L,
                 20002L,
-                "契约发布回滚",
+                "合同发布回滚",
                 "iot:product-contract:rollback",
                 "iot:product-contract:approve"
         );
-        verify(governanceApprovalService).recordApprovedAction(any());
-        verify(productContractReleaseService).rollbackLatestBatch(7001L, 10001L);
+        verify(governanceApprovalService).submitAction(any());
+        verify(productContractReleaseService).getBatch(7001L);
+        verify(productContractReleaseService, never()).rollbackLatestBatch(7001L, 10001L);
     }
 
     private ProductContractReleaseBatchVO batchVO(Long id,

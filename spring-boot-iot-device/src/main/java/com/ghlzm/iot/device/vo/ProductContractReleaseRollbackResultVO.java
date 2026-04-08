@@ -9,6 +9,8 @@ import lombok.Data;
 @Data
 public class ProductContractReleaseRollbackResultVO {
 
+    private Long targetBatchId;
+
     private Long rolledBackBatchId;
 
     private Long productId;
@@ -28,4 +30,8 @@ public class ProductContractReleaseRollbackResultVO {
     private LocalDateTime rollbackTime;
 
     private Long approvalOrderId;
+
+    private String approvalStatus;
+
+    private Boolean executionPending;
 }

@@ -23,6 +23,7 @@ import org.springframework.security.core.Authentication;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -134,20 +135,26 @@ class ProductModelControllerTest {
     }
 
     @Test
-    void applyGovernanceShouldDelegateToService() {
+    void applyGovernanceShouldSubmitPendingApproval() {
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
-        ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
-        result.setCreatedCount(1);
-        result.setReleaseBatchId(12345L);
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision("create");
+        item.setModelType("property");
+        item.setIdentifier("value");
+        item.setModelName("crack value");
+        dto.setItems(List.of(item));
         Authentication authentication = authentication(1001L);
-        when(productModelService.applyGovernance(1001L, dto, 1001L)).thenReturn(result);
-        when(governanceApprovalService.recordApprovedAction(any())).thenReturn(88001L);
+        when(governanceApprovalService.submitAction(any())).thenReturn(88001L);
 
         R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
         assertEquals(1, response.getData().getCreatedCount());
-        assertEquals(12345L, response.getData().getReleaseBatchId());
+        assertEquals(0, response.getData().getUpdatedCount());
+        assertEquals(0, response.getData().getSkippedCount());
+        assertEquals(null, response.getData().getReleaseBatchId());
         assertEquals(88001L, response.getData().getApprovalOrderId());
+        assertEquals("PENDING", response.getData().getApprovalStatus());
+        assertEquals(Boolean.TRUE, response.getData().getExecutionPending());
         verify(permissionGuard).requireDualControl(
                 1001L,
                 2002L,
@@ -166,8 +173,8 @@ class ProductModelControllerTest {
                 "risk:metric-catalog:approve",
                 "iot:product-contract:approve"
         );
-        verify(governanceApprovalService).recordApprovedAction(any());
-        verify(productModelService).applyGovernance(1001L, dto, 1001L);
+        verify(governanceApprovalService).submitAction(any());
+        verify(productModelService, never()).applyGovernance(1001L, dto, 1001L);
     }
 
     private Authentication authentication(Long userId) {
