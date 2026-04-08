@@ -247,6 +247,7 @@ class RiskPointPendingRecommendationServiceImplTest {
         assertEquals(7001L, result.getCandidates().get(0).getRiskMetricId());
         verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
                 org.mockito.ArgumentMatchers.eq(2001L),
+                org.mockito.ArgumentMatchers.isNull(),
                 any(),
                 org.mockito.ArgumentMatchers.eq(java.util.Set.of("value"))
         );
@@ -274,6 +275,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
                 org.mockito.ArgumentMatchers.eq(2001L),
+                org.mockito.ArgumentMatchers.isNull(),
                 any(),
                 org.mockito.ArgumentMatchers.eq(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"))
         );

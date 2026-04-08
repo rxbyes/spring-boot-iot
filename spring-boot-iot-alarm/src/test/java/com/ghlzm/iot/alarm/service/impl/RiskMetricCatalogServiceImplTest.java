@@ -47,7 +47,7 @@ class RiskMetricCatalogServiceImplTest {
         when(productMapper.selectById(1001L)).thenReturn(product);
         when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
                 normative("phase1-crack", "value", "mm", 1,
-                        "{\"thresholdKind\":\"absolute\",\"gisEnabled\":false}")
+                        "{\"thresholdKind\":\"absolute\",\"gisEnabled\":false,\"riskCategory\":\"CRACK\",\"metricRole\":\"PRIMARY\"}")
         ));
 
         ProductModel releasedValue = new ProductModel();
@@ -64,15 +64,20 @@ class RiskMetricCatalogServiceImplTest {
         releasedSensorState.setIdentifier("sensor_state");
         releasedSensorState.setModelName("Sensor status");
 
-        service.publishFromReleasedContracts(1001L, List.of(releasedValue, releasedSensorState), Set.of("value"));
+        service.publishFromReleasedContracts(1001L, 7001L, List.of(releasedValue, releasedSensorState), Set.of("value"));
 
         verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
                 Long.valueOf(1001L).equals(row.getProductId())
+                        && Long.valueOf(7001L).equals(row.getReleaseBatchId())
                         && Long.valueOf(3101L).equals(row.getProductModelId())
+                        && "value".equals(row.getNormativeIdentifier())
                         && "value".equals(row.getContractIdentifier())
                         && "RM_1001_VALUE".equals(row.getRiskMetricCode())
                         && "Crack value".equals(row.getRiskMetricName())
                         && "phase1-crack".equals(row.getSourceScenarioCode())
+                        && "CRACK".equals(row.getRiskCategory())
+                        && "PRIMARY".equals(row.getMetricRole())
+                        && "ACTIVE".equals(row.getLifecycleStatus())
                         && "mm".equals(row.getMetricUnit())
                         && "displacement".equals(row.getMetricDimension())
                         && "absolute".equals(row.getThresholdType())
@@ -116,10 +121,12 @@ class RiskMetricCatalogServiceImplTest {
         gpsTotalX.setModelName("GNSS total X");
         gpsTotalX.setDataType("double");
 
-        service.publishFromReleasedContracts(3003L, List.of(gpsInitial, gpsTotalX), Set.of("gpsTotalX"));
+        service.publishFromReleasedContracts(3003L, 7002L, List.of(gpsInitial, gpsTotalX), Set.of("gpsTotalX"));
 
         verify(riskMetricCatalogMapper).insert(argThat(
-                (RiskMetricCatalog row) -> "gpsTotalX".equals(row.getContractIdentifier())
+                (RiskMetricCatalog row) -> Long.valueOf(7002L).equals(row.getReleaseBatchId())
+                        && "gpsTotalX".equals(row.getNormativeIdentifier())
+                        && "gpsTotalX".equals(row.getContractIdentifier())
                         && "GNSS total X".equals(row.getRiskMetricName())
                         && "phase2-gnss".equals(row.getSourceScenarioCode())
                         && "absolute".equals(row.getThresholdType())
@@ -153,12 +160,14 @@ class RiskMetricCatalogServiceImplTest {
         value.setModelName("Custom metric");
         value.setDataType("double");
 
-        service.publishFromReleasedContracts(4004L, List.of(value), Set.of("value"));
+        service.publishFromReleasedContracts(4004L, 7003L, List.of(value), Set.of("value"));
 
         verify(normativeMetricDefinitionService).listByScenario("custom-scene");
         verify(normativeMetricDefinitionService, never()).listByScenario("phase2-gnss");
         verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
                 "custom-scene".equals(row.getSourceScenarioCode())
+                        && Long.valueOf(7003L).equals(row.getReleaseBatchId())
+                        && "value".equals(row.getNormativeIdentifier())
                         && "ratio".equals(row.getThresholdType())
                         && "cm".equals(row.getMetricUnit())
         ));

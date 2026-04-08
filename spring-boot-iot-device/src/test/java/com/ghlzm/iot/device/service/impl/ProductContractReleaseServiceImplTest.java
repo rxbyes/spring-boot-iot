@@ -47,7 +47,7 @@ class ProductContractReleaseServiceImplTest {
                 productModelMapper
         );
 
-        Long batchId = service.createBatch(1001L, "phase1-crack", "manual_compare_apply", 3, 10001L);
+        Long batchId = service.createBatch(1001L, "phase1-crack", "manual_compare_apply", 3, 10001L, 88001L, "首次合同发布");
 
         assertNotNull(batchId);
         verify(releaseBatchMapper).insert(org.mockito.ArgumentMatchers.<ProductContractReleaseBatch>argThat(batch ->
@@ -56,6 +56,9 @@ class ProductContractReleaseServiceImplTest {
                         && "manual_compare_apply".equals(batch.getReleaseSource())
                         && Integer.valueOf(3).equals(batch.getReleasedFieldCount())
                         && Long.valueOf(10001L).equals(batch.getCreateBy())
+                        && Long.valueOf(88001L).equals(batch.getApprovalOrderId())
+                        && "首次合同发布".equals(batch.getReleaseReason())
+                        && "RELEASED".equals(batch.getReleaseStatus())
         ));
     }
 
