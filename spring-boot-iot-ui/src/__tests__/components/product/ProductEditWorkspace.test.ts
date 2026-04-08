@@ -4,6 +4,13 @@ import { describe, expect, it } from 'vitest'
 
 import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
 
+const ProductObjectInsightConfigEditorStub = defineComponent({
+  name: 'ProductObjectInsightConfigEditor',
+  props: ['modelValue'],
+  emits: ['update:modelValue'],
+  template: '<div class="product-object-insight-config-editor-stub">对象洞察配置编辑器</div>'
+})
+
 const StandardButtonStub = defineComponent({
   name: 'StandardButton',
   props: ['disabled', 'loading'],
@@ -49,8 +56,10 @@ describe('ProductEditWorkspace', () => {
           dataFormat: 'JSON',
           manufacturer: 'GHLZM',
           description: '南方场站监测终端',
+          metadataJson: '',
           status: 1
         },
+        objectInsightMetrics: [],
         rules: {
           productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }]
         },
@@ -63,6 +72,7 @@ describe('ProductEditWorkspace', () => {
         stubs: {
           StandardButton: StandardButtonStub,
           StandardInlineState: StandardInlineStateStub,
+          ProductObjectInsightConfigEditor: ProductObjectInsightConfigEditorStub,
           ElForm: ElFormStub,
           ElFormItem: true,
           ElInput: true,
@@ -92,6 +102,8 @@ describe('ProductEditWorkspace', () => {
     expect(wrapper.text()).toContain('基础档案')
     expect(wrapper.text()).toContain('接入基线')
     expect(wrapper.text()).toContain('补充说明')
+    expect(wrapper.text()).toContain('对象洞察配置')
+    expect(wrapper.find('.product-object-insight-config-editor-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('最新档案已取回')
     expect(wrapper.text()).not.toContain('节点与状态')
 

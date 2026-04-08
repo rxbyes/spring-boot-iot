@@ -83,6 +83,11 @@
           </el-form-item>
         </div>
       </section>
+
+      <ProductObjectInsightConfigEditor
+        :model-value="objectInsightMetrics"
+        @update:model-value="emit('update:objectInsightMetrics', $event)"
+      />
     </el-form>
 
     <div class="product-edit-workspace__footer">
@@ -107,13 +112,15 @@ import type { FormInstance, FormRules } from 'element-plus'
 
 import StandardButton from '@/components/StandardButton.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
-import type { ProductAddPayload } from '@/types/api'
+import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
+import type { ProductAddPayload, ProductObjectInsightCustomMetricConfig } from '@/types/api'
 
 type ProductEditFormState = ProductAddPayload
 
 const props = withDefaults(
   defineProps<{
     model: ProductEditFormState
+    objectInsightMetrics: ProductObjectInsightCustomMetricConfig[]
     rules: FormRules<ProductEditFormState>
     editing?: boolean
     submitLoading?: boolean
@@ -131,6 +138,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'cancel'): void
   (event: 'submit'): void
+  (event: 'update:objectInsightMetrics', value: ProductObjectInsightCustomMetricConfig[]): void
 }>()
 
 const formRef = ref<FormInstance>()

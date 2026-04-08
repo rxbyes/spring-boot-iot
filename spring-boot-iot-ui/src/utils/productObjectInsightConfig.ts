@@ -1,6 +1,6 @@
 import type { ProductMetadata, ProductObjectInsightCustomMetricConfig } from '@/types/api'
 
-const MAX_CUSTOM_METRICS = 20
+export const MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS = 20
 
 export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCustomMetricConfig {
   return {
@@ -46,7 +46,7 @@ export function parseProductObjectInsightMetrics(metadataJson?: string | null): 
 }
 
 export function validateProductObjectInsightMetrics(rows: ProductObjectInsightCustomMetricConfig[]): string | null {
-  if (rows.length > MAX_CUSTOM_METRICS) {
+  if (rows.length > MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS) {
     return '对象洞察配置最多允许 20 个指标'
   }
 

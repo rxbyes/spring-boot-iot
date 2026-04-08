@@ -384,11 +384,13 @@
           v-if="businessWorkbenchLoadedViews.edit"
           ref="editWorkspaceRef"
           :model="formData"
+          :object-insight-metrics="objectInsightMetricRows"
           :rules="formRules"
           :editing="Boolean(editingProductId)"
           :submit-loading="submitLoading"
           :refresh-state="formRefreshState"
           :refresh-message="formRefreshMessage"
+          @update:object-insight-metrics="handleObjectInsightMetricsChange"
           @cancel="handleCancelEdit"
           @submit="handleSubmit"
         />
@@ -461,6 +463,11 @@
               </el-form-item>
             </div>
           </section>
+
+          <ProductObjectInsightConfigEditor
+            :model-value="objectInsightMetricRows"
+            @update:model-value="handleObjectInsightMetricsChange"
+          />
         </el-form>
       </div>
 
@@ -526,13 +533,20 @@ import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWo
 import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
 import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
+import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import { productApi, type ProductContractReleaseBatch } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { getRiskGovernanceCoverageOverview, type RiskGovernanceCoverageOverview } from '@/api/riskGovernance'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
-import type { Device, PageResult, Product, ProductAddPayload } from '@/types/api'
+import type {
+  Device,
+  PageResult,
+  Product,
+  ProductAddPayload,
+  ProductObjectInsightCustomMetricConfig
+} from '@/types/api'
 import {
   buildProductPageCacheKey,
   cloneProductDetailCacheEntry,
@@ -570,6 +584,11 @@ import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confir
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
+import {
+  buildProductMetadataJson,
+  parseProductObjectInsightMetrics,
+  validateProductObjectInsightMetrics
+} from '@/utils/productObjectInsightConfig'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
@@ -727,10 +746,12 @@ const createDefaultFormData = (): ProductFormState => ({
   dataFormat: 'JSON',
   manufacturer: '',
   description: '',
+  metadataJson: '',
   status: 1
 })
 
 const formData = reactive<ProductFormState>(createDefaultFormData())
+const objectInsightMetricRows = ref<ProductObjectInsightCustomMetricConfig[]>([])
 
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
@@ -1009,7 +1030,8 @@ function resolveDetailSnapshot(row: Product, cachedDetail: Product | null) {
   // 使用列表返回的 row 数据作为快照，确保详情页始终有数据显示
   return {
     ...row,
-    description: cachedDetail?.description ?? row.description ?? null
+    description: cachedDetail?.description ?? row.description ?? null,
+    metadataJson: cachedDetail?.metadataJson ?? row.metadataJson ?? null
   }
 }
 
@@ -1042,8 +1064,10 @@ function resetFormData(source?: Partial<Product>) {
     dataFormat: source?.dataFormat || 'JSON',
     manufacturer: source?.manufacturer || '',
     description: source?.description || '',
+    metadataJson: source?.metadataJson || '',
     status: source?.status ?? 1
   })
+  objectInsightMetricRows.value = parseProductObjectInsightMetrics(source?.metadataJson)
 }
 
 function applyFormDataWithoutDirty(source?: Partial<Product>) {
@@ -1064,6 +1088,10 @@ function clearFormRefreshState() {
 function clearListRefreshState() {
   listRefreshMessage.value = ''
   listRefreshState.value = ''
+}
+
+function handleObjectInsightMetricsChange(value: ProductObjectInsightCustomMetricConfig[]) {
+  objectInsightMetricRows.value = value
 }
 
 function markBusinessWorkbenchViewLoaded(view: ProductBusinessWorkbenchView) {
@@ -1978,6 +2006,7 @@ async function handleBatchCommand(command: string, rows: Product[]) {
           dataFormat: row.dataFormat ?? undefined,
           manufacturer: row.manufacturer ?? undefined,
           description: row.description ?? undefined,
+          metadataJson: row.metadataJson ?? undefined,
           status: row.status ?? 1
         }
       }
@@ -2011,6 +2040,7 @@ async function handleBatchCommand(command: string, rows: Product[]) {
           dataFormat: row.dataFormat ?? undefined,
           manufacturer: row.manufacturer ?? undefined,
           description: row.description ?? undefined,
+          metadataJson: row.metadataJson ?? undefined,
           status: row.status ?? 1
         }
       }
@@ -2119,10 +2149,21 @@ async function handleSubmit() {
     return
   }
 
+  const validationMessage = validateProductObjectInsightMetrics(objectInsightMetricRows.value)
+  if (validationMessage) {
+    ElMessage.error(validationMessage)
+    return
+  }
+
+  const payload: ProductAddPayload = {
+    ...formData,
+    metadataJson: buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
+  }
+
   submitLoading.value = true
   try {
     if (editingProductId.value) {
-      const res = await productApi.updateProduct(editingProductId.value, { ...formData })
+      const res = await productApi.updateProduct(editingProductId.value, payload)
       cacheProductDetail(res.data)
       currentProduct.value = res.data
       detailData.value = res.data
@@ -2140,7 +2181,7 @@ async function handleSubmit() {
       ElMessage.success('更新成功')
       void loadProductPage({ silent: true, force: true })
     } else {
-      const res = await productApi.addProduct({ ...formData })
+      const res = await productApi.addProduct(payload)
       cacheProductDetail(res.data)
       ElMessage.success('新增成功')
       formVisible.value = false

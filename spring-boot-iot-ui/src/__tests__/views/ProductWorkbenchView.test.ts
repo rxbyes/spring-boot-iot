@@ -6,6 +6,7 @@ import { ElMessage } from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createRequestError } from '@/api/request'
+import { createEmptyProductObjectInsightMetric } from '@/utils/productObjectInsightConfig'
 import ProductWorkbenchView from '@/views/ProductWorkbenchView.vue'
 
 const {
@@ -313,6 +314,17 @@ const ElTableColumnStub = defineComponent({
   `
 })
 
+const ElFormStub = defineComponent({
+  name: 'ElForm',
+  setup(_, { expose, slots }) {
+    expose({
+      validate: () => Promise.resolve(true),
+      clearValidate: () => undefined
+    })
+    return () => h('form', { class: 'el-form-stub' }, slots.default ? slots.default() : [])
+  }
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -366,6 +378,8 @@ function mountView() {
         CsvColumnSettingDialog: true,
         DeviceListDrawer: DeviceListDrawerStub,
         EmptyState: true,
+        ElForm: ElFormStub,
+        ElFormItem: true,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
       }
@@ -773,6 +787,103 @@ describe('ProductWorkbenchView', () => {
     expect((wrapper.vm as any).businessWorkbenchVisible).toBe(true)
     expect((wrapper.vm as any).businessWorkbenchProduct.productName).toBe('演示产品（已更新）')
     expect((wrapper.vm as any).detailData.productName).toBe('演示产品（已更新）')
+  })
+
+  it('serializes product-level object insight metrics into metadataJson before submit', async () => {
+    const wrapper = mountView()
+
+    ;(wrapper.vm as any).handleAdd()
+    await nextTick()
+
+    ;(wrapper.vm as any).formData.productKey = 'demo-product'
+    ;(wrapper.vm as any).formData.productName = '演示产品'
+    ;(wrapper.vm as any).formData.protocolCode = 'mqtt-json'
+    ;(wrapper.vm as any).formData.nodeType = 1
+    ;(wrapper.vm as any).formData.metadataJson = JSON.stringify({
+      site: '北坡监测点'
+    })
+    ;(wrapper.vm as any).objectInsightMetricRows = [
+      {
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'S1_ZT_1.humidity',
+        displayName: '相对湿度',
+        group: 'status',
+        analysisTitle: '现场环境补充',
+        analysisTag: '系统自定义参数',
+        analysisTemplate: '{{label}}当前为{{value}}'
+      }
+    ]
+
+    mockAddProduct.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 2001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          site: '北坡监测点',
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'S1_ZT_1.humidity',
+                displayName: '相对湿度',
+                group: 'status'
+              }
+            ]
+          }
+        })
+      }
+    })
+
+    await (wrapper.vm as any).handleSubmit()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"site":"北坡监测点"')
+      })
+    )
+    expect(mockAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.humidity"')
+      })
+    )
+  })
+
+  it('blocks submit when object insight metrics contain duplicate identifiers', async () => {
+    const wrapper = mountView()
+
+    ;(wrapper.vm as any).handleAdd()
+    await nextTick()
+
+    ;(wrapper.vm as any).formData.productKey = 'demo-product'
+    ;(wrapper.vm as any).formData.productName = '演示产品'
+    ;(wrapper.vm as any).formData.protocolCode = 'mqtt-json'
+    ;(wrapper.vm as any).formData.nodeType = 1
+    ;(wrapper.vm as any).objectInsightMetricRows = [
+      {
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'S1_ZT_1.humidity',
+        displayName: '相对湿度',
+        group: 'status'
+      },
+      {
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'S1_ZT_1.humidity',
+        displayName: '重复湿度',
+        group: 'status'
+      }
+    ]
+
+    await (wrapper.vm as any).handleSubmit()
+    await flushPromises()
+
+    expect(mockAddProduct).not.toHaveBeenCalled()
+    expect(vi.mocked(ElMessage.error)).toHaveBeenCalledWith('对象洞察配置中存在重复指标标识：S1_ZT_1.humidity')
   })
 
   it('removes the standalone device and model drawers from the /products page composition', async () => {
