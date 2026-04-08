@@ -310,9 +310,11 @@ class EnsureIndexesCursor:
     def __init__(self):
         self.executed = []
         self._last_sql = ""
+        self._last_params = None
 
     def execute(self, sql, params=None):
         self._last_sql = sql
+        self._last_params = params
         self.executed.append((sql, params))
 
     def fetchone(self):
@@ -321,6 +323,21 @@ class EnsureIndexesCursor:
         if "risk_metric_emergency_plan_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
             return None
         raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+    def fetchall(self):
+        if "FROM information_schema.STATISTICS" in self._last_sql:
+            db, table, index = self._last_params
+            if db != "rm_iot":
+                raise AssertionError(f"Unexpected db in params: {self._last_params}")
+            if table == "risk_metric_linkage_binding" and index == "uk_risk_metric_linkage_active":
+                return [
+                    (1, "tenant_id", 1),
+                    (1, "risk_metric_id", 2),
+                    (1, "linkage_rule_id", 3),
+                    (1, "deleted", 4),
+                ]
+            return []
+        raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
 
 
 class EnsureIndexesBehaviorTest(unittest.TestCase):
@@ -391,6 +408,24 @@ class EnsureIndexesBehaviorTest(unittest.TestCase):
 
         self.assertIn("risk_metric_linkage_binding.uk_risk_metric_linkage_active", str(cm.exception))
         self.assertIn("duplicate rows must be cleaned before schema sync can continue", str(cm.exception))
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertNotIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(schema_sync, "index_exists", return_value=True)
+    def test_ensure_indexes_raises_when_existing_binding_index_shape_drifts(
+        self, _mock_index_exists, _mock_table_exists
+    ):
+        cursor = EnsureIndexesCursor()
+
+        with self.assertRaises(RuntimeError) as cm:
+            schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        self.assertIn("risk_metric_linkage_binding.uk_risk_metric_linkage_active", str(cm.exception))
+        self.assertIn("drifts from expected shape", str(cm.exception))
         executed_sql = {sql for sql, _ in cursor.executed}
         self.assertNotIn(
             "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
