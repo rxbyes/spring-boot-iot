@@ -34,7 +34,7 @@ class RiskMetricCatalogServiceImplTest {
     private NormativeMetricDefinitionService normativeMetricDefinitionService;
 
     @Test
-    void publishFromReleasedContractShouldCreateCrackRiskMetricRows() {
+    void publishFromReleasedContractShouldPersistSemanticMetadataForRiskEnabledMetric() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
                 riskMetricCatalogMapper,
                 productMapper,
@@ -46,7 +46,8 @@ class RiskMetricCatalogServiceImplTest {
         product.setProductKey("phase1-crack-product");
         when(productMapper.selectById(1001L)).thenReturn(product);
         when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
-                normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\",\"gisEnabled\":false}")
+                normative("phase1-crack", "value", "mm", 1,
+                        "{\"thresholdKind\":\"absolute\",\"gisEnabled\":false}")
         ));
 
         ProductModel releasedValue = new ProductModel();
@@ -67,7 +68,9 @@ class RiskMetricCatalogServiceImplTest {
 
         verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
                 Long.valueOf(1001L).equals(row.getProductId())
+                        && Long.valueOf(3101L).equals(row.getProductModelId())
                         && "value".equals(row.getContractIdentifier())
+                        && "RM_1001_VALUE".equals(row.getRiskMetricCode())
                         && "Crack value".equals(row.getRiskMetricName())
                         && "phase1-crack".equals(row.getSourceScenarioCode())
                         && "mm".equals(row.getMetricUnit())
@@ -75,6 +78,8 @@ class RiskMetricCatalogServiceImplTest {
                         && "absolute".equals(row.getThresholdType())
                         && Integer.valueOf(1).equals(row.getTrendEnabled())
                         && Integer.valueOf(0).equals(row.getGisEnabled())
+                        && Integer.valueOf(1).equals(row.getInsightEnabled())
+                        && Integer.valueOf(1).equals(row.getAnalyticsEnabled())
                         && Integer.valueOf(1).equals(row.getEnabled())
         ));
         verify(riskMetricCatalogMapper, never()).insert(argThat(
