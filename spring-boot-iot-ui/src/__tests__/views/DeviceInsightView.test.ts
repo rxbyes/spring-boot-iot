@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTelemetryHistoryBatch } from '@/api/telemetry';
 import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { productApi } from '@/api/product';
 import { getRiskMonitoringDetail, getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
 
@@ -28,6 +29,7 @@ vi.mock('@/api/iot', () => ({
     msg: 'success',
     data: {
       id: 2001,
+      productId: 501,
       deviceCode: 'SK00EB0D1308313',
       deviceName: '泥水位监测设备',
       productName: '宏观现象监测设备泥水位',
@@ -71,6 +73,23 @@ vi.mock('@/api/iot', () => ({
     msg: 'success',
     data: []
   })
+}));
+
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getProductById: vi.fn().mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 501,
+        productKey: 'muddy-water-product',
+        productName: '宏观现象监测设备泥水位',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    })
+  }
 }));
 
 vi.mock('@/api/telemetry', () => ({
@@ -315,5 +334,345 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('属性趋势预览');
     expect(wrapper.text()).not.toContain('L4_NW_1');
+  });
+
+  it('derives dynamic metrics for collect devices and includes runtime status extensions in trend query', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3001,
+        deviceCode: 'COLLECT-001',
+        deviceName: '雨量采集设备',
+        productName: '雨量采集终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-08 11:00:00',
+        lastReportTime: '2026-04-08 11:05:00',
+        firmwareVersion: '1.1.0',
+        address: '采集点 A',
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'S1_ZT_1.humidity',
+                displayName: '相对湿度',
+                group: 'status',
+                analysisTitle: '现场环境补充',
+                analysisTag: '系统自定义参数',
+                analysisTemplate: '{{label}}当前为{{value}}，可辅助判断现场环境湿润程度。'
+              },
+              {
+                identifier: 'S1_ZT_1.signal_4g',
+                displayName: '4G 信号强度',
+                group: 'status',
+                analysisTitle: '通信状态补充',
+                analysisTag: '系统自定义参数',
+                analysisTemplate: '{{label}}当前为{{value}}，可辅助判断设备回传链路稳定性。'
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'YL_1',
+          propertyName: '雨量',
+          propertyValue: '12.4',
+          valueType: 'double',
+          updateTime: '2026-04-08 11:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state.YL_1',
+          propertyName: '采集通道在线状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-08 11:05:00'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-82',
+          valueType: 'int',
+          updateTime: '2026-04-08 11:05:00'
+        },
+        {
+          id: 4,
+          identifier: 'S1_ZT_1.humidity',
+          propertyName: '相对湿度',
+          propertyValue: '75',
+          valueType: 'double',
+          updateTime: '2026-04-08 11:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            bindingId: 31,
+            deviceCode: 'COLLECT-001',
+            deviceName: '雨量采集设备',
+            riskPointName: '沟道采集点',
+            riskLevel: 'NOTICE',
+            metricIdentifier: 'YL_1',
+            metricName: '雨量',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-08 11:05:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 31,
+        riskPointId: 9,
+        riskPointCode: 'RP-031',
+        riskPointName: '沟道采集点',
+        riskLevel: 'NOTICE',
+        deviceId: 3001,
+        deviceCode: 'COLLECT-001',
+        deviceName: '雨量采集设备',
+        productName: '雨量采集终端',
+        metricIdentifier: 'YL_1',
+        metricName: '雨量',
+        currentValue: '12.4',
+        monitorStatus: 'NORMAL',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-08 11:05:00'
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 3001,
+        rangeCode: '7d',
+        bucket: 'day',
+        points: [
+          {
+            identifier: 'YL_1',
+            displayName: '雨量',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 12.4, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.sensor_state.YL_1',
+            displayName: '采集通道在线状态',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 1, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.signal_4g',
+            displayName: '4G 信号强度',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-07 00:00:00', value: -82, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.humidity',
+            displayName: '相对湿度',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 75, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'COLLECT-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 3001,
+      identifiers: expect.arrayContaining(['YL_1', 'S1_ZT_1.sensor_state.YL_1', 'S1_ZT_1.signal_4g', 'S1_ZT_1.humidity'])
+    }));
+    expect(wrapper.text()).toContain('雨量');
+    expect(wrapper.text()).toContain('采集通道在线状态');
+    expect(wrapper.text()).toContain('4G 信号强度');
+    expect(wrapper.text()).toContain('相对湿度');
+    expect(wrapper.text()).toContain('相对湿度当前为75，可辅助判断现场环境湿润程度。');
+    expect(wrapper.text()).toContain('4G 信号强度当前为-82，可辅助判断设备回传链路稳定性。');
+  });
+
+  it('loads product-level insight config by productId when device metadata is absent', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3201,
+        productId: 601,
+        deviceCode: 'COLLECT-009',
+        deviceName: '雨量采集设备',
+        productName: '雨量采集终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-08 12:00:00',
+        lastReportTime: '2026-04-08 12:05:00',
+        firmwareVersion: '1.2.0',
+        address: '采集点 B',
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 601,
+        productKey: 'collect-product',
+        productName: '雨量采集终端',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'S1_ZT_1.signal_4g',
+                displayName: '传输信号',
+                group: 'status',
+                analysisTitle: '通信状态补充',
+                analysisTag: '产品正式配置',
+                analysisTemplate: '{{label}}当前为{{value}}，用于判断设备回传链路稳定性。'
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'YL_1',
+          propertyName: '雨量',
+          propertyValue: '10.8',
+          valueType: 'double',
+          updateTime: '2026-04-08 12:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state.YL_1',
+          propertyName: '采集通道在线状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-08 12:05:00'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-80',
+          valueType: 'int',
+          updateTime: '2026-04-08 12:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            bindingId: 41,
+            deviceCode: 'COLLECT-009',
+            deviceName: '雨量采集设备',
+            riskPointName: '沟道采集点',
+            riskLevel: 'NOTICE',
+            metricIdentifier: 'YL_1',
+            metricName: '雨量',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-08 12:05:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 41,
+        riskPointId: 19,
+        riskPointCode: 'RP-041',
+        riskPointName: '沟道采集点',
+        riskLevel: 'NOTICE',
+        deviceId: 3201,
+        deviceCode: 'COLLECT-009',
+        deviceName: '雨量采集设备',
+        productName: '雨量采集终端',
+        metricIdentifier: 'YL_1',
+        metricName: '雨量',
+        currentValue: '10.8',
+        monitorStatus: 'NORMAL',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-08 12:05:00'
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 3201,
+        rangeCode: '7d',
+        bucket: 'day',
+        points: [
+          {
+            identifier: 'YL_1',
+            displayName: '雨量',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 10.8, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.sensor_state.YL_1',
+            displayName: '采集通道在线状态',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 1, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.signal_4g',
+            displayName: '传输信号',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-07 00:00:00', value: -80, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'COLLECT-009'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(productApi.getProductById).toHaveBeenCalledWith(601);
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 3201,
+      identifiers: expect.arrayContaining(['S1_ZT_1.signal_4g'])
+    }));
+    expect(wrapper.text()).toContain('传输信号');
+    expect(wrapper.text()).toContain('传输信号当前为-80，用于判断设备回传链路稳定性。');
   });
 });

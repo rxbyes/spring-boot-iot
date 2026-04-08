@@ -197,6 +197,7 @@ import { ElMessage } from 'element-plus';
 import { getTelemetryHistoryBatch, type InsightRangeCode, type TelemetryHistoryBatchResponse } from '@/api/telemetry';
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
 import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { productApi } from '@/api/product';
 import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import RiskInsightTrendPanel from '@/components/RiskInsightTrendPanel.vue';
@@ -345,14 +346,14 @@ const highlightedMetrics = computed(() =>
 const extensionMetrics = computed(() =>
   capabilityProfile.value.extensionParameters
     .map((parameter) => {
-      const property = propertyMap.value.get(parameter.identifier);
-      return property
-        ? {
+      const value = resolveMetricValueByIdentifier(parameter.identifier);
+      return value === '--'
+        ? null
+        : {
             label: parameter.displayName,
-            value: property.propertyValue || '--',
+            value,
             hint: '系统自定义参数'
-          }
-        : null;
+          };
     })
     .filter((item): item is { label: string; value: string; hint: string } => Boolean(item))
 );
@@ -435,7 +436,32 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
       description: `${firstMetric?.label || '监测值'}当前为${firstMetric?.value || '--'}，${statusMetric?.label || '状态值'}当前为${statusMetric?.value || '--'}，${batteryMetric?.label || '关键状态项'}当前为${batteryMetric?.value || '--'}。`
     }
   ];
-  if (extensionMetrics.value.length) {
+  const customAnalysisBlocks = capabilityProfile.value.customMetrics
+    .filter((item) => item.analysisTemplate)
+    .map((item) => {
+      const value = resolveMetricValueByIdentifier(item.identifier);
+      if (value === '--' || !item.analysisTemplate) {
+        return null;
+      }
+      return {
+        title: item.analysisTitle || resolveMetricDisplayName(item.identifier),
+        tag: item.analysisTag || '系统自定义参数',
+        description: renderAnalysisTemplate(item.analysisTemplate, {
+          label: resolveMetricDisplayName(item.identifier),
+          value,
+          deviceName: device.value?.deviceName || normalizedDeviceCode.value || '当前设备',
+          deviceCode: device.value?.deviceCode || normalizedDeviceCode.value || '--',
+          productName: device.value?.productName || '--',
+          riskPointName: riskDetail.value?.riskPointName || '当前未纳管',
+          onlineStatus: onlineStatusLabel.value
+        })
+      };
+    })
+    .filter((item): item is NarrativeBlock => Boolean(item));
+
+  if (customAnalysisBlocks.length) {
+    blocks.push(...customAnalysisBlocks);
+  } else if (extensionMetrics.value.length) {
     blocks.push({
       title: '系统自定义参数',
       tag: '扩展位',
@@ -521,15 +547,15 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     }
 
     device.value = deviceResponse.data;
-    capabilityProfile.value = getInsightCapabilityProfile(deviceResponse.data);
 
-    const [propertyResponse, bindingResponse] = await Promise.all([
+    const [propertyResponse, bindingResponse, productMetadataJson] = await Promise.all([
       getDeviceProperties(code),
       getRiskMonitoringList({
         deviceCode: code,
         pageNum: 1,
         pageSize: 50
-      })
+      }),
+      loadProductMetadataJson(deviceResponse.data?.productId)
     ]);
     if (version !== requestVersion.value) {
       return;
@@ -548,6 +574,17 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     } else {
       riskDetail.value = null;
     }
+
+    capabilityProfile.value = getInsightCapabilityProfile({
+      deviceCode: device.value?.deviceCode,
+      productName: device.value?.productName,
+      metricIdentifier: riskDetail.value?.metricIdentifier,
+      metricName: riskDetail.value?.metricName,
+      riskPointName: riskDetail.value?.riskPointName,
+      properties: properties.value,
+      deviceMetadataJson: device.value?.metadataJson,
+      productMetadataJson
+    });
 
     if (device.value?.id && capabilityProfile.value.historyIdentifiers.length) {
       try {
@@ -649,6 +686,47 @@ function resolveLatestTrendValue(series?: InsightTrendSeries) {
     return '--';
   }
   return String(latestBucket.value);
+}
+
+async function loadProductMetadataJson(productId?: string | number | null) {
+  if (productId === undefined || productId === null || productId === '') {
+    return null;
+  }
+  try {
+    const response = await productApi.getProductById(productId);
+    return response.code === 200 ? response.data?.metadataJson ?? null : null;
+  } catch (error) {
+    console.warn('对象洞察产品配置补充失败', error);
+    return null;
+  }
+}
+
+function resolveMetricValueByIdentifier(identifier: string) {
+  const propertyValue = propertyMap.value.get(identifier)?.propertyValue?.trim();
+  if (propertyValue) {
+    return propertyValue;
+  }
+  return resolveLatestTrendValue(trendSeriesMap.value.get(identifier));
+}
+
+function resolveMetricDisplayName(identifier: string) {
+  const heroMetric = capabilityProfile.value.heroMetrics.find((item) => item.identifier === identifier);
+  if (heroMetric) {
+    return heroMetric.displayName;
+  }
+  const extensionMetric = capabilityProfile.value.extensionParameters.find((item) => item.identifier === identifier);
+  if (extensionMetric) {
+    return extensionMetric.displayName;
+  }
+  const customMetric = capabilityProfile.value.customMetrics.find((item) => item.identifier === identifier);
+  if (customMetric) {
+    return customMetric.displayName;
+  }
+  return identifier;
+}
+
+function renderAnalysisTemplate(template: string, values: Record<string, string>) {
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_token, key: string) => values[key] ?? '--');
 }
 
 function getRangeLabel(rangeCode: InsightRangeCode) {

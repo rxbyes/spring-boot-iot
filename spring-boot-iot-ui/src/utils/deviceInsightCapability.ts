@@ -1,4 +1,6 @@
 import type { InsightRangeCode, TelemetryHistoryBatchRequest } from '@/api/telemetry';
+import type { DeviceProperty } from '@/types/api';
+import { resolveInsightObjectType, type InsightObjectType } from '@/utils/deviceInsight';
 
 export interface InsightMetricDefinition {
   identifier: string;
@@ -18,6 +20,18 @@ export interface InsightExtensionParameterDefinition {
   displayName: string;
 }
 
+export interface InsightCustomMetricDefinition {
+  parameterKey: string;
+  identifier: string;
+  displayName: string;
+  group: 'measure' | 'status';
+  includeInTrend?: boolean;
+  includeInExtension?: boolean;
+  analysisTitle?: string;
+  analysisTag?: string;
+  analysisTemplate?: string;
+}
+
 export interface InsightCapabilityProfile {
   key: string;
   objectType: 'detect' | 'warning' | 'collect' | 'generic';
@@ -25,6 +39,7 @@ export interface InsightCapabilityProfile {
   trendGroups: InsightTrendGroupDefinition[];
   extensionParameters: InsightExtensionParameterDefinition[];
   historyIdentifiers: string[];
+  customMetrics: InsightCustomMetricDefinition[];
 }
 
 export const INSIGHT_RANGE_OPTIONS = [
@@ -36,6 +51,86 @@ export const INSIGHT_RANGE_OPTIONS = [
 ] as const;
 
 export const DEFAULT_INSIGHT_RANGE: InsightRangeCode = '7d';
+
+interface InsightCapabilitySource {
+  deviceCode?: string | null;
+  productName?: string | null;
+  metricIdentifier?: string | null;
+  metricName?: string | null;
+  riskPointName?: string | null;
+  properties?: DeviceProperty[] | null;
+  deviceMetadataJson?: string | null;
+  productMetadataJson?: string | null;
+  metadataJson?: string | null;
+}
+
+interface RuntimeMetricCandidate {
+  identifier: string;
+  displayName: string;
+  text: string;
+  valueType: string;
+}
+
+interface RuntimeTemplateConfig {
+  key: string;
+  measureKeywords: string[];
+  statusPriorityKeywords: string[];
+}
+
+const MAX_MEASURE_SERIES = 3;
+const MAX_STATUS_SERIES = 5;
+const MAX_EXTENSION_PARAMETERS = 4;
+const STATUS_METRIC_PATTERN =
+  /(sensor_state|status|online|battery|signal|humidity|temperature|temp|voltage|current|network|energy|power|4g|rssi|snr|dbm|strength|state|zt|soc|dump_energy|remaining)/;
+const NUMERIC_VALUE_TYPES = new Set(['bool', 'boolean', 'byte', 'short', 'int', 'integer', 'long', 'float', 'double', 'decimal', 'number']);
+const DISPLAY_NAME_LABELS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /(battery_dump_energy|battery|电量|电池)/i, label: '剩余电量' },
+  { pattern: /(signal_4g|4g|rssi|snr|dbm|信号)/i, label: '4G 信号强度' },
+  { pattern: /(humidity|湿度)/i, label: '相对湿度' },
+  { pattern: /(temperature|temp|温度)/i, label: '温度' }
+];
+
+const BUILTIN_CUSTOM_METRIC_REGISTRY: Record<string, Omit<InsightCustomMetricDefinition, 'parameterKey'>> = {
+  's1_zt_1.humidity': {
+    identifier: 'S1_ZT_1.humidity',
+    displayName: '相对湿度',
+    group: 'status',
+    analysisTitle: '现场环境补充',
+    analysisTag: '系统自定义参数',
+    analysisTemplate: '{{label}}当前为{{value}}，可辅助判断现场环境湿润程度。'
+  },
+  's1_zt_1.signal_4g': {
+    identifier: 'S1_ZT_1.signal_4g',
+    displayName: '4G 信号强度',
+    group: 'status',
+    analysisTitle: '通信状态补充',
+    analysisTag: '系统自定义参数',
+    analysisTemplate: '{{label}}当前为{{value}}，可辅助判断设备回传链路稳定性。'
+  }
+};
+
+const RUNTIME_TEMPLATE_CONFIG: Record<InsightObjectType, RuntimeTemplateConfig> = {
+  detect: {
+    key: 'monitoring-dynamic',
+    measureKeywords: ['gnss', 'value', 'displacement', 'tilt', 'angle', 'crack', 'settlement', '水位', '泥水位', '位移', '倾角', '裂缝', '沉降', '监测'],
+    statusPriorityKeywords: ['sensor_state', 'online', '状态', '在线', 'battery', '电量', 'signal', '4g', 'humidity', '湿度']
+  },
+  collect: {
+    key: 'collect-dynamic',
+    measureKeywords: ['rain', 'water', 'flow', 'collect', '采集', '雨量', '水位', '流量', '泥水位', '墒情'],
+    statusPriorityKeywords: ['sensor_state', 'online', '状态', '在线', 'signal', '4g', 'battery', '电量', 'humidity', '湿度']
+  },
+  warning: {
+    key: 'warning-dynamic',
+    measureKeywords: ['warning', 'alarm', 'warn', 'light', 'horn', 'speaker', '广播', '告警', '预警', '喊话', '声光'],
+    statusPriorityKeywords: ['sensor_state', 'online', '状态', '在线', 'battery', '电量', 'signal', '4g', 'humidity', '湿度']
+  },
+  generic: {
+    key: 'generic-dynamic',
+    measureKeywords: ['value', 'measure', '监测', '数值'],
+    statusPriorityKeywords: ['sensor_state', 'online', '状态', '在线', 'battery', '电量', 'signal', '4g', 'humidity', '湿度']
+  }
+};
 
 const MUDDY_WATER_PROFILE: InsightCapabilityProfile = {
   key: 'muddy-water-level',
@@ -63,31 +158,40 @@ const MUDDY_WATER_PROFILE: InsightCapabilityProfile = {
     'S1_ZT_1.battery_dump_energy',
     'S1_ZT_1.humidity',
     'S1_ZT_1.signal_4g'
-  ]
+  ],
+  customMetrics: []
 };
 
 const GENERIC_MONITORING_PROFILE: InsightCapabilityProfile = {
   key: 'generic-monitoring',
-  objectType: 'detect',
+  objectType: 'generic',
   heroMetrics: [],
   trendGroups: [
     { key: 'measure', title: '监测数据', identifiers: [] },
     { key: 'status', title: '状态数据', identifiers: [] }
   ],
   extensionParameters: [],
-  historyIdentifiers: []
+  historyIdentifiers: [],
+  customMetrics: []
 };
 
 export function getInsightCapabilityProfile(source: {
   deviceCode?: string | null;
   productName?: string | null;
+  metricIdentifier?: string | null;
+  metricName?: string | null;
+  riskPointName?: string | null;
+  properties?: DeviceProperty[] | null;
+  deviceMetadataJson?: string | null;
+  productMetadataJson?: string | null;
+  metadataJson?: string | null;
 }): InsightCapabilityProfile {
   const deviceCode = source.deviceCode?.trim();
   const productName = source.productName?.trim() ?? '';
-  if (deviceCode === 'SK00EB0D1308313' || /泥水位/.test(productName)) {
-    return MUDDY_WATER_PROFILE;
-  }
-  return GENERIC_MONITORING_PROFILE;
+  const baseProfile = deviceCode === 'SK00EB0D1308313' || /泥水位/.test(productName)
+    ? MUDDY_WATER_PROFILE
+    : buildRuntimeProfile(source);
+  return applyCustomMetrics(baseProfile, source);
 }
 
 export function buildInsightHistoryRequest(
@@ -101,4 +205,337 @@ export function buildInsightHistoryRequest(
     rangeCode,
     fillPolicy: 'ZERO'
   };
+}
+
+function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapabilityProfile {
+  const objectType = resolveInsightObjectType({
+    metricIdentifier: source.metricIdentifier,
+    metricName: source.metricName,
+    productName: source.productName,
+    riskPointName: source.riskPointName
+  });
+  const config = RUNTIME_TEMPLATE_CONFIG[objectType];
+  const candidates = (source.properties ?? []).flatMap((item) => toRuntimeCandidate(item));
+  if (!candidates.length) {
+    return {
+      ...GENERIC_MONITORING_PROFILE,
+      key: config.key,
+      objectType
+    };
+  }
+
+  const measureCandidates = sortCandidates(
+    candidates.filter((item) => !isStatusMetric(item)),
+    config.measureKeywords
+  );
+  const statusCandidates = sortCandidates(
+    candidates.filter((item) => isStatusMetric(item)),
+    config.statusPriorityKeywords
+  );
+
+  const primaryMeasure = measureCandidates[0];
+  const primaryStatus = statusCandidates[0];
+  const secondaryStatus = statusCandidates.find((item) => item.identifier !== primaryStatus?.identifier);
+  const heroMetrics = [primaryMeasure, primaryStatus, secondaryStatus]
+    .filter((item): item is RuntimeMetricCandidate => Boolean(item))
+    .map((item) => ({
+      identifier: item.identifier,
+      displayName: item.displayName,
+      group: isStatusMetric(item) ? 'status' : 'measure'
+    }));
+
+  const extensionParameters = statusCandidates
+    .filter((item) => heroMetrics.every((metric) => metric.identifier !== item.identifier))
+    .slice(0, MAX_EXTENSION_PARAMETERS)
+    .map((item) => ({
+      parameterKey: item.identifier,
+      identifier: item.identifier,
+      displayName: item.displayName
+    }));
+
+  const measureIdentifiers = uniqueIdentifiers([
+    ...heroMetrics.filter((item) => item.group === 'measure').map((item) => item.identifier),
+    ...measureCandidates.slice(0, MAX_MEASURE_SERIES).map((item) => item.identifier)
+  ]);
+  const statusIdentifiers = uniqueIdentifiers([
+    ...heroMetrics.filter((item) => item.group === 'status').map((item) => item.identifier),
+    ...extensionParameters.map((item) => item.identifier),
+    ...statusCandidates.slice(0, MAX_STATUS_SERIES).map((item) => item.identifier)
+  ]);
+
+  return {
+    key: config.key,
+    objectType,
+    heroMetrics,
+    trendGroups: [
+      { key: 'measure', title: '监测数据', identifiers: measureIdentifiers },
+      { key: 'status', title: '状态数据', identifiers: statusIdentifiers }
+    ],
+    extensionParameters,
+    historyIdentifiers: uniqueIdentifiers([...measureIdentifiers, ...statusIdentifiers]),
+    customMetrics: []
+  };
+}
+
+function applyCustomMetrics(
+  profile: InsightCapabilityProfile,
+  source: InsightCapabilitySource
+): InsightCapabilityProfile {
+  const customMetrics = uniqueCustomMetrics([
+    ...resolveBuiltInCustomMetrics(profile, source),
+    ...resolveMetadataCustomMetrics(profile, source.productMetadataJson, source),
+    ...resolveMetadataCustomMetrics(profile, source.deviceMetadataJson ?? source.metadataJson, source)
+  ]);
+  if (!customMetrics.length) {
+    return profile;
+  }
+
+  const heroMetrics = profile.heroMetrics.map((item) => ({ ...item }));
+  const extensionParameters = profile.extensionParameters.map((item) => ({ ...item }));
+  const trendGroups = profile.trendGroups.map((group) => ({
+    ...group,
+    identifiers: [...group.identifiers]
+  }));
+
+  customMetrics.forEach((metric) => {
+    heroMetrics
+      .filter((item) => item.identifier === metric.identifier)
+      .forEach((item) => {
+        item.displayName = metric.displayName;
+      });
+
+    const existingExtension = extensionParameters.find((item) => item.identifier === metric.identifier);
+    if (existingExtension) {
+      existingExtension.displayName = metric.displayName;
+    } else if (metric.includeInExtension !== false) {
+      extensionParameters.push({
+        parameterKey: metric.parameterKey,
+        identifier: metric.identifier,
+        displayName: metric.displayName
+      });
+    }
+
+    if (metric.includeInTrend === false) {
+      return;
+    }
+    const trendGroup = trendGroups.find((group) => group.key === metric.group);
+    if (!trendGroup) {
+      return;
+    }
+    trendGroup.identifiers = uniqueIdentifiers([...trendGroup.identifiers, metric.identifier]);
+  });
+
+  return {
+    ...profile,
+    heroMetrics,
+    trendGroups,
+    extensionParameters,
+    historyIdentifiers: uniqueIdentifiers(trendGroups.flatMap((group) => group.identifiers)),
+    customMetrics
+  };
+}
+
+function resolveBuiltInCustomMetrics(
+  profile: InsightCapabilityProfile,
+  source: InsightCapabilitySource
+): InsightCustomMetricDefinition[] {
+  const candidateIdentifiers = uniqueIdentifiers([
+    ...profile.heroMetrics.map((item) => item.identifier),
+    ...profile.extensionParameters.map((item) => item.identifier),
+    ...(source.properties ?? []).map((item) => item.identifier)
+  ]);
+  return candidateIdentifiers
+    .filter((identifier) => Boolean(BUILTIN_CUSTOM_METRIC_REGISTRY[identifier.toLowerCase()]))
+    .map((identifier) => buildConfiguredMetricDefinition(identifier, {}, profile, source))
+    .filter((item): item is InsightCustomMetricDefinition => Boolean(item));
+}
+
+function resolveMetadataCustomMetrics(
+  profile: InsightCapabilityProfile,
+  metadataJson: string | null | undefined,
+  source: InsightCapabilitySource
+): InsightCustomMetricDefinition[] {
+  const parsed = parseObjectInsightMetadata(metadataJson);
+  return parsed
+    .map((item) => buildConfiguredMetricDefinition(item.identifier, item, profile, source))
+    .filter((item): item is InsightCustomMetricDefinition => Boolean(item));
+}
+
+function buildConfiguredMetricDefinition(
+  identifier: string | undefined,
+  config: Partial<InsightCustomMetricDefinition>,
+  profile: InsightCapabilityProfile,
+  source: InsightCapabilitySource
+): InsightCustomMetricDefinition | null {
+  const normalizedIdentifier = identifier?.trim();
+  if (!normalizedIdentifier) {
+    return null;
+  }
+  const builtIn = BUILTIN_CUSTOM_METRIC_REGISTRY[normalizedIdentifier.toLowerCase()];
+  const displayName = normalizeOptionalText(config.displayName)
+    || builtIn?.displayName
+    || resolveConfiguredMetricDisplayName(normalizedIdentifier, source.properties ?? [])
+    || normalizedIdentifier;
+  const profileGroup = resolveMetricGroup(profile, normalizedIdentifier);
+  const group = config.group === 'measure' || config.group === 'status'
+    ? config.group
+    : builtIn?.group || profileGroup || 'status';
+  const existsInHero = profile.heroMetrics.some((item) => item.identifier === normalizedIdentifier);
+  return {
+    parameterKey: normalizeOptionalText(config.parameterKey) || normalizedIdentifier,
+    identifier: normalizedIdentifier,
+    displayName,
+    group,
+    includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : true,
+    includeInExtension: typeof config.includeInExtension === 'boolean' ? config.includeInExtension : !existsInHero,
+    analysisTitle: normalizeOptionalText(config.analysisTitle) || builtIn?.analysisTitle,
+    analysisTag: normalizeOptionalText(config.analysisTag) || builtIn?.analysisTag,
+    analysisTemplate: normalizeOptionalText(config.analysisTemplate) || builtIn?.analysisTemplate
+  };
+}
+
+function parseObjectInsightMetadata(metadataJson?: string | null): Array<Partial<InsightCustomMetricDefinition> & { identifier: string }> {
+  const parsedMetadata = safeParseJson(metadataJson);
+  const insightConfig = safeReadObject(parsedMetadata?.objectInsight);
+  const customMetrics = Array.isArray(insightConfig?.customMetrics) ? insightConfig.customMetrics : [];
+  return customMetrics.flatMap((item) => {
+    const config = safeReadObject(item);
+    const identifier = normalizeOptionalText(config?.identifier);
+    if (!identifier) {
+      return [];
+    }
+    return [{
+      identifier,
+      parameterKey: normalizeOptionalText(config?.parameterKey) || identifier,
+      displayName: normalizeOptionalText(config?.displayName) || undefined,
+      group: config?.group === 'measure' || config?.group === 'status' ? config.group : undefined,
+      includeInTrend: typeof config?.includeInTrend === 'boolean' ? config.includeInTrend : undefined,
+      includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
+      analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
+      analysisTag: normalizeOptionalText(config?.analysisTag) || undefined,
+      analysisTemplate: normalizeOptionalText(config?.analysisTemplate) || undefined
+    }];
+  });
+}
+
+function resolveConfiguredMetricDisplayName(identifier: string, properties: DeviceProperty[]) {
+  const property = properties.find((item) => item.identifier === identifier);
+  if (property) {
+    return resolveDisplayName(property);
+  }
+  const matched = DISPLAY_NAME_LABELS.find((item) => item.pattern.test(identifier));
+  return matched?.label || null;
+}
+
+function resolveMetricGroup(profile: InsightCapabilityProfile, identifier: string): 'measure' | 'status' | null {
+  const heroMetric = profile.heroMetrics.find((item) => item.identifier === identifier);
+  if (heroMetric) {
+    return heroMetric.group;
+  }
+  const trendGroup = profile.trendGroups.find((item) => item.identifiers.includes(identifier));
+  return trendGroup?.key || null;
+}
+
+function uniqueCustomMetrics(values: InsightCustomMetricDefinition[]) {
+  const map = new Map<string, InsightCustomMetricDefinition>();
+  values.forEach((item) => {
+    map.set(item.identifier, {
+      ...(map.get(item.identifier) ?? {}),
+      ...item
+    });
+  });
+  return Array.from(map.values());
+}
+
+function safeParseJson(value?: string | null): Record<string, unknown> | null {
+  const text = value?.trim();
+  if (!text) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return safeReadObject(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function safeReadObject(value: unknown): Record<string, any> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, any>;
+}
+
+function normalizeOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function toRuntimeCandidate(property: DeviceProperty): RuntimeMetricCandidate[] {
+  if (!property.identifier || !isNumericProperty(property)) {
+    return [];
+  }
+  const displayName = resolveDisplayName(property);
+  return [{
+    identifier: property.identifier,
+    displayName,
+    text: `${property.identifier} ${displayName}`.toLowerCase(),
+    valueType: (property.valueType || '').toLowerCase()
+  }];
+}
+
+function isNumericProperty(property: DeviceProperty) {
+  const valueType = (property.valueType || '').trim().toLowerCase();
+  if (valueType && NUMERIC_VALUE_TYPES.has(valueType)) {
+    return true;
+  }
+  const value = property.propertyValue?.trim();
+  if (!value) {
+    return false;
+  }
+  return !Number.isNaN(Number(value));
+}
+
+function resolveDisplayName(property: DeviceProperty) {
+  const propertyName = property.propertyName?.trim();
+  if (propertyName) {
+    return propertyName;
+  }
+  const text = property.identifier;
+  const matched = DISPLAY_NAME_LABELS.find((item) => item.pattern.test(text));
+  if (matched) {
+    return matched.label;
+  }
+  return property.identifier;
+}
+
+function isStatusMetric(candidate: RuntimeMetricCandidate) {
+  return STATUS_METRIC_PATTERN.test(candidate.text);
+}
+
+function sortCandidates(candidates: RuntimeMetricCandidate[], priorityKeywords: string[]) {
+  return [...candidates].sort((left, right) => {
+    const scoreDiff = scoreCandidate(right, priorityKeywords) - scoreCandidate(left, priorityKeywords);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+    const lengthDiff = left.identifier.length - right.identifier.length;
+    if (lengthDiff !== 0) {
+      return lengthDiff;
+    }
+    return left.identifier.localeCompare(right.identifier);
+  });
+}
+
+function scoreCandidate(candidate: RuntimeMetricCandidate, priorityKeywords: string[]) {
+  return priorityKeywords.reduce((score, keyword, index) => {
+    if (candidate.text.includes(keyword.toLowerCase())) {
+      return score + (priorityKeywords.length - index) * 10;
+    }
+    return score;
+  }, 0);
+}
+
+function uniqueIdentifiers(values: string[]) {
+  return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
 }
