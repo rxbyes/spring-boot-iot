@@ -29,8 +29,42 @@ export interface Product {
   dataFormat: string;
   manufacturer: string;
   description: string;
+  metadataJson?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProductObjectInsightCustomMetricConfig {
+  identifier: string;
+  displayName: string;
+  group: 'measure' | 'status';
+  includeInTrend?: boolean | null;
+  includeInExtension?: boolean | null;
+  analysisTitle?: string | null;
+  analysisTag?: string | null;
+  analysisTemplate?: string | null;
+  enabled?: boolean | null;
+  sortNo?: number | null;
+}
+
+export interface ProductObjectInsightConfig {
+  customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
+}
+
+export interface ProductMetadata {
+  objectInsight?: ProductObjectInsightConfig | null;
+}
+
+export interface ProductAddPayload {
+  productKey: string;
+  productName: string;
+  protocolCode: string;
+  nodeType: number;
+  dataFormat?: string;
+  manufacturer?: string;
+  description?: string;
+  metadataJson?: string;
+  status?: number;
 }
 
 export interface ProductModel {

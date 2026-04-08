@@ -222,6 +222,7 @@ export interface Product {
   dataFormat?: string | null;
   manufacturer?: string | null;
   description?: string | null;
+  metadataJson?: string | null;
   status?: number | null;
   deviceCount?: number | null;
   onlineDeviceCount?: number | null;
@@ -234,6 +235,27 @@ export interface Product {
   thirtyDaysActiveCount?: number | null; // 30日活跃设备数
   avgOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
+}
+
+export interface ProductObjectInsightCustomMetricConfig {
+  identifier: string;
+  displayName: string;
+  group: 'measure' | 'status';
+  includeInTrend?: boolean | null;
+  includeInExtension?: boolean | null;
+  analysisTitle?: string | null;
+  analysisTag?: string | null;
+  analysisTemplate?: string | null;
+  enabled?: boolean | null;
+  sortNo?: number | null;
+}
+
+export interface ProductObjectInsightConfig {
+  customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
+}
+
+export interface ProductMetadata {
+  objectInsight?: ProductObjectInsightConfig | null;
 }
 
 export type ProductModelType = 'property' | 'event' | 'service';
@@ -707,6 +729,7 @@ export interface ProductAddPayload {
   dataFormat?: string;
   manufacturer?: string;
   description?: string;
+  metadataJson?: string;
   status?: number;
 }
 
