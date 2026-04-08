@@ -57,7 +57,7 @@ class ProductContractGovernanceApprovalExecutorTest {
         ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
         result.setCreatedCount(1);
         result.setReleaseBatchId(99001L);
-        when(productModelService.applyGovernance(eq(1001L), any(ProductModelGovernanceApplyDTO.class), eq(10001L), eq(88001L)))
+        when(productModelService.applyGovernance(eq(1001L), any(ProductModelGovernanceApplyDTO.class), eq(10001L)))
                 .thenReturn(result);
 
         GovernanceApprovalActionExecutionResult executionResult = executor.execute(order);
@@ -68,7 +68,7 @@ class ProductContractGovernanceApprovalExecutorTest {
         assertEquals(1001L, payload.request().productId());
         assertEquals(99001L, payload.execution().result().getReleaseBatchId());
         ArgumentCaptor<ProductModelGovernanceApplyDTO> dtoCaptor = ArgumentCaptor.forClass(ProductModelGovernanceApplyDTO.class);
-        verify(productModelService).applyGovernance(eq(1001L), dtoCaptor.capture(), eq(10001L), eq(88001L));
+        verify(productModelService).applyGovernance(eq(1001L), dtoCaptor.capture(), eq(10001L));
         assertEquals(1, dtoCaptor.getValue().getItems().size());
         assertEquals("value", dtoCaptor.getValue().getItems().get(0).getIdentifier());
     }
