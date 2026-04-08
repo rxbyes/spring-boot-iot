@@ -119,10 +119,19 @@ describe('sectionHomes config', () => {
       title: '风险运营',
       description: '围绕实时态势、告警协同、事件处置和运营复盘组织风险运营能力。'
     });
+    expect(getRouteMetaPreset('/governance-approval')).toMatchObject({
+      title: '治理审批台'
+    });
     expect(getRouteMetaPreset('/automation-test')).toMatchObject({
       title: '自动化工场',
       description: '兼容旧入口，第一轮直接落到研发工场总览。'
     });
+  });
+
+  it('adds governance approval into the system-governance workspace cards', () => {
+    const config = getSectionHomeConfigByPath('/system-management');
+
+    expect(config?.cards.some((item) => item.path === '/governance-approval')).toBe(true);
   });
 
   it('maps quality workbench to business acceptance plus rd and shared centers', () => {

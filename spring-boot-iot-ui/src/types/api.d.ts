@@ -232,6 +232,21 @@ export interface GovernanceApprovalOrderDetail {
   transitions?: GovernanceApprovalTransition[] | null;
 }
 
+export interface GovernanceApprovalPageQuery {
+  actionCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: string | number | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: string | number | null;
+  approverUserId?: string | number | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceApprovalDecisionPayload {
+  comment?: string | null;
+}
+
 export interface GovernanceApprovalResubmitPayload {
   approverUserId: string | number;
   comment?: string | null;

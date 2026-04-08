@@ -504,6 +504,21 @@ export interface GovernanceApprovalOrderDetail {
   transitions?: GovernanceApprovalTransition[] | null;
 }
 
+export interface GovernanceApprovalPageQuery {
+  actionCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: IdType | null;
+  approverUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceApprovalDecisionPayload {
+  comment?: string | null;
+}
+
 export interface GovernanceApprovalResubmitPayload {
   approverUserId: IdType;
   comment?: string | null;
