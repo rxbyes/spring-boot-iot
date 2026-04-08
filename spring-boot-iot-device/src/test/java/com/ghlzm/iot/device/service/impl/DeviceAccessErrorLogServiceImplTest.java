@@ -347,6 +347,7 @@ class DeviceAccessErrorLogServiceImplTest {
                     }
                     return List.of(new DeviceStatsBucketVO("$dp", "$dp", 4L));
                 });
+        when(invalidReportCounterStore.sumFailureStageSince(anyString(), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("topic_route"), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("protocol_decode"), any(Instant.class))).thenReturn(5L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("device_validate"), any(Instant.class))).thenReturn(4L);
@@ -369,6 +370,7 @@ class DeviceAccessErrorLogServiceImplTest {
 
     @Test
     void listFailureStageCountsSinceShouldReadAggregatedBucketsInsteadOfDetailRows() {
+        when(invalidReportCounterStore.sumFailureStageSince(anyString(), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince("protocol_decode", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(12L);
         when(invalidReportCounterStore.sumFailureStageSince("device_validate", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(9L);
         when(invalidReportCounterStore.sumFailureStageSince("topic_route", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(0L);

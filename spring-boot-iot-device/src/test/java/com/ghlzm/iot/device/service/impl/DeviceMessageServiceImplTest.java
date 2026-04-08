@@ -36,6 +36,7 @@ import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;

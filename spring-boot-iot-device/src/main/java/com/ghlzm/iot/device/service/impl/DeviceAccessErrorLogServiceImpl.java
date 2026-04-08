@@ -60,9 +60,16 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private static final int MAX_ERROR_CODE_LENGTH = 64;
     private static final int MAX_EXCEPTION_CLASS_LENGTH = 255;
     private static final List<String> FAILURE_STAGE_BUCKETS = List.of(
+            "ingress",
             "topic_route",
             "protocol_decode",
+            "device_contract",
             "device_validate",
+            "message_log",
+            "payload_apply",
+            "telemetry_persist",
+            "device_state",
+            "risk_dispatch",
             "message_dispatch"
     );
 
@@ -762,7 +769,9 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         try {
             return objectMapper.writeValueAsString(resolveContractSnapshot(rawDeviceMessage));
         } catch (Exception ex) {
-            log.debug("序列化设备接入契约快照失败, error={}", ex.getMessage());
+            log.warn("构建设备接入契约快照失败，将继续归档基础失败信息, deviceCode={}, error={}",
+                    rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode(),
+                    ex.getMessage());
             return null;
         }
     }
