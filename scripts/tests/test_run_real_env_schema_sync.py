@@ -72,6 +72,40 @@ class SchemaSyncCoverageTest(unittest.TestCase):
             schema_sync.COLUMNS_TO_ADD["iot_product"],
         )
 
+    def test_create_table_sql_covers_risk_metric_binding_tables(self):
+        linkage_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_linkage_binding")
+        plan_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_emergency_plan_binding")
+        self.assertIsNotNone(linkage_sql)
+        self.assertIsNotNone(plan_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_linkage_binding", linkage_sql)
+        self.assertIn("uk_risk_metric_linkage_active", linkage_sql)
+        self.assertIn("idx_risk_metric_linkage_metric", linkage_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_emergency_plan_binding", plan_sql)
+        self.assertIn("uk_risk_metric_plan_active", plan_sql)
+        self.assertIn("idx_risk_metric_plan_metric", plan_sql)
+
+    def test_indexes_to_add_covers_risk_metric_binding_tables(self):
+        self.assertIn("risk_metric_linkage_binding", schema_sync.INDEXES_TO_ADD)
+        self.assertIn("risk_metric_emergency_plan_binding", schema_sync.INDEXES_TO_ADD)
+        linkage_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_linkage_binding"])
+        plan_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_emergency_plan_binding"])
+        self.assertEqual(
+            linkage_index_sql["idx_risk_metric_linkage_rule"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            linkage_index_sql["idx_risk_metric_linkage_metric"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["idx_risk_metric_plan_rule"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["idx_risk_metric_plan_metric"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        )
+
 
 class FakeCursor:
     def __init__(self):

@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.EmergencyPlan;
 import com.ghlzm.iot.alarm.entity.LinkageRule;
@@ -202,10 +203,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<RiskMetricCatalog> catalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
-                .eq(RiskMetricCatalog::getDeleted, 0)
-                .eq(RiskMetricCatalog::getEnabled, 1)
-                .eq(RiskMetricCatalog::getProductId, productId));
+        List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);
         Set<Long> catalogIds = catalogs.stream()
                 .map(RiskMetricCatalog::getId)
                 .filter(Objects::nonNull)
@@ -294,9 +292,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         LinkedHashMap::new
                 ));
 
-        List<RiskMetricCatalog> enabledCatalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
-                .eq(RiskMetricCatalog::getDeleted, 0)
-                .eq(RiskMetricCatalog::getEnabled, 1));
+        List<RiskMetricCatalog> enabledCatalogs = selectEnabledCatalogs(null);
         Set<Long> catalogIds = enabledCatalogs.stream()
                 .map(RiskMetricCatalog::getId)
                 .filter(Objects::nonNull)
@@ -412,6 +408,15 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setBottleneckPendingLinkagePlanRate(calculateRate(pendingLinkagePlanCount, totalBacklogCount));
         overview.setBottleneckPendingReplayRate(calculateRate(pendingReplayCount, totalBacklogCount));
         return overview;
+    }
+
+    private List<RiskMetricCatalog> selectEnabledCatalogs(Long productId) {
+        QueryWrapper<RiskMetricCatalog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "product_id", "contract_identifier")
+                .eq("deleted", 0)
+                .eq("enabled", 1)
+                .eq(productId != null, "product_id", productId);
+        return riskMetricCatalogMapper.selectList(queryWrapper);
     }
 
     private boolean matchesDeviceCode(Device device, RiskGovernanceGapQuery query) {

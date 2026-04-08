@@ -41,6 +41,25 @@ describe('deviceInsight utils', () => {
     expect(selected?.bindingId).toBe(2);
   });
 
+  it('prefers higher risk level when report time and online status are tied', () => {
+    const selected = pickPrimaryBinding([
+      {
+        bindingId: 1,
+        latestReportTime: '2026-04-01 10:00:00',
+        onlineStatus: 1,
+        riskLevel: 'INFO'
+      },
+      {
+        bindingId: 2,
+        latestReportTime: '2026-04-01 10:00:00',
+        onlineStatus: 1,
+        riskLevel: 'WARNING'
+      }
+    ]);
+
+    expect(selected?.bindingId).toBe(2);
+  });
+
   it('classifies warning devices by metric or product keywords', () => {
     expect(
       resolveInsightObjectType({

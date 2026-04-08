@@ -1089,6 +1089,42 @@ CREATE TABLE risk_metric_catalog (
     UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Risk metric catalog';
 
+CREATE TABLE risk_metric_linkage_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_linkage_active (tenant_id, risk_metric_id, linkage_rule_id, deleted),
+    KEY idx_risk_metric_linkage_rule (linkage_rule_id, binding_status, deleted),
+    KEY idx_risk_metric_linkage_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与联动规则绑定表';
+
+CREATE TABLE risk_metric_emergency_plan_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_plan_active (tenant_id, risk_metric_id, emergency_plan_id, deleted),
+    KEY idx_risk_metric_plan_rule (emergency_plan_id, binding_status, deleted),
+    KEY idx_risk_metric_plan_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与应急预案绑定表';
+
 
 CREATE TABLE risk_point_device (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',

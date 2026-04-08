@@ -55,6 +55,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final TelemetryLatestProjectionRepository telemetryLatestProjectionRepository;
     private final NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader;
     private final LegacyTelemetryHistoryReader legacyTelemetryHistoryReader;
+    private final TelemetryRawHistoryReader telemetryRawHistoryReader;
 
     public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
                                      ProductMapper productMapper,
@@ -66,7 +67,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                      TelemetryReadRouter telemetryReadRouter,
                                      TelemetryLatestProjectionRepository telemetryLatestProjectionRepository,
                                      NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader,
-                                     LegacyTelemetryHistoryReader legacyTelemetryHistoryReader) {
+                                     LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
+                                     TelemetryRawHistoryReader telemetryRawHistoryReader) {
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -78,6 +80,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
         this.normalizedTelemetryHistoryReader = normalizedTelemetryHistoryReader;
         this.legacyTelemetryHistoryReader = legacyTelemetryHistoryReader;
+        this.telemetryRawHistoryReader = telemetryRawHistoryReader;
     }
 
     @Override
@@ -116,7 +119,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
         RangeDefinition rangeDefinition = resolveRangeDefinition(request.getRangeCode());
         List<BucketSlot> slots = buildBucketSlots(rangeDefinition, LocalDateTime.now());
-        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap);
+        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers);
         return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), rangeDefinition, slots, historyPoints, metadataMap);
     }
 
@@ -198,28 +201,43 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> readHistoryPoints(Device device,
                                                      Product product,
                                                      Map<String, DevicePropertyMetadata> metadataMap,
-                                                     Map<String, TelemetryMetricMapping> mappingMap) {
+                                                     Map<String, TelemetryMetricMapping> mappingMap,
+                                                     List<String> identifiers) {
         String historySource = telemetryReadRouter.historySource();
         boolean primaryV2 = historySource != null && historySource.startsWith("v2");
         List<TelemetryV2Point> primary = primaryV2
-                ? readNormalizedHistory(device, product, metadataMap)
+                ? readV2History(device, product, metadataMap, identifiers)
                 : readLegacyHistory(device, product, metadataMap, mappingMap);
         if (!telemetryReadRouter.isLegacyReadFallbackEnabled()) {
             return primary;
         }
         List<TelemetryV2Point> secondary = primaryV2
                 ? readLegacyHistory(device, product, metadataMap, mappingMap)
-                : readNormalizedHistory(device, product, metadataMap);
+                : readV2History(device, product, metadataMap, identifiers);
         return mergeHistoryPoints(primary, secondary);
     }
 
-    private List<TelemetryV2Point> readNormalizedHistory(Device device,
-                                                         Product product,
-                                                         Map<String, DevicePropertyMetadata> metadataMap) {
+    private List<TelemetryV2Point> readV2History(Device device,
+                                                 Product product,
+                                                 Map<String, DevicePropertyMetadata> metadataMap,
+                                                 List<String> identifiers) {
+        List<TelemetryV2Point> rawHistory = telemetryRawHistoryReader.listHistory(
+                device,
+                product,
+                metadataMap,
+                identifiers,
+                HISTORY_BATCH_SIZE
+        );
         if (!normalizedTelemetryHistoryReader.hasHistory(device == null ? null : device.getId())) {
-            return List.of();
+            return rawHistory == null ? List.of() : rawHistory;
         }
-        return normalizedTelemetryHistoryReader.listHistory(device, product, metadataMap, HISTORY_BATCH_SIZE);
+        List<TelemetryV2Point> normalizedHistory = normalizedTelemetryHistoryReader.listHistory(
+                device,
+                product,
+                metadataMap,
+                HISTORY_BATCH_SIZE
+        );
+        return mergeHistoryPoints(rawHistory, normalizedHistory);
     }
 
     private List<TelemetryV2Point> readLegacyHistory(Device device,
@@ -232,13 +250,17 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> mergeHistoryPoints(List<TelemetryV2Point> primary,
                                                       List<TelemetryV2Point> secondary) {
         Map<String, TelemetryV2Point> merged = new LinkedHashMap<>();
-        for (TelemetryV2Point point : primary) {
+        for (TelemetryV2Point point : safeHistoryPoints(primary)) {
             merged.put(historyPointKey(point), point);
         }
-        for (TelemetryV2Point point : secondary) {
+        for (TelemetryV2Point point : safeHistoryPoints(secondary)) {
             merged.putIfAbsent(historyPointKey(point), point);
         }
         return new ArrayList<>(merged.values());
+    }
+
+    private List<TelemetryV2Point> safeHistoryPoints(List<TelemetryV2Point> points) {
+        return points == null ? List.of() : points;
     }
 
     private String historyPointKey(TelemetryV2Point point) {

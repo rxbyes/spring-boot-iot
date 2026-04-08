@@ -35,7 +35,7 @@ export function pickPrimaryBinding(items: RiskMonitoringListItem[]) {
       return onlineDiff;
     }
 
-    const levelDiff = riskLevelWeight(right.riskLevel) - riskLevelWeight(left.riskLevel);
+    const levelDiff = getRiskLevelWeight(right.riskLevel) - getRiskLevelWeight(left.riskLevel);
     if (levelDiff !== 0) {
       return levelDiff;
     }
