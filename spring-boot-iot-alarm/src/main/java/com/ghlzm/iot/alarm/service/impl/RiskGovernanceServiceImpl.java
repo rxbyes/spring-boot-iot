@@ -471,10 +471,15 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         RiskMetricCatalogItemVO item = new RiskMetricCatalogItemVO();
         item.setId(catalog.getId());
         item.setProductId(catalog.getProductId());
+        item.setReleaseBatchId(catalog.getReleaseBatchId());
         item.setProductModelId(catalog.getProductModelId());
+        item.setNormativeIdentifier(catalog.getNormativeIdentifier());
         item.setContractIdentifier(catalog.getContractIdentifier());
         item.setRiskMetricCode(catalog.getRiskMetricCode());
         item.setRiskMetricName(catalog.getRiskMetricName());
+        item.setRiskCategory(catalog.getRiskCategory());
+        item.setMetricRole(catalog.getMetricRole());
+        item.setLifecycleStatus(catalog.getLifecycleStatus());
         item.setSourceScenarioCode(catalog.getSourceScenarioCode());
         item.setMetricUnit(catalog.getMetricUnit());
         item.setMetricDimension(catalog.getMetricDimension());

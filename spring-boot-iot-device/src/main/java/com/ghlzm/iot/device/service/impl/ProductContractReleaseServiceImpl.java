@@ -40,6 +40,8 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
 
     static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
     static final String SNAPSHOT_STAGE_AFTER_APPLY = "AFTER_APPLY";
+    static final String RELEASE_STATUS_RELEASED = "RELEASED";
+    static final String RELEASE_STATUS_ROLLED_BACK = "ROLLED_BACK";
 
     private final ProductContractReleaseBatchMapper releaseBatchMapper;
     private final ProductContractReleaseSnapshotMapper releaseSnapshotMapper;
@@ -55,13 +57,22 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
     }
 
     @Override
-    public Long createBatch(Long productId, String scenarioCode, String releaseSource, int releasedFieldCount, Long operatorId) {
+    public Long createBatch(Long productId,
+                            String scenarioCode,
+                            String releaseSource,
+                            int releasedFieldCount,
+                            Long operatorId,
+                            Long approvalOrderId,
+                            String releaseReason) {
         ProductContractReleaseBatch batch = new ProductContractReleaseBatch();
         batch.setId(IdWorker.getId());
         batch.setProductId(productId);
         batch.setScenarioCode(scenarioCode);
         batch.setReleaseSource(releaseSource);
         batch.setReleasedFieldCount(releasedFieldCount);
+        batch.setApprovalOrderId(normalizeOperatorId(approvalOrderId));
+        batch.setReleaseReason(normalize(releaseReason));
+        batch.setReleaseStatus(RELEASE_STATUS_RELEASED);
         batch.setCreateBy(normalizeOperatorId(operatorId));
         releaseBatchMapper.insert(batch);
         return batch.getId();
@@ -196,6 +207,7 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
 
         target.setRollbackBy(normalizeOperatorId(operatorId));
         target.setRollbackTime(LocalDateTime.now());
+        target.setReleaseStatus(RELEASE_STATUS_ROLLED_BACK);
         int affectedRows = releaseBatchMapper.updateById(target);
         if (affectedRows <= 0) {
             throw new BizException("契约发布批次回滚失败，请稍后重试");
@@ -399,6 +411,9 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         vo.setScenarioCode(batch.getScenarioCode());
         vo.setReleaseSource(batch.getReleaseSource());
         vo.setReleasedFieldCount(batch.getReleasedFieldCount());
+        vo.setApprovalOrderId(batch.getApprovalOrderId());
+        vo.setReleaseReason(batch.getReleaseReason());
+        vo.setReleaseStatus(batch.getReleaseStatus());
         vo.setCreateBy(batch.getCreateBy());
         vo.setCreateTime(batch.getCreateTime());
         vo.setRollbackBy(batch.getRollbackBy());

@@ -10,7 +10,13 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
  */
 public interface ProductContractReleaseService {
 
-    Long createBatch(Long productId, String scenarioCode, String releaseSource, int releasedFieldCount, Long operatorId);
+    Long createBatch(Long productId,
+                     String scenarioCode,
+                     String releaseSource,
+                     int releasedFieldCount,
+                     Long operatorId,
+                     Long approvalOrderId,
+                     String releaseReason);
 
     void saveBatchSnapshot(Long batchId,
                            Long productId,

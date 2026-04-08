@@ -42,6 +42,22 @@ public class NormativeMetricDefinition {
 
     private Integer trendEnabled;
 
+    private String metricDimension;
+
+    private String thresholdType;
+
+    private String semanticDirection;
+
+    private Integer gisEnabled;
+
+    private Integer insightEnabled;
+
+    private Integer analyticsEnabled;
+
+    private String status;
+
+    private Integer versionNo;
+
     private String metadataJson;
 
     @TableField(fill = FieldFill.INSERT)

@@ -26,12 +26,19 @@ public interface ProductModelService extends IService<ProductModel> {
     }
 
     default ProductModelGovernanceApplyResultVO applyGovernance(Long productId, ProductModelGovernanceApplyDTO dto) {
-        return applyGovernance(productId, dto, null);
+        return applyGovernance(productId, dto, null, null);
     }
 
     default ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
                                                                 ProductModelGovernanceApplyDTO dto,
                                                                 Long operatorId) {
+        return applyGovernance(productId, dto, operatorId, null);
+    }
+
+    default ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
+                                                                ProductModelGovernanceApplyDTO dto,
+                                                                Long operatorId,
+                                                                Long approvalOrderId) {
         throw new UnsupportedOperationException("applyGovernance(operator) not implemented");
     }
 

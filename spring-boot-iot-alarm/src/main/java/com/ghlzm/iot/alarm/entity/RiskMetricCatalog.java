@@ -20,13 +20,23 @@ public class RiskMetricCatalog {
 
     private Long productId;
 
+    private Long releaseBatchId;
+
     private Long productModelId;
+
+    private String normativeIdentifier;
 
     private String contractIdentifier;
 
     private String riskMetricCode;
 
     private String riskMetricName;
+
+    private String riskCategory;
+
+    private String metricRole;
+
+    private String lifecycleStatus;
 
     private String sourceScenarioCode;
 

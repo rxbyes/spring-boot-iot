@@ -60,7 +60,8 @@ public class ProductContractGovernanceApprovalExecutor implements GovernanceAppr
         ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(
                 payload.request().productId(),
                 request,
-                order.getOperatorUserId()
+                order.getOperatorUserId(),
+                order.getId()
         );
         String updatedPayloadJson = ProductContractGovernanceApprovalPayloads.writeApplyExecutionPayload(payload, result);
         return new GovernanceApprovalActionExecutionResult(updatedPayloadJson);

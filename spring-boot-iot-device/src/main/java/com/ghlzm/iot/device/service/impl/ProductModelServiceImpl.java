@@ -66,6 +66,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String DEVICE_STRUCTURE_SINGLE = "single";
     private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
+    private static final String RELEASE_SOURCE_MANUAL_COMPARE_APPLY = "manual_compare_apply";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
@@ -228,6 +229,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     public ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
                                                                ProductModelGovernanceApplyDTO dto,
                                                                Long operatorId) {
+        return applyGovernance(productId, dto, operatorId, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
+                                                               ProductModelGovernanceApplyDTO dto,
+                                                               Long operatorId,
+                                                               Long approvalOrderId) {
         Product product = getRequiredProduct(productId);
         List<ReleaseModelSnapshotItem> beforeSnapshot = captureReleaseSnapshot(productId);
         int createdCount = 0;
@@ -255,7 +265,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         result.setSkippedCount(skippedCount);
         result.setConflictCount(0);
         result.setLastAppliedAt(LocalDateTime.now());
-        result.setReleaseBatchId(createReleaseBatch(product, createdCount + updatedCount, operatorId, beforeSnapshot, afterSnapshot));
+        result.setReleaseBatchId(createReleaseBatch(
+                product,
+                createdCount + updatedCount,
+                operatorId,
+                approvalOrderId,
+                beforeSnapshot,
+                afterSnapshot
+        ));
         result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
         return result;
     }
@@ -442,6 +459,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private Long createReleaseBatch(Product product,
                                     int releasedFieldCount,
                                     Long operatorId,
+                                    Long approvalOrderId,
                                     List<ReleaseModelSnapshotItem> beforeSnapshot,
                                     List<ReleaseModelSnapshotItem> afterSnapshot) {
         if (product == null || releasedFieldCount <= 0) {
@@ -457,9 +475,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         Long batchId = productContractReleaseService.createBatch(
                 product.getId(),
                 scenarioCode,
-                "manual_compare_apply",
+                RELEASE_SOURCE_MANUAL_COMPARE_APPLY,
                 releasedFieldCount,
-                operatorId
+                operatorId,
+                approvalOrderId,
+                RELEASE_SOURCE_MANUAL_COMPARE_APPLY
         );
         if (batchId == null) {
             return null;

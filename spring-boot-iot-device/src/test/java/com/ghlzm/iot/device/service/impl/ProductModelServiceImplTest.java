@@ -428,7 +428,9 @@ class ProductModelServiceImplTest {
                 eq("phase1-crack"),
                 eq("manual_compare_apply"),
                 eq(1),
-                eq(10001L)
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
         ))
                 .thenReturn(12345L);
 
@@ -450,7 +452,9 @@ class ProductModelServiceImplTest {
                 eq("phase2-gnss"),
                 eq("manual_compare_apply"),
                 eq(1),
-                eq(10001L)
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
         ))
                 .thenReturn(22345L);
 

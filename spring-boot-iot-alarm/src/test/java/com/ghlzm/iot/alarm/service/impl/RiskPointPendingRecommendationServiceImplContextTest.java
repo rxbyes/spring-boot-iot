@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
@@ -66,6 +67,11 @@ class RiskPointPendingRecommendationServiceImplContextTest {
         @Bean
         RiskMetricCatalogService riskMetricCatalogService() {
             return mock(RiskMetricCatalogService.class);
+        }
+
+        @Bean
+        RiskMetricCatalogPublishRule riskMetricCatalogPublishRule() {
+            return mock(RiskMetricCatalogPublishRule.class);
         }
     }
 }

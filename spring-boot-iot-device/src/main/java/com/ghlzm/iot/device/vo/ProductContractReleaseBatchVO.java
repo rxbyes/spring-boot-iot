@@ -19,6 +19,12 @@ public class ProductContractReleaseBatchVO {
 
     private Integer releasedFieldCount;
 
+    private Long approvalOrderId;
+
+    private String releaseReason;
+
+    private String releaseStatus;
+
     private Long createBy;
 
     private LocalDateTime createTime;

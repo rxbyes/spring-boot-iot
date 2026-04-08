@@ -30,6 +30,12 @@ public class ProductContractReleaseBatch {
 
     private Integer releasedFieldCount;
 
+    private Long approvalOrderId;
+
+    private String releaseReason;
+
+    private String releaseStatus;
+
     @TableField(fill = FieldFill.INSERT)
     private Long createBy;
 

@@ -47,6 +47,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     @Override
     public void publishFromReleasedContracts(Long productId,
+                                             Long releaseBatchId,
                                              List<ProductModel> releasedContracts,
                                              Set<String> riskEnabledIdentifiers) {
         if (productId == null || releasedContracts == null || releasedContracts.isEmpty()) {
@@ -74,10 +75,10 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 row.setProductId(productId);
                 row.setContractIdentifier(identifier);
                 row.setEnabled(1);
-                populateCatalogRow(row, contract, profile);
+                populateCatalogRow(row, releaseBatchId, contract, profile);
                 riskMetricCatalogMapper.insert(row);
             } else {
-                populateCatalogRow(row, contract, profile);
+                populateCatalogRow(row, releaseBatchId, contract, profile);
                 row.setEnabled(1);
                 row.setDeleted(0);
                 riskMetricCatalogMapper.updateById(row);
@@ -93,6 +94,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 continue;
             }
             stale.setEnabled(0);
+            stale.setLifecycleStatus("RETIRED");
             riskMetricCatalogMapper.updateById(stale);
         }
     }
@@ -203,57 +205,89 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 normalize(definition == null ? null : definition.getScenarioCode()),
                 normalize(fallbackScenarioCode)
         );
+        String normativeIdentifier = firstNonBlank(
+                normalize(definition == null ? null : definition.getIdentifier()),
+                normalize(contract == null ? null : contract.getIdentifier())
+        );
         String metricUnit = firstNonBlank(
                 readString(specs, "unit"),
-                readString(metadata, "unit"),
-                normalize(definition == null ? null : definition.getUnit())
+                normalize(definition == null ? null : definition.getUnit()),
+                readString(metadata, "unit")
         );
         String metricDimension = firstNonBlank(
                 readString(specs, "dimension"),
+                normalize(definition == null ? null : definition.getMetricDimension()),
                 readString(metadata, "dimension"),
                 normalize(definition == null ? null : definition.getMonitorTypeCode())
         );
         String thresholdType = firstNonBlank(
                 readString(specs, "thresholdType"),
+                normalize(definition == null ? null : definition.getThresholdType()),
                 readString(metadata, "thresholdType"),
                 readString(metadata, "thresholdKind")
         );
         String semanticDirection = firstNonBlank(
                 readString(specs, "semanticDirection"),
+                normalize(definition == null ? null : definition.getSemanticDirection()),
                 readString(metadata, "semanticDirection")
         );
         String thresholdDirection = firstNonBlank(
                 readString(specs, "thresholdDirection"),
                 readString(metadata, "thresholdDirection"),
+                normalize(definition == null ? null : definition.getSemanticDirection()),
                 normalize(semanticDirection),
                 resolveDefaultThresholdDirection(contract)
         );
         String normalizedSemanticDirection = firstNonBlank(semanticDirection, thresholdDirection);
+        String riskCategory = firstNonBlank(
+                readString(specs, "riskCategory"),
+                readString(metadata, "riskCategory"),
+                normalize(definition == null ? null : definition.getMonitorContentCode()),
+                scenarioCode
+        );
+        String metricRole = firstNonBlank(
+                readString(specs, "metricRole"),
+                readString(metadata, "metricRole"),
+                defaultMetricRole(contract)
+        );
+        String lifecycleStatus = firstNonBlank(
+                readString(specs, "lifecycleStatus"),
+                readString(metadata, "lifecycleStatus"),
+                normalize(definition == null ? null : definition.getStatus()),
+                "ACTIVE"
+        );
 
         Integer trendEnabled = firstNonNull(
                 readBooleanAsInt(specs, "trendEnabled"),
-                readBooleanAsInt(metadata, "trendEnabled"),
                 normalizeFlag(definition == null ? null : definition.getTrendEnabled()),
+                readBooleanAsInt(metadata, "trendEnabled"),
                 defaultTrendEnabled(contract)
         );
         Integer gisEnabled = firstNonNull(
                 readBooleanAsInt(specs, "gisEnabled", "fitGis"),
+                normalizeFlag(definition == null ? null : definition.getGisEnabled()),
                 readBooleanAsInt(metadata, "gisEnabled", "fitGis"),
                 0
         );
         Integer insightEnabled = firstNonNull(
                 readBooleanAsInt(specs, "insightEnabled", "fitInsight"),
+                normalizeFlag(definition == null ? null : definition.getInsightEnabled()),
                 readBooleanAsInt(metadata, "insightEnabled", "fitInsight"),
                 1
         );
         Integer analyticsEnabled = firstNonNull(
                 readBooleanAsInt(specs, "analyticsEnabled", "fitAnalytics"),
+                normalizeFlag(definition == null ? null : definition.getAnalyticsEnabled()),
                 readBooleanAsInt(metadata, "analyticsEnabled", "fitAnalytics"),
                 defaultAnalyticsEnabled(contract)
         );
 
         return new MetricSemanticProfile(
                 scenarioCode,
+                normativeIdentifier,
+                riskCategory,
+                metricRole,
+                lifecycleStatus,
                 metricUnit,
                 metricDimension,
                 thresholdType,
@@ -266,12 +300,20 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         );
     }
 
-    private void populateCatalogRow(RiskMetricCatalog row, ProductModel contract, MetricSemanticProfile profile) {
+    private void populateCatalogRow(RiskMetricCatalog row,
+                                    Long releaseBatchId,
+                                    ProductModel contract,
+                                    MetricSemanticProfile profile) {
         String identifier = normalize(contract == null ? null : contract.getIdentifier());
+        row.setReleaseBatchId(releaseBatchId);
         row.setProductModelId(contract == null ? null : contract.getId());
+        row.setNormativeIdentifier(firstNonBlank(profile.normativeIdentifier(), identifier));
         row.setContractIdentifier(identifier);
         row.setRiskMetricCode(buildRiskMetricCode(row.getProductId(), identifier));
         row.setRiskMetricName(resolveRiskMetricName(contract));
+        row.setRiskCategory(profile.riskCategory());
+        row.setMetricRole(profile.metricRole());
+        row.setLifecycleStatus(profile.lifecycleStatus());
         row.setSourceScenarioCode(profile.sourceScenarioCode());
         row.setMetricUnit(profile.metricUnit());
         row.setMetricDimension(profile.metricDimension());
@@ -328,6 +370,13 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private Integer defaultAnalyticsEnabled(ProductModel contract) {
         return isNumericDataType(contract == null ? null : contract.getDataType()) ? 1 : 0;
+    }
+
+    private String defaultMetricRole(ProductModel contract) {
+        if (contract == null) {
+            return "PRIMARY";
+        }
+        return isNumericDataType(contract.getDataType()) ? "PRIMARY" : "STATE";
     }
 
     private boolean isNumericDataType(String dataType) {
@@ -468,6 +517,10 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     record MetricSemanticProfile(
             String sourceScenarioCode,
+            String normativeIdentifier,
+            String riskCategory,
+            String metricRole,
+            String lifecycleStatus,
             String metricUnit,
             String metricDimension,
             String thresholdType,
@@ -479,7 +532,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
             Integer analyticsEnabled
     ) {
         static MetricSemanticProfile empty() {
-            return new MetricSemanticProfile(null, null, null, null, null, null, 0, 0, 1, 0);
+            return new MetricSemanticProfile(null, null, null, "PRIMARY", "ACTIVE", null, null, null, null, null, 0, 0, 1, 0);
         }
     }
 }
