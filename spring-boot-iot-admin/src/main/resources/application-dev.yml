@@ -119,6 +119,23 @@ iot:
     legacy-dp:
       family-observability-enabled: ${IOT_PROTOCOL_LEGACY_DP_FAMILY_OBSERVABILITY_ENABLED:true}
       normalizer-v2-enabled: ${IOT_PROTOCOL_LEGACY_DP_NORMALIZER_V2_ENABLED:false}
+    # 协议族只负责绑定解密档案与标准化策略，商户密钥真相源仍来自 spring.cloud.aes / iot.protocol.crypto。
+    family-definitions:
+      legacy-dp-demo:
+        family-code: legacy-dp-demo
+        protocol-code: mqtt-json
+        display-name: legacy dp 示例协议族
+        decrypt-profile-code: aes-62000001
+        sign-algorithm: AES
+        normalization-strategy: legacy-dp-v1
+        enabled: true
+    decrypt-profiles:
+      aes-62000001:
+        profile-code: aes-62000001
+        algorithm: AES
+        merchant-source: SPRING_CLOUD_AES
+        merchant-key: 62000001
+        enabled: true
 
   telemetry:
     storage-type: tdengine

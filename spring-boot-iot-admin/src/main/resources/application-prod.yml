@@ -59,6 +59,25 @@ iot:
     cluster-lock-renew-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_RENEW_INTERVAL_SECONDS:10}
     cluster-lock-acquire-interval-seconds: ${IOT_MQTT_CLUSTER_LOCK_ACQUIRE_INTERVAL_SECONDS:5}
 
+  protocol:
+    # prod 默认保留禁用示例；真正启用时仍需同步提供 spring.cloud.aes 或 iot.protocol.crypto 商户密钥。
+    family-definitions:
+      legacy-dp-demo:
+        family-code: legacy-dp-demo
+        protocol-code: mqtt-json
+        display-name: legacy dp 示例协议族
+        decrypt-profile-code: aes-62000001
+        sign-algorithm: AES
+        normalization-strategy: legacy-dp-v1
+        enabled: false
+    decrypt-profiles:
+      aes-62000001:
+        profile-code: aes-62000001
+        algorithm: AES
+        merchant-source: SPRING_CLOUD_AES
+        merchant-key: 62000001
+        enabled: false
+
   telemetry:
     storage-type: tdengine
     primary-storage: ${IOT_TELEMETRY_PRIMARY_STORAGE:tdengine-v2}
