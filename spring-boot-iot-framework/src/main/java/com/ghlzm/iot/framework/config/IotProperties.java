@@ -102,6 +102,8 @@ public class IotProperties {
         private Security security = new Security();
         private Crypto crypto = new Crypto();
         private LegacyDp legacyDp = new LegacyDp();
+        private Map<String, FamilyDefinition> familyDefinitions = new LinkedHashMap<>();
+        private Map<String, DecryptProfile> decryptProfiles = new LinkedHashMap<>();
 
         @Data
         public static class Security {
@@ -167,6 +169,28 @@ public class IotProperties {
         public static class LegacyDp {
             private Boolean familyObservabilityEnabled = Boolean.TRUE;
             private Boolean normalizerV2Enabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class FamilyDefinition {
+            private String familyCode;
+            private String protocolCode;
+            private String displayName;
+            private String decryptProfileCode;
+            private String signAlgorithm;
+            private String normalizationStrategy;
+            private Boolean enabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class DecryptProfile {
+            private String profileCode;
+            private String algorithm;
+            private String merchantSource;
+            private String merchantKey;
+            private String transformation;
+            private String signatureSecret;
+            private Boolean enabled = Boolean.TRUE;
         }
     }
 
