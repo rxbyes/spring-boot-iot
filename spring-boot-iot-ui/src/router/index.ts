@@ -212,6 +212,12 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/governance-approval')
   },
   {
+    path: '/governance-security',
+    name: 'governance-security',
+    component: () => import('../views/GovernanceSecurityView.vue'),
+    meta: routeMeta('/governance-security')
+  },
+  {
     path: '/quality-workbench',
     name: 'quality-workbench',
     component: () => import('../views/QualityWorkbenchLandingView.vue'),

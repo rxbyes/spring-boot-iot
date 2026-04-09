@@ -175,6 +175,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/in-app-message', label: '站内消息', description: '维护通知中心消费的系统、业务和错误事件消息。', short: '信', keywords: ['站内消息', '通知中心', '消息编排'] },
       { path: '/help-doc', label: '帮助文档', description: '维护帮助中心消费的业务、技术和 FAQ 资料。', short: '帮', keywords: ['帮助文档', '帮助中心', 'FAQ'] },
       { path: '/governance-approval', label: '治理审批台', description: '统一查看审批主单、执行结果与状态流转。', short: '批', keywords: ['治理审批台', '审批主单', '双人复核'] },
+      { path: '/governance-security', label: '权限与密钥治理', description: '统一查看治理权限矩阵与设备密钥轮换台账。', short: '钥', keywords: ['权限与密钥治理', '治理权限矩阵', '密钥轮换台账', '密钥托管'] },
       { path: '/audit-log', label: '审计中心', description: '查看治理侧业务审计与关键操作记录。', short: '审', keywords: ['审计中心', '业务日志', '审计日志'] }
     ],
     steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后配置通知渠道、站内消息和帮助文档。', '最后用审计中心复核治理流程。']

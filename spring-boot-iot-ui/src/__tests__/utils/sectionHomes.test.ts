@@ -122,16 +122,20 @@ describe('sectionHomes config', () => {
     expect(getRouteMetaPreset('/governance-approval')).toMatchObject({
       title: '治理审批台'
     });
+    expect(getRouteMetaPreset('/governance-security')).toMatchObject({
+      title: '权限与密钥治理'
+    });
     expect(getRouteMetaPreset('/automation-test')).toMatchObject({
       title: '自动化工场',
       description: '兼容旧入口，第一轮直接落到研发工场总览。'
     });
   });
 
-  it('adds governance approval into the system-governance workspace cards', () => {
+  it('adds governance approval and security governance into the system-governance workspace cards', () => {
     const config = getSectionHomeConfigByPath('/system-management');
 
     expect(config?.cards.some((item) => item.path === '/governance-approval')).toBe(true);
+    expect(config?.cards.some((item) => item.path === '/governance-security')).toBe(true);
   });
 
   it('maps quality workbench to business acceptance plus rd and shared centers', () => {

@@ -18,18 +18,24 @@ import com.ghlzm.iot.system.service.AuditLogService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Device secret custody service implementation.
  */
 @Service
 public class DeviceSecretCustodyServiceImpl implements DeviceSecretCustodyService {
+
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
 
     private final DeviceService deviceService;
     private final ProductService productService;
@@ -137,13 +143,25 @@ public class DeviceSecretCustodyServiceImpl implements DeviceSecretCustodyServic
         auditLog.setOperationMethod("rotateDeviceSecret");
         auditLog.setDeviceCode(device.getDeviceCode());
         auditLog.setProductKey(productKey);
-        auditLog.setRequestParams("{\"rotationBatchId\":\"" + rotationBatchId
-                + "\",\"approverUserId\":" + approverUserId
-                + ",\"reason\":\"" + (reason == null ? "" : reason) + "\"}");
+        auditLog.setRequestParams(writeAuditPayload(rotationBatchId, approverUserId, reason));
         auditLog.setOperationResult(1);
         auditLog.setResultMessage("rotated");
         auditLog.setOperationTime(new Date());
         auditLogService.addLog(auditLog);
+    }
+
+    private String writeAuditPayload(String rotationBatchId, Long approverUserId, String reason) {
+        Map<String, Object> requestPayload = new LinkedHashMap<>();
+        requestPayload.put("governanceAction", "DEVICE_SECRET_ROTATE");
+        requestPayload.put("rotationBatchId", rotationBatchId);
+        requestPayload.put("approverUserId", approverUserId);
+        requestPayload.put("reason", reason);
+        requestPayload.put("dualControl", Boolean.TRUE);
+        try {
+            return OBJECT_MAPPER.writeValueAsString(requestPayload);
+        } catch (Exception ex) {
+            throw new BizException("密钥轮换审计写入失败");
+        }
     }
 
     private String resolveProductKey(Long productId) {
