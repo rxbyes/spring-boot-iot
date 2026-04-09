@@ -6,6 +6,7 @@ import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
+import com.ghlzm.iot.common.event.governance.GovernanceOpsAlertRaisedEvent;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,6 +66,9 @@ class RiskGovernanceOpsServiceImplTest {
     @Mock
     private RiskGovernanceService riskGovernanceService;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Test
     void pageOpsAlertsShouldExposeFieldDriftAndMissingRiskMetric() {
         RiskGovernanceOpsServiceImpl service = new RiskGovernanceOpsServiceImpl(
@@ -73,7 +79,8 @@ class RiskGovernanceOpsServiceImplTest {
                 releaseBatchMapper,
                 deviceMessageService,
                 deviceAccessErrorLogService,
-                riskGovernanceService
+                riskGovernanceService,
+                applicationEventPublisher
         );
 
         Product product = new Product();
@@ -101,6 +108,20 @@ class RiskGovernanceOpsServiceImplTest {
         assertEquals(2L, page.getTotal());
         assertTrue(page.getRecords().stream().anyMatch(item -> "FIELD_DRIFT".equals(item.getAlertType())));
         assertTrue(page.getRecords().stream().anyMatch(item -> "MISSING_RISK_METRIC".equals(item.getAlertType())));
+        verify(applicationEventPublisher).publishEvent(argThat((GovernanceOpsAlertRaisedEvent event) ->
+                "FIELD_DRIFT".equals(event.alertType())
+                        && "PRODUCT".equals(event.subjectType())
+                        && Long.valueOf(1001L).equals(event.subjectId())
+                        && Long.valueOf(1001L).equals(event.productId())
+                        && Long.valueOf(1L).equals(event.affectedCount())
+        ));
+        verify(applicationEventPublisher).publishEvent(argThat((GovernanceOpsAlertRaisedEvent event) ->
+                "MISSING_RISK_METRIC".equals(event.alertType())
+                        && "PRODUCT".equals(event.subjectType())
+                        && Long.valueOf(1001L).equals(event.subjectId())
+                        && Long.valueOf(1001L).equals(event.productId())
+                        && Long.valueOf(1L).equals(event.affectedCount())
+        ));
     }
 
     @Test
@@ -113,7 +134,8 @@ class RiskGovernanceOpsServiceImplTest {
                 releaseBatchMapper,
                 deviceMessageService,
                 deviceAccessErrorLogService,
-                riskGovernanceService
+                riskGovernanceService,
+                applicationEventPublisher
         );
 
         DeviceMessageLog message = new DeviceMessageLog();
@@ -167,7 +189,8 @@ class RiskGovernanceOpsServiceImplTest {
                 releaseBatchMapper,
                 deviceMessageService,
                 deviceAccessErrorLogService,
-                riskGovernanceService
+                riskGovernanceService,
+                applicationEventPublisher
         );
         ProductContractReleaseBatch batch = new ProductContractReleaseBatch();
         batch.setId(7001L);

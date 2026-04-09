@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -168,19 +170,22 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
                                    NormativeMetricDefinitionService normativeMetricDefinitionService,
                                    ProductMetricEvidenceService productMetricEvidenceService,
                                    ProductContractReleaseService productContractReleaseService,
-                                   ProductModelGovernanceReceiptStore governanceReceiptStore) {
+                                   ProductModelGovernanceReceiptStore governanceReceiptStore,
+                                   ApplicationEventPublisher applicationEventPublisher) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.productMetricEvidenceService = productMetricEvidenceService;
         this.productContractReleaseService = productContractReleaseService;
         this.governanceReceiptStore = governanceReceiptStore;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -498,7 +503,33 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 serializeReleaseSnapshot(afterSnapshot),
                 operatorId
         );
+        publishContractReleasedEvent(product, batchId, scenarioCode, afterSnapshot, operatorId, approvalOrderId);
         return batchId;
+    }
+
+    private void publishContractReleasedEvent(Product product,
+                                              Long batchId,
+                                              String scenarioCode,
+                                              List<ReleaseModelSnapshotItem> afterSnapshot,
+                                              Long operatorId,
+                                              Long approvalOrderId) {
+        if (applicationEventPublisher == null || product == null || batchId == null) {
+            return;
+        }
+        List<String> releasedIdentifiers = (afterSnapshot == null ? List.<ReleaseModelSnapshotItem>of() : afterSnapshot).stream()
+                .map(ReleaseModelSnapshotItem::identifier)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+        applicationEventPublisher.publishEvent(new ProductContractReleasedEvent(
+                defaultTenantId(product.getTenantId()),
+                product.getId(),
+                batchId,
+                scenarioCode,
+                releasedIdentifiers,
+                operatorId,
+                approvalOrderId
+        ));
     }
 
     private List<ReleaseModelSnapshotItem> captureReleaseSnapshot(Long productId) {
@@ -1407,6 +1438,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return fallback;
         }
         return value;
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? 1L : tenantId;
     }
 
     private record ManualLeafEvidence(String identifier,

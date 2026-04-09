@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -50,6 +53,8 @@ class ProductModelServiceImplTest {
     private ProductMetricEvidenceService productMetricEvidenceService;
     @Mock
     private ProductContractReleaseService productContractReleaseService;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     private InMemoryProductModelGovernanceReceiptStore governanceReceiptStore;
     private ProductModelServiceImpl productModelService;
@@ -63,7 +68,8 @@ class ProductModelServiceImplTest {
                 normativeMetricDefinitionService,
                 productMetricEvidenceService,
                 productContractReleaseService,
-                governanceReceiptStore
+                governanceReceiptStore,
+                applicationEventPublisher
         );
     }
 
@@ -444,6 +450,45 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void applyGovernanceShouldPublishContractReleasedEventAfterReleaseBatchCreated() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        ProductModel releasedValue = new ProductModel();
+        releasedValue.setId(3101L);
+        releasedValue.setProductId(1001L);
+        releasedValue.setModelType("property");
+        releasedValue.setIdentifier("value");
+        releasedValue.setModelName("crack-value");
+        releasedValue.setDataType("integer");
+        releasedValue.setDeleted(0);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(), List.of(releasedValue));
+        when(productContractReleaseService.createBatch(
+                eq(1001L),
+                eq("phase1-crack"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(99001L),
+                eq("manual_compare_apply")
+        )).thenReturn(12345L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "crack-value")));
+
+        productModelService.applyGovernance(1001L, dto, 10001L, 99001L);
+
+        verify(applicationEventPublisher).publishEvent(argThat((ProductContractReleasedEvent event) ->
+                Long.valueOf(1L).equals(event.tenantId())
+                        && Long.valueOf(1001L).equals(event.productId())
+                        && Long.valueOf(12345L).equals(event.releaseBatchId())
+                        && "phase1-crack".equals(event.scenarioCode())
+                        && List.of("value").equals(event.releasedIdentifiers())
+                        && Long.valueOf(10001L).equals(event.operatorUserId())
+                        && Long.valueOf(99001L).equals(event.approvalOrderId())
+        ));
+    }
+
+    @Test
     void applyGovernanceShouldReturnGnssReleaseBatchIdAfterPublishingFormalFields() {
         when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "gnss-monitor"));
         when(productModelMapper.selectOne(any())).thenReturn(null);
@@ -486,6 +531,7 @@ class ProductModelServiceImplTest {
     private Product product(Long id, String productKey, String productName) {
         Product product = new Product();
         product.setId(id);
+        product.setTenantId(1L);
         product.setProductKey(productKey);
         product.setProductName(productName);
         product.setProtocolCode("mqtt-json");

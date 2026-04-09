@@ -4,6 +4,7 @@ import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.spi.KeywordRiskMetricScenarioResolver;
 import com.ghlzm.iot.alarm.service.spi.RiskMetricScenarioResolver;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
+import com.ghlzm.iot.common.event.governance.RiskMetricCatalogPublishedEvent;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
@@ -33,16 +35,21 @@ class RiskMetricCatalogServiceImplTest {
     @Mock
     private NormativeMetricDefinitionService normativeMetricDefinitionService;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Test
     void publishFromReleasedContractShouldPersistSemanticMetadataForRiskEnabledMetric() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
                 riskMetricCatalogMapper,
                 productMapper,
                 normativeMetricDefinitionService,
-                List.of(new KeywordRiskMetricScenarioResolver())
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher
         );
         Product product = new Product();
         product.setId(1001L);
+        product.setTenantId(1L);
         product.setProductKey("phase1-crack-product");
         when(productMapper.selectById(1001L)).thenReturn(product);
         when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
@@ -93,15 +100,51 @@ class RiskMetricCatalogServiceImplTest {
     }
 
     @Test
+    void publishFromReleasedContractsShouldPublishCatalogEventWhenReleaseBatchIsPresent() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher
+        );
+        Product product = new Product();
+        product.setId(1001L);
+        product.setTenantId(1L);
+        product.setProductKey("phase1-crack-product");
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\"}")
+        ));
+
+        ProductModel releasedValue = new ProductModel();
+        releasedValue.setId(3101L);
+        releasedValue.setProductId(1001L);
+        releasedValue.setIdentifier("value");
+        releasedValue.setModelName("Crack value");
+        releasedValue.setDataType("double");
+
+        service.publishFromReleasedContracts(1001L, 7001L, List.of(releasedValue), Set.of("value"));
+
+        verify(applicationEventPublisher).publishEvent(argThat((RiskMetricCatalogPublishedEvent event) ->
+                Long.valueOf(1L).equals(event.tenantId())
+                        && Long.valueOf(1001L).equals(event.productId())
+                        && Long.valueOf(7001L).equals(event.releaseBatchId())
+        ));
+    }
+
+    @Test
     void publishFromReleasedContractsShouldIgnoreGpsInitialButPublishGnssTotals() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
                 riskMetricCatalogMapper,
                 productMapper,
                 normativeMetricDefinitionService,
-                List.of(new KeywordRiskMetricScenarioResolver())
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher
         );
         Product product = new Product();
         product.setId(3003L);
+        product.setTenantId(1L);
         product.setProductKey("gnss-monitor-v1");
         when(productMapper.selectById(3003L)).thenReturn(product);
         when(normativeMetricDefinitionService.listByScenario("phase2-gnss")).thenReturn(List.of(
@@ -143,10 +186,12 @@ class RiskMetricCatalogServiceImplTest {
                 riskMetricCatalogMapper,
                 productMapper,
                 normativeMetricDefinitionService,
-                List.of(customResolver, new KeywordRiskMetricScenarioResolver())
+                List.of(customResolver, new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher
         );
         Product product = new Product();
         product.setId(4004L);
+        product.setTenantId(1L);
         product.setProductKey("gnss-monitor-v2");
         when(productMapper.selectById(4004L)).thenReturn(product);
         when(normativeMetricDefinitionService.listByScenario("custom-scene")).thenReturn(List.of(

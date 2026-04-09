@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayGapSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
+import com.ghlzm.iot.common.event.governance.GovernanceOpsAlertRaisedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
@@ -24,17 +25,20 @@ import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 风险治理运维能力实现。
@@ -45,6 +49,10 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private static final String ALERT_TYPE_FIELD_DRIFT = "FIELD_DRIFT";
     private static final String ALERT_TYPE_CONTRACT_DIFF = "CONTRACT_DIFF";
     private static final String ALERT_TYPE_MISSING_RISK_METRIC = "MISSING_RISK_METRIC";
+    private static final String ALERT_SUBJECT_TYPE_PRODUCT = "PRODUCT";
+    private static final String ALERT_SEVERITY_WARN = "WARN";
+    private static final String ALERT_SOURCE_STAGE = "RISK_GOVERNANCE_OPS";
+    private static final Long SYSTEM_OPERATOR_ID = 1L;
 
     private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final ProductModelMapper productModelMapper;
@@ -54,6 +62,8 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private final DeviceMessageService deviceMessageService;
     private final DeviceAccessErrorLogService deviceAccessErrorLogService;
     private final RiskGovernanceService riskGovernanceService;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskGovernanceOpsServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                         ProductModelMapper productModelMapper,
@@ -62,7 +72,8 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                                         ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
                                         DeviceMessageService deviceMessageService,
                                         DeviceAccessErrorLogService deviceAccessErrorLogService,
-                                        RiskGovernanceService riskGovernanceService) {
+                                        RiskGovernanceService riskGovernanceService,
+                                        ApplicationEventPublisher applicationEventPublisher) {
         this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.productModelMapper = productModelMapper;
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
@@ -71,6 +82,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         this.deviceMessageService = deviceMessageService;
         this.deviceAccessErrorLogService = deviceAccessErrorLogService;
         this.riskGovernanceService = riskGovernanceService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -104,6 +116,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                 riskMetricIdentifiersByProduct,
                 evidences
         );
+        publishRaisedAlertEvents(alerts);
         String normalizedAlertType = normalize(alertType);
         if (StringUtils.hasText(normalizedAlertType)) {
             alerts = alerts.stream()
@@ -356,6 +369,101 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         accumulator.setSample(sampleIdentifier, sampleDetail);
         accumulator.add(1L);
         return accumulator;
+    }
+
+    private void publishRaisedAlertEvents(List<RiskGovernanceOpsAlertItemVO> alerts) {
+        if (applicationEventPublisher == null || alerts == null || alerts.isEmpty()) {
+            return;
+        }
+        for (RiskGovernanceOpsAlertItemVO alert : alerts) {
+            String alertCode = buildAlertCode(alert);
+            if (!StringUtils.hasText(alertCode) || alert.getProductId() == null) {
+                continue;
+            }
+            applicationEventPublisher.publishEvent(new GovernanceOpsAlertRaisedEvent(
+                    SYSTEM_OPERATOR_ID,
+                    alert.getAlertType(),
+                    alertCode,
+                    ALERT_SUBJECT_TYPE_PRODUCT,
+                    alert.getProductId(),
+                    alert.getProductId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    alert.getProductKey(),
+                    ALERT_SEVERITY_WARN,
+                    safeLong(alert.getAffectedCount()),
+                    firstNonBlank(alert.getAlertLabel(), alert.getAlertType()),
+                    buildAlertMessage(alert),
+                    buildDimensionKey(alert),
+                    buildDimensionLabel(alert),
+                    ALERT_SOURCE_STAGE,
+                    buildAlertSnapshotJson(alert),
+                    SYSTEM_OPERATOR_ID
+            ));
+        }
+    }
+
+    private String buildAlertCode(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null || !StringUtils.hasText(alert.getAlertType())) {
+            return null;
+        }
+        return "product:" + alert.getProductId() + ":" + alert.getAlertType().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildAlertMessage(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null) {
+            return null;
+        }
+        String identifier = normalize(alert.getSampleIdentifier());
+        String detail = normalize(alert.getSampleDetail());
+        if (StringUtils.hasText(identifier) && StringUtils.hasText(detail)) {
+            return identifier + " | " + detail;
+        }
+        return firstNonBlank(detail, identifier, alert.getAlertLabel());
+    }
+
+    private String buildDimensionKey(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null) {
+            return null;
+        }
+        String sampleIdentifier = normalize(alert.getSampleIdentifier());
+        if (StringUtils.hasText(sampleIdentifier)) {
+            return "product:" + alert.getProductId() + ":" + sampleIdentifier;
+        }
+        return "product:" + alert.getProductId();
+    }
+
+    private String buildDimensionLabel(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null) {
+            return null;
+        }
+        String sampleIdentifier = normalize(alert.getSampleIdentifier());
+        String productName = firstNonBlank(alert.getProductName(), alert.getProductKey(), "product-" + alert.getProductId());
+        return StringUtils.hasText(sampleIdentifier) ? productName + "/" + sampleIdentifier : productName;
+    }
+
+    private String buildAlertSnapshotJson(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null) {
+            return null;
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("affectedCount", safeLong(alert.getAffectedCount()));
+        if (StringUtils.hasText(alert.getSampleIdentifier())) {
+            snapshot.put("sampleIdentifier", alert.getSampleIdentifier());
+        }
+        if (StringUtils.hasText(alert.getSampleDetail())) {
+            snapshot.put("sampleDetail", alert.getSampleDetail());
+        }
+        if (StringUtils.hasText(alert.getProductKey())) {
+            snapshot.put("productKey", alert.getProductKey());
+        }
+        try {
+            return objectMapper.writeValueAsString(snapshot);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private Long resolveMissingRiskMetricCount(Long productId) {
