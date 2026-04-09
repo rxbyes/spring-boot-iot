@@ -7,7 +7,7 @@
       :show-inline-state="showInlineState"
     >
       <template #filters>
-        <StandardListFilterHeader :model="{ deviceCode, selectedRange }">
+        <StandardListFilterHeader :model="{ deviceCode }">
           <template #primary>
             <el-form-item>
               <el-input
@@ -18,13 +18,6 @@
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuery"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-segmented
-                v-model="selectedRange"
-                :options="rangeOptions"
-                @change="handleRangeChange"
               />
             </el-form-item>
           </template>
@@ -236,11 +229,6 @@ const trendGroups = ref<InsightTrendGroup[]>([]);
 const lastFetchTime = ref<string | null>(null);
 const requestVersion = ref(0);
 let syncingRoute = false;
-
-const rangeOptions = INSIGHT_RANGE_OPTIONS.map((item) => ({
-  label: item.label,
-  value: item.value
-}));
 
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 const hasInsightContent = computed(() =>
@@ -596,7 +584,7 @@ async function loadProductMetadataJson(productId?: string | number | null) {
 
 function getRangeLabel(rangeCode: InsightRangeCode) {
   const option = INSIGHT_RANGE_OPTIONS.find((item) => item.value === rangeCode);
-  return option?.label || '近一周';
+  return option?.label || '近一天';
 }
 </script>
 

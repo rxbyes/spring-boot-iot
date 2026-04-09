@@ -54,7 +54,7 @@ export const INSIGHT_RANGE_OPTIONS = [
   { label: '近一年', value: '365d' }
 ] as const;
 
-export const DEFAULT_INSIGHT_RANGE: InsightRangeCode = '7d';
+export const DEFAULT_INSIGHT_RANGE: InsightRangeCode = '1d';
 
 interface InsightCapabilitySource {
   deviceCode?: string | null;

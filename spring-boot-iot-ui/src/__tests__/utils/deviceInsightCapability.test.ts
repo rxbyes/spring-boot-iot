@@ -24,12 +24,12 @@ describe('deviceInsightCapability', () => {
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('4G 信号强度');
   });
 
-  it('builds telemetry batch request with default weekly range and zero fill', () => {
+  it('builds telemetry batch request with default one-day range and zero fill', () => {
     const profile = getInsightCapabilityProfile({ deviceCode: 'SK00EB0D1308313' });
     const request = buildInsightHistoryRequest(2001, profile, DEFAULT_INSIGHT_RANGE);
 
     expect(request.deviceId).toBe(2001);
-    expect(request.rangeCode).toBe('7d');
+    expect(request.rangeCode).toBe('1d');
     expect(request.fillPolicy).toBe('ZERO');
     expect(request.identifiers).toContain('L4_NW_1');
     expect(request.identifiers).toContain('S1_ZT_1.sensor_state.L4_NW_1');
@@ -44,7 +44,7 @@ describe('deviceInsightCapability', () => {
   });
 
   it('keeps object insight ranges focused on day week month and year', () => {
-    expect(DEFAULT_INSIGHT_RANGE).toBe('7d');
+    expect(DEFAULT_INSIGHT_RANGE).toBe('1d');
     expect(
       INSIGHT_RANGE_OPTIONS.map((item) => item.value)
     ).toEqual(['1d', '7d', '30d', '365d']);

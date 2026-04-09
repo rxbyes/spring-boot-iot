@@ -4,12 +4,19 @@ import { describe, expect, it, vi } from 'vitest';
 
 import RiskInsightTrendPanel from '@/components/RiskInsightTrendPanel.vue';
 
+const { mockChartSetOption, mockChartResize, mockChartDispose, mockEchartsInit } = vi.hoisted(() => ({
+  mockChartSetOption: vi.fn(),
+  mockChartResize: vi.fn(),
+  mockChartDispose: vi.fn(),
+  mockEchartsInit: vi.fn()
+}));
+
 vi.mock('echarts/core', () => ({
   use: vi.fn(),
-  init: vi.fn(() => ({
-    setOption: vi.fn(),
-    resize: vi.fn(),
-    dispose: vi.fn()
+  init: mockEchartsInit.mockImplementation(() => ({
+    setOption: mockChartSetOption,
+    resize: mockChartResize,
+    dispose: mockChartDispose
   }))
 }));
 
@@ -70,7 +77,7 @@ const ElSegmentedStub = defineComponent({
 function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<Record<string, unknown>> = []) {
   return mount(RiskInsightTrendPanel, {
     props: {
-      rangeCode: '7d',
+      rangeCode: '1d',
       groups,
       summary,
       emptyMessage: '请输入设备编码后开始综合分析'
@@ -85,14 +92,7 @@ function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<
 }
 
 describe('RiskInsightTrendPanel', () => {
-  it('renders empty guidance when there are no grouped trend series', () => {
-    const wrapper = mountTrend();
-
-    expect(wrapper.text()).toContain('属性趋势预览');
-    expect(wrapper.text()).toContain('请输入设备编码后开始综合分析');
-  });
-
-  it('renders measure and status groups with chinese metric names only', () => {
+  it('uses the simplified trend layout without panel description or series chips', () => {
     const wrapper = mountTrend([
       {
         key: 'measure',
@@ -116,14 +116,49 @@ describe('RiskInsightTrendPanel', () => {
           }
         ]
       }
-    ], [
-      { label: '默认范围', value: '近一周', hint: '最近 7 天' }
     ]);
 
     expect(wrapper.text()).toContain('监测数据');
     expect(wrapper.text()).toContain('状态数据');
-    expect(wrapper.text()).toContain('泥水位高程');
-    expect(wrapper.text()).toContain('传感器在线状态');
+    expect(wrapper.text()).not.toContain('支持按近一天查看设备监测数据趋势');
+    expect(wrapper.findAll('.trend-group__legend-item')).toHaveLength(0);
+  });
+
+  it('renders empty guidance when there are no grouped trend series', () => {
+    const wrapper = mountTrend();
+
+    expect(wrapper.text()).toContain('属性趋势预览');
+    expect(wrapper.text()).toContain('请输入设备编码后开始综合分析');
+  });
+
+  it('renders measure and status groups with chinese titles only', () => {
+    const wrapper = mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L4_NW_1',
+            displayName: '泥水位高程',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 2.1, filled: false }]
+          }
+        ]
+      },
+      {
+        key: 'status',
+        title: '状态数据',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+            displayName: '传感器在线状态',
+            buckets: [{ time: '2026-04-07 00:00:00', value: 1, filled: true }]
+          }
+        ]
+      }
+    ]);
+
+    expect(wrapper.text()).toContain('监测数据');
+    expect(wrapper.text()).toContain('状态数据');
     expect(wrapper.text()).not.toContain('S1_ZT_1.sensor_state.L4_NW_1');
     expect(wrapper.findAll('.trend-group__chart').length).toBe(2);
   });
@@ -142,8 +177,6 @@ describe('RiskInsightTrendPanel', () => {
           }
         ]
       }
-    ], [
-      { label: '默认范围', value: '近一周', hint: '最近 7 天' }
     ]);
 
     expect(wrapper.text()).not.toContain('默认范围');
@@ -175,5 +208,38 @@ describe('RiskInsightTrendPanel', () => {
     await wrapper.get('[data-testid="trend-range-365d"]').trigger('click');
 
     expect(wrapper.emitted('change-range')).toEqual([['365d']]);
+  });
+
+  it('compresses the one-day view to the active data window when edge buckets are only filled zeros', async () => {
+    mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: true },
+              { time: '2026-04-09 01:00:00', value: 0, filled: true },
+              { time: '2026-04-09 02:00:00', value: 0.58, filled: false },
+              { time: '2026-04-09 03:00:00', value: 0.63, filled: false },
+              { time: '2026-04-09 04:00:00', value: 0.75, filled: false },
+              { time: '2026-04-09 05:00:00', value: 0, filled: true }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mockChartSetOption).toHaveBeenCalled();
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as { xAxis?: { data?: string[] } } | undefined;
+    expect(latestOption?.xAxis?.data).toEqual([
+      '2026-04-09 02:00:00',
+      '2026-04-09 03:00:00',
+      '2026-04-09 04:00:00'
+    ]);
   });
 });

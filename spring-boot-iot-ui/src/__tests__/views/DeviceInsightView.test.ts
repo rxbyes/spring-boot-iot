@@ -267,10 +267,13 @@ const MetricCardStub = defineComponent({
 const TrendPanelStub = defineComponent({
   name: 'TrendPanelStub',
   props: ['groups', 'rangeCode'],
+  emits: ['change-range'],
   template: `
     <section class="trend-panel-stub">
       <div>属性趋势预览</div>
       <div>{{ rangeCode }}</div>
+      <button data-testid="trend-panel-range-1d" type="button" @click="$emit('change-range', '1d')">近一天</button>
+      <button data-testid="trend-panel-range-365d" type="button" @click="$emit('change-range', '365d')">近一年</button>
       <div v-for="group in groups" :key="group.title">
         <div>{{ group.title }}</div>
         <div v-for="series in group.series" :key="series.identifier">{{ series.displayName }}</div>
@@ -373,7 +376,7 @@ describe('DeviceInsightView', () => {
     expect(getDeviceProperties).toHaveBeenCalledWith('SK00EB0D1308313');
     expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
       deviceId: 2001,
-      rangeCode: '7d',
+      rangeCode: '1d',
       fillPolicy: 'ZERO'
     }));
     expect(wrapper.text()).toContain('对象洞察台');
@@ -386,6 +389,7 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('属性趋势预览');
     expect(wrapper.text()).not.toContain('L4_NW_1');
+    expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
@@ -871,7 +875,7 @@ describe('DeviceInsightView', () => {
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
-  it('renders day week month year filters and requeries telemetry when range changes', async () => {
+  it('keeps the range selector inside the trend panel and requeries telemetry when range changes', async () => {
     mockRoute.query = {
       deviceCode: 'SK00EB0D1308313'
     };
@@ -881,12 +885,11 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('近一天');
-    expect(wrapper.text()).toContain('近一周');
-    expect(wrapper.text()).toContain('近一月');
-    expect(wrapper.text()).toContain('近一年');
+    expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
+    expect(wrapper.get('[data-testid="trend-panel-range-1d"]').text()).toBe('近一天');
+    expect(wrapper.get('[data-testid="trend-panel-range-365d"]').text()).toBe('近一年');
 
-    await wrapper.get('[data-testid="insight-range-365d"]').trigger('click');
+    await wrapper.get('[data-testid="trend-panel-range-365d"]').trigger('click');
     await flushPromises();
     await flushPromises();
 

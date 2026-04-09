@@ -1,8 +1,5 @@
 <template>
-  <PanelCard
-    title="属性趋势预览"
-    :description="panelDescription"
-  >
+  <PanelCard title="属性趋势预览">
     <div class="trend-toolbar">
       <span class="trend-toolbar__label">时间范围</span>
       <el-segmented
@@ -17,12 +14,6 @@
         <header class="trend-group__header">
           <strong>{{ group.title }}</strong>
         </header>
-
-        <div class="trend-group__legend">
-          <span v-for="series in group.series" :key="series.displayName" class="trend-group__legend-item">
-            {{ series.displayName }}
-          </span>
-        </div>
 
         <div :ref="(element) => registerChartRef(group.key, element)" class="trend-group__chart" />
       </section>
@@ -90,7 +81,6 @@ const rangeOptions = INSIGHT_RANGE_OPTIONS.map((item) => ({
   label: item.label,
   value: item.value
 }));
-const panelDescription = computed(() => `支持按${getRangeLabel(props.rangeCode)}查看设备监测数据趋势。`);
 
 watch(activeGroups, async () => {
   await nextTick();
@@ -162,7 +152,7 @@ function renderGroupChart(group: TrendGroup) {
     return;
   }
 
-  const axisLabels = collectAxisLabels(group);
+  const axisLabels = collectAxisLabels(group, props.rangeCode);
   if (!axisLabels.length) {
     return;
   }
@@ -230,7 +220,8 @@ function renderGroupChart(group: TrendGroup) {
       name: series.displayName,
       type: 'line',
       smooth: false,
-      showSymbol: false,
+      showSymbol: props.rangeCode === '1d',
+      symbolSize: props.rangeCode === '1d' ? 7 : 5,
       lineStyle: {
         width: 3
       },
@@ -247,8 +238,37 @@ function renderGroupChart(group: TrendGroup) {
   });
 }
 
-function collectAxisLabels(group: TrendGroup) {
-  return Array.from(new Set(group.series.flatMap((series) => series.buckets.map((bucket) => bucket.time))));
+function collectAxisLabels(group: TrendGroup, rangeCode?: InsightRangeCode) {
+  const labels = Array.from(new Set(group.series.flatMap((series) => series.buckets.map((bucket) => bucket.time))))
+    .sort((left, right) => {
+      const leftTime = new Date(left).getTime();
+      const rightTime = new Date(right).getTime();
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+        return left.localeCompare(right);
+      }
+      return leftTime - rightTime;
+    });
+  if (rangeCode !== '1d') {
+    return labels;
+  }
+  const firstActualIndex = labels.findIndex((time) => hasActualBucket(group, time));
+  if (firstActualIndex < 0) {
+    return labels;
+  }
+  let lastActualIndex = firstActualIndex;
+  for (let index = labels.length - 1; index >= firstActualIndex; index -= 1) {
+    if (hasActualBucket(group, labels[index])) {
+      lastActualIndex = index;
+      break;
+    }
+  }
+  return labels.slice(firstActualIndex, lastActualIndex + 1);
+}
+
+function hasActualBucket(group: TrendGroup, time: string) {
+  return group.series.some((series) =>
+    series.buckets.some((bucket) => bucket.time === time && bucket.filled === false)
+  );
 }
 
 function formatTooltip(params: Array<Record<string, unknown>>) {
@@ -267,19 +287,6 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
   return [axisValue, ...lines].join('<br/>');
 }
 
-function getRangeLabel(rangeCode?: InsightRangeCode) {
-  switch (rangeCode) {
-    case '1d':
-      return '近一天';
-    case '30d':
-      return '近一月';
-    case '365d':
-      return '近一年';
-    case '7d':
-    default:
-      return '近一周';
-  }
-}
 </script>
 
 <style scoped>
@@ -309,10 +316,6 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
   box-shadow: var(--shadow-sm);
 }
 
-.trend-group__legend-item {
-  color: var(--text-tertiary);
-}
-
 .trend-group__header strong {
   color: var(--text-primary);
 }
@@ -326,18 +329,6 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
 .trend-group {
   display: grid;
   gap: 0.9rem;
-}
-
-.trend-group__legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.trend-group__legend-item {
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--brand) 8%, white);
 }
 
 .trend-group__chart {
