@@ -70,6 +70,13 @@ const TREND_SERIES_COLORS = [
   '#7c4dff'
 ];
 
+const STATUS_EVENT_TEXT_MAP: Record<number, string> = {
+  0: '正常',
+  [-1]: '供电异常',
+  [-2]: '传感器数据异常',
+  [-3]: '采样间隔内未采集到数据'
+};
+
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
@@ -243,7 +250,7 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
           return {
             value: rawValue,
             filled: bucket?.filled ?? true,
-            statusText: useStepLine ? resolveBinaryStatusText(series, rawValue) : undefined
+            statusText: useStepLine ? resolveStatusText(series, group, rawValue) : undefined
           };
         })
       };
@@ -312,25 +319,30 @@ function resolveTrendSeriesColor(index: number) {
 }
 
 function shouldUseStepLine(series: TrendSeries, group: TrendGroup) {
-  const isStatusSeries = series.seriesType === 'status' || group.key === 'status';
-  if (!isStatusSeries) {
-    return false;
-  }
-
-  const actualValues = series.buckets
-    .filter((bucket) => bucket.filled === false)
-    .map((bucket) => Number(bucket.value))
-    .filter((value) => Number.isFinite(value));
-
+  const actualValues = extractActualValues(series);
   if (!actualValues.length) {
     return false;
   }
 
+  if (series.seriesType === 'event' || group.key === 'status-event') {
+    return actualValues.every((value) => Number.isInteger(value) && value >= -3 && value <= 1);
+  }
+
+  const isStatusSeries = series.seriesType === 'status' || group.key === 'status';
+  if (!isStatusSeries) {
+    return false;
+  }
   return actualValues.every((value) => value === 0 || value === 1);
 }
 
-function resolveBinaryStatusText(series: TrendSeries, value: number) {
+function resolveStatusText(series: TrendSeries, group: TrendGroup, value: number) {
   const numericValue = Number(value);
+  if (series.seriesType === 'event' || group.key === 'status-event') {
+    const eventText = resolveStatusEventText(series, numericValue);
+    if (eventText) {
+      return eventText;
+    }
+  }
   if (numericValue !== 0 && numericValue !== 1) {
     return String(value);
   }
@@ -339,6 +351,22 @@ function resolveBinaryStatusText(series: TrendSeries, value: number) {
     `${series.identifier ?? ''} ${series.displayName}`,
     numericValue
   );
+}
+
+function resolveStatusEventText(series: TrendSeries, numericValue: number) {
+  if (!Number.isFinite(numericValue)) {
+    return '';
+  }
+  if (isMappedStatusCodeSeries(series)) {
+    return STATUS_EVENT_TEXT_MAP[numericValue] ?? (numericValue === 0 ? '正常' : '异常');
+  }
+  if (numericValue === 0 || numericValue === 1) {
+    return resolveBinaryStatusTextFromSemanticSource(
+      `${series.identifier ?? ''} ${series.displayName}`,
+      numericValue
+    );
+  }
+  return STATUS_EVENT_TEXT_MAP[numericValue] ?? (numericValue === 0 ? '正常' : '异常');
 }
 
 function resolveBinaryStatusTextFromSemanticSource(semanticSource: string, numericValue: number) {
@@ -378,6 +406,50 @@ function buildYAxisConfig(group: TrendGroup) {
     }
   };
 
+  if (group.key === 'status-event') {
+    const actualValues = group.series.flatMap((series) => extractActualValues(series));
+    if (!actualValues.length) {
+      return baseConfig;
+    }
+
+    if (actualValues.every((value) => value === 0 || value === -1 || value === -2 || value === -3)) {
+      return {
+        ...baseConfig,
+        min: -3,
+        max: 0,
+        interval: 1,
+        splitNumber: 3,
+        axisLabel: {
+          ...baseConfig.axisLabel,
+          formatter: (value: number) => STATUS_EVENT_TEXT_MAP[Number(value)] ?? ''
+        }
+      };
+    }
+
+    if (actualValues.every((value) => value === 0 || value === 1) && group.series.length === 1) {
+      const semanticSource = `${group.series[0]?.identifier ?? ''} ${group.series[0]?.displayName ?? ''}`;
+      return {
+        ...baseConfig,
+        min: 0,
+        max: 1,
+        interval: 1,
+        splitNumber: 1,
+        axisLabel: {
+          ...baseConfig.axisLabel,
+          formatter: (value: number) =>
+            resolveBinaryStatusTextFromSemanticSource(semanticSource, Number(value)) || String(value)
+        }
+      };
+    }
+
+    return {
+      ...baseConfig,
+      min: Math.floor(Math.min(...actualValues)),
+      max: Math.ceil(Math.max(...actualValues)),
+      interval: 1
+    };
+  }
+
   if (!values.length) {
     return baseConfig;
   }
@@ -403,6 +475,20 @@ function normalizeAxisNumber(value: number) {
     return 0;
   }
   return Number(value.toFixed(6));
+}
+
+function extractActualValues(series: TrendSeries) {
+  return series.buckets
+    .filter((bucket) => bucket.filled === false)
+    .map((bucket) => Number(bucket.value))
+    .filter((value) => Number.isFinite(value));
+}
+
+function isMappedStatusCodeSeries(series: TrendSeries) {
+  const actualValues = extractActualValues(series);
+  return actualValues.length > 0
+    && actualValues.every((value) => value === 0 || value === -1 || value === -2 || value === -3)
+    && actualValues.some((value) => value < 0);
 }
 
 </script>

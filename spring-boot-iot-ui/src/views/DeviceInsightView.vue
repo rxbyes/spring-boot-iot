@@ -521,7 +521,7 @@ function syncRoute() {
 
 function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightCapabilityProfile) {
   const pointMap = new Map((data.points ?? []).map((item) => [item.identifier, item]));
-  return profile.trendGroups
+  const resolvedGroups = profile.trendGroups
     .map((group) => ({
       key: group.key,
       title: group.title,
@@ -547,6 +547,64 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
         .filter((item): item is InsightTrendSeries => Boolean(item))
     }))
     .filter((group) => group.series.length > 0);
+
+  return resolvedGroups.flatMap((group) => splitTrendGroup(group));
+}
+
+function splitTrendGroup(group: InsightTrendGroup) {
+  if (group.key !== 'status') {
+    return [group];
+  }
+
+  const eventSeries = group.series
+    .filter((series) => isStatusEventSeries(series))
+    .map((series) => ({
+      ...series,
+      seriesType: 'event'
+    }));
+  const runtimeSeries = group.series.filter((series) => !isStatusEventSeries(series));
+  const nextGroups: InsightTrendGroup[] = [];
+
+  if (eventSeries.length) {
+    nextGroups.push({
+      key: 'status-event',
+      title: '状态事件',
+      description: '展示设备状态码与离散状态变化。',
+      series: eventSeries
+    });
+  }
+
+  if (runtimeSeries.length) {
+    nextGroups.push({
+      key: 'status-runtime',
+      title: '运行参数',
+      description: '展示电量、信号等连续运行参数变化。',
+      series: runtimeSeries
+    });
+  }
+
+  return nextGroups.length ? nextGroups : [group];
+}
+
+function isStatusEventSeries(series: InsightTrendSeries) {
+  const semanticSource = `${series.identifier} ${series.displayName}`.toLowerCase();
+  if (/(battery|signal|humidity|temperature|temp|voltage|current|power|energy|network|4g|rssi|snr|dbm|湿度|温度|电量|信号|电压|电流|功率|能量)/.test(semanticSource)) {
+    return false;
+  }
+  if (/(sensor_state|online|alarm|warn|status|state|switch|enable|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光|告警|预警|报警|在线|状态)/.test(semanticSource)) {
+    return true;
+  }
+
+  const actualValues = series.buckets
+    .filter((bucket) => bucket.filled === false)
+    .map((bucket) => Number(bucket.value))
+    .filter((value) => Number.isFinite(value));
+
+  if (!actualValues.length) {
+    return false;
+  }
+
+  return actualValues.every((value) => Number.isInteger(value) && value >= -3 && value <= 1);
 }
 
 function resolveDisplayName(profile: InsightCapabilityProfile, identifier: string) {
